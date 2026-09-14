@@ -5,6 +5,7 @@ import PartnerTierTable from "@/components/PartnerTierTable";
 import PartnerProgramInfo from "@/components/PartnerProgramInfo";
 import BottomNav from "@/components/BottomNav";
 import { bottomNavItems } from "@/mock/customer";
+import { getPartnerTierStatus } from "@/lib/partnerTier";
 import {
   partnerTiers,
   partnerProgramConditions,
@@ -13,11 +14,7 @@ import {
   mockMonthlyPurchase,
 } from "@/mock/partnerProgram";
 
-const sortedTiers = [...partnerTiers].sort((a, b) => a.minAmount - b.minAmount);
-const currentTier = sortedTiers.reduce(
-  (acc, tier) => (mockMonthlyPurchase >= tier.minAmount ? tier : acc),
-  sortedTiers[0]
-);
+const { currentTier } = getPartnerTierStatus(mockMonthlyPurchase, partnerTiers);
 
 export default function Page() {
   return (
@@ -49,7 +46,7 @@ export default function Page() {
         />
       </div>
 
-      <BottomNav items={bottomNavItems} activeHref="/" />
+      <BottomNav items={bottomNavItems} activeHref="/partnersky-program" />
     </div>
   );
 }

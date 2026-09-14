@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import MembershipCard from "@/components/MembershipCard";
+import PartnerProgramSummary from "@/components/PartnerProgramSummary";
 import PerksCarousel from "@/components/PerksCarousel";
 import ReorderCard from "@/components/ReorderCard";
 import QuickLinksList from "@/components/QuickLinksList";
@@ -11,6 +12,7 @@ import {
   quickLinks,
   bottomNavItems,
 } from "@/mock/customer";
+import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
 
 export default function Page() {
   return (
@@ -21,6 +23,11 @@ export default function Page() {
           name={mockCustomer.name}
           memberId={mockCustomer.memberId}
           status={mockCustomer.status}
+        />
+        <PartnerProgramSummary
+          monthlyPurchase={mockMonthlyPurchase}
+          tiers={partnerTiers}
+          href="/partnersky-program"
         />
         <PerksCarousel perks={mockPerks} />
         <ReorderCard summary={mockLastOrder.summary} href="/historie" />

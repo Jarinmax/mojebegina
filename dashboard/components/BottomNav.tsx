@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Home, Package, Users, User, type LucideIcon } from "lucide-react";
+import { Home, Package, Percent, User, type LucideIcon } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   home: Home,
   package: Package,
-  users: Users,
+  percent: Percent,
   user: User,
 };
 

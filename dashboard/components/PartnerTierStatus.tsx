@@ -1,4 +1,5 @@
 import { formatKc } from "@/lib/format";
+import { getPartnerTierStatus } from "@/lib/partnerTier";
 import type { PartnerTier } from "@/mock/partnerProgram";
 
 type PartnerTierStatusProps = {
@@ -10,26 +11,8 @@ export default function PartnerTierStatus({
   monthlyPurchase,
   tiers,
 }: PartnerTierStatusProps) {
-  const sorted = [...tiers].sort((a, b) => a.minAmount - b.minAmount);
-  const currentIndex = sorted.reduce(
-    (acc, tier, i) => (monthlyPurchase >= tier.minAmount ? i : acc),
-    0
-  );
-  const currentTier = sorted[currentIndex];
-  const nextTier = sorted[currentIndex + 1] ?? null;
-
-  const progressPercent = nextTier
-    ? Math.min(
-        100,
-        Math.round(
-          ((monthlyPurchase - currentTier.minAmount) /
-            (nextTier.minAmount - currentTier.minAmount)) *
-            100
-        )
-      )
-    : 100;
-
-  const remaining = nextTier ? nextTier.minAmount - monthlyPurchase : 0;
+  const { currentTier, nextTier, remaining, progressPercent } =
+    getPartnerTierStatus(monthlyPurchase, tiers);
 
   return (
     <div className="rounded-2xl p-4 mb-4 bg-begina-primary-800 text-begina-primary-50">

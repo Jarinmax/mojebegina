@@ -31,16 +31,18 @@ export const mockLastOrder = {
   summary: "2× Begina Original, 1× Begina Bez cukru",
 };
 
+// "Doporučte Beginu" je záměrně mimo quickLinks i bottomNavItems —
+// referral program zatím nemá schválená obchodní pravidla, obrazovka
+// dashboard/app/doporucit zůstává v kódu, ale bez odkazu z hlavní navigace.
+
 export const quickLinks = [
   { icon: "history", label: "Historie objednávek", href: "/historie" },
-  { icon: "percent", label: "Partnerský program", href: "/partnersky-program" },
-  { icon: "users", label: "Doporučte Beginu", href: "/doporucit" },
   { icon: "user", label: "Můj profil", href: "/profil" },
 ] as const;
 
 export const bottomNavItems = [
   { icon: "home", label: "Domů", href: "/" },
   { icon: "package", label: "Objednávky", href: "/historie" },
-  { icon: "users", label: "Doporučit", href: "/doporucit" },
+  { icon: "percent", label: "Program", href: "/partnersky-program" },
   { icon: "user", label: "Profil", href: "/profil" },
 ] as const;
