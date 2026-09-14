@@ -31,21 +31,9 @@ export const mockLastOrder = {
   summary: "2× Begina Original, 1× Begina Bez cukru",
 };
 
-export const mockReferral = {
-  code: "JANA-BEGINA",
-  link: "begina.cz/r/JANA-BEGINA",
-  friendsInvited: 3,
-  rewardsEarned: 2,
-};
-
 export const quickLinks = [
   { icon: "history", label: "Historie objednávek", href: "/historie" },
-  {
-    icon: "users",
-    label: "Doporučte Beginu",
-    href: "/doporucit",
-    badge: `${mockReferral.rewardsEarned} odměny`,
-  },
+  { icon: "users", label: "Doporučte Beginu", href: "/doporucit" },
   { icon: "user", label: "Můj profil", href: "/profil" },
 ] as const;
 
