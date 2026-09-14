@@ -33,6 +33,7 @@ export const mockLastOrder = {
 
 export const quickLinks = [
   { icon: "history", label: "Historie objednávek", href: "/historie" },
+  { icon: "percent", label: "Partnerský program", href: "/partnersky-program" },
   { icon: "users", label: "Doporučte Beginu", href: "/doporucit" },
   { icon: "user", label: "Můj profil", href: "/profil" },
 ] as const;

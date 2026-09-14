@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { History, Users, User, ChevronRight, type LucideIcon } from "lucide-react";
+import { History, Users, User, Percent, ChevronRight, type LucideIcon } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   history: History,
   users: Users,
   user: User,
+  percent: Percent,
 };
 
 type QuickLink = {
