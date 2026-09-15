@@ -4,6 +4,7 @@ import PartnerProgramIntro from "@/components/PartnerProgramIntro";
 import PartnerTierStatus from "@/components/PartnerTierStatus";
 import PartnerTierTable from "@/components/PartnerTierTable";
 import PartnerProgramInfo from "@/components/PartnerProgramInfo";
+import GrowWithBeginaCard from "@/components/GrowWithBeginaCard";
 import BottomNav from "@/components/BottomNav";
 import { bottomNavItems } from "@/mock/customer";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
@@ -45,6 +46,12 @@ export default function Page() {
           conditions={partnerProgramConditions}
           shipping={partnerProgramShipping}
           legalNote={partnerProgramLegalNote}
+        />
+
+        <GrowWithBeginaCard
+          headline="Chcete s Beginou růst?"
+          body="Nakupujte Beginu pro sebe, rodinu, přátele nebo své zákazníky. Čím větší bude váš měsíční objem nákupů, tím více partnerských výhod můžete získat."
+          ctaLabel="Zjistit více"
         />
       </div>
 

@@ -32,7 +32,7 @@ export default function Page() {
           href="/partnersky-program"
         />
         <PerksCarousel perks={mockPerks} />
-        <ReorderCard summary={mockLastOrder.summary} href="/historie" />
+        <ReorderCard summary={mockLastOrder.summary} href="/objednavky#posledni" />
         <QuickLinksList links={quickLinks} />
       </div>
       <BottomNav items={bottomNavItems} activeHref="/" />
