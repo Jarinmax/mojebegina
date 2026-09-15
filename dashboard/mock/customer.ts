@@ -8,21 +8,19 @@ export const mockCustomer = {
   initials: "JN",
 };
 
+// Pozn.: partnerská sleva už tu NENÍ jako statická položka — počítá se
+// dynamicky z partnerTiers/mockMonthlyPurchase přímo v app/page.tsx, aby
+// nikdy nemohla odporovat skutečným pravidlům partnerského programu.
 export const mockPerks = [
-  {
-    id: 1,
-    title: "10 % sleva na další objednávku",
-    validUntil: "30. 9. 2026",
-  },
   {
     id: 2,
     title: "Dárek k nákupu nad 990 Kč",
-    validUntil: "15. 10. 2026",
+    subtitle: "platí do 15. 10. 2026",
   },
   {
     id: 3,
     title: "Předobjednávka nové příchutě",
-    validUntil: "1. 11. 2026",
+    subtitle: "platí do 1. 11. 2026",
   },
 ];
 

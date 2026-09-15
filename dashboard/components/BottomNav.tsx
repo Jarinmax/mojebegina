@@ -21,7 +21,7 @@ type BottomNavProps = {
 
 export default function BottomNav({ items, activeHref = "/" }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-neutral-200 pb-[env(safe-area-inset-bottom)]">
       <div className="max-w-[380px] mx-auto flex justify-around py-2.5">
         {items.map((item) => {
           const Icon = ICONS[item.icon] ?? Home;

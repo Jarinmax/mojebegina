@@ -14,6 +14,20 @@ import {
   bottomNavItems,
 } from "@/mock/customer";
 import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
+import { getPartnerTierStatus } from "@/lib/partnerTier";
+
+// Karta výhody se počítá ze skutečných pravidel partnerského programu
+// (stejná funkce jako PartnerProgramSummary a /partnersky-program), aby
+// číslo na dashboardu nikdy neodporovalo skutečné partnerské úrovni.
+const { currentTier } = getPartnerTierStatus(mockMonthlyPurchase, partnerTiers);
+const partnerPerk = {
+  id: "partnerska-sleva",
+  title: currentTier.discountPercent
+    ? `Sleva ${currentTier.discountPercent} % na další nákup`
+    : currentTier.discountLabel,
+  subtitle: "Vaše aktuální partnerská úroveň",
+  href: "/vyhoda/partnerska-sleva",
+};
 
 export default function Page() {
   return (
@@ -31,7 +45,7 @@ export default function Page() {
           tiers={partnerTiers}
           href="/partnersky-program"
         />
-        <PerksCarousel perks={mockPerks} />
+        <PerksCarousel perks={[partnerPerk, ...mockPerks]} />
         <ReorderCard summary={mockLastOrder.summary} href="/objednavky#posledni" />
         <QuickLinksList links={quickLinks} />
       </div>
