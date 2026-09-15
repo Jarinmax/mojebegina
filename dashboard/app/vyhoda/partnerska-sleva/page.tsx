@@ -60,6 +60,28 @@ export default function Page() {
             )}
           </div>
 
+          {nextTier ? (
+            <p className="text-sm font-medium mb-2">
+              Ještě {formatKc(remaining)} a získáte{" "}
+              {nextTier.discountPercent
+                ? `slevu ${nextTier.discountPercent} %`
+                : nextTier.discountLabel}
+            </p>
+          ) : (
+            <p className="text-sm font-medium mb-2">
+              Máte nejvyšší standardní úroveň
+            </p>
+          )}
+
+          <div className="relative h-4">
+            <span
+              className="absolute -translate-x-1/2 text-[11px] font-semibold text-begina-accent-100 whitespace-nowrap"
+              style={{ left: `${Math.min(94, Math.max(6, progressPercent))}%` }}
+            >
+              {formatKc(mockMonthlyPurchase)}
+            </span>
+          </div>
+
           <div className="h-1.5 rounded-full bg-white/15 mb-2 overflow-hidden">
             <div
               className="h-full rounded-full bg-begina-accent-100"
@@ -67,8 +89,8 @@ export default function Page() {
             />
           </div>
           <div className="flex justify-between text-[11px] opacity-70">
-            <span>{currentTier.discountLabel}</span>
-            <span>{nextTier ? nextTier.discountLabel : "—"}</span>
+            <span>{formatKc(currentTier.minAmount)}</span>
+            <span>{nextTier ? formatKc(nextTier.minAmount) : "—"}</span>
           </div>
         </div>
 
