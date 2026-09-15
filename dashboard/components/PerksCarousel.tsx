@@ -18,10 +18,12 @@ export default function PerksCarousel({ perks }: PerksCarouselProps) {
         {perks.map((perk) => (
           <div
             key={perk.id}
-            className="min-w-[220px] snap-start rounded-xl p-3.5 bg-begina-accent-100 text-begina-accent-900"
+            className="min-w-[220px] snap-start rounded-xl p-3.5 bg-white border border-neutral-200 border-l-4 border-l-begina-accent-700"
           >
-            <p className="text-sm font-medium mb-1">{perk.title}</p>
-            <p className="text-xs opacity-80">platí do {perk.validUntil}</p>
+            <p className="text-sm font-medium text-begina-primary-900 mb-1">
+              {perk.title}
+            </p>
+            <p className="text-xs text-neutral-500">platí do {perk.validUntil}</p>
           </div>
         ))}
       </div>

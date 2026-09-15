@@ -31,7 +31,7 @@ export default function BottomNav({ items, activeHref = "/" }: BottomNavProps) {
               key={item.href}
               href={item.href}
               className={`flex flex-col items-center gap-0.5 ${
-                isActive ? "text-begina-primary-700" : "text-neutral-500"
+                isActive ? "text-begina-accent-700" : "text-neutral-500"
               }`}
             >
               <Icon className="w-5 h-5" />
