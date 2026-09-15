@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import DecorativeMark from "@/components/DecorativeMark";
 import MembershipCard from "@/components/MembershipCard";
 import PartnerProgramSummary from "@/components/PartnerProgramSummary";
 import PerksCarousel from "@/components/PerksCarousel";
@@ -16,8 +17,9 @@ import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
 
 export default function Page() {
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24">
+    <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
+      <DecorativeMark />
+      <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
         <Header initials={mockCustomer.initials} />
         <MembershipCard
           name={mockCustomer.name}

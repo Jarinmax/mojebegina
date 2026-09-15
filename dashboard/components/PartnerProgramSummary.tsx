@@ -29,7 +29,7 @@ export default function PartnerProgramSummary({
         <p className="text-sm font-medium text-begina-primary-900">
           Partnerský program
         </p>
-        <span className="text-xs font-medium bg-begina-primary-800 text-begina-primary-50 rounded-full px-2.5 py-1">
+        <span className="text-xs font-medium bg-begina-accent-700 text-white rounded-full px-2.5 py-1">
           {currentTier.discountLabel}
         </span>
       </div>

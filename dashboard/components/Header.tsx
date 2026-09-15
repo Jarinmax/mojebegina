@@ -1,4 +1,6 @@
+import Image from "next/image";
 import { Bell } from "lucide-react";
+import logoMark from "@/public/logo-begina-mark.png";
 
 type HeaderProps = {
   initials: string;
@@ -7,9 +9,12 @@ type HeaderProps = {
 export default function Header({ initials }: HeaderProps) {
   return (
     <div className="flex items-center justify-between px-2 py-3">
-      <span className="font-medium text-base text-begina-primary-900">
-        Begina
-      </span>
+      <Image
+        src={logoMark}
+        alt="Begina"
+        className="h-8 w-auto"
+        priority
+      />
       <div className="flex items-center gap-3">
         <button
           type="button"

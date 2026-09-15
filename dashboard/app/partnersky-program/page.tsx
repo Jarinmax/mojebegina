@@ -1,4 +1,5 @@
 import PageHeader from "@/components/PageHeader";
+import DecorativeMark from "@/components/DecorativeMark";
 import PartnerProgramIntro from "@/components/PartnerProgramIntro";
 import PartnerTierStatus from "@/components/PartnerTierStatus";
 import PartnerTierTable from "@/components/PartnerTierTable";
@@ -18,8 +19,9 @@ const { currentTier } = getPartnerTierStatus(mockMonthlyPurchase, partnerTiers);
 
 export default function Page() {
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24">
+    <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
+      <DecorativeMark />
+      <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
         <PageHeader title="Partnerský program" />
 
         <PartnerProgramIntro
