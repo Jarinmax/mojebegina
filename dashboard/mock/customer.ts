@@ -36,13 +36,13 @@ export const mockLastOrder = {
 // dashboard/app/doporucit zůstává v kódu, ale bez odkazu z hlavní navigace.
 
 export const quickLinks = [
-  { icon: "history", label: "Historie objednávek", href: "/historie" },
+  { icon: "history", label: "Historie objednávek", href: "/objednavky" },
   { icon: "user", label: "Můj profil", href: "/profil" },
 ] as const;
 
 export const bottomNavItems = [
   { icon: "home", label: "Domů", href: "/" },
-  { icon: "package", label: "Objednávky", href: "/historie" },
+  { icon: "package", label: "Objednávky", href: "/objednavky" },
   { icon: "percent", label: "Program", href: "/partnersky-program" },
   { icon: "user", label: "Profil", href: "/profil" },
 ] as const;
