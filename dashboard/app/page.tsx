@@ -15,6 +15,7 @@ import {
 } from "@/mock/customer";
 import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
+import { unreadNotificationCount } from "@/mock/notifications";
 
 // Karta výhody se počítá ze skutečných pravidel partnerského programu
 // (stejná funkce jako PartnerProgramSummary a /partnersky-program), aby
@@ -34,7 +35,10 @@ export default function Page() {
     <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
       <DecorativeMark />
       <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
-        <Header initials={mockCustomer.initials} />
+        <Header
+          initials={mockCustomer.initials}
+          unreadCount={unreadNotificationCount}
+        />
         <MembershipCard
           name={mockCustomer.name}
           memberId={mockCustomer.memberId}
