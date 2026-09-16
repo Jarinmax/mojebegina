@@ -6,17 +6,16 @@ import PartnerTierTable from "@/components/PartnerTierTable";
 import PartnerProgramInfo from "@/components/PartnerProgramInfo";
 import GrowWithBeginaCard from "@/components/GrowWithBeginaCard";
 import BottomNav from "@/components/BottomNav";
-import { bottomNavItems } from "@/mock/customer";
+import { bottomNavItems, currentMonthlyPurchase } from "@/mock/customer";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import {
   partnerTiers,
   partnerProgramConditions,
   partnerProgramShipping,
   partnerProgramLegalNote,
-  mockMonthlyPurchase,
 } from "@/mock/partnerProgram";
 
-const { currentTier } = getPartnerTierStatus(mockMonthlyPurchase, partnerTiers);
+const { currentTier } = getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
 
 export default function Page() {
   return (
@@ -36,7 +35,7 @@ export default function Page() {
         />
 
         <PartnerTierStatus
-          monthlyPurchase={mockMonthlyPurchase}
+          monthlyPurchase={currentMonthlyPurchase}
           tiers={partnerTiers}
         />
 

@@ -3,13 +3,11 @@ import DecorativeMark from "@/components/DecorativeMark";
 import ProfileSection from "@/components/ProfileSection";
 import ProfileField from "@/components/ProfileField";
 import BottomNav from "@/components/BottomNav";
-import { bottomNavItems } from "@/mock/customer";
-import { mockProfile } from "@/mock/profile";
+import { bottomNavItems, customerAccount, contactDisplayName } from "@/mock/customer";
 
-// Struktura je rozdělená do sekcí (osobní údaje, kontaktní údaje,
-// doručovací adresa, nastavení účtu), aby se profil mohl postupně
-// stát hlavní osobní kartou zákazníka — data zůstávají stejná mock
-// hodnoty jako předtím, mění se jen jejich uspořádání.
+// Firemní zákaznická karta The Cup s.r.o. Sekce jsou rozdělené tak, aby
+// se profil mohl postupně stát hlavní osobní kartou zákazníka — údaje,
+// které zatím neznáme, zobrazujeme jako "Neuvedeno", nic se nevymýšlí.
 export default function Page() {
   return (
     <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
@@ -17,18 +15,22 @@ export default function Page() {
       <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
         <PageHeader title="Můj profil" />
 
-        <ProfileSection title="Osobní údaje">
-          <ProfileField label="Jméno" value={mockProfile.name} />
-          <ProfileField label="Členské číslo" value={mockProfile.memberId} />
+        <ProfileSection title="Firemní údaje">
+          <ProfileField label="Název firmy" value={customerAccount.companyName} />
+          <ProfileField label="IČ" value={customerAccount.ico} />
+        </ProfileSection>
+
+        <ProfileSection title="Kontaktní osoba">
+          <ProfileField label="Jméno" value={contactDisplayName} />
+        </ProfileSection>
+
+        <ProfileSection title="Sídlo">
+          <ProfileField label="Adresa" value={customerAccount.registeredAddress} />
         </ProfileSection>
 
         <ProfileSection title="Kontaktní údaje">
-          <ProfileField label="E-mail" value={mockProfile.email} />
-          <ProfileField label="Telefon" value={mockProfile.phone} />
-        </ProfileSection>
-
-        <ProfileSection title="Doručovací adresa">
-          <ProfileField label="Adresa" value={mockProfile.address} />
+          <ProfileField label="E-mail" value={customerAccount.email ?? "Neuvedeno"} />
+          <ProfileField label="Telefon" value={customerAccount.phone ?? "Neuvedeno"} />
         </ProfileSection>
 
         <ProfileSection title="Nastavení účtu">

@@ -1,14 +1,13 @@
 import { RefreshCw } from "lucide-react";
 import { formatKc } from "@/lib/format";
-import type { Order } from "@/mock/orders";
+import type { Order } from "@/mock/customer";
 
 type OrderCardProps = {
   order: Order;
 };
 
 const STATUS_STYLE: Record<Order["status"], string> = {
-  Expedováno: "bg-begina-accent-100 text-begina-accent-900",
-  Doručeno: "bg-begina-primary-100 text-begina-primary-800",
+  Uhrazeno: "bg-begina-primary-100 text-begina-primary-800",
 };
 
 export default function OrderCard({ order }: OrderCardProps) {

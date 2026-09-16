@@ -7,25 +7,28 @@ import ReorderCard from "@/components/ReorderCard";
 import QuickLinksList from "@/components/QuickLinksList";
 import BottomNav from "@/components/BottomNav";
 import {
-  mockCustomer,
+  customerAccount,
+  contactDisplayName,
+  lastOrder,
   mockPerks,
-  mockLastOrder,
   quickLinks,
   bottomNavItems,
+  currentMonthlyPurchase,
 } from "@/mock/customer";
-import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
+import { partnerTiers } from "@/mock/partnerProgram";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
+import { capitalizeFirst } from "@/lib/format";
 import { unreadNotificationCount } from "@/mock/notifications";
 
 // Karta výhody se počítá ze skutečných pravidel partnerského programu
 // (stejná funkce jako PartnerProgramSummary a /partnersky-program), aby
 // číslo na dashboardu nikdy neodporovalo skutečné partnerské úrovni.
-const { currentTier } = getPartnerTierStatus(mockMonthlyPurchase, partnerTiers);
+const { currentTier } = getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
 const partnerPerk = {
   id: "partnerska-sleva",
   title: currentTier.discountPercent
     ? `Sleva ${currentTier.discountPercent} % na další nákup`
-    : currentTier.discountLabel,
+    : capitalizeFirst(currentTier.discountLabel),
   subtitle: "Vaše aktuální partnerská úroveň",
   href: "/vyhoda/partnerska-sleva",
 };
@@ -36,21 +39,22 @@ export default function Page() {
       <DecorativeMark />
       <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
         <Header
-          initials={mockCustomer.initials}
+          initials={customerAccount.initials}
           unreadCount={unreadNotificationCount}
         />
         <MembershipCard
-          name={mockCustomer.name}
-          memberId={mockCustomer.memberId}
-          status={mockCustomer.status}
+          name={customerAccount.companyName}
+          contactName={contactDisplayName}
+          memberId={customerAccount.memberId}
+          status={customerAccount.status}
         />
         <PartnerProgramSummary
-          monthlyPurchase={mockMonthlyPurchase}
+          monthlyPurchase={currentMonthlyPurchase}
           tiers={partnerTiers}
           href="/partnersky-program"
         />
         <PerksCarousel perks={[partnerPerk, ...mockPerks]} />
-        <ReorderCard summary={mockLastOrder.summary} href="/objednavky#posledni" />
+        <ReorderCard summary={lastOrder.products} href={`/objednavky#${lastOrder.id}`} />
         <QuickLinksList links={quickLinks} />
       </div>
       <BottomNav items={bottomNavItems} activeHref="/" />

@@ -1,16 +1,142 @@
-// Mock data pro vizuální prototyp dashboardu "Moje Begina".
-// Žádné napojení na backend / WooCommerce — jen ukázková data.
+// CENTRÁLNÍ ZDROJ PRAVDY pro aktuálního zákazníka Moje Begina a jeho
+// objednávky. Dashboard, členská karta, profil, iniciály v headeru,
+// historie objednávek, poslední objednávka, partnerský program i
+// upozornění čerpají odsud — žádná obrazovka si nedrží vlastní kopii
+// zákaznických dat. Až bude k dispozici backend/WooCommerce, stačí
+// nahradit obsah tohoto souboru voláním API se stejným tvarem dat.
+//
+// Údaje, které zatím neznáme (e-mail, telefon, členské číslo…), jsou
+// `null` — obrazovky je zobrazují jako "Neuvedeno", nic se nevymýšlí.
 
-export const mockCustomer = {
-  name: "Jana Nováková",
-  memberId: "BG-00482",
-  status: "Členka Beginy",
-  initials: "JN",
+export type CustomerAccount = {
+  companyName: string;
+  ico: string;
+  registeredAddress: string;
+  contactFirstName: string;
+  contactLastName: string | null;
+  initials: string;
+  memberId: string | null;
+  status: string | null;
+  email: string | null;
+  phone: string | null;
 };
 
-// Pozn.: partnerská sleva už tu NENÍ jako statická položka — počítá se
-// dynamicky z partnerTiers/mockMonthlyPurchase přímo v app/page.tsx, aby
-// nikdy nemohla odporovat skutečným pravidlům partnerského programu.
+export const customerAccount: CustomerAccount = {
+  companyName: "The Cup s.r.o.",
+  ico: "11935367",
+  registeredAddress: "Prvního pluku 144/14, 186 00 Praha",
+  contactFirstName: "Veronika",
+  contactLastName: null,
+  initials: "V",
+  memberId: null,
+  status: "Zákazník Begina",
+  email: null,
+  phone: null,
+};
+
+export const contactDisplayName = customerAccount.contactLastName
+  ? `${customerAccount.contactFirstName} ${customerAccount.contactLastName}`
+  : customerAccount.contactFirstName;
+
+// --- Objednávky (skutečné uhrazené faktury) -------------------------
+
+export type OrderStatus = "Uhrazeno";
+
+export type OrderItem = {
+  name: string;
+  quantity: number;
+  priceKc: number;
+};
+
+export type Order = {
+  id: string;
+  orderNumber: string;
+  date: string;
+  /** Kalendářní měsíc vystavení ve tvaru "YYYY-MM" — pro měsíční
+   *  vyhodnocení partnerského programu (viz currentMonthlyPurchase). */
+  monthKey: string;
+  items: OrderItem[];
+  products: string;
+  totalKc: number;
+  status: OrderStatus;
+};
+
+type RawOrder = {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  monthKey: string;
+  status: OrderStatus;
+  items: OrderItem[];
+};
+
+function itemsTotalKc(items: OrderItem[]): number {
+  return items.reduce((sum, item) => sum + item.priceKc * item.quantity, 0);
+}
+
+function itemsSummary(items: OrderItem[]): string {
+  return items.map((item) => `${item.quantity}× ${item.name}`).join(", ");
+}
+
+// Seřazeno od nejnovější — customerOrders[0] je poslední objednávka.
+const rawOrders: RawOrder[] = [
+  {
+    id: "faktura-20260153",
+    invoiceNumber: "20260153",
+    date: "3. 9. 2026",
+    monthKey: "2026-09",
+    status: "Uhrazeno",
+    items: [
+      { name: "Dýňová polévka", quantity: 1, priceKc: 379 },
+      { name: "Kulajda", quantity: 1, priceKc: 379 },
+      { name: "Rajčatová polévka", quantity: 1, priceKc: 379 },
+    ],
+  },
+  {
+    id: "faktura-20260152",
+    invoiceNumber: "20260152",
+    date: "30. 8. 2026",
+    monthKey: "2026-08",
+    status: "Uhrazeno",
+    items: [
+      { name: "Dýňová polévka", quantity: 1, priceKc: 379 },
+      { name: "Kulajda", quantity: 1, priceKc: 379 },
+    ],
+  },
+];
+
+export const customerOrders: Order[] = rawOrders.map((order) => ({
+  id: order.id,
+  orderNumber: `Faktura č. ${order.invoiceNumber}`,
+  date: order.date,
+  monthKey: order.monthKey,
+  items: order.items,
+  products: itemsSummary(order.items),
+  totalKc: itemsTotalKc(order.items),
+  status: order.status,
+}));
+
+export const lastOrder = customerOrders[0];
+
+// --- Partnerský program: měsíční obrat ------------------------------
+//
+// "Teď" pro účely tohoto prototypu (bez backendu) — v reálném systému
+// by šlo o aktuální kalendářní měsíc podle hodin serveru/API.
+export const currentEvaluationMonth = "2026-09";
+
+// Do partnerského programu se počítá jen UHRAZENÁ hodnota zboží za
+// aktuální kalendářní měsíc — přesně podle partnerProgramConditions
+// v mock/partnerProgram.ts. Srpnová faktura patří do srpnového
+// vyhodnocení, ne do zářijového, proto se tu nesčítá dohromady.
+export const currentMonthlyPurchase = customerOrders
+  .filter(
+    (order) =>
+      order.status === "Uhrazeno" && order.monthKey === currentEvaluationMonth
+  )
+  .reduce((sum, order) => sum + order.totalKc, 0);
+
+// --- Obecná marketingová data (nejsou vázaná na konkrétního zákazníka) --
+
 export const mockPerks = [
   {
     id: 2,
@@ -23,11 +149,6 @@ export const mockPerks = [
     subtitle: "platí do 1. 11. 2026",
   },
 ];
-
-export const mockLastOrder = {
-  date: "2026-09-05",
-  summary: "2× Begina Original, 1× Begina Bez cukru",
-};
 
 // "Doporučte Beginu" je záměrně mimo quickLinks i bottomNavItems —
 // referral program zatím nemá schválená obchodní pravidla, obrazovka

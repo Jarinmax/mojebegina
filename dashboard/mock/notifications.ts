@@ -1,12 +1,14 @@
 // Mock data pro Centrum upozornění. Partnerské notifikace jsou POČÍTANÉ
 // ze stejného centrálního zdroje pravidel (getPartnerTierStatus nad
-// partnerTiers/mockMonthlyPurchase) jako dashboard a /vyhoda/partnerska-sleva
-// — žádné procento ani hranice tu nejsou napsané ručně. Marketingové
-// notifikace jsou čistě mock, bez jakékoli obchodní logiky.
+// partnerTiers a currentMonthlyPurchase) jako dashboard a
+// /vyhoda/partnerska-sleva — žádné procento ani hranice tu nejsou
+// napsané ručně. Marketingové notifikace jsou čistě mock, bez jakékoli
+// obchodní logiky.
 
 import { formatKc } from "@/lib/format";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
-import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
+import { partnerTiers } from "@/mock/partnerProgram";
+import { currentMonthlyPurchase } from "@/mock/customer";
 
 export type NotificationItem = {
   id: string;
@@ -17,7 +19,7 @@ export type NotificationItem = {
 };
 
 const { currentTier, nextTier, remaining } = getPartnerTierStatus(
-  mockMonthlyPurchase,
+  currentMonthlyPurchase,
   partnerTiers
 );
 
@@ -40,11 +42,11 @@ if (nextTier) {
 partnerNotifications.push({
   id: "partner-current-tier",
   title: "Vaše partnerská sleva",
-  body: `Aktuálně máte partnerskou úroveň ${
-    currentTier.discountPercent
-      ? `${currentTier.discountPercent} %`
-      : currentTier.discountLabel
-  }. Získaná sleva platí pro objednávky v následujícím měsíci.`,
+  body: currentTier.discountPercent
+    ? `Aktuálně máte partnerskou úroveň ${currentTier.discountPercent} %. Získaná sleva platí pro objednávky v následujícím měsíci.`
+    : `Zatím nakupujete za standardní ceny. Od ${
+        nextTier ? formatKc(nextTier.minAmount) : ""
+      } měsíčně získáte první partnerskou slevu.`,
   href: "/partnersky-program",
   read: false,
 });

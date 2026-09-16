@@ -2,9 +2,11 @@
 // a právní poznámky je PŘEVZATÝ ze skutečné stránky begina.cz/partnersky-program
 // (screenshot dodaný 14. 9. 2026), NENÍ to vymyšlený placeholder.
 //
-// Jediná mock/placeholder hodnota v tomto souboru je `mockMonthlyPurchase`
-// (kolik konkrétní zákazník nakoupil tento měsíc) — to je zákaznická data,
-// která budou později přicházet z reálného účtu/objednávek.
+// Tento soubor obsahuje jen PRAVIDLA programu (úrovně, podmínky). Kolik
+// konkrétní zákazník za aktuální měsíc nakoupil je zákaznický údaj, ne
+// pravidlo programu — ten se počítá v mock/customer.ts
+// (currentMonthlyPurchase) ze skutečných uhrazených objednávek daného
+// kalendářního měsíce.
 
 export type PartnerTier = {
   id: number;
@@ -35,6 +37,3 @@ export const partnerProgramShipping =
 
 export const partnerProgramLegalNote =
   "Nejsme plátci DPH. Uvedené ceny jsou konečné.";
-
-// Mock — zákaznický údaj, později napojit na skutečný součet objednávek.
-export const mockMonthlyPurchase = 6400;

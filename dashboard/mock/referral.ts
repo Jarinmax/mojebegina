@@ -4,8 +4,8 @@
 // je proto jen placeholder ("—" / textová poznámka), ne vymyšlené číslo.
 
 export const referralProfile = {
-  code: "JANA-BEGINA",
-  link: "begina.cz/r/JANA-BEGINA",
+  code: "THECUP-BEGINA",
+  link: "begina.cz/r/THECUP-BEGINA",
 };
 
 export type ReferralStatus = "invited" | "purchased";

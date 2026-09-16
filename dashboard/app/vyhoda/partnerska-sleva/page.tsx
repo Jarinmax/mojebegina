@@ -3,20 +3,20 @@ import { ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import DecorativeMark from "@/components/DecorativeMark";
 import BottomNav from "@/components/BottomNav";
-import { bottomNavItems } from "@/mock/customer";
-import { formatKc } from "@/lib/format";
+import { bottomNavItems, currentMonthlyPurchase } from "@/mock/customer";
+import { formatKc, capitalizeFirst } from "@/lib/format";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
-import { partnerTiers, mockMonthlyPurchase } from "@/mock/partnerProgram";
+import { partnerTiers } from "@/mock/partnerProgram";
 
 // Stejná funkce a stejná mock data jako PartnerProgramSummary a
 // /partnersky-program — čísla na téhle obrazovce z definice nemohou
 // odporovat zbytku aplikace.
 const { currentTier, nextTier, remaining, progressPercent } =
-  getPartnerTierStatus(mockMonthlyPurchase, partnerTiers);
+  getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
 
 const currentDiscountText = currentTier.discountPercent
   ? `Sleva ${currentTier.discountPercent} %`
-  : currentTier.discountLabel;
+  : capitalizeFirst(currentTier.discountLabel);
 
 export default function Page() {
   return (
@@ -29,14 +29,15 @@ export default function Page() {
           <p className="text-xs mb-1 opacity-80">Vaše partnerská výhoda</p>
           <p className="text-2xl font-medium mb-3">{currentDiscountText}</p>
           <p className="text-sm opacity-90 mb-4">
-            Tuto partnerskou úroveň jste získali díky svým nákupům v
-            programu Begina.
+            {currentTier.discountPercent
+              ? "Tuto partnerskou úroveň jste získali díky svým nákupům v programu Begina."
+              : "Zatím nakupujete za standardní ceny — jakmile měsíční obrat přesáhne první hranici, získáte partnerskou slevu automaticky."}
           </p>
 
           <div className="flex flex-col gap-1.5 text-sm mb-3">
             <div className="flex justify-between">
               <span className="opacity-70">Tento měsíc</span>
-              <span className="font-medium">{formatKc(mockMonthlyPurchase)}</span>
+              <span className="font-medium">{formatKc(currentMonthlyPurchase)}</span>
             </div>
             <div className="flex justify-between">
               <span className="opacity-70">Aktuální úroveň</span>
@@ -78,7 +79,7 @@ export default function Page() {
               className="absolute -translate-x-1/2 text-[11px] font-semibold text-begina-accent-100 whitespace-nowrap"
               style={{ left: `${Math.min(94, Math.max(6, progressPercent))}%` }}
             >
-              {formatKc(mockMonthlyPurchase)}
+              {formatKc(currentMonthlyPurchase)}
             </span>
           </div>
 
