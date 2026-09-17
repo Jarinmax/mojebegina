@@ -15,6 +15,24 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+// Platformní role — odděleno od organizationMemberships.role (to je role
+// UVNITŘ jedné organizace: owner/member). Tohle je role NAPŘÍČ celou
+// appkou. Schváleno v Security Phase 2.2:
+//   CUSTOMER  — zákazník, vidí jen svoje organizace (přes membership)
+//   EMPLOYEE  — interní pracovník, zatím bez zvláštních oprávnění nad
+//               rámec CUSTOMER (přesný rozsah "omezených oprávnění" se
+//               teprve navrhne — do té doby bezpečný default = jako CUSTOMER)
+//   EXECUTIVE — vedení Beginy, READ napříč všemi organizacemi, ne WRITE
+//   ADMIN     — nejvyšší role, plný přístup (read i write) napříč vším
+// Uživatel bez řádku v téhle tabulce se považuje za CUSTOMER (bezpečný
+// default — nikdy neeskalovat mlčky).
+export const userRoles = pgTable("user_roles", {
+  userId: text("user_id").primaryKey(),
+  systemRole: text("system_role").notNull(), // "CUSTOMER" | "EMPLOYEE" | "EXECUTIVE" | "ADMIN"
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   ico: text("ico").notNull().unique(),
