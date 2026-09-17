@@ -43,7 +43,7 @@ export default function LoginForm({ loggedIn }: { loggedIn: boolean }) {
       <button
         onClick={handleSignOut}
         disabled={busy}
-        style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", cursor: "pointer" }}
+        style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", color: "#111", cursor: "pointer" }}
       >
         Odhlásit se (signOut)
       </button>
@@ -76,14 +76,14 @@ export default function LoginForm({ loggedIn }: { loggedIn: boolean }) {
         <button
           onClick={handleSignUp}
           disabled={busy || !email || !password}
-          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", cursor: "pointer" }}
+          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", color: "#111", cursor: "pointer" }}
         >
           Registrovat (první test)
         </button>
         <button
           onClick={handleSignIn}
           disabled={busy || !email || !password}
-          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", cursor: "pointer" }}
+          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", color: "#111", cursor: "pointer" }}
         >
           Přihlásit
         </button>
