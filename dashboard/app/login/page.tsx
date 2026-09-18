@@ -1,7 +1,8 @@
 // Security Phase 2.4 — produkční zákaznický přihlašovací formulář
 // (nahrazuje dřívější interní testovací stránku identity z Fáze 2.1–2.3).
-// Žádný session dump, žádný debug panel — jen e-mail + heslo. Diagnostika
-// requireOrgAccess() se přesunula na dočasnou /internal/auth-debug.
+// Žádný session dump, žádný debug panel — jen e-mail + heslo. Dočasná
+// diagnostická stránka /internal/auth-debug (requireOrgAccess() proti
+// reálné DB) byla po ověření z appky odstraněna.
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import logoMark from "@/public/logo-begina-mark.png";
