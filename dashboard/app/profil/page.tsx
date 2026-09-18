@@ -3,12 +3,36 @@ import DecorativeMark from "@/components/DecorativeMark";
 import ProfileSection from "@/components/ProfileSection";
 import ProfileField from "@/components/ProfileField";
 import BottomNav from "@/components/BottomNav";
-import { bottomNavItems, customerAccount, contactDisplayName } from "@/mock/customer";
+import NoOrganizationNotice from "@/components/NoOrganizationNotice";
+import { bottomNavItems } from "@/mock/customer";
+import { requireCustomerContext, getCustomerAccount } from "@/lib/data/dashboard";
 
-// Firemní zákaznická karta The Cup s.r.o. Sekce jsou rozdělené tak, aby
-// se profil mohl postupně stát hlavní osobní kartou zákazníka — údaje,
-// které zatím neznáme, zobrazujeme jako "Neuvedeno", nic se nevymýšlí.
-export default function Page() {
+export const dynamic = "force-dynamic";
+
+// Firemní zákaznická karta. Sekce jsou rozdělené tak, aby se profil mohl
+// postupně stát hlavní osobní kartou zákazníka — údaje, které zatím
+// neznáme, zobrazujeme jako "Neuvedeno", nic se nevymýšlí.
+export default async function Page() {
+  const { ctx, organizationId } = await requireCustomerContext();
+
+  if (!organizationId) {
+    return (
+      <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
+        <DecorativeMark />
+        <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
+          <PageHeader title="Můj profil" />
+          <NoOrganizationNotice />
+        </div>
+        <BottomNav items={bottomNavItems} activeHref="/profil" />
+      </div>
+    );
+  }
+
+  const customerAccount = await getCustomerAccount(ctx, organizationId);
+  const contactDisplayName = customerAccount.contactLastName
+    ? `${customerAccount.contactFirstName} ${customerAccount.contactLastName}`
+    : customerAccount.contactFirstName;
+
   return (
     <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
       <DecorativeMark />

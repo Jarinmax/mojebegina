@@ -3,22 +3,48 @@ import { ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import DecorativeMark from "@/components/DecorativeMark";
 import BottomNav from "@/components/BottomNav";
-import { bottomNavItems, currentMonthlyPurchase } from "@/mock/customer";
+import NoOrganizationNotice from "@/components/NoOrganizationNotice";
+import { bottomNavItems } from "@/mock/customer";
 import { formatKc, capitalizeFirst } from "@/lib/format";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import { partnerTiers } from "@/mock/partnerProgram";
+import {
+  requireCustomerContext,
+  getCustomerOrders,
+  getCurrentMonthlyPurchase,
+} from "@/lib/data/dashboard";
 
-// Stejná funkce a stejná mock data jako PartnerProgramSummary a
-// /partnersky-program — čísla na téhle obrazovce z definice nemohou
-// odporovat zbytku aplikace.
-const { currentTier, nextTier, remaining, progressPercent } =
-  getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
+export const dynamic = "force-dynamic";
 
-const currentDiscountText = currentTier.discountPercent
-  ? `Sleva ${currentTier.discountPercent} %`
-  : capitalizeFirst(currentTier.discountLabel);
+export default async function Page() {
+  const { ctx, organizationId } = await requireCustomerContext();
 
-export default function Page() {
+  if (!organizationId) {
+    return (
+      <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
+        <DecorativeMark />
+        <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
+          <PageHeader title="Vaše partnerská výhoda" />
+          <NoOrganizationNotice />
+        </div>
+        <BottomNav items={bottomNavItems} activeHref="/vyhoda/partnerska-sleva" />
+      </div>
+    );
+  }
+
+  const customerOrders = await getCustomerOrders(ctx, organizationId);
+  const currentMonthlyPurchase = getCurrentMonthlyPurchase(customerOrders);
+
+  // Stejná funkce a stejná mock data jako PartnerProgramSummary a
+  // /partnersky-program — čísla na téhle obrazovce z definice nemohou
+  // odporovat zbytku aplikace.
+  const { currentTier, nextTier, remaining, progressPercent } =
+    getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
+
+  const currentDiscountText = currentTier.discountPercent
+    ? `Sleva ${currentTier.discountPercent} %`
+    : capitalizeFirst(currentTier.discountLabel);
+
   return (
     <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
       <DecorativeMark />

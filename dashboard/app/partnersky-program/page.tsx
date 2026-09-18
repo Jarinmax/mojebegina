@@ -6,7 +6,8 @@ import PartnerTierTable from "@/components/PartnerTierTable";
 import PartnerProgramInfo from "@/components/PartnerProgramInfo";
 import GrowWithBeginaCard from "@/components/GrowWithBeginaCard";
 import BottomNav from "@/components/BottomNav";
-import { bottomNavItems, currentMonthlyPurchase } from "@/mock/customer";
+import NoOrganizationNotice from "@/components/NoOrganizationNotice";
+import { bottomNavItems } from "@/mock/customer";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import {
   partnerTiers,
@@ -14,10 +15,34 @@ import {
   partnerProgramShipping,
   partnerProgramLegalNote,
 } from "@/mock/partnerProgram";
+import {
+  requireCustomerContext,
+  getCustomerOrders,
+  getCurrentMonthlyPurchase,
+} from "@/lib/data/dashboard";
 
-const { currentTier } = getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
+export const dynamic = "force-dynamic";
 
-export default function Page() {
+export default async function Page() {
+  const { ctx, organizationId } = await requireCustomerContext();
+
+  if (!organizationId) {
+    return (
+      <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
+        <DecorativeMark />
+        <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
+          <PageHeader title="Partnerský program" />
+          <NoOrganizationNotice />
+        </div>
+        <BottomNav items={bottomNavItems} activeHref="/partnersky-program" />
+      </div>
+    );
+  }
+
+  const customerOrders = await getCustomerOrders(ctx, organizationId);
+  const currentMonthlyPurchase = getCurrentMonthlyPurchase(customerOrders);
+  const { currentTier } = getPartnerTierStatus(currentMonthlyPurchase, partnerTiers);
+
   return (
     <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
       <DecorativeMark />
