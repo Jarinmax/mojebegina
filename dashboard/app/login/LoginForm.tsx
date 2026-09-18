@@ -1,94 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth/client";
 
-export default function LoginForm({ loggedIn }: { loggedIn: boolean }) {
-  const [name, setName] = useState("");
+// Security Phase 2.4 — zákaznický přihlašovací formulář. Jen e-mail +
+// heslo. Účty zakládáme zatím sami ručně (viz Fáze 2.3), proto tu není
+// žádná self-service registrace.
+export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function handleSignUp() {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setBusy(true);
-    const { error } = await authClient.signUp.email({ email, password, name });
-    setBusy(false);
-    if (error) {
-      setMessage(`Chyba registrace: ${error.message}`);
-      return;
-    }
-    window.location.reload();
-  }
+    setError(null);
 
-  async function handleSignIn() {
-    setBusy(true);
     const { error } = await authClient.signIn.email({ email, password });
-    setBusy(false);
+
     if (error) {
-      setMessage(`Chyba přihlášení: ${error.message}`);
+      setBusy(false);
+      setError("Nesprávný e-mail nebo heslo.");
       return;
     }
-    window.location.reload();
-  }
 
-  async function handleSignOut() {
-    setBusy(true);
-    await authClient.signOut();
-    window.location.reload();
-  }
-
-  if (loggedIn) {
-    return (
-      <button
-        onClick={handleSignOut}
-        disabled={busy}
-        style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", color: "#111", cursor: "pointer" }}
-      >
-        Odhlásit se (signOut)
-      </button>
-    );
+    // Plná navigace (ne router.push) — vynutí nový request se čerstvou
+    // session cookie, aby server na "/" hned viděl přihlášeného uživatele.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = "/";
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <input
-        placeholder="Jméno (jen pro první registraci)"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
-      />
-      <input
-        placeholder="E-mail"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
-      />
-      <input
-        placeholder="Heslo (min. 8 znaků)"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
-      />
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          onClick={handleSignUp}
-          disabled={busy || !email || !password}
-          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", color: "#111", cursor: "pointer" }}
-        >
-          Registrovat (první test)
-        </button>
-        <button
-          onClick={handleSignIn}
-          disabled={busy || !email || !password}
-          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #333", background: "#fff", color: "#111", cursor: "pointer" }}
-        >
-          Přihlásit
-        </button>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div>
+        <label htmlFor="email" className="text-xs text-neutral-500 mb-1 block">
+          E-mail
+        </label>
+        <input
+          id="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+        />
       </div>
-      {message && <p style={{ fontSize: 13, color: "#b00" }}>{message}</p>}
-    </div>
+      <div>
+        <label htmlFor="password" className="text-xs text-neutral-500 mb-1 block">
+          Heslo
+        </label>
+        <input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+        />
+      </div>
+
+      {error && <p className="text-sm text-begina-accent-700">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={busy || !email || !password}
+        className="w-full text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg py-2.5 disabled:opacity-50"
+      >
+        {busy ? "Přihlašuji…" : "Přihlásit"}
+      </button>
+    </form>
   );
 }

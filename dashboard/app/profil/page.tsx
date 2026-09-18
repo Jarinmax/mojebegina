@@ -4,6 +4,7 @@ import ProfileSection from "@/components/ProfileSection";
 import ProfileField from "@/components/ProfileField";
 import BottomNav from "@/components/BottomNav";
 import NoOrganizationNotice from "@/components/NoOrganizationNotice";
+import SignOutButton from "@/components/SignOutButton";
 import { bottomNavItems } from "@/mock/customer";
 import { requireCustomerContext, getCustomerAccount } from "@/lib/data/dashboard";
 
@@ -22,6 +23,9 @@ export default async function Page() {
         <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
           <PageHeader title="Můj profil" />
           <NoOrganizationNotice />
+          <div className="mt-4">
+            <SignOutButton />
+          </div>
         </div>
         <BottomNav items={bottomNavItems} activeHref="/profil" />
       </div>
@@ -58,13 +62,14 @@ export default async function Page() {
         </ProfileSection>
 
         <ProfileSection title="Nastavení účtu">
-          <div className="py-3">
+          <div className="py-3 flex flex-col gap-2">
             <button
               type="button"
               className="w-full text-sm font-medium text-begina-primary-900 border border-begina-primary-700 rounded-lg py-2.5"
             >
               Upravit profil
             </button>
+            <SignOutButton />
           </div>
         </ProfileSection>
       </div>
