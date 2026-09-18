@@ -11,10 +11,30 @@ import type { AuthContext, Membership } from "../types";
 const ORG_A = "org-a";
 const ORG_B = "org-b";
 
-const customerA: AuthContext = { userId: "user-a", systemRole: "CUSTOMER" };
-const employeeA: AuthContext = { userId: "employee-a", systemRole: "EMPLOYEE" };
-const executive: AuthContext = { userId: "user-exec", systemRole: "EXECUTIVE" };
-const admin: AuthContext = { userId: "user-admin", systemRole: "ADMIN" };
+const customerA: AuthContext = {
+  userId: "user-a",
+  systemRole: "CUSTOMER",
+  name: "Test Customer A",
+  email: "customer-a@example.test",
+};
+const employeeA: AuthContext = {
+  userId: "employee-a",
+  systemRole: "EMPLOYEE",
+  name: "Test Employee A",
+  email: "employee-a@example.test",
+};
+const executive: AuthContext = {
+  userId: "user-exec",
+  systemRole: "EXECUTIVE",
+  name: "Test Executive",
+  email: "executive@example.test",
+};
+const admin: AuthContext = {
+  userId: "user-admin",
+  systemRole: "ADMIN",
+  name: "Test Admin",
+  email: "admin@example.test",
+};
 
 // Syntetický "membership" graf: user-a je jen v Org A, employee-a jen v Org A.
 const membershipGraph: Record<string, Record<string, Membership>> = {

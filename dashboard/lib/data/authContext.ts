@@ -27,5 +27,9 @@ export async function getAuthContext(): Promise<AuthContext> {
     // Chybí-li řádek, uživatel je CUSTOMER — bezpečný default, nikdy
     // tichá eskalace na vyšší roli.
     systemRole: (row?.systemRole as SystemRole | undefined) ?? DEFAULT_SYSTEM_ROLE,
+    // Přímo z ověřené session, žádný DB dotaz — pro aktuálně přihlášeného
+    // uživatele jsou tyto hodnoty vždy pravdivé.
+    name: session.user.name ?? null,
+    email: session.user.email,
   };
 }
