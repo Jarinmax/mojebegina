@@ -5,6 +5,7 @@
 // (requireAdminContext) — tenhle guard je první vrstva, ne jediná.
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
+import { isAdmin } from "@/lib/data/adminAuth";
 import AdminHeader from "@/components/admin/AdminHeader";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function AdminLayout({
   if (!ctx) {
     redirect("/login");
   }
-  if (ctx.systemRole !== "ADMIN") {
+  if (!isAdmin(ctx)) {
     redirect("/");
   }
 

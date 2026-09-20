@@ -34,6 +34,13 @@ export default async function Page() {
     redirect("/admin");
   }
 
+  // Security Phase 7 (Executive 1.0) — stejný princip jako u ADMIN výše.
+  // EXECUTIVE nemá organizaci (cross-org READ, ne členství), takže by na
+  // "/" skončil na stejné matoucí "Váš účet není přiřazený" obrazovce.
+  if (ctx.systemRole === "EXECUTIVE") {
+    redirect("/executive");
+  }
+
   if (!organizationId) {
     return (
       <div className="min-h-screen bg-neutral-50 relative overflow-hidden">

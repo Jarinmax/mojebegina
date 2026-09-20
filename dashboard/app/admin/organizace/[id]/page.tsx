@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrganizationDetail } from "@/lib/data/admin";
 import { formatCzechDate } from "@/lib/format";
+import OrganizationMembersTable from "@/components/organization/OrganizationMembersTable";
 import OrganizationEditForm from "./OrganizationEditForm";
 import AddMemberForm from "./AddMemberForm";
 import MemberActions from "./MemberActions";
@@ -72,50 +73,16 @@ export default async function AdminOrganizationDetailPage(
           </h2>
           <AddMemberForm organizationId={org.id} />
         </div>
-        {org.members.length === 0 ? (
-          <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
-            Organizace zatím nemá žádného uživatele.
-          </div>
-        ) : (
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
-                  <th className="px-4 py-3 font-medium">Jméno</th>
-                  <th className="px-4 py-3 font-medium">E-mail</th>
-                  <th className="px-4 py-3 font-medium">Role</th>
-                  <th className="px-4 py-3 font-medium">Členem od</th>
-                  <th className="px-4 py-3 font-medium">Akce</th>
-                </tr>
-              </thead>
-              <tbody>
-                {org.members.map((member) => (
-                  <tr key={member.userId} className="border-b border-neutral-100 last:border-0">
-                    <td className="px-4 py-3 text-begina-primary-900">
-                      {member.name ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-neutral-600">
-                      {member.email ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-begina-primary-900">
-                      {member.role === "owner" ? "Vlastník" : "Člen"}
-                    </td>
-                    <td className="px-4 py-3 text-neutral-500">
-                      {formatCzechDate(member.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <MemberActions
-                        organizationId={org.id}
-                        userId={member.userId}
-                        displayName={member.name ?? member.email ?? member.userId}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <OrganizationMembersTable
+          members={org.members}
+          renderActions={(member) => (
+            <MemberActions
+              organizationId={org.id}
+              userId={member.userId}
+              displayName={member.name ?? member.email ?? member.userId}
+            />
+          )}
+        />
       </div>
     </div>
   );

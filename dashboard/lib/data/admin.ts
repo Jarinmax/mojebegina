@@ -12,7 +12,7 @@ import { db } from "@/lib/db/client";
 import { organizations, organizationMemberships } from "@/lib/db/schema";
 import { auth } from "@/lib/auth/server";
 import { getAuthContext } from "./authContext";
-import { requireAdmin } from "./adminAuth";
+import { requireAdmin, requireAdminOrExecutive } from "./adminAuth";
 import { validateCreateCustomerInput, type CreateCustomerInput } from "./createCustomerValidation";
 import {
   validateAddMemberInput,
@@ -27,6 +27,16 @@ export async function requireAdminContext(): Promise<NonNullable<AuthContext>> {
   return requireAdmin(ctx);
 }
 
+// Security Phase 7 (Executive 1.0) — brána pro čtecí funkce sdílené mezi
+// /admin a /executive (listOrganizations, getOrganizationDetail). EXECUTIVE
+// má cross-organizační READ, žádné WRITE — všechny mutace níže zůstávají
+// výhradně na requireAdminContext/requireAdmin, tahle funkce se v nich
+// nikde nepoužívá.
+export async function requireAdminOrExecutiveContext(): Promise<NonNullable<AuthContext>> {
+  const ctx = await getAuthContext();
+  return requireAdminOrExecutive(ctx);
+}
+
 export type OrganizationSummary = {
   id: string;
   name: string;
@@ -36,7 +46,7 @@ export type OrganizationSummary = {
 };
 
 export async function listOrganizations(): Promise<OrganizationSummary[]> {
-  await requireAdminContext();
+  await requireAdminOrExecutiveContext();
 
   return db
     .select({
@@ -116,7 +126,7 @@ async function getAuthUsersByIds(
 export async function getOrganizationDetail(
   organizationId: string
 ): Promise<OrganizationDetail | null> {
-  await requireAdminContext();
+  await requireAdminOrExecutiveContext();
 
   const [org] = await db
     .select({

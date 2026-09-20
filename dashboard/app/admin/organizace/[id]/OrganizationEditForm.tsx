@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
+import OrganizationSummaryView from "@/components/organization/OrganizationSummaryView";
 import { updateOrganizationAction, type ActionState } from "./actions";
 
 type Props = {
@@ -42,29 +43,20 @@ export default function OrganizationEditForm({
         {state && "success" in state && (
           <p className="text-sm text-begina-primary-900 mb-3">{state.success}</p>
         )}
-        <div className="flex items-start justify-between mb-3">
-          <dl className="grid grid-cols-2 gap-4 text-sm flex-1">
-            <div>
-              <dt className="text-xs text-neutral-500 mb-0.5">IČO</dt>
-              <dd className="text-begina-primary-900">{ico}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-neutral-500 mb-0.5">Status</dt>
-              <dd className="text-begina-primary-900">{status ?? "Neuvedeno"}</dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="text-xs text-neutral-500 mb-0.5">Sídlo</dt>
-              <dd className="text-begina-primary-900">{registeredAddress}</dd>
-            </div>
-          </dl>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-sm font-medium text-begina-primary-900 hover:underline shrink-0 ml-4"
-          >
-            Upravit
-          </button>
-        </div>
+        <OrganizationSummaryView
+          ico={ico}
+          registeredAddress={registeredAddress}
+          status={status}
+          editAction={
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-sm font-medium text-begina-primary-900 hover:underline shrink-0 ml-4"
+            >
+              Upravit
+            </button>
+          }
+        />
       </div>
     );
   }
