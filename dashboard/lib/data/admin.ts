@@ -64,23 +64,49 @@ export type OrganizationDetail = OrganizationSummary & {
 };
 
 // Security Phase 6 — jméno/e-mail nejsou v naší DB (organization_memberships
-// drží jen userId), pocházejí z Neon Auth. Pro každého člena zvlášť přes
-// `admin.getUser` (ne přes `listUsers` s "in" filtrem — ten jde přes GET
-// query string a serializaci pole jsme si nikde neověřili; jednotlivé
-// `getUser` volání odpovídají přesně zdokumentovanému `{id}` parametru).
-// Organizace mívají málo členů, takže N paralelních volání není problém.
+// drží jen userId), pocházejí z Neon Auth. `admin.getUser` v runtime
+// @neondatabase/auth NEEXISTUJE (TypeScript typy ho slibovaly z vnitřní
+// závislosti na plné better-auth knihovně, ale ověřeno přímo v běžícím
+// kódu na Preview — "auth.admin.getUser is not a function"). Skutečně
+// implementovaná sada je užší — používáme `listUsers` s filtrem na
+// jednotlivé id, po jednom volání na člena (organizace mívají málo
+// členů, N paralelních volání není problém).
+async function getAuthUserById(
+  userId: string
+): Promise<{ name: string | null; email: string } | null> {
+  const { data, error } = await auth.admin.listUsers({
+    query: {
+      filterField: "id",
+      filterOperator: "eq",
+      filterValue: userId,
+      limit: 1,
+    },
+  });
+
+  if (error || !data) {
+    return null;
+  }
+
+  const user = data.users[0];
+  if (!user) {
+    return null;
+  }
+
+  return { name: user.name ?? null, email: user.email };
+}
+
 async function getAuthUsersByIds(
   userIds: string[]
 ): Promise<Map<string, { name: string | null; email: string }>> {
   const map = new Map<string, { name: string | null; email: string }>();
 
   const results = await Promise.all(
-    userIds.map((id) => auth.admin.getUser({ query: { id } }).catch(() => null))
+    userIds.map((id) => getAuthUserById(id).catch(() => null))
   );
 
   results.forEach((result, i) => {
-    if (result && !result.error && result.data) {
-      map.set(userIds[i], { name: result.data.name ?? null, email: result.data.email });
+    if (result) {
+      map.set(userIds[i], result);
     }
   });
 
@@ -439,8 +465,8 @@ export type ResendActivationResult = { ok: true } | { ok: false; error: string }
 export async function resendActivationLink(userId: string): Promise<ResendActivationResult> {
   await requireAdminContext();
 
-  const { data: user, error } = await auth.admin.getUser({ query: { id: userId } });
-  if (error || !user) {
+  const user = await getAuthUserById(userId);
+  if (!user) {
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }
 
