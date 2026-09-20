@@ -1,0 +1,126 @@
+import { companyOverview } from "@/lib/content/companyOverview";
+import { formatCzechDate } from "@/lib/format";
+import CompanyMap from "@/components/company-overview/CompanyMap";
+import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
+import FlowSteps from "@/components/company-overview/FlowSteps";
+
+// Security Phase 8 — obsahová stránka "Řízení firmy". Autorizace (ADMIN
+// nebo EXECUTIVE) řeší výhradně app/rizeni-firmy/layout.tsx nad touhle
+// stránkou — sem samotná stránka žádnou kontrolu nepřidává, protože žádná
+// data odtud nečte (obsah je statický, viz lib/content/companyOverview.ts).
+// NENÍ to editace organizace ani CRM — jen manažerská mapa firmy.
+export const dynamic = "force-dynamic";
+
+export default function CompanyOverviewPage() {
+  const content = companyOverview;
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h1 className="text-lg font-medium text-begina-primary-900">Řízení firmy</h1>
+        <p className="text-sm text-neutral-500 mt-0.5">
+          Struktura, strategie a systém řízení Beginy
+        </p>
+        <p className="text-xs text-neutral-400 mt-1">
+          Aktualizováno: {formatCzechDate(content.lastUpdated)}
+        </p>
+      </div>
+
+      <CompanyMap
+        mapAreas={content.mapAreas}
+        mainFlow={content.mainFlow}
+        mapNotes={content.mapNotes}
+      />
+
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Jak Begina funguje</h2>
+        <div className="flex flex-col gap-2">
+          {content.areas.map((area) => (
+            <CompanyAreaAccordion key={area.id} area={area} />
+          ))}
+        </div>
+      </div>
+
+      <section className="bg-white border border-neutral-200 rounded-xl p-4 mb-6">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-3">AI a automatizace</h2>
+        <p className="text-sm text-neutral-600 mb-3">{content.aiAutomation.principle}</p>
+
+        <div className="mb-3">
+          <p className="text-xs text-neutral-500 mb-1">Rozdělení podle typu práce</p>
+          <ul className="text-sm text-neutral-600 space-y-1">
+            {content.aiAutomation.modelAssignments.map((m) => (
+              <li key={m.area}>
+                <span className="font-medium text-begina-primary-900">{m.area}:</span> {m.model}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {content.aiAutomation.toReview.length > 0 && (
+          <div className="mb-3">
+            <p className="text-xs text-neutral-500 mb-1">K dalšímu prověření</p>
+            <ul className="text-sm text-neutral-600 list-disc list-inside">
+              {content.aiAutomation.toReview.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mb-3">
+          <p className="text-xs text-neutral-500 mb-1">Budoucí specializovaní agenti</p>
+          <FlowSteps steps={content.aiAutomation.futureAgents} />
+        </div>
+
+        <div className="mb-3">
+          <p className="text-xs text-neutral-500 mb-1">Každý agent musí mít definované</p>
+          <ul className="text-sm text-neutral-600 list-disc list-inside">
+            {content.aiAutomation.agentRequirements.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-sm font-medium text-begina-primary-900 bg-begina-primary-50 border border-begina-primary-200 rounded-lg px-3 py-2">
+          {content.aiAutomation.guardrail}
+        </p>
+      </section>
+
+      <section className="bg-white border border-neutral-200 rounded-xl p-4 mb-6">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Dokumentace</h2>
+        <p className="text-sm font-medium text-begina-primary-900 mb-1">
+          {content.documentation.principle}
+        </p>
+        <p className="text-sm text-neutral-600">{content.documentation.description}</p>
+      </section>
+
+      <section className="bg-white border border-neutral-200 rounded-xl p-4 mb-6">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-3">
+          Závěry strategické schůzky
+        </h2>
+        <ul className="text-sm text-neutral-600 list-disc list-inside grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mb-4">
+          {content.meetingConclusions.topics.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+        <blockquote className="border-l-4 border-begina-accent-300 pl-3 text-sm text-neutral-600">
+          <p className="text-xs font-medium text-neutral-400 mb-1">
+            {content.meetingConclusions.originalNote.label}
+          </p>
+          <p className="italic">“{content.meetingConclusions.originalNote.text}”</p>
+        </blockquote>
+      </section>
+
+      <section className="bg-white border border-neutral-200 rounded-xl p-4 mb-6">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
+          Původní rozhodnutí a úkoly
+        </h2>
+        <ul className="text-sm text-neutral-600 list-disc list-inside space-y-1">
+          {content.originalDecisions.map((d) => (
+            <li key={d}>{d}</li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}

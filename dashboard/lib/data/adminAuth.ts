@@ -33,6 +33,16 @@ export function isExecutive(ctx: AuthContext): boolean {
   return ctx?.systemRole === "EXECUTIVE";
 }
 
+// Security Phase 8 (Řízení firmy) — sdílený routing predikát pro
+// app/rizeni-firmy/layout.tsx. Stránka je dostupná OBĚMA rolím vedení
+// (ADMIN i EXECUTIVE) najednou, na rozdíl od isAdmin/isExecutive výše,
+// které jednotlivé role striktně oddělují pro /admin a /executive — tohle
+// pravidlo pro ně tedy zůstává beze změny, "Řízení firmy" je záměrně
+// samostatná, širší brána.
+export function isAdminOrExecutive(ctx: AuthContext): boolean {
+  return isAdmin(ctx) || isExecutive(ctx);
+}
+
 // EXECUTIVE má cross-organizační READ (viz requireOrgAccess v authz.ts pro
 // zákaznická data) — tahle funkce je jeho obdoba pro admin datovou vrstvu,
 // ale POUZE pro čtecí funkce (listOrganizations, getOrganizationDetail).

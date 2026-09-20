@@ -1,5 +1,6 @@
 import { listOrganizations } from "@/lib/data/admin";
 import OrganizationsTable from "@/components/organization/OrganizationsTable";
+import CompanyOverviewCard from "@/components/company-overview/CompanyOverviewCard";
 
 // Security Phase 7 (Executive 1.0) — read-only obdoba app/admin/page.tsx.
 // Žádné tlačítko "Nový zákazník", žádná mutace — listOrganizations je
@@ -12,6 +13,8 @@ export default async function ExecutiveOrganizationsPage() {
 
   return (
     <div>
+      <CompanyOverviewCard />
+
       <div className="mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Organizace</h1>
         <p className="text-sm text-neutral-500 mt-0.5">

@@ -1,7 +1,13 @@
 // Security Phase 1.1B — testy autorizačního jádra Begina Adminu.
 // Syntetická data, žádná reálná organizace ani zákazník.
 import { describe, expect, it } from "vitest";
-import { isAdmin, isExecutive, requireAdmin, requireAdminOrExecutive } from "../adminAuth";
+import {
+  isAdmin,
+  isAdminOrExecutive,
+  isExecutive,
+  requireAdmin,
+  requireAdminOrExecutive,
+} from "../adminAuth";
 import { ForbiddenError, UnauthenticatedError } from "../errors";
 import type { AuthContext } from "../types";
 
@@ -101,5 +107,27 @@ describe("isAdmin / isExecutive — čisté predikáty pro routing guardy", () =
 
   it("CUSTOMER nesmí na /executive", () => {
     expect(isExecutive(customer)).toBe(false);
+  });
+});
+
+describe("isAdminOrExecutive — Security Phase 8 (Řízení firmy)", () => {
+  it("ADMIN → Řízení firmy může zobrazit", () => {
+    expect(isAdminOrExecutive(admin)).toBe(true);
+  });
+
+  it("EXECUTIVE → Řízení firmy může zobrazit", () => {
+    expect(isAdminOrExecutive(executive)).toBe(true);
+  });
+
+  it("CUSTOMER → přístup zamítnut", () => {
+    expect(isAdminOrExecutive(customer)).toBe(false);
+  });
+
+  it("EMPLOYEE → přístup zamítnut", () => {
+    expect(isAdminOrExecutive(employee)).toBe(false);
+  });
+
+  it("nepřihlášený (anonymous) → přístup zamítnut", () => {
+    expect(isAdminOrExecutive(null)).toBe(false);
   });
 });

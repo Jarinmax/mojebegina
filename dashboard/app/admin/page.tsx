@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listOrganizations } from "@/lib/data/admin";
 import OrganizationsTable from "@/components/organization/OrganizationsTable";
+import CompanyOverviewCard from "@/components/company-overview/CompanyOverviewCard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export default async function AdminOrganizationsPage() {
 
   return (
     <div>
+      <CompanyOverviewCard />
+
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-medium text-begina-primary-900">Organizace</h1>
