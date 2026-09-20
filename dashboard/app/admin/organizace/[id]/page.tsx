@@ -13,6 +13,7 @@ export default async function AdminOrganizationDetailPage(
   props: PageProps<"/admin/organizace/[id]">
 ) {
   const { id } = await props.params;
+  const searchParams = await props.searchParams;
 
   if (!UUID_RE.test(id)) {
     notFound();
@@ -23,11 +24,28 @@ export default async function AdminOrganizationDetailPage(
     notFound();
   }
 
+  const justCreated = searchParams?.vytvoreno === "1";
+  const emailFailed = justCreated && searchParams?.email === "0";
+
   return (
     <div>
       <Link href="/admin" className="text-sm text-neutral-500 hover:text-begina-primary-900">
         ← Organizace
       </Link>
+
+      {justCreated && (
+        <div
+          className={`mt-3 rounded-xl border p-3 text-sm ${
+            emailFailed
+              ? "bg-begina-accent-50 border-begina-accent-200 text-begina-accent-900"
+              : "bg-begina-primary-50 border-begina-primary-200 text-begina-primary-900"
+          }`}
+        >
+          {emailFailed
+            ? "Organizace i uživatel byli založeni, ale aktivační e-mail se nepodařilo odeslat. Zkuste ho poslat znovu."
+            : "Organizace je založena a kontaktní osobě byl odeslán e-mail s odkazem na nastavení hesla."}
+        </div>
+      )}
 
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">{org.name}</h1>
