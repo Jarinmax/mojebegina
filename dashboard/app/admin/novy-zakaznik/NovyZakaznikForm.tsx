@@ -9,7 +9,15 @@ export default function NovyZakaznikForm() {
   const [state, formAction, pending] = useActionState(createCustomerAction, initialState);
 
   return (
-    <form action={formAction} className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-4">
+    <form
+      action={formAction}
+      // autoComplete="off" na formuláři + na každém poli: brání Chromu
+      // dosazovat uložené osobní/firemní údaje admina do formuláře pro
+      // CIZÍ firmu (viděli jsme na Preview, že to bez toho udělá). Pole
+      // zůstávají plně přístupná — jen nenabízí prohlížečovy návrhy.
+      autoComplete="off"
+      className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-4"
+    >
       <div>
         <label htmlFor="name" className="text-xs text-neutral-500 mb-1 block">
           Název firmy
@@ -18,6 +26,7 @@ export default function NovyZakaznikForm() {
           id="name"
           name="name"
           type="text"
+          autoComplete="off"
           required
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
@@ -34,6 +43,7 @@ export default function NovyZakaznikForm() {
           inputMode="numeric"
           pattern="[0-9]{8}"
           maxLength={8}
+          autoComplete="off"
           required
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
@@ -47,6 +57,7 @@ export default function NovyZakaznikForm() {
           id="registeredAddress"
           name="registeredAddress"
           type="text"
+          autoComplete="off"
           required
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
@@ -60,6 +71,7 @@ export default function NovyZakaznikForm() {
           id="contactName"
           name="contactName"
           type="text"
+          autoComplete="off"
           required
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
@@ -73,6 +85,7 @@ export default function NovyZakaznikForm() {
           id="contactEmail"
           name="contactEmail"
           type="email"
+          autoComplete="off"
           required
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />

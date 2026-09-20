@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Header from "@/components/Header";
 import DecorativeMark from "@/components/DecorativeMark";
 import MembershipCard from "@/components/MembershipCard";
@@ -23,6 +24,15 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { ctx, organizationId } = await requireCustomerContext();
+
+  // Security Phase 5 UX fix — role-aware redirect po loginu. `ctx.systemRole`
+  // pochází ze server-side session (viz getAuthContext), nikdy od klienta,
+  // takže se nedá obejít změnou URL nebo requestu. ADMIN nemá organizaci, a
+  // dřívější zobrazení "Váš účet není přiřazený" na "/" bylo pro admina jen
+  // matoucí — patří na /admin. CUSTOMER (Veronika) se tímhle nemění.
+  if (ctx.systemRole === "ADMIN") {
+    redirect("/admin");
+  }
 
   if (!organizationId) {
     return (
