@@ -7,13 +7,19 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import { headers } from "next/headers";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { organizations, organizationMemberships } from "@/lib/db/schema";
 import { auth } from "@/lib/auth/server";
 import { getAuthContext } from "./authContext";
 import { requireAdmin } from "./adminAuth";
 import { validateCreateCustomerInput, type CreateCustomerInput } from "./createCustomerValidation";
+import {
+  validateAddMemberInput,
+  validateUpdateOrganizationInput,
+  type AddMemberInput,
+  type UpdateOrganizationInput,
+} from "./organizationAdminValidation";
 import type { AuthContext } from "./types";
 
 export async function requireAdminContext(): Promise<NonNullable<AuthContext>> {
@@ -48,12 +54,38 @@ export type OrganizationMember = {
   userId: string;
   role: "owner" | "member";
   createdAt: Date;
+  name: string | null;
+  email: string | null;
 };
 
 export type OrganizationDetail = OrganizationSummary & {
   registeredAddress: string;
   members: OrganizationMember[];
 };
+
+// Security Phase 6 — jméno/e-mail nejsou v naší DB (organization_memberships
+// drží jen userId), pocházejí z Neon Auth. Pro každého člena zvlášť přes
+// `admin.getUser` (ne přes `listUsers` s "in" filtrem — ten jde přes GET
+// query string a serializaci pole jsme si nikde neověřili; jednotlivé
+// `getUser` volání odpovídají přesně zdokumentovanému `{id}` parametru).
+// Organizace mívají málo členů, takže N paralelních volání není problém.
+async function getAuthUsersByIds(
+  userIds: string[]
+): Promise<Map<string, { name: string | null; email: string }>> {
+  const map = new Map<string, { name: string | null; email: string }>();
+
+  const results = await Promise.all(
+    userIds.map((id) => auth.admin.getUser({ query: { id } }).catch(() => null))
+  );
+
+  results.forEach((result, i) => {
+    if (result && !result.error && result.data) {
+      map.set(userIds[i], { name: result.data.name ?? null, email: result.data.email });
+    }
+  });
+
+  return map;
+}
 
 export async function getOrganizationDetail(
   organizationId: string
@@ -77,7 +109,7 @@ export async function getOrganizationDetail(
     return null;
   }
 
-  const members = await db
+  const memberships = await db
     .select({
       userId: organizationMemberships.userId,
       role: organizationMemberships.role,
@@ -87,9 +119,19 @@ export async function getOrganizationDetail(
     .where(eq(organizationMemberships.organizationId, organizationId))
     .orderBy(asc(organizationMemberships.createdAt));
 
+  const authUsers = await getAuthUsersByIds(memberships.map((m) => m.userId));
+
   return {
     ...org,
-    members: members.map((m) => ({ ...m, role: m.role as OrganizationMember["role"] })),
+    members: memberships.map((m) => {
+      const authUser = authUsers.get(m.userId);
+      return {
+        ...m,
+        role: m.role as OrganizationMember["role"],
+        name: authUser?.name ?? null,
+        email: authUser?.email ?? null,
+      };
+    }),
   };
 }
 
@@ -211,4 +253,209 @@ export async function createCustomerOrganization(
   }
 
   return { ok: true, organizationId, emailSent };
+}
+
+// Security Phase 6 — správa existující organizace (editace, přidání/
+// odebrání uživatele, opětovné odeslání aktivačního odkazu). Validace
+// vstupu je stejně jako u Fáze 5 v samostatném souboru bez "server-only"
+// (organizationAdminValidation.ts), aby šla testovat.
+
+export type UpdateOrganizationResult = { ok: true } | { ok: false; error: string };
+
+// IČO je editovatelné (ADMIN musí umět opravit chybu vzniklou při
+// založení) se stejnou validací tvaru jako createCustomerOrganization.
+// Ověření proti ARES je samostatná, pozdější fáze.
+export async function updateOrganization(
+  organizationId: string,
+  rawInput: UpdateOrganizationInput
+): Promise<UpdateOrganizationResult> {
+  await requireAdminContext();
+
+  const validated = validateUpdateOrganizationInput(rawInput);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+  const input = validated.value;
+
+  try {
+    await db
+      .update(organizations)
+      .set({
+        name: input.name,
+        ico: input.ico,
+        registeredAddress: input.registeredAddress,
+        status: input.status,
+      })
+      .where(eq(organizations.id, organizationId));
+  } catch (dbError) {
+    const message = String(dbError instanceof Error ? dbError.message : dbError).toLowerCase();
+    if (message.includes("ico")) {
+      return { ok: false, error: "Organizace s tímto IČO už existuje." };
+    }
+    return { ok: false, error: "Nepodařilo se uložit změny. Zkuste to prosím znovu." };
+  }
+
+  return { ok: true };
+}
+
+export type AddMemberResult =
+  | { ok: true; created: boolean; emailSent: boolean }
+  | { ok: false; error: string };
+
+// Nikdy nevytváří druhou identitu pro e-mail, který v Neon Auth už
+// existuje — nejdřív vždy hledá podle e-mailu, teprve když nenajde nic,
+// založí nový (bezheslový) účet stejnou cestou jako Fáze 5. Existujícímu
+// uživateli se jen přidá membership, žádný reset-hesla e-mail (heslo už
+// má — nový membership není důvod ho měnit).
+export async function addOrganizationMember(
+  organizationId: string,
+  rawInput: AddMemberInput
+): Promise<AddMemberResult> {
+  await requireAdminContext();
+
+  const validated = validateAddMemberInput(rawInput);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+  const input = validated.value;
+
+  const { data: existingUsers, error: lookupError } = await auth.admin.listUsers({
+    query: {
+      filterField: "email",
+      filterOperator: "eq",
+      filterValue: input.email,
+      limit: 1,
+    },
+  });
+
+  if (lookupError) {
+    return { ok: false, error: "Nepodařilo se ověřit e-mail. Zkuste to prosím znovu." };
+  }
+
+  const existing = existingUsers?.users?.[0];
+  let userId: string;
+  let created = false;
+
+  if (existing) {
+    userId = existing.id;
+  } else {
+    const { data: createdUser, error: createUserError } = await auth.admin.createUser({
+      email: input.email,
+      name: input.name,
+    });
+    if (createUserError || !createdUser) {
+      return { ok: false, error: "Nepodařilo se založit uživatelský účet. Zkuste to prosím znovu." };
+    }
+    userId = createdUser.user.id;
+    created = true;
+  }
+
+  try {
+    await db.insert(organizationMemberships).values({
+      userId,
+      organizationId,
+      role: input.role,
+    });
+  } catch (dbError) {
+    if (created) {
+      // Best-effort úklid — nový auth účet vznikl jen kvůli tomuhle
+      // membershipu, který se teď nepodařilo zapsat.
+      try {
+        await auth.admin.removeUser({ userId });
+      } catch {
+        return {
+          ok: false,
+          error: `Nepodařilo se přidat člena a automatický úklid uživatelského účtu (${input.email}) selhal — smažte ho prosím ručně v Neon Console.`,
+        };
+      }
+    }
+    const message = String(dbError instanceof Error ? dbError.message : dbError).toLowerCase();
+    if (message.includes("org_membership_user_org_idx") || message.includes("duplicate")) {
+      return { ok: false, error: "Tento uživatel už je členem této organizace." };
+    }
+    return { ok: false, error: "Nepodařilo se přidat člena. Zkuste to prosím znovu." };
+  }
+
+  let emailSent = true;
+  if (created) {
+    try {
+      const origin = await getAppOrigin();
+      const { error: resetError } = await auth.requestPasswordReset({
+        email: input.email,
+        redirectTo: `${origin}/nastavit-heslo`,
+      });
+      if (resetError) {
+        emailSent = false;
+      }
+    } catch {
+      emailSent = false;
+    }
+  }
+
+  return { ok: true, created, emailSent };
+}
+
+export type RemoveMemberResult = { ok: true } | { ok: false; error: string };
+
+// Odebrání přístupu maže JEN organization_memberships řádek — nikdy
+// auth.admin.removeUser. Ten by smazal globální Neon Auth účet napříč
+// celou appkou, i kdyby měl uživatel přístup i k jiné organizaci.
+// Pojistka proti odebrání posledního člena je UX/byznys ochrana (aby
+// organizace nezůstala bez jediného přístupu), ne vlastnost datového
+// modelu — do budoucna klidně měnitelná/odstranitelná.
+export async function removeOrganizationMember(
+  organizationId: string,
+  userId: string
+): Promise<RemoveMemberResult> {
+  await requireAdminContext();
+
+  const remaining = await db
+    .select({ userId: organizationMemberships.userId })
+    .from(organizationMemberships)
+    .where(eq(organizationMemberships.organizationId, organizationId));
+
+  if (remaining.length <= 1) {
+    return { ok: false, error: "Nelze odebrat posledního člena organizace." };
+  }
+
+  await db
+    .delete(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.organizationId, organizationId),
+        eq(organizationMemberships.userId, userId)
+      )
+    );
+
+  return { ok: true };
+}
+
+export type ResendActivationResult = { ok: true } | { ok: false; error: string };
+
+// Stejný mechanismus jako aktivační e-mail ve Fázi 5 — better-auth
+// nerozlišuje "první nastavení hesla" od "zapomenuté heslo", takže tohle
+// pokrývá obojí (nový uživatel, co ztratil aktivační e-mail, i stávající,
+// co zapomněl heslo).
+export async function resendActivationLink(userId: string): Promise<ResendActivationResult> {
+  await requireAdminContext();
+
+  const { data: user, error } = await auth.admin.getUser({ query: { id: userId } });
+  if (error || !user) {
+    return { ok: false, error: "Uživatele se nepodařilo najít." };
+  }
+
+  try {
+    const origin = await getAppOrigin();
+    const { error: resetError } = await auth.requestPasswordReset({
+      email: user.email,
+      redirectTo: `${origin}/nastavit-heslo`,
+    });
+    if (resetError) {
+      return { ok: false, error: "Nepodařilo se odeslat e-mail. Zkuste to prosím znovu." };
+    }
+  } catch {
+    return { ok: false, error: "Nepodařilo se odeslat e-mail. Zkuste to prosím znovu." };
+  }
+
+  return { ok: true };
 }

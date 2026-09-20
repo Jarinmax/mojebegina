@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrganizationDetail } from "@/lib/data/admin";
 import { formatCzechDate } from "@/lib/format";
+import OrganizationEditForm from "./OrganizationEditForm";
+import AddMemberForm from "./AddMemberForm";
+import MemberActions from "./MemberActions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,30 +52,26 @@ export default async function AdminOrganizationDetailPage(
 
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">{org.name}</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">IČO {org.ico}</p>
+        <p className="text-sm text-neutral-500 mt-0.5">
+          Založeno {formatCzechDate(org.createdAt)}
+        </p>
       </div>
 
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-5">
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-xs text-neutral-500 mb-0.5">Sídlo</dt>
-            <dd className="text-begina-primary-900">{org.registeredAddress}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-neutral-500 mb-0.5">Status</dt>
-            <dd className="text-begina-primary-900">{org.status ?? "Neuvedeno"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-neutral-500 mb-0.5">Založeno</dt>
-            <dd className="text-begina-primary-900">{formatCzechDate(org.createdAt)}</dd>
-          </div>
-        </dl>
-      </div>
+      <OrganizationEditForm
+        organizationId={org.id}
+        name={org.name}
+        ico={org.ico}
+        registeredAddress={org.registeredAddress}
+        status={org.status}
+      />
 
       <div>
-        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
-          Uživatelé ({org.members.length})
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">
+            Uživatelé ({org.members.length})
+          </h2>
+          <AddMemberForm organizationId={org.id} />
+        </div>
         {org.members.length === 0 ? (
           <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
             Organizace zatím nemá žádného uživatele.
@@ -82,22 +81,34 @@ export default async function AdminOrganizationDetailPage(
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
-                  <th className="px-4 py-3 font-medium">User ID</th>
+                  <th className="px-4 py-3 font-medium">Jméno</th>
+                  <th className="px-4 py-3 font-medium">E-mail</th>
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Členem od</th>
+                  <th className="px-4 py-3 font-medium">Akce</th>
                 </tr>
               </thead>
               <tbody>
                 {org.members.map((member) => (
                   <tr key={member.userId} className="border-b border-neutral-100 last:border-0">
-                    <td className="px-4 py-3 text-neutral-600 font-mono text-xs">
-                      {member.userId}
+                    <td className="px-4 py-3 text-begina-primary-900">
+                      {member.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-neutral-600">
+                      {member.email ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-begina-primary-900">
                       {member.role === "owner" ? "Vlastník" : "Člen"}
                     </td>
                     <td className="px-4 py-3 text-neutral-500">
                       {formatCzechDate(member.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <MemberActions
+                        organizationId={org.id}
+                        userId={member.userId}
+                        displayName={member.name ?? member.email ?? member.userId}
+                      />
                     </td>
                   </tr>
                 ))}
