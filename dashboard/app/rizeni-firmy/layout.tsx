@@ -20,6 +20,10 @@ export default async function CompanyOverviewLayout({
   if (!ctx) {
     redirect("/login");
   }
+  // Security Phase 9 — viz app/admin/layout.tsx, stejný princip.
+  if (ctx.roleSelectionRequired) {
+    redirect("/vyber-roli");
+  }
   if (!isAdminOrExecutive(ctx)) {
     redirect("/");
   }
@@ -28,7 +32,12 @@ export default async function CompanyOverviewLayout({
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <CompanyOverviewHeader name={ctx.name} email={ctx.email} backHref={backHref} />
+      <CompanyOverviewHeader
+        name={ctx.name}
+        email={ctx.email}
+        backHref={backHref}
+        showRoleSwitch={ctx.grantedRoles.length > 1}
+      />
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
     </div>
   );

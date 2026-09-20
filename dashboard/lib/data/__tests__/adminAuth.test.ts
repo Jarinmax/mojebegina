@@ -14,26 +14,55 @@ import type { AuthContext } from "../types";
 const admin: AuthContext = {
   userId: "user-admin",
   systemRole: "ADMIN",
+  grantedRoles: ["ADMIN"],
+  roleSelectionRequired: false,
   name: "Test Admin",
   email: "admin@example.test",
 };
 const customer: AuthContext = {
   userId: "user-customer",
   systemRole: "CUSTOMER",
+  grantedRoles: ["CUSTOMER"],
+  roleSelectionRequired: false,
   name: "Test Customer",
   email: "customer@example.test",
 };
 const executive: AuthContext = {
   userId: "user-exec",
   systemRole: "EXECUTIVE",
+  grantedRoles: ["EXECUTIVE"],
+  roleSelectionRequired: false,
   name: "Test Executive",
   email: "executive@example.test",
 };
 const employee: AuthContext = {
   userId: "user-employee",
   systemRole: "EMPLOYEE",
+  grantedRoles: ["EMPLOYEE"],
+  roleSelectionRequired: false,
   name: "Test Employee",
   email: "employee@example.test",
+};
+// Security Phase 9 — Jiří Střelec: jeden Neon Auth účet, dvě granted role.
+// systemRole je AKTIVNÍ role pro daný request (viz lib/data/activeRole.ts)
+// — isAdmin/isExecutive/isAdminOrExecutive se dívají jen na ni, nikdy na
+// grantedRoles, takže "mít EXECUTIVE navíc" nesmí nijak rozšířit, co dovolí
+// customerExecutiveAsCustomer níž.
+const customerExecutiveAsCustomer: AuthContext = {
+  userId: "user-multi",
+  systemRole: "CUSTOMER",
+  grantedRoles: ["CUSTOMER", "EXECUTIVE"],
+  roleSelectionRequired: false,
+  name: "Jiří Střelec",
+  email: "jstrelec@example.test",
+};
+const customerExecutiveAsExecutive: AuthContext = {
+  userId: "user-multi",
+  systemRole: "EXECUTIVE",
+  grantedRoles: ["CUSTOMER", "EXECUTIVE"],
+  roleSelectionRequired: false,
+  name: "Jiří Střelec",
+  email: "jstrelec@example.test",
 };
 
 describe("requireAdmin — Security Phase 1.1B", () => {
@@ -129,5 +158,28 @@ describe("isAdminOrExecutive — Security Phase 8 (Řízení firmy)", () => {
 
   it("nepřihlášený (anonymous) → přístup zamítnut", () => {
     expect(isAdminOrExecutive(null)).toBe(false);
+  });
+});
+
+describe("Security Phase 9 — CUSTOMER + EXECUTIVE na jednom účtu (routing predikáty)", () => {
+  it("aktivní role CUSTOMER (i s EXECUTIVE v grantedRoles) nemá přístup do /executive", () => {
+    expect(isExecutive(customerExecutiveAsCustomer)).toBe(false);
+  });
+
+  it("aktivní role CUSTOMER nemá přístup do /admin", () => {
+    expect(isAdmin(customerExecutiveAsCustomer)).toBe(false);
+  });
+
+  it("aktivní role EXECUTIVE nemá přístup do /admin", () => {
+    expect(isAdmin(customerExecutiveAsExecutive)).toBe(false);
+  });
+
+  it("aktivní role EXECUTIVE má přístup do /executive", () => {
+    expect(isExecutive(customerExecutiveAsExecutive)).toBe(true);
+  });
+
+  it("obě aktivní role mají přístup do Řízení firmy (ADMIN nebo EXECUTIVE)", () => {
+    expect(isAdminOrExecutive(customerExecutiveAsExecutive)).toBe(true);
+    expect(isAdminOrExecutive(customerExecutiveAsCustomer)).toBe(false);
   });
 });

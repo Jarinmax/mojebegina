@@ -20,13 +20,21 @@ export default async function ExecutiveLayout({
   if (!ctx) {
     redirect("/login");
   }
+  // Security Phase 9 — viz app/admin/layout.tsx, stejný princip.
+  if (ctx.roleSelectionRequired) {
+    redirect("/vyber-roli");
+  }
   if (!isExecutive(ctx)) {
     redirect("/");
   }
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <ExecutiveHeader name={ctx.name} email={ctx.email} />
+      <ExecutiveHeader
+        name={ctx.name}
+        email={ctx.email}
+        showRoleSwitch={ctx.grantedRoles.length > 1}
+      />
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
     </div>
   );

@@ -35,6 +35,13 @@ export async function requireCustomerContext(): Promise<CustomerContext> {
     redirect("/login");
   }
 
+  // Security Phase 9 — uživatel s víc rolemi a bez platné volby aktivní
+  // role musí nejdřív zvolit, ne dostat "nejlepší odhad" bez zeptání (viz
+  // ctx.roleSelectionRequired v lib/data/authContext.ts).
+  if (ctx.roleSelectionRequired) {
+    redirect("/vyber-roli");
+  }
+
   const organizationId = await getMyOrganizationId(ctx);
   return { ctx, organizationId };
 }

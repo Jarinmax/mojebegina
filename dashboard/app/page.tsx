@@ -46,7 +46,7 @@ export default async function Page() {
       <div className="min-h-screen bg-neutral-50 relative overflow-hidden">
         <DecorativeMark />
         <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
-          <Header initials="?" unreadCount={0} />
+          <Header initials="?" unreadCount={0} showRoleSwitch={ctx.grantedRoles.length > 1} />
           <NoOrganizationNotice />
         </div>
         <BottomNav items={bottomNavItems} activeHref="/" />
@@ -86,6 +86,7 @@ export default async function Page() {
         <Header
           initials={customerAccount.initials}
           unreadCount={unreadCount}
+          showRoleSwitch={ctx.grantedRoles.length > 1}
         />
         <MembershipCard
           name={customerAccount.companyName}

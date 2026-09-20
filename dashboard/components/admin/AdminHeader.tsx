@@ -1,14 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import logoMark from "@/public/logo-begina-mark.png";
+import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
 import AdminSignOutButton from "./AdminSignOutButton";
 
 type AdminHeaderProps = {
   name: string | null;
   email: string;
+  showRoleSwitch?: boolean;
 };
 
-export default function AdminHeader({ name, email }: AdminHeaderProps) {
+export default function AdminHeader({ name, email, showRoleSwitch = false }: AdminHeaderProps) {
   return (
     <header className="bg-white border-b border-neutral-200">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -18,6 +20,7 @@ export default function AdminHeader({ name, email }: AdminHeaderProps) {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-neutral-500 hidden sm:inline">{name ?? email}</span>
+          <SwitchRoleLink visible={showRoleSwitch} />
           <AdminSignOutButton />
         </div>
       </div>

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import logoMark from "@/public/logo-begina-mark.png";
 import AdminSignOutButton from "@/components/admin/AdminSignOutButton";
+import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
 
 // Security Phase 8 — strukturálně stejný jako AdminHeader/ExecutiveHeader,
 // jen s odkazem zpátky na dashboard té role, ze které uživatel přišel
@@ -12,9 +13,15 @@ type Props = {
   name: string | null;
   email: string;
   backHref: string;
+  showRoleSwitch?: boolean;
 };
 
-export default function CompanyOverviewHeader({ name, email, backHref }: Props) {
+export default function CompanyOverviewHeader({
+  name,
+  email,
+  backHref,
+  showRoleSwitch = false,
+}: Props) {
   return (
     <header className="bg-white border-b border-neutral-200">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -24,6 +31,7 @@ export default function CompanyOverviewHeader({ name, email, backHref }: Props) 
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-neutral-500 hidden sm:inline">{name ?? email}</span>
+          <SwitchRoleLink visible={showRoleSwitch} />
           <AdminSignOutButton />
         </div>
       </div>

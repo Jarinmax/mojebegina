@@ -14,24 +14,32 @@ const ORG_B = "org-b";
 const customerA: AuthContext = {
   userId: "user-a",
   systemRole: "CUSTOMER",
+  grantedRoles: ["CUSTOMER"],
+  roleSelectionRequired: false,
   name: "Test Customer A",
   email: "customer-a@example.test",
 };
 const employeeA: AuthContext = {
   userId: "employee-a",
   systemRole: "EMPLOYEE",
+  grantedRoles: ["EMPLOYEE"],
+  roleSelectionRequired: false,
   name: "Test Employee A",
   email: "employee-a@example.test",
 };
 const executive: AuthContext = {
   userId: "user-exec",
   systemRole: "EXECUTIVE",
+  grantedRoles: ["EXECUTIVE"],
+  roleSelectionRequired: false,
   name: "Test Executive",
   email: "executive@example.test",
 };
 const admin: AuthContext = {
   userId: "user-admin",
   systemRole: "ADMIN",
+  grantedRoles: ["ADMIN"],
+  roleSelectionRequired: false,
   name: "Test Admin",
   email: "admin@example.test",
 };

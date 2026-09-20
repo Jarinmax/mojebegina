@@ -26,12 +26,25 @@ import {
 //   ADMIN     — nejvyšší role, plný přístup (read i write) napříč vším
 // Uživatel bez řádku v téhle tabulce se považuje za CUSTOMER (bezpečný
 // default — nikdy neeskalovat mlčky).
-export const userRoles = pgTable("user_roles", {
-  userId: text("user_id").primaryKey(),
-  systemRole: text("system_role").notNull(), // "CUSTOMER" | "EMPLOYEE" | "EXECUTIVE" | "ADMIN"
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+//
+// Security Phase 9 — jeden userId může mít VÍC řádků (víc rolí najednou,
+// např. Jiří Střelec = CUSTOMER + EXECUTIVE na jednom Neon Auth účtu).
+// Vlastní surrogate `id` PK + unique(userId, systemRole) místo PK přímo na
+// userId — stejný vzor jako organizationMemberships (id + unique index),
+// ne composite primary key. Nedestruktivní migrace: každý dosavadní
+// uživatel má přesně jeden řádek, ten zůstává beze změny, jen přestává být
+// sám o sobě primárním klíčem.
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    systemRole: text("system_role").notNull(), // "CUSTOMER" | "EMPLOYEE" | "EXECUTIVE" | "ADMIN"
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("user_roles_user_id_system_role_idx").on(table.userId, table.systemRole)]
+);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),

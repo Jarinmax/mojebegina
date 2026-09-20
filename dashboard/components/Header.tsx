@@ -2,13 +2,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { Bell } from "lucide-react";
 import logoMark from "@/public/logo-begina-mark.png";
+import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
 
 type HeaderProps = {
   initials: string;
   unreadCount?: number;
+  showRoleSwitch?: boolean;
 };
 
-export default function Header({ initials, unreadCount = 0 }: HeaderProps) {
+export default function Header({ initials, unreadCount = 0, showRoleSwitch = false }: HeaderProps) {
   return (
     <div className="flex items-center justify-between px-2 py-3">
       <Image
@@ -18,6 +20,7 @@ export default function Header({ initials, unreadCount = 0 }: HeaderProps) {
         priority
       />
       <div className="flex items-center gap-3">
+        <SwitchRoleLink visible={showRoleSwitch} />
         <Link
           href="/upozorneni"
           aria-label="Oznámení"

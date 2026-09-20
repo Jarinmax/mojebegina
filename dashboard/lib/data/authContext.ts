@@ -1,11 +1,23 @@
-// Security Phase 2.2 — reálné odvození AuthContext ze session.
-// ZATÍM NEPOUŽITO — žádná stránka ani route handler tohle nevolá. Připraveno
-// pro Fázi 2.3, kdy se dashboard přepne na databázi.
+// Security Phase 2.2 — reálné odvození AuthContext ze session. Používá se
+// ze všech chráněných vstupních bodů (app/page.tsx, app/admin/layout.tsx,
+// app/executive/layout.tsx, app/rizeni-firmy/layout.tsx, lib/data/admin.ts).
+//
+// Security Phase 9 — uživatel může mít víc řádků v user_roles (víc rolí
+// najednou). Tahle funkce načte VŠECHNY (grantedRoles) a pak čistou funkcí
+// resolveActiveRole (lib/data/activeRole.ts, bez I/O, testovaná zvlášť)
+// určí, která je AKTIVNÍ pro tenhle request — cookie je jen návrh, vždy
+// ověřený proti grantedRoles čerstvě načteným z DB. Sama nikde
+// nepřesměrovává (na rozdíl od requireCustomerContext) — je to čistě
+// čtení identity; kdo z `ctx.roleSelectionRequired` udělá redirect na výběr
+// role, je na volajícím (viz app/vyber-roli a všechny 4 gatované vstupní
+// body).
 import "server-only";
+import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
 import { userRoles } from "@/lib/db/schema";
+import { ACTIVE_ROLE_COOKIE, resolveActiveRole } from "./activeRole";
 import type { AuthContext, SystemRole } from "./types";
 
 const DEFAULT_SYSTEM_ROLE: SystemRole = "CUSTOMER";
@@ -16,17 +28,27 @@ export async function getAuthContext(): Promise<AuthContext> {
   const { data: session } = await auth.getSession();
   if (!session?.user) return null;
 
-  const [row] = await db
+  const rows = await db
     .select({ systemRole: userRoles.systemRole })
     .from(userRoles)
-    .where(eq(userRoles.userId, session.user.id))
-    .limit(1);
+    .where(eq(userRoles.userId, session.user.id));
+
+  // Chybí-li jakýkoli řádek, uživatel je CUSTOMER — bezpečný default,
+  // nikdy tichá eskalace na vyšší roli.
+  const grantedRoles: SystemRole[] =
+    rows.length > 0 ? rows.map((row) => row.systemRole as SystemRole) : [DEFAULT_SYSTEM_ROLE];
+
+  const cookieStore = await cookies();
+  const { systemRole, roleSelectionRequired } = resolveActiveRole(
+    grantedRoles,
+    cookieStore.get(ACTIVE_ROLE_COOKIE)?.value
+  );
 
   return {
     userId: session.user.id,
-    // Chybí-li řádek, uživatel je CUSTOMER — bezpečný default, nikdy
-    // tichá eskalace na vyšší roli.
-    systemRole: (row?.systemRole as SystemRole | undefined) ?? DEFAULT_SYSTEM_ROLE,
+    systemRole,
+    grantedRoles,
+    roleSelectionRequired,
     // Přímo z ověřené session, žádný DB dotaz — pro aktuálně přihlášeného
     // uživatele jsou tyto hodnoty vždy pravdivé.
     name: session.user.name ?? null,

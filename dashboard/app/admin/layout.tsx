@@ -19,13 +19,19 @@ export default async function AdminLayout({
   if (!ctx) {
     redirect("/login");
   }
+  // Security Phase 9 — uživatel s víc rolemi a bez platné volby aktivní
+  // role musí nejdřív zvolit (viz ctx.roleSelectionRequired), dřív než se
+  // ctx.systemRole vůbec použije v isAdmin() níže.
+  if (ctx.roleSelectionRequired) {
+    redirect("/vyber-roli");
+  }
   if (!isAdmin(ctx)) {
     redirect("/");
   }
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <AdminHeader name={ctx.name} email={ctx.email} />
+      <AdminHeader name={ctx.name} email={ctx.email} showRoleSwitch={ctx.grantedRoles.length > 1} />
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
     </div>
   );
