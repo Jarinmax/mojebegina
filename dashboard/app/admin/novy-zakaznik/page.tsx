@@ -14,7 +14,8 @@ export default function NovyZakaznikPage() {
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Nový zákazník</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
-          Založí organizaci a pošle kontaktní osobě e-mail s odkazem na nastavení hesla.
+          Založí organizaci a uživatele bez odeslání e-mailu — pozvánku pošlete později, až
+          budete připraveni, tlačítkem „Pozvat zákazníka“ na detailu organizace.
         </p>
       </div>
 

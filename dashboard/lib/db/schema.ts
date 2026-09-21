@@ -169,6 +169,31 @@ export const referrals = pgTable("referrals", {
   firstPurchaseAt: timestamp("first_purchase_at", { withTimezone: true }),
 });
 
+// Security Phase 11 (oddělení založení zákazníka od pozvání) — pozvání a
+// aktivace hesla jsou vlastnost Neon Auth UŽIVATELE, ne konkrétního
+// organizationMemberships řádku: jeden Auth uživatel může být členem víc
+// organizací, ale heslo/aktivaci má jen jednu. Proto samostatná tabulka
+// klíčovaná userId (PK), ne sloupec na organizationMemberships.
+//
+// Řádek se vkládá VŽDY atomicky spolu se založením Neon Auth uživatele
+// (createCustomerOrganization, addOrganizationMember) — nikdy se nespoléhá
+// na "chybí řádek = výchozí stav" (to je přesně bug, co jsme řešili ve Fázi
+// 9 u user_roles: tichá ztráta CUSTOMER přístupu, když řádek najednou
+// existoval s jiným obsahem, než default předpokládal). Stav:
+//   invitedAt IS NULL                    → Nepozván
+//   invitedAt SET, activatedAt IS NULL   → Pozván, čeká na aktivaci
+//   activatedAt SET                      → Aktivní
+// `activatedAt` se nastavuje výhradně z lib/data/authContext.ts při první
+// ověřené session daného uživatele PO nastavení hesla — nikdy z klientského
+// volání a nikdy čtením interních neon_auth tabulek (viz diskuse v Security
+// Phase 11: auth.admin.getUser přesně tohle připomíná, nespoléhat na
+// nezdokumentované vnitřní API/tabulky Neon Auth).
+export const userActivations = pgTable("user_activations", {
+  userId: text("user_id").primaryKey(),
+  invitedAt: timestamp("invited_at", { withTimezone: true }),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+});
+
 // Security Phase 10 (Řízení firmy 1.0) — první živá (zapisovatelná) data
 // v /rizeni-firmy, vedle statického obsahu v lib/content/companyOverview.ts.
 // Prostý append-only log, žádné vazby na jiné tabulky zatím (úkoly,

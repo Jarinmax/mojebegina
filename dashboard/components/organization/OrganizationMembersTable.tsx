@@ -7,12 +7,25 @@ import { formatCzechDate } from "@/lib/format";
 // Akce se vůbec nevykreslí. Tohle je jediný mechanismus, kterým se admin a
 // executive detail liší: executive žádné akce nemá, protože je nikdy
 // nedostane předané, ne proto, že by se schovávaly nějakým css/if trikem.
+// Security Phase 11 — stav pozvání/aktivace (lib/data/admin.ts,
+// OnboardingStatus) se zobrazuje i tady jako informativní sloupec, ne jen
+// v akcích — jde o stejný "sdílené čtení mezi /admin a /executive" princip
+// jako u zbytku téhle tabulky.
+type OnboardingStatus = "not_invited" | "pending" | "active";
+
+const ONBOARDING_LABELS: Record<OnboardingStatus, string> = {
+  not_invited: "Nepozván",
+  pending: "Čeká na aktivaci",
+  active: "Aktivní",
+};
+
 type MemberRow = {
   userId: string;
   role: "owner" | "member";
   createdAt: Date;
   name: string | null;
   email: string | null;
+  onboardingStatus: OnboardingStatus;
 };
 
 type Props = {
@@ -37,6 +50,7 @@ export default function OrganizationMembersTable({ members, renderActions }: Pro
             <th className="px-4 py-3 font-medium">Jméno</th>
             <th className="px-4 py-3 font-medium">E-mail</th>
             <th className="px-4 py-3 font-medium">Role</th>
+            <th className="px-4 py-3 font-medium">Stav</th>
             <th className="px-4 py-3 font-medium">Členem od</th>
             {renderActions && <th className="px-4 py-3 font-medium">Akce</th>}
           </tr>
@@ -48,6 +62,9 @@ export default function OrganizationMembersTable({ members, renderActions }: Pro
               <td className="px-4 py-3 text-neutral-600">{member.email ?? "—"}</td>
               <td className="px-4 py-3 text-begina-primary-900">
                 {member.role === "owner" ? "Vlastník" : "Člen"}
+              </td>
+              <td className="px-4 py-3 text-neutral-500">
+                {ONBOARDING_LABELS[member.onboardingStatus]}
               </td>
               <td className="px-4 py-3 text-neutral-500">{formatCzechDate(member.createdAt)}</td>
               {renderActions && <td className="px-4 py-3">{renderActions(member)}</td>}

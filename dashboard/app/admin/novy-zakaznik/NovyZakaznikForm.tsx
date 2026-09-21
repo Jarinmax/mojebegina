@@ -90,7 +90,8 @@ export default function NovyZakaznikForm() {
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
         <p className="text-xs text-neutral-400 mt-1">
-          Na tenhle e-mail přijde odkaz na nastavení hesla. Heslo tady nezadáváte.
+          Zatím se nic neodešle. Odkaz na nastavení hesla pošlete později tlačítkem „Pozvat
+          zákazníka“ na detailu organizace.
         </p>
       </div>
 

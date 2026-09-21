@@ -29,7 +29,6 @@ export default async function AdminOrganizationDetailPage(
   }
 
   const justCreated = searchParams?.vytvoreno === "1";
-  const emailFailed = justCreated && searchParams?.email === "0";
 
   return (
     <div>
@@ -38,16 +37,9 @@ export default async function AdminOrganizationDetailPage(
       </Link>
 
       {justCreated && (
-        <div
-          className={`mt-3 rounded-xl border p-3 text-sm ${
-            emailFailed
-              ? "bg-begina-accent-50 border-begina-accent-200 text-begina-accent-900"
-              : "bg-begina-primary-50 border-begina-primary-200 text-begina-primary-900"
-          }`}
-        >
-          {emailFailed
-            ? "Organizace i uživatel byli založeni, ale aktivační e-mail se nepodařilo odeslat. Zkuste ho poslat znovu."
-            : "Organizace je založena a kontaktní osobě byl odeslán e-mail s odkazem na nastavení hesla."}
+        <div className="mt-3 rounded-xl border p-3 text-sm bg-begina-primary-50 border-begina-primary-200 text-begina-primary-900">
+          Organizace je založena. Doplňte historii a zkontrolujte údaje — až budete připraveni,
+          pozvěte kontaktní osobu tlačítkem „Pozvat zákazníka“ u jejího jména.
         </div>
       )}
 
@@ -80,6 +72,7 @@ export default async function AdminOrganizationDetailPage(
               organizationId={org.id}
               userId={member.userId}
               displayName={member.name ?? member.email ?? member.userId}
+              onboardingStatus={member.onboardingStatus}
             />
           )}
         />

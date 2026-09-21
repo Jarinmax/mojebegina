@@ -13,20 +13,43 @@
 // body).
 import "server-only";
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import { userRoles } from "@/lib/db/schema";
+import { userActivations, userRoles } from "@/lib/db/schema";
 import { ACTIVE_ROLE_COOKIE, resolveActiveRole } from "./activeRole";
 import type { AuthContext, SystemRole } from "./types";
 
 const DEFAULT_SYSTEM_ROLE: SystemRole = "CUSTOMER";
+
+// Security Phase 11 — jediné bezpečné místo, kde appka smí zaznamenat
+// "uživatel aktivoval účet": tady, protože tady (a jen tady) máme ověřenou
+// server-side session pro daný userId. `/nastavit-heslo` sám o sobě tohle
+// zaznamenat nemůže — better-auth `resetPassword` vrací jen
+// `{ status: true }`, žádné userId, a appka se úmyslně nespoléhá na čtení
+// interních neon_auth tabulek (viz komentář u schema.ts). Podmínka
+// `activatedAt IS NULL` dělá z UPDATE trvalý no-op po prvním úspěchu — u
+// uživatele bez řádku (ADMIN, kterého tahle tabulka vůbec netýká) i po
+// aktivaci nezasáhne žádný řádek. Chyba se nikdy nesmí projevit navenek —
+// tohle je vedlejší účinek, ne podmínka pro přihlášení.
+async function markActivatedIfNeeded(userId: string): Promise<void> {
+  try {
+    await db
+      .update(userActivations)
+      .set({ activatedAt: new Date() })
+      .where(and(eq(userActivations.userId, userId), isNull(userActivations.activatedAt)));
+  } catch {
+    // Bookkeeping vedlejší účinek — selhání nesmí shodit odvození identity.
+  }
+}
 
 // Identita se vždy odvozuje ze server-side session (httpOnly cookie
 // ověřená přes Neon Auth) — nikdy z ničeho, co pošle klient.
 export async function getAuthContext(): Promise<AuthContext> {
   const { data: session } = await auth.getSession();
   if (!session?.user) return null;
+
+  await markActivatedIfNeeded(session.user.id);
 
   const rows = await db
     .select({ systemRole: userRoles.systemRole })

@@ -29,6 +29,13 @@
       "when": 1789993705623,
       "tag": "0003_phase_10_company_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790027747666,
+      "tag": "0004_phase_11_user_activations",
+      "breakpoints": true
     }
   ]
 }

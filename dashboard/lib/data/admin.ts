@@ -7,9 +7,9 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import { headers } from "next/headers";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { organizations, organizationMemberships } from "@/lib/db/schema";
+import { organizations, organizationMemberships, userActivations } from "@/lib/db/schema";
 import { auth } from "@/lib/auth/server";
 import { getAuthContext } from "./authContext";
 import { requireAdmin, requireAdminOrExecutive } from "./adminAuth";
@@ -60,13 +60,50 @@ export async function listOrganizations(): Promise<OrganizationSummary[]> {
     .orderBy(asc(organizations.name));
 }
 
+// Security Phase 11 — stav pozvání/aktivace je vlastnost uživatele (viz
+// user_activations v lib/db/schema.ts), promítnutá sem jen kvůli UI.
+export type OnboardingStatus = "not_invited" | "pending" | "active";
+
 export type OrganizationMember = {
   userId: string;
   role: "owner" | "member";
   createdAt: Date;
   name: string | null;
   email: string | null;
+  onboardingStatus: OnboardingStatus;
 };
+
+async function getOnboardingStatusesByUserIds(
+  userIds: string[]
+): Promise<Map<string, OnboardingStatus>> {
+  const map = new Map<string, OnboardingStatus>();
+  if (userIds.length === 0) {
+    return map;
+  }
+
+  const rows = await db
+    .select({
+      userId: userActivations.userId,
+      invitedAt: userActivations.invitedAt,
+      activatedAt: userActivations.activatedAt,
+    })
+    .from(userActivations)
+    .where(inArray(userActivations.userId, userIds));
+
+  rows.forEach((row) => {
+    map.set(row.userId, row.activatedAt ? "active" : row.invitedAt ? "pending" : "not_invited");
+  });
+
+  // Chybí-li řádek úplně (uživatel nikdy neprošel naším onboarding
+  // tokem), bezpečný default je "not_invited" — nikdy "active".
+  userIds.forEach((userId) => {
+    if (!map.has(userId)) {
+      map.set(userId, "not_invited");
+    }
+  });
+
+  return map;
+}
 
 export type OrganizationDetail = OrganizationSummary & {
   registeredAddress: string;
@@ -155,7 +192,11 @@ export async function getOrganizationDetail(
     .where(eq(organizationMemberships.organizationId, organizationId))
     .orderBy(asc(organizationMemberships.createdAt));
 
-  const authUsers = await getAuthUsersByIds(memberships.map((m) => m.userId));
+  const userIds = memberships.map((m) => m.userId);
+  const [authUsers, onboardingStatuses] = await Promise.all([
+    getAuthUsersByIds(userIds),
+    getOnboardingStatusesByUserIds(userIds),
+  ]);
 
   return {
     ...org,
@@ -166,6 +207,7 @@ export async function getOrganizationDetail(
         role: m.role as OrganizationMember["role"],
         name: authUser?.name ?? null,
         email: authUser?.email ?? null,
+        onboardingStatus: onboardingStatuses.get(m.userId) ?? "not_invited",
       };
     }),
   };
@@ -180,13 +222,19 @@ export async function getOrganizationDetail(
 // tokenu rovnou založí — appka mezi "první nastavení" a "reset" nijak
 // nerozlišuje.
 //
+// Security Phase 11 — založení organizace už samo o sobě NEPOSÍLÁ aktivační
+// e-mail (dřívější "Krok 3"). Nový zákazník se nejdřív připraví interně
+// (historie, kontrola) a teprve samostatnou akcí "Pozvat zákazníka"
+// (inviteCustomer níže) se mu pošle odkaz na nastavení hesla — viz
+// user_activations v lib/db/schema.ts.
+//
 // Validace vstupu je v samostatném createCustomerValidation.ts (bez
 // "server-only"), aby šla testovat stejně jako requireAdmin/
 // requireOrgAccess — tenhle soubor testovat nejde (Vitest neumí
 // "server-only" resolvnout, na rozdíl od Next.js bundleru).
 
 export type CreateCustomerResult =
-  | { ok: true; organizationId: string; emailSent: boolean }
+  | { ok: true; organizationId: string }
   | { ok: false; error: string };
 
 async function getAppOrigin(): Promise<string> {
@@ -226,12 +274,12 @@ export async function createCustomerOrganization(
 
   const authUserId = created.user.id;
 
-  // Krok 2: organizace + membership v jediném atomickém HTTP batchi —
-  // neon-http driver nepodporuje db.transaction (viz
+  // Krok 2: organizace + membership + onboarding stav v jediném atomickém
+  // HTTP batchi — neon-http driver nepodporuje db.transaction (viz
   // drizzle-orm/neon-http/session: "No transactions support"), takže id
-  // organizace generujeme sami předem a obě inserce pošleme přes
-  // db.batch, aby buď prošly obě, nebo žádná (žádná "osiřelá" organizace
-  // bez membershipu).
+  // organizace generujeme sami předem a všechny tři inserce pošleme přes
+  // db.batch, aby buď prošly všechny, nebo žádná (žádná "osiřelá"
+  // organizace bez membershipu, žádný auth uživatel bez onboarding řádku).
   const organizationId = randomUUID();
   try {
     await db.batch([
@@ -247,6 +295,9 @@ export async function createCustomerOrganization(
         organizationId,
         role: "owner",
       }),
+      // invitedAt/activatedAt zůstávají NULL — "Nepozván", dokud ADMIN
+      // sám nespustí "Pozvat zákazníka".
+      db.insert(userActivations).values({ userId: authUserId }),
     ]);
   } catch (dbError) {
     // Best-effort úklid osiřelého auth uživatele — DB zápis selhal, ale
@@ -270,25 +321,7 @@ export async function createCustomerOrganization(
     return { ok: false, error: "Nepodařilo se založit organizaci. Zkuste to prosím znovu." };
   }
 
-  // Krok 3: aktivační e-mail — až PO úspěšném založení organizace a
-  // membershipu, ne dřív. Selhání odeslání e-mailu organizaci/účet
-  // nezakládá zpět — admin dostane najevo, že e-mail neodešel, a může ho
-  // poslat znovu (stejná cesta, kterou používá "zapomenuté heslo").
-  let emailSent = true;
-  try {
-    const origin = await getAppOrigin();
-    const { error: resetError } = await auth.requestPasswordReset({
-      email: input.contactEmail,
-      redirectTo: `${origin}/nastavit-heslo`,
-    });
-    if (resetError) {
-      emailSent = false;
-    }
-  } catch {
-    emailSent = false;
-  }
-
-  return { ok: true, organizationId, emailSent };
+  return { ok: true, organizationId };
 }
 
 // Security Phase 6 — správa existující organizace (editace, přidání/
@@ -335,7 +368,7 @@ export async function updateOrganization(
 }
 
 export type AddMemberResult =
-  | { ok: true; created: boolean; emailSent: boolean }
+  | { ok: true; created: boolean }
   | { ok: false; error: string };
 
 // Nikdy nevytváří druhou identitu pro e-mail, který v Neon Auth už
@@ -343,6 +376,11 @@ export type AddMemberResult =
 // založí nový (bezheslový) účet stejnou cestou jako Fáze 5. Existujícímu
 // uživateli se jen přidá membership, žádný reset-hesla e-mail (heslo už
 // má — nový membership není důvod ho měnit).
+//
+// Security Phase 11 — nový uživatel (created=true) se stejně jako u
+// createCustomerOrganization NEPOZVE automaticky, jen dostane
+// user_activations řádek ("Nepozván"); pozvání je ta samá samostatná akce
+// "Pozvat zákazníka" na detailu organizace.
 export async function addOrganizationMember(
   organizationId: string,
   rawInput: AddMemberInput
@@ -387,11 +425,14 @@ export async function addOrganizationMember(
   }
 
   try {
-    await db.insert(organizationMemberships).values({
-      userId,
-      organizationId,
-      role: input.role,
-    });
+    if (created) {
+      await db.batch([
+        db.insert(organizationMemberships).values({ userId, organizationId, role: input.role }),
+        db.insert(userActivations).values({ userId }),
+      ]);
+    } else {
+      await db.insert(organizationMemberships).values({ userId, organizationId, role: input.role });
+    }
   } catch (dbError) {
     if (created) {
       // Best-effort úklid — nový auth účet vznikl jen kvůli tomuhle
@@ -412,23 +453,7 @@ export async function addOrganizationMember(
     return { ok: false, error: "Nepodařilo se přidat člena. Zkuste to prosím znovu." };
   }
 
-  let emailSent = true;
-  if (created) {
-    try {
-      const origin = await getAppOrigin();
-      const { error: resetError } = await auth.requestPasswordReset({
-        email: input.email,
-        redirectTo: `${origin}/nastavit-heslo`,
-      });
-      if (resetError) {
-        emailSent = false;
-      }
-    } catch {
-      emailSent = false;
-    }
-  }
-
-  return { ok: true, created, emailSent };
+  return { ok: true, created };
 }
 
 export type RemoveMemberResult = { ok: true } | { ok: false; error: string };
@@ -462,6 +487,55 @@ export async function removeOrganizationMember(
         eq(organizationMemberships.userId, userId)
       )
     );
+
+  return { ok: true };
+}
+
+export type InviteCustomerResult = { ok: true } | { ok: false; error: string };
+
+// Security Phase 11 — samostatná akce "Pozvat zákazníka", oddělená od
+// založení organizace/uživatele. Smí se spustit jen z UX stavu "Nepozván"
+// (viz OnboardingStatus výše), ale ověřuje se to i tady na serveru —
+// stejný vzor jako removeOrganizationMember (obranná kontrola, ne jen
+// spoléhání na to, že UI nezobrazí špatné tlačítko).
+export async function inviteCustomer(userId: string): Promise<InviteCustomerResult> {
+  await requireAdminContext();
+
+  const [state] = await db
+    .select({ invitedAt: userActivations.invitedAt, activatedAt: userActivations.activatedAt })
+    .from(userActivations)
+    .where(eq(userActivations.userId, userId))
+    .limit(1);
+
+  if (!state) {
+    return { ok: false, error: "Uživatele se nepodařilo najít." };
+  }
+  if (state.activatedAt) {
+    return { ok: false, error: "Uživatel už má účet aktivní." };
+  }
+  if (state.invitedAt) {
+    return { ok: false, error: "Uživatel už byl pozván — použijte „Poslat znovu odkaz“." };
+  }
+
+  const user = await getAuthUserById(userId);
+  if (!user) {
+    return { ok: false, error: "Uživatele se nepodařilo najít." };
+  }
+
+  try {
+    const origin = await getAppOrigin();
+    const { error: resetError } = await auth.requestPasswordReset({
+      email: user.email,
+      redirectTo: `${origin}/nastavit-heslo`,
+    });
+    if (resetError) {
+      return { ok: false, error: "Nepodařilo se odeslat e-mail. Zkuste to prosím znovu." };
+    }
+  } catch {
+    return { ok: false, error: "Nepodařilo se odeslat e-mail. Zkuste to prosím znovu." };
+  }
+
+  await db.update(userActivations).set({ invitedAt: new Date() }).where(eq(userActivations.userId, userId));
 
   return { ok: true };
 }

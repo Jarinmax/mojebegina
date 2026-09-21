@@ -9,6 +9,7 @@
 import { revalidatePath } from "next/cache";
 import {
   addOrganizationMember,
+  inviteCustomer,
   removeOrganizationMember,
   resendActivationLink,
   updateOrganization,
@@ -55,13 +56,30 @@ export async function addMemberAction(
   revalidatePath(`/admin/organizace/${organizationId}`);
 
   if (!result.created) {
-    return { success: "Uživatel už měl účet — byl přidán k organizaci bez nového e-mailu." };
+    return { success: "Uživatel už měl účet — byl přidán k organizaci." };
   }
   return {
-    success: result.emailSent
-      ? "Uživatel byl založen a aktivační e-mail odeslán."
-      : "Uživatel byl založen, ale aktivační e-mail se nepodařilo odeslat. Zkuste ho poslat znovu tlačítkem u jeho jména.",
+    success: "Uživatel byl založen. Až budete připraveni, pozvěte ho tlačítkem „Pozvat zákazníka“.",
   };
+}
+
+export async function inviteCustomerAction(
+  organizationId: string,
+  userId: string,
+  _prevState: ActionState,
+  _formData: FormData
+): Promise<ActionState> {
+  void _prevState;
+  void _formData;
+
+  const result = await inviteCustomer(userId);
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidatePath(`/admin/organizace/${organizationId}`);
+  return { success: "Zákazník byl pozván — e-mail s odkazem na nastavení hesla byl odeslán." };
 }
 
 export async function removeMemberAction(

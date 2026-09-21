@@ -25,6 +25,5 @@ export async function createCustomerAction(
     return { error: result.error };
   }
 
-  const suffix = result.emailSent ? "vytvoreno=1" : "vytvoreno=1&email=0";
-  redirect(`/admin/organizace/${result.organizationId}?${suffix}`);
+  redirect(`/admin/organizace/${result.organizationId}?vytvoreno=1`);
 }
