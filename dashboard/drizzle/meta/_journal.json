@@ -22,6 +22,13 @@
       "when": 1789928610351,
       "tag": "0002_phase_9_multi_role_user_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789993705623,
+      "tag": "0003_phase_10_company_notes",
+      "breakpoints": true
     }
   ]
 }

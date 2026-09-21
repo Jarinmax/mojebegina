@@ -168,3 +168,20 @@ export const referrals = pgTable("referrals", {
   joinedAt: timestamp("joined_at", { withTimezone: true }),
   firstPurchaseAt: timestamp("first_purchase_at", { withTimezone: true }),
 });
+
+// Security Phase 10 (Řízení firmy 1.0) — první živá (zapisovatelná) data
+// v /rizeni-firmy, vedle statického obsahu v lib/content/companyOverview.ts.
+// Prostý append-only log, žádné vazby na jiné tabulky zatím (úkoly,
+// priority apod. přijdou v dalších malých fázích). `authorName` je
+// snapshot ze session V OKAMŽIKU ZÁPISU (ne živý dotaz do Neon Auth) —
+// zjednodušuje čtení (žádné auth.admin.listUsers volání jen kvůli výpisu
+// zápisů) a je to i historicky správné: ukazuje, jak se autor jmenoval
+// tehdy, ne jak se jmenuje teď.
+export const companyNotes = pgTable("company_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  authorUserId: text("author_user_id").notNull(),
+  authorName: text("author_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

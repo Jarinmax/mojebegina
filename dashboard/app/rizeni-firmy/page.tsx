@@ -1,18 +1,28 @@
 import { companyOverview } from "@/lib/content/companyOverview";
 import { formatCzechDate } from "@/lib/format";
+import { listCompanyNotes } from "@/lib/data/companyManagement";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
+import ResponsibilityCard from "@/components/company-overview/ResponsibilityCard";
+import CompanyNotesList from "@/components/company-overview/CompanyNotesList";
+import CompanyNoteForm from "./CompanyNoteForm";
 
 // Security Phase 8 — obsahová stránka "Řízení firmy". Autorizace (ADMIN
 // nebo EXECUTIVE) řeší výhradně app/rizeni-firmy/layout.tsx nad touhle
-// stránkou — sem samotná stránka žádnou kontrolu nepřidává, protože žádná
-// data odtud nečte (obsah je statický, viz lib/content/companyOverview.ts).
-// NENÍ to editace organizace ani CRM — jen manažerská mapa firmy.
+// stránkou. NENÍ to editace organizace ani CRM — manažerská mapa firmy.
+//
+// Security Phase 10 (Řízení firmy 1.0) — stránka teď kromě statického
+// obsahu (lib/content/companyOverview.ts) čte i první živá data
+// (listCompanyNotes) — sama žádnou autorizaci nepřidává, listCompanyNotes
+// si ji ověřuje sama (requireCompanyManagementContext, viz
+// lib/data/companyManagement.ts), stejně jako to dělá getOrganizationDetail
+// v adminovi.
 export const dynamic = "force-dynamic";
 
-export default function CompanyOverviewPage() {
+export default async function CompanyOverviewPage() {
   const content = companyOverview;
+  const notes = await listCompanyNotes();
 
   return (
     <div>
@@ -31,6 +41,17 @@ export default function CompanyOverviewPage() {
         mainFlow={content.mainFlow}
         mapNotes={content.mapNotes}
       />
+
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
+          Rozdělení odpovědností
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {content.responsibilities.map((owner) => (
+            <ResponsibilityCard key={owner.name} owner={owner} />
+          ))}
+        </div>
+      </div>
 
       <div className="mb-6">
         <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Jak Begina funguje</h2>
@@ -94,10 +115,21 @@ export default function CompanyOverviewPage() {
         <p className="text-sm text-neutral-600">{content.documentation.description}</p>
       </section>
 
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Zápisy ze schůzek</h2>
+          <CompanyNoteForm />
+        </div>
+        <CompanyNotesList notes={notes} />
+      </div>
+
       <section className="bg-white border border-neutral-200 rounded-xl p-4 mb-6">
-        <h2 className="text-sm font-medium text-begina-primary-900 mb-3">
-          Závěry strategické schůzky
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-1">
+          Archiv — původní strategická schůzka
         </h2>
+        <p className="text-xs text-neutral-400 mb-3">
+          Historický zápis, zachovaný beze změny — ne živý seznam výše.
+        </p>
         <ul className="text-sm text-neutral-600 list-disc list-inside grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mb-4">
           {content.meetingConclusions.topics.map((t) => (
             <li key={t}>{t}</li>

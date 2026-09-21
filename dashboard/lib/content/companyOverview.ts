@@ -15,6 +15,15 @@ export type CompanyAreaSection = {
   principle?: string;
 };
 
+// Security Phase 10 (Řízení firmy 1.0) — kdo za co v řízení Beginy
+// odpovídá. Statický obsah (stejně jako zbytek souboru) — mění se přes
+// commit, ne přes UI.
+export type ResponsibilityOwner = {
+  name: string;
+  role: string;
+  areas: string[];
+};
+
 export type AiAutomationContent = {
   principle: string;
   modelAssignments: { area: string; model: string }[];
@@ -39,6 +48,7 @@ export type CompanyOverviewContent = {
   mapAreas: string[];
   mainFlow: string[];
   mapNotes: string[];
+  responsibilities: ResponsibilityOwner[];
   areas: CompanyAreaSection[];
   aiAutomation: AiAutomationContent;
   documentation: DocumentationContent;
@@ -47,7 +57,7 @@ export type CompanyOverviewContent = {
 };
 
 export const companyOverview: CompanyOverviewContent = {
-  lastUpdated: new Date(Date.UTC(2026, 8, 20)),
+  lastUpdated: new Date(Date.UTC(2026, 8, 21)),
 
   mapAreas: [
     "Produkty",
@@ -81,6 +91,33 @@ export const companyOverview: CompanyOverviewContent = {
     "Objednávka propojuje výrobu, sklad, dopravu, finance a CRM.",
     "Marketing generuje leady a ty vstupují do CRM.",
     "Data ze všech částí se sbíhají v Moje Begina. Do budoucna nad nimi mohou pracovat AI agenti.",
+  ],
+
+  responsibilities: [
+    {
+      name: "Jaroslav Viner",
+      role: "Majitel",
+      areas: [
+        "Vize",
+        "Strategie",
+        "Produkty",
+        "Obchodní směr",
+        "Expanze",
+        "Zásadní rozhodnutí",
+      ],
+    },
+    {
+      name: "Jiří Střelec",
+      role: "Výkonný ředitel",
+      areas: [
+        "Struktura firmy",
+        "Systém řízení",
+        "Rozvoj společnosti",
+        "Management",
+        "Kontrola fungování",
+        "Motivace a vzdělávání lidí",
+      ],
+    },
   ],
 
   areas: [
