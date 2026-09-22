@@ -16,7 +16,7 @@ import { db } from "@/lib/db/client";
 import { companyNodes, companyNodeActivity } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCompanyNodeAccess } from "./companyNodeAuth";
-import { getAuthUserById } from "./admin";
+import { getUserProfile } from "./userProfiles";
 import {
   validateCreateNodeInput,
   validateTreeDepth,
@@ -215,7 +215,7 @@ export async function getNodeDetail(nodeId: string): Promise<NodeDetail | null> 
   const children = (byParent.get(nodeId) ?? []).map((row) => buildCardData(row, byId, byParent));
 
   const ownerName = node.ownerUserId
-    ? (await getAuthUserById(node.ownerUserId).catch(() => null))?.name ?? null
+    ? (await getUserProfile(node.ownerUserId).catch(() => null))?.name ?? null
     : null;
 
   const activityRows = await db
@@ -564,7 +564,7 @@ export async function offerClaim(nodeId: string, rawBody: string): Promise<NodeR
 export async function assignOwner(nodeId: string, ownerUserId: string): Promise<NodeResult> {
   const ctx = await requireCompanyNodeContext();
 
-  const owner = await getAuthUserById(ownerUserId);
+  const owner = await getUserProfile(ownerUserId);
   if (!owner) {
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }

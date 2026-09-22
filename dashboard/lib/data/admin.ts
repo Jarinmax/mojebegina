@@ -21,6 +21,12 @@ import {
   type AddMemberInput,
   type UpdateOrganizationInput,
 } from "./organizationAdminValidation";
+import {
+  getUserProfile,
+  getUserProfiles,
+  upsertUserProfile,
+  upsertUserProfileStatement,
+} from "./userProfiles";
 import type { AuthContext } from "./types";
 
 export async function requireAdminContext(): Promise<NonNullable<AuthContext>> {
@@ -111,56 +117,13 @@ export type OrganizationDetail = OrganizationSummary & {
   members: OrganizationMember[];
 };
 
-// Security Phase 6 — jméno/e-mail nejsou v naší DB (organization_memberships
-// drží jen userId), pocházejí z Neon Auth. `admin.getUser` v runtime
-// @neondatabase/auth NEEXISTUJE (TypeScript typy ho slibovaly z vnitřní
-// závislosti na plné better-auth knihovně, ale ověřeno přímo v běžícím
-// kódu na Preview — "auth.admin.getUser is not a function"). Skutečně
-// implementovaná sada je užší — používáme `listUsers` s filtrem na
-// jednotlivé id, po jednom volání na člena (organizace mívají málo
-// členů, N paralelních volání není problém).
-export async function getAuthUserById(
-  userId: string
-): Promise<{ name: string | null; email: string } | null> {
-  const { data, error } = await auth.admin.listUsers({
-    query: {
-      filterField: "id",
-      filterOperator: "eq",
-      filterValue: userId,
-      limit: 1,
-    },
-  });
-
-  if (error || !data) {
-    return null;
-  }
-
-  const user = data.users[0];
-  if (!user) {
-    return null;
-  }
-
-  return { name: user.name ?? null, email: user.email };
-}
-
-async function getAuthUsersByIds(
-  userIds: string[]
-): Promise<Map<string, { name: string | null; email: string }>> {
-  const map = new Map<string, { name: string | null; email: string }>();
-
-  const results = await Promise.all(
-    userIds.map((id) => getAuthUserById(id).catch(() => null))
-  );
-
-  results.forEach((result, i) => {
-    if (result) {
-      map.set(userIds[i], result);
-    }
-  });
-
-  return map;
-}
-
+// Security Phase 14 — jméno/e-mail nejsou v naší DB (organization_memberships
+// drží jen userId), čtou se z lokálního adresáře user_profiles (viz
+// userProfiles.ts) — NE živě z Neon Auth. `auth.admin.listUsers` s
+// `filterField: "id"` se ukázal jako nespolehlivý (tiše vrací prázdný
+// výsledek pro existující uživatele); `user_profiles` se plní při vzniku
+// membershipu a při každém přihlášení (getAuthContext), takže je pro
+// uživatele relevantní pro tuhle appku vždy spolehlivě zaplněný.
 export async function getOrganizationDetail(
   organizationId: string
 ): Promise<OrganizationDetail | null> {
@@ -194,20 +157,20 @@ export async function getOrganizationDetail(
     .orderBy(asc(organizationMemberships.createdAt));
 
   const userIds = memberships.map((m) => m.userId);
-  const [authUsers, onboardingStatuses] = await Promise.all([
-    getAuthUsersByIds(userIds),
+  const [profiles, onboardingStatuses] = await Promise.all([
+    getUserProfiles(userIds),
     getOnboardingStatusesByUserIds(userIds),
   ]);
 
   return {
     ...org,
     members: memberships.map((m) => {
-      const authUser = authUsers.get(m.userId);
+      const profile = profiles.get(m.userId);
       return {
         ...m,
         role: m.role as OrganizationMember["role"],
-        name: authUser?.name ?? null,
-        email: authUser?.email ?? null,
+        name: profile?.name ?? null,
+        email: profile?.email ?? null,
         onboardingStatus: onboardingStatuses.get(m.userId) ?? "not_invited",
       };
     }),
@@ -348,6 +311,7 @@ export async function createCustomerOrganization(
         // invitedAt/activatedAt zůstávají NULL — "Nepozván", dokud ADMIN
         // sám nespustí "Pozvat zákazníka".
         db.insert(userActivations).values({ userId: authUserId }),
+        upsertUserProfileStatement(authUserId, input.contactName, input.contactEmail),
       ]);
     } else if (plan.grantCustomerRole) {
       await db.batch([
@@ -368,6 +332,13 @@ export async function createCustomerOrganization(
         // žádná existující role se nemaže ani neupravuje. onConflictDoNothing
         // je pojistka proti souběhu (uniqueIndex userId+systemRole).
         db.insert(userRoles).values({ userId: authUserId, systemRole: "CUSTOMER" }).onConflictDoNothing(),
+        // existingAuthUser je tu vždy definovaný (plan.mode === "reuse_user"
+        // vznikne jen z nalezené identity, viz planCustomerCreation).
+        upsertUserProfileStatement(
+          authUserId,
+          existingAuthUser?.name ?? null,
+          existingAuthUser?.email ?? input.contactEmail
+        ),
       ]);
     } else {
       // Identita CUSTOMER roli už měla (vlastní i jinou organizaci) —
@@ -387,6 +358,11 @@ export async function createCustomerOrganization(
           organizationId,
           role: "owner",
         }),
+        upsertUserProfileStatement(
+          authUserId,
+          existingAuthUser?.name ?? null,
+          existingAuthUser?.email ?? input.contactEmail
+        ),
       ]);
     }
   } catch (dbError) {
@@ -523,9 +499,17 @@ export async function addOrganizationMember(
       await db.batch([
         db.insert(organizationMemberships).values({ userId, organizationId, role: input.role }),
         db.insert(userActivations).values({ userId }),
+        upsertUserProfileStatement(userId, input.name, input.email),
       ]);
     } else {
       await db.insert(organizationMemberships).values({ userId, organizationId, role: input.role });
+      // Best-effort, mimo atomický zápis membershipu výše — nevadí, pokud
+      // selže (self-heal při příštím přihlášení, viz getAuthContext).
+      // existing (nalezená identita) má přednost před tím, co ADMIN
+      // zrovna napsal do formuláře — je to autoritativnější zdroj.
+      await upsertUserProfile(userId, existing?.name ?? input.name, existing?.email ?? input.email).catch(
+        () => {}
+      );
     }
   } catch (dbError) {
     if (created) {
@@ -611,7 +595,7 @@ export async function inviteCustomer(userId: string): Promise<InviteCustomerResu
     return { ok: false, error: "Uživatel už byl pozván — použijte „Poslat znovu odkaz“." };
   }
 
-  const user = await getAuthUserById(userId);
+  const user = await getUserProfile(userId);
   if (!user) {
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }
@@ -643,7 +627,7 @@ export type ResendActivationResult = { ok: true } | { ok: false; error: string }
 export async function resendActivationLink(userId: string): Promise<ResendActivationResult> {
   await requireAdminContext();
 
-  const user = await getAuthUserById(userId);
+  const user = await getUserProfile(userId);
   if (!user) {
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }

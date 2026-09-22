@@ -197,6 +197,22 @@ export const userActivations = pgTable("user_activations", {
   activatedAt: timestamp("activated_at", { withTimezone: true }),
 });
 
+// Security Phase 14 — lokální aplikační profil identity, 1:1 na Neon Auth
+// user_id. Neon Auth zůstává jedinou autoritou pro AUTENTIZACI (heslo,
+// session, přihlášení) — tahle tabulka je čistě náš vlastní ADRESÁŘ
+// (jméno/e-mail pro zobrazení a pro odeslání pozvánky), protože
+// `auth.admin.listUsers({filterField: "id"})` se ukázal jako nespolehlivý
+// (tiše vrací prázdný výsledek pro existující uživatele, viz Security
+// Phase 14 diagnostika) — `filterField: "email"` funguje spolehlivě a dál
+// se používá při zakládání/přidávání členů. Nikdy se nepoužívá pro
+// autorizaci ani k odvození role — jen k zobrazení/kontaktu.
+export const userProfiles = pgTable("user_profiles", {
+  userId: text("user_id").primaryKey(),
+  name: text("name"),
+  email: text("email").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Security Phase 10 (Řízení firmy 1.0) — první živá (zapisovatelná) data
 // v /rizeni-firmy, vedle statického obsahu v lib/content/companyOverview.ts.
 // Prostý append-only log, žádné vazby na jiné tabulky zatím (úkoly,

@@ -18,6 +18,7 @@ import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
 import { userActivations, userRoles } from "@/lib/db/schema";
 import { ACTIVE_ROLE_COOKIE, resolveActiveRole } from "./activeRole";
+import { syncUserProfileFromSession } from "./userProfiles";
 import type { AuthContext, SystemRole } from "./types";
 
 const DEFAULT_SYSTEM_ROLE: SystemRole = "CUSTOMER";
@@ -43,6 +44,23 @@ async function markActivatedIfNeeded(userId: string): Promise<void> {
   }
 }
 
+// Security Phase 14 — stejný princip jako markActivatedIfNeeded: vedlejší
+// účinek, nikdy podmínka pro přihlášení. syncUserProfileFromSession sama
+// dělá SELECT → porovnání → zápis jen při skutečné změně (viz
+// userProfiles.ts), takže tohle při běžném requestu nezpůsobí zbytečný
+// DB WRITE — jen levný lookup podle primárního klíče.
+async function syncUserProfileIfNeeded(
+  userId: string,
+  name: string | null,
+  email: string
+): Promise<void> {
+  try {
+    await syncUserProfileFromSession(userId, name, email);
+  } catch {
+    // Vedlejší účinek — selhání nesmí shodit odvození identity.
+  }
+}
+
 // Identita se vždy odvozuje ze server-side session (httpOnly cookie
 // ověřená přes Neon Auth) — nikdy z ničeho, co pošle klient.
 export async function getAuthContext(): Promise<AuthContext> {
@@ -50,6 +68,7 @@ export async function getAuthContext(): Promise<AuthContext> {
   if (!session?.user) return null;
 
   await markActivatedIfNeeded(session.user.id);
+  await syncUserProfileIfNeeded(session.user.id, session.user.name ?? null, session.user.email);
 
   const rows = await db
     .select({ systemRole: userRoles.systemRole })
