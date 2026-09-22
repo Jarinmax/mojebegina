@@ -118,7 +118,7 @@ export type OrganizationDetail = OrganizationSummary & {
 // implementovaná sada je užší — používáme `listUsers` s filtrem na
 // jednotlivé id, po jednom volání na člena (organizace mívají málo
 // členů, N paralelních volání není problém).
-async function getAuthUserById(
+export async function getAuthUserById(
   userId: string
 ): Promise<{ name: string | null; email: string } | null> {
   const { data, error } = await auth.admin.listUsers({

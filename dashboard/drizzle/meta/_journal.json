@@ -36,6 +36,13 @@
       "when": 1790027747666,
       "tag": "0004_phase_11_user_activations",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790085775891,
+      "tag": "0005_phase_12_company_nodes",
+      "breakpoints": true
     }
   ]
 }

@@ -1,12 +1,16 @@
 import { companyOverview } from "@/lib/content/companyOverview";
 import { formatCzechDate } from "@/lib/format";
 import { listCompanyNotes } from "@/lib/data/companyManagement";
+import { getCompanyMap } from "@/lib/data/companyNodes";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
 import ResponsibilityCard from "@/components/company-overview/ResponsibilityCard";
 import CompanyNotesList from "@/components/company-overview/CompanyNotesList";
+import CompanyStatusSummary from "@/components/company-overview/CompanyStatusSummary";
+import NodeCard from "@/components/company-overview/NodeCard";
 import CompanyNoteForm from "./CompanyNoteForm";
+import CreateNodeForm from "./CreateNodeForm";
 
 // Security Phase 8 — obsahová stránka "Řízení firmy". Autorizace (ADMIN
 // nebo EXECUTIVE) řeší výhradně app/rizeni-firmy/layout.tsx nad touhle
@@ -18,11 +22,18 @@ import CompanyNoteForm from "./CompanyNoteForm";
 // si ji ověřuje sama (requireCompanyManagementContext, viz
 // lib/data/companyManagement.ts), stejně jako to dělá getOrganizationDetail
 // v adminovi.
+//
+// Security Phase 12 (Řízení firmy 2.0) — nová živá mapa (company_nodes,
+// getCompanyMap) přibyla jako první sekce, NAD dosavadní statický obsah
+// (lib/content/companyOverview.ts, company_notes) — ten zůstává beze
+// změny, schváleno explicitně ("zachovej stávající /rizeni-firmy,
+// company_notes a existující obsah").
 export const dynamic = "force-dynamic";
 
 export default async function CompanyOverviewPage() {
   const content = companyOverview;
   const notes = await listCompanyNotes();
+  const companyMap = await getCompanyMap();
 
   return (
     <div>
@@ -34,6 +45,25 @@ export default async function CompanyOverviewPage() {
         <p className="text-xs text-neutral-400 mt-1">
           Aktualizováno: {formatCzechDate(content.lastUpdated)}
         </p>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Živá mapa firmy</h2>
+          <CreateNodeForm parentId={null} label="Přidat oblast" />
+        </div>
+        <CompanyStatusSummary counts={companyMap.counts} />
+        {companyMap.areas.length === 0 ? (
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
+            Zatím žádná oblast.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {companyMap.areas.map((area) => (
+              <NodeCard key={area.id} node={area} />
+            ))}
+          </div>
+        )}
       </div>
 
       <CompanyMap

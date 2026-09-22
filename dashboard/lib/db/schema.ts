@@ -13,6 +13,9 @@ import {
   boolean,
   timestamp,
   uniqueIndex,
+  index,
+  jsonb,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // Platformní role — odděleno od organizationMemberships.role (to je role
@@ -210,3 +213,71 @@ export const companyNotes = pgTable("company_notes", {
   authorName: text("author_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Security Phase 12 (Řízení firmy 2.0) — živá mapa firmy. Jeden rekurzivní
+// strom (Oblast → Podoblast → Téma, MVP UI omezuje na 3 úrovně, ale model je
+// obecný), ne samostatné tabulky pro každou úroveň — viz schválená
+// specifikace: stejná mechanika (název/stav/vlastník/diskuze) platí na každé
+// úrovni stejně, jen "listovost" se liší.
+//
+// status/statusMode/statusReason/statusDriverNodeId: stav se u uzlů s dětmi
+// POČÍTÁ a UKLÁDÁ (ne jen virtuálně při čtení) — přepočet běží
+// v lib/data/companyNodes.ts (propagateStatusChange) při každé změně, která
+// ho může ovlivnit, a zastaví se na prvním předkovi v "manual" režimu.
+// U listu (bez dětí) zůstává v "auto" módu, dokud ho někdo poprvé ručně
+// nenastaví (updateNodeStatus) — computeAutoStatus([]) = "green", takže
+// nový list bez zásahu ukazuje "pod kontrolou", ne že by vyžadoval
+// speciální výchozí stav.
+//
+// ownerUserId: VÝHRADNĚ skutečný Neon Auth uživatel, žádný volný text pro
+// jméno (schváleno explicitně — žádné paralelní identity vedle skutečných
+// Auth účtů; pokud odpovědná osoba účet nemá, uzel zůstává bez vlastníka).
+// Přiřazení nikdy nemění status — jsou to dvě nezávislé informace.
+export const companyNodes = pgTable(
+  "company_nodes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => companyNodes.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status").notNull(), // "green" | "amber" | "red"
+    statusMode: text("status_mode").notNull().default("auto"), // "auto" | "manual"
+    statusReason: text("status_reason"),
+    statusDriverNodeId: uuid("status_driver_node_id").references(
+      (): AnyPgColumn => companyNodes.id
+    ),
+    priority: text("priority").notNull().default("medium"), // "low" | "medium" | "high" | "critical"
+    ownerUserId: text("owner_user_id"),
+    position: integer("position").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }), // soft-delete, nikdy hard delete
+  },
+  (table) => [index("company_nodes_parent_id_idx").on(table.parentId, table.position)]
+);
+
+// Jeden sdílený timeline na uzel — komentáře i systémové události
+// (vytvoření, změna stavu, nabídnutí k převzetí, přiřazení vlastníka) ve
+// stejném chronologickém proudu, aby šlo za půl roku otevřít téma a
+// pochopit, kdo co navrhl, kdo to převzal a jak se to vyřešilo.
+// `authorName` je snapshot v okamžiku zápisu, stejný princip jako
+// companyNotes.authorName výše. `metadata` nese strukturovaná data
+// systémových událostí (např. status_changed: {from, to}), aby se
+// timeline dal vykreslit bez dohledávání aktuálního stavu jinde.
+export const companyNodeActivity = pgTable(
+  "company_node_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    nodeId: uuid("node_id")
+      .notNull()
+      .references(() => companyNodes.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(), // "comment" | "status_changed" | "owner_assigned" | "claim_offered" | "created"
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("company_node_activity_node_id_idx").on(table.nodeId, table.createdAt)]
+);
