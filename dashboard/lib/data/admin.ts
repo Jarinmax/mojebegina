@@ -9,11 +9,12 @@ import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { organizations, organizationMemberships, userActivations } from "@/lib/db/schema";
+import { organizations, organizationMemberships, userActivations, userRoles } from "@/lib/db/schema";
 import { auth } from "@/lib/auth/server";
 import { getAuthContext } from "./authContext";
 import { requireAdmin, requireAdminOrExecutive } from "./adminAuth";
 import { validateCreateCustomerInput, type CreateCustomerInput } from "./createCustomerValidation";
+import { planCustomerCreation, type ExistingUserInfo } from "./createCustomerPlan";
 import {
   validateAddMemberInput,
   validateUpdateOrganizationInput,
@@ -244,6 +245,16 @@ async function getAppOrigin(): Promise<string> {
   return `${proto}://${host}`;
 }
 
+// Security Phase 13 — oprava mezery zjištěné při zakládání Fillette s.r.o.:
+// tahle funkce dřív VŽDY volala auth.admin.createUser, i pro e-mail, který
+// v Neon Auth už existoval (typicky někdo z vedení, co si zakládá vlastní
+// firmu jako zákazníka) — spadla na USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL a
+// nedalo se to opravit jinak než ručním SQL. Teď se nejdřív bezpečně podívá,
+// jestli e-mail už existuje (stejná technika jako addOrganizationMember,
+// Fáze 6), a rozhodnutí "založit nový účet, nebo znovupoužít existující
+// identitu" nechá na čisté, testované funkci planCustomerCreation (viz
+// createCustomerPlan.ts — tam i vysvětlení, proč user_activations a
+// systemRole/user_roles vyžadují každé jiné zacházení).
 export async function createCustomerOrganization(
   rawInput: CreateCustomerInput
 ): Promise<CreateCustomerResult> {
@@ -257,62 +268,145 @@ export async function createCustomerOrganization(
   }
   const input = validated.value;
 
-  // Krok 1: Neon Auth uživatel BEZ hesla. ADMIN heslo zákazníka nikdy
-  // nezadává ani nezná — better-auth admin plugin credential účet vůbec
-  // nezaloží, dokud si zákazník sám nenastaví heslo přes /nastavit-heslo.
-  const { data: created, error: createUserError } = await auth.admin.createUser({
-    email: input.contactEmail,
-    name: input.contactName,
+  const { data: existingUsers, error: lookupError } = await auth.admin.listUsers({
+    query: {
+      filterField: "email",
+      filterOperator: "eq",
+      filterValue: input.contactEmail,
+      limit: 1,
+    },
   });
+  if (lookupError) {
+    return { ok: false, error: "Nepodařilo se ověřit e-mail. Zkuste to prosím znovu." };
+  }
+  const existingAuthUser = existingUsers?.users?.[0] ?? null;
 
-  if (createUserError || !created) {
-    if (createUserError?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
-      return { ok: false, error: "Uživatel s tímto e-mailem už v systému existuje." };
-    }
-    return { ok: false, error: "Nepodařilo se založit uživatelský účet. Zkuste to prosím znovu." };
+  let existingUserInfo: ExistingUserInfo | null = null;
+  if (existingAuthUser) {
+    const [roleRow] = await db
+      .select({ id: userRoles.id })
+      .from(userRoles)
+      .where(
+        and(eq(userRoles.userId, existingAuthUser.id), eq(userRoles.systemRole, "CUSTOMER"))
+      )
+      .limit(1);
+    existingUserInfo = { id: existingAuthUser.id, hasCustomerRole: Boolean(roleRow) };
   }
 
-  const authUserId = created.user.id;
+  const plan = planCustomerCreation(existingUserInfo);
 
-  // Krok 2: organizace + membership + onboarding stav v jediném atomickém
+  let authUserId: string;
+  if (plan.mode === "new_user") {
+    // Neon Auth uživatel BEZ hesla. ADMIN heslo zákazníka nikdy nezadává
+    // ani nezná — better-auth admin plugin credential účet vůbec
+    // nezaloží, dokud si zákazník sám nenastaví heslo přes /nastavit-heslo.
+    const { data: created, error: createUserError } = await auth.admin.createUser({
+      email: input.contactEmail,
+      name: input.contactName,
+    });
+
+    if (createUserError || !created) {
+      if (createUserError?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+        // Vzácný souběh — účet vznikl mezi kontrolou výše a tímhle
+        // voláním. Ne chyba dat, jen zkuste znovu (další pokus už
+        // existující identitu najde a znovupoužije).
+        return {
+          ok: false,
+          error: "Uživatel s tímto e-mailem už v systému existuje. Zkuste to prosím znovu.",
+        };
+      }
+      return { ok: false, error: "Nepodařilo se založit uživatelský účet. Zkuste to prosím znovu." };
+    }
+    authUserId = created.user.id;
+  } else {
+    authUserId = plan.userId;
+  }
+
+  // Organizace + membership (+ u nového účtu i onboarding stav, u
+  // znovupoužité identity i případný CUSTOMER řádek) v jediném atomickém
   // HTTP batchi — neon-http driver nepodporuje db.transaction (viz
   // drizzle-orm/neon-http/session: "No transactions support"), takže id
-  // organizace generujeme sami předem a všechny tři inserce pošleme přes
-  // db.batch, aby buď prošly všechny, nebo žádná (žádná "osiřelá"
-  // organizace bez membershipu, žádný auth uživatel bez onboarding řádku).
+  // organizace generujeme sami předem a inserce pošleme přes db.batch, aby
+  // buď prošly všechny, nebo žádná (žádná "osiřelá" organizace bez
+  // membershipu).
   const organizationId = randomUUID();
   try {
-    await db.batch([
-      db.insert(organizations).values({
-        id: organizationId,
-        name: input.name,
-        ico: input.ico,
-        registeredAddress: input.registeredAddress,
-        status: "Zákazník Begina",
-      }),
-      db.insert(organizationMemberships).values({
-        userId: authUserId,
-        organizationId,
-        role: "owner",
-      }),
-      // invitedAt/activatedAt zůstávají NULL — "Nepozván", dokud ADMIN
-      // sám nespustí "Pozvat zákazníka".
-      db.insert(userActivations).values({ userId: authUserId }),
-    ]);
-  } catch (dbError) {
-    // Best-effort úklid osiřelého auth uživatele — DB zápis selhal, ale
-    // Neon Auth účet už existuje. Nejde o transakci napříč dvěma
-    // systémy, takže tohle je kompenzační krok, ne záruka: pokud selže i
-    // úklid, admin dostane e-mail v chybové hlášce a může to dohledat
-    // ručně v Neon Console.
-    try {
-      await auth.admin.removeUser({ userId: authUserId });
-    } catch {
-      return {
-        ok: false,
-        error: `Nepodařilo se založit organizaci a automatický úklid uživatelského účtu (${input.contactEmail}) selhal — smažte ho prosím ručně v Neon Console.`,
-      };
+    if (plan.mode === "new_user") {
+      await db.batch([
+        db.insert(organizations).values({
+          id: organizationId,
+          name: input.name,
+          ico: input.ico,
+          registeredAddress: input.registeredAddress,
+          status: "Zákazník Begina",
+        }),
+        db.insert(organizationMemberships).values({
+          userId: authUserId,
+          organizationId,
+          role: "owner",
+        }),
+        // invitedAt/activatedAt zůstávají NULL — "Nepozván", dokud ADMIN
+        // sám nespustí "Pozvat zákazníka".
+        db.insert(userActivations).values({ userId: authUserId }),
+      ]);
+    } else if (plan.grantCustomerRole) {
+      await db.batch([
+        db.insert(organizations).values({
+          id: organizationId,
+          name: input.name,
+          ico: input.ico,
+          registeredAddress: input.registeredAddress,
+          status: "Zákazník Begina",
+        }),
+        db.insert(organizationMemberships).values({
+          userId: authUserId,
+          organizationId,
+          role: "owner",
+        }),
+        // Existující identita ještě neměla CUSTOMER mezi svými rolemi
+        // (např. měla jen EXECUTIVE) — přidá se JEN tenhle nový řádek,
+        // žádná existující role se nemaže ani neupravuje. onConflictDoNothing
+        // je pojistka proti souběhu (uniqueIndex userId+systemRole).
+        db.insert(userRoles).values({ userId: authUserId, systemRole: "CUSTOMER" }).onConflictDoNothing(),
+      ]);
+    } else {
+      // Identita CUSTOMER roli už měla (vlastní i jinou organizaci) —
+      // stačí organizace + membership. user_activations se záměrně vůbec
+      // nedotýká (je to vlastnost identity, ne tohohle membershipu, viz
+      // createCustomerPlan.ts) a userRoles taky ne (řádek už existuje).
+      await db.batch([
+        db.insert(organizations).values({
+          id: organizationId,
+          name: input.name,
+          ico: input.ico,
+          registeredAddress: input.registeredAddress,
+          status: "Zákazník Begina",
+        }),
+        db.insert(organizationMemberships).values({
+          userId: authUserId,
+          organizationId,
+          role: "owner",
+        }),
+      ]);
     }
+  } catch (dbError) {
+    if (plan.mode === "new_user") {
+      // Best-effort úklid osiřelého auth uživatele — DB zápis selhal, ale
+      // Neon Auth účet už existuje. Nejde o transakci napříč dvěma
+      // systémy, takže tohle je kompenzační krok, ne záruka: pokud selže i
+      // úklid, admin dostane e-mail v chybové hlášce a může to dohledat
+      // ručně v Neon Console.
+      try {
+        await auth.admin.removeUser({ userId: authUserId });
+      } catch {
+        return {
+          ok: false,
+          error: `Nepodařilo se založit organizaci a automatický úklid uživatelského účtu (${input.contactEmail}) selhal — smažte ho prosím ručně v Neon Console.`,
+        };
+      }
+    }
+    // Ve větvi "reuse_user" žádný nový auth účet nevznikl — existující
+    // identita zůstává beze změny, není co uklízet.
 
     const message = String(dbError instanceof Error ? dbError.message : dbError).toLowerCase();
     if (message.includes("ico")) {
