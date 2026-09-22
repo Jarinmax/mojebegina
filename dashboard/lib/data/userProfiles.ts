@@ -112,19 +112,30 @@ export type BackfillSummary = {
 // authContext.ts). Funkce proto NENÍ bezpečná k volání odjinud bez
 // vlastního ADMIN gate na volající straně.
 export async function backfillUserProfiles(): Promise<BackfillSummary> {
-  const [memberRows, ownerRows] = await Promise.all([
-    db.selectDistinct({ userId: organizationMemberships.userId }).from(organizationMemberships),
-    db
-      .selectDistinct({ userId: companyNodes.ownerUserId })
-      .from(companyNodes)
-      .where(isNotNull(companyNodes.ownerUserId)),
-  ]);
+  const memberRows = await db
+    .selectDistinct({ userId: organizationMemberships.userId })
+    .from(organizationMemberships);
 
   const candidateIds = new Set<string>();
   memberRows.forEach((r) => candidateIds.add(r.userId));
-  ownerRows.forEach((r) => {
-    if (r.userId) candidateIds.add(r.userId);
-  });
+
+  // company_nodes (Řízení firmy 2.0, migrace 0005) na Preview v okamžiku
+  // psaní tohohle kódu ještě není aplikovaná — dotaz na neexistující
+  // tabulku by shodil celý backfill. Bezpečně přeskočit, pokud tabulka
+  // ještě není k dispozici; jakmile bude, tahle část se sama zapojí bez
+  // další úpravy.
+  try {
+    const ownerRows = await db
+      .selectDistinct({ userId: companyNodes.ownerUserId })
+      .from(companyNodes)
+      .where(isNotNull(companyNodes.ownerUserId));
+    ownerRows.forEach((r) => {
+      if (r.userId) candidateIds.add(r.userId);
+    });
+  } catch {
+    // company_nodes zatím neexistuje (nebo jiný přechodný problém s ní) —
+    // pokračuje se jen s organization_memberships.
+  }
 
   const authUsersById = new Map<string, { name: string | null; email: string }>();
   const limit = 100;
