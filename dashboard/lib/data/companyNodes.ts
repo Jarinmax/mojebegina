@@ -30,8 +30,19 @@ import {
   type NodeStatus,
   type NodePriority,
 } from "./companyNodeValidation";
-import { computeAutoStatus, selectStatusDriver, type StatusChild } from "./statusPropagation";
+import {
+  buildPropagationActivityRecord,
+  computeAutoStatus,
+  selectStatusDriver,
+  type StatusChild,
+} from "./statusPropagation";
 import type { AuthContext } from "./types";
+
+// Identita toho, kdo vyvolal řetězec automatické propagace (typicky autor
+// ruční akce na listu) — propagateStatusChange sama žádnou identitu nezná,
+// protahuje se sem z volajících funkcí, které už mají ctx z
+// requireCompanyNodeContext().
+type PropagationActor = { userId: string; name: string | null };
 
 export async function requireCompanyNodeContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -178,7 +189,13 @@ export async function getCompanyMap(): Promise<CompanyMap> {
 
 export type NodeActivityEntry = {
   id: string;
-  kind: "comment" | "status_changed" | "owner_assigned" | "claim_offered" | "created";
+  kind:
+    | "comment"
+    | "status_changed"
+    | "status_propagated"
+    | "owner_assigned"
+    | "claim_offered"
+    | "created";
   authorUserId: string;
   authorName: string | null;
   body: string | null;
@@ -247,10 +264,15 @@ export async function getNodeDetail(nodeId: string): Promise<NodeDetail | null> 
 
 // Přepočítá a uloží stav u `nodeId`, pokud je v "auto" módu, a rekurzivně
 // pokračuje k rodiči — zastaví se na prvním předkovi v "manual" módu
-// (ruční pin) nebo v kořeni. Vždy zapíše (i "beze změny"), strom je na
-// Begina měřítku malý, takže se tím nešetří nic podstatného a kód je
-// jednodušší a méně náchylný na chyby v "žádná změna" detekci.
-async function propagateStatusChange(nodeId: string): Promise<void> {
+// (ruční pin) nebo v kořeni. UPDATE zůstává bezpodmínečný (i "beze změny"),
+// strom je na Begina měřítku malý, takže se tím nešetří nic podstatného a
+// kód je jednodušší a méně náchylný na chyby v "žádná změna" detekci.
+//
+// Fáze 12.1 — auditní stopa: activity záznam (`status_propagated`, odlišný
+// od ruční `status_changed`) se zapíše jen když se výsledný stav opravdu
+// změnil (buildPropagationActivityRecord), autor je ten, kdo vyvolal celý
+// řetězec (actor), ne žádný "systémový" uživatel.
+async function propagateStatusChange(nodeId: string, actor: PropagationActor): Promise<void> {
   const [node] = await db
     .select()
     .from(companyNodes)
@@ -263,6 +285,7 @@ async function propagateStatusChange(nodeId: string): Promise<void> {
   const children = await db
     .select({
       id: companyNodes.id,
+      title: companyNodes.title,
       status: companyNodes.status,
       priority: companyNodes.priority,
       updatedAt: companyNodes.updatedAt,
@@ -279,14 +302,36 @@ async function propagateStatusChange(nodeId: string): Promise<void> {
 
   const newStatus = computeAutoStatus(statusChildren);
   const driver = selectStatusDriver(statusChildren, newStatus);
+  const driverTitle = driver ? (children.find((c) => c.id === driver.id)?.title ?? null) : null;
 
-  await db
+  const activityRecord = buildPropagationActivityRecord(
+    node.status as NodeStatus,
+    newStatus,
+    driver && driverTitle ? { id: driver.id, title: driverTitle } : null
+  );
+
+  const updateQuery = db
     .update(companyNodes)
     .set({ status: newStatus, statusDriverNodeId: driver?.id ?? null, updatedAt: new Date() })
     .where(eq(companyNodes.id, nodeId));
 
+  if (activityRecord) {
+    await db.batch([
+      updateQuery,
+      db.insert(companyNodeActivity).values({
+        nodeId,
+        authorUserId: actor.userId,
+        authorName: actor.name,
+        kind: activityRecord.kind,
+        metadata: activityRecord.metadata,
+      }),
+    ]);
+  } else {
+    await updateQuery;
+  }
+
   if (node.parentId) {
-    await propagateStatusChange(node.parentId);
+    await propagateStatusChange(node.parentId, actor);
   }
 }
 
@@ -354,7 +399,7 @@ export async function createNode(
   ]);
 
   if (parentId) {
-    await propagateStatusChange(parentId);
+    await propagateStatusChange(parentId, { userId: ctx.userId, name: ctx.name });
   }
 
   return { ok: true, id };
@@ -401,7 +446,7 @@ export async function updateNodeStatus(
   ]);
 
   if (current.parentId) {
-    await propagateStatusChange(current.parentId);
+    await propagateStatusChange(current.parentId, { userId: ctx.userId, name: ctx.name });
   }
 
   return { ok: true };
@@ -461,14 +506,14 @@ export async function setNodeStatusAuto(nodeId: string): Promise<NodeResult> {
   ]);
 
   if (current.parentId) {
-    await propagateStatusChange(current.parentId);
+    await propagateStatusChange(current.parentId, { userId: ctx.userId, name: ctx.name });
   }
 
   return { ok: true };
 }
 
 export async function updateNodePriority(nodeId: string, rawPriority: string): Promise<NodeResult> {
-  await requireCompanyNodeContext();
+  const ctx = await requireCompanyNodeContext();
 
   const validated = validatePriorityInput(rawPriority);
   if (!validated.ok) {
@@ -490,7 +535,7 @@ export async function updateNodePriority(nodeId: string, rawPriority: string): P
     .where(eq(companyNodes.id, nodeId));
 
   if (node.parentId) {
-    await propagateStatusChange(node.parentId);
+    await propagateStatusChange(node.parentId, { userId: ctx.userId, name: ctx.name });
   }
 
   return { ok: true };
@@ -625,7 +670,7 @@ export async function unassignOwner(nodeId: string): Promise<NodeResult> {
 }
 
 export async function archiveNode(nodeId: string): Promise<NodeResult> {
-  await requireCompanyNodeContext();
+  const ctx = await requireCompanyNodeContext();
 
   const [node] = await db
     .select({ id: companyNodes.id, parentId: companyNodes.parentId })
@@ -651,7 +696,7 @@ export async function archiveNode(nodeId: string): Promise<NodeResult> {
     .where(eq(companyNodes.id, nodeId));
 
   if (node.parentId) {
-    await propagateStatusChange(node.parentId);
+    await propagateStatusChange(node.parentId, { userId: ctx.userId, name: ctx.name });
   }
 
   return { ok: true };

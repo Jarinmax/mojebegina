@@ -81,3 +81,43 @@ export function selectStatusDriver(
     return candidate.updatedAt > best.updatedAt ? candidate : best;
   });
 }
+
+export type PropagationDriver = { id: string; title: string };
+
+export type PropagationActivityRecord = {
+  kind: "status_propagated";
+  metadata: {
+    mode: "auto";
+    from: NodeStatus;
+    to: NodeStatus;
+    driverNodeId: string | null;
+    driverNodeTitle: string | null;
+  };
+};
+
+// Rozhoduje, jestli automatický přepočet stavu rodiče (propagateStatusChange
+// v companyNodes.ts) má zapsat activity záznam — a co do něj patří. Vlastní
+// `kind` ("status_propagated"), ne "status_changed", aby šla automatická
+// propagace od ruční změny stavu jasně odlišit i na úrovni dat, ne jen
+// vnořeným flagem. Žádný záznam, pokud se výsledný stav (`from`/`to`)
+// nezměnil — samotný UPDATE uzlu (mimo tuhle funkci) zůstává bezpodmínečný.
+export function buildPropagationActivityRecord(
+  from: NodeStatus,
+  to: NodeStatus,
+  driver: PropagationDriver | null
+): PropagationActivityRecord | null {
+  if (from === to) {
+    return null;
+  }
+
+  return {
+    kind: "status_propagated",
+    metadata: {
+      mode: "auto",
+      from,
+      to,
+      driverNodeId: driver?.id ?? null,
+      driverNodeTitle: driver?.title ?? null,
+    },
+  };
+}

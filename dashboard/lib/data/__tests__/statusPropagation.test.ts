@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeAutoStatus, selectStatusDriver, type StatusChild } from "../statusPropagation";
+import {
+  buildPropagationActivityRecord,
+  computeAutoStatus,
+  selectStatusDriver,
+  type StatusChild,
+} from "../statusPropagation";
 
 function child(
   id: string,
@@ -78,5 +83,42 @@ describe("selectStatusDriver — Security Phase 12", () => {
   it("oranžový výsledek vybere nezelené dítě i s nízkou prioritou", () => {
     const children = [child("a", "red", "low"), child("b", "green", "medium")];
     expect(selectStatusDriver(children, "amber")?.id).toBe("a");
+  });
+});
+
+describe("buildPropagationActivityRecord — Security Phase 12.1 (auditní stopa propagace)", () => {
+  it("green → red vytvoří záznam s kind status_propagated, mode auto a driverem", () => {
+    const record = buildPropagationActivityRecord("green", "red", {
+      id: "child-1",
+      title: "Téma 2",
+    });
+    expect(record).toEqual({
+      kind: "status_propagated",
+      metadata: {
+        mode: "auto",
+        from: "green",
+        to: "red",
+        driverNodeId: "child-1",
+        driverNodeTitle: "Téma 2",
+      },
+    });
+  });
+
+  it("red → green vytvoří záznam bez drivera (výsledek je zelený)", () => {
+    const record = buildPropagationActivityRecord("red", "green", null);
+    expect(record).toEqual({
+      kind: "status_propagated",
+      metadata: {
+        mode: "auto",
+        from: "red",
+        to: "green",
+        driverNodeId: null,
+        driverNodeTitle: null,
+      },
+    });
+  });
+
+  it("beze změny výsledného stavu (amber → amber) nevrací žádný záznam", () => {
+    expect(buildPropagationActivityRecord("amber", "amber", { id: "x", title: "X" })).toBeNull();
   });
 });

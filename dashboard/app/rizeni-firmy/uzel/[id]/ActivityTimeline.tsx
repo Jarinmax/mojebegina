@@ -30,6 +30,12 @@ function describeEntry(entry: NodeActivityEntry): string {
       const mode = meta.mode === "auto" ? "automaticky" : "ručně";
       return `nastavil(a) stav ${mode} na „${STATUS_LABELS[to] ?? to}“`;
     }
+    case "status_propagated": {
+      const to = String(meta.to ?? "");
+      const driverTitle = meta.driverNodeTitle ? String(meta.driverNodeTitle) : null;
+      const cause = driverTitle ? ` (kvůli „${driverTitle}“)` : "";
+      return `stav byl automaticky přepočítán na „${STATUS_LABELS[to] ?? to}“${cause}`;
+    }
     case "owner_assigned":
       return meta.ownerUserId
         ? `přiřadil(a) odpovědnou osobu: ${String(meta.ownerName ?? meta.ownerUserId)}`
