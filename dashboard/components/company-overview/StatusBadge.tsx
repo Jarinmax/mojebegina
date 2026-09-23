@@ -21,6 +21,15 @@ const DOT_CLASSES: Record<Status, string> = {
   red: "bg-red-500",
 };
 
+// Jemné tónování celé karty uzlu podle stavu (bg + border), sdílené s
+// NodeCard — badge zůstává, tónování je jen doplňkový vizuální signál pro
+// skenování celé mapy pohledem, žádná nová sémantika stavu.
+export const STATUS_CARD_CLASSES: Record<Status, string> = {
+  green: "bg-emerald-50/50 border-emerald-200",
+  amber: "bg-amber-50/50 border-amber-200",
+  red: "bg-red-50/50 border-red-200",
+};
+
 type Props = {
   status: Status;
   className?: string;

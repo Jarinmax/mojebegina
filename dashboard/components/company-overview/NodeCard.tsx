@@ -1,5 +1,5 @@
 import Link from "next/link";
-import StatusBadge from "./StatusBadge";
+import StatusBadge, { STATUS_CARD_CLASSES } from "./StatusBadge";
 import type { NodeCardData } from "@/lib/data/companyNodes";
 
 // Security Phase 12 (Řízení firmy 2.0) — karta uzlu (Oblast/Podoblast/
@@ -21,7 +21,7 @@ export default function NodeCard({ node }: Props) {
   return (
     <Link
       href={`/rizeni-firmy/uzel/${node.id}`}
-      className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
+      className={`block border rounded-xl p-4 hover:border-begina-primary-300 transition-colors ${STATUS_CARD_CLASSES[node.status]}`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <p className="text-sm font-medium text-begina-primary-900">{node.title}</p>

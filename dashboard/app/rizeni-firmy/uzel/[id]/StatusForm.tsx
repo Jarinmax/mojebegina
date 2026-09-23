@@ -55,7 +55,7 @@ export default function StatusForm({
           onClick={() => setOpen((v) => !v)}
           className="text-sm font-medium text-begina-primary-900 hover:underline"
         >
-          {open ? "Zrušit ruční nastavení" : "Nastavit stav ručně"}
+          {open ? "Zavřít" : "Nastavit stav ručně"}
         </button>
 
         {currentMode === "manual" && (
