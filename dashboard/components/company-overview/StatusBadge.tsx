@@ -45,3 +45,26 @@ export default function StatusBadge({ status, className }: Props) {
     </span>
   );
 }
+
+// Kompaktní varianta pro periferní signál mimo Řízení firmy (např. karta na
+// /admin) — stejná barevná tečka + pilulka jako StatusBadge, ale místo
+// popisku jen počet. Jen amber/red: green se na takových místech záměrně
+// nezobrazuje ani nepočítá (není to akční informace).
+type CountableStatus = "amber" | "red";
+
+export function StatusCountBadge({
+  status,
+  count,
+}: {
+  status: CountableStatus;
+  count: number;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-2 py-0.5 ${CLASSES[status]}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${DOT_CLASSES[status]}`} />
+      {count}
+    </span>
+  );
+}
