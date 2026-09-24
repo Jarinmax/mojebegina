@@ -142,7 +142,7 @@ export async function getCustomerOrders(
     })
     .from(orders)
     .leftJoin(invoices, eq(invoices.orderId, orders.id))
-    .where(and(eq(orders.buyerOrganizationId, organizationId), eq(orders.status, "paid")))
+    .where(and(eq(orders.buyerOrganizationId, organizationId), eq(orders.paymentStatus, "paid")))
     .orderBy(desc(orders.orderedAt));
 
   const result: Order[] = [];

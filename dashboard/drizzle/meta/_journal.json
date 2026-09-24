@@ -50,6 +50,20 @@
       "when": 1790107179578,
       "tag": "0006_phase_14_user_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790275783022,
+      "tag": "0007_phase_15a_orders_add_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790275818243,
+      "tag": "0008_phase_15b_orders_drop_status",
+      "breakpoints": true
     }
   ]
 }
