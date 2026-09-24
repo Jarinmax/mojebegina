@@ -91,12 +91,36 @@ export const locations = pgTable("locations", {
 
 // Plátce (buyerOrganizationId) a příjemce (recipient* snapshot) jsou
 // úmyslně oddělené — viz Security Phase 2, sekce 3 ("plátce vs. příjemce").
+//
+// Security Phase 15 (Objednávky 1.0) — `status` přejmenován na
+// `payment_status` a přibyl nezávislý `fulfillment_status` (viz zadání:
+// "Payment status a fulfillment status jsou nezávislé veličiny" — jedna
+// objednávka může být doručená, ale nezaplacená, nebo zaplacená předem
+// a ještě nepřipravená). "Po splatnosti" se úmyslně neukládá jako vlastní
+// hodnota — počítá se za běhu z `payment_status = 'invoiced'` a faktury
+// `due_at` v minulosti (stejný princip jako počítaná pole v companyNodes).
+//
+// Tři nezávislé role kolem "kdo objednal", schválené explicitně:
+//   buyerOrganizationId — zákaznická organizace (kdo platí)
+//   contactName/Phone/Email — člověk, který objednávku REÁLNĚ zadal
+//     (telefon/e-mail/budoucí WooCommerce billing) — čistý snapshot,
+//     nevyžaduje Neon Auth účet, stejný princip jako orderItems.name
+//   enteredByUserId — interní MojeBegina uživatel, který objednávku
+//     zapsal do systému (vždy skutečný Neon Auth účet u ručního zadání,
+//     NULL u automatického importu)
+//   placedByUserId — VYHRAZENO pro budoucnost: přihlášený zákaznický
+//     účet, pokud/až vznikne objednávka přímo přes zákaznické
+//     samoobslužné rozhraní. Dnes vždy NULL, nezaměňovat s contactName.
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   buyerOrganizationId: uuid("buyer_organization_id")
     .notNull()
     .references(() => organizations.id),
   placedByUserId: text("placed_by_user_id"),
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  enteredByUserId: text("entered_by_user_id"),
   recipientLocationId: uuid("recipient_location_id").references(() => locations.id),
   recipientName: text("recipient_name"),
   recipientAddress: text("recipient_address"),
@@ -104,7 +128,14 @@ export const orders = pgTable("orders", {
   subtotalKc: integer("subtotal_kc").notNull(),
   shippingKc: integer("shipping_kc").notNull().default(0),
   totalKc: integer("total_kc").notNull(),
-  status: text("status").notNull(), // "pending" | "paid" | "cancelled"
+  // "unpaid" | "invoiced" | "paid" — viz komentář výše (Security Phase 15)
+  paymentStatus: text("payment_status").notNull(),
+  // "new" | "confirmed" | "preparing" | "ready" | "out_for_delivery" |
+  // "delivered" | "cancelled" — nezávislé na paymentStatus
+  fulfillmentStatus: text("fulfillment_status").notNull().default("new"),
+  plannedDeliveryAt: timestamp("planned_delivery_at", { withTimezone: true }),
+  responsibleUserId: text("responsible_user_id"),
+  note: text("note"),
   externalWooCommerceId: text("external_woocommerce_id"),
   orderedAt: timestamp("ordered_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
@@ -296,4 +327,26 @@ export const companyNodeActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("company_node_activity_node_id_idx").on(table.nodeId, table.createdAt)]
+);
+
+// Security Phase 15 (Objednávky 1.0) — auditní stopa objednávky, přesně
+// stejný vzor jako company_node_activity výše: jeden sdílený chronologický
+// timeline pro poznámky i systémové události (vytvoření, změna
+// fulfillment/payment stavu, přiřazení odpovědné osoby), authorName jako
+// snapshot v okamžiku zápisu.
+export const orderActivity = pgTable(
+  "order_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(), // "created" | "fulfillment_status_changed" | "payment_status_changed" | "responsible_assigned" | "note_added"
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("order_activity_order_id_idx").on(table.orderId, table.createdAt)]
 );
