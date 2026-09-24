@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listOrganizations } from "@/lib/data/admin";
 import { getCompanyMap } from "@/lib/data/companyNodes";
+import { listOrders } from "@/lib/data/orders";
 import OrganizationsTable from "@/components/organization/OrganizationsTable";
 import CompanyOverviewCard from "@/components/company-overview/CompanyOverviewCard";
 
@@ -9,10 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function AdminOrganizationsPage() {
   const organizations = await listOrganizations();
   const companyMap = await getCompanyMap();
+  const { counts: orderCounts } = await listOrders();
 
   return (
     <div>
-      <CompanyOverviewCard redCount={companyMap.counts.red} amberCount={companyMap.counts.amber} />
+      <CompanyOverviewCard
+        redCount={companyMap.counts.red}
+        amberCount={companyMap.counts.amber}
+        newOrdersCount={orderCounts.new}
+      />
 
       <div className="mb-5 flex items-center justify-between">
         <div>
