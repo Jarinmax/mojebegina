@@ -29,21 +29,21 @@ export default function MembershipCard({
       <div className="relative z-10">
         <p className="text-xs mb-1 text-neutral-500">Moje Begina · členská karta</p>
         <div className="mb-3">
-          <p className="text-xl font-medium text-begina-primary-900">{name}</p>
+          <p className="text-xl font-medium text-begina-primary-900 break-words">{name}</p>
           {contactName && (
-            <p className="text-sm text-neutral-600 mt-0.5">{contactName}</p>
+            <p className="text-sm text-neutral-600 mt-0.5 break-words">{contactName}</p>
           )}
         </div>
-        <div className="flex justify-between items-end">
-          <div>
+        <div className="flex flex-wrap justify-between items-end gap-x-3 gap-y-2">
+          <div className="min-w-0">
             <p className="text-[11px] text-neutral-500">Členské číslo</p>
-            <p className="text-sm font-medium tracking-wide text-begina-primary-900">
+            <p className="text-sm font-medium tracking-wide text-begina-primary-900 break-words">
               {memberId ?? "Neuvedeno"}
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-right min-w-0">
             <p className="text-[11px] text-neutral-500">Status</p>
-            <p className="text-sm font-medium text-begina-primary-900">
+            <p className="text-sm font-medium text-begina-primary-900 break-words">
               {status ?? "Neuvedeno"}
             </p>
           </div>

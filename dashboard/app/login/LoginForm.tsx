@@ -17,18 +17,28 @@ export default function LoginForm() {
     setBusy(true);
     setError(null);
 
-    const { error } = await authClient.signIn.email({ email, password });
+    // Auth request jde přes proxy na upstream Neon Auth server — může
+    // selhat i mimo běžnou "špatné heslo" odpověď (nedostupný/špatně
+    // nakonfigurovaný upstream, síťová chyba, neočekávaný tvar odpovědi).
+    // Bez try/catch by takový pád nechal tlačítko navždy na "Přihlašuji…"
+    // bez jakékoli hlášky.
+    try {
+      const { error } = await authClient.signIn.email({ email, password });
 
-    if (error) {
+      if (error) {
+        setBusy(false);
+        setError("Nesprávný e-mail nebo heslo.");
+        return;
+      }
+
+      // Plná navigace (ne router.push) — vynutí nový request se čerstvou
+      // session cookie, aby server na "/" hned viděl přihlášeného uživatele.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/";
+    } catch {
       setBusy(false);
-      setError("Nesprávný e-mail nebo heslo.");
-      return;
+      setError("Přihlášení se nezdařilo. Zkuste to prosím znovu.");
     }
-
-    // Plná navigace (ne router.push) — vynutí nový request se čerstvou
-    // session cookie, aby server na "/" hned viděl přihlášeného uživatele.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = "/";
   }
 
   return (

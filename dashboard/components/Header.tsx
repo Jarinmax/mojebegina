@@ -12,19 +12,19 @@ type HeaderProps = {
 
 export default function Header({ initials, unreadCount = 0, showRoleSwitch = false }: HeaderProps) {
   return (
-    <div className="flex items-center justify-between px-2 py-3">
+    <div className="flex items-center justify-between gap-2 px-2 py-3">
       <Image
         src={logoMark}
         alt="Begina"
-        className="h-8 w-auto"
+        className="h-8 w-auto shrink-0"
         priority
       />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <SwitchRoleLink visible={showRoleSwitch} />
         <Link
           href="/upozorneni"
           aria-label="Oznámení"
-          className="relative text-neutral-500"
+          className="relative shrink-0 text-neutral-500"
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
@@ -36,7 +36,7 @@ export default function Header({ initials, unreadCount = 0, showRoleSwitch = fal
         <Link
           href="/profil"
           aria-label="Můj profil"
-          className="w-7 h-7 rounded-full bg-begina-primary-100 flex items-center justify-center text-xs font-medium text-begina-primary-800"
+          className="w-7 h-7 shrink-0 rounded-full bg-begina-primary-100 flex items-center justify-center text-xs font-medium text-begina-primary-800"
         >
           {initials}
         </Link>
