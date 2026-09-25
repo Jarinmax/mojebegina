@@ -40,12 +40,16 @@ export default function LeadOwnerForm({
         <form action={ownerFormAction} className="flex items-center gap-2">
           <select
             name="ownerUserId"
-            defaultValue=""
+            defaultValue={ownerUserId ?? ""}
             className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
           >
-            <option value="" disabled>
-              {ownerUserId ? "Přeřadit na…" : "Vybrat…"}
-            </option>
+            {/* Security fix — placeholder NESMÍ být disabled: disabled první
+                option prohlížeč tiše přeskočí a reálně vybere první NEdisabled
+                <option> (= první obchodník ze seznamu), i když defaultValue
+                míří jinam. To způsobovalo, že prázdná hodnota (nikdo
+                nepřiřazen) se v UI jevila jako "vybraný první ze seznamu" a
+                nevědomý submit by to i tak uložil. */}
+            <option value="">{ownerUserId ? "Beze změny" : "Neurčeno / vyberte obchodníka"}</option>
             {staff.map((s) => (
               <option key={s.userId} value={s.userId}>
                 {s.name ?? s.email}
@@ -71,12 +75,14 @@ export default function LeadOwnerForm({
         <form action={acquiredFormAction} className="flex items-center gap-2">
           <select
             name="acquiredByUserId"
-            defaultValue=""
+            defaultValue={acquiredByUserId ?? ""}
             className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
           >
-            <option value="" disabled>
-              {acquiredByUserId ? "Opravit na…" : "Vybrat…"}
-            </option>
+            {/* Stejná oprava jako u ownerUserId výše — acquiredBy je
+                historická pravda, nikdy se nedomýšlí, takže NULL musí zůstat
+                viditelně a skutečně "nevybráno", ne tiše spadnout na prvního
+                člověka ze seznamu. */}
+            <option value="">{acquiredByUserId ? "Beze změny" : "Neurčeno / vyberte obchodníka"}</option>
             {staff.map((s) => (
               <option key={s.userId} value={s.userId}>
                 {s.name ?? s.email}

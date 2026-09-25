@@ -37,12 +37,13 @@ export default function CustomerOwnerForm({
         <form action={ownerFormAction} className="flex items-center gap-2">
           <select
             name="ownerUserId"
-            defaultValue=""
+            defaultValue={ownerUserId ?? ""}
             className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
           >
-            <option value="" disabled>
-              {ownerUserId ? "Přeřadit na…" : "Vybrat…"}
-            </option>
+            {/* Security fix — viz LeadOwnerForm.tsx: disabled placeholder
+                prohlížeč tiše přeskočí a reálně vybere prvního obchodníka ze
+                seznamu, i když nikdo není přiřazen. */}
+            <option value="">{ownerUserId ? "Beze změny" : "Neurčeno / vyberte obchodníka"}</option>
             {staff.map((s) => (
               <option key={s.userId} value={s.userId}>
                 {s.name ?? s.email}
@@ -68,12 +69,11 @@ export default function CustomerOwnerForm({
         <form action={acquiredFormAction} className="flex items-center gap-2">
           <select
             name="acquiredByUserId"
-            defaultValue=""
+            defaultValue={acquiredByUserId ?? ""}
             className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
           >
-            <option value="" disabled>
-              {acquiredByUserId ? "Opravit na…" : "Vybrat…"}
-            </option>
+            {/* Security fix — viz LeadOwnerForm.tsx. */}
+            <option value="">{acquiredByUserId ? "Beze změny" : "Neurčeno / vyberte obchodníka"}</option>
             {staff.map((s) => (
               <option key={s.userId} value={s.userId}>
                 {s.name ?? s.email}
