@@ -23,7 +23,9 @@ import {
   validateCreateLeadInput,
   validateStageInput,
   validateCallLogInput,
+  validateCompanyNameInput,
   isFollowUpOverdue,
+  leadDisplayName,
   ACTIVE_LEAD_STAGES,
   type CreateLeadInput,
   type CallLogInput,
@@ -67,7 +69,8 @@ export async function listStaffOptions(): Promise<StaffOption[]> {
 
 export type LeadCardData = {
   id: string;
-  companyName: string;
+  companyName: string | null;
+  displayName: string;
   contactName: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
@@ -96,6 +99,7 @@ async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<Lead
     return {
       id: r.id,
       companyName: r.companyName,
+      displayName: leadDisplayName(r),
       contactName: r.contactName,
       contactPhone: r.contactPhone,
       contactEmail: r.contactEmail,
@@ -371,6 +375,43 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   return { ok: true };
 }
 
+// Security Phase 16.1 — doplnění názvu firmy/provozovny po hovoru (viz
+// schema.ts komentář u `leads`). Vlastní akce mimo logCallOutcome, protože
+// se může hodit i kdykoliv jindy, ne jen bezprostředně po telefonátu.
+export async function updateLeadCompanyName(leadId: string, rawCompanyName: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateCompanyNameInput(rawCompanyName);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+
+  const [current] = await db
+    .select({ companyName: leads.companyName })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  await db.batch([
+    db
+      .update(leads)
+      .set({ companyName: validated.value, updatedAt: new Date() })
+      .where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "company_name_set",
+      metadata: { from: current.companyName, to: validated.value },
+    }),
+  ]);
+
+  return { ok: true };
+}
+
 export async function updateLeadStage(leadId: string, rawStage: string): Promise<LeadResult> {
   const ctx = await requireCrmContext();
 
@@ -510,7 +551,7 @@ export async function findDuplicateOrganizations(leadId: string): Promise<Duplic
   }
 
   const nameMatches =
-    lead.companyName.trim().length >= 3
+    lead.companyName && lead.companyName.trim().length >= 3
       ? await db
           .select(selectCols)
           .from(organizations)

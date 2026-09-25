@@ -28,6 +28,19 @@ export type LeadSource = (typeof LEAD_SOURCES)[number];
 export const VENUE_TYPES = ["kavarna", "bistro", "restaurace", "hotel", "jine"] as const;
 export type VenueType = (typeof VENUE_TYPES)[number];
 
+// Security Phase 16.1 — companyName je nullable (viz schema.ts), takže lead
+// potřebuje jednotné pravidlo, jak se identifikuje v UI, dokud Jarda
+// nezjistí a nedoplní skutečný název firmy/provozovny. Priorita schválená
+// explicitně: companyName → contactName → e-mail → telefon.
+export function leadDisplayName(input: {
+  companyName: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+}): string {
+  return input.companyName ?? input.contactName ?? input.contactEmail ?? input.contactPhone ?? "Neznámý kontakt";
+}
+
 // Aktivní fáze pipeline — pro dlaždice kokpitu (Rozjednané, K vyřízení…).
 // "converted" (proběhlá konverze) a vedlejší stavy (callback_later,
 // not_interested) do "aktivní pipeline" nepatří — konvertovaný lead žije
@@ -61,7 +74,7 @@ export type CreateLeadInput = {
 };
 
 export type ValidatedCreateLeadInput = {
-  companyName: string;
+  companyName: string | null;
   contactName: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
@@ -72,17 +85,28 @@ export type ValidatedCreateLeadInput = {
   source: LeadSource;
 };
 
+// Security Phase 16.1 — companyName už není povinný (viz schema.ts komentář
+// u `leads`): reálná historická data ho většinou nemají. Vynucuje se jen,
+// aby lead měl ALESPOŇ JEDEN identifikující údaj — jinak by šlo založit
+// úplně prázdný, nedohledatelný záznam. Priorita zobrazení pak řeší
+// leadLabels.ts:leadDisplayName.
 export function validateCreateLeadInput(
   input: CreateLeadInput
 ): { ok: true; value: ValidatedCreateLeadInput } | { ok: false; error: string } {
-  const companyName = input.companyName.trim();
-  if (!companyName) {
-    return { ok: false, error: "Zadejte název firmy/provozovny." };
-  }
+  const companyName = trimOrNull(input.companyName);
+  const contactName = trimOrNull(input.contactName);
+  const contactPhone = trimOrNull(input.contactPhone);
 
   const contactEmail = trimOrNull(input.contactEmail);
   if (contactEmail && !EMAIL_RE.test(contactEmail)) {
     return { ok: false, error: "Zadejte platný e-mail, nebo pole nechte prázdné." };
+  }
+
+  if (!companyName && !contactName && !contactPhone && !contactEmail) {
+    return {
+      ok: false,
+      error: "Vyplňte alespoň jeden identifikující údaj (firma, kontaktní osoba, telefon nebo e-mail).",
+    };
   }
 
   const venueTypeRaw = trimOrNull(input.venueType);
@@ -104,8 +128,8 @@ export function validateCreateLeadInput(
     ok: true,
     value: {
       companyName,
-      contactName: trimOrNull(input.contactName),
-      contactPhone: trimOrNull(input.contactPhone),
+      contactName,
+      contactPhone,
       contactEmail,
       city: trimOrNull(input.city),
       address: trimOrNull(input.address),
@@ -114,6 +138,22 @@ export function validateCreateLeadInput(
       source: source as LeadSource,
     },
   };
+}
+
+// Security Phase 16.1 — doplnění názvu firmy/provozovny poté, co ho Jarda
+// zjistí při hovoru (viz schema.ts komentář). Na rozdíl od
+// validateCreateLeadInput tady prázdná hodnota znamená "zase to smaž zpátky
+// na neznámé" — povolené, žádná ochrana proti smazání jediného
+// identifikátoru (lead má pořád contactName/telefon/e-mail, jinak by
+// nemohl vůbec vzniknout).
+export function validateCompanyNameInput(
+  raw: string
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  const value = raw.trim();
+  if (value.length > 200) {
+    return { ok: false, error: "Název je příliš dlouhý (max. 200 znaků)." };
+  }
+  return { ok: true, value: value === "" ? null : value };
 }
 
 export function validateStageInput(

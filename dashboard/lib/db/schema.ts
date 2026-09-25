@@ -378,9 +378,18 @@ export const orderActivity = pgTable(
 // stejná nezávislost: owner se mění kdykoliv (přeřazení leadu), acquiredBy
 // se nastavuje jednou a jen když je akvizice prokazatelná (import 200
 // kontaktů ho záměrně nechává NULL).
+//
+// Security Phase 16.1 — companyName je NULLABLE (změna z NOT NULL).
+// Skutečná historická data (import ~222 kontaktů z Google Sheets) většinou
+// neobsahují spolehlivý název firmy/provozovny — jen typ provozu, kontaktní
+// osobu, telefon, e-mail a poznámky. Vynucovat companyName by znamenalo
+// buď zahodit reálné leady, nebo do pole vymýšlet název, který tam není —
+// obojí špatně. UI proto lead identifikuje podle priority companyName →
+// contactName → e-mail/telefon (viz leadLabels.ts:leadDisplayName), a Jarda
+// doplní skutečný název, jakmile ho při hovoru zjistí.
 export const leads = pgTable("leads", {
   id: uuid("id").primaryKey().defaultRandom(),
-  companyName: text("company_name").notNull(),
+  companyName: text("company_name"),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
@@ -417,7 +426,7 @@ export const leadActivity = pgTable(
     authorUserId: text("author_user_id").notNull(),
     authorName: text("author_name"),
     // "created" | "stage_changed" | "owner_assigned" | "acquired_by_set" |
-    // "call_logged" | "note_added" | "converted"
+    // "call_logged" | "note_added" | "converted" | "company_name_set"
     kind: text("kind").notNull(),
     body: text("body"),
     metadata: jsonb("metadata"),

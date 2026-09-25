@@ -27,6 +27,8 @@ function describeEntry(entry: LeadActivityEntry): string {
       return meta.linkedExisting
         ? "propojil(a) lead s existující organizací"
         : "založil(a) novou organizaci a převedl(a) lead na zákazníka";
+    case "company_name_set":
+      return meta.to ? `doplnil(a) název firmy: ${String(meta.to)}` : "smazal(a) název firmy";
     default:
       return "";
   }

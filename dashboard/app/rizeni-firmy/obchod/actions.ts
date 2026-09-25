@@ -9,6 +9,7 @@ import {
   createLead,
   logCallOutcome,
   updateLeadStage,
+  updateLeadCompanyName,
   assignLeadOwner,
   setLeadAcquiredBy,
   linkLeadToExistingOrganization,
@@ -85,6 +86,20 @@ export async function updateLeadStageAction(
 
   revalidateCrm(leadId);
   return { success: "Obchodní stav byl uložen." };
+}
+
+export async function updateLeadCompanyNameAction(
+  leadId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await updateLeadCompanyName(leadId, String(formData.get("companyName") ?? ""));
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "Název byl uložen." };
 }
 
 export async function assignLeadOwnerAction(

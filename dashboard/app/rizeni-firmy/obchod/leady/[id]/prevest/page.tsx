@@ -60,7 +60,7 @@ export default async function ConvertLeadPage(props: PageProps<"/rizeni-firmy/ob
         href={`/rizeni-firmy/obchod/leady/${id}`}
         className="text-sm text-neutral-500 hover:text-begina-primary-900"
       >
-        ← {detail.lead.companyName}
+        ← {detail.lead.displayName}
       </Link>
 
       <div className="mt-3 mb-5">
@@ -95,7 +95,7 @@ export default async function ConvertLeadPage(props: PageProps<"/rizeni-firmy/ob
           <div className="mt-3">
             <NewOrganizationForm
               leadId={id}
-              defaultName={detail.lead.companyName}
+              defaultName={detail.lead.companyName ?? ""}
               defaultIco={detail.lead.ico ?? ""}
               defaultContactName={detail.lead.contactName ?? ""}
               defaultContactEmail={detail.lead.contactEmail ?? ""}

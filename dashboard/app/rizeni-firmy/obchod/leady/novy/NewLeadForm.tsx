@@ -19,16 +19,18 @@ export default function NewLeadForm() {
     >
       <div>
         <label htmlFor="companyName" className="text-xs text-neutral-500 mb-1 block">
-          Firma / provozovna
+          Firma / provozovna (pokud ji znáš)
         </label>
         <input
           id="companyName"
           name="companyName"
           type="text"
           autoComplete="off"
-          required
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
+        <p className="text-xs text-neutral-400 mt-1">
+          Nepovinné — stačí i jen kontaktní osoba, telefon nebo e-mail, doplníš později.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

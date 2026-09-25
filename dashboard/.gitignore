@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# CRM import — generovaný SQL/report, nikdy se necommituje (obsahuje
+# reálné kontaktní údaje ze zdrojového souboru)
+/scripts/crm-import/out/

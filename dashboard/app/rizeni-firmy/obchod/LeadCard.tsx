@@ -12,12 +12,14 @@ export default function LeadCard({ lead }: { lead: LeadCardData }) {
       className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-1">
-        <p className="text-sm font-medium text-begina-primary-900">{lead.companyName}</p>
+        <p className="text-sm font-medium text-begina-primary-900">{lead.displayName}</p>
         <LeadStageBadge stage={lead.stage} />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap text-xs text-neutral-500 mb-2">
-        {lead.contactName && <span>{lead.contactName}</span>}
+        {/* Kontaktní osoba se zobrazuje zvlášť, jen když už je title (výše)
+            odvozený z companyName — jinak by se stejné jméno opakovalo. */}
+        {lead.companyName && lead.contactName && <span>{lead.contactName}</span>}
         {lead.contactPhone && <span>· {lead.contactPhone}</span>}
         {lead.city && <span>· {lead.city}</span>}
         {lead.venueType && <span>· {VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType}</span>}

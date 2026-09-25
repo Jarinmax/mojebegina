@@ -5,6 +5,7 @@ import { SOURCE_LABELS, VENUE_TYPE_LABELS } from "../../leadLabels";
 import LeadStageBadge, { FollowUpBadge } from "../../LeadStageBadge";
 import CallLogForm from "./CallLogForm";
 import LeadOwnerForm from "./LeadOwnerForm";
+import CompanyNameForm from "./CompanyNameForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
 
@@ -33,7 +34,19 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
       </Link>
 
       <div className="flex items-start justify-between gap-3 mt-1 mb-1">
-        <h1 className="text-lg font-medium text-begina-primary-900">{lead.companyName}</h1>
+        <h1 className="text-lg font-medium text-begina-primary-900">{lead.displayName}</h1>
+      </div>
+      <div
+        className={`rounded-xl p-3 mb-4 border ${
+          lead.companyName ? "bg-white border-neutral-200" : "bg-amber-50 border-amber-200"
+        }`}
+      >
+        <p className={`text-xs mb-2 ${lead.companyName ? "text-neutral-500" : "text-amber-800"}`}>
+          {lead.companyName
+            ? "Firma / provozovna"
+            : "Firma/provozovna zatím neznámá — doplň, jakmile ji při hovoru zjistíš."}
+        </p>
+        <CompanyNameForm leadId={lead.id} companyName={lead.companyName} />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap mb-4">

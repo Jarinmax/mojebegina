@@ -3,7 +3,9 @@ import {
   validateCreateLeadInput,
   validateStageInput,
   validateCallLogInput,
+  validateCompanyNameInput,
   isFollowUpOverdue,
+  leadDisplayName,
   type CreateLeadInput,
 } from "../leadValidation";
 
@@ -46,11 +48,29 @@ describe("validateCreateLeadInput — Security Phase 16", () => {
     }
   });
 
-  it("chybějící název firmy = DENY", () => {
-    expect(validateCreateLeadInput(baseInput({ companyName: "  " }))).toEqual({
+  it("chybějící companyName je povolené, pokud je jiný identifikátor (Security Phase 16.1)", () => {
+    const result = validateCreateLeadInput(baseInput({ companyName: "" }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.companyName).toBeNull();
+    }
+  });
+
+  it("úplně prázdný vstup (bez firmy, jména, telefonu i e-mailu) = DENY", () => {
+    const result = validateCreateLeadInput(
+      baseInput({ companyName: "", contactName: "", contactPhone: "", contactEmail: "" })
+    );
+    expect(result).toEqual({
       ok: false,
-      error: "Zadejte název firmy/provozovny.",
+      error: "Vyplňte alespoň jeden identifikující údaj (firma, kontaktní osoba, telefon nebo e-mail).",
     });
+  });
+
+  it("jen telefon bez ostatních identifikátorů projde", () => {
+    const result = validateCreateLeadInput(
+      baseInput({ companyName: "", contactName: "", contactEmail: "", contactPhone: "+420111222333" })
+    );
+    expect(result.ok).toBe(true);
   });
 
   it("neplatný e-mail = DENY", () => {
@@ -124,6 +144,65 @@ describe("validateCallLogInput — Security Phase 16", () => {
     expect(
       validateCallLogInput({ note: "a".repeat(2001), nextStage: "", nextFollowUpAt: "", nextStepNote: "" }).ok
     ).toBe(false);
+  });
+});
+
+describe("validateCompanyNameInput — Security Phase 16.1", () => {
+  it("platný název projde a ořízne mezery", () => {
+    expect(validateCompanyNameInput("  Kavárna U Nádraží  ")).toEqual({
+      ok: true,
+      value: "Kavárna U Nádraží",
+    });
+  });
+
+  it("prázdný vstup je povolený (smaže zpátky na neznámé)", () => {
+    expect(validateCompanyNameInput("   ")).toEqual({ ok: true, value: null });
+  });
+
+  it("příliš dlouhý název = DENY", () => {
+    expect(validateCompanyNameInput("a".repeat(201)).ok).toBe(false);
+  });
+});
+
+describe("leadDisplayName — Security Phase 16.1", () => {
+  it("companyName má nejvyšší prioritu", () => {
+    expect(
+      leadDisplayName({
+        companyName: "Kavárna U Nádraží",
+        contactName: "Jana Nová",
+        contactEmail: "jana@example.com",
+        contactPhone: "+420111222333",
+      })
+    ).toBe("Kavárna U Nádraží");
+  });
+
+  it("bez companyName spadne na contactName", () => {
+    expect(
+      leadDisplayName({
+        companyName: null,
+        contactName: "Jana Nová",
+        contactEmail: "jana@example.com",
+        contactPhone: "+420111222333",
+      })
+    ).toBe("Jana Nová");
+  });
+
+  it("bez companyName a contactName spadne na e-mail", () => {
+    expect(
+      leadDisplayName({ companyName: null, contactName: null, contactEmail: "jana@example.com", contactPhone: "+420111222333" })
+    ).toBe("jana@example.com");
+  });
+
+  it("jen telefon spadne na telefon", () => {
+    expect(
+      leadDisplayName({ companyName: null, contactName: null, contactEmail: null, contactPhone: "+420111222333" })
+    ).toBe("+420111222333");
+  });
+
+  it("úplně bez údajů vrátí zástupný text", () => {
+    expect(leadDisplayName({ companyName: null, contactName: null, contactEmail: null, contactPhone: null })).toBe(
+      "Neznámý kontakt"
+    );
   });
 });
 
