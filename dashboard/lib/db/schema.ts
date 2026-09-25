@@ -49,12 +49,23 @@ export const userRoles = pgTable(
   (table) => [uniqueIndex("user_roles_user_id_system_role_idx").on(table.userId, table.systemRole)]
 );
 
+// Security Phase 16 (Obchod/CRM 1.0) — `ownerUserId`/`acquiredByUserId`
+// jsou dvě NEZÁVISLÉ informace, schválené explicitně jako oddělené pole:
+//   ownerUserId       — kdo zákazníka TEĎ obchodně spravuje (měnitelné)
+//   acquiredByUserId  — kdo ho PŮVODNĚ získal (nastaví se jednou, historie
+//                       pro budoucí provizní systém, nikdy se nedomýšlí)
+// Stejný pár polí je na `leads` níže — při konverzi leadu na organizaci se
+// kopírují 1:1, jinak se nikdy netýkají jedno druhého. Obě nullable — dnešní
+// zákazníci (założeni mimo CRM) je mají prázdné, dokud je někdo ručně
+// nepřiřadí.
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   ico: text("ico").notNull().unique(),
   name: text("name").notNull(),
   registeredAddress: text("registered_address").notNull(),
   status: text("status"),
+  ownerUserId: text("owner_user_id"),
+  acquiredByUserId: text("acquired_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -349,4 +360,68 @@ export const orderActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("order_activity_order_id_idx").on(table.orderId, table.createdAt)]
+);
+
+// Security Phase 16 (Obchod/CRM 1.0) — leady jsou ZÁMĚRNĚ samostatná
+// entita, NE `organizations` řádek: `organizations.ico` je NOT NULL UNIQUE
+// a `registeredAddress` je NOT NULL, ale drtivá většina leadů (gastro
+// kontakty před první objednávkou) tyhle údaje vůbec nemá. Lead se
+// propojuje s `organizations` až v okamžiku skutečné konverze
+// (convertedOrganizationId) — do té doby o sobě obě tabulky nevědí, žádná
+// duplicita zákazníků ani objednávek.
+//
+// `ico` tady je NULLABLE a BEZ unique constraintu (na rozdíl od
+// organizations.ico) — čistě pomocné párovací pole pro detekci duplicit
+// při konverzi (silný signál, viz leads.ts), ne závazný identifikátor.
+//
+// ownerUserId/acquiredByUserId — stejný pár jako na organizations výše,
+// stejná nezávislost: owner se mění kdykoliv (přeřazení leadu), acquiredBy
+// se nastavuje jednou a jen když je akvizice prokazatelná (import 200
+// kontaktů ho záměrně nechává NULL).
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  companyName: text("company_name").notNull(),
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  city: text("city"),
+  address: text("address"),
+  venueType: text("venue_type"),
+  ico: text("ico"),
+  // "existing_database" | "bistro" | "eshop" | "akce" | "doporuceni" |
+  // "inbound" | "vlastni_akvizice"
+  source: text("source").notNull(),
+  // "new" | "contacted" | "interested" | "sample_offer" | "negotiating" |
+  // "converted" | "callback_later" | "not_interested"
+  stage: text("stage").notNull().default("new"),
+  ownerUserId: text("owner_user_id"),
+  acquiredByUserId: text("acquired_by_user_id"),
+  lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
+  nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+  nextStepNote: text("next_step_note"),
+  convertedOrganizationId: uuid("converted_organization_id").references(() => organizations.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Stejný vzor jako order_activity/company_node_activity — jeden sdílený
+// chronologický timeline pro poznámky i systémové události, authorName
+// jako snapshot v okamžiku zápisu.
+export const leadActivity = pgTable(
+  "lead_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    // "created" | "stage_changed" | "owner_assigned" | "acquired_by_set" |
+    // "call_logged" | "note_added" | "converted"
+    kind: text("kind").notNull(),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("lead_activity_lead_id_idx").on(table.leadId, table.createdAt)]
 );

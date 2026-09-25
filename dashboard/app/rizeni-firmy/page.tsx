@@ -4,6 +4,7 @@ import { formatCzechDate } from "@/lib/format";
 import { listCompanyNotes } from "@/lib/data/companyManagement";
 import { getCompanyMap } from "@/lib/data/companyNodes";
 import { listOrders } from "@/lib/data/orders";
+import { getCockpitCounts } from "@/lib/data/leads";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
@@ -14,6 +15,7 @@ import NodeCard from "@/components/company-overview/NodeCard";
 import CompanyNoteForm from "./CompanyNoteForm";
 import CreateNodeForm from "./CreateNodeForm";
 import OrderSummaryTiles from "./objednavky/OrderSummaryTiles";
+import CrmCockpitTiles from "./obchod/CockpitTiles";
 
 // Security Phase 8 — obsahová stránka "Řízení firmy". Autorizace (ADMIN
 // nebo EXECUTIVE) řeší výhradně app/rizeni-firmy/layout.tsx nad touhle
@@ -38,6 +40,7 @@ export default async function CompanyOverviewPage() {
   const notes = await listCompanyNotes();
   const companyMap = await getCompanyMap();
   const { counts: orderCounts } = await listOrders();
+  const crmCounts = await getCockpitCounts();
 
   return (
     <div>
@@ -49,6 +52,19 @@ export default async function CompanyOverviewPage() {
         <p className="text-xs text-neutral-400 mt-1">
           Aktualizováno: {formatCzechDate(content.lastUpdated)}
         </p>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Obchod / CRM</h2>
+          <Link
+            href="/rizeni-firmy/obchod"
+            className="text-sm font-medium text-begina-primary-900 hover:underline"
+          >
+            Otevřít kokpit →
+          </Link>
+        </div>
+        <CrmCockpitTiles counts={crmCounts} />
       </div>
 
       <div className="mb-6">
