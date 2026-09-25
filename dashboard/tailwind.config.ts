@@ -18,6 +18,13 @@ const config: Config = {
           50: "#F7F7F7",
           100: "#EDEDED",
           200: "#D4D4D4",
+          // 300 chyběl — hover:border-begina-primary-300 (a další utility
+          // s "300") se používá na 10 místech v appce (OrderCard, NodeCard,
+          // CompanyOverviewCard, teď i CompanyMap...), ale bez definované
+          // barvy Tailwind pro ně nevygeneroval žádné CSS — hover efekt byl
+          // všude neviditelný, ne rozbitý navigačně. Zjištěno při vyšetřování
+          // hlášené chyby s neklikacími dlaždicemi, oprava je samostatná.
+          300: "#BFBFBF",
           700: "#404040",
           800: "#1A1A1A",
           900: "#000000",
