@@ -43,9 +43,17 @@ export type MeetingConclusions = {
   originalNote: { label: string; text: string };
 };
 
+// Security Phase 16.2 — jednotlivé dlaždice v mapě firmy (CompanyMap) mají
+// vypadat jako tlačítka, ale dřív byly VŠECHNY jen statický text (žádné
+// href). Teď má každá dlaždice volitelný `href` — jen moduly, co už mají
+// skutečnou funkční stránku (Obchod/CRM, Objednávky), ho dostávají a
+// vykreslí se jako odkaz. Zbytek zůstává neaktivní text, žádné vymyšlené
+// odkazy na neexistující stránky.
+export type MapArea = { label: string; href?: string };
+
 export type CompanyOverviewContent = {
   lastUpdated: Date;
-  mapAreas: string[];
+  mapAreas: MapArea[];
   mainFlow: string[];
   mapNotes: string[];
   responsibilities: ResponsibilityOwner[];
@@ -60,17 +68,17 @@ export const companyOverview: CompanyOverviewContent = {
   lastUpdated: new Date(Date.UTC(2026, 8, 21)),
 
   mapAreas: [
-    "Produkty",
-    "Obchod / CRM",
-    "Objednávky",
-    "Výroba",
-    "Sklad",
-    "Marketing",
-    "Akce / Festivaly / Bistro",
-    "Finance",
-    "Úkoly",
-    "Nápady",
-    "AI / Automatizace",
+    { label: "Produkty" },
+    { label: "Obchod / CRM", href: "/rizeni-firmy/obchod" },
+    { label: "Objednávky", href: "/rizeni-firmy/objednavky" },
+    { label: "Výroba" },
+    { label: "Sklad" },
+    { label: "Marketing" },
+    { label: "Akce / Festivaly / Bistro" },
+    { label: "Finance" },
+    { label: "Úkoly" },
+    { label: "Nápady" },
+    { label: "AI / Automatizace" },
   ],
 
   mainFlow: [

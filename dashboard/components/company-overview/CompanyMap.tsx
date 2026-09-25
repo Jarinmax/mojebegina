@@ -1,14 +1,27 @@
+import Link from "next/link";
 import FlowSteps from "./FlowSteps";
+import type { MapArea } from "@/lib/content/companyOverview";
 
 // Security Phase 8 — vizuální schéma nahoře na stránce Řízení firmy.
 // Čistě prezentační server komponenta (žádné klientské interakce nejsou
 // potřeba), stejný princip jako zbytek stránky: obsah dostává jako props
 // z lib/content/companyOverview.ts, nic si sám nenačítá.
+//
+// Security Phase 16.2 — dlaždice vypadaly jako tlačítka, ale byly to jen
+// <div>. Teď: dlaždice s href (moduly, co mají skutečnou stránku) se
+// vykreslí jako <Link> s hover/aktivní stavem, aby bylo na mobilu i
+// desktopu jednoznačné, že jsou klikací. Dlaždice bez href zůstávají
+// vizuálně stejné jako dřív — žádné vymyšlené odkazy.
 type Props = {
-  mapAreas: string[];
+  mapAreas: MapArea[];
   mainFlow: string[];
   mapNotes: string[];
 };
+
+const INACTIVE_TILE_CLASSES =
+  "border border-neutral-200 rounded-lg px-2 py-2 text-center text-xs font-medium text-begina-primary-900 bg-neutral-50";
+const ACTIVE_TILE_CLASSES =
+  "border border-neutral-200 rounded-lg px-2 py-2 text-center text-xs font-medium text-begina-primary-900 bg-neutral-50 hover:border-begina-primary-300 hover:bg-white active:bg-begina-primary-50 transition-colors cursor-pointer";
 
 export default function CompanyMap({ mapAreas, mainFlow, mapNotes }: Props) {
   return (
@@ -23,14 +36,17 @@ export default function CompanyMap({ mapAreas, mainFlow, mapNotes }: Props) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-6">
-        {mapAreas.map((area) => (
-          <div
-            key={area}
-            className="border border-neutral-200 rounded-lg px-2 py-2 text-center text-xs font-medium text-begina-primary-900 bg-neutral-50"
-          >
-            {area}
-          </div>
-        ))}
+        {mapAreas.map((area) =>
+          area.href ? (
+            <Link key={area.label} href={area.href} className={ACTIVE_TILE_CLASSES}>
+              {area.label}
+            </Link>
+          ) : (
+            <div key={area.label} className={INACTIVE_TILE_CLASSES}>
+              {area.label}
+            </div>
+          )
+        )}
       </div>
 
       <div>
