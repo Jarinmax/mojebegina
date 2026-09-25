@@ -219,6 +219,17 @@ export function validateCallLogInput(
     return { ok: false, error: "Popis dalšího kroku je příliš dlouhý (max. 500 znaků)." };
   }
 
+  // UX past nahlášená na reálném testu (Josef Huňáček): React po úspěšném
+  // submitu formulář vyprázdní (vestavěné chování <form action>), takže
+  // opakované klepnutí na "Uložit zápis" bez nového vyplnění odešle úplně
+  // prázdný zápis. To samo o sobě nemaže dřívější uložená data (viz
+  // logCallOutcome — prázdné pole se nikdy nepřepisuje na NULL), ale jde o
+  // zbytečný zápis "call_logged" bez jakéhokoliv obsahu. Odmítnout dřív, než
+  // se cokoliv uloží.
+  if (!note && !nextStage && !nextFollowUpAt && !nextStepNote) {
+    return { ok: false, error: "Zápis je prázdný — vyplňte alespoň jedno pole (poznámku, fázi, další kontakt nebo další krok)." };
+  }
+
   return { ok: true, value: { note, nextStage, nextFollowUpAt, nextStepNote } };
 }
 

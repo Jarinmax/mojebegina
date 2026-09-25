@@ -84,7 +84,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
       {/* B. Zápis po hovoru — hlavní pracovní blok. */}
       {lead.stage !== "converted" && (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-          <CallLogForm leadId={lead.id} />
+          <CallLogForm leadId={lead.id} nextFollowUpAt={lead.nextFollowUpAt} nextStepNote={lead.nextStepNote} />
         </div>
       )}
 

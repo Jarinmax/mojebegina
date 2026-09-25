@@ -4,21 +4,52 @@ import { useActionState } from "react";
 import { logCallOutcomeAction, type ActionState } from "../../actions";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
 import { STAGE_LABELS } from "../../leadLabels";
+import { formatCzechDate } from "@/lib/format";
 import type { LeadStage } from "@/lib/data/leadValidation";
 
 const initialState: ActionState = null;
+
+type Props = {
+  leadId: string;
+  nextFollowUpAt: Date | null;
+  nextStepNote: string | null;
+};
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
 // formulář, jeden submit. Všechna pole nepovinná (viz validateCallLogInput)
 // — Jarda může zapsat jen poznámku, jen posun fáze, jen datum, nebo
 // cokoliv dohromady, podle toho, co hovor přinesl.
-export default function CallLogForm({ leadId }: { leadId: string }) {
+//
+// Security Phase 16.5 — React po úspěšném submitu formulář vyprázdní
+// (vestavěné chování <form action>), takže po uložení není z prázdných
+// polí vidět, že se plán skutečně uložil (nahlášeno na reálném testu).
+// Proto se aktuální naplánovaný stav (nextFollowUpAt/nextStepNote z DB,
+// ne z formuláře) zobrazuje samostatně nad formulářem — nezávisle na tom,
+// jestli jsou pole zrovna vyplněná nebo prázdná.
+export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Props) {
   const boundAction = logCallOutcomeAction.bind(null, leadId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
+
+  const hasPlannedState = nextFollowUpAt !== null || nextStepNote !== null;
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <p className="text-sm font-medium text-begina-primary-900">Zápis po hovoru</p>
+
+      {hasPlannedState && (
+        <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2 text-sm text-begina-primary-900">
+          {nextFollowUpAt && (
+            <p>
+              Další kontakt: <span className="font-medium">{formatCzechDate(nextFollowUpAt)}</span>
+            </p>
+          )}
+          {nextStepNote && (
+            <p>
+              Další krok: <span className="font-medium">{nextStepNote}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       <textarea
         name="note"

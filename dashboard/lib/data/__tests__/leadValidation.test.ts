@@ -108,12 +108,47 @@ describe("validateStageInput — Security Phase 16", () => {
 });
 
 describe("validateCallLogInput — Security Phase 16", () => {
-  it("všechna pole prázdná je povolené (jen zápis kontaktu beze změny)", () => {
+  // Security Phase 16.5 — dřív bylo úplně prázdné odeslání povolené ("jen
+  // zápis kontaktu beze změny"), ale reálný test ukázal, že React po
+  // úspěšném submitu formulář vyprázdní, takže opakované klepnutí na
+  // "Uložit zápis" bez nového vyplnění dřív tiše vytvořilo prázdný
+  // call_logged záznam. Teď se to odmítá už na validaci.
+  it("úplně prázdné odeslání je DENY (UX past po vyprázdnění formuláře)", () => {
     const result = validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", nextStepNote: "" });
-    expect(result).toEqual({
-      ok: true,
-      value: { note: null, nextStage: null, nextFollowUpAt: null, nextStepNote: null },
-    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/prázdný/i);
+    }
+  });
+
+  it("jen poznámka bez čehokoliv dalšího je povolené", () => {
+    expect(
+      validateCallLogInput({ note: "Chce vzorek.", nextStage: "", nextFollowUpAt: "", nextStepNote: "" }).ok
+    ).toBe(true);
+  });
+
+  it("jen posun fáze bez poznámky je povolené", () => {
+    expect(
+      validateCallLogInput({ note: "", nextStage: "sample_offer", nextFollowUpAt: "", nextStepNote: "" }).ok
+    ).toBe(true);
+  });
+
+  it("jen datum dalšího kontaktu bez čehokoliv dalšího je povolené", () => {
+    expect(
+      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "2026-10-05", nextStepNote: "" }).ok
+    ).toBe(true);
+  });
+
+  it("jen další krok bez čehokoliv dalšího je povolené", () => {
+    expect(
+      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", nextStepNote: "Zavolat zítra." }).ok
+    ).toBe(true);
+  });
+
+  it("jen bílé znaky ve všech polích se počítá jako prázdné = DENY", () => {
+    expect(
+      validateCallLogInput({ note: "   ", nextStage: "", nextFollowUpAt: "", nextStepNote: "  " }).ok
+    ).toBe(false);
   });
 
   it("platný vstup s posunem fáze a follow-upem projde", () => {
