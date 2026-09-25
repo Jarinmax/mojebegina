@@ -231,3 +231,43 @@ export function isFollowUpOverdue(stage: LeadStage, nextFollowUpAt: Date | null)
   }
   return nextFollowUpAt.getTime() < Date.now();
 }
+
+export type LeadSortRow = {
+  id: string;
+  stage: LeadStage;
+  nextFollowUpAt: Date | null;
+  createdAt: Date;
+};
+
+// Security Phase 16.4 — deterministické řazení seznamu leadů. Dřív se
+// řadilo jen podle followUpOverdue/nextFollowUpAt a leady beze shody
+// zůstávaly ve vzájemně nedefinovaném pořadí = pořadí, v jakém je vrátil
+// SQL dotaz bez ORDER BY. To se u PostgreSQL může po jakémkoliv UPDATE
+// řádku (přesně to dělá "Uložit zápis" i změna fáze) reálně změnit, takže
+// lead bez varování "skočil" jinam v seznamu — nahlášeno na reálném leadu
+// (Josef Huňáček), potvrzeno diagnostikou v Preview DB.
+//
+// Tiebreak musí být stabilní vůči UPDATE, takže NESMÍ použít updatedAt/
+// lastContactedAt (ty se update-em právě mění) — použit createdAt (pořadí
+// importu/vzniku, update ho nemění) a jako definitivní rozhodčí id.
+export function compareLeadsForList(a: LeadSortRow, b: LeadSortRow): number {
+  const aOverdue = isFollowUpOverdue(a.stage, a.nextFollowUpAt);
+  const bOverdue = isFollowUpOverdue(b.stage, b.nextFollowUpAt);
+  if (aOverdue !== bOverdue) {
+    return aOverdue ? -1 : 1;
+  }
+
+  const aHasFollowUp = a.nextFollowUpAt !== null;
+  const bHasFollowUp = b.nextFollowUpAt !== null;
+  if (aHasFollowUp !== bHasFollowUp) {
+    return aHasFollowUp ? -1 : 1;
+  }
+  if (aHasFollowUp && bHasFollowUp) {
+    const diff = a.nextFollowUpAt!.getTime() - b.nextFollowUpAt!.getTime();
+    if (diff !== 0) return diff;
+  }
+
+  const createdDiff = a.createdAt.getTime() - b.createdAt.getTime();
+  if (createdDiff !== 0) return createdDiff;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}

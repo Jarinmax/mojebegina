@@ -26,6 +26,7 @@ import {
   validateCompanyNameInput,
   isFollowUpOverdue,
   leadDisplayName,
+  compareLeadsForList,
   ACTIVE_LEAD_STAGES,
   type CreateLeadInput,
   type CallLogInput,
@@ -135,21 +136,18 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
         : inArray(leads.stage, ACTIVE_LEAD_STAGES)
     );
 
-  const cards = await buildLeadCards(rows);
+  // Naléhavost napřed: po termínu → nejbližší follow-up → bez follow-upu,
+  // se stabilním tiebreakem (createdAt, pak id) — viz compareLeadsForList
+  // v leadValidation.ts. Řadí se ještě SQL řádky, ne až karty, aby pořadí
+  // bylo shodné pro "Moje leady" i "Všechny leady".
+  const sortedRows = [...rows].sort((a, b) =>
+    compareLeadsForList(
+      { id: a.id, stage: a.stage as LeadStage, nextFollowUpAt: a.nextFollowUpAt, createdAt: a.createdAt },
+      { id: b.id, stage: b.stage as LeadStage, nextFollowUpAt: b.nextFollowUpAt, createdAt: b.createdAt }
+    )
+  );
 
-  // Naléhavost napřed: po termínu → nejbližší follow-up → bez follow-upu
-  // (nejnovější první). Dělá z "Moje leady" přirozený kokpit bez nutnosti
-  // dalšího filtrování — přesně to, co je v CockpitTiles vidět jako počty,
-  // je tu vidět i jako první řádky.
-  return cards.sort((a, b) => {
-    if (a.followUpOverdue !== b.followUpOverdue) return a.followUpOverdue ? -1 : 1;
-    if (a.nextFollowUpAt && b.nextFollowUpAt) {
-      return a.nextFollowUpAt.getTime() - b.nextFollowUpAt.getTime();
-    }
-    if (a.nextFollowUpAt) return -1;
-    if (b.nextFollowUpAt) return 1;
-    return 0;
-  });
+  return buildLeadCards(sortedRows);
 }
 
 export type CockpitCounts = {

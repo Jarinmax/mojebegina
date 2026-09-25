@@ -6,7 +6,9 @@ import {
   validateCompanyNameInput,
   isFollowUpOverdue,
   leadDisplayName,
+  compareLeadsForList,
   type CreateLeadInput,
+  type LeadSortRow,
 } from "../leadValidation";
 
 function baseInput(overrides: Partial<CreateLeadInput> = {}): CreateLeadInput {
@@ -225,5 +227,81 @@ describe("isFollowUpOverdue — Security Phase 16", () => {
 
   it("not_interested lead se nikdy nepočítá jako po termínu", () => {
     expect(isFollowUpOverdue("not_interested", new Date("2020-01-01"))).toBe(false);
+  });
+});
+
+function sortRow(overrides: Partial<LeadSortRow> = {}): LeadSortRow {
+  return {
+    id: "00000000-0000-0000-0000-000000000000",
+    stage: "contacted",
+    nextFollowUpAt: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  };
+}
+
+// Security Phase 16.4 — regrese na nedeterministické řazení nahlášené na
+// reálném leadu (Josef Huňáček): leady bez nextFollowUpAt (většina reálných
+// dat) neměly žádný stabilní tiebreak, takže je UPDATE řádku (např. zápis
+// hovoru) mohl v seznamu "přesunout" na náhodné místo.
+describe("compareLeadsForList — Security Phase 16.4", () => {
+  it("po termínu je vždy první, i před leadem s bližším budoucím follow-upem", () => {
+    const overdue = sortRow({ id: "a", nextFollowUpAt: new Date("2020-01-01") });
+    const future = sortRow({ id: "b", nextFollowUpAt: new Date("2026-01-02") });
+    expect(compareLeadsForList(overdue, future)).toBeLessThan(0);
+    expect(compareLeadsForList(future, overdue)).toBeGreaterThan(0);
+  });
+
+  it("mezi dvěma leady s follow-upem vyhrává bližší termín", () => {
+    const sooner = sortRow({ id: "a", nextFollowUpAt: new Date("2026-02-01") });
+    const later = sortRow({ id: "b", nextFollowUpAt: new Date("2026-03-01") });
+    expect(compareLeadsForList(sooner, later)).toBeLessThan(0);
+  });
+
+  it("lead s nextFollowUpAt je vždy před leadem bez něj", () => {
+    const withFollowUp = sortRow({ id: "a", nextFollowUpAt: new Date("2026-03-01") });
+    const withoutFollowUp = sortRow({ id: "b", nextFollowUpAt: null });
+    expect(compareLeadsForList(withFollowUp, withoutFollowUp)).toBeLessThan(0);
+  });
+
+  it("dva leady beze follow-upu se řadí podle createdAt (dřívější první) — stabilní, ne náhodné", () => {
+    const older = sortRow({ id: "a", createdAt: new Date("2026-01-01") });
+    const newer = sortRow({ id: "b", createdAt: new Date("2026-06-01") });
+    expect(compareLeadsForList(older, newer)).toBeLessThan(0);
+    expect(compareLeadsForList(newer, older)).toBeGreaterThan(0);
+  });
+
+  it("při shodném createdAt rozhoduje id jako definitivní tiebreak", () => {
+    const sameCreatedAt = new Date("2026-01-01T00:00:00Z");
+    const rowA = sortRow({ id: "aaaa", createdAt: sameCreatedAt });
+    const rowB = sortRow({ id: "bbbb", createdAt: sameCreatedAt });
+    expect(compareLeadsForList(rowA, rowB)).toBeLessThan(0);
+    expect(compareLeadsForList(rowB, rowA)).toBeGreaterThan(0);
+  });
+
+  it("samotný zápis hovoru beze změny nextFollowUpAt nesmí změnit pořadí: lead s null nextFollowUpAt zůstává na stejné pozici mezi ostatními po 'update' (nová instance se stejnými daty vrací shodný výsledek řazení)", () => {
+    const untouched = sortRow({ id: "a", createdAt: new Date("2026-01-01") });
+    // Simulace: lead byl "aktualizován" (nová reference objektu, jako po
+    // znovunačtení z DB po UPDATE), ale stage/nextFollowUpAt/createdAt/id
+    // se nezměnily — call_logged bez posunu fáze a bez nextFollowUpAt.
+    const afterCallLog = sortRow({ id: "a", createdAt: new Date("2026-01-01") });
+    const other = sortRow({ id: "b", createdAt: new Date("2026-02-01") });
+
+    const before = [untouched, other].sort(compareLeadsForList).map((r) => r.id);
+    const after = [afterCallLog, other].sort(compareLeadsForList).map((r) => r.id);
+    expect(after).toEqual(before);
+  });
+
+  it("řazení pole je stabilní a deterministické i při opakovaném volání na stejná data", () => {
+    const rows: LeadSortRow[] = [
+      sortRow({ id: "c", createdAt: new Date("2026-03-01") }),
+      sortRow({ id: "a", createdAt: new Date("2026-01-01") }),
+      sortRow({ id: "b", nextFollowUpAt: new Date("2020-01-01") }),
+      sortRow({ id: "d", createdAt: new Date("2026-02-01") }),
+    ];
+    const firstRun = [...rows].sort(compareLeadsForList).map((r) => r.id);
+    const secondRun = [...rows].sort(compareLeadsForList).map((r) => r.id);
+    expect(secondRun).toEqual(firstRun);
+    expect(firstRun).toEqual(["b", "a", "d", "c"]);
   });
 });
