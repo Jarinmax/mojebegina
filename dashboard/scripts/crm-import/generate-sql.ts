@@ -114,21 +114,35 @@ function normalizePhone(phone: string | null): string | null {
   return digits === "" ? null : digits;
 }
 
-const VENUE_TYPE_MAP: Record<string, VenueType> = {
-  "kavárna": "kavarna",
-  "kavarna": "kavarna",
-  "bistro": "bistro",
-  "restaurace": "restaurace",
-  "hotel": "hotel",
-};
+// Reálná data (Google Sheets, ruční vyplňování) mají přes 150 různých
+// surových hodnot — pády ("kavárnu"), diakritika/bez diakritiky, překlepy,
+// kombinace ("Kavarna, restaurace"). Přesná shoda by drtivou většinu
+// zbytečně smetla do "jine". Místo toho: odstranit diakritiku, hledat
+// kořen slova jako podřetězec, v prioritním pořadí. Cokoliv nenajde
+// (domácnost, byt, "žádný", "nemám provozovnu"...) skutečně DO "jine"
+// patří — to není chyba mapování, to je prostě jiný typ kontaktu.
+function stripDiacritics(text: string): string {
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+const VENUE_TYPE_KEYWORDS: [string, VenueType][] = [
+  ["kavarn", "kavarna"],
+  ["bistr", "bistro"],
+  ["restaurac", "restaurace"],
+  ["hotel", "hotel"],
+];
 
 function mapVenueType(raw: string | null): { value: VenueType | null; unmapped: string | null } {
   if (!raw) return { value: null, unmapped: null };
-  const key = raw.trim().toLowerCase();
-  const mapped = VENUE_TYPE_MAP[key];
-  if (mapped) return { value: mapped, unmapped: null };
-  // Neznámá hodnota (např. "Kancelář") → "jine", ale zaznamená se do
-  // reportu, ať je vidět, kolik a jakých surových hodnot se takhle smáplo.
+  const key = stripDiacritics(raw.trim().toLowerCase());
+  for (const [keyword, venueType] of VENUE_TYPE_KEYWORDS) {
+    if (key.includes(keyword)) {
+      return { value: venueType, unmapped: null };
+    }
+  }
+  // Nenalezeno → "jine". Surová hodnota se stejně uloží do
+  // activityMetadata.originalVenueTypeRaw (viz níže), takže se neztrácí —
+  // jen se nevynucuje do jednoho z pevných 4 typů, kam nepatří.
   return { value: "jine", unmapped: raw };
 }
 
@@ -266,6 +280,7 @@ function main() {
         sourceRows: s(raw.sourceRows),
         originalPurchaseInfo: s(raw.originalPurchaseInfo),
         originalPlatform: s(raw.originalPlatform),
+        originalVenueTypeRaw: s(raw.venueTypeRaw),
         reviewFlags,
         originalOwnerRaw: s(raw.owner),
         originalAcquiredByRaw: s(raw.acquiredBy),
