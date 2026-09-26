@@ -5,6 +5,7 @@
 // Better Auth/Neon Auth používá) bez DB-level cizího klíče, protože tabulku
 // uživatelů nespravujeme my.
 
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   uuid,
@@ -15,6 +16,8 @@ import {
   uniqueIndex,
   index,
   jsonb,
+  numeric,
+  check,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -433,4 +436,143 @@ export const leadActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("lead_activity_lead_id_idx").on(table.leadId, table.createdAt)]
+);
+
+// ESHOP 1.0 — Produkty 1.0 (návrh schválen vedením 26. 9. 2026, viz
+// ESHOP_SCHEMA_PROPOSAL.md). Jediný zdroj pravdy katalogu pro e-shop
+// i MojeBegina; první naplnění z lib/eshop/catalog.ts (migrace 0012).
+// Nic se nemaže: kategorie/produkty/balení mají is_active a FK z budoucích
+// objednávek budou RESTRICT. Budoucí receptury, výroba a sklad budou
+// ukazovat NA tyto tabulky, ne naopak.
+
+const SLUG_FORMAT = "^[a-z0-9]+(-[a-z0-9]+)*$";
+
+export const productCategories = pgTable(
+  "product_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    intro: text("intro").array().notNull().default(sql`'{}'::text[]`),
+    // [{title, paragraphs[], bullets[]}] — společné sekce detailu produktu
+    detailSections: jsonb("detail_sections"),
+    imageUrl: text("image_url"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("product_categories_slug_format", sql`${table.slug} ~ ${sql.raw(`'${SLUG_FORMAT}'`)}`)]
+);
+
+// Kódy alergenů podle přílohy II nařízení 1169/2011. allergens = NULL
+// znamená "zatím neznámé" (e-shop ukáže "Doplníme"), '{}' = bez alergenů.
+export const ALLERGEN_CODES = [
+  "gluten",
+  "crustaceans",
+  "eggs",
+  "fish",
+  "peanuts",
+  "soy",
+  "milk",
+  "nuts",
+  "celery",
+  "mustard",
+  "sesame",
+  "sulphites",
+  "lupin",
+  "molluscs",
+] as const;
+
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => productCategories.id, { onDelete: "restrict" }),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    shortDescription: text("short_description"),
+    description: text("description").array().notNull().default(sql`'{}'::text[]`),
+    highlights: text("highlights").array().notNull().default(sql`'{}'::text[]`),
+    tasteDescription: text("taste_description"),
+    ingredients: text("ingredients"),
+    allergens: text("allergens").array(),
+    allergenNote: text("allergen_note"),
+    // {energy_kj, energy_kcal, fat, saturates, carbohydrate, sugars, protein, salt}
+    nutrition: jsonb("nutrition"),
+    nutritionBasis: text("nutrition_basis"), // "100g" | "100ml"
+    storageInstructions: text("storage_instructions"),
+    shelfLifeDays: integer("shelf_life_days"),
+    shelfLifeNote: text("shelf_life_note"),
+    alcoholPercent: numeric("alcohol_percent", { precision: 4, scale: 1, mode: "number" }),
+    isAgeRestricted: boolean("is_age_restricted").notNull().default(false),
+    warnings: text("warnings").array().notNull().default(sql`'{}'::text[]`),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("products_category_idx").on(table.categoryId, table.sortOrder),
+    check("products_slug_format", sql`${table.slug} ~ ${sql.raw(`'${SLUG_FORMAT}'`)}`),
+    check(
+      "products_allergens_known",
+      sql`${table.allergens} <@ ARRAY[${sql.raw(ALLERGEN_CODES.map((code) => `'${code}'`).join(", "))}]::text[]`
+    ),
+    check("products_nutrition_basis_check", sql`${table.nutritionBasis} IN ('100g', '100ml')`),
+    check("products_shelf_life_positive", sql`${table.shelfLifeDays} > 0`),
+    check("products_alcohol_range", sql`${table.alcoholPercent} BETWEEN 0 AND 100`),
+    // Nad 0,5 % obj. je nápoj alkoholický → musí být 18+.
+    check(
+      "products_alcohol_requires_age_restriction",
+      sql`${table.alcoholPercent} IS NULL OR ${table.alcoholPercent} <= 0.5 OR ${table.isAgeRestricted}`
+    ),
+  ]
+);
+
+// Jedno balení = jedno SKU = to, co je v košíku a (od kroku 5) v order_items.
+export const productVariants = pgTable(
+  "product_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    sku: text("sku").notNull().unique(),
+    label: text("label"), // NULL = balení zatím neznámé
+    shortNote: text("short_note"),
+    packageDescription: text("package_description"),
+    volumeMl: integer("volume_ml"), // doprava na begina.cz se počítá podle objemu
+    servings: integer("servings"),
+    priceB2cKc: integer("price_b2c_kc").notNull(), // konečná cena, Begina není plátce DPH
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("product_variants_product_idx").on(table.productId, table.sortOrder),
+    check("product_variants_sku_format", sql`${table.sku} ~ ${sql.raw(`'${SLUG_FORMAT}'`)}`),
+    check("product_variants_volume_positive", sql`${table.volumeMl} > 0`),
+    check("product_variants_servings_positive", sql`${table.servings} > 0`),
+    check("product_variants_price_nonnegative", sql`${table.priceB2cKc} >= 0`),
+  ]
+);
+
+export const productImages = pgTable(
+  "product_images",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
+    url: text("url").notNull(),
+    alt: text("alt"),
+    sortOrder: integer("sort_order").notNull().default(0), // 0 = hlavní fotka
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("product_images_product_idx").on(table.productId, table.sortOrder)]
 );
