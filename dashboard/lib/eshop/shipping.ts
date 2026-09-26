@@ -15,8 +15,9 @@ export type ShippingMethod = {
 export const shippingMethods: ShippingMethod[] = [
   {
     id: "osobni-odber",
-    label: "Osobní odběr",
-    description: "Vyzvednutí po domluvě, místo a čas upřesníme e-mailem.",
+    // Podle skutečné objednávky z begina.cz (WooCommerce, 26. 9. 2026).
+    label: "Osobní vyzvednutí — Zahradní Bistro Begina",
+    description: "Areál Zahradnictví Jandl, Vitice 119, 281 06 Vitice (okr. Kolín).",
     priceKc: 0,
     requiresAddress: false,
   },
@@ -39,7 +40,7 @@ export type PaymentMethod = {
 export const paymentMethods: PaymentMethod[] = [
   {
     id: "prevod",
-    label: "Bankovní převod",
+    label: "Bankovní převod — platba předem",
     description: "Po objednávce pošleme platební údaje a QR kód.",
     available: true,
   },

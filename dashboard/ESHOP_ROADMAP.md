@@ -45,8 +45,10 @@ rekapitulace.
    a pozornost dětí“ (nařízení 1333/2008, příloha V) — ověřit.
    **Alergeny u svařáku:** víno obvykle obsahuje siřičitany, které se musí
    uvádět — ověřit.
-3. **Je cena 379 Kč s DPH?** A je to cena pro koncové zákazníky, nebo
-   velkoobchodní?
+3. **Červánkové nebe** (349 Kč) — prodává se na begina.cz, ale nemáme
+   jeho stránku: do jaké kategorie patří, balení, texty, fotka.
+   (Cena polévek 379 Kč je potvrzená jako maloobchodní skutečnou
+   objednávkou z e-shopu.)
 4. **Doprava** — podle begina.cz se cena chlazené přepravy počítá
    podle celkového objemu objednávky; potřebujeme tabulku (objem → cena),
    rozvozové dny a oblasti (`lib/eshop/shipping.ts`, dnes paušál 99 Kč).
@@ -69,5 +71,7 @@ rekapitulace.
 - Faktura (napojení na `invoices` / eDoklad).
 - Velkoodběratelé: přihlášený zákazník z organizace vidí své ceny
   a objednává na fakturu (`placedByUserId`).
+- Číslování objednávek navázat na WooCommerce (dnes kolem č. 5093), ať
+  zákazníci ani účetnictví nevidí skok nebo duplicitu.
 - Přechod z WordPressu: přesměrování starých URL (301), sitemap, feed pro
   Heureku/Zboží.cz, analytika, souhlas s cookies. Pak zrušit `noindex`.
