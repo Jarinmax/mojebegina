@@ -7,6 +7,7 @@ import CallLogForm from "./CallLogForm";
 import LeadOwnerForm from "./LeadOwnerForm";
 import CompanyNameForm from "./CompanyNameForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
+import { sanitizeReturnTo } from "../../returnTo";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Žádná funkcionalita se neodstranila, jen přeskupila.
 export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obchod/leady/[id]">) {
   const { id } = await props.params;
+  const searchParams = await props.searchParams;
+  const backHref = sanitizeReturnTo(searchParams.returnTo);
 
   if (!UUID_RE.test(id)) {
     notFound();
@@ -43,7 +46,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
 
   return (
     <div>
-      <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 hover:text-begina-primary-900">
+      <Link href={backHref} className="text-sm text-neutral-500 hover:text-begina-primary-900">
         ← Obchod / CRM
       </Link>
 
@@ -116,7 +119,10 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
       {lead.stage === "converted" && lead.convertedOrganizationId ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4 text-sm text-emerald-800">
           Tento lead je propojený se zákazníkem.{" "}
-          <Link href={`/rizeni-firmy/obchod/zakaznici/${lead.convertedOrganizationId}`} className="underline font-medium">
+          <Link
+            href={`/rizeni-firmy/obchod/zakaznici/${lead.convertedOrganizationId}?returnTo=${encodeURIComponent(backHref)}`}
+            className="underline font-medium"
+          >
             Zobrazit zákazníka →
           </Link>
         </div>
