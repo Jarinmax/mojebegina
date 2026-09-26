@@ -122,6 +122,44 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             </section>
           )}
 
+          {category.detailSections.map((section) => (
+            <section key={section.title} className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
+              <h2 className="font-medium text-begina-primary-900">{section.title}</h2>
+              {section.paragraphs[0] && <p>{section.paragraphs[0]}</p>}
+              {section.bullets.length > 0 && (
+                <ul className="list-disc pl-5 flex flex-col gap-0.5">
+                  {section.bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              )}
+              {section.paragraphs.slice(1).map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </section>
+          ))}
+
+          {product.taste && (
+            <section className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
+              <h2 className="font-medium text-begina-primary-900">Jak chutná {product.name}</h2>
+              <p>{product.taste}</p>
+            </section>
+          )}
+
+          {product.variants.some((variant) => variant.description) && (
+            <section className="mt-8 border-t border-neutral-200 pt-6 text-neutral-700">
+              <h2 className="font-medium text-begina-primary-900 mb-3">Balení</h2>
+              <ul className="flex flex-col gap-3">
+                {product.variants.map((variant) => (
+                  <li key={variant.sku}>
+                    <span className="font-medium text-begina-primary-900">{variant.label}.</span>{" "}
+                    {variant.description}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="mt-8 border-t border-neutral-200 pt-6" aria-labelledby="food-info">
             <h2 id="food-info" className="font-medium mb-3">Informace o potravině</h2>
             <dl className="text-sm divide-y divide-neutral-100">

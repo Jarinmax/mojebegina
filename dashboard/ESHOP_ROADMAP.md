@@ -14,8 +14,8 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   potravině“ (balení, složení, alergeny, obsah alkoholu, výživové hodnoty,
   skladování, trvanlivost).
 - Produkty: 3 polévky (z DB), 4 alkoholické koktejly z begina.cz (Svařák
-  Deluxe s kompletními texty, Lady Carneval, Granátový Bond, Kosmopolitan
-  jen název, cena a fotka).
+  Deluxe a Lady Carneval s kompletními texty, Granátový Bond a
+  Kosmopolitan zatím jen název, cena a fotka).
 - Košík `/eshop/kosik` v localStorage (drží jen sku balení + množství).
 - Alkohol v košíku → pokladna vyžaduje potvrzení 18+ (hlídá i server).
 - Pokladna `/eshop/pokladna`: kontakt, způsob doručení (adresa jen u
@@ -35,11 +35,16 @@ rekapitulace.
 2. **Produkty ostatních kategorií** — bylinné sirupy, čaje, ovocné
    nápoje (název, cena, balení, texty, fotky). Kategorie podle begina.cz
    už v e-shopu jsou, zatím s „Nabídku doplníme“.
-   **Koktejly k ověření:** ceny balení jsou odvozené z rozpětí na webu
-   (3 l = vyšší cena, 500 ml = nižší) a u Lady Carneval, Granátového
-   Bonda a Kosmopolitanu předpokládáme stejná dvě balení jako u svařáku.
-   Chybí jejich popisy, složení a obsah alkoholu. **Alergeny u svařáku:**
-   víno obvykle obsahuje siřičitany, které se musí uvádět — ověřit.
+   **Koktejly:** ceny balení potvrzené cenou za nápoj na webu (3 l =
+   15 nápojů). U Granátového Bonda a Kosmopolitanu chybí texty, složení
+   a obsah alkoholu; předpokládáme stejná dvě balení.
+   **K rozhodnutí — Lady Carneval:** begina.cz uvádí „bez umělých aromat
+   a barviv“, ale složení (Aperol) obsahuje aromata a barviva E110, E124.
+   V e-shopu je tahle přednost zatím vynechaná. Barviva E110 a E124 navíc
+   vyžadují povinné upozornění „může nepříznivě ovlivňovat činnost
+   a pozornost dětí“ (nařízení 1333/2008, příloha V) — ověřit.
+   **Alergeny u svařáku:** víno obvykle obsahuje siřičitany, které se musí
+   uvádět — ověřit.
 3. **Je cena 379 Kč s DPH?** A je to cena pro koncové zákazníky, nebo
    velkoobchodní?
 4. **Doprava** — podle begina.cz se cena chlazené přepravy počítá

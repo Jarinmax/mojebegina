@@ -10,7 +10,8 @@
 //   - polévky: názvy a cena 379 Kč ze skutečných objednávek v DB
 //     (order_items), balení neznámé,
 //   - alkoholické koktejly: stránky begina.cz (texty doslova, fotky
-//     oříznuté ze screenshotů, které poslal Jaroslav 26. 9. 2026).
+//     oříznuté ze screenshotů, které poslal Jaroslav 26. 9. 2026);
+//     kompletní data zatím u Svařáku Deluxe a Lady Carneval.
 // Údaje, které neznáme, jsou `null` a e-shop je zobrazuje jako "Doplníme".
 // U potravin jsou povinné PŘED nákupem (nařízení EU 1169/2011), proto
 // `isFoodInfoComplete` hlídá, jestli je produkt připravený na ostrý prodej.
@@ -27,10 +28,14 @@ export type FoodInfo = {
 // Kategorie podle stávajícího webu begina.cz.
 export type CategorySlug = "polevky" | "sirupy" | "caje" | "ovocne-napoje" | "koktejly";
 
+export type DetailSection = { title: string; paragraphs: string[]; bullets: string[] };
+
 export type Category = {
   slug: CategorySlug;
   name: string;
   intro: string[];
+  /** Společné sekce na detailu každého produktu kategorie. */
+  detailSections: DetailSection[];
   /** Prodej jen osobám starším 18 let — pokladna vyžaduje potvrzení. */
   ageRestricted: boolean;
 };
@@ -38,16 +43,26 @@ export type Category = {
 export const AGE_RESTRICTION_NOTICE = "Prodej alkoholických nápojů osobám mladším 18 let je zakázán.";
 
 export const categories: Category[] = [
-  { slug: "polevky", name: "Čerstvé polévky", intro: [], ageRestricted: false },
-  { slug: "sirupy", name: "Bylinné sirupy", intro: [], ageRestricted: false },
-  { slug: "caje", name: "Čaje", intro: [], ageRestricted: false },
-  { slug: "ovocne-napoje", name: "Ovocné nápoje", intro: [], ageRestricted: false },
+  { slug: "polevky", name: "Čerstvé polévky", intro: [], detailSections: [], ageRestricted: false },
+  { slug: "sirupy", name: "Bylinné sirupy", intro: [], detailSections: [], ageRestricted: false },
+  { slug: "caje", name: "Čaje", intro: [], detailSections: [], ageRestricted: false },
+  { slug: "ovocne-napoje", name: "Ovocné nápoje", intro: [], detailSections: [], ageRestricted: false },
   {
     slug: "koktejly",
     name: "Alkoholické koktejly",
     intro: [
       "Alkoholické koktejly Begina spojují kvalitní destiláty, čisté ovocné šťávy a precizně vyvážené chutě.",
       "Každý nápoj je postavený tak, aby působil přirozeně, čistě a zároveň výrazně.",
+    ],
+    detailSections: [
+      {
+        title: "Vhodné také pro gastro provozy a kanceláře",
+        paragraphs: [
+          "Alkoholické koktejly Begina jsou praktické řešení pro:",
+          "Díky bag-in-box balení lze koktejl jednoduše dávkovat bez přístupu vzduchu a zbytečného odpadu.",
+        ],
+        bullets: ["kavárny", "bistra", "menší restaurace", "kanceláře", "catering"],
+      },
     ],
     ageRestricted: true,
   },
@@ -60,6 +75,8 @@ export type Variant = {
   /** null = balení zatím neznáme */
   label: string | null;
   detail: string | null;
+  /** Delší popis balení pro detail produktu. */
+  description: string | null;
   priceKc: number;
 };
 
@@ -70,6 +87,8 @@ export type Product = {
   shortDescription: string | null;
   highlights: string[];
   description: string[];
+  /** "Jak chutná …" */
+  taste: string | null;
   warnings: string[];
   /** cesta v /public, null = zástupná ikonka */
   image: string | null;
@@ -95,34 +114,43 @@ function soup(slug: string, name: string, shortDescription: string): Product {
     shortDescription,
     highlights: [],
     description: [],
+    taste: null,
     warnings: [],
     image: null,
-    variants: [{ sku: slug, label: null, detail: null, priceKc: 379 }],
+    variants: [{ sku: slug, label: null, detail: null, description: null, priceKc: 379 }],
     alcoholPercent: null,
     foodInfo: UNKNOWN_FOOD_INFO,
   };
 }
 
-// Balení koktejlů podle stránky Svařák Deluxe na begina.cz. Přiřazení cen
-// k balením je odvozené z cenového rozpětí ("129 Kč – 499 Kč" při dvou
-// baleních) — ověřit s vedením, stejně jako že ostatní koktejly mají
-// stejná dvě balení.
+// Balení koktejlů podle stránek Svařák Deluxe a Lady Carneval na begina.cz.
+// Cena 3 l balení je potvrzená cenou za nápoj uvedenou na webu
+// (15 × 33,30 Kč ≈ 499 Kč, 15 × 53,30 Kč ≈ 799 Kč). U Granátového Bonda
+// a Kosmopolitanu předpokládáme stejná dvě balení — ověřit.
 function cocktailVariants(slug: string, price3lKc: number, price500mlKc: number): Variant[] {
   return [
     {
       sku: `${slug}-3l`,
       label: "3 l Rodinná zásoba (bag-in-box)",
       detail: "Až 15 nápojů po 200 ml",
+      description:
+        "Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.",
       priceKc: price3lKc,
     },
     {
       sku: `${slug}-500ml`,
       label: "500 ml Praktické balení",
       detail: "2–3 nápoje",
+      description: "Lehké a nerozbitné balení vhodné na cesty nebo pro menší spotřebu.",
       priceKc: price500mlKc,
     },
   ];
 }
+
+const COCKTAIL_STORAGE =
+  "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě.";
+
+const COCKTAIL_WARNINGS = ["Není určeno pro děti, těhotné a kojící ženy."];
 
 function cocktail(slug: string, name: string): Product {
   return {
@@ -132,6 +160,7 @@ function cocktail(slug: string, name: string): Product {
     shortDescription: null,
     highlights: [],
     description: [],
+    taste: null,
     warnings: [],
     image: `/eshop/${slug}.jpg`,
     variants: cocktailVariants(slug, 799, 169),
@@ -155,7 +184,9 @@ export const products: Product[] = [
       "Každý doušek působí příjemným a hřejivým dojmem a přirozeně zapadá do zimní atmosféry i večerní pohody.",
       "Prémiový nápoj, který máte v lednici vždy připravený. Stačí ohřát. Výborný i chlazený s ledem.",
     ],
-    warnings: ["Není určeno pro děti, těhotné a kojící ženy."],
+    taste:
+      "Plná a vyvážená chuť červeného vína s jemnými tóny pomeranče, grepu a citronu, doplněná hřejivým kořením, které vytváří bohatý a harmonický chuťový zážitek.",
+    warnings: COCKTAIL_WARNINGS,
     image: "/eshop/svarak-deluxe.jpg",
     variants: cocktailVariants("svarak-deluxe", 499, 129),
     alcoholPercent: 7.5,
@@ -164,12 +195,40 @@ export const products: Product[] = [
         "červené víno, pomerančová šťáva, grepová šťáva, citronová šťáva, třtinový cukr, skořice, zázvor, kardamom, hřebíček, badyán, vanilka, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
       allergens: null,
       nutritionPer100g: null,
-      storage:
-        "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě.",
+      storage: COCKTAIL_STORAGE,
       shelfLife: null,
     },
   },
-  cocktail("lady-carneval", "Lady Carneval"),
+  {
+    slug: "lady-carneval",
+    name: "Lady Carneval",
+    category: "koktejly",
+    shortDescription: "Grepový koktejl s vodkou a Aperolem.",
+    // Na begina.cz je navíc "bez umělých aromat a barviv" — záměrně
+    // vynecháno, protože složení (Aperol) obsahuje aromata a barviva
+    // E110, E124. Rozhodne vedení, viz ESHOP_ROADMAP.md.
+    highlights: ["z čisté filtrované vody", "ideální pro podávání s ledem", "plná, osvěžující chuť"],
+    description: [
+      "Grepový alkoholický koktejl Lady Carneval v sobě spojuje kvalitní vodku, italský Aperol a grepovou šťávu. Vzniká tak harmonický drink s výrazným citrusovým charakterem.",
+      "Každý doušek přináší osvěžující chuťový zážitek, který se hodí pro chvíle s přáteli i jako stylové osvěžení pro každou příležitost.",
+      "Prémiový nápoj, který máte v lednici vždy připravený. Stačí nalít do sklenice s ledem.",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste:
+      "Grepový alkoholický koktejl Lady Carneval má výraznou citrusovou chuť s příjemnou svěžestí grepu a jemně nasládlým dozvukem. Vyvážené spojení vodky, Aperolu a ovocných tónů vytváří harmonický a osvěžující drink, který působí lehce a elegantně.",
+    warnings: COCKTAIL_WARNINGS,
+    image: "/eshop/lady-carneval.jpg",
+    variants: cocktailVariants("lady-carneval", 799, 169),
+    alcoholPercent: 7.2,
+    foodInfo: {
+      ingredients:
+        "čistá filtrovaná voda, vodka, grepová šťáva, Aperol (pitná voda, cukr, líh, aromata, barviva: E110, E124), citronová šťáva, třtinový cukr, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      allergens: null,
+      nutritionPer100g: null,
+      storage: COCKTAIL_STORAGE,
+      shelfLife: null,
+    },
+  },
   cocktail("granatovy-bond", "Granátový Bond"),
   cocktail("kosmopolitan", "Kosmopolitan"),
 ];
