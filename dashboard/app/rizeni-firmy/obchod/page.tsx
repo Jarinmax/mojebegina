@@ -39,6 +39,11 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
     !isLeadsView ? listCustomers(customerFilter) : Promise.resolve(null),
   ]);
 
+  // Security Phase 16.6 — aktuální URL téhle stránky (s aktivním pohledem)
+  // se posílá do detailu jako returnTo, aby "Zpět" vědělo, kam se skutečně
+  // vrátit — viz returnTo.ts.
+  const returnTo = `/rizeni-firmy/obchod?view=${activeView}`;
+
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-1">
@@ -80,7 +85,9 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
             {leadFilter === "mine" ? "Zatím nemáš žádné aktivní leady." : "Zatím žádný aktivní lead."}
           </div>
         ) : (
-          <div className="flex flex-col gap-2">{leadCards?.map((lead) => <LeadCard key={lead.id} lead={lead} />)}</div>
+          <div className="flex flex-col gap-2">
+            {leadCards?.map((lead) => <LeadCard key={lead.id} lead={lead} returnTo={returnTo} />)}
+          </div>
         )
       ) : customerCards && customerCards.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
@@ -88,7 +95,9 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {customerCards?.map((customer) => <CustomerCard key={customer.id} customer={customer} />)}
+          {customerCards?.map((customer) => (
+            <CustomerCard key={customer.id} customer={customer} returnTo={returnTo} />
+          ))}
         </div>
       )}
     </div>
