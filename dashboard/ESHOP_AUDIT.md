@@ -1,8 +1,8 @@
 # Audit e-shopu Begina.cz — výchozí stav
 
 Stav k 26. 9. 2026, větev `claude/great-bell-ffjwo3` (commit `8b04ab2`).
-**Schváleno vedením jako výchozí stav** (26. 9. 2026). Oddíl 6 (jedna vs.
-dvě aplikace) je po schválení otevřený — viz poznámka tam.
+**Schváleno vedením jako výchozí stav** (26. 9. 2026). Oddíl 6 doplněn
+o rozhodnutí vedení (jeden Next.js projekt).
 
 **Shrnutí:** nic se nemusí mazat ani vracet. Všechna práce na e-shopu je
 izolovaná a nedotýká se databáze — paralelní datový model vůči MojeBegina
@@ -87,19 +87,16 @@ ceny jsou konečné.“** — cena 379 Kč je konečná.
 - Obchodní pravidla (cena, doprava, partnerské slevy) na jednom místě
   v kódu, sdílená oběma částmi.
 
-## 6. Jedna, nebo dvě aplikace — OTEVŘENO
+## 6. Jedna, nebo dvě aplikace — ROZHODNUTO
 
-Audit původně doporučil jeden Next.js projekt a dvě domény. **Vedení toto
-nebere jako rozhodnuté** a chce prověřit variantu:
+**Rozhodnutí vedení (26. 9. 2026): jeden Next.js projekt, jedna Neon DB**,
+produkty vlastní MojeBegina, begina.cz je veřejná prodejní vrstva nad
+stejnými daty, `catalog.ts` je první zdroj pro naplnění produktů.
 
-- jeden repozitář (monorepo), jedna Neon DB, společné DB schéma,
-- společná obchodní logika (ceny, doprava, slevy),
-- **dvě samostatné Next.js aplikace / deploymenty**: begina.cz (veřejný
-  web + e-shop) a moje.begina.cz (interní systém),
-
-aby chyba nebo deployment veřejného webu neovlivnil Řízení firmy. Návrh
-schématu (`ESHOP_SCHEMA_PROPOSAL.md`) s touto variantou počítá. Izolace
-e-shopového kódu (oddíl 1) přesun do samostatné aplikace usnadňuje.
+Krátce předtím zvažovaná varianta (monorepo, dvě Next.js aplikace nad
+jednou DB kvůli oddělení nasazení veřejného webu a Řízení firmy) zůstává
+jako možnost do budoucna. Návrh schématu na počtu aplikací nezávisí
+a izolace e-shopového kódu (oddíl 1) pozdější oddělení usnadňuje.
 
 ## 7. Doporučené další kroky
 
