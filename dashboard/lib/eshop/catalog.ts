@@ -11,7 +11,7 @@
 //     (order_items), balení neznámé,
 //   - alkoholické koktejly: stránky begina.cz (texty doslova, fotky
 //     oříznuté ze screenshotů, které poslal Jaroslav 26. 9. 2026);
-//     kompletní data zatím u Svařáku Deluxe, Lady Carneval a Granátového Bonda.
+//     u Granátového Bonda a Kosmopolitanu chybí úvodní popis a přednosti.
 // Údaje, které neznáme, jsou `null` a e-shop je zobrazuje jako "Doplníme".
 // U potravin jsou povinné PŘED nákupem (nařízení EU 1169/2011), proto
 // `isFoodInfoComplete` hlídá, jestli je produkt připravený na ostrý prodej.
@@ -125,8 +125,8 @@ function soup(slug: string, name: string, shortDescription: string): Product {
 
 // Balení koktejlů podle stránek Svařák Deluxe a Lady Carneval na begina.cz.
 // Cena 3 l balení je potvrzená cenou za nápoj uvedenou na webu
-// (15 × 33,30 Kč ≈ 499 Kč, 15 × 53,30 Kč ≈ 799 Kč). Granátový Bond má
-// na webu stejná dvě balení; u Kosmopolitanu je předpokládáme — ověřit.
+// (15 × 33,30 Kč ≈ 499 Kč, 15 × 53,30 Kč ≈ 799 Kč). Všechny čtyři
+// koktejly mají na webu stejná dvě balení.
 function cocktailVariants(slug: string, price3lKc: number, price500mlKc: number): Variant[] {
   return [
     {
@@ -151,23 +151,6 @@ const COCKTAIL_STORAGE =
   "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě.";
 
 const COCKTAIL_WARNINGS = ["Není určeno pro děti, těhotné a kojící ženy."];
-
-function cocktail(slug: string, name: string): Product {
-  return {
-    slug,
-    name,
-    category: "koktejly",
-    shortDescription: null,
-    highlights: [],
-    description: [],
-    taste: null,
-    warnings: [],
-    image: `/eshop/${slug}.jpg`,
-    variants: cocktailVariants(slug, 799, 169),
-    alcoholPercent: null,
-    foodInfo: UNKNOWN_FOOD_INFO,
-  };
-}
 
 export const products: Product[] = [
   soup("dynova-polevka", "Dýňová polévka", "Krémová polévka z dýně."),
@@ -252,7 +235,29 @@ export const products: Product[] = [
       shelfLife: null,
     },
   },
-  cocktail("kosmopolitan", "Kosmopolitan"),
+  {
+    slug: "kosmopolitan",
+    name: "Kosmopolitan",
+    category: "koktejly",
+    shortDescription: "Brusinkový koktejl s vodkou a citrusy.",
+    // Přednosti a úvodní popis z horní části stránky zatím nemáme.
+    highlights: [],
+    description: [],
+    taste:
+      "Kosmopolitan má výraznou ovocně-citrusovou chuť se svěžestí brusinek a jemně nasládlým dozvukem. Působí lehce, elegantně a dodává každému okamžiku nádech sebevědomí a stylu.",
+    warnings: COCKTAIL_WARNINGS,
+    image: "/eshop/kosmopolitan.jpg",
+    variants: cocktailVariants("kosmopolitan", 799, 169),
+    alcoholPercent: 6.3,
+    foodInfo: {
+      ingredients:
+        "čistá filtrovaná voda, brusinková šťáva, jablečná šťáva, vodka, citronová šťáva, třtinový cukr, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      allergens: null,
+      nutritionPer100g: null,
+      storage: COCKTAIL_STORAGE,
+      shelfLife: null,
+    },
+  },
 ];
 
 export function getCategory(slug: CategorySlug): Category {
