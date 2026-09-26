@@ -278,7 +278,7 @@ denied*.
    úspěšné nasazení. Návrat = Instant Rollback na předchozí deployment.
 4. **Fáze 1–5 nemění DB ani env proměnné** moje.begina.cz.
 5. **Re-exporty** drží všechny dnešní importy MojeBegina beze změny;
-   kontrola = shodný výpis rout, 241 testů, `drizzle-kit` bez rozdílu.
+   kontrola = shodný výpis rout, 220 testů MojeBegina, `drizzle-kit` bez rozdílu.
 6. **E-shop nikdy nebyl v `main`** — jeho přesun do `web/` se MojeBegina
    v produkci nedotkne.
 
