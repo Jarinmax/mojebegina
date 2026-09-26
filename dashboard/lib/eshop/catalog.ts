@@ -11,7 +11,7 @@
 //     (order_items), balení neznámé,
 //   - alkoholické koktejly: stránky begina.cz (texty doslova, fotky
 //     oříznuté ze screenshotů, které poslal Jaroslav 26. 9. 2026);
-//     kompletní data zatím u Svařáku Deluxe a Lady Carneval.
+//     kompletní data zatím u Svařáku Deluxe, Lady Carneval a Granátového Bonda.
 // Údaje, které neznáme, jsou `null` a e-shop je zobrazuje jako "Doplníme".
 // U potravin jsou povinné PŘED nákupem (nařízení EU 1169/2011), proto
 // `isFoodInfoComplete` hlídá, jestli je produkt připravený na ostrý prodej.
@@ -125,8 +125,8 @@ function soup(slug: string, name: string, shortDescription: string): Product {
 
 // Balení koktejlů podle stránek Svařák Deluxe a Lady Carneval na begina.cz.
 // Cena 3 l balení je potvrzená cenou za nápoj uvedenou na webu
-// (15 × 33,30 Kč ≈ 499 Kč, 15 × 53,30 Kč ≈ 799 Kč). U Granátového Bonda
-// a Kosmopolitanu předpokládáme stejná dvě balení — ověřit.
+// (15 × 33,30 Kč ≈ 499 Kč, 15 × 53,30 Kč ≈ 799 Kč). Granátový Bond má
+// na webu stejná dvě balení; u Kosmopolitanu je předpokládáme — ověřit.
 function cocktailVariants(slug: string, price3lKc: number, price500mlKc: number): Variant[] {
   return [
     {
@@ -229,7 +229,29 @@ export const products: Product[] = [
       shelfLife: null,
     },
   },
-  cocktail("granatovy-bond", "Granátový Bond"),
+  {
+    slug: "granatovy-bond",
+    name: "Granátový Bond",
+    category: "koktejly",
+    shortDescription: "Ovocný koktejl s vodkou a granátovým jablkem.",
+    // Přednosti a úvodní popis z horní části stránky zatím nemáme.
+    highlights: [],
+    description: [],
+    taste:
+      "Granátový Bond má plnou, ovocnou chuť s výrazným tónem granátového jablka, který se postupně rozvíjí do jemně nasládlého a hladkého závěru. Jako alkoholický koktejl s granátovým jablkem působí elegantně, intenzivně a zanechává dlouhý, příjemný dozvuk.",
+    warnings: COCKTAIL_WARNINGS,
+    image: "/eshop/granatovy-bond.jpg",
+    variants: cocktailVariants("granatovy-bond", 799, 169),
+    alcoholPercent: 6.7,
+    foodInfo: {
+      ingredients:
+        "čistá filtrovaná voda, vodka, šťáva z granátového jablka, třtinový cukr, citronová šťáva, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      allergens: null,
+      nutritionPer100g: null,
+      storage: COCKTAIL_STORAGE,
+      shelfLife: null,
+    },
+  },
   cocktail("kosmopolitan", "Kosmopolitan"),
 ];
 
