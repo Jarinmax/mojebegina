@@ -70,7 +70,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
       <Link
-        href={`/eshop#${category.slug}`}
+        href={`/eshop/kategorie/${category.slug}`}
         className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-6 -ml-1"
       >
         <ChevronLeft className="w-4 h-4" />

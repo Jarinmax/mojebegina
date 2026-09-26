@@ -33,6 +33,9 @@ export type DetailSection = { title: string; paragraphs: string[]; bullets: stri
 export type Category = {
   slug: CategorySlug;
   name: string;
+  /** Dlaždice na úvodní stránce — oříznuto ze screenshotu begina.cz,
+   *  název je v obrázku zapečený a dlaždice ho překrývá vlastním pruhem. */
+  image: string;
   intro: string[];
   /** Společné sekce na detailu každého produktu kategorie. */
   detailSections: DetailSection[];
@@ -43,13 +46,42 @@ export type Category = {
 export const AGE_RESTRICTION_NOTICE = "Prodej alkoholických nápojů osobám mladším 18 let je zakázán.";
 
 export const categories: Category[] = [
-  { slug: "polevky", name: "Čerstvé polévky", intro: [], detailSections: [], ageRestricted: false },
-  { slug: "sirupy", name: "Bylinné sirupy", intro: [], detailSections: [], ageRestricted: false },
-  { slug: "caje", name: "Čaje", intro: [], detailSections: [], ageRestricted: false },
-  { slug: "ovocne-napoje", name: "Ovocné nápoje", intro: [], detailSections: [], ageRestricted: false },
+  {
+    slug: "polevky",
+    name: "Čerstvé polévky",
+    image: "/eshop/kategorie-polevky.jpg",
+    intro: [],
+    detailSections: [],
+    ageRestricted: false,
+  },
+  {
+    slug: "sirupy",
+    name: "Bylinné sirupy",
+    image: "/eshop/kategorie-sirupy.jpg",
+    intro: [],
+    detailSections: [],
+    ageRestricted: false,
+  },
+  {
+    slug: "caje",
+    name: "Čaje",
+    image: "/eshop/kategorie-caje.jpg",
+    intro: [],
+    detailSections: [],
+    ageRestricted: false,
+  },
+  {
+    slug: "ovocne-napoje",
+    name: "Ovocné nápoje",
+    image: "/eshop/kategorie-ovocne-napoje.jpg",
+    intro: [],
+    detailSections: [],
+    ageRestricted: false,
+  },
   {
     slug: "koktejly",
     name: "Alkoholické koktejly",
+    image: "/eshop/kategorie-koktejly.jpg",
     intro: [
       "Alkoholické koktejly Begina spojují kvalitní destiláty, čisté ovocné šťávy a precizně vyvážené chutě.",
       "Každý nápoj je postavený tak, aby působil přirozeně, čistě a zároveň výrazně.",
@@ -268,6 +300,10 @@ export const products: Product[] = [
     },
   },
 ];
+
+export function findCategory(slug: string): Category | undefined {
+  return categories.find((c) => c.slug === slug);
+}
 
 export function getCategory(slug: CategorySlug): Category {
   const category = categories.find((c) => c.slug === slug);

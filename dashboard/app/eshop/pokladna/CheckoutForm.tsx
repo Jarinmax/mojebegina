@@ -131,7 +131,7 @@ export default function CheckoutForm() {
       <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
         <p className="text-neutral-600 mb-4">V košíku nic není.</p>
         <Link href="/eshop" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
-          Vybrat produkty
+          Prohlédnout nabídku
         </Link>
       </div>
     );

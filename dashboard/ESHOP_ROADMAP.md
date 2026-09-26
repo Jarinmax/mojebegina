@@ -9,8 +9,11 @@ synchronizace mezi dvěma systémy.
 
 Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno.
 
-- Katalog `/eshop` s kategoriemi podle begina.cz a detail produktu
-  `/eshop/produkt/[slug]` s výběrem balení a sekcí „Informace o
+- Úvod `/eshop` čistý jako dnešní begina.cz (úvodní text, 5 dlaždic
+  kategorií, „Proč Begina“), stránky kategorií `/eshop/kategorie/[slug]`
+  s produkty. Fotky kategorií jsou oříznuté ze screenshotu — lepší by
+  byly originály.
+- Detail produktu `/eshop/produkt/[slug]` s výběrem balení a sekcí „Informace o
   potravině“ (balení, složení, alergeny, obsah alkoholu, výživové hodnoty,
   skladování, trvanlivost).
 - Produkty: 3 polévky (z DB), 4 alkoholické koktejly z begina.cz (Svařák

@@ -22,10 +22,13 @@ export default function EshopLayout({ children }: LayoutProps<"/eshop">) {
     <div className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <Link href="/eshop" className="flex items-center gap-2.5" aria-label="E-shop Begina — úvod">
-            <Image src={logoMark} alt="" className="h-8 w-auto" priority />
-            <span className="text-sm font-medium tracking-wide uppercase">E-shop</span>
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <Link href="/eshop" className="flex items-center gap-2.5" aria-label="Begina.cz — úvod">
+            <Image src={logoMark} alt="" className="h-9 w-auto" priority />
+            <span className="flex flex-col leading-tight">
+              <span className="font-serif text-lg tracking-wide uppercase">Begina.cz</span>
+              <span className="text-[11px] italic text-neutral-500">Když rozhoduje chuť</span>
+            </span>
           </Link>
           <CartLink />
         </div>

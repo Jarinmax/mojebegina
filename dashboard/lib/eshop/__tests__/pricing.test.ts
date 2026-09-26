@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { priceCart } from "../pricing";
-import { getProduct, getVariant, products, isFoodInfoComplete } from "../catalog";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { categories, getProduct, getVariant, products, isFoodInfoComplete } from "../catalog";
 
 describe("priceCart — E-shop 1.0", () => {
   it("ceny bere z katalogu a dopočítá dopravu i součet", () => {
@@ -97,6 +99,16 @@ describe("katalog", () => {
     expect(new Set(skus).size).toBe(skus.length);
     for (const sku of skus) {
       expect(getVariant(sku)?.variant.sku).toBe(sku);
+    }
+  });
+
+  it("fotky kategorií a produktů existují v /public", () => {
+    const images = [
+      ...categories.map((category) => category.image),
+      ...products.flatMap((product) => (product.image ? [product.image] : [])),
+    ];
+    for (const image of images) {
+      expect(existsSync(path.join(__dirname, "../../../public", image)), image).toBe(true);
     }
   });
 

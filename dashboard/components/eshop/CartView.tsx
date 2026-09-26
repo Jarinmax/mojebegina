@@ -26,7 +26,7 @@ export default function CartView() {
           href="/eshop"
           className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5"
         >
-          Vybrat produkty
+          Prohlédnout nabídku
         </Link>
       </div>
     );
