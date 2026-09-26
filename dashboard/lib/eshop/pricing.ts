@@ -1,17 +1,17 @@
 // E-shop 1.0 (náhled) — výpočet ceny objednávky. Jediné místo, kde
-// vzniká cena: ceny produktů z katalogu, cena dopravy ze shipping.ts.
-// Klient posílá jen slug + množství + id způsobu doručení.
+// vzniká cena: ceny balení z katalogu, cena dopravy ze shipping.ts.
+// Klient posílá jen sku + množství + id způsobu doručení.
 //
-// Výstup má stejný tvar jako CreateOrderValue.items v
+// Řádek má stejná pole jako CreateOrderValue.items v
 // lib/data/orderValidation.ts (name/quantity/unitPriceKc/lineTotalKc),
 // aby se z něj dal později přímo založit řádek v `orders`/`order_items`.
 
-import { getProduct } from "./catalog";
+import { getVariant, isAgeRestricted, lineName } from "./catalog";
 import { getShippingMethod, type ShippingMethod } from "./shipping";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 
 export type PricedLine = {
-  slug: string;
+  sku: string;
   name: string;
   quantity: number;
   unitPriceKc: number;
@@ -24,9 +24,11 @@ export type PricedCart = {
   subtotalKc: number;
   shippingKc: number;
   totalKc: number;
+  /** Košík obsahuje alkohol — pokladna musí vyžadovat potvrzení 18+. */
+  containsAgeRestricted: boolean;
 };
 
-export type CartInputLine = { slug: string; quantity: number };
+export type CartInputLine = { sku: string; quantity: number };
 
 export function priceCart(
   input: CartInputLine[],
@@ -46,15 +48,18 @@ export function priceCart(
 
   const seen = new Set<string>();
   const lines: PricedLine[] = [];
+  let containsAgeRestricted = false;
   for (const item of input) {
-    const product = getProduct(item.slug);
-    if (!product) {
+    const found = getVariant(item.sku);
+    if (!found) {
       return { ok: false, error: "Košík obsahuje produkt, který už nenabízíme. Obnovte prosím košík." };
     }
-    if (seen.has(product.slug)) {
+    const { product, variant } = found;
+    const name = lineName(product, variant);
+    if (seen.has(variant.sku)) {
       return { ok: false, error: "Košík obsahuje duplicitní položku. Obnovte prosím košík." };
     }
-    seen.add(product.slug);
+    seen.add(variant.sku);
     if (
       !Number.isInteger(item.quantity) ||
       item.quantity < 1 ||
@@ -62,15 +67,16 @@ export function priceCart(
     ) {
       return {
         ok: false,
-        error: `Množství u položky "${product.name}" musí být 1 až ${MAX_QUANTITY_PER_LINE}.`,
+        error: `Množství u položky "${name}" musí být 1 až ${MAX_QUANTITY_PER_LINE}.`,
       };
     }
+    containsAgeRestricted ||= isAgeRestricted(product);
     lines.push({
-      slug: product.slug,
-      name: product.name,
+      sku: variant.sku,
+      name,
       quantity: item.quantity,
-      unitPriceKc: product.priceKc,
-      lineTotalKc: product.priceKc * item.quantity,
+      unitPriceKc: variant.priceKc,
+      lineTotalKc: variant.priceKc * item.quantity,
     });
   }
 
@@ -83,6 +89,7 @@ export function priceCart(
       subtotalKc,
       shippingKc: shipping.priceKc,
       totalKc: subtotalKc + shipping.priceKc,
+      containsAgeRestricted,
     },
   };
 }

@@ -14,7 +14,8 @@ import {
   type CartLine,
 } from "@/lib/eshop/cart";
 
-const STORAGE_KEY = "begina-eshop-cart-v1";
+// v2: řádky košíku jsou balení (sku), ne produkty (slug).
+const STORAGE_KEY = "begina-eshop-cart-v2";
 const EMPTY: CartLine[] = [];
 
 const listeners = new Set<() => void>();
@@ -71,11 +72,11 @@ function getServerSnapshot() {
 export function useCart() {
   const cart = useSyncExternalStore(subscribe, readCart, getServerSnapshot);
 
-  const add = useCallback((slug: string, quantity = 1) => {
-    writeCart(addToCart(readCart(), slug, quantity));
+  const add = useCallback((sku: string, quantity = 1) => {
+    writeCart(addToCart(readCart(), sku, quantity));
   }, []);
-  const setQuantity = useCallback((slug: string, quantity: number) => {
-    writeCart(setLineQuantity(readCart(), slug, quantity));
+  const setQuantity = useCallback((sku: string, quantity: number) => {
+    writeCart(setLineQuantity(readCart(), sku, quantity));
   }, []);
   const clear = useCallback(() => writeCart(EMPTY), []);
 

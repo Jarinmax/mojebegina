@@ -3,7 +3,7 @@ import { validateCheckoutInput, type CheckoutInput } from "../checkout";
 
 function baseInput(overrides: Partial<CheckoutInput> = {}): CheckoutInput {
   return {
-    cart: JSON.stringify([{ slug: "kulajda", quantity: 2 }]),
+    cart: JSON.stringify([{ sku: "kulajda", quantity: 2 }]),
     name: "Jana Nováková",
     email: "jana@example.cz",
     phone: "+420 777 123 456",
@@ -14,6 +14,7 @@ function baseInput(overrides: Partial<CheckoutInput> = {}): CheckoutInput {
     zip: "18600",
     note: "",
     termsAccepted: true,
+    ageConfirmed: false,
     ...overrides,
   };
 }
@@ -65,6 +66,18 @@ describe("validateCheckoutInput — E-shop 1.0", () => {
     expect(validateCheckoutInput(baseInput({ termsAccepted: false })).ok).toBe(false);
   });
 
+  it("alkohol v košíku bez potvrzení 18+ = DENY, s potvrzením projde", () => {
+    const cart = JSON.stringify([
+      { sku: "kulajda", quantity: 1 },
+      { sku: "svarak-deluxe-3l", quantity: 1 },
+    ]);
+    expect(validateCheckoutInput(baseInput({ cart }))).toEqual({
+      ok: false,
+      error: "Košík obsahuje alkoholické nápoje — potvrďte prosím, že je vám alespoň 18 let.",
+    });
+    expect(validateCheckoutInput(baseInput({ cart, ageConfirmed: true })).ok).toBe(true);
+  });
+
   it("prázdný nebo podvržený košík = DENY", () => {
     expect(validateCheckoutInput(baseInput({ cart: "[]" }))).toEqual({
       ok: false,
@@ -75,7 +88,7 @@ describe("validateCheckoutInput — E-shop 1.0", () => {
 
   it("cena z klienta se ignoruje — počítá se vždy z katalogu", () => {
     const result = validateCheckoutInput(
-      baseInput({ cart: JSON.stringify([{ slug: "kulajda", quantity: 1, priceKc: 1 }]) })
+      baseInput({ cart: JSON.stringify([{ sku: "kulajda", quantity: 1, priceKc: 1 }]) })
     );
     expect(result.ok && result.value.pricedCart.lines[0].unitPriceKc).toBe(379);
   });

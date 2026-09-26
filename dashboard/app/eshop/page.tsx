@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { Check, Snowflake } from "lucide-react";
-import { categories, productsInCategory } from "@/lib/eshop/catalog";
+import {
+  categories,
+  productsInCategory,
+  lowestPriceKc,
+  AGE_RESTRICTION_NOTICE,
+  type Product,
+} from "@/lib/eshop/catalog";
 import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 
-// Texty v úvodu a v "Proč Begina" jsou převzaté doslova ze stávajícího
-// begina.cz, aby náhled mluvil stejným jazykem jako dnešní web.
+// Texty v úvodu, v úvodech kategorií a v "Proč Begina" jsou převzaté
+// doslova ze stávajícího begina.cz, aby náhled mluvil stejným jazykem.
 const whyBegina = [
   "pečlivý výběr kvalitních surovin",
   "promyšlené kombinace chutí",
@@ -19,6 +25,41 @@ const filteredWater = [
   "nechává vyniknout přirozenou chuť surovin",
   "pomáhá zachovat čistý a vyvážený chuťový profil",
 ];
+
+function ProductCard({ product }: { product: Product }) {
+  const href = `/eshop/produkt/${product.slug}`;
+  const hasChoice = product.variants.length > 1;
+  return (
+    <li className="flex flex-col border border-neutral-200 rounded-2xl p-3 bg-white">
+      <Link href={href} className="group flex flex-col flex-1">
+        <ProductImage name={product.name} src={product.image} />
+        <div className="px-1 pt-3 flex-1">
+          <h3 className="font-medium group-hover:underline underline-offset-2">{product.name}</h3>
+          {product.shortDescription && (
+            <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>
+          )}
+        </div>
+      </Link>
+      <div className="px-1 pt-3 flex items-center justify-between gap-3">
+        <p className="font-semibold tabular-nums">
+          {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
+        </p>
+        <div className="w-36">
+          {hasChoice ? (
+            <Link
+              href={href}
+              className="flex items-center justify-center border border-begina-primary-900 text-sm font-medium rounded-lg px-3 h-9 hover:bg-begina-primary-50"
+            >
+              Vybrat balení
+            </Link>
+          ) : (
+            <AddToCartButton name={product.name} variants={product.variants} compact />
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
 
 export default function EshopPage() {
   return (
@@ -54,31 +95,27 @@ export default function EshopPage() {
           const items = productsInCategory(category.slug);
           return (
             <section key={category.slug} id={category.slug} className="scroll-mt-20" aria-labelledby={`${category.slug}-title`}>
-              <h2 id={`${category.slug}-title`} className="text-xl font-semibold tracking-tight mb-4">
+              <h2 id={`${category.slug}-title`} className="text-xl font-semibold tracking-tight mb-2">
                 {category.name}
               </h2>
+              {(category.intro.length > 0 || category.ageRestricted) && (
+                <div className="mb-4 max-w-3xl text-sm text-neutral-600 flex flex-col gap-1">
+                  {category.intro.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                  {category.ageRestricted && (
+                    <p className="font-medium text-begina-primary-900">🔞 {AGE_RESTRICTION_NOTICE}</p>
+                  )}
+                </div>
+              )}
               {items.length === 0 ? (
-                <p className="border border-dashed border-neutral-300 rounded-2xl px-4 py-6 text-sm text-neutral-500 text-center">
+                <p className="mt-4 border border-dashed border-neutral-300 rounded-2xl px-4 py-6 text-sm text-neutral-500 text-center">
                   Nabídku doplníme.
                 </p>
               ) : (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {items.map((product) => (
-                    <li key={product.slug} className="flex flex-col border border-neutral-200 rounded-2xl p-3 bg-white">
-                      <Link href={`/eshop/produkt/${product.slug}`} className="group flex flex-col flex-1">
-                        <ProductImage name={product.name} />
-                        <div className="px-1 pt-3 flex-1">
-                          <h3 className="font-medium group-hover:underline underline-offset-2">{product.name}</h3>
-                          <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>
-                        </div>
-                      </Link>
-                      <div className="px-1 pt-3 flex items-center justify-between gap-3">
-                        <p className="font-semibold tabular-nums">{formatKc(product.priceKc)}</p>
-                        <div className="w-32">
-                          <AddToCartButton slug={product.slug} name={product.name} compact />
-                        </div>
-                      </div>
-                    </li>
+                    <ProductCard key={product.slug} product={product} />
                   ))}
                 </ul>
               )}

@@ -2,7 +2,7 @@
 
 // E-shop 1.0 (náhled) — odeslání objednávky. Cena se počítá výhradně na
 // serveru z katalogu (validateCheckoutInput → priceCart), z formuláře se
-// bere jen obsah košíku (slug + množství) a kontaktní údaje.
+// bere jen obsah košíku (sku + množství) a kontaktní údaje.
 //
 // NÁHLED: objednávka se zatím NIKAM neukládá ani neodesílá — vrací se jen
 // rekapitulace. Uložení do `orders` vyžaduje nejdřív rozhodnutí o tom,
@@ -31,6 +31,7 @@ export async function submitCheckoutAction(
     zip: field("zip"),
     note: field("note"),
     termsAccepted: formData.get("termsAccepted") === "on",
+    ageConfirmed: formData.get("ageConfirmed") === "on",
   });
 
   if (!result.ok) {

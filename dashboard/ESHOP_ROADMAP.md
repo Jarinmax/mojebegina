@@ -9,10 +9,15 @@ synchronizace mezi dvěma systémy.
 
 Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno.
 
-- Katalog `/eshop` a detail produktu `/eshop/produkt/[slug]` se sekcí
-  „Informace o potravině“ (balení, složení, alergeny, výživové hodnoty,
+- Katalog `/eshop` s kategoriemi podle begina.cz a detail produktu
+  `/eshop/produkt/[slug]` s výběrem balení a sekcí „Informace o
+  potravině“ (balení, složení, alergeny, obsah alkoholu, výživové hodnoty,
   skladování, trvanlivost).
-- Košík `/eshop/kosik` v localStorage (drží jen slug + množství).
+- Produkty: 3 polévky (z DB), 4 alkoholické koktejly z begina.cz (Svařák
+  Deluxe s kompletními texty, Lady Carneval, Granátový Bond, Kosmopolitan
+  jen název, cena a fotka).
+- Košík `/eshop/kosik` v localStorage (drží jen sku balení + množství).
+- Alkohol v košíku → pokladna vyžaduje potvrzení 18+ (hlídá i server).
 - Pokladna `/eshop/pokladna`: kontakt, způsob doručení (adresa jen u
   rozvozu), platba, souhlas s obchodními podmínkami, rekapitulace.
 - Cena se počítá výhradně na serveru z katalogu (`lib/eshop/pricing.ts`),
@@ -28,12 +33,18 @@ rekapitulace.
    něco chybí, `isFoodInfoComplete` vrací false). U potravin povinné před
    nákupem (nařízení EU 1169/2011).
 2. **Produkty ostatních kategorií** — bylinné sirupy, čaje, ovocné
-   nápoje, alkoholické koktejly (název, cena, balení). Kategorie podle
-   begina.cz už v e-shopu jsou, zatím s „Nabídku doplníme“.
+   nápoje (název, cena, balení, texty, fotky). Kategorie podle begina.cz
+   už v e-shopu jsou, zatím s „Nabídku doplníme“.
+   **Koktejly k ověření:** ceny balení jsou odvozené z rozpětí na webu
+   (3 l = vyšší cena, 500 ml = nižší) a u Lady Carneval, Granátového
+   Bonda a Kosmopolitanu předpokládáme stejná dvě balení jako u svařáku.
+   Chybí jejich popisy, složení a obsah alkoholu. **Alergeny u svařáku:**
+   víno obvykle obsahuje siřičitany, které se musí uvádět — ověřit.
 3. **Je cena 379 Kč s DPH?** A je to cena pro koncové zákazníky, nebo
    velkoobchodní?
-4. **Doprava** — skutečné způsoby, ceny, rozvozové dny a oblasti
-   (`lib/eshop/shipping.ts`, dnes orientační hodnoty).
+4. **Doprava** — podle begina.cz se cena chlazené přepravy počítá
+   podle celkového objemu objednávky; potřebujeme tabulku (objem → cena),
+   rozvozové dny a oblasti (`lib/eshop/shipping.ts`, dnes paušál 99 Kč).
 5. **Platební brána** (Comgate / GoPay / Stripe) a číslo účtu pro převod.
 6. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
 
@@ -45,8 +56,8 @@ rekapitulace.
   u e-shopových objednávek vyplnit `contact*` + `recipient*` snapshot
   a přidat sloupec `channel` („eshop“ / „manual“). Nutná migrace +
   kontrola všech míst, která s organizací počítají.
-- Alkoholické koktejly: prodej alkoholu online vyžaduje ověření věku
-  (18+) při objednávce i předání a odpovídající živnostenské oprávnění.
+- Alkoholické koktejly: potvrzení 18+ v pokladně už je; zbývá ověření
+  věku při předání (dopravce/řidič) a kontrola oprávnění k prodeji.
 - Ochrana formuláře proti spamu (rate limit, honeypot).
 - Potvrzovací e-mail zákazníkovi a upozornění pro Beginu.
 - Platební brána, QR platba u převodu.

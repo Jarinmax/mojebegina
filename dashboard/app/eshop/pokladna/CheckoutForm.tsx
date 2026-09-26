@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
-import { getProduct } from "@/lib/eshop/catalog";
+import { isAgeRestricted, AGE_RESTRICTION_NOTICE } from "@/lib/eshop/catalog";
+import { resolveCartLines } from "@/lib/eshop/cart";
 import { shippingMethods, paymentMethods, getShippingMethod } from "@/lib/eshop/shipping";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -29,6 +30,7 @@ type Values = {
   shippingMethodId: string;
   paymentMethodId: string;
   termsAccepted: boolean;
+  ageConfirmed: boolean;
 };
 
 const emptyValues: Values = {
@@ -42,6 +44,7 @@ const emptyValues: Values = {
   shippingMethodId: shippingMethods[0].id,
   paymentMethodId: paymentMethods[0].id,
   termsAccepted: false,
+  ageConfirmed: false,
 };
 
 export default function CheckoutForm() {
@@ -72,20 +75,20 @@ export default function CheckoutForm() {
         <div className="border border-neutral-200 rounded-2xl p-5 text-sm">
           <ul className="divide-y divide-neutral-100">
             {confirmation.pricedCart.lines.map((line) => (
-              <li key={line.slug} className="py-2 flex justify-between gap-3">
+              <li key={line.sku} className="py-2 flex justify-between gap-3">
                 <span>
                   {line.quantity}× {line.name}
                 </span>
-                <span className="tabular-nums">{formatKc(line.lineTotalKc)}</span>
+                <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
               </li>
             ))}
             <li className="py-2 flex justify-between gap-3">
               <span>{confirmation.pricedCart.shipping.label}</span>
-              <span className="tabular-nums">{formatKc(confirmation.pricedCart.shippingKc)}</span>
+              <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.shippingKc)}</span>
             </li>
             <li className="pt-3 flex justify-between gap-3 font-semibold">
               <span>Celkem</span>
-              <span className="tabular-nums">{formatKc(confirmation.pricedCart.totalKc)}</span>
+              <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.totalKc)}</span>
             </li>
           </ul>
           <dl className="mt-5 grid grid-cols-[7rem_1fr] gap-y-1.5 text-neutral-600">
@@ -120,17 +123,15 @@ export default function CheckoutForm() {
     return <p className="text-sm text-neutral-500">Načítám košík…</p>;
   }
 
-  const lines = cart.flatMap((line) => {
-    const product = getProduct(line.slug);
-    return product ? [{ ...line, product, lineTotalKc: product.priceKc * line.quantity }] : [];
-  });
+  const lines = resolveCartLines(cart);
+  const containsAgeRestricted = lines.some((line) => isAgeRestricted(line.product));
 
   if (lines.length === 0) {
     return (
       <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
         <p className="text-neutral-600 mb-4">V košíku nic není.</p>
         <Link href="/eshop" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
-          Vybrat polévky
+          Vybrat produkty
         </Link>
       </div>
     );
@@ -189,7 +190,7 @@ export default function CheckoutForm() {
                 <span className="flex-1">
                   <span className="flex justify-between gap-3 text-sm font-medium">
                     {method.label}
-                    <span className="tabular-nums">{method.priceKc === 0 ? "Zdarma" : formatKc(method.priceKc)}</span>
+                    <span className="tabular-nums whitespace-nowrap">{method.priceKc === 0 ? "Zdarma" : formatKc(method.priceKc)}</span>
                   </span>
                   <span className="block text-xs text-neutral-500 mt-0.5">{method.description}</span>
                 </span>
@@ -255,24 +256,40 @@ export default function CheckoutForm() {
         <h2 className="font-medium mb-3">Shrnutí</h2>
         <ul className="text-sm divide-y divide-neutral-200">
           {lines.map((line) => (
-            <li key={line.slug} className="py-2 flex justify-between gap-3">
+            <li key={line.sku} className="py-2 flex justify-between gap-3">
               <span>
-                {line.quantity}× {line.product.name}
+                {line.quantity}× {line.name}
               </span>
-              <span className="tabular-nums">{formatKc(line.lineTotalKc)}</span>
+              <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
             </li>
           ))}
           <li className="py-2 flex justify-between gap-3 text-neutral-600">
             <span>{shipping.label}</span>
-            <span className="tabular-nums">{formatKc(shipping.priceKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(shipping.priceKc)}</span>
           </li>
           <li className="pt-3 flex justify-between gap-3 font-semibold">
             <span>Celkem</span>
-            <span className="tabular-nums">{formatKc(subtotalKc + shipping.priceKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc + shipping.priceKc)}</span>
           </li>
         </ul>
 
-        <label className="mt-5 flex items-start gap-2 text-xs text-neutral-600">
+        {containsAgeRestricted && (
+          <label className="mt-5 flex items-start gap-2 text-xs text-neutral-600">
+            <input
+              type="checkbox"
+              name="ageConfirmed"
+              required
+              checked={values.ageConfirmed}
+              onChange={(e) => set("ageConfirmed", e.target.checked)}
+              className="mt-0.5 accent-begina-primary-900"
+            />
+            <span>
+              Potvrzuji, že je mi alespoň 18 let. {AGE_RESTRICTION_NOTICE} Věk ověříme i při předání.
+            </span>
+          </label>
+        )}
+
+        <label className="mt-3 flex items-start gap-2 text-xs text-neutral-600">
           <input
             type="checkbox"
             name="termsAccepted"

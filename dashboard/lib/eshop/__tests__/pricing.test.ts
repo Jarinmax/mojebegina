@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { priceCart } from "../pricing";
-import { getProduct, products, isFoodInfoComplete } from "../catalog";
+import { getProduct, getVariant, products, isFoodInfoComplete } from "../catalog";
 
 describe("priceCart — E-shop 1.0", () => {
   it("ceny bere z katalogu a dopočítá dopravu i součet", () => {
     const result = priceCart(
       [
-        { slug: "kulajda", quantity: 2 },
-        { slug: "dynova-polevka", quantity: 1 },
+        { sku: "kulajda", quantity: 2 },
+        { sku: "dynova-polevka", quantity: 1 },
       ],
       "rozvoz"
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.lines).toEqual([
-        { slug: "kulajda", name: "Kulajda", quantity: 2, unitPriceKc: 379, lineTotalKc: 758 },
+        { sku: "kulajda", name: "Kulajda", quantity: 2, unitPriceKc: 379, lineTotalKc: 758 },
         {
-          slug: "dynova-polevka",
+          sku: "dynova-polevka",
           name: "Dýňová polévka",
           quantity: 1,
           unitPriceKc: 379,
@@ -29,8 +29,32 @@ describe("priceCart — E-shop 1.0", () => {
     }
   });
 
+  it("koktejl se účtuje podle zvoleného balení a označí košík jako 18+", () => {
+    const result = priceCart(
+      [
+        { sku: "svarak-deluxe-3l", quantity: 1 },
+        { sku: "svarak-deluxe-500ml", quantity: 2 },
+      ],
+      "osobni-odber"
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.lines.map((line) => [line.name, line.lineTotalKc])).toEqual([
+        ["Svařák Deluxe — 3 l Rodinná zásoba (bag-in-box)", 499],
+        ["Svařák Deluxe — 500 ml Praktické balení", 258],
+      ]);
+      expect(result.value.totalKc).toBe(757);
+      expect(result.value.containsAgeRestricted).toBe(true);
+    }
+  });
+
+  it("košík jen s polévkami není 18+", () => {
+    const result = priceCart([{ sku: "kulajda", quantity: 1 }], "osobni-odber");
+    expect(result.ok && result.value.containsAgeRestricted).toBe(false);
+  });
+
   it("osobní odběr je zdarma", () => {
-    const result = priceCart([{ slug: "kulajda", quantity: 1 }], "osobni-odber");
+    const result = priceCart([{ sku: "kulajda", quantity: 1 }], "osobni-odber");
     expect(result.ok && result.value.totalKc).toBe(379);
   });
 
@@ -39,35 +63,46 @@ describe("priceCart — E-shop 1.0", () => {
   });
 
   it("neznámý způsob doručení = DENY", () => {
-    expect(priceCart([{ slug: "kulajda", quantity: 1 }], "dron")).toEqual({
+    expect(priceCart([{ sku: "kulajda", quantity: 1 }], "dron")).toEqual({
       ok: false,
       error: "Vyberte způsob doručení.",
     });
   });
 
   it("neznámý produkt, duplicita nebo neplatné množství = DENY", () => {
-    expect(priceCart([{ slug: "neexistuje", quantity: 1 }], "rozvoz").ok).toBe(false);
+    expect(priceCart([{ sku: "neexistuje", quantity: 1 }], "rozvoz").ok).toBe(false);
     expect(
       priceCart(
         [
-          { slug: "kulajda", quantity: 1 },
-          { slug: "kulajda", quantity: 1 },
+          { sku: "kulajda", quantity: 1 },
+          { sku: "kulajda", quantity: 1 },
         ],
         "rozvoz"
       ).ok
     ).toBe(false);
-    expect(priceCart([{ slug: "kulajda", quantity: 0 }], "rozvoz").ok).toBe(false);
-    expect(priceCart([{ slug: "kulajda", quantity: 1.5 }], "rozvoz").ok).toBe(false);
-    expect(priceCart([{ slug: "kulajda", quantity: 100 }], "rozvoz").ok).toBe(false);
+    expect(priceCart([{ sku: "kulajda", quantity: 0 }], "rozvoz").ok).toBe(false);
+    expect(priceCart([{ sku: "kulajda", quantity: 1.5 }], "rozvoz").ok).toBe(false);
+    expect(priceCart([{ sku: "kulajda", quantity: 100 }], "rozvoz").ok).toBe(false);
   });
 });
 
 describe("katalog", () => {
-  it("slugy jsou unikátní a dohledatelné", () => {
+  it("slugy i sku jsou unikátní a dohledatelné", () => {
     const slugs = products.map((product) => product.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const slug of slugs) {
       expect(getProduct(slug)?.slug).toBe(slug);
+    }
+    const skus = products.flatMap((product) => product.variants.map((variant) => variant.sku));
+    expect(new Set(skus).size).toBe(skus.length);
+    for (const sku of skus) {
+      expect(getVariant(sku)?.variant.sku).toBe(sku);
+    }
+  });
+
+  it("každý produkt má aspoň jedno balení", () => {
+    for (const product of products) {
+      expect(product.variants.length).toBeGreaterThan(0);
     }
   });
 
@@ -77,7 +112,7 @@ describe("katalog", () => {
     expect(
       isFoodInfoComplete({
         ...product,
-        packageLabel: "0,5 l",
+        variants: [{ ...product.variants[0], label: "0,5 l" }],
         foodInfo: {
           ingredients: "voda, dýně",
           allergens: [],
@@ -87,5 +122,15 @@ describe("katalog", () => {
         },
       })
     ).toBe(true);
+  });
+
+  it("alkoholický produkt bez obsahu alkoholu není připravený", () => {
+    const svarak = getProduct("svarak-deluxe")!;
+    const complete = {
+      ...svarak,
+      foodInfo: { ...svarak.foodInfo, allergens: ["siřičitany"], nutritionPer100g: "…", shelfLife: "…" },
+    };
+    expect(isFoodInfoComplete(complete)).toBe(true);
+    expect(isFoodInfoComplete({ ...complete, alcoholPercent: null })).toBe(false);
   });
 });

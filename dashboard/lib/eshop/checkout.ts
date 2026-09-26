@@ -11,7 +11,7 @@ const MAX_TEXT_LENGTH = 200;
 const MAX_NOTE_LENGTH = 1000;
 
 export type CheckoutInput = {
-  cart: string; // JSON [{slug, quantity}] z localStorage
+  cart: string; // JSON [{sku, quantity}] z localStorage
   name: string;
   email: string;
   phone: string;
@@ -22,6 +22,8 @@ export type CheckoutInput = {
   zip: string;
   note: string;
   termsAccepted: boolean;
+  /** Potvrzení 18+; vyžaduje se jen, když košík obsahuje alkohol. */
+  ageConfirmed: boolean;
 };
 
 export type CheckoutValue = {
@@ -95,6 +97,13 @@ export function validateCheckoutInput(input: CheckoutInput): Result {
   const note = input.note.trim();
   if (tooLong(note, MAX_NOTE_LENGTH)) {
     return { ok: false, error: `Poznámka může mít nejvýše ${MAX_NOTE_LENGTH} znaků.` };
+  }
+
+  if (priced.value.containsAgeRestricted && !input.ageConfirmed) {
+    return {
+      ok: false,
+      error: "Košík obsahuje alkoholické nápoje — potvrďte prosím, že je vám alespoň 18 let.",
+    };
   }
 
   if (!input.termsAccepted) {
