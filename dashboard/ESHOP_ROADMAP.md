@@ -27,12 +27,15 @@ rekapitulace.
    hodnoty, skladování, trvanlivost, fotky (`lib/eshop/catalog.ts`; dokud
    něco chybí, `isFoodInfoComplete` vrací false). U potravin povinné před
    nákupem (nařízení EU 1169/2011).
-2. **Je cena 379 Kč s DPH?** A je to cena pro koncové zákazníky, nebo
+2. **Produkty ostatních kategorií** — bylinné sirupy, čaje, ovocné
+   nápoje, alkoholické koktejly (název, cena, balení). Kategorie podle
+   begina.cz už v e-shopu jsou, zatím s „Nabídku doplníme“.
+3. **Je cena 379 Kč s DPH?** A je to cena pro koncové zákazníky, nebo
    velkoobchodní?
-3. **Doprava** — skutečné způsoby, ceny, rozvozové dny a oblasti
+4. **Doprava** — skutečné způsoby, ceny, rozvozové dny a oblasti
    (`lib/eshop/shipping.ts`, dnes orientační hodnoty).
-4. **Platební brána** (Comgate / GoPay / Stripe) a číslo účtu pro převod.
-5. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
+5. **Platební brána** (Comgate / GoPay / Stripe) a číslo účtu pro převod.
+6. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
 
 ## Další fáze
 
@@ -42,6 +45,8 @@ rekapitulace.
   u e-shopových objednávek vyplnit `contact*` + `recipient*` snapshot
   a přidat sloupec `channel` („eshop“ / „manual“). Nutná migrace +
   kontrola všech míst, která s organizací počítají.
+- Alkoholické koktejly: prodej alkoholu online vyžaduje ověření věku
+  (18+) při objednávce i předání a odpovídající živnostenské oprávnění.
 - Ochrana formuláře proti spamu (rate limit, honeypot).
 - Potvrzovací e-mail zákazníkovi a upozornění pro Beginu.
 - Platební brána, QR platba u převodu.

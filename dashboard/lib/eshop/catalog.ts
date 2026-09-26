@@ -22,10 +22,24 @@ export type FoodInfo = {
   shelfLife: string | null;
 };
 
+// Kategorie podle stávajícího webu begina.cz. Produkty zatím známe jen
+// u polévek — ostatní kategorie se zobrazí s "Nabídku doplníme".
+export type CategorySlug = "polevky" | "sirupy" | "caje" | "ovocne-napoje" | "koktejly";
+
+export type Category = { slug: CategorySlug; name: string };
+
+export const categories: Category[] = [
+  { slug: "polevky", name: "Čerstvé polévky" },
+  { slug: "sirupy", name: "Bylinné sirupy" },
+  { slug: "caje", name: "Čaje" },
+  { slug: "ovocne-napoje", name: "Ovocné nápoje" },
+  { slug: "koktejly", name: "Alkoholické koktejly" },
+];
+
 export type Product = {
   slug: string;
   name: string;
-  category: "polevky";
+  category: CategorySlug;
   shortDescription: string;
   priceKc: number;
   packageLabel: string | null;
@@ -69,6 +83,10 @@ export const products: Product[] = [
     foodInfo: UNKNOWN_FOOD_INFO,
   },
 ];
+
+export function productsInCategory(category: CategorySlug): Product[] {
+  return products.filter((product) => product.category === category);
+}
 
 export function getProduct(slug: string): Product | undefined {
   return products.find((product) => product.slug === slug);

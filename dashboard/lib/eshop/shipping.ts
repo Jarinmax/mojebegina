@@ -22,7 +22,7 @@ export const shippingMethods: ShippingMethod[] = [
   },
   {
     id: "rozvoz",
-    label: "Chlazený rozvoz",
+    label: "Chlazená přeprava",
     description: "Doručení v chladu na vaši adresu, termín potvrdíme.",
     priceKc: 99,
     requiresAddress: true,

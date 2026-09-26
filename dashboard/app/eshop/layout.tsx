@@ -34,9 +34,23 @@ export default function EshopLayout({ children }: LayoutProps<"/eshop">) {
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-neutral-200 bg-begina-primary-50">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-xs text-neutral-500 flex flex-col sm:flex-row gap-2 sm:justify-between">
-          <p>© Begina</p>
-          <p>Obchodní podmínky · Reklamační řád · Ochrana osobních údajů (texty doplníme)</p>
+        <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-neutral-600 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
+          {/* Údaje provozovatele převzaté ze stávající patičky begina.cz. */}
+          <address className="not-italic flex flex-col gap-0.5">
+            <span className="font-medium text-begina-primary-900">Provozovatel</span>
+            <span>Jaroslav Viner</span>
+            <a href="tel:+420774199975" className="hover:underline">+420 774 199 975</a>
+            <a href="mailto:info@begina.cz" className="hover:underline">info@begina.cz</a>
+            <span>Mostecká 273/21, 118 00 Praha 1</span>
+            <span>IČO: 74337297</span>
+          </address>
+          <div className="flex flex-col gap-1 sm:text-right">
+            <span>O nás</span>
+            <span>Doprava</span>
+            <span>Obchodní podmínky</span>
+            <span>GDPR</span>
+            <span className="text-xs text-neutral-400">(texty doplníme)</span>
+          </div>
         </div>
       </footer>
     </div>
