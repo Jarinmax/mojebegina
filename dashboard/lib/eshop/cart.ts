@@ -1,11 +1,13 @@
 // E-shop 1.0 (náhled) — čistá logika košíku, bez Reactu a bez localStorage,
 // testovatelná stejně jako lib/data/*Validation.ts.
 //
-// Košík drží JEN sku (konkrétní balení) a množství. Název a cena se vždy dohledávají
-// v katalogu (lib/eshop/catalog.ts) — v prohlížeči kvůli zobrazení, na
-// serveru znovu v priceCart(), takže úprava localStorage nemůže změnit cenu.
+// Košík drží JEN sku (konkrétní balení) a množství. Název a cena se vždy
+// dohledávají v katalogu z DB (CatalogIndex) — v prohlížeči kvůli zobrazení,
+// na serveru znovu v priceCart(), takže úprava localStorage nemůže změnit cenu.
 
-import { getVariant, lineName, type Product, type Variant } from "./catalog";
+import type { CatalogIndex } from "./catalogIndex";
+import { lineName } from "./productRules";
+import type { Product, Variant } from "./types";
 
 export type CartLine = { sku: string; quantity: number };
 
@@ -43,8 +45,9 @@ export function cartItemCount(cart: CartLine[]): number {
 
 /**
  * Obsah localStorage je nedůvěryhodný vstup (jiná verze appky, ruční
- * úprava) — zahodí vše, co není známé balení s kladným celým množstvím,
- * a sloučí duplicitní řádky.
+ * úprava) — zahodí vše, co nemá tvar {sku: text, quantity: kladné celé
+ * číslo}, a sloučí duplicitní řádky. Balení, které v katalogu (už) není,
+ * vyřadí až resolveCartLines / priceCart — parse katalog nezná.
  */
 export function parseStoredCart(raw: string | null): CartLine[] {
   if (!raw) {
@@ -65,7 +68,7 @@ export function parseStoredCart(raw: string | null): CartLine[] {
       continue;
     }
     const { sku, quantity } = entry as { sku?: unknown; quantity?: unknown };
-    if (typeof sku !== "string" || !getVariant(sku)) {
+    if (typeof sku !== "string" || sku.length === 0 || sku.length > 100) {
       continue;
     }
     if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1) {
@@ -83,11 +86,11 @@ export type ResolvedCartLine = CartLine & {
   lineTotalKc: number;
 };
 
-/** Dohledá balení v katalogu pro zobrazení v prohlížeči. Závazná cena se
- *  počítá až na serveru (priceCart). */
-export function resolveCartLines(cart: CartLine[]): ResolvedCartLine[] {
+/** Dohledá balení v katalogu pro zobrazení v prohlížeči; neznámá balení
+ *  vynechá. Závazná cena se počítá až na serveru (priceCart). */
+export function resolveCartLines(cart: CartLine[], index: CatalogIndex): ResolvedCartLine[] {
   return cart.flatMap((line) => {
-    const found = getVariant(line.sku);
+    const found = index.getVariant(line.sku);
     if (!found) {
       return [];
     }

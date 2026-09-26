@@ -1,12 +1,14 @@
 // E-shop 1.0 (náhled) — výpočet ceny objednávky. Jediné místo, kde
-// vzniká cena: ceny balení z katalogu, cena dopravy ze shipping.ts.
-// Klient posílá jen sku + množství + id způsobu doručení.
+// vzniká cena: ceny balení z katalogu v DB (předaného jako CatalogIndex),
+// cena dopravy ze shipping.ts. Klient posílá jen sku + množství + id
+// způsobu doručení.
 //
 // Řádek má stejná pole jako CreateOrderValue.items v
 // lib/data/orderValidation.ts (name/quantity/unitPriceKc/lineTotalKc),
 // aby se z něj dal později přímo založit řádek v `orders`/`order_items`.
 
-import { getVariant, isAgeRestricted, lineName } from "./catalog";
+import type { CatalogIndex } from "./catalogIndex";
+import { lineName } from "./productRules";
 import { getShippingMethod, type ShippingMethod } from "./shipping";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 
@@ -32,7 +34,8 @@ export type CartInputLine = { sku: string; quantity: number };
 
 export function priceCart(
   input: CartInputLine[],
-  shippingMethodId: string
+  shippingMethodId: string,
+  index: CatalogIndex
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   if (input.length === 0) {
     return { ok: false, error: "Košík je prázdný." };
@@ -50,7 +53,7 @@ export function priceCart(
   const lines: PricedLine[] = [];
   let containsAgeRestricted = false;
   for (const item of input) {
-    const found = getVariant(item.sku);
+    const found = index.getVariant(item.sku);
     if (!found) {
       return { ok: false, error: "Košík obsahuje produkt, který už nenabízíme. Obnovte prosím košík." };
     }
@@ -70,7 +73,7 @@ export function priceCart(
         error: `Množství u položky "${name}" musí být 1 až ${MAX_QUANTITY_PER_LINE}.`,
       };
     }
-    containsAgeRestricted ||= isAgeRestricted(product);
+    containsAgeRestricted ||= product.isAgeRestricted;
     lines.push({
       sku: variant.sku,
       name,

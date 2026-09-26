@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
-import { cartItemCount } from "@/lib/eshop/cart";
+import { cartItemCount, resolveCartLines } from "@/lib/eshop/cart";
+import { useCatalog } from "./CatalogProvider";
 import { useCart } from "./useCart";
 
 export default function CartLink() {
   const { cart } = useCart();
-  const count = cartItemCount(cart);
+  const catalog = useCatalog();
+  const count = cartItemCount(resolveCartLines(cart, catalog));
 
   return (
     <Link

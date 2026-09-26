@@ -2,7 +2,7 @@
 
 Stav k 26. 9. 2026, větev `claude/great-bell-ffjwo3` (commit `8b04ab2`).
 **Schváleno vedením jako výchozí stav** (26. 9. 2026). Oddíl 6 doplněn
-o rozhodnutí vedení: monorepo, jedna DB, dvě aplikace a dva deploymenty.
+o poslední rozhodnutí vedení: zatím jeden Next.js projekt, modulárně.
 
 **Shrnutí:** nic se nemusí mazat ani vracet. Všechna práce na e-shopu je
 izolovaná a nedotýká se databáze — paralelní datový model vůči MojeBegina
@@ -89,20 +89,16 @@ ceny jsou konečné.“** — cena 379 Kč je konečná.
 
 ## 6. Jedna, nebo dvě aplikace — ROZHODNUTO
 
-**Rozhodnutí vedení (26. 9. 2026, upřesněno):** jeden repozitář (monorepo), **jedna Neon databáze** jako jediný zdroj
-pravdy, **dvě samostatné Next.js aplikace a dva samostatné Vercel
-deploymenty** — begina.cz (veřejný web + e-shop) a moje.begina.cz
-(interní firemní systém). Sdílené DB schéma, typy a obchodní logika
-v `packages/shared`. begina.cz používá **omezenou DB roli** (katalog číst,
-objednávky zakládat, žádný přístup do CRM, Řízení firmy ani k jiným
-interním datům). Produkty vlastní MojeBegina, `catalog.ts` je první zdroj
-pro naplnění produktů. Plán přestavby: `MONOREPO_PLAN.md`.
+**Platné rozhodnutí vedení (26. 9. 2026, poslední):** zatím **jeden
+Next.js projekt a jeden deployment**, jedna Neon DB jako jediný zdroj
+pravdy. Architektura zůstává modulární (e-shop v `app/eshop`,
+`components/eshop`, `lib/eshop`, bez importů z `lib/data`/`lib/auth`), aby
+šel veřejný begina.cz později oddělit bez zásadního přepisování. Plán
+monorepa se dvěma aplikacemi (`MONOREPO_PLAN.md`) je **odložená budoucí
+možnost**, ne aktuální směr.
 
-Nechce se jedna společná Next.js aplikace nasazovaná jako jeden deployment
-— cílem je, aby chyba nebo nasazení veřejného webu neovlivnilo Řízení
-firmy. (Dřívější znění tohoto oddílu uvádělo „jeden Next.js projekt“ —
-to byla nejasnost, opraveno.) Izolace e-shopového kódu (oddíl 1)
-přesun do samostatné aplikace usnadňuje.
+Historie: během 26. 9. se směr několikrát upřesňoval (jeden projekt →
+monorepo se dvěma aplikacemi → zpět jeden projekt). Platí text výše.
 
 ## 7. Doporučené další kroky
 

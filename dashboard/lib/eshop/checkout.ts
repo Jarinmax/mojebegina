@@ -4,6 +4,7 @@
 // je jen pohodlí navíc.
 
 import { parseStoredCart } from "./cart";
+import type { CatalogIndex } from "./catalogIndex";
 import { priceCart, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod } from "./shipping";
 
@@ -49,9 +50,9 @@ function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
   return value.length > max;
 }
 
-export function validateCheckoutInput(input: CheckoutInput): Result {
+export function validateCheckoutInput(input: CheckoutInput, index: CatalogIndex): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId);
+  const priced = priceCart(cartLines, input.shippingMethodId, index);
   if (!priced.ok) {
     return priced;
   }

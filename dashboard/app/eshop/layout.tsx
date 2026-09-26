@@ -3,7 +3,10 @@ import Link from "next/link";
 import Image from "next/image";
 import logoMark from "@/public/logo-begina-mark.png";
 import CartLink from "@/components/eshop/CartLink";
+import CatalogProvider from "@/components/eshop/CatalogProvider";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
+import { getCatalog } from "@/lib/eshop/catalogServer";
+import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 
 // E-shop 1.0 (náhled) — veřejná část bez přihlášení. Žádná stránka pod
 // /eshop nevolá requireCustomerContext ani nečte session. Dokud jde
@@ -17,8 +20,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function EshopLayout({ children }: LayoutProps<"/eshop">) {
+// Katalog se čte z DB při každém požadavku — build DB nepotřebuje a změna
+// v katalogu se projeví hned.
+export const dynamic = "force-dynamic";
+
+const EMPTY_CATALOG = { categories: [], products: [] };
+
+export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
+  // error.tsx chytá chyby stránek, ne tohoto layoutu — nedostupnou DB (nebo
+  // chybějící migrace 0011/0012 na dané větvi) proto řeší layout sám:
+  // zákazník uvidí zprávu, chyba jde do serverového logu.
+  const catalog = await getCatalog().catch((error: unknown) => {
+    console.error("E-shop: katalog z DB se nepodařilo načíst", error);
+    return null;
+  });
   return (
+    <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
     <div className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20">
@@ -34,7 +51,7 @@ export default function EshopLayout({ children }: LayoutProps<"/eshop">) {
         </div>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">{catalog ? children : <CatalogUnavailable />}</main>
 
       <footer className="border-t border-neutral-200 bg-begina-primary-50">
         <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-neutral-600 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
@@ -57,5 +74,6 @@ export default function EshopLayout({ children }: LayoutProps<"/eshop">) {
         </div>
       </footer>
     </div>
+    </CatalogProvider>
   );
 }

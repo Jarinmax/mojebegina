@@ -3,8 +3,9 @@
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
-import { isAgeRestricted, AGE_RESTRICTION_NOTICE } from "@/lib/eshop/catalog";
+import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
+import { useCatalog } from "@/components/eshop/CatalogProvider";
 import { shippingMethods, paymentMethods, getShippingMethod } from "@/lib/eshop/shipping";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -49,6 +50,7 @@ const emptyValues: Values = {
 
 export default function CheckoutForm() {
   const { cart, clear } = useCart();
+  const catalog = useCatalog();
   const hydrated = useHydrated();
   const [state, formAction, pending] = useActionState(submitCheckoutAction, initialState);
   const [values, setValues] = useState<Values>(emptyValues);
@@ -123,8 +125,8 @@ export default function CheckoutForm() {
     return <p className="text-sm text-neutral-500">Načítám košík…</p>;
   }
 
-  const lines = resolveCartLines(cart);
-  const containsAgeRestricted = lines.some((line) => isAgeRestricted(line.product));
+  const lines = resolveCartLines(cart, catalog);
+  const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted);
 
   if (lines.length === 0) {
     return (

@@ -2,28 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { categories, findCategory, productsInCategory, AGE_RESTRICTION_NOTICE } from "@/lib/eshop/catalog";
+import { getCatalogIndex } from "@/lib/eshop/catalogServer";
+import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import ProductCard from "@/components/eshop/ProductCard";
 
-export function generateStaticParams() {
-  return categories.map((category) => ({ slug: category.slug }));
-}
-
-export const dynamicParams = false;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const category = findCategory(slug);
+  const category = (await getCatalogIndex()).findCategory(slug);
   return category ? { title: category.name } : {};
 }
 
 export default async function CategoryPage({ params }: PageProps<"/eshop/kategorie/[slug]">) {
   const { slug } = await params;
-  const category = findCategory(slug);
+  const index = await getCatalogIndex();
+  const category = index.findCategory(slug);
   if (!category) {
     notFound();
   }
-  const items = productsInCategory(category.slug);
+  const items = index.productsInCategory(category.slug);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">

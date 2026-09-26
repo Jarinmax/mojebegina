@@ -1,6 +1,11 @@
-# Plán přestavby repozitáře na monorepo — ke schválení
+# Plán přestavby repozitáře na monorepo — ODLOŽENO
 
-Stav: **NÁVRH** (26. 9. 2026). Žádný kód se zatím nepřesouvá, nic se
+> **Stav: ODLOŽENO (rozhodnutí vedení 26. 9. 2026).** Zatím zůstává jeden
+> Next.js projekt a jeden deployment. Tento plán je připravená budoucí
+> možnost pro oddělení begina.cz; e-shopový kód se proto drží izolovaný
+> (`app/eshop`, `components/eshop`, `lib/eshop`). Nic z plánu se neprovádí.
+
+Původní stav: **NÁVRH** (26. 9. 2026). Žádný kód se zatím nepřesouvá, nic se
 nemigruje, Vercel ani Neon se nemění. Navazuje na `ESHOP_AUDIT.md`
 a `ESHOP_SCHEMA_PROPOSAL.md`.
 

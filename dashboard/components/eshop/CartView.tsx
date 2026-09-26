@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
+import { useCatalog } from "./CatalogProvider";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import QuantityStepper from "./QuantityStepper";
@@ -10,13 +11,14 @@ import { useCart, useHydrated } from "./useCart";
 
 export default function CartView() {
   const { cart, setQuantity } = useCart();
+  const catalog = useCatalog();
   const hydrated = useHydrated();
 
   if (!hydrated) {
     return <p className="text-sm text-neutral-500">Načítám košík…</p>;
   }
 
-  const lines = resolveCartLines(cart);
+  const lines = resolveCartLines(cart, catalog);
 
   if (lines.length === 0) {
     return (

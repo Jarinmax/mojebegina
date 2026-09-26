@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Snowflake } from "lucide-react";
-import { categories } from "@/lib/eshop/catalog";
+import { getCatalog } from "@/lib/eshop/catalogServer";
 
 // Úvodní stránka záměrně stejně čistá jako dnešní begina.cz: úvodní text,
 // dlaždice kategorií, "Proč Begina". Produkty jsou až na stránkách
@@ -19,7 +19,10 @@ const filteredWater = [
   "pomáhá zachovat čistý a vyvážený chuťový profil",
 ];
 
-export default function EshopPage() {
+export const dynamic = "force-dynamic";
+
+export default async function EshopPage() {
+  const { categories } = await getCatalog();
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10">
       <section className="text-center max-w-3xl mx-auto">
@@ -38,15 +41,17 @@ export default function EshopPage() {
           <li key={category.slug}>
             <Link
               href={`/eshop/kategorie/${category.slug}`}
-              className="group block relative aspect-[5/8] overflow-hidden shadow-md shadow-neutral-400/50"
+              className="group block relative aspect-[5/8] overflow-hidden shadow-md shadow-neutral-400/50 bg-begina-primary-50"
             >
-              <Image
-                src={category.image}
-                alt=""
-                fill
-                sizes="(min-width: 1024px) 220px, (min-width: 640px) 33vw, 50vw"
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+              {category.image && (
+                <Image
+                  src={category.image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 220px, (min-width: 640px) 33vw, 50vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              )}
               {/* Překrývá název zapečený v obrázku (viz Category.image). */}
               <span className="absolute inset-x-0 top-[44%] h-[14%] bg-white/95 flex items-center justify-center text-center text-sm sm:text-base text-begina-primary-900 px-1">
                 {category.name}

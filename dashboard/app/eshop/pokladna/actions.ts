@@ -9,6 +9,7 @@
 // jak v DB evidovat koncového zákazníka bez IČO (orders.buyerOrganizationId
 // je dnes NOT NULL), ochranu proti spamu a potvrzovací e-mail — viz
 // ESHOP_ROADMAP.md.
+import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
 
 export type CheckoutState = { error: string } | { confirmation: CheckoutValue } | null;
@@ -19,7 +20,8 @@ export async function submitCheckoutAction(
 ): Promise<CheckoutState> {
   const field = (key: string) => String(formData.get(key) ?? "");
 
-  const result = validateCheckoutInput({
+  const result = validateCheckoutInput(
+    {
     cart: field("cart"),
     name: field("name"),
     email: field("email"),
@@ -32,7 +34,9 @@ export async function submitCheckoutAction(
     note: field("note"),
     termsAccepted: formData.get("termsAccepted") === "on",
     ageConfirmed: formData.get("ageConfirmed") === "on",
-  });
+    },
+    await getCatalogIndex()
+  );
 
   if (!result.ok) {
     return { error: result.error };

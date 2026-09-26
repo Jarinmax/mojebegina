@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { validateCheckoutInput, type CheckoutInput } from "../checkout";
+import { validateCheckoutInput as validateWith, type CheckoutInput } from "../checkout";
+import { catalogIndex } from "./helpers/catalogFixture";
+
+const validateCheckoutInput = (input: CheckoutInput) => validateWith(input, catalogIndex);
 
 function baseInput(overrides: Partial<CheckoutInput> = {}): CheckoutInput {
   return {

@@ -1,3 +1,9 @@
+// ⚠ OD PRODUKTŮ 1.0 (26. 9. 2026) SE ZA BĚHU NEPOUŽÍVÁ. Jediný zdroj
+// katalogu je DB (lib/eshop/catalogDb.ts). Tento soubor slouží jen jako
+// zdroj prvního naplnění DB (migrace 0012, scripts/eshop-seed/) a pro test
+// parity DB ↔ catalog.ts. Test v catalogDb.test.ts hlídá, že ho nic jiného
+// neimportuje. Smazat až po ověření DB varianty na Neonu (rozhodnutí vedení).
+//
 // E-shop 1.0 (náhled) — katalog produktů pro veřejný e-shop na /eshop.
 //
 // Zatím STATICKÝ zdroj pravdy v kódu, stejný princip jako

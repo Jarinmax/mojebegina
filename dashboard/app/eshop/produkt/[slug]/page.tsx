@@ -2,28 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronLeft, Snowflake } from "lucide-react";
-import {
-  getProduct,
-  getCategory,
-  isAgeRestricted,
-  lowestPriceKc,
-  products,
-  AGE_RESTRICTION_NOTICE,
-  type Product,
-} from "@/lib/eshop/catalog";
+import { getCatalogIndex } from "@/lib/eshop/catalogServer";
+import { AGE_RESTRICTION_NOTICE, lowestPriceKc } from "@/lib/eshop/productRules";
+import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 
-export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
-}
-
-export const dynamicParams = false;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = (await getCatalogIndex()).getProduct(slug);
   return product ? { title: product.name, description: product.shortDescription ?? undefined } : {};
 }
 
@@ -41,7 +31,7 @@ function foodInfoRows(product: Product): { label: string; value: string | null }
       label: "Alergeny",
       value: info.allergens === null ? null : info.allergens.length ? info.allergens.join(", ") : "Bez alergenů",
     },
-    ...(isAgeRestricted(product)
+    ...(product.isAgeRestricted
       ? [
           {
             label: "Obsah alkoholu",
@@ -60,11 +50,12 @@ function foodInfoRows(product: Product): { label: string; value: string | null }
 
 export default async function ProductPage({ params }: PageProps<"/eshop/produkt/[slug]">) {
   const { slug } = await params;
-  const product = getProduct(slug);
-  if (!product) {
+  const index = await getCatalogIndex();
+  const product = index.getProduct(slug);
+  const category = product ? index.findCategory(product.category) : undefined;
+  if (!product || !category) {
     notFound();
   }
-  const category = getCategory(product.category);
   const hasChoice = product.variants.length > 1;
 
   return (
@@ -109,7 +100,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             Tento produkt vám doručíme chlazenou přepravou.
           </p>
 
-          {category.ageRestricted && (
+          {product.isAgeRestricted && (
             <p className="mt-3 text-sm font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>
           )}
 

@@ -4,18 +4,24 @@ Stav: **NÁVRH** (26. 9. 2026). Nic z tohoto dokumentu není provedené —
 žádná migrace, žádná změna `lib/db/schema.ts`, žádná změna produkce
 ani produkčního kódu. Navazuje na `ESHOP_AUDIT.md`.
 
-**Rozhodnutá architektura (vedení, 26. 9. 2026, upřesněno):** jeden repozitář (monorepo), **jedna Neon databáze** jako jediný zdroj
-pravdy, **dvě samostatné Next.js aplikace a dva samostatné Vercel
-deploymenty** — begina.cz (veřejný web + e-shop) a moje.begina.cz
-(interní firemní systém). Sdílené DB schéma, typy a obchodní logika
-v `packages/shared`. begina.cz používá **omezenou DB roli** (katalog číst,
-objednávky zakládat, žádný přístup do CRM, Řízení firmy ani k jiným
-interním datům). Produkty vlastní MojeBegina, `catalog.ts` je první zdroj
-pro naplnění produktů. Plán přestavby: `MONOREPO_PLAN.md`.
+**Platné rozhodnutí vedení (26. 9. 2026, poslední):** zatím **jeden
+Next.js projekt a jeden deployment**, jedna Neon DB jako jediný zdroj
+pravdy. Architektura zůstává modulární (e-shop v `app/eshop`,
+`components/eshop`, `lib/eshop`, bez importů z `lib/data`/`lib/auth`), aby
+šel veřejný begina.cz později oddělit bez zásadního přepisování. Plán
+monorepa se dvěma aplikacemi (`MONOREPO_PLAN.md`) je **odložená budoucí
+možnost**, ne aktuální směr.
 
-**Schváleno vedením (26. 9. 2026):** návrh produktů, balení, objednávek
-a `order_items`; číslování tvrdým přepnutím (oddíl 4). Nic se zatím
-nemigruje do produkce.
+**Schváleno vedením (26. 9. 2026):** návrh ESHOP 1.0 v2 jako základ
+vývoje; číslování tvrdým přepnutím (oddíl 4). Nic se zatím nemigruje do
+produkce.
+
+**Stav implementace:** krok 1 + 2 (Produkty 1.0) je implementovaný jako
+drizzle migrace `drizzle/0011_eshop_1_0_products.sql` a
+`drizzle/0012_eshop_1_0_products_seed.sql` — ty jsou závazné; SQL
+v `docs/eshop-schema-draft/01*` a `02*` byl návrh (obsahově stejný, liší
+se jen automatická jména UNIQUE omezení). Postup nasazení:
+`ESHOP_PRODUKTY_1_0.md`.
 
 **SQL ke kontrole:** `docs/eshop-schema-draft/` — pro každý krok soubor
 `*_up.sql` a vratný `*_down.sql`, kontrolní dotazy `00_preflight_checks.sql`
@@ -268,14 +274,16 @@ i ručně založené objednávky.
    (`setval` → další objednávka = MAX + 1, např. 5094).
 5. Zapnout novou pokladnu.
 
-*Nezvolená alternativa — souběh obou e-shopů:* start na MAX + rezerva
-(např. 6000), aby Woo mohlo dál číslovat pod touto hranicí. Vedení ji
-nezvolilo; zůstává popsaná jen pro případ, že by se tvrdé přepnutí
-nepodařilo.
+Starý a nový checkout **nikdy nepřijímají objednávky současně** —
+rezervní řada (např. od 6000) proto není potřeba (rozhodnutí vedení).
+WordPress může během vývoje normálně běžet, tvrdé je jen přepnutí pokladny.
 
 **Existující 2 objednávky The Cup** (`import`) zůstávají bez čísla —
-nevymýšlí se jim zpětně. **Rozhodnutí vedení:** historická čísla se
-nedoplňují, dokud nejsou ověřená.
+nevymýšlí se jim zpětně. **Původ NEOVĚŘENÝ** (kontrola DB 26. 9. 2026,
+jen čtení): `external_woocommerce_id` NULL, `external_edoklad_id` NULL,
+žádný kontakt, žádný záznam v `order_activity`; obě nahrané najednou
+18. 9. 2026 (Fáze 2.3) podle faktur 20260152 a 20260153. Z dat nelze
+doložit, zda vznikly ve WooCommerce → čísla se nedoplňují.
 
 **Proč sekvence v DB, ne počítání v aplikaci:** `nextval` je atomický
 i při souběžných objednávkách a běží v témže INSERTu, takže funguje

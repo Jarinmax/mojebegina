@@ -1,12 +1,10 @@
 # E-shop Begina — stav a plán
 
-Vlastní e-shop jako náhrada WordPressu/WooCommerce na begina.cz. Cílová
-architektura (rozhodnuto 26. 9. 2026): monorepo, jedna Neon DB, dvě
-samostatné Next.js aplikace a dva Vercel deploymenty — begina.cz (web +
-e-shop) a moje.begina.cz (interní systém), sdílené schéma a obchodní
-logika v `packages/shared`. Objednávky z webu končí rovnou v Objednávkách
-MojeBegina, bez synchronizace. Prototyp zatím leží v `dashboard/app/eshop`
-a do aplikace begina.cz se přesune podle `MONOREPO_PLAN.md`.
+Vlastní e-shop jako náhrada WordPressu/WooCommerce na begina.cz. Zatím
+v jednom Next.js projektu s MojeBegina (rozhodnutí 26. 9. 2026), modulárně
+v `app/eshop`, `components/eshop`, `lib/eshop`, aby šel později oddělit
+(`MONOREPO_PLAN.md` = odložená možnost). Jediný zdroj pravdy je Neon DB;
+objednávky z webu budou končit rovnou v Objednávkách MojeBegina.
 
 ## Hotovo — E-shop 1.0 (náhled)
 
@@ -19,6 +17,9 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
 - Detail produktu `/eshop/produkt/[slug]` s výběrem balení a sekcí „Informace o
   potravině“ (balení, složení, alergeny, obsah alkoholu, výživové hodnoty,
   skladování, trvanlivost).
+- **Produkty 1.0 (26. 9. 2026): katalog se čte z DB** (tabulky
+  `product_categories`, `products`, `product_variants`, `product_images`,
+  migrace 0011 + 0012). `catalog.ts` už jen zdroj prvního naplnění.
 - Produkty: 3 polévky (z DB), 4 alkoholické koktejly z begina.cz (Svařák
   Deluxe, Lady Carneval a Kosmopolitan s kompletními texty, Granátový
   Bond bez úvodního popisu a předností).

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import type { Variant } from "@/lib/eshop/catalog";
+import type { Variant } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import QuantityStepper from "./QuantityStepper";
 import { useCart } from "./useCart";

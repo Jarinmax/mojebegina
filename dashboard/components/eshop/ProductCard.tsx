@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { lowestPriceKc, type Product } from "@/lib/eshop/catalog";
+import { lowestPriceKc } from "@/lib/eshop/productRules";
+import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import AddToCartButton from "./AddToCartButton";
