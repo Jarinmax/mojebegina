@@ -2,7 +2,7 @@
 
 Stav k 26. 9. 2026, větev `claude/great-bell-ffjwo3` (commit `8b04ab2`).
 **Schváleno vedením jako výchozí stav** (26. 9. 2026). Oddíl 6 doplněn
-o rozhodnutí vedení (jeden Next.js projekt).
+o rozhodnutí vedení: monorepo, jedna DB, dvě aplikace a dva deploymenty.
 
 **Shrnutí:** nic se nemusí mazat ani vracet. Všechna práce na e-shopu je
 izolovaná a nedotýká se databáze — paralelní datový model vůči MojeBegina
@@ -89,18 +89,25 @@ ceny jsou konečné.“** — cena 379 Kč je konečná.
 
 ## 6. Jedna, nebo dvě aplikace — ROZHODNUTO
 
-**Rozhodnutí vedení (26. 9. 2026): jeden Next.js projekt, jedna Neon DB**,
-produkty vlastní MojeBegina, begina.cz je veřejná prodejní vrstva nad
-stejnými daty, `catalog.ts` je první zdroj pro naplnění produktů.
+**Rozhodnutí vedení (26. 9. 2026, upřesněno):** jeden repozitář (monorepo), **jedna Neon databáze** jako jediný zdroj
+pravdy, **dvě samostatné Next.js aplikace a dva samostatné Vercel
+deploymenty** — begina.cz (veřejný web + e-shop) a moje.begina.cz
+(interní firemní systém). Sdílené DB schéma, typy a obchodní logika
+v `packages/shared`. begina.cz používá **omezenou DB roli** (katalog číst,
+objednávky zakládat, žádný přístup do CRM, Řízení firmy ani k jiným
+interním datům). Produkty vlastní MojeBegina, `catalog.ts` je první zdroj
+pro naplnění produktů. Plán přestavby: `MONOREPO_PLAN.md`.
 
-Krátce předtím zvažovaná varianta (monorepo, dvě Next.js aplikace nad
-jednou DB kvůli oddělení nasazení veřejného webu a Řízení firmy) zůstává
-jako možnost do budoucna. Návrh schématu na počtu aplikací nezávisí
-a izolace e-shopového kódu (oddíl 1) pozdější oddělení usnadňuje.
+Nechce se jedna společná Next.js aplikace nasazovaná jako jeden deployment
+— cílem je, aby chyba nebo nasazení veřejného webu neovlivnilo Řízení
+firmy. (Dřívější znění tohoto oddílu uvádělo „jeden Next.js projekt“ —
+to byla nejasnost, opraveno.) Izolace e-shopového kódu (oddíl 1)
+přesun do samostatné aplikace usnadňuje.
 
 ## 7. Doporučené další kroky
 
-1. Návrh schématu ke schválení → `ESHOP_SCHEMA_PROPOSAL.md`.
+1. Návrh schématu → `ESHOP_SCHEMA_PROPOSAL.md` (schválen v zásadě 26. 9.).
+   Plán přestavby repozitáře → `MONOREPO_PLAN.md`.
 2. Produkty 1.0 v DB (tabulky + seed z `catalog.ts`).
 3. Objednávky z e-shopu do `orders`.
 4. Drobnosti mimo e-shop: partnerský obrat bez dopravy.

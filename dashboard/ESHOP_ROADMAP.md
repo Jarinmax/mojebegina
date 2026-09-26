@@ -1,9 +1,12 @@
 # E-shop Begina — stav a plán
 
-Vlastní e-shop jako náhrada WordPressu/WooCommerce na begina.cz. Stojí
-přímo v této appce (stejný Next.js, stejná Neon DB, stejné přihlašování),
-aby objednávky z webu končily rovnou v Objednávkách a CRM, bez
-synchronizace mezi dvěma systémy.
+Vlastní e-shop jako náhrada WordPressu/WooCommerce na begina.cz. Cílová
+architektura (rozhodnuto 26. 9. 2026): monorepo, jedna Neon DB, dvě
+samostatné Next.js aplikace a dva Vercel deploymenty — begina.cz (web +
+e-shop) a moje.begina.cz (interní systém), sdílené schéma a obchodní
+logika v `packages/shared`. Objednávky z webu končí rovnou v Objednávkách
+MojeBegina, bez synchronizace. Prototyp zatím leží v `dashboard/app/eshop`
+a do aplikace begina.cz se přesune podle `MONOREPO_PLAN.md`.
 
 ## Hotovo — E-shop 1.0 (náhled)
 
@@ -74,7 +77,8 @@ rekapitulace.
 - Faktura (napojení na `invoices` / eDoklad).
 - Velkoodběratelé: přihlášený zákazník z organizace vidí své ceny
   a objednává na fakturu (`placedByUserId`).
-- Číslování objednávek navázat na WooCommerce (dnes kolem č. 5093), ať
-  zákazníci ani účetnictví nevidí skok nebo duplicitu.
+- Číslování objednávek: rozhodnuto tvrdé přepnutí — v den spuštění vypnout
+  pokladnu WooCommerce, nová řada začne na MAX + 1, společná pro e-shop
+  i ruční objednávky (viz `ESHOP_SCHEMA_PROPOSAL.md`, oddíl 4).
 - Přechod z WordPressu: přesměrování starých URL (301), sitemap, feed pro
   Heureku/Zboží.cz, analytika, souhlas s cookies. Pak zrušit `noindex`.

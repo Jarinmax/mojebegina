@@ -4,10 +4,18 @@ Stav: **NÁVRH** (26. 9. 2026). Nic z tohoto dokumentu není provedené —
 žádná migrace, žádná změna `lib/db/schema.ts`, žádná změna produkce
 ani produkčního kódu. Navazuje na `ESHOP_AUDIT.md`.
 
-**Rozhodnutý směr (vedení, 26. 9. 2026):** jeden Next.js projekt, jedna
-Neon DB, produkty vlastní MojeBegina, begina.cz je veřejná prodejní vrstva
-nad stejnými daty, `lib/eshop/catalog.ts` je první zdroj pro naplnění
-produktů. Schéma na počtu aplikací nezávisí.
+**Rozhodnutá architektura (vedení, 26. 9. 2026, upřesněno):** jeden repozitář (monorepo), **jedna Neon databáze** jako jediný zdroj
+pravdy, **dvě samostatné Next.js aplikace a dva samostatné Vercel
+deploymenty** — begina.cz (veřejný web + e-shop) a moje.begina.cz
+(interní firemní systém). Sdílené DB schéma, typy a obchodní logika
+v `packages/shared`. begina.cz používá **omezenou DB roli** (katalog číst,
+objednávky zakládat, žádný přístup do CRM, Řízení firmy ani k jiným
+interním datům). Produkty vlastní MojeBegina, `catalog.ts` je první zdroj
+pro naplnění produktů. Plán přestavby: `MONOREPO_PLAN.md`.
+
+**Schváleno vedením (26. 9. 2026):** návrh produktů, balení, objednávek
+a `order_items`; číslování tvrdým přepnutím (oddíl 4). Nic se zatím
+nemigruje do produkce.
 
 **SQL ke kontrole:** `docs/eshop-schema-draft/` — pro každý krok soubor
 `*_up.sql` a vratný `*_down.sql`, kontrolní dotazy `00_preflight_checks.sql`
@@ -240,7 +248,12 @@ jsou u objednávek v pořádku.
 Duplicitám brání tři pojistky: vypnutá Woo pokladna, UNIQUE index a kontrola
 ve skriptu přepnutí.
 
-**Doporučený postup — tvrdé přepnutí (čísla plynule navazují):**
+**ROZHODNUTO (vedení, 26. 9. 2026): tvrdé přepnutí** — během vývoje běží
+WordPress/WooCommerce dál, v den ostrého spuštění se vypne jeho pokladna,
+nový systém začne na MAX + 1 a jedna řada čísel je společná pro e-shopové
+i ručně založené objednávky.
+
+**Postup tvrdého přepnutí (čísla plynule navazují):**
 
 1. Předem (kdykoli): kroky 6a (sloupec) a volitelně import historie Woo
    objednávek s jejich **původními čísly** (`channel = 'import'`,
@@ -255,16 +268,14 @@ ve skriptu přepnutí.
    (`setval` → další objednávka = MAX + 1, např. 5094).
 5. Zapnout novou pokladnu.
 
-**Alternativa — souběh obou e-shopů:** pokud má starý a nový e-shop běžet
-současně, spustit 6b se startem **MAX + rezerva** (např. 6000). Woo dál
-čísluje pod 6000, nový systém od 6001, UNIQUE index případnou kolizi
-odmítne (nikdy tichá duplicita). Kontrolní dotaz pro souběh:
-`SELECT max(order_number) FROM orders WHERE channel = 'import'` musí
-zůstat pod startem nové řady.
+*Nezvolená alternativa — souběh obou e-shopů:* start na MAX + rezerva
+(např. 6000), aby Woo mohlo dál číslovat pod touto hranicí. Vedení ji
+nezvolilo; zůstává popsaná jen pro případ, že by se tvrdé přepnutí
+nepodařilo.
 
 **Existující 2 objednávky The Cup** (`import`) zůstávají bez čísla —
-nevymýšlí se jim zpětně. Pokud existují ve WooCommerce, doplní se jim
-původní Woo číslo ručně.
+nevymýšlí se jim zpětně. **Rozhodnutí vedení:** historická čísla se
+nedoplňují, dokud nejsou ověřená.
 
 **Proč sekvence v DB, ne počítání v aplikaci:** `nextval` je atomický
 i při souběžných objednávkách a běží v témže INSERTu, takže funguje
@@ -311,5 +322,6 @@ plátce DPH).
 | Špatné číslo v den přepnutí | Placeholder → syntaktická chyba; kontrola v `DO` bloku; UNIQUE index |
 | Nevratnost po spuštění prodeje (kroky 3, 6b, 7) | Návrat možný jen před prvním systémovým záznamem / vydaným číslem / guest objednávkou — rozhodnout se před spuštěním |
 | Dva katalogy (DB + `catalog.ts`) | Po přepnutí e-shopu na DB `catalog.ts` odstranit |
+| Oprávnění begina.cz | Omezená role `begina_web` (SELECT katalog, INSERT objednávky, USAGE sekvence) — viz `MONOREPO_PLAN.md`, oddíl DB oprávnění |
 | Migrace spouští vedení | Každý krok nejdřív na Neon branch, pak produkce (Claude má jen read-only přístup) |
 | drizzle-kit | `check()` a `pgSequence` jsou v nainstalované verzi drizzle-orm 0.45.2 k dispozici (ověřeno); seed, backfilly a přepnutí číslování jako ručně psané SQL ve stejném journalu |

@@ -8,7 +8,7 @@
 --      "Objednávka č. 5093"), ne interní ID jiného pluginu.
 --   3. Nahradit <MAX_WOO_ORDER_NUMBER> na DVOU místech níže.
 --      Dokud placeholder zůstane, skript záměrně skončí syntaktickou chybou.
---   (Varianta souběhu: místo MAX použít MAX + rezerva, např. 6000.)
+--   Rozhodnuto 26. 9. 2026: tvrdé přepnutí, start = MAX (další číslo MAX + 1).
 
 DO $$
 BEGIN
