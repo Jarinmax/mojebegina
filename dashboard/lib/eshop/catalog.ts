@@ -11,7 +11,7 @@
 //     (order_items), balení neznámé,
 //   - alkoholické koktejly: stránky begina.cz (texty doslova, fotky
 //     oříznuté ze screenshotů, které poslal Jaroslav 26. 9. 2026);
-//     u Granátového Bonda a Kosmopolitanu chybí úvodní popis a přednosti.
+//     u Granátového Bonda chybí úvodní popis a přednosti.
 // Údaje, které neznáme, jsou `null` a e-shop je zobrazuje jako "Doplníme".
 // U potravin jsou povinné PŘED nákupem (nařízení EU 1169/2011), proto
 // `isFoodInfoComplete` hlídá, jestli je produkt připravený na ostrý prodej.
@@ -240,9 +240,18 @@ export const products: Product[] = [
     name: "Kosmopolitan",
     category: "koktejly",
     shortDescription: "Brusinkový koktejl s vodkou a citrusy.",
-    // Přednosti a úvodní popis z horní části stránky zatím nemáme.
-    highlights: [],
-    description: [],
+    highlights: [
+      "z čisté filtrované vody",
+      "ideální pro podávání s ledem",
+      "bez umělých aromat a barviv",
+      "plná, osvěžující chuť",
+    ],
+    description: [
+      "Kosmopolitan je ikonický alkoholický koktejl, který spojuje kvalitní vodku, brusinkovou a citronovou šťávu. Vzniká tak harmonický drink s výrazným ovocně-citrusovým charakterem a jemně nasládlým dozvukem.",
+      "Každý doušek přináší osvěžující chuťový zážitek, který se hodí pro chvíle s přáteli i jako stylové osvěžení pro každou příležitost.",
+      "Prémiový nápoj, který máte v lednici vždy připravený. Stačí nalít do sklenice s ledem.",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
     taste:
       "Kosmopolitan má výraznou ovocně-citrusovou chuť se svěžestí brusinek a jemně nasládlým dozvukem. Působí lehce, elegantně a dodává každému okamžiku nádech sebevědomí a stylu.",
     warnings: COCKTAIL_WARNINGS,

@@ -14,8 +14,8 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   potravině“ (balení, složení, alergeny, obsah alkoholu, výživové hodnoty,
   skladování, trvanlivost).
 - Produkty: 3 polévky (z DB), 4 alkoholické koktejly z begina.cz (Svařák
-  Deluxe a Lady Carneval s kompletními texty, Granátový Bond
-  a Kosmopolitan bez úvodního popisu a předností).
+  Deluxe, Lady Carneval a Kosmopolitan s kompletními texty, Granátový
+  Bond bez úvodního popisu a předností).
 - Košík `/eshop/kosik` v localStorage (drží jen sku balení + množství).
 - Alkohol v košíku → pokladna vyžaduje potvrzení 18+ (hlídá i server).
 - Pokladna `/eshop/pokladna`: kontakt, způsob doručení (adresa jen u
@@ -36,8 +36,8 @@ rekapitulace.
    nápoje (název, cena, balení, texty, fotky). Kategorie podle begina.cz
    už v e-shopu jsou, zatím s „Nabídku doplníme“.
    **Koktejly:** ceny balení potvrzené cenou za nápoj na webu (3 l =
-   15 nápojů). U Granátového Bonda a Kosmopolitanu chybí úvodní popis
-   a přednosti (horní část stránky na begina.cz).
+   15 nápojů). U Granátového Bonda chybí úvodní popis a přednosti
+   (horní část stránky na begina.cz).
    **K rozhodnutí — Lady Carneval:** begina.cz uvádí „bez umělých aromat
    a barviv“, ale složení (Aperol) obsahuje aromata a barviva E110, E124.
    V e-shopu je tahle přednost zatím vynechaná. Barviva E110 a E124 navíc
