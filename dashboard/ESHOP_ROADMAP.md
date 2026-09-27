@@ -6,6 +6,17 @@ v `app/eshop`, `components/eshop`, `lib/eshop`, aby šel později oddělit
 (`MONOREPO_PLAN.md` = odložená možnost). Jediný zdroj pravdy je Neon DB;
 objednávky z webu budou končit rovnou v Objednávkách MojeBegina.
 
+## Kde co běží (kontrolovat před každým testem)
+
+| | Git větev | Vercel Preview | Neon větev |
+|---|---|---|---|
+| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — migrace 0011–0015 |
+| CEO přehled 1.0 | `feature/ceo-focus-1-0` | `mojebegina-git-feature-ceo-focus-1-0-jarin-max.vercel.app` | `preview/feature/ceo-focus-1-0` (`br-restless-smoke-b2fbn0pr`) |
+| Produkce | `main` | `moje.begina.cz` | `main` — e-shopové migrace **nespuštěné** |
+
+Staré Preview (např. `…-z3ice0-…` = `claude/affectionate-fermi-z3ice0`,
+už sloučená) běží se starým kódem a vlastní testovací DB — netestovat na nich.
+
 ## Hotovo — E-shop 1.0 (náhled)
 
 Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno.
