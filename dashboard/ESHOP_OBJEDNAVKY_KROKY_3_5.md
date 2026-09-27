@@ -1,8 +1,11 @@
 # ESHOP 1.0, kroky 3–5 — objednávky připravené na e-shop
 
-Stav: **implementováno na větvi `claude/great-bell-ffjwo3`, NEMIGROVÁNO
-na Neon** (27. 9. 2026). Claude má k Neonu jen read-only přístup —
-migrace spouští vedení. Návrh a zdůvodnění: `ESHOP_SCHEMA_PROPOSAL.md`,
+Stav (27. 9. 2026): implementováno na větvi `claude/great-bell-ffjwo3`.
+**Migrace 0013–0015 spuštěné vedením na Neon Preview větvi
+`preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) a ověřené
+read-only** (3 / 9 / `import: 2` / 2 / 5 / 0, index 1). **Produkční `main`
+beze změny.** Claude má k Neonu jen read-only přístup — migrace spouští
+vedení. Návrh a zdůvodnění: `ESHOP_SCHEMA_PROPOSAL.md`,
 oddíly 3.7, 3.8 a 3.10.
 
 **Co to NENÍ:** objednávka bez organizace (krok 7), číslo objednávky

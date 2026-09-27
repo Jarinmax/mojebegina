@@ -1,8 +1,11 @@
 # Produkty 1.0 — co se změnilo a jak to nasadit
 
-Stav: **implementováno na větvi `claude/great-bell-ffjwo3`, NEMIGROVÁNO
-na Neon** (26. 9. 2026). Claude má k Neonu jen read-only přístup —
-migrace spouští vedení.
+Stav: implementováno na větvi `claude/great-bell-ffjwo3` (26. 9. 2026).
+**Migrace 0011 + 0012 spuštěné vedením na Neon Preview větvi
+`preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) 27. 9. 2026
+a ověřené read-only** (5 / 7 / 11 / 4; katalog bajtově shodný s testovací
+DB). **Produkční `main` beze změny.** Claude má k Neonu jen read-only
+přístup — migrace spouští vedení.
 
 ## Co se změnilo
 
