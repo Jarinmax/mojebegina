@@ -29,6 +29,14 @@ function describeEntry(entry: OrderActivityEntry): string {
   }
 }
 
+// Snapshot jména má přednost; bez něj rozliš, kdo záznam zapsal.
+function authorLabel(entry: OrderActivityEntry): string {
+  if (entry.authorName) return entry.authorName;
+  if (entry.actorType === "system") return "Systém";
+  if (entry.actorType === "customer") return "Zákazník";
+  return "Neznámý uživatel";
+}
+
 export default function OrderActivityTimeline({ activity }: { activity: OrderActivityEntry[] }) {
   if (activity.length === 0) {
     return <p className="text-sm text-neutral-500">Zatím žádná aktivita.</p>;
@@ -40,7 +48,7 @@ export default function OrderActivityTimeline({ activity }: { activity: OrderAct
         <div key={entry.id} className="border-l-2 border-neutral-200 pl-3">
           <div className="flex items-baseline justify-between gap-2">
             <p className="text-sm text-begina-primary-900">
-              <span className="font-medium">{entry.authorName ?? "Neznámý uživatel"}</span>{" "}
+              <span className="font-medium">{authorLabel(entry)}</span>{" "}
               {describeEntry(entry)}
             </p>
             <p className="text-xs text-neutral-400 whitespace-nowrap">

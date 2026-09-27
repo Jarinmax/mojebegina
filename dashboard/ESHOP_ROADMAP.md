@@ -30,6 +30,12 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
 - Cena se počítá výhradně na serveru z katalogu (`lib/eshop/pricing.ts`),
   podvržená cena z prohlížeče se ignoruje. Testy v `lib/eshop/__tests__`.
 
+- **Kroky 3–5 (27. 9. 2026, migrace 0013–0015, zatím jen na větvi):**
+  systémový zápis do historie objednávky (`order_activity.actor_type`),
+  nová pole `orders` (kanál, poznámka zákazníka, doprava, platba, sleva,
+  souhlasy) a vazba `order_items` na balení/SKU. Postup:
+  `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
+
 **Objednávka se zatím nikam neukládá ani neodesílá** — jen se zobrazí
 rekapitulace.
 

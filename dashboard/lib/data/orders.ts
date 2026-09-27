@@ -187,7 +187,10 @@ export type OrderItemData = { name: string; quantity: number; unitPriceKc: numbe
 export type OrderActivityEntry = {
   id: string;
   kind: string;
-  authorUserId: string;
+  // "user" | "system" | "customer" — systém a zákazník nemají Neon Auth účet,
+  // authorUserId je u nich NULL (ESHOP 1.0, krok 3).
+  actorType: string;
+  authorUserId: string | null;
   authorName: string | null;
   body: string | null;
   metadata: unknown;
@@ -251,6 +254,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     activity: activityRows.map((r) => ({
       id: r.id,
       kind: r.kind,
+      actorType: r.actorType,
       authorUserId: r.authorUserId,
       authorName: r.authorName,
       body: r.body,

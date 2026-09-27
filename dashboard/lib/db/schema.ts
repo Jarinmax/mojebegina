@@ -154,7 +154,26 @@ export const orders = pgTable("orders", {
   orderedAt: timestamp("ordered_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  // ESHOP 1.0, krok 4 (migrace 0014). Defaulty zachovávají chování
+  // createOrder: ruční objednávka = channel "manual", sleva 0.
+  channel: text("channel").notNull().default("manual"), // "manual" | "eshop" | "import"
+  customerNote: text("customer_note"), // od zákazníka; `note` výše je interní
+  shippingMethodCode: text("shipping_method_code"),
+  shippingMethodLabel: text("shipping_method_label"), // snapshot názvu
+  paymentMethodCode: text("payment_method_code"),
+  paymentMethodLabel: text("payment_method_label"), // snapshot názvu
+  // Sleva na zboží. Partnerský obrat = subtotal − discount (bez dopravy).
+  discountKc: integer("discount_kc").notNull().default(0),
+  ageConfirmedAt: timestamp("age_confirmed_at", { withTimezone: true }), // doklad potvrzení 18+
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }), // souhlas s OP
+}, (table) => [
+  check("orders_channel_check", sql`${table.channel} IN ('manual', 'eshop', 'import')`),
+  check("orders_discount_nonnegative", sql`${table.discountKc} >= 0`),
+  check(
+    "orders_total_consistent",
+    sql`${table.totalKc} = ${table.subtotalKc} - ${table.discountKc} + ${table.shippingKc}`
+  ),
+]);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -165,7 +184,26 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   unitPriceKc: integer("unit_price_kc").notNull(),
   lineTotalKc: integer("line_total_kc").notNull(),
-});
+  // ESHOP 1.0, krok 5 (migrace 0015). Závazná vazba je UUID balení, ne text
+  // SKU; prodané balení nejde smazat (RESTRICT), jen deaktivovat. Ruční
+  // objednávky (createOrder) dál ukládají NULL. Historie se zobrazuje ze
+  // snapshotů (name, sku_snapshot, unit_price_kc), nikdy z živého katalogu.
+  productVariantId: uuid("product_variant_id").references(() => productVariants.id, {
+    onDelete: "restrict",
+  }),
+  skuSnapshot: text("sku_snapshot"),
+}, (table) => [
+  index("order_items_product_variant_idx").on(table.productVariantId),
+  check("order_items_quantity_positive", sql`${table.quantity} > 0`),
+  check(
+    "order_items_line_total_consistent",
+    sql`${table.lineTotalKc} = ${table.quantity} * ${table.unitPriceKc}`
+  ),
+  check(
+    "order_items_variant_has_sku",
+    sql`${table.productVariantId} IS NULL OR ${table.skuSnapshot} IS NOT NULL`
+  ),
+]);
 
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -348,6 +386,12 @@ export const companyNodeActivity = pgTable(
 // timeline pro poznámky i systémové události (vytvoření, změna
 // fulfillment/payment stavu, přiřazení odpovědné osoby), authorName jako
 // snapshot v okamžiku zápisu.
+//
+// ESHOP 1.0, krok 3 (migrace 0013) — actor_type: záznam může zapsat
+// i systém (objednávka z e-shopu) nebo zákazník, ne jen interní uživatel.
+// Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
+// "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
+// záznam (actor_type "user") musí autora mít dál — hlídá CHECK.
 export const orderActivity = pgTable(
   "order_activity",
   {
@@ -355,14 +399,22 @@ export const orderActivity = pgTable(
     orderId: uuid("order_id")
       .notNull()
       .references(() => orders.id),
-    authorUserId: text("author_user_id").notNull(),
-    authorName: text("author_name"),
+    actorType: text("actor_type").notNull().default("user"), // "user" | "system" | "customer"
+    authorUserId: text("author_user_id"),
+    authorName: text("author_name"), // u systému např. "E-shop"
     kind: text("kind").notNull(), // "created" | "fulfillment_status_changed" | "payment_status_changed" | "responsible_assigned" | "note_added"
     body: text("body"),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("order_activity_order_id_idx").on(table.orderId, table.createdAt)]
+  (table) => [
+    index("order_activity_order_id_idx").on(table.orderId, table.createdAt),
+    check("order_activity_actor_type_check", sql`${table.actorType} IN ('user', 'system', 'customer')`),
+    check(
+      "order_activity_user_has_author",
+      sql`${table.actorType} <> 'user' OR ${table.authorUserId} IS NOT NULL`
+    ),
+  ]
 );
 
 // Security Phase 16 (Obchod/CRM 1.0) — leady jsou ZÁMĚRNĚ samostatná

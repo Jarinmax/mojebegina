@@ -92,6 +92,27 @@
       "when": 1790452486143,
       "tag": "0012_eshop_1_0_products_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790513473167,
+      "tag": "0013_eshop_1_0_order_activity_actor",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790513474538,
+      "tag": "0014_eshop_1_0_orders_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790513475628,
+      "tag": "0015_eshop_1_0_order_items_variant",
+      "breakpoints": true
     }
   ]
 }

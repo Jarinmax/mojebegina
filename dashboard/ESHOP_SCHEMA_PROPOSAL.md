@@ -23,6 +23,13 @@ v `docs/eshop-schema-draft/01*` a `02*` byl návrh (obsahově stejný, liší
 se jen automatická jména UNIQUE omezení). Postup nasazení:
 `ESHOP_PRODUKTY_1_0.md`.
 
+Kroky 3–5 (27. 9. 2026): drizzle migrace
+`0013_eshop_1_0_order_activity_actor.sql`, `0014_eshop_1_0_orders_fields.sql`,
+`0015_eshop_1_0_order_items_variant.sql` — obsahově totožné s
+`docs/eshop-schema-draft/03–05*_up.sql` (návratové `*_down.sql` platí
+beze změny, ověřeno testem). Postup nasazení:
+`ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
+
 **SQL ke kontrole:** `docs/eshop-schema-draft/` — pro každý krok soubor
 `*_up.sql` a vratný `*_down.sql`, kontrolní dotazy `00_preflight_checks.sql`
 a `99_postflight_checks.sql`. Mimo složku `drizzle/`, aby je nic nespustilo

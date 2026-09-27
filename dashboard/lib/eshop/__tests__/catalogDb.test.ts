@@ -8,7 +8,7 @@ import { generateSeedSql } from "../../../scripts/eshop-seed/generate-seed-sql";
 import { applyMigration, createMigratedDb, migrationSql } from "./helpers/migratedDb";
 
 const SEED = "0012_eshop_1_0_products_seed";
-// Každá testovací DB = PGlite + všech 13 migrací (~2–3 s).
+// Každá testovací DB = PGlite + všechny migrace (~2–3 s).
 const DB_TEST = { timeout: 30_000 };
 
 async function counts(pg: PGlite) {
@@ -76,8 +76,9 @@ describe("Produkty 1.0 — migrace 0011 + 0012 na PGlite", DB_TEST, () => {
 
 describe("Produkty 1.0 — zbytek schématu beze změny", DB_TEST, () => {
   it("objednávky, CRM, uživatelé a Řízení firmy mají po 0011/0012 stejné sloupce i omezení", async () => {
+    // Jen 0011 + 0012; kroky 3–5 (0013–0015) testuje ordersSchema.test.ts.
     const before = await createMigratedDb("0010_phase_16_1_leads_company_name_nullable");
-    const after = await createMigratedDb();
+    const after = await createMigratedDb(SEED);
     expect(await existingSchemaSnapshot(after.pg)).toEqual(await existingSchemaSnapshot(before.pg));
   });
 });
