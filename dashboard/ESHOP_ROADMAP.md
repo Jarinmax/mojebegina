@@ -94,8 +94,10 @@ rekapitulace.
 4. **Doprava** — podle begina.cz se cena chlazené přepravy počítá
    podle celkového objemu objednávky; potřebujeme tabulku (objem → cena),
    rozvozové dny a oblasti (`lib/eshop/shipping.ts`, dnes paušál 99 Kč).
-5. **Platby:** Stripe (stávající účet begina.cz) — testovací klíče pro
-   Preview viz `ESHOP_STRIPE.md`; číslo účtu pro převod (QR).
+5. **Platby:** NOVÝ samostatný Stripe účet „Begina“ (dnešní begina.cz
+   používá WooPayments — ten je svázaný s WooCommerce a vlastní API klíče
+   nedává). Testovací režim hned, ostré platby po ověření firmy ve Stripe.
+   Viz `ESHOP_STRIPE.md`; číslo účtu pro převod (QR).
 6. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
 
 ## Další fáze

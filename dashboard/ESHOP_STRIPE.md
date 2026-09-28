@@ -43,6 +43,16 @@ přidat ho půjde později (reporty), když bude potřeba.
   **a** `ESHOP_STRIPE_LIVE=on` (den přepnutí z WooCommerce). Webhook pak
   vrací 404, volba „Kartou online“ je neaktivní (ověřeno v prohlížeči).
 
+## 0. Účet: NOVÝ samostatný Stripe účet
+
+Dnešní begina.cz platí přes **WooPayments** — ten je sice postavený na
+Stripe, ale účet spravuje WooCommerce a vlastní API klíče pro jiný systém
+nedává. Proto: dashboard.stripe.com → **Create a new Stripe account**
+(název „Begina“, země Česká republika). Testovací režim funguje hned bez
+ověření firmy; pro ostré platby Stripe později ověří podnikatele (IČO,
+totožnost, bankovní účet, web, popis činnosti vč. alkoholických nápojů).
+WooPayments zůstává beze změny až do dne přepnutí.
+
 ## 1. Stripe (testovací režim)
 
 Přihlásit se na https://dashboard.stripe.com a **zapnout testovací režim**
@@ -66,7 +76,7 @@ endpoint** (v novějším rozhraní „Add destination“ → Webhook endpoint):
   `checkout.session.async_payment_failed`, `checkout.session.expired`
 - Uložit → v detailu endpointu **Signing secret** → Reveal → `whsec_…`.
 
-Stávající webhook WooCommerce se nemění.
+WooPayments / WooCommerce se nemění (je to jiný účet).
 
 ## 2. Vercel — klíče jen pro Preview
 
