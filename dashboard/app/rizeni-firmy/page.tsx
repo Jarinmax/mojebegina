@@ -5,6 +5,8 @@ import { listCompanyNotes } from "@/lib/data/companyManagement";
 import { getCompanyMap } from "@/lib/data/companyNodes";
 import { listOrders } from "@/lib/data/orders";
 import { getCockpitCounts } from "@/lib/data/leads";
+import { getAuthContext } from "@/lib/data/authContext";
+import { isCeoFocusAllowed } from "@/lib/data/ceoFocusAuth";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
@@ -41,6 +43,13 @@ export default async function CompanyOverviewPage() {
   const companyMap = await getCompanyMap();
   const { counts: orderCounts } = await listOrders();
   const crmCounts = await getCockpitCounts();
+  // Security Phase 17 (CEO přehled 1.0) — karta se zobrazuje jen dvěma
+  // konkrétním lidem (viz ceoFocusAuth.ts), ne celému okruhu ADMIN/
+  // EXECUTIVE jako zbytek téhle stránky. Skutečné vynucení je v datové
+  // vrstvě (requireCeoFocusContext) i na samotné /rizeni-firmy/ceo stránce
+  // — tohle je jen podmíněné zobrazení odkazu.
+  const ctx = await getAuthContext();
+  const showCeoFocus = isCeoFocusAllowed(ctx);
 
   return (
     <div>
@@ -53,6 +62,23 @@ export default async function CompanyOverviewPage() {
           Aktualizováno: {formatCzechDate(content.lastUpdated)}
         </p>
       </div>
+
+      {showCeoFocus && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-begina-primary-900">CEO přehled</h2>
+            <Link
+              href="/rizeni-firmy/ceo"
+              className="text-sm font-medium text-begina-primary-900 hover:underline"
+            >
+              Otevřít →
+            </Link>
+          </div>
+          <p className="text-sm text-neutral-500 bg-white border border-neutral-200 rounded-xl p-4">
+            Hlavní projekty, priority a na čem se právě pracuje — osobní pracovní prostor.
+          </p>
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
