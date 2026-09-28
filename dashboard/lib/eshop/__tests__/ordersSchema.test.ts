@@ -73,7 +73,8 @@ describe("kroky 3–5 — pořadí a dopad na existující data", DB_TEST, () =>
   }, DB_TEST.timeout);
 
   it("migrace 0013–0015 jsou v journalu hned po Produktech 1.0", () => {
-    expect(migrationTags.slice(migrationTags.indexOf(SEED) + 1)).toEqual(STEPS);
+    const start = migrationTags.indexOf(SEED) + 1;
+    expect(migrationTags.slice(start, start + STEPS.length)).toEqual(STEPS);
   });
 
   it("importované objednávky The Cup dostanou channel 'import', součty a položky beze změny", async () => {

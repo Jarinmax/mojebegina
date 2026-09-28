@@ -13,6 +13,7 @@ import { orders, orderItems, orderActivity, organizations, userRoles } from "@/l
 import { getAuthContext } from "./authContext";
 import { requireOrderAccess } from "./orderAuth";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
+import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import {
   validateCreateOrderInput,
   validateFulfillmentStatusInput,
@@ -75,7 +76,11 @@ export async function listInternalStaff(): Promise<InternalStaffOption[]> {
 
 export type OrderCardData = {
   id: string;
-  buyerOrganizationId: string;
+  // Číslo pro zákazníka — NULL, dokud se nečísluje (ESHOP 1.0, krok 6b).
+  orderNumber: number | null;
+  // NULL = soukromý zákazník bez organizace (ESHOP 1.0, krok 7);
+  // buyerOrganizationName je pak „Soukromý zákazník“ a kdo to je, říká contactName.
+  buyerOrganizationId: string | null;
   buyerOrganizationName: string;
   contactName: string | null;
   itemsSummary: string;
@@ -105,7 +110,7 @@ async function buildOrderCards(
     return [];
   }
 
-  const orgIds = [...new Set(orderRows.map((o) => o.buyerOrganizationId))];
+  const orgIds = distinctOrganizationIds(orderRows);
   const orgRows = orgIds.length
     ? await db
         .select({ id: organizations.id, name: organizations.name })
@@ -137,8 +142,9 @@ async function buildOrderCards(
     const responsible = o.responsibleUserId ? responsibleProfiles.get(o.responsibleUserId) : null;
     return {
       id: o.id,
+      orderNumber: o.orderNumber,
       buyerOrganizationId: o.buyerOrganizationId,
-      buyerOrganizationName: orgNameById.get(o.buyerOrganizationId) ?? "Neznámá organizace",
+      buyerOrganizationName: buyerDisplayName(o.buyerOrganizationId, orgNameById),
       contactName: o.contactName,
       itemsSummary: (itemsByOrder.get(o.id) ?? []).join(", "),
       totalKc: o.totalKc,

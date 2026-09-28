@@ -10,7 +10,7 @@ objednávky z webu budou končit rovnou v Objednávkách MojeBegina.
 
 | | Git větev | Vercel Preview | Neon větev |
 |---|---|---|---|
-| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — migrace 0011–0015 |
+| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — migrace 0011–0015 spuštěné, 0016–0017 připravené |
 | CEO přehled 1.0 | `feature/ceo-focus-1-0` | `mojebegina-git-feature-ceo-focus-1-0-jarin-max.vercel.app` | `preview/feature/ceo-focus-1-0` (`br-restless-smoke-b2fbn0pr`) |
 | Produkce | `main` | `moje.begina.cz` | `main` — e-shopové migrace **nespuštěné** |
 
@@ -46,6 +46,10 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   nová pole `orders` (kanál, poznámka zákazníka, doprava, platba, sleva,
   souhlasy) a vazba `order_items` na balení/SKU. Postup:
   `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
+- **Kroky 6a + 7 (28. 9. 2026, migrace 0016–0017, jen na větvi):** číslo
+  objednávky (sloupec, číslování zatím vypnuté) a objednávka bez
+  organizace (soukromý zákazník); MojeBegina je umí zobrazit. Postup:
+  `ESHOP_OBJEDNAVKY_KROKY_6A_7.md`.
 
 **Objednávka se zatím nikam neukládá ani neodesílá** — jen se zobrazí
 rekapitulace.

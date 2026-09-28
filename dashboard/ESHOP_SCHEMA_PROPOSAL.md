@@ -30,6 +30,12 @@ Kroky 3–5 (27. 9. 2026): drizzle migrace
 beze změny, ověřeno testem). Postup nasazení:
 `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
 
+Kroky 6a + 7 (28. 9. 2026): `0016_eshop_1_0_order_number.sql`,
+`0017_eshop_1_0_orders_guest.sql` — obsahově totožné s
+`docs/eshop-schema-draft/06a*_up.sql` a `07*_up.sql` (návratové
+`*_down.sql` platí, ověřeno testem). Postup: `ESHOP_OBJEDNAVKY_KROKY_6A_7.md`.
+Krok 6b (zapnutí číslování) zůstává na den přepnutí z WooCommerce.
+
 **SQL ke kontrole:** `docs/eshop-schema-draft/` — pro každý krok soubor
 `*_up.sql` a vratný `*_down.sql`, kontrolní dotazy `00_preflight_checks.sql`
 a `99_postflight_checks.sql`. Mimo složku `drizzle/`, aby je nic nespustilo

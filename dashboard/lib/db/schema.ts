@@ -15,6 +15,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  bigint,
   jsonb,
   numeric,
   check,
@@ -127,9 +128,10 @@ export const locations = pgTable("locations", {
 //     samoobslužné rozhraní. Dnes vždy NULL, nezaměňovat s contactName.
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  buyerOrganizationId: uuid("buyer_organization_id")
-    .notNull()
-    .references(() => organizations.id),
+  // ESHOP 1.0, krok 7 (migrace 0017): NULL = soukromý zákazník z e-shopu
+  // (bez IČO — žádné falešné organizace). Ruční objednávka organizaci mít
+  // musí dál a objednávka bez organizace musí mít e-mail (CHECKy níže).
+  buyerOrganizationId: uuid("buyer_organization_id").references(() => organizations.id),
   placedByUserId: text("placed_by_user_id"),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
@@ -166,12 +168,26 @@ export const orders = pgTable("orders", {
   discountKc: integer("discount_kc").notNull().default(0),
   ageConfirmedAt: timestamp("age_confirmed_at", { withTimezone: true }), // doklad potvrzení 18+
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }), // souhlas s OP
+  // ESHOP 1.0, krok 6a (migrace 0016) — číslo objednávky, které vidí
+  // zákazník. ZATÍM SE NEČÍSLUJE: sloupec je bez řady (NULL u všech
+  // objednávek). Řada `order_number_seq` navazující na WooCommerce (MAX + 1)
+  // se zapne až v den přepnutí pokladny (krok 6b). Není to číslo faktury.
+  orderNumber: bigint("order_number", { mode: "number" }),
 }, (table) => [
+  uniqueIndex("orders_order_number_key").on(table.orderNumber),
   check("orders_channel_check", sql`${table.channel} IN ('manual', 'eshop', 'import')`),
   check("orders_discount_nonnegative", sql`${table.discountKc} >= 0`),
   check(
     "orders_total_consistent",
     sql`${table.totalKc} = ${table.subtotalKc} - ${table.discountKc} + ${table.shippingKc}`
+  ),
+  check(
+    "orders_manual_requires_org",
+    sql`${table.channel} <> 'manual' OR ${table.buyerOrganizationId} IS NOT NULL`
+  ),
+  check(
+    "orders_guest_requires_contact",
+    sql`${table.buyerOrganizationId} IS NOT NULL OR ${table.contactEmail} IS NOT NULL`
   ),
 ]);
 

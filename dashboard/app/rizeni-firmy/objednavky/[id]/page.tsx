@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderDetail, listInternalStaff } from "@/lib/data/orders";
 import { formatCzechDate, formatKc } from "@/lib/format";
+import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
 import FulfillmentStatusForm from "../FulfillmentStatusForm";
 import PaymentStatusForm from "../PaymentStatusForm";
@@ -43,7 +44,12 @@ export default async function OrderDetailPage(
       </Link>
 
       <div className="flex items-start justify-between gap-3 mt-1 mb-1">
-        <h1 className="text-lg font-medium text-begina-primary-900">{order.buyerOrganizationName}</h1>
+        <h1 className="text-lg font-medium text-begina-primary-900">
+          {order.orderNumber !== null && (
+            <span className="text-neutral-500 font-normal mr-2">{formatOrderNumber(order.orderNumber)}</span>
+          )}
+          {order.buyerOrganizationName}
+        </h1>
         <p className="text-lg font-medium text-begina-primary-900 whitespace-nowrap">
           {formatKc(order.totalKc)}
         </p>
