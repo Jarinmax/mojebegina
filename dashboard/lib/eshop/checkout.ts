@@ -50,14 +50,18 @@ function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
   return value.length > max;
 }
 
-export function validateCheckoutInput(input: CheckoutInput, index: CatalogIndex): Result {
+export function validateCheckoutInput(
+  input: CheckoutInput,
+  index: CatalogIndex,
+  options: { cardPaymentAvailable?: boolean } = {}
+): Result {
   const cartLines = parseStoredCart(input.cart);
   const priced = priceCart(cartLines, input.shippingMethodId, index);
   if (!priced.ok) {
     return priced;
   }
 
-  const payment = getPaymentMethod(input.paymentMethodId);
+  const payment = getPaymentMethod(input.paymentMethodId, options.cardPaymentAvailable ?? false);
   if (!payment || !payment.available) {
     return { ok: false, error: "Vyberte dostupný způsob platby." };
   }

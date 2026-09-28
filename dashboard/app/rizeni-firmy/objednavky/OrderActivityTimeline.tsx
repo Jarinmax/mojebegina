@@ -20,6 +20,13 @@ function describeEntry(entry: OrderActivityEntry): string {
       const to = String(meta.to ?? "") as PaymentStatus;
       return `nastavil(a) stav platby na „${PAYMENT_LABELS[to] ?? to}“`;
     }
+    // ESHOP 1.0 — platba kartou (Stripe)
+    case "payment_started":
+      return "přesměroval(a) zákazníka na platbu kartou (Stripe)";
+    case "payment_duplicate":
+      return "⚠ přijal(a) DALŠÍ platbu kartou k už zaplacené objednávce — zkontrolovat a vrátit ve Stripe";
+    case "payment_amount_mismatch":
+      return "⚠ přijal(a) platbu, jejíž částka nesedí s objednávkou — objednávka NENÍ označená jako zaplacená";
     case "responsible_assigned":
       return meta.responsibleUserId
         ? `přiřadil(a) odpovědnou osobu: ${String(meta.responsibleName ?? meta.responsibleUserId)}`

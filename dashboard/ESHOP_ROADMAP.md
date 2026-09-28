@@ -46,6 +46,10 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   nová pole `orders` (kanál, poznámka zákazníka, doprava, platba, sleva,
   souhlasy) a vazba `order_items` na balení/SKU. Postup:
   `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
+- **Platba kartou — Stripe (28. 9. 2026, testovací režim, jen Preview,
+  bez migrace):** Stripe Checkout, webhook s ověřením podpisu, idempotentní
+  přepnutí na Zaplaceno + historie, zaplatit znovu. Production vypnuto.
+  Nastavení Stripe/Vercel a první testovací platba: `ESHOP_STRIPE.md`.
 - **Navigace (28. 9. 2026):** tlačítko „E-shop Begina.cz“ jen u nadpisu
   Řízení firmy (horní lišty a zákaznická karta záměrně bez — e-shop je
   zatím pro koncové zákazníky, partneři by nakoupili za maloobchodní ceny
@@ -90,7 +94,8 @@ rekapitulace.
 4. **Doprava** — podle begina.cz se cena chlazené přepravy počítá
    podle celkového objemu objednávky; potřebujeme tabulku (objem → cena),
    rozvozové dny a oblasti (`lib/eshop/shipping.ts`, dnes paušál 99 Kč).
-5. **Platební brána** (Comgate / GoPay / Stripe) a číslo účtu pro převod.
+5. **Platby:** Stripe (stávající účet begina.cz) — testovací klíče pro
+   Preview viz `ESHOP_STRIPE.md`; číslo účtu pro převod (QR).
 6. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
 
 ## Další fáze

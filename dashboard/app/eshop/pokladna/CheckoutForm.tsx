@@ -6,7 +6,7 @@ import { CircleCheck } from "lucide-react";
 import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
-import { shippingMethods, paymentMethods, getShippingMethod } from "@/lib/eshop/shipping";
+import { shippingMethods, paymentMethodsFor, getShippingMethod } from "@/lib/eshop/shipping";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
@@ -43,12 +43,13 @@ const emptyValues: Values = {
   zip: "",
   note: "",
   shippingMethodId: shippingMethods[0].id,
-  paymentMethodId: paymentMethods[0].id,
+  paymentMethodId: "prevod",
   termsAccepted: false,
   ageConfirmed: false,
 };
 
-export default function CheckoutForm() {
+export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPaymentAvailable?: boolean }) {
+  const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
   const { cart, clear } = useCart();
   const catalog = useCatalog();
   const hydrated = useHydrated();
@@ -63,11 +64,25 @@ export default function CheckoutForm() {
   const confirmation = state && "confirmation" in state ? state.confirmation : null;
   const savedOrderId = state && "confirmation" in state ? state.savedOrderId : null;
 
+  const redirectTo = state && "redirectTo" in state ? state.redirectTo : null;
+
   useEffect(() => {
     if (confirmation) {
       clear();
     }
   }, [confirmation, clear]);
+
+  // Platba kartou: objednávka je uložená, pokračuje se na platební stránku Stripe.
+  useEffect(() => {
+    if (redirectTo) {
+      clear();
+      window.location.assign(redirectTo);
+    }
+  }, [redirectTo, clear]);
+
+  if (redirectTo) {
+    return <p className="text-sm text-neutral-600">Přesměrovávám na platbu kartou…</p>;
+  }
 
   if (confirmation) {
     return (

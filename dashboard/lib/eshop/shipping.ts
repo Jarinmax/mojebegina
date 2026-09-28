@@ -37,25 +37,34 @@ export type PaymentMethod = {
   available: boolean;
 };
 
-export const paymentMethods: PaymentMethod[] = [
-  {
-    id: "prevod",
-    label: "Bankovní převod — platba předem",
-    description: "Po objednávce pošleme platební údaje a QR kód.",
-    available: true,
-  },
-  {
-    id: "karta",
-    label: "Kartou online",
-    description: "Platební brána zatím není napojená.",
-    available: false,
-  },
-];
+// Platba kartou (Stripe) je dostupná, jen když to povolí server
+// (lib/eshop/stripe/config.ts → isCardPaymentAvailable) — výchozí stav je
+// nedostupná.
+export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
+  return [
+    {
+      id: "prevod",
+      label: "Bankovní převod — platba předem",
+      description: "Po objednávce pošleme platební údaje a QR kód.",
+      available: true,
+    },
+    {
+      id: "karta",
+      label: "Kartou online",
+      description: cardAvailable
+        ? "Platební karta, Apple Pay nebo Google Pay — zabezpečeně přes Stripe."
+        : "Platební brána zatím není napojená.",
+      available: cardAvailable,
+    },
+  ];
+}
+
+export const paymentMethods: PaymentMethod[] = paymentMethodsFor(false);
 
 export function getShippingMethod(id: string): ShippingMethod | undefined {
   return shippingMethods.find((method) => method.id === id);
 }
 
-export function getPaymentMethod(id: string): PaymentMethod | undefined {
-  return paymentMethods.find((method) => method.id === id);
+export function getPaymentMethod(id: string, cardAvailable = false): PaymentMethod | undefined {
+  return paymentMethodsFor(cardAvailable).find((method) => method.id === id);
 }
