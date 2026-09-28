@@ -1,11 +1,14 @@
 import Image from "next/image";
 import logoMark from "@/public/logo-begina-mark.png";
+import EshopLink from "@/components/EshopLink";
 
 type MembershipCardProps = {
   name: string;
   contactName?: string;
   memberId: string | null;
   status: string | null;
+  /** Tlačítko „Nakoupit / E-shop“ dole na kartě (cíl viz lib/eshopLink.ts). */
+  showShopLink?: boolean;
 };
 
 export default function MembershipCard({
@@ -13,6 +16,7 @@ export default function MembershipCard({
   contactName,
   memberId,
   status,
+  showShopLink = false,
 }: MembershipCardProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl p-4 mb-4 bg-white border border-neutral-200 shadow-sm">
@@ -48,6 +52,11 @@ export default function MembershipCard({
             </p>
           </div>
         </div>
+        {showShopLink && (
+          <div className="mt-4">
+            <EshopLink label="Nakoupit / E-shop" variant="card" />
+          </div>
+        )}
       </div>
     </div>
   );

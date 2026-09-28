@@ -46,6 +46,12 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   nová pole `orders` (kanál, poznámka zákazníka, doprava, platba, sleva,
   souhlasy) a vazba `order_items` na balení/SKU. Postup:
   `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
+- **Navigace (28. 9. 2026):** tlačítko „E-shop“ v horní liště všech rolí
+  (Admin, Executive, Řízení firmy, zákazník), „E-shop Begina.cz“ u nadpisu
+  Řízení firmy, „Nakoupit / E-shop“ na zákaznické kartě. Cíl na jednom
+  místě: `lib/eshopLink.ts` (dnes `/eshop`; přepnutí na begina.cz =
+  `NEXT_PUBLIC_ESHOP_URL=https://begina.cz` ve Vercelu, externí adresa se
+  otevře v nové záložce).
 - **Pokladna ukládá objednávky (28. 9. 2026, jen Preview, bez migrace):**
   objednávka bez organizace + položky napojené na balení se snapshoty +
   systémový záznam „E-shop“; stav nová / nezaplacená; bez čísla, platby

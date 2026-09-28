@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Header from "@/components/Header";
 import DecorativeMark from "@/components/DecorativeMark";
 import MembershipCard from "@/components/MembershipCard";
+import EshopLink from "@/components/EshopLink";
 import PartnerProgramSummary from "@/components/PartnerProgramSummary";
 import PerksCarousel from "@/components/PerksCarousel";
 import ReorderCard from "@/components/ReorderCard";
@@ -48,6 +49,9 @@ export default async function Page() {
         <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
           <Header initials="?" unreadCount={0} showRoleSwitch={ctx.grantedRoles.length > 1} />
           <NoOrganizationNotice />
+          <div className="mt-4">
+            <EshopLink label="Nakoupit / E-shop" variant="card" />
+          </div>
         </div>
         <BottomNav items={bottomNavItems} activeHref="/" />
       </div>
@@ -93,6 +97,7 @@ export default async function Page() {
           contactName={contactDisplayName}
           memberId={customerAccount.memberId}
           status={customerAccount.status}
+          showShopLink
         />
         <PartnerProgramSummary
           monthlyPurchase={currentMonthlyPurchase}

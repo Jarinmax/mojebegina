@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Bell } from "lucide-react";
 import logoMark from "@/public/logo-begina-mark.png";
 import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
+import EshopLink from "@/components/EshopLink";
 
 type HeaderProps = {
   initials: string;
@@ -20,6 +21,7 @@ export default function Header({ initials, unreadCount = 0, showRoleSwitch = fal
         priority
       />
       <div className="flex items-center gap-3 shrink-0">
+        <EshopLink label="E-shop" variant="header" />
         <SwitchRoleLink visible={showRoleSwitch} />
         <Link
           href="/upozorneni"

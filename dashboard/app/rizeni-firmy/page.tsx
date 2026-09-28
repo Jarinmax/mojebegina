@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { companyOverview } from "@/lib/content/companyOverview";
-import { formatCzechDate } from "@/lib/format";
 import { listCompanyNotes } from "@/lib/data/companyManagement";
 import { getCompanyMap } from "@/lib/data/companyNodes";
 import { listOrders } from "@/lib/data/orders";
@@ -14,6 +13,7 @@ import CompanyStatusSummary from "@/components/company-overview/CompanyStatusSum
 import NodeCard from "@/components/company-overview/NodeCard";
 import CompanyNoteForm from "./CompanyNoteForm";
 import CreateNodeForm from "./CreateNodeForm";
+import CompanyOverviewIntro from "./CompanyOverviewIntro";
 import OrderSummaryTiles from "./objednavky/OrderSummaryTiles";
 import CrmCockpitTiles from "./obchod/CockpitTiles";
 
@@ -44,15 +44,7 @@ export default async function CompanyOverviewPage() {
 
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="text-lg font-medium text-begina-primary-900">Řízení firmy</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          Struktura, strategie a systém řízení Beginy
-        </p>
-        <p className="text-xs text-neutral-400 mt-1">
-          Aktualizováno: {formatCzechDate(content.lastUpdated)}
-        </p>
-      </div>
+      <CompanyOverviewIntro lastUpdated={content.lastUpdated} />
 
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
