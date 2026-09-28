@@ -10,7 +10,7 @@ objednávky z webu budou končit rovnou v Objednávkách MojeBegina.
 
 | | Git větev | Vercel Preview | Neon větev |
 |---|---|---|---|
-| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — migrace 0011–0015 spuštěné, 0016–0017 připravené |
+| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — migrace 0011–0017 spuštěné |
 | CEO přehled 1.0 | `feature/ceo-focus-1-0` | `mojebegina-git-feature-ceo-focus-1-0-jarin-max.vercel.app` | `preview/feature/ceo-focus-1-0` (`br-restless-smoke-b2fbn0pr`) |
 | Produkce | `main` | `moje.begina.cz` | `main` — e-shopové migrace **nespuštěné** |
 

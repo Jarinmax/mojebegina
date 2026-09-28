@@ -1,7 +1,10 @@
 # ESHOP 1.0, kroky 6a + 7 — číslo objednávky a objednávka bez organizace
 
-Stav (28. 9. 2026): implementováno na větvi `claude/great-bell-ffjwo3`,
-**NEMIGROVÁNO** (ani Preview, ani produkce). Claude má k Neonu jen
+Stav (28. 9. 2026): implementováno na větvi `claude/great-bell-ffjwo3`.
+**Migrace 0016 + 0017 spuštěné vedením na Neon Preview větvi
+`preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) a ověřené
+read-only** (0016: bigint / index 1 / 0 čísel / bez řady; 0017: YES / 2 /
+0 bez organizace / 3 objednávky). **Produkční `main` beze změny.** Claude má k Neonu jen
 read-only přístup — migrace spouští vedení. Návrh: `ESHOP_SCHEMA_PROPOSAL.md`,
 oddíly 3.9 a 3.11.
 
