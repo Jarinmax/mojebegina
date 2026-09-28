@@ -87,7 +87,37 @@ export default async function OrderDetailPage(
         {order.enteredByName && (
           <p className="text-xs text-neutral-400">Zapsal(a) do systému: {order.enteredByName}</p>
         )}
+        {order.channel === "eshop" && <p className="text-xs text-neutral-400">Objednávka z e-shopu</p>}
       </div>
+
+      {(order.shippingMethodLabel || order.paymentMethodLabel || order.recipientAddress || order.customerNote) && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
+          {order.shippingMethodLabel && (
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Doručení</p>
+              <p className="text-sm text-begina-primary-900">{order.shippingMethodLabel}</p>
+              {order.recipientAddress && <p className="text-xs text-neutral-500">{order.recipientAddress}</p>}
+            </div>
+          )}
+          {order.paymentMethodLabel && (
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Platba</p>
+              <p className="text-sm text-begina-primary-900">{order.paymentMethodLabel}</p>
+            </div>
+          )}
+          {order.customerNote && (
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Poznámka zákazníka</p>
+              <p className="text-sm text-begina-primary-900 whitespace-pre-wrap">{order.customerNote}</p>
+            </div>
+          )}
+          {order.ageConfirmedAt && (
+            <p className="text-xs text-neutral-400">
+              Zákazník potvrdil věk 18+ ({formatCzechDate(order.ageConfirmedAt)}) — ověřit při předání.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
         <p className="text-sm font-medium text-begina-primary-900 mb-2">Položky</p>

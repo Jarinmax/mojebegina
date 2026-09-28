@@ -5,6 +5,7 @@ import logoMark from "@/public/logo-begina-mark.png";
 import CartLink from "@/components/eshop/CartLink";
 import CatalogProvider from "@/components/eshop/CatalogProvider";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
+import { isOrderWriteEnabled } from "@/lib/eshop/orderWrite";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 
@@ -37,7 +38,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
   return (
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
     <div className="min-h-screen flex flex-col bg-white text-begina-primary-900">
-      <PreviewBanner />
+      <PreviewBanner ordersSaved={isOrderWriteEnabled()} />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <Link href="/eshop" className="flex items-center gap-2.5" aria-label="Begina.cz — úvod">

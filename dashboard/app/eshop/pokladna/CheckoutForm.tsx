@@ -54,8 +54,14 @@ export default function CheckoutForm() {
   const hydrated = useHydrated();
   const [state, formAction, pending] = useActionState(submitCheckoutAction, initialState);
   const [values, setValues] = useState<Values>(emptyValues);
+  // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
+  // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
+  const [orderToken] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : ""
+  );
 
   const confirmation = state && "confirmation" in state ? state.confirmation : null;
+  const savedOrderId = state && "confirmation" in state ? state.savedOrderId : null;
 
   useEffect(() => {
     if (confirmation) {
@@ -70,10 +76,18 @@ export default function CheckoutForm() {
           <CircleCheck className="w-6 h-6 text-begina-primary-900" />
           <h1 className="text-2xl font-semibold tracking-tight">Děkujeme za objednávku</h1>
         </div>
-        <p className="text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2 mb-6">
-          Náhled: objednávka nebyla nikam odeslána. V ostré verzi se uloží do Objednávek
-          v Moje Begina a zákazníkovi přijde potvrzovací e-mail na {confirmation.email}.
-        </p>
+        {savedOrderId ? (
+          <p className="text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2 mb-6">
+            Testovací provoz: objednávka je uložená v Objednávkách Moje Begina (reference{" "}
+            <span className="font-mono">{savedOrderId.slice(0, 8)}</span>). Platba ani potvrzovací
+            e-mail zatím neproběhnou.
+          </p>
+        ) : (
+          <p className="text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2 mb-6">
+            Náhled: objednávka nebyla nikam odeslána. V ostré verzi se uloží do Objednávek
+            v Moje Begina a zákazníkovi přijde potvrzovací e-mail na {confirmation.email}.
+          </p>
+        )}
         <div className="border border-neutral-200 rounded-2xl p-5 text-sm">
           <ul className="divide-y divide-neutral-100">
             {confirmation.pricedCart.lines.map((line) => (
@@ -149,6 +163,12 @@ export default function CheckoutForm() {
   return (
     <form action={formAction} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
+      <input type="hidden" name="orderToken" value={orderToken} />
+      {/* Past na roboty — člověk pole nevidí ani na něj neskočí tabulátorem. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+        <label htmlFor="website">Web (nevyplňujte)</label>
+        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+      </div>
 
       <div className="flex flex-col gap-8">
         <h1 className="text-2xl font-semibold tracking-tight">Objednávka</h1>

@@ -7,10 +7,11 @@
 // drizzle/ (včetně 0011 + 0012) a vrátí odpověď ve formátu Neonu (surový
 // text + OID typů, jako skutečný Neon s "Neon-Raw-Text-Output").
 //
-// Spuštění (build musí proběhnout předem):
+// Spuštění (build musí proběhnout předem; E2E_SQL_PORT volitelně, viz konec souboru):
 //   DATABASE_URL=postgresql://u:p@ep-test.neon.tech/neondb \
 //   NODE_OPTIONS="--import ./scripts/eshop-e2e/neon-http-pglite.mjs" npx next start
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
@@ -69,3 +70,27 @@ globalThis.fetch = async (input, init) => {
     return new Response(JSON.stringify({ message: error.message, code: error.code }), { status: 400 });
   }
 };
+
+// Volitelně (jen testy): E2E_SQL_PORT=4999 → na 127.0.0.1 poslouchá malý
+// server, který spustí SELECT z těla požadavku v transakci jen pro čtení
+// a vrátí řádky jako JSON — aby šlo z testu ověřit, co aplikace uložila.
+if (process.env.E2E_SQL_PORT) {
+  createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      await ready;
+      await pg.exec("BEGIN READ ONLY");
+      const result = await pg.query(body);
+      await pg.exec("ROLLBACK");
+      res.end(JSON.stringify(result.rows));
+    } catch (error) {
+      await pg.exec("ROLLBACK").catch(() => {});
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  })
+    .on("error", (error) => console.error("E2E_SQL_PORT:", error.message))
+    .listen(Number(process.env.E2E_SQL_PORT), "127.0.0.1");
+}
+

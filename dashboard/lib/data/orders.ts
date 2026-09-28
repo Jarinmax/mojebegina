@@ -212,6 +212,13 @@ export type OrderDetail = {
     enteredByUserId: string | null;
     enteredByName: string | null;
     note: string | null;
+    // ESHOP 1.0 — údaje z pokladny e-shopu (u ručních objednávek NULL).
+    channel: string;
+    recipientAddress: string | null;
+    shippingMethodLabel: string | null;
+    paymentMethodLabel: string | null;
+    customerNote: string | null;
+    ageConfirmedAt: Date | null;
   };
   items: OrderItemData[];
   activity: OrderActivityEntry[];
@@ -255,6 +262,12 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       enteredByUserId: row.enteredByUserId,
       enteredByName: enteredBy?.name ?? enteredBy?.email ?? null,
       note: row.note,
+      channel: row.channel,
+      recipientAddress: row.recipientAddress,
+      shippingMethodLabel: row.shippingMethodLabel,
+      paymentMethodLabel: row.paymentMethodLabel,
+      customerNote: row.customerNote,
+      ageConfirmedAt: row.ageConfirmedAt,
     },
     items,
     activity: activityRows.map((r) => ({

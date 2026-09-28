@@ -1,0 +1,155 @@
+// ESHOP 1.0 — uložení objednávky z pokladny do Objednávek MojeBegina.
+//
+// Jeden zápis = jedna transakce (neon-http `db.batch`): objednávka
+// (channel "eshop", soukromý zákazník bez organizace, e-mail povinný),
+// položky s vazbou na balení + snapshot SKU/názvu/ceny a systémový záznam
+// "E-shop" v historii. Stav jako u nové ruční objednávky: fulfillment
+// "new", platba "unpaid". Číslo objednávky zůstává NULL (číslování se
+// zapne až krokem 6b), platby ani e-maily se neřeší.
+//
+// Zapisuje se JEN mimo Vercel Production (Preview, lokální vývoj), dokud
+// se v Production výslovně nenastaví ESHOP_ORDER_WRITE=on — viz
+// isOrderWriteEnabled.
+import { and, eq, inArray } from "drizzle-orm";
+import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import * as schema from "@/lib/db/schema";
+import { orderActivity, orderItems, orders, productVariants } from "@/lib/db/schema";
+import type { CheckoutValue } from "./checkout";
+
+export const ESHOP_ACTOR_NAME = "E-shop";
+
+type Db = NeonHttpDatabase<typeof schema>;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Token z formuláře = id objednávky; dvojí odeslání tak nevytvoří dvě objednávky. */
+export function parseOrderToken(raw: string): string | null {
+  const token = raw.trim().toLowerCase();
+  return UUID_PATTERN.test(token) ? token : null;
+}
+
+export function isOrderWriteEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.VERCEL_ENV !== "production" || env.ESHOP_ORDER_WRITE === "on";
+}
+
+export type VariantRef = { id: string; priceKc: number };
+
+type OrderRows = {
+  order: typeof orders.$inferInsert;
+  items: (typeof orderItems.$inferInsert)[];
+  activity: typeof orderActivity.$inferInsert;
+};
+
+/** Čisté sestavení řádků — žádné I/O, testované zvlášť. */
+export function buildEshopOrderRows(
+  orderId: string,
+  value: CheckoutValue,
+  variantsBySku: Map<string, VariantRef>,
+  now: Date
+): { ok: true; rows: OrderRows } | { ok: false; error: string } {
+  const { pricedCart } = value;
+  const items: OrderRows["items"] = [];
+  for (const line of pricedCart.lines) {
+    const variant = variantsBySku.get(line.sku);
+    if (!variant) {
+      return { ok: false, error: "Košík obsahuje produkt, který už nenabízíme. Obnovte prosím košík." };
+    }
+    if (variant.priceKc !== line.unitPriceKc) {
+      return { ok: false, error: "Mezitím se změnila cena. Obnovte prosím stránku a zkontrolujte košík." };
+    }
+    items.push({
+      orderId,
+      productVariantId: variant.id,
+      skuSnapshot: line.sku,
+      name: line.name,
+      quantity: line.quantity,
+      unitPriceKc: line.unitPriceKc,
+      lineTotalKc: line.lineTotalKc,
+    });
+  }
+
+  const address = value.address ? `${value.address.street}, ${value.address.zip} ${value.address.city}` : null;
+
+  return {
+    ok: true,
+    rows: {
+      order: {
+        id: orderId,
+        channel: "eshop",
+        buyerOrganizationId: null,
+        contactName: value.name,
+        contactPhone: value.phone,
+        contactEmail: value.email,
+        recipientName: value.name,
+        recipientPhone: value.phone,
+        recipientAddress: address,
+        subtotalKc: pricedCart.subtotalKc,
+        discountKc: 0,
+        shippingKc: pricedCart.shippingKc,
+        totalKc: pricedCart.totalKc,
+        paymentStatus: "unpaid",
+        fulfillmentStatus: "new",
+        customerNote: value.note,
+        shippingMethodCode: pricedCart.shipping.id,
+        shippingMethodLabel: pricedCart.shipping.label,
+        paymentMethodCode: value.payment.id,
+        paymentMethodLabel: value.payment.label,
+        ageConfirmedAt: pricedCart.containsAgeRestricted ? now : null,
+        termsAcceptedAt: now,
+        orderedAt: now,
+      },
+      items,
+      activity: {
+        orderId,
+        actorType: "system",
+        authorUserId: null,
+        authorName: ESHOP_ACTOR_NAME,
+        kind: "created",
+        metadata: { channel: "eshop" },
+        createdAt: now,
+      },
+    },
+  };
+}
+
+export type SaveOrderResult = { ok: true; orderId: string; alreadySaved: boolean } | { ok: false; error: string };
+
+async function orderExists(db: Db, orderId: string): Promise<boolean> {
+  const [row] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).limit(1);
+  return Boolean(row);
+}
+
+export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutValue): Promise<SaveOrderResult> {
+  if (await orderExists(db, orderId)) {
+    return { ok: true, orderId, alreadySaved: true };
+  }
+
+  const skus = value.pricedCart.lines.map((line) => line.sku);
+  const variantRows = await db
+    .select({ id: productVariants.id, sku: productVariants.sku, priceKc: productVariants.priceB2cKc })
+    .from(productVariants)
+    .where(and(inArray(productVariants.sku, skus), eq(productVariants.isActive, true)));
+  const variantsBySku = new Map(variantRows.map((v) => [v.sku, { id: v.id, priceKc: v.priceKc }]));
+
+  const built = buildEshopOrderRows(orderId, value, variantsBySku, new Date());
+  if (!built.ok) {
+    return built;
+  }
+
+  const { order, items, activity } = built.rows;
+  try {
+    await db.batch([
+      db.insert(orders).values(order),
+      db.insert(orderItems).values(items),
+      db.insert(orderActivity).values(activity),
+    ]);
+  } catch (error) {
+    // Souběžné dvojí odeslání: druhý batch narazí na primární klíč a celý
+    // se vrátí (transakce) — objednávka už existuje jen jednou.
+    if (await orderExists(db, orderId)) {
+      return { ok: true, orderId, alreadySaved: true };
+    }
+    throw error;
+  }
+  return { ok: true, orderId, alreadySaved: false };
+}

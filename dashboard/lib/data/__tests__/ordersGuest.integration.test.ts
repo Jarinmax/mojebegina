@@ -84,6 +84,23 @@ describe("objednávka bez organizace v MojeBegina", DB_TEST, () => {
     expect(detail?.items).toEqual([{ name: "Rajčatová polévka", quantity: 1, unitPriceKc: 379, lineTotalKc: 379 }]);
   });
 
+  it("detail vrací údaje z pokladny e-shopu (doručení, platba, poznámka zákazníka)", async () => {
+    await pg.exec(`UPDATE orders SET shipping_method_label = 'Chlazená přeprava', recipient_address = 'Prvního pluku 14, 186 00 Praha',
+                   payment_method_label = 'Bankovní převod — platba předem', customer_note = 'Zvonit dvakrát'
+                   WHERE id = '${GUEST_ORDER}'`);
+    const detail = await getOrderDetail(GUEST_ORDER);
+    expect(detail?.order).toMatchObject({
+      channel: "eshop",
+      shippingMethodLabel: "Chlazená přeprava",
+      recipientAddress: "Prvního pluku 14, 186 00 Praha",
+      paymentMethodLabel: "Bankovní převod — platba předem",
+      customerNote: "Zvonit dvakrát",
+      ageConfirmedAt: null,
+    });
+    const manual = await getOrderDetail(ORG_ORDER);
+    expect(manual?.order).toMatchObject({ channel: "manual", shippingMethodLabel: null, customerNote: null });
+  });
+
   it("číslo objednávky se zobrazí, jen když existuje (před krokem 6b žádné)", async () => {
     await pg.exec(`UPDATE orders SET order_number = 5094 WHERE id = '${GUEST_ORDER}'`);
     const { orders } = await listOrders();

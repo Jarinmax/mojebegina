@@ -46,12 +46,16 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   nová pole `orders` (kanál, poznámka zákazníka, doprava, platba, sleva,
   souhlasy) a vazba `order_items` na balení/SKU. Postup:
   `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
+- **Pokladna ukládá objednávky (28. 9. 2026, jen Preview, bez migrace):**
+  objednávka bez organizace + položky napojené na balení se snapshoty +
+  systémový záznam „E-shop“; stav nová / nezaplacená; bez čísla, platby
+  a e-mailu. V Production se neukládá. Postup: `ESHOP_POKLADNA_ZAPIS.md`.
 - **Kroky 6a + 7 (28. 9. 2026, migrace 0016–0017, jen na větvi):** číslo
   objednávky (sloupec, číslování zatím vypnuté) a objednávka bez
   organizace (soukromý zákazník); MojeBegina je umí zobrazit. Postup:
   `ESHOP_OBJEDNAVKY_KROKY_6A_7.md`.
 
-**Objednávka se zatím nikam neukládá ani neodesílá** — jen se zobrazí
+**Objednávka se ukládá jen v Preview** (viz výše); v Production zatím jen
 rekapitulace.
 
 ## Co potřebujeme od vedení
