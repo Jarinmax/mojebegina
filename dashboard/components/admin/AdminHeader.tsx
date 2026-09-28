@@ -3,7 +3,6 @@ import Link from "next/link";
 import logoMark from "@/public/logo-begina-mark.png";
 import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
 import AdminSignOutButton from "./AdminSignOutButton";
-import EshopLink from "@/components/EshopLink";
 
 type AdminHeaderProps = {
   name: string | null;
@@ -19,8 +18,7 @@ export default function AdminHeader({ name, email, showRoleSwitch = false }: Adm
           <Image src={logoMark} alt="Begina" className="h-7 w-auto" priority />
           <span className="text-sm font-medium text-begina-primary-900">Begina Admin</span>
         </div>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <EshopLink label="E-shop" variant="header" />
+        <div className="flex items-center gap-4">
           <span className="text-xs text-neutral-500 hidden sm:inline">{name ?? email}</span>
           <SwitchRoleLink visible={showRoleSwitch} />
           <AdminSignOutButton />

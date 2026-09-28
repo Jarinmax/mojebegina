@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 //
-// Tlačítka do e-shopu v MojeBegina: horní lišty všech rolí, Řízení firmy,
-// zákaznická karta. Testuje vykreslený DOM (skutečné <a> s href), cíl
-// z lib/eshopLink.ts.
+// Tlačítko do e-shopu je JEN v Řízení firmy (rozhodnutí vedení 28. 9. 2026):
+// horní lišty a zákaznická karta ho nemají — e-shop je zatím pro koncové
+// zákazníky, partneři by v něm nakoupili za maloobchodní ceny mimo svůj účet.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
@@ -19,42 +19,34 @@ import CompanyOverviewIntro from "../../app/rizeni-firmy/CompanyOverviewIntro";
 
 afterEach(() => cleanup());
 
-const eshopLinks = () => screen.getAllByRole("link").filter((a) => a.getAttribute("href") === "/eshop");
+const eshopLinks = () => screen.queryAllByRole("link").filter((a) => /eshop|begina\.cz/.test(a.getAttribute("href") ?? ""));
 
-describe("tlačítko E-shop v horních lištách", () => {
+describe("tlačítko E-shop", () => {
+  it("Řízení firmy: „E-shop Begina.cz“ hned u nadpisu, vede na /eshop", () => {
+    render(<CompanyOverviewIntro lastUpdated={new Date(Date.UTC(2026, 8, 21))} />);
+    expect(screen.getByRole("heading", { name: "Řízení firmy" })).toBeTruthy();
+    const link = screen.getByRole("link", { name: "E-shop Begina.cz" });
+    expect(link.getAttribute("href")).toBe("/eshop");
+    expect(link.getAttribute("target")).toBeNull();
+  });
+
   it.each([
     ["Admin", <AdminHeader key="a" name="Jaroslav Viner" email="j@example.cz" />],
     ["Executive", <ExecutiveHeader key="e" name="Jiří Střelec" email="s@example.cz" />],
-    ["Řízení firmy", <CompanyOverviewHeader key="c" name="Jaroslav Viner" email="j@example.cz" backHref="/admin" />],
-    ["zákazník", <Header key="z" initials="VD" />],
-  ])("%s: viditelné „E-shop“ vedoucí na /eshop", (_role, header) => {
-    render(header);
-    const links = eshopLinks();
-    expect(links).toHaveLength(1);
-    expect(links[0].textContent).toBe("E-shop");
-    expect(links[0].getAttribute("target")).toBeNull();
-  });
-});
-
-describe("výrazná tlačítka", () => {
-  it("Řízení firmy: „E-shop Begina.cz“ hned u nadpisu", () => {
-    render(<CompanyOverviewIntro lastUpdated={new Date(Date.UTC(2026, 8, 21))} />);
-    expect(screen.getByRole("heading", { name: "Řízení firmy" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "E-shop Begina.cz" }).getAttribute("href")).toBe("/eshop");
+    ["Řízení firmy (lišta)", <CompanyOverviewHeader key="c" name="Jaroslav Viner" email="j@example.cz" backHref="/admin" />],
+    ["zákazník (lišta)", <Header key="z" initials="VD" />],
+    [
+      "zákaznická karta",
+      <MembershipCard key="m" name="The Cup s.r.o." memberId="BEG-1" status="Zákazník Begina" />,
+    ],
+  ])("%s: bez odkazu do e-shopu", (_where, element) => {
+    render(element);
+    expect(eshopLinks()).toEqual([]);
   });
 
-  it("zákaznická karta: „Nakoupit / E-shop“ jen když je zapnuté", () => {
-    const props = { name: "The Cup s.r.o.", memberId: "BEG-1", status: "Zákazník Begina" };
-    render(<MembershipCard {...props} showShopLink />);
-    expect(screen.getByRole("link", { name: "Nakoupit / E-shop" }).getAttribute("href")).toBe("/eshop");
-    cleanup();
-    render(<MembershipCard {...props} />);
-    expect(screen.queryByRole("link", { name: "Nakoupit / E-shop" })).toBeNull();
-  });
-
-  it("externí cíl (begina.cz) se otevře v nové záložce bez přístupu k MojeBegina (noopener)", () => {
-    render(<EshopLink label="E-shop" variant="header" target={{ href: "https://begina.cz", external: true }} />);
-    const link = screen.getByRole("link", { name: "E-shop" });
+  it("externí cíl (begina.cz) se otevře v nové záložce s noopener", () => {
+    render(<EshopLink label="E-shop Begina.cz" target={{ href: "https://begina.cz", external: true }} />);
+    const link = screen.getByRole("link", { name: "E-shop Begina.cz" });
     expect(link.getAttribute("href")).toBe("https://begina.cz");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");

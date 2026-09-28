@@ -3,7 +3,6 @@ import Link from "next/link";
 import logoMark from "@/public/logo-begina-mark.png";
 import AdminSignOutButton from "@/components/admin/AdminSignOutButton";
 import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
-import EshopLink from "@/components/EshopLink";
 
 // Security Phase 8 — strukturálně stejný jako AdminHeader/ExecutiveHeader,
 // jen s odkazem zpátky na dashboard té role, ze které uživatel přišel
@@ -30,8 +29,7 @@ export default function CompanyOverviewHeader({
           <Image src={logoMark} alt="Begina" className="h-7 w-auto" priority />
           <span className="text-sm font-medium text-begina-primary-900">Begina — Řízení firmy</span>
         </div>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <EshopLink label="E-shop" variant="header" />
+        <div className="flex items-center gap-4">
           <span className="text-xs text-neutral-500 hidden sm:inline">{name ?? email}</span>
           <SwitchRoleLink visible={showRoleSwitch} />
           <AdminSignOutButton />

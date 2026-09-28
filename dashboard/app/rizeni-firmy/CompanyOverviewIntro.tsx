@@ -12,7 +12,7 @@ export default function CompanyOverviewIntro({ lastUpdated }: { lastUpdated: Dat
         <p className="text-xs text-neutral-400 mt-1">Aktualizováno: {formatCzechDate(lastUpdated)}</p>
       </div>
       <div className="sm:w-56 shrink-0">
-        <EshopLink label="E-shop Begina.cz" variant="card" />
+        <EshopLink label="E-shop Begina.cz" />
       </div>
     </div>
   );

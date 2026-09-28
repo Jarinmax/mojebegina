@@ -1,5 +1,5 @@
-// Kam vedou tlačítka „E-shop“ z MojeBegina (horní lišty, Řízení firmy,
-// zákaznická karta). JEDINÉ místo, kde se cíl nastavuje.
+// Kam vede tlačítko „E-shop Begina.cz“ v Řízení firmy (a případná další
+// tlačítka do e-shopu). JEDINÉ místo, kde se cíl nastavuje.
 //
 // Dnes e-shop běží ve stejné aplikaci na /eshop. Až poběží na begina.cz,
 // stačí ve Vercelu nastavit NEXT_PUBLIC_ESHOP_URL=https://begina.cz (nebo
