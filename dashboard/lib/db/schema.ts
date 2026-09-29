@@ -5,6 +5,7 @@
 // Better Auth/Neon Auth používá) bez DB-level cizího klíče, protože tabulku
 // uživatelů nespravujeme my.
 
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   uuid,
@@ -15,6 +16,7 @@ import {
   uniqueIndex,
   index,
   jsonb,
+  check,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -464,6 +466,78 @@ export const focusProjects = pgTable("focus_projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Security Phase 19 (Denní volání 1.0) — jedna plochá průběžná fronta,
+// ZÁMĚRNĚ ne "jeden seznam na den" (viz diskuse v návrhu): nedokončené
+// položky musí přežít do dalšího dne beze změny identity, jen zůstávají
+// `status = 'pending'`. `position` řadí VŠECHNY pending položky (draft
+// i zveřejněné) v jedné sekvenci — přeřazení musí jít přes dočasný rozsah
+// pozic (viz dailyCalls.ts:applyQueueReorder), protože unikátní index níže
+// je partial (WHERE status='pending') a Postgres partial unique index
+// nejde deklarovat jako DEFERRABLE, takže se kontroluje ihned po každém
+// jednotlivém UPDATE v rámci transakce, ne až na COMMIT.
+//
+// published_at/published_by: NULL = draft, viditelný jen kurátorovi.
+// Automatické i ruční položky ZAČÍNAJÍ jako draft (schváleno explicitně) —
+// viditelnost pro pracovníka řídí výhradně kurátorovo "Zveřejnit návrh".
+// Auditní trojice (published_by/done_by/removed_by) + CHECK páry níže
+// vynucují, že se časové razítko a aktér vždy zapisují společně a že
+// odpovídají stavu položky — schváleno explicitně, aby žádný zápis nemohl
+// mít "osiřelé" razítko bez aktéra nebo naopak.
+export const dailyCallQueue = pgTable(
+  "daily_call_queue",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    position: integer("position").notNull(),
+    status: text("status").notNull().default("pending"), // "pending" | "done" | "removed"
+    source: text("source").notNull(), // "auto" | "manual"
+    addedBy: text("added_by").notNull(),
+    // Pracovní den (Europe/Prague), pro který byla položka navržena/přidána
+    // — čistě informační/řadicí údaj pro rozdělení "Nedokončeno z minula"
+    // vs. "Dnešní volání" na straně pracovníka, NENÍ identifikátor seznamu.
+    addedForDate: text("added_for_date").notNull(), // "YYYY-MM-DD" v Europe/Prague
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by"),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    doneBy: text("done_by"),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    removedBy: text("removed_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("daily_call_queue_status_position_idx").on(table.status, table.position),
+    uniqueIndex("daily_call_queue_lead_pending_idx")
+      .on(table.leadId)
+      .where(sql`${table.status} = 'pending'`),
+    uniqueIndex("daily_call_queue_position_pending_idx")
+      .on(table.position)
+      .where(sql`${table.status} = 'pending'`),
+    check("daily_call_queue_status_check", sql`${table.status} IN ('pending','done','removed')`),
+    check("daily_call_queue_source_check", sql`${table.source} IN ('auto','manual')`),
+    check(
+      "daily_call_queue_published_pair_check",
+      sql`(${table.publishedAt} IS NULL) = (${table.publishedBy} IS NULL)`
+    ),
+    check("daily_call_queue_done_pair_check", sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`),
+    check(
+      "daily_call_queue_removed_pair_check",
+      sql`(${table.removedAt} IS NULL) = (${table.removedBy} IS NULL)`
+    ),
+    check("daily_call_queue_done_status_check", sql`(${table.status} = 'done') = (${table.doneAt} IS NOT NULL)`),
+    check(
+      "daily_call_queue_removed_status_check",
+      sql`(${table.status} = 'removed') = (${table.removedAt} IS NOT NULL)`
+    ),
+    check(
+      "daily_call_queue_done_implies_published_check",
+      sql`${table.status} <> 'done' OR ${table.publishedAt} IS NOT NULL`
+    ),
+  ]
+);
 
 // Stejný vzor jako company_node_activity/lead_activity — jeden sdílený
 // timeline pro poznámky i systémové události, authorName jako snapshot.
