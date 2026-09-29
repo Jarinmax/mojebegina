@@ -1,5 +1,5 @@
 {
-  "id": "15e9ee8b-e547-4bc5-b19a-a2fcd320e176",
+  "id": "ceb86e05-2c4f-425b-8a54-5292237c0e6b",
   "prevId": "d587d877-5482-4959-b992-b94081655842",
   "version": "7",
   "dialect": "postgresql",
@@ -356,7 +356,7 @@
         },
         "added_for_date": {
           "name": "added_for_date",
-          "type": "text",
+          "type": "date",
           "primaryKey": false,
           "notNull": true
         },

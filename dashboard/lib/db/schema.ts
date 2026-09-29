@@ -13,6 +13,7 @@ import {
   integer,
   boolean,
   timestamp,
+  date,
   uniqueIndex,
   index,
   jsonb,
@@ -498,7 +499,11 @@ export const dailyCallQueue = pgTable(
     // Pracovní den (Europe/Prague), pro který byla položka navržena/přidána
     // — čistě informační/řadicí údaj pro rozdělení "Nedokončeno z minula"
     // vs. "Dnešní volání" na straně pracovníka, NENÍ identifikátor seznamu.
-    addedForDate: text("added_for_date").notNull(), // "YYYY-MM-DD" v Europe/Prague
+    // Skutečný DB typ `date` (schváleno explicitně) — mode: "string" jen
+    // určuje, jak Drizzle hodnotu mapuje v JS (string "YYYY-MM-DD", ne
+    // Date objekt), ne typ sloupce v Postgresu. Původní `text` byl omyl,
+    // bez technického důvodu (opraveno na základě revize).
+    addedForDate: date("added_for_date", { mode: "string" }).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedBy: text("published_by"),
     doneAt: timestamp("done_at", { withTimezone: true }),

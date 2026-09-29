@@ -5,7 +5,7 @@ CREATE TABLE "daily_call_queue" (
 	"status" text DEFAULT 'pending' NOT NULL,
 	"source" text NOT NULL,
 	"added_by" text NOT NULL,
-	"added_for_date" text NOT NULL,
+	"added_for_date" date NOT NULL,
 	"published_at" timestamp with time zone,
 	"published_by" text,
 	"done_at" timestamp with time zone,
