@@ -7,7 +7,7 @@ import { expectedCatalogAfterSeed } from "../seedFromCatalog";
 import { generateSeedSql } from "../../../scripts/eshop-seed/generate-seed-sql";
 import { applyMigration, createMigratedDb, migrationSql } from "./helpers/migratedDb";
 
-const SEED = "0012_eshop_1_0_products_seed";
+const SEED = "0013_eshop_1_0_products_seed";
 // Každá testovací DB = PGlite + všechny migrace (~2–3 s).
 const DB_TEST = { timeout: 30_000 };
 
@@ -20,7 +20,7 @@ async function counts(pg: PGlite) {
   return rows[0];
 }
 
-// Sloupce a omezení všech tabulek MIMO produktové — musí být po 0011/0012
+// Sloupce a omezení všech tabulek MIMO produktové — musí být po 0012/0013
 // přesně stejné jako po 0010 (Produkty 1.0 nesmí sáhnout na objednávky,
 // CRM, autentizaci ani Řízení firmy).
 async function existingSchemaSnapshot(pg: PGlite) {
@@ -34,7 +34,7 @@ async function existingSchemaSnapshot(pg: PGlite) {
   return rows;
 }
 
-describe("Produkty 1.0 — migrace 0011 + 0012 na PGlite", DB_TEST, () => {
+describe("Produkty 1.0 — migrace 0012 + 0013 na PGlite", DB_TEST, () => {
   let pg: PGlite;
   let db: Awaited<ReturnType<typeof createMigratedDb>>["db"];
 
@@ -56,7 +56,7 @@ describe("Produkty 1.0 — migrace 0011 + 0012 na PGlite", DB_TEST, () => {
     expect(await loadCatalog(db)).toEqual(expectedCatalogAfterSeed());
   });
 
-  it("migrace 0012 odpovídá aktuálnímu catalog.ts (jinak spustit generátor)", () => {
+  it("migrace 0013 odpovídá aktuálnímu catalog.ts (jinak spustit generátor)", () => {
     expect(migrationSql(SEED)).toBe(generateSeedSql());
   });
 
@@ -75,9 +75,10 @@ describe("Produkty 1.0 — migrace 0011 + 0012 na PGlite", DB_TEST, () => {
 });
 
 describe("Produkty 1.0 — zbytek schématu beze změny", DB_TEST, () => {
-  it("objednávky, CRM, uživatelé a Řízení firmy mají po 0011/0012 stejné sloupce i omezení", async () => {
-    // Jen 0011 + 0012; kroky 3–5 (0013–0015) testuje ordersSchema.test.ts.
-    const before = await createMigratedDb("0010_phase_16_1_leads_company_name_nullable");
+  it("objednávky, CRM, uživatelé a Řízení firmy mají po 0012/0013 stejné sloupce i omezení", async () => {
+    // Jen 0012 + 0013 (základ = 0011 CEO přehled); kroky 3–5 (0014–0016)
+    // testuje ordersSchema.test.ts.
+    const before = await createMigratedDb("0011_phase_17_ceo_focus");
     const after = await createMigratedDb(SEED);
     expect(await existingSchemaSnapshot(after.pg)).toEqual(await existingSchemaSnapshot(before.pg));
   });

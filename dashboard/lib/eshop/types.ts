@@ -1,6 +1,6 @@
 // ESHOP 1.0 — tvar katalogu, se kterým pracuje e-shop za běhu. Plní ho
 // VÝHRADNĚ databáze (catalogDb.ts → loadCatalog). lib/eshop/catalog.ts má
-// vlastní typy a slouží jen jako zdroj prvního naplnění DB (migrace 0012).
+// vlastní typy a slouží jen jako zdroj prvního naplnění DB (migrace 0013).
 //
 // Modul nesmí importovat nic z MojeBegina (lib/data, lib/auth) — e-shop
 // musí jít později oddělit do samostatné aplikace beze změn.

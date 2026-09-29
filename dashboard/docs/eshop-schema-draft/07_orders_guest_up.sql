@@ -1,6 +1,6 @@
 -- NÁVRH ESHOP 1.0 — NESPOUŠTĚT BEZ SCHVÁLENÍ. Viz dashboard/ESHOP_SCHEMA_PROPOSAL.md.
 -- Spouštět nejdřív na Neon branch, nikdy celou složku najednou.
--- Krok 7 (drizzle 0017): objednávka bez organizace (B2C / guest checkout).
+-- Krok 7 (drizzle 0018): objednávka bez organizace (B2C / guest checkout).
 -- SPUSTIT AŽ PO NASAZENÍ KÓDU moje.begina.cz, který umí objednávku bez
 -- organizace zobrazit (viz ESHOP_SCHEMA_PROPOSAL.md, konflikty).
 ALTER TABLE orders ADD CONSTRAINT orders_manual_requires_org

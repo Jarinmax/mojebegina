@@ -1,7 +1,7 @@
 # ESHOP 1.0 — pokladna ukládá objednávky (jen Preview)
 
 Stav (28. 9. 2026): implementováno na větvi `claude/great-bell-ffjwo3`.
-**Žádná nová migrace** — využívá tabulky a sloupce z migrací 0011–0017,
+**Žádná nová migrace** — využívá tabulky a sloupce z migrací 0012–0018,
 které už jsou na Preview větvi Neonu. Produkční `main` beze změny.
 
 ## Co se děje po kliknutí na „Objednat“

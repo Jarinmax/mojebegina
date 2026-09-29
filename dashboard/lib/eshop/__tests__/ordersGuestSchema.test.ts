@@ -1,4 +1,4 @@
-// ESHOP 1.0, kroky 6a + 7 (migrace 0016, 0017): číslo objednávky (zatím
+// ESHOP 1.0, kroky 6a + 7 (migrace 0017, 0018): číslo objednávky (zatím
 // bez řady) a objednávka bez organizace. PGlite se stejnými migracemi jako
 // Neon a daty jako v Preview/produkci. Nikdy se nepřipojuje k Neonu.
 import { readFileSync } from "node:fs";
@@ -8,8 +8,8 @@ import type { PGlite } from "@electric-sql/pglite";
 import { applyMigration, createMigratedDb, migrationTags } from "./helpers/migratedDb";
 
 const DB_TEST = { timeout: 30_000 };
-const BEFORE = "0015_eshop_1_0_order_items_variant";
-const STEPS = ["0016_eshop_1_0_order_number", "0017_eshop_1_0_orders_guest"];
+const BEFORE = "0016_eshop_1_0_order_items_variant";
+const STEPS = ["0017_eshop_1_0_order_number", "0018_eshop_1_0_orders_guest"];
 const ORG = "00000000-0000-4000-8000-000000000001";
 const THE_CUP = ["329f54d5-5a7d-4522-a21e-b7ad9cde24e2", "984e3645-1f2f-4444-8e8e-eeac75165a0a"];
 
@@ -56,7 +56,7 @@ async function otherTablesSchema(pg: PGlite) {
 const guestInsert = (cols: string, vals: string) =>
   `INSERT INTO orders (payment_status, subtotal_kc, total_kc, ${cols}) VALUES ('unpaid', 379, 379, ${vals})`;
 
-describe("kroky 6a + 7 — migrace 0016 a 0017", DB_TEST, () => {
+describe("kroky 6a + 7 — migrace 0017 a 0018", DB_TEST, () => {
   let pg: PGlite;
 
   beforeAll(async () => {
@@ -107,7 +107,7 @@ describe("kroky 6a + 7 — migrace 0016 a 0017", DB_TEST, () => {
     );
   });
 
-  it("ostatní tabulky (položky, historie, CRM, uživatelé, katalog…) mají stejné schéma jako před 0016", async () => {
+  it("ostatní tabulky (položky, historie, CRM, uživatelé, katalog…) mají stejné schéma jako před 0017", async () => {
     const before = await createMigratedDb(BEFORE);
     expect(await otherTablesSchema(pg)).toEqual(await otherTablesSchema(before.pg));
   });

@@ -30,7 +30,7 @@ vypnutá (viz pojistky).
 
 **Proč bez migrace:** id platby a platební stránky jsou v `order_activity.metadata`
 (dohledatelné pro vrácení peněz). Nový sloupec v `orders` by stejně jako
-u 0016 shodil Objednávky v Preview, dokud by se migrace nespustila —
+u 0017 shodil Objednávky v Preview, dokud by se migrace nespustila —
 přidat ho půjde později (reporty), když bude potřeba.
 
 ## Pojistky (Production guard) — `lib/eshop/stripe/config.ts`

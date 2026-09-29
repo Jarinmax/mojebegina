@@ -1,6 +1,6 @@
 -- NÁVRH ESHOP 1.0 — NESPOUŠTĚT BEZ SCHVÁLENÍ. Viz dashboard/ESHOP_SCHEMA_PROPOSAL.md.
 -- Spouštět nejdřív na Neon branch, nikdy celou složku najednou.
--- Krok 2 (drizzle 0012): naplnění katalogu. VYGENEROVÁNO z lib/eshop/catalog.ts (26. 9. 2026),
+-- Krok 2 (drizzle 0013): naplnění katalogu. VYGENEROVÁNO z lib/eshop/catalog.ts (26. 9. 2026),
 -- ručně neupravovat. Idempotentní: opakované spuštění data aktualizuje, neduplikuje.
 
 -- 1) Kategorie

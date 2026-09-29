@@ -1,7 +1,7 @@
 # ESHOP 1.0, kroky 3–5 — objednávky připravené na e-shop
 
 Stav (27. 9. 2026): implementováno na větvi `claude/great-bell-ffjwo3`.
-**Migrace 0013–0015 spuštěné vedením na Neon Preview větvi
+**Migrace 0014–0016 spuštěné vedením na Neon Preview větvi
 `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) a ověřené
 read-only** (3 / 9 / `import: 2` / 2 / 5 / 0, index 1). **Produkční `main`
 beze změny.** Claude má k Neonu jen read-only přístup — migrace spouští
@@ -16,9 +16,9 @@ NOT NULL, e-shop zatím nic neukládá.
 
 | Migrace | Tabulka | Změna |
 |---|---|---|
-| `0013_eshop_1_0_order_activity_actor` | `order_activity` | `actor_type` (`user` / `system` / `customer`, výchozí `user`); `author_user_id` smí být NULL, ale jen u systému a zákazníka (CHECK) |
-| `0014_eshop_1_0_orders_fields` | `orders` | `channel` (`manual` / `eshop` / `import`, výchozí `manual`), `customer_note`, `shipping_method_code/label`, `payment_method_code/label`, `discount_kc` (výchozí 0), `age_confirmed_at`, `terms_accepted_at`; CHECK celkem = zboží − sleva + doprava; 2 objednávky The Cup → `import` (podle id) |
-| `0015_eshop_1_0_order_items_variant` | `order_items` | `product_variant_id` (FK na balení, RESTRICT — prodané balení nejde smazat) + index, `sku_snapshot`; CHECK množství > 0, řádek = množství × cena, vazba ⇒ SKU |
+| `0014_eshop_1_0_order_activity_actor` | `order_activity` | `actor_type` (`user` / `system` / `customer`, výchozí `user`); `author_user_id` smí být NULL, ale jen u systému a zákazníka (CHECK) |
+| `0015_eshop_1_0_orders_fields` | `orders` | `channel` (`manual` / `eshop` / `import`, výchozí `manual`), `customer_note`, `shipping_method_code/label`, `payment_method_code/label`, `discount_kc` (výchozí 0), `age_confirmed_at`, `terms_accepted_at`; CHECK celkem = zboží − sleva + doprava; 2 objednávky The Cup → `import` (podle id) |
+| `0016_eshop_1_0_order_items_variant` | `order_items` | `product_variant_id` (FK na balení, RESTRICT — prodané balení nejde smazat) + index, `sku_snapshot`; CHECK množství > 0, řádek = množství × cena, vazba ⇒ SKU |
 
 Kód: `lib/db/schema.ts` (tytéž sloupce a omezení), `lib/data/orders.ts`
 (historie nese `actorType`), `OrderActivityTimeline.tsx` (záznam bez
@@ -28,7 +28,7 @@ v MojeBegina se nemění — výchozí hodnoty odpovídají dnešnímu chování
 ## ⚠ Pořadí: nejdřív migrace, potom kód
 
 Kód této větve čte nové sloupce `orders` a `order_activity`. **Na
-databázi bez migrací 0013–0015 spadne Řízení firmy (dlaždice objednávek)
+databázi bez migrací 0014–0016 spadne Řízení firmy (dlaždice objednávek)
 i Objednávky.** Starému produkčnímu kódu nové sloupce nevadí (migrace jsou
 zpětně kompatibilní), proto:
 
@@ -62,9 +62,9 @@ Neon Console → projekt mojeBegina-db → větev
    odkazuje). Cokoli jiného → nespouštět a ozvat se.
 
 2. **Migrace** v tomto pořadí, vždy celý obsah souboru:
-   `drizzle/0013_eshop_1_0_order_activity_actor.sql`,
-   `drizzle/0014_eshop_1_0_orders_fields.sql`,
-   `drizzle/0015_eshop_1_0_order_items_variant.sql`.
+   `drizzle/0014_eshop_1_0_order_activity_actor.sql`,
+   `drizzle/0015_eshop_1_0_orders_fields.sql`,
+   `drizzle/0016_eshop_1_0_order_items_variant.sql`.
 
 3. **Kontrola po:**
 
@@ -103,7 +103,7 @@ navázaná na balení (krok 5) — do spuštění e-shopu tedy vždy.
   `539c0724…`), na kterém prošly testy parity s `catalog.ts` i e2e
   v prohlížeči.
 - 272/272 testů (+13 nových na PGlite se skutečnými migracemi
-  0000–0015 a daty jako v produkci): The Cup → `import`, součty a položky
+  0000–0016 a daty jako v produkci): The Cup → `import`, součty a položky
   beze změny; schéma CRM, uživatelů, faktur, Řízení firmy a katalogu beze
   změny; objednávka bez organizace dál odmítnuta; systémový záznam bez
   autora projde, interní ne; e-shopová objednávka (objednávka + položka

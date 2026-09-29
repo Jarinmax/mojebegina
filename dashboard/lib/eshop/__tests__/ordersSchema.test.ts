@@ -1,4 +1,4 @@
-// ESHOP 1.0, kroky 3–5 (migrace 0013–0015): systémový záznam v historii
+// ESHOP 1.0, kroky 3–5 (migrace 0014–0016): systémový záznam v historii
 // objednávky, nová pole `orders`, vazba `order_items` na balení. Vše na
 // PGlite se stejnými migracemi, které se spouštějí na Neonu.
 import { readFileSync } from "node:fs";
@@ -8,11 +8,11 @@ import type { PGlite } from "@electric-sql/pglite";
 import { applyMigration, createMigratedDb, migrationTags } from "./helpers/migratedDb";
 
 const DB_TEST = { timeout: 30_000 };
-const SEED = "0012_eshop_1_0_products_seed";
+const SEED = "0013_eshop_1_0_products_seed";
 const STEPS = [
-  "0013_eshop_1_0_order_activity_actor",
-  "0014_eshop_1_0_orders_fields",
-  "0015_eshop_1_0_order_items_variant",
+  "0014_eshop_1_0_order_activity_actor",
+  "0015_eshop_1_0_orders_fields",
+  "0016_eshop_1_0_order_items_variant",
 ];
 const ORDER_TABLES = ["orders", "order_items", "order_activity"];
 
@@ -72,7 +72,7 @@ describe("kroky 3–5 — pořadí a dopad na existující data", DB_TEST, () =>
     await applySteps(pg);
   }, DB_TEST.timeout);
 
-  it("migrace 0013–0015 jsou v journalu hned po Produktech 1.0", () => {
+  it("migrace 0014–0016 jsou v journalu hned po Produktech 1.0", () => {
     const start = migrationTags.indexOf(SEED) + 1;
     expect(migrationTags.slice(start, start + STEPS.length)).toEqual(STEPS);
   });

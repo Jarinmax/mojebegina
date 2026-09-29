@@ -10,9 +10,17 @@ objednávky z webu budou končit rovnou v Objednávkách MojeBegina.
 
 | | Git větev | Vercel Preview | Neon větev |
 |---|---|---|---|
-| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — migrace 0011–0017 spuštěné |
-| CEO přehled 1.0 | `feature/ceo-focus-1-0` | `mojebegina-git-feature-ceo-focus-1-0-jarin-max.vercel.app` | `preview/feature/ceo-focus-1-0` (`br-restless-smoke-b2fbn0pr`) |
-| Produkce | `main` | `moje.begina.cz` | `main` — e-shopové migrace **nespuštěné** |
+| **E-shop 1.0** | `claude/great-bell-ffjwo3` | `mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app` | `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) — e-shopové migrace 0012–0018 spuštěné |
+| CEO přehled 1.0 | `feature/ceo-focus-1-0` (sloučeno do `main`) | `mojebegina-git-feature-ceo-focus-1-0-jarin-max.vercel.app` | `preview/feature/ceo-focus-1-0` (`br-restless-smoke-b2fbn0pr`) |
+| Produkce | `main` | `moje.begina.cz` | `main` — migrace 0000–0011 (vč. CEO přehledu), e-shopové **nespuštěné** |
+
+**Přečíslování migrací (29. 9. 2026):** do e-shopové větve byl sloučen
+`main` s migrací `0011_phase_17_ceo_focus` (CEO přehled). E-shopové migrace
+se proto posunuly o jedno číslo: dřívější 0011–0017 = dnešní **0012–0018**,
+SQL obsah beze změny (na Preview Neonu už spuštěné pod starými čísly —
+znovu je nespouštět). Snapshoty Drizzle 0012–0018 obsahují i tabulky CEO
+přehledu; souvislost řetězce hlídá `lib/eshop/__tests__/migrationChain.test.ts`.
+Ostatní dokumenty `ESHOP_*.md` už uvádějí nová čísla.
 
 Staré Preview (např. `…-z3ice0-…` = `claude/affectionate-fermi-z3ice0`,
 už sloučená) běží se starým kódem a vlastní testovací DB — netestovat na nich.
@@ -30,7 +38,7 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   skladování, trvanlivost).
 - **Produkty 1.0 (26. 9. 2026): katalog se čte z DB** (tabulky
   `product_categories`, `products`, `product_variants`, `product_images`,
-  migrace 0011 + 0012). `catalog.ts` už jen zdroj prvního naplnění.
+  migrace 0012 + 0013). `catalog.ts` už jen zdroj prvního naplnění.
 - Produkty: 3 polévky (z DB), 4 alkoholické koktejly z begina.cz (Svařák
   Deluxe, Lady Carneval a Kosmopolitan s kompletními texty, Granátový
   Bond bez úvodního popisu a předností).
@@ -41,7 +49,7 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
 - Cena se počítá výhradně na serveru z katalogu (`lib/eshop/pricing.ts`),
   podvržená cena z prohlížeče se ignoruje. Testy v `lib/eshop/__tests__`.
 
-- **Kroky 3–5 (27. 9. 2026, migrace 0013–0015, zatím jen na větvi):**
+- **Kroky 3–5 (27. 9. 2026, migrace 0014–0016, zatím jen na větvi):**
   systémový zápis do historie objednávky (`order_activity.actor_type`),
   nová pole `orders` (kanál, poznámka zákazníka, doprava, platba, sleva,
   souhlasy) a vazba `order_items` na balení/SKU. Postup:
@@ -60,7 +68,7 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   objednávka bez organizace + položky napojené na balení se snapshoty +
   systémový záznam „E-shop“; stav nová / nezaplacená; bez čísla, platby
   a e-mailu. V Production se neukládá. Postup: `ESHOP_POKLADNA_ZAPIS.md`.
-- **Kroky 6a + 7 (28. 9. 2026, migrace 0016–0017, jen na větvi):** číslo
+- **Kroky 6a + 7 (28. 9. 2026, migrace 0017–0018, jen na větvi):** číslo
   objednávky (sloupec, číslování zatím vypnuté) a objednávka bez
   organizace (soukromý zákazník); MojeBegina je umí zobrazit. Postup:
   `ESHOP_OBJEDNAVKY_KROKY_6A_7.md`.

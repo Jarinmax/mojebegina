@@ -1,6 +1,6 @@
 "use client";
 
-// ESHOP 1.0 — katalog se čte z DB. Když DB (nebo migrace 0011/0012 na dané
+// ESHOP 1.0 — katalog se čte z DB. Když DB (nebo migrace 0012/0013 na dané
 // větvi) není dostupná, zákazník uvidí srozumitelnou zprávu, ne chybu 500.
 export default function EshopError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (

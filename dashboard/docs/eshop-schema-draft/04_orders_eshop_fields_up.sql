@@ -1,6 +1,6 @@
 -- NÁVRH ESHOP 1.0 — NESPOUŠTĚT BEZ SCHVÁLENÍ. Viz dashboard/ESHOP_SCHEMA_PROPOSAL.md.
 -- Spouštět nejdřív na Neon branch, nikdy celou složku najednou.
--- Krok 4 (drizzle 0014): nové sloupce objednávky. Defaulty zachovávají
+-- Krok 4 (drizzle 0015): nové sloupce objednávky. Defaulty zachovávají
 -- chování dnešního createOrder (channel = manual, discount_kc = 0).
 ALTER TABLE orders
   ADD COLUMN channel text NOT NULL DEFAULT 'manual',

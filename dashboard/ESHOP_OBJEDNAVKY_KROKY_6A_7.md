@@ -1,9 +1,9 @@
 # ESHOP 1.0, kroky 6a + 7 — číslo objednávky a objednávka bez organizace
 
 Stav (28. 9. 2026): implementováno na větvi `claude/great-bell-ffjwo3`.
-**Migrace 0016 + 0017 spuštěné vedením na Neon Preview větvi
+**Migrace 0017 + 0018 spuštěné vedením na Neon Preview větvi
 `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`) a ověřené
-read-only** (0016: bigint / index 1 / 0 čísel / bez řady; 0017: YES / 2 /
+read-only** (0017: bigint / index 1 / 0 čísel / bez řady; 0018: YES / 2 /
 0 bez organizace / 3 objednávky). **Produkční `main` beze změny.** Claude má k Neonu jen
 read-only přístup — migrace spouští vedení. Návrh: `ESHOP_SCHEMA_PROPOSAL.md`,
 oddíly 3.9 a 3.11.
@@ -15,8 +15,8 @@ až v den přepnutí z WooCommerce).
 
 | Migrace | Změna |
 |---|---|
-| `0016_eshop_1_0_order_number` | `orders.order_number` (bigint, NULL) + jedinečný index `orders_order_number_key`. **Bez řady čísel** — všechny objednávky zůstávají bez čísla. |
-| `0017_eshop_1_0_orders_guest` | `orders.buyer_organization_id` smí být NULL (soukromý zákazník). CHECK `orders_manual_requires_org` (ruční objednávka musí mít organizaci), CHECK `orders_guest_requires_contact` (objednávka bez organizace musí mít e-mail). |
+| `0017_eshop_1_0_order_number` | `orders.order_number` (bigint, NULL) + jedinečný index `orders_order_number_key`. **Bez řady čísel** — všechny objednávky zůstávají bez čísla. |
+| `0018_eshop_1_0_orders_guest` | `orders.buyer_organization_id` smí být NULL (soukromý zákazník). CHECK `orders_manual_requires_org` (ruční objednávka musí mít organizaci), CHECK `orders_guest_requires_contact` (objednávka bez organizace musí mít e-mail). |
 
 Kód MojeBegina:
 - `lib/data/orderBuyer.ts` (nové, bez DB): „Soukromý zákazník“ místo
@@ -34,9 +34,9 @@ Kód MojeBegina:
 ## ⚠ Pořadí
 
 Kód čte sloupec `order_number` → **Objednávky a Řízení firmy v Preview
-spadnou, dokud neproběhne 0016.** Proto 0016 hned po nasazení (nebo
-i před ním — stávajícímu kódu nový sloupec nevadí). 0017 až po ověření, že
-Preview s novým kódem běží. Produkce: 0016 + 0017 před mergem do `main`.
+spadnou, dokud neproběhne 0017.** Proto 0017 hned po nasazení (nebo
+i před ním — stávajícímu kódu nový sloupec nevadí). 0018 až po ověření, že
+Preview s novým kódem běží. Produkce: 0017 + 0018 před mergem do `main`.
 
 ## Postup — Preview větev `preview/claude/great-bell-ffjwo3` (`br-curly-base-b2blmhjg`)
 
@@ -53,7 +53,7 @@ SELECT
   (SELECT count(*) FROM orders) AS objednavky;
    ```
 
-2. **Migrace 0016** — celý obsah `drizzle/0016_eshop_1_0_order_number.sql`:
+2. **Migrace 0017** — celý obsah `drizzle/0017_eshop_1_0_order_number.sql`:
 
    ```sql
 ALTER TABLE "orders" ADD COLUMN "order_number" bigint;--> statement-breakpoint
@@ -74,7 +74,7 @@ SELECT
 
 3. Preview: Řízení firmy → Objednávky → detail se načtou jako dřív.
 
-4. **Migrace 0017** — celý obsah `drizzle/0017_eshop_1_0_orders_guest.sql`:
+4. **Migrace 0018** — celý obsah `drizzle/0018_eshop_1_0_orders_guest.sql`:
 
    ```sql
 ALTER TABLE "orders" ALTER COLUMN "buyer_organization_id" DROP NOT NULL;--> statement-breakpoint
@@ -103,7 +103,7 @@ nikdo neviděl žádné číslo.
 
 ## Ověřeno (bez Neonu)
 
-- 289/289 testů (+17 nových): migrace 0016/0017 na PGlite s daty jako
+- 289/289 testů (+17 nových): migrace 0017/0018 na PGlite s daty jako
   v Preview (existující objednávky beze změny a bez čísla; žádná řada
   čísel, nová objednávka bez čísla; číslo jedinečné; soukromý zákazník
   s e-mailem projde; ruční bez organizace a soukromý bez e-mailu

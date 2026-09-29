@@ -1,6 +1,6 @@
 -- NÁVRH ESHOP 1.0 — NESPOUŠTĚT BEZ SCHVÁLENÍ. Viz dashboard/ESHOP_SCHEMA_PROPOSAL.md.
 -- Spouštět nejdřív na Neon branch, nikdy celou složku najednou.
--- Krok 1 (drizzle 0011): produktové tabulky. Čistě přidává, nic existujícího nemění.
+-- Krok 1 (drizzle 0012): produktové tabulky. Čistě přidává, nic existujícího nemění.
 
 CREATE TABLE product_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

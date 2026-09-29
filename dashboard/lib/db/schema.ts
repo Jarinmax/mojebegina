@@ -128,7 +128,7 @@ export const locations = pgTable("locations", {
 //     samoobslužné rozhraní. Dnes vždy NULL, nezaměňovat s contactName.
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  // ESHOP 1.0, krok 7 (migrace 0017): NULL = soukromý zákazník z e-shopu
+  // ESHOP 1.0, krok 7 (migrace 0018): NULL = soukromý zákazník z e-shopu
   // (bez IČO — žádné falešné organizace). Ruční objednávka organizaci mít
   // musí dál a objednávka bez organizace musí mít e-mail (CHECKy níže).
   buyerOrganizationId: uuid("buyer_organization_id").references(() => organizations.id),
@@ -156,7 +156,7 @@ export const orders = pgTable("orders", {
   orderedAt: timestamp("ordered_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  // ESHOP 1.0, krok 4 (migrace 0014). Defaulty zachovávají chování
+  // ESHOP 1.0, krok 4 (migrace 0015). Defaulty zachovávají chování
   // createOrder: ruční objednávka = channel "manual", sleva 0.
   channel: text("channel").notNull().default("manual"), // "manual" | "eshop" | "import"
   customerNote: text("customer_note"), // od zákazníka; `note` výše je interní
@@ -168,7 +168,7 @@ export const orders = pgTable("orders", {
   discountKc: integer("discount_kc").notNull().default(0),
   ageConfirmedAt: timestamp("age_confirmed_at", { withTimezone: true }), // doklad potvrzení 18+
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }), // souhlas s OP
-  // ESHOP 1.0, krok 6a (migrace 0016) — číslo objednávky, které vidí
+  // ESHOP 1.0, krok 6a (migrace 0017) — číslo objednávky, které vidí
   // zákazník. ZATÍM SE NEČÍSLUJE: sloupec je bez řady (NULL u všech
   // objednávek). Řada `order_number_seq` navazující na WooCommerce (MAX + 1)
   // se zapne až v den přepnutí pokladny (krok 6b). Není to číslo faktury.
@@ -200,7 +200,7 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   unitPriceKc: integer("unit_price_kc").notNull(),
   lineTotalKc: integer("line_total_kc").notNull(),
-  // ESHOP 1.0, krok 5 (migrace 0015). Závazná vazba je UUID balení, ne text
+  // ESHOP 1.0, krok 5 (migrace 0016). Závazná vazba je UUID balení, ne text
   // SKU; prodané balení nejde smazat (RESTRICT), jen deaktivovat. Ruční
   // objednávky (createOrder) dál ukládají NULL. Historie se zobrazuje ze
   // snapshotů (name, sku_snapshot, unit_price_kc), nikdy z živého katalogu.
@@ -403,7 +403,7 @@ export const companyNodeActivity = pgTable(
 // fulfillment/payment stavu, přiřazení odpovědné osoby), authorName jako
 // snapshot v okamžiku zápisu.
 //
-// ESHOP 1.0, krok 3 (migrace 0013) — actor_type: záznam může zapsat
+// ESHOP 1.0, krok 3 (migrace 0014) — actor_type: záznam může zapsat
 // i systém (objednávka z e-shopu) nebo zákazník, ne jen interní uživatel.
 // Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
 // "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
@@ -508,7 +508,7 @@ export const leadActivity = pgTable(
 
 // ESHOP 1.0 — Produkty 1.0 (návrh schválen vedením 26. 9. 2026, viz
 // ESHOP_SCHEMA_PROPOSAL.md). Jediný zdroj pravdy katalogu pro e-shop
-// i MojeBegina; první naplnění z lib/eshop/catalog.ts (migrace 0012).
+// i MojeBegina; první naplnění z lib/eshop/catalog.ts (migrace 0013).
 // Nic se nemaže: kategorie/produkty/balení mají is_active a FK z budoucích
 // objednávek budou RESTRICT. Budoucí receptury, výroba a sklad budou
 // ukazovat NA tyto tabulky, ne naopak.
@@ -643,4 +643,56 @@ export const productImages = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("product_images_product_idx").on(table.productId, table.sortOrder)]
+);
+
+// Security Phase 17 (CEO přehled 1.0) — osobní pracovní prostor pro
+// vedení firmy, ODDĚLENÝ od company_nodes ("Živá mapa firmy"). Stejná
+// data by na company_nodes šla namodelovat technicky, ale ta tabulka je
+// dnes viditelná všem ADMIN/EXECUTIVE (obecná firemní RAG mapa) — CEO
+// přehled má vlastní, mnohem užší okruh čtenářů (viz ceoFocusAuth.ts) a
+// jiný účel (osobní fokus, ne firemní zdraví oblastí). Proto samostatná
+// doména, i když vzor (status/priorita/owner/activity log) je záměrně
+// stejný jako u company_nodes — ne kopie kódu, ale kopie ověřeného vzoru.
+//
+// Plochý seznam (žádný strom, na rozdíl od company_nodes) — CEO přehled
+// je záměrně jen "pár hlavních projektů", ne organizační hierarchie.
+export const focusProjects = pgTable("focus_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  priority: text("priority").notNull().default("medium"), // "low" | "medium" | "high" | "critical"
+  status: text("status").notNull().default("green"), // "green" | "amber" | "red"
+  statusReason: text("status_reason"),
+  description: text("description"), // "Na čem se právě pracuje"
+  nextStep: text("next_step"),
+  ownerUserId: text("owner_user_id"), // "Kdo je na tahu"
+  // Nejvýše jeden řádek smí mít true zároveň — hlídáno v datové vrstvě
+  // (setActiveFocusProject), ne DB constraintem (partial unique index by
+  // šel, ale pro V1.0 stačí aplikační invariant, stejná úroveň jistoty
+  // jako jinde v CRM).
+  isActiveNow: boolean("is_active_now").notNull().default(false),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Stejný vzor jako company_node_activity/lead_activity — jeden sdílený
+// timeline pro poznámky i systémové události, authorName jako snapshot.
+export const focusProjectActivity = pgTable(
+  "focus_project_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => focusProjects.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    // "created" | "updated" (kombinovaný zápis — stav/priorita/popis/další
+    // krok/poznámka, stejný princip jako "call_logged" v CRM) |
+    // "owner_assigned" | "activated"
+    kind: text("kind").notNull(),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
 );

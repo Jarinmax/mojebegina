@@ -1,5 +1,5 @@
 // ESHOP 1.0 — převod lib/eshop/catalog.ts na řádky DB pro první naplnění
-// (migrace 0012, generuje scripts/eshop-seed/generate-seed-sql.ts)
+// (migrace 0013, generuje scripts/eshop-seed/generate-seed-sql.ts)
 // a očekávaný katalog, který musí DB po naplnění vrátit (test parity).
 //
 // catalog.ts se za běhu e-shopu nepoužívá — jen tady.
@@ -89,7 +89,7 @@ export function seedRows() {
   return { categories, products, variants, images };
 }
 
-/** Katalog, který musí loadCatalog() vrátit po naplnění DB migrací 0012. */
+/** Katalog, který musí loadCatalog() vrátit po naplnění DB migrací 0013. */
 export function expectedCatalogAfterSeed(): Catalog {
   const rows = seedRows();
   const productList = seedProducts.map((product) => {
