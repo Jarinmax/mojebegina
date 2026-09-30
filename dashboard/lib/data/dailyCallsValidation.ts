@@ -107,6 +107,21 @@ export function candidatesToAdd(currentPendingCount: number, candidates: Candida
   return [...candidates].sort(compareCandidates).slice(0, remaining);
 }
 
+// Stejný limit vynucený i pro RUČNÍ přidání (bug nahlášený na Preview:
+// automatický návrh limit respektoval přes candidatesToAdd výše, ruční
+// přidání v dailyCalls.ts:addManualCandidate ho nekontrolovalo vůbec —
+// fronta mohla přerůst 10/10). Vytčeno jako čistá funkce, aby šlo
+// otestovat bez databáze; addManualCandidate ji volá PŘED insertem.
+export function canAddManualCandidate(currentPendingCount: number): { ok: true } | { ok: false; error: string } {
+  if (currentPendingCount >= MAX_QUEUE_SIZE) {
+    return {
+      ok: false,
+      error: `Fronta už obsahuje maximálních ${MAX_QUEUE_SIZE} kontaktů. Nejdřív některý odeberte.`,
+    };
+  }
+  return { ok: true };
+}
+
 // Europe/Prague datum jako "YYYY-MM-DD" (bez závislosti na timezone
 // knihovně — Intl.DateTimeFormat s en-CA locale dává přímo ISO tvar,
 // DST-aware). Používá se pro `added_for_date` a pro hranici "dnes" v

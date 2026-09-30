@@ -10,8 +10,21 @@ const initialState: ActionState = null;
 // lead vznikne jako DRAFT (published_at NULL) — schváleno explicitně,
 // oprava zveřejněné fronty je "odebrat → přidat náhradu do draftu →
 // zveřejnit", ne okamžité zviditelnění.
-export default function AddLeadToListForm({ options }: { options: LeadOption[] }) {
+//
+// `isFull` jen skrývá/blokuje ovládání v UI — skutečná ochrana proti
+// překročení limitu je v datové vrstvě (dailyCalls.ts:addManualCandidate
+// volá canAddManualCandidate PŘED zápisem), tohle je jen lepší UX, aby
+// uživatel neklikal na akci, která stejně skončí chybou.
+export default function AddLeadToListForm({ options, isFull }: { options: LeadOption[]; isFull: boolean }) {
   const [state, formAction, pending] = useActionState(addManualCandidateAction, initialState);
+
+  if (isFull) {
+    return (
+      <p className="text-sm text-neutral-500">
+        Fronta už obsahuje maximálních 10 kontaktů. Nejdřív některý odeberte.
+      </p>
+    );
+  }
 
   if (options.length === 0) {
     return null;

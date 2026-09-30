@@ -73,7 +73,7 @@ async function CuratorSections() {
             </form>
           )}
         </div>
-        <AddLeadToListForm options={manualOptions} />
+        <AddLeadToListForm options={manualOptions} isFull={totalPending >= 10} />
       </div>
 
       {draft.length > 0 && (

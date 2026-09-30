@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateDailyCallOutcomeInput,
   candidatesToAdd,
+  canAddManualCandidate,
   interpretCallLogOutcome,
   swapAdjacent,
   pragueDateString,
@@ -119,6 +120,31 @@ describe("candidatesToAdd — Security Phase 19", () => {
     const a = candidate("aaaa", sameTime);
     const b = candidate("bbbb", sameTime);
     expect(candidatesToAdd(0, [b, a]).map((c) => c.id)).toEqual(["aaaa", "bbbb"]);
+  });
+});
+
+// Regrese na bug nahlášený na Preview: ruční přidání limit MAX_QUEUE_SIZE
+// nekontrolovalo vůbec (na rozdíl od automatického návrhu přes
+// candidatesToAdd výše), fronta mohla přerůst 10/10.
+describe("canAddManualCandidate — Security Phase 19", () => {
+  it("při 10 pending položkách (MAX_QUEUE_SIZE) nelze přidat jedenáctou", () => {
+    const result = canAddManualCandidate(MAX_QUEUE_SIZE);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("Fronta už obsahuje maximálních 10 kontaktů. Nejdřív některý odeberte.");
+    }
+  });
+
+  it("nad limitem (např. po souběžném zápisu) je také DENY", () => {
+    expect(canAddManualCandidate(MAX_QUEUE_SIZE + 1).ok).toBe(false);
+  });
+
+  it("pod limitem je povoleno", () => {
+    expect(canAddManualCandidate(MAX_QUEUE_SIZE - 1)).toEqual({ ok: true });
+  });
+
+  it("prázdná fronta je povolena", () => {
+    expect(canAddManualCandidate(0)).toEqual({ ok: true });
   });
 });
 

@@ -30,6 +30,7 @@ import {
 import { ACTIVE_LEAD_STAGES, leadDisplayName, type LeadStage } from "./leadValidation";
 import {
   candidatesToAdd,
+  canAddManualCandidate,
   interpretCallLogOutcome,
   pragueDateString,
   swapAdjacent,
@@ -296,6 +297,15 @@ export async function listManualCandidateOptions(): Promise<LeadOption[]> {
 // zviditelnění).
 export async function addManualCandidate(leadId: string): Promise<DailyCallResult> {
   const ctx = await requireDailyCallCuratorContext();
+
+  // Bug nahlášený na Preview: automatický návrh limit MAX_QUEUE_SIZE
+  // respektoval (candidatesToAdd), ruční přidání ne — fronta mohla
+  // přerůst 10/10. Kontrola v datové vrstvě, ne jen vypnuté tlačítko v UI.
+  const pendingCount = await currentPendingCount();
+  const capCheck = canAddManualCandidate(pendingCount);
+  if (!capCheck.ok) {
+    return capCheck;
+  }
 
   const [lead] = await db
     .select({ id: leads.id, stage: leads.stage, contactPhone: leads.contactPhone })
