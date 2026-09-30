@@ -40,7 +40,8 @@ export default function AddLeadToListForm({ options, isFull }: { options: LeadOp
           id="leadId"
           name="leadId"
           defaultValue=""
-          className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
+          disabled={pending}
+          className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white disabled:opacity-50"
         >
           <option value="" disabled>
             Vyberte lead…

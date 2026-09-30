@@ -2,6 +2,16 @@
 
 // Security Phase 19 (Denní volání 1.0) — sdílená "use server" hranice,
 // stejný princip jako ../actions.ts. Logika žije v lib/data/dailyCalls.ts.
+//
+// Bug nahlášený na Preview: "Odebrat" a ostatní akční tlačítka (Přidat,
+// Navrhnout, šipky pořadí, Zveřejnit) nedávaly po kliknutí žádnou
+// viditelnou odezvu, takže šlo odeslat akci podruhé dřív, než doběhla
+// první (dvojklik odebral dvě položky místo jedné). Všechny akce teď mají
+// tvar (state, formData) => ActionState kompatibilní s useActionState,
+// aby volající klientská komponenta uměla tlačítko po prvním kliknutí
+// deaktivovat a zobrazit stav probíhající akce — a zároveň se předtím
+// tiše zahazovaný `{ ok: false, error }` výsledek z dailyCalls.ts teď
+// skutečně dostane až k uživateli.
 import { revalidatePath } from "next/cache";
 import {
   generateDraftCandidates,
@@ -19,9 +29,11 @@ function revalidateDailyCalls() {
   revalidatePath("/rizeni-firmy/obchod/dnes");
 }
 
-export async function generateDraftCandidatesAction(): Promise<void> {
-  await generateDraftCandidates();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function generateDraftCandidatesAction(_prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await generateDraftCandidates();
   revalidateDailyCalls();
+  return result.added > 0 ? { success: `Navrženo ${result.added} nových kontaktů.` } : { success: "Není co navrhnout — žádný vhodný kandidát." };
 }
 
 export async function addManualCandidateAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -39,24 +51,41 @@ export async function addManualCandidateAction(_prevState: ActionState, formData
   return { success: "Lead byl přidán do návrhu." };
 }
 
-export async function removeQueueItemAction(itemId: string): Promise<void> {
-  await removeQueueItem(itemId);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function removeQueueItemAction(itemId: string, _prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await removeQueueItem(itemId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
   revalidateDailyCalls();
+  return null;
 }
 
-export async function publishDraftAction(): Promise<void> {
-  await publishDraft();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function publishDraftAction(_prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await publishDraft();
   revalidateDailyCalls();
+  return { success: `Zveřejněno ${result.published} kontaktů.` };
 }
 
-export async function moveQueueItemUpAction(itemId: string): Promise<void> {
-  await moveQueueItemUp(itemId);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function moveQueueItemUpAction(itemId: string, _prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await moveQueueItemUp(itemId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
   revalidateDailyCalls();
+  return null;
 }
 
-export async function moveQueueItemDownAction(itemId: string): Promise<void> {
-  await moveQueueItemDown(itemId);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function moveQueueItemDownAction(itemId: string, _prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await moveQueueItemDown(itemId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
   revalidateDailyCalls();
+  return null;
 }
 
 export async function logDailyCallOutcomeAction(

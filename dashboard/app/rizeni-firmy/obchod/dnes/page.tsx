@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import { getCuratorQueueView, getWorkerQueueView, listManualCandidateOptions } from "@/lib/data/dailyCalls";
-import { generateDraftCandidatesAction, publishDraftAction } from "./actions";
 import QueueItemCard from "./QueueItemCard";
 import CuratorItemControls from "./CuratorItemControls";
 import CallOutcomeForm from "./CallOutcomeForm";
 import AddLeadToListForm from "./AddLeadToListForm";
+import GenerateCandidatesButton from "./GenerateCandidatesButton";
+import PublishDraftButton from "./PublishDraftButton";
 
 export const dynamic = "force-dynamic";
 
@@ -62,16 +63,7 @@ async function CuratorSections() {
           <p className="text-sm text-neutral-600">
             Ve frontě: <span className="font-medium text-begina-primary-900">{totalPending} / 10</span>
           </p>
-          {totalPending < 10 && (
-            <form action={generateDraftCandidatesAction}>
-              <button
-                type="submit"
-                className="text-sm font-medium text-begina-primary-900 border border-begina-primary-300 rounded-lg px-4 py-2"
-              >
-                Navrhnout dnešní kontakty
-              </button>
-            </form>
-          )}
+          {totalPending < 10 && <GenerateCandidatesButton />}
         </div>
         <AddLeadToListForm options={manualOptions} isFull={totalPending >= 10} />
       </div>
@@ -80,14 +72,7 @@ async function CuratorSections() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-medium text-begina-primary-900">Návrh k potvrzení ({draft.length})</h2>
-            <form action={publishDraftAction}>
-              <button
-                type="submit"
-                className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2"
-              >
-                Zveřejnit návrh
-              </button>
-            </form>
+            <PublishDraftButton />
           </div>
           <div className="flex flex-col gap-2">
             {draft.map((item, i) => (
