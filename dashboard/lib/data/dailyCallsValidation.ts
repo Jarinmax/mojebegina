@@ -85,6 +85,36 @@ export const MAX_QUEUE_SIZE = 10;
 
 export type CandidateLeadRow = { id: string; createdAt: Date };
 
+// Security Phase 19.1 — oprava pravidla automatického výběru po auditu
+// Preview dat: `stage IN ACTIVE_LEAD_STAGES` bylo příliš široké. Leady ve
+// fázi contacted/sample_offer/callback_later/interested mají
+// `lastContactedAt` skoro vždy NULL jen proto, že import historická data
+// zapsal jako volný text do poznámky (`lead_activity.kind='created'`),
+// nikdy do `lastContactedAt` — to pole nastavuje výhradně logCallOutcome
+// (skutečný zápis hovoru v appce). Jediná fáze, která opravdu znamená
+// "ještě nikdo nezasáhl", je 'new'. Schváleno explicitně: NEdomýšlet nic
+// navíc z poznámek ani neupravovat importovaná data automaticky —
+// pravidlo je čistě stage='new' AND lastContactedAt IS NULL AND
+// owner=Blahout AND neprázdný telefon.
+export type AutoCandidateLeadRow = {
+  id: string;
+  stage: string;
+  contactPhone: string | null;
+  lastContactedAt: Date | null;
+  ownerUserId: string | null;
+  createdAt: Date;
+};
+
+export function isEligibleAutoCandidate(lead: AutoCandidateLeadRow, ownerUserId: string): boolean {
+  return (
+    lead.stage === "new" &&
+    lead.lastContactedAt === null &&
+    lead.ownerUserId === ownerUserId &&
+    lead.contactPhone !== null &&
+    lead.contactPhone.trim() !== ""
+  );
+}
+
 // Deterministické řazení kandidátů pro automatický návrh — od nejstaršího
 // createdAt, stabilní tiebreak na id (stejný princip jako
 // compareLeadsForList/compareFocusProjectsForList).

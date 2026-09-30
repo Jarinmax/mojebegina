@@ -3,11 +3,13 @@ import {
   validateDailyCallOutcomeInput,
   candidatesToAdd,
   canAddManualCandidate,
+  isEligibleAutoCandidate,
   interpretCallLogOutcome,
   swapAdjacent,
   pragueDateString,
   MAX_QUEUE_SIZE,
   type CandidateLeadRow,
+  type AutoCandidateLeadRow,
 } from "../dailyCallsValidation";
 
 function baseOutcome(overrides: Partial<Parameters<typeof validateDailyCallOutcomeInput>[0]> = {}) {
@@ -120,6 +122,71 @@ describe("candidatesToAdd — Security Phase 19", () => {
     const a = candidate("aaaa", sameTime);
     const b = candidate("bbbb", sameTime);
     expect(candidatesToAdd(0, [b, a]).map((c) => c.id)).toEqual(["aaaa", "bbbb"]);
+  });
+});
+
+const BLAHOUT_ID = "06240ac4-c050-47ea-998c-6c81389edf9f";
+
+function autoCandidate(overrides: Partial<AutoCandidateLeadRow> = {}): AutoCandidateLeadRow {
+  return {
+    id: "lead-1",
+    stage: "new",
+    contactPhone: "+420 777 123 456",
+    lastContactedAt: null,
+    ownerUserId: BLAHOUT_ID,
+    createdAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+// Security Phase 19.1 — oprava pravidla po auditu Preview dat: leady ve
+// fázi contacted/sample_offer/callback_later/interested mají
+// lastContactedAt skoro vždy NULL jen kvůli tomu, jak import zapsal
+// historii (viz komentář u isEligibleAutoCandidate). Jediná spolehlivá
+// fáze je 'new'.
+describe("isEligibleAutoCandidate — Security Phase 19.1", () => {
+  it("lead ve fázi 'new', bez kontaktu, s telefonem, patřící Blahoutovi — projde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate(), BLAHOUT_ID)).toBe(true);
+  });
+
+  it("fáze 'contacted' (i s lastContactedAt NULL) NEprojde — regrese na chybu z Preview", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ stage: "contacted" }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("fáze 'callback_later' NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ stage: "callback_later" }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("fáze 'sample_offer' NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ stage: "sample_offer" }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("fáze 'interested' NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ stage: "interested" }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("lastContactedAt vyplněné NEprojde, i kdyby byla fáze 'new'", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ lastContactedAt: new Date() }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("jiný vlastník než Blahout NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ ownerUserId: "jiny-user-id" }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("bez vlastníka (NULL) NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ ownerUserId: null }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("prázdný telefon NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ contactPhone: "" }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("telefon jen z mezer NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ contactPhone: "   " }), BLAHOUT_ID)).toBe(false);
+  });
+
+  it("chybějící telefon (NULL) NEprojde", () => {
+    expect(isEligibleAutoCandidate(autoCandidate({ contactPhone: null }), BLAHOUT_ID)).toBe(false);
   });
 });
 

@@ -32,6 +32,7 @@ import {
   candidatesToAdd,
   canAddManualCandidate,
   interpretCallLogOutcome,
+  isEligibleAutoCandidate,
   pragueDateString,
   swapAdjacent,
   validateDailyCallOutcomeInput,
@@ -203,11 +204,14 @@ async function nextPosition(): Promise<number> {
   return (row?.maxPosition ?? -1) + 1;
 }
 
-// Automatický návrh — vybírá VÝHRADNĚ aktivní leady přiřazené Blahoutovi,
-// bez prvního kontaktu, s telefonem, ještě ne ve frontě (schváleno
-// explicitně, bod 3/6). Doplní jen do MAX_QUEUE_SIZE dohromady se vším, co
-// je už `pending` (staré nedokončené i drafty). Nové položky vznikají VŽDY
-// jako draft (published_at NULL) — schváleno explicitně, bod 2.
+// Automatický návrh — vybírá VÝHRADNĚ leady přiřazené Blahoutovi ve fázi
+// 'new', bez prvního kontaktu, s telefonem, ještě ne ve frontě (schváleno
+// explicitně po auditu Preview dat, Security Phase 19.1 — viz
+// isEligibleAutoCandidate). Pravidlo je záměrně vytčené jako čistá funkce
+// a aplikované v JS (ne jen v SQL WHERE), aby šlo nezávisle otestovat bez
+// databáze. Doplní jen do MAX_QUEUE_SIZE dohromady se vším, co je už
+// `pending` (staré nedokončené i drafty). Nové položky vznikají VŽDY jako
+// draft (published_at NULL) — schváleno explicitně, bod 2.
 export async function generateDraftCandidates(): Promise<{ ok: true; added: number }> {
   const ctx = await requireDailyCallCuratorContext();
 
@@ -217,14 +221,18 @@ export async function generateDraftCandidates(): Promise<{ ok: true; added: numb
   }
 
   const candidateRows = await db
-    .select({ id: leads.id, createdAt: leads.createdAt })
+    .select({
+      id: leads.id,
+      stage: leads.stage,
+      contactPhone: leads.contactPhone,
+      lastContactedAt: leads.lastContactedAt,
+      ownerUserId: leads.ownerUserId,
+      createdAt: leads.createdAt,
+    })
     .from(leads)
     .where(
       and(
         eq(leads.ownerUserId, DAILY_CALL_LEAD_OWNER_USER_ID),
-        inArray(leads.stage, ACTIVE_LEAD_STAGES),
-        sql`${leads.contactPhone} IS NOT NULL AND btrim(${leads.contactPhone}) <> ''`,
-        sql`${leads.lastContactedAt} IS NULL`,
         notInArray(
           leads.id,
           db.select({ id: dailyCallQueue.leadId }).from(dailyCallQueue).where(eq(dailyCallQueue.status, "pending"))
@@ -232,7 +240,8 @@ export async function generateDraftCandidates(): Promise<{ ok: true; added: numb
       )
     );
 
-  const toAdd = candidatesToAdd(pendingCount, candidateRows);
+  const eligible = candidateRows.filter((lead) => isEligibleAutoCandidate(lead, DAILY_CALL_LEAD_OWNER_USER_ID));
+  const toAdd = candidatesToAdd(pendingCount, eligible);
   if (toAdd.length === 0) {
     return { ok: true, added: 0 };
   }
@@ -375,6 +384,25 @@ export async function publishDraft(): Promise<{ ok: true; published: number }> {
     .returning({ id: dailyCallQueue.id });
 
   return { ok: true, published: updated.length };
+}
+
+// Zahodí CELÝ aktuální draft najednou — jediná akce kurátora pro "zrušit
+// návrh, který vznikl podle starého/chybného pravidla, a začít znovu".
+// WHERE je záměrně STEJNÉ jako u publishDraft (status='pending' AND
+// published_at IS NULL) — zasahuje jen draft, nikdy položky, které jsou
+// už zveřejněné (published_at NOT NULL), dokončené (status='done') nebo
+// dřív odebrané (status='removed'). Odebrané leady se uvolní pro příští
+// automatický návrh stejně jako při jednotlivém odebrání.
+export async function discardDraft(): Promise<{ ok: true; discarded: number }> {
+  const ctx = await requireDailyCallCuratorContext();
+
+  const updated = await db
+    .update(dailyCallQueue)
+    .set({ status: "removed", removedAt: new Date(), removedBy: ctx.userId, updatedAt: new Date() })
+    .where(and(eq(dailyCallQueue.status, "pending"), sql`${dailyCallQueue.publishedAt} IS NULL`))
+    .returning({ id: dailyCallQueue.id });
+
+  return { ok: true, discarded: updated.length };
 }
 
 // --- Přeřazení pořadí (jen mezi nevyřízenými položkami) -------------------
