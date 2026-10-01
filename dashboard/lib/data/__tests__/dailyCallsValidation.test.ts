@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   validateDailyCallOutcomeInput,
-  candidatesToAdd,
   canAddManualCandidate,
-  isEligibleAutoCandidate,
+  classifyAutoCandidate,
+  orderAutoCandidates,
+  autoCandidatesToAdd,
   interpretCallLogOutcome,
   swapAdjacent,
   pragueDateString,
   MAX_QUEUE_SIZE,
-  type CandidateLeadRow,
+  FOLLOW_UP_COOLDOWN_DAYS,
   type AutoCandidateLeadRow,
 } from "../dailyCallsValidation";
 
@@ -88,105 +89,129 @@ describe("validateDailyCallOutcomeInput — Security Phase 19", () => {
   });
 });
 
-function candidate(id: string, createdAt: string): CandidateLeadRow {
-  return { id, createdAt: new Date(createdAt) };
-}
-
-describe("candidatesToAdd — Security Phase 19", () => {
-  it("doplní jen do MAX_QUEUE_SIZE, ne víc", () => {
-    const candidates = Array.from({ length: 20 }, (_, i) => candidate(`id-${i}`, `2026-01-${(i % 28) + 1}`));
-    const result = candidatesToAdd(0, candidates);
-    expect(result).toHaveLength(MAX_QUEUE_SIZE);
-  });
-
-  it("respektuje počet už nevyřízených položek", () => {
-    const candidates = Array.from({ length: 5 }, (_, i) => candidate(`id-${i}`, "2026-01-01"));
-    expect(candidatesToAdd(7, candidates)).toHaveLength(3);
-  });
-
-  it("fronta už plná (>= 10) → nic nepřidá", () => {
-    const candidates = [candidate("a", "2026-01-01")];
-    expect(candidatesToAdd(10, candidates)).toHaveLength(0);
-    expect(candidatesToAdd(12, candidates)).toHaveLength(0);
-  });
-
-  it("řadí od nejstaršího createdAt", () => {
-    const older = candidate("older", "2026-01-01");
-    const newer = candidate("newer", "2026-06-01");
-    const result = candidatesToAdd(0, [newer, older]);
-    expect(result.map((c) => c.id)).toEqual(["older", "newer"]);
-  });
-
-  it("stabilní tiebreak na id při shodném createdAt", () => {
-    const sameTime = "2026-01-01T00:00:00Z";
-    const a = candidate("aaaa", sameTime);
-    const b = candidate("bbbb", sameTime);
-    expect(candidatesToAdd(0, [b, a]).map((c) => c.id)).toEqual(["aaaa", "bbbb"]);
-  });
-});
-
-const BLAHOUT_ID = "06240ac4-c050-47ea-998c-6c81389edf9f";
+const NOW = new Date("2026-10-01T10:00:00.000Z"); // Europe/Prague: 2026-10-01 12:00 (CEST)
 
 function autoCandidate(overrides: Partial<AutoCandidateLeadRow> = {}): AutoCandidateLeadRow {
   return {
     id: "lead-1",
-    stage: "new",
-    contactPhone: "+420 777 123 456",
     lastContactedAt: null,
-    ownerUserId: BLAHOUT_ID,
+    nextFollowUpAt: null,
     createdAt: new Date("2026-01-01"),
     ...overrides,
   };
 }
 
-// Security Phase 19.1 — oprava pravidla po auditu Preview dat: leady ve
-// fázi contacted/sample_offer/callback_later/interested mají
-// lastContactedAt skoro vždy NULL jen kvůli tomu, jak import zapsal
-// historii (viz komentář u isEligibleAutoCandidate). Jediná spolehlivá
-// fáze je 'new'.
-describe("isEligibleAutoCandidate — Security Phase 19.1", () => {
-  it("lead ve fázi 'new', bez kontaktu, s telefonem, patřící Blahoutovi — projde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate(), BLAHOUT_ID)).toBe(true);
+// Security Phase 19.2 — třívrstvé pravidlo schválené po druhé revizi:
+// dřívější kontakt leada NEVYLUČUJE (pořád potenciální zákazník), jen ho
+// zařadí do jiné vrstvy a chrání 30denní lhůtou. Závazné pořadí
+// vyhodnocení: budoucí nextFollowUpAt vyřazuje PŘED čímkoliv dalším.
+describe("classifyAutoCandidate — Security Phase 19.2", () => {
+  it("lead bez kontaktu, bez termínu → tier2", () => {
+    expect(classifyAutoCandidate(autoCandidate(), NOW)).toBe("tier2");
   });
 
-  it("fáze 'contacted' (i s lastContactedAt NULL) NEprojde — regrese na chybu z Preview", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ stage: "contacted" }), BLAHOUT_ID)).toBe(false);
+  it("nextFollowUpAt dnes → tier1", () => {
+    const lead = autoCandidate({ nextFollowUpAt: new Date("2026-10-01T12:00:00.000Z") });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("tier1");
   });
 
-  it("fáze 'callback_later' NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ stage: "callback_later" }), BLAHOUT_ID)).toBe(false);
+  it("nextFollowUpAt v minulosti (po termínu) → tier1", () => {
+    const lead = autoCandidate({ nextFollowUpAt: new Date("2026-09-20T12:00:00.000Z") });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("tier1");
   });
 
-  it("fáze 'sample_offer' NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ stage: "sample_offer" }), BLAHOUT_ID)).toBe(false);
+  it("DŮLEŽITÉ: lastContactedAt=NULL, ale nextFollowUpAt v budoucnu → excluded, NESMÍ spadnout do tier2", () => {
+    const lead = autoCandidate({
+      lastContactedAt: null,
+      nextFollowUpAt: new Date("2026-10-15T12:00:00.000Z"),
+    });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("excluded");
   });
 
-  it("fáze 'interested' NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ stage: "interested" }), BLAHOUT_ID)).toBe(false);
+  it("nextFollowUpAt v budoucnu i s vyplněným lastContactedAt → excluded (respektuje domluvený termín)", () => {
+    const lead = autoCandidate({
+      lastContactedAt: new Date("2026-08-01"),
+      nextFollowUpAt: new Date("2026-10-15T12:00:00.000Z"),
+    });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("excluded");
   });
 
-  it("lastContactedAt vyplněné NEprojde, i kdyby byla fáze 'new'", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ lastContactedAt: new Date() }), BLAHOUT_ID)).toBe(false);
+  it("bez termínu, lastContactedAt přesně 30 dní zpátky → tier3 (lhůta uplynula)", () => {
+    const lead = autoCandidate({ lastContactedAt: new Date(NOW.getTime() - FOLLOW_UP_COOLDOWN_DAYS * 86400000) });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("tier3");
   });
 
-  it("jiný vlastník než Blahout NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ ownerUserId: "jiny-user-id" }), BLAHOUT_ID)).toBe(false);
+  it("bez termínu, lastContactedAt 29 dní zpátky → excluded (lhůta ještě neuplynula)", () => {
+    const lead = autoCandidate({ lastContactedAt: new Date(NOW.getTime() - 29 * 86400000) });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("excluded");
   });
 
-  it("bez vlastníka (NULL) NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ ownerUserId: null }), BLAHOUT_ID)).toBe(false);
+  it("bez termínu, lastContactedAt dávno v minulosti → tier3", () => {
+    const lead = autoCandidate({ lastContactedAt: new Date("2026-01-01") });
+    expect(classifyAutoCandidate(lead, NOW)).toBe("tier3");
+  });
+});
+
+describe("orderAutoCandidates — Security Phase 19.2", () => {
+  it("pořadí vrstev je vždy tier1 → tier2 → tier3, excluded se nikam nezařadí", () => {
+    const t1 = autoCandidate({ id: "t1", nextFollowUpAt: new Date("2026-09-25T12:00:00.000Z") });
+    const t2 = autoCandidate({ id: "t2" });
+    const t3 = autoCandidate({ id: "t3", lastContactedAt: new Date("2026-01-01") });
+    const excluded = autoCandidate({ id: "excluded", lastContactedAt: new Date(NOW.getTime() - 5 * 86400000) });
+
+    const result = orderAutoCandidates([t3, excluded, t2, t1], NOW);
+    expect(result.map((c) => c.id)).toEqual(["t1", "t2", "t3"]);
   });
 
-  it("prázdný telefon NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ contactPhone: "" }), BLAHOUT_ID)).toBe(false);
+  it("tier1 se řadí od nejvíc prošlého termínu", () => {
+    const soon = autoCandidate({ id: "soon", nextFollowUpAt: new Date("2026-10-01T12:00:00.000Z") });
+    const overdue = autoCandidate({ id: "overdue", nextFollowUpAt: new Date("2026-09-01T12:00:00.000Z") });
+    const result = orderAutoCandidates([soon, overdue], NOW);
+    expect(result.map((c) => c.id)).toEqual(["overdue", "soon"]);
   });
 
-  it("telefon jen z mezer NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ contactPhone: "   " }), BLAHOUT_ID)).toBe(false);
+  it("tier2 se řadí od nejstaršího createdAt", () => {
+    const older = autoCandidate({ id: "older", createdAt: new Date("2026-01-01") });
+    const newer = autoCandidate({ id: "newer", createdAt: new Date("2026-06-01") });
+    expect(orderAutoCandidates([newer, older], NOW).map((c) => c.id)).toEqual(["older", "newer"]);
   });
 
-  it("chybějící telefon (NULL) NEprojde", () => {
-    expect(isEligibleAutoCandidate(autoCandidate({ contactPhone: null }), BLAHOUT_ID)).toBe(false);
+  it("tier3 se řadí od nejstaršího lastContactedAt (nejdéle nekontaktovaný první)", () => {
+    const longAgo = autoCandidate({ id: "long-ago", lastContactedAt: new Date("2026-01-01") });
+    const lessLongAgo = autoCandidate({ id: "less-long-ago", lastContactedAt: new Date("2026-06-01") });
+    expect(orderAutoCandidates([lessLongAgo, longAgo], NOW).map((c) => c.id)).toEqual(["long-ago", "less-long-ago"]);
+  });
+
+  it("stabilní tiebreak na id uvnitř každé vrstvy", () => {
+    const sameCreatedAt = new Date("2026-01-01");
+    const b = autoCandidate({ id: "bbbb", createdAt: sameCreatedAt });
+    const a = autoCandidate({ id: "aaaa", createdAt: sameCreatedAt });
+    expect(orderAutoCandidates([b, a], NOW).map((c) => c.id)).toEqual(["aaaa", "bbbb"]);
+  });
+});
+
+describe("autoCandidatesToAdd — Security Phase 19.2", () => {
+  it("doplní jen do MAX_QUEUE_SIZE, ne víc", () => {
+    const candidates = Array.from({ length: 20 }, (_, i) =>
+      autoCandidate({ id: `id-${i}`, createdAt: new Date(`2026-01-${(i % 28) + 1}`) })
+    );
+    expect(autoCandidatesToAdd(0, candidates, NOW)).toHaveLength(MAX_QUEUE_SIZE);
+  });
+
+  it("respektuje počet už nevyřízených položek", () => {
+    const candidates = Array.from({ length: 5 }, (_, i) => autoCandidate({ id: `id-${i}` }));
+    expect(autoCandidatesToAdd(7, candidates, NOW)).toHaveLength(3);
+  });
+
+  it("fronta už plná (>= 10) → nic nepřidá", () => {
+    const candidates = [autoCandidate()];
+    expect(autoCandidatesToAdd(10, candidates, NOW)).toHaveLength(0);
+    expect(autoCandidatesToAdd(12, candidates, NOW)).toHaveLength(0);
+  });
+
+  it("excluded kandidáti se nepočítají do doplnění, i kdyby byli jediní v poolu", () => {
+    const excluded = autoCandidate({ lastContactedAt: new Date(NOW.getTime() - 5 * 86400000) });
+    expect(autoCandidatesToAdd(0, [excluded], NOW)).toHaveLength(0);
   });
 });
 

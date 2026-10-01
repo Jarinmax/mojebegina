@@ -9,7 +9,6 @@ import CallOutcomeForm from "./CallOutcomeForm";
 import AddLeadToListForm from "./AddLeadToListForm";
 import GenerateCandidatesButton from "./GenerateCandidatesButton";
 import PublishDraftButton from "./PublishDraftButton";
-import DiscardDraftButton from "./DiscardDraftButton";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +72,7 @@ async function CuratorSections() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-medium text-begina-primary-900">Návrh k potvrzení ({draft.length})</h2>
-            <div className="flex items-center gap-2">
-              <DiscardDraftButton draftCount={draft.length} />
-              <PublishDraftButton />
-            </div>
+            <PublishDraftButton />
           </div>
           <div className="flex flex-col gap-2">
             {draft.map((item, i) => (

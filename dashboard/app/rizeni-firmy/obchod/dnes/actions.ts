@@ -18,7 +18,6 @@ import {
   addManualCandidate,
   removeQueueItem,
   publishDraft,
-  discardDraft,
   moveQueueItemUp,
   moveQueueItemDown,
   logDailyCallOutcome,
@@ -67,13 +66,6 @@ export async function publishDraftAction(_prevState: ActionState, _formData: For
   const result = await publishDraft();
   revalidateDailyCalls();
   return { success: `Zveřejněno ${result.published} kontaktů.` };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
-export async function discardDraftAction(_prevState: ActionState, _formData: FormData): Promise<ActionState> {
-  const result = await discardDraft();
-  revalidateDailyCalls();
-  return { success: `Zahozeno ${result.discarded} položek návrhu.` };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole

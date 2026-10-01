@@ -83,58 +83,100 @@ export function validateDailyCallOutcomeInput(
 // + drafty + zveřejněné dohromady) — schváleno explicitně.
 export const MAX_QUEUE_SIZE = 10;
 
-export type CandidateLeadRow = { id: string; createdAt: Date };
+// Security Phase 19.2 — třívrstvé pravidlo automatického výběru, schválené
+// explicitně po auditu Preview dat. Dřívější kontakt leada NEVYLUČUJE
+// (pořád potenciální zákazník, může se oslovit znovu) — kandidátský pool
+// je zpátky celé ACTIVE_LEAD_STAGES (filtrováno v SQL v dailyCalls.ts),
+// tahle funkce jen rozřazuje do vrstev a stanovuje pořadí uvnitř nich.
+//
+// Závazné pořadí vyhodnocení (schváleno explicitně, NESMÍ se přeházet):
+//   1. nextFollowUpAt existuje a je v BUDOUCNU → excluded (respektuje
+//      domluvený termín, nenabízí se dřív — i kdyby lastContactedAt bylo
+//      NULL, tzn. tahle podmínka se testuje PŘED tier2).
+//   2. nextFollowUpAt existuje a je dnes nebo po termínu → tier1.
+//   3. nextFollowUpAt není nastaven a lastContactedAt IS NULL → tier2.
+//   4. nextFollowUpAt není nastaven, lastContactedAt IS NOT NULL a od
+//      posledního kontaktu uplynulo >= FOLLOW_UP_COOLDOWN_DAYS → tier3.
+//   5. jinak (nedávno kontaktován, bez termínu, lhůta ještě neuplynula)
+//      → excluded (dočasně, ne trvale — příští den může projít).
+export const FOLLOW_UP_COOLDOWN_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Security Phase 19.1 — oprava pravidla automatického výběru po auditu
-// Preview dat: `stage IN ACTIVE_LEAD_STAGES` bylo příliš široké. Leady ve
-// fázi contacted/sample_offer/callback_later/interested mají
-// `lastContactedAt` skoro vždy NULL jen proto, že import historická data
-// zapsal jako volný text do poznámky (`lead_activity.kind='created'`),
-// nikdy do `lastContactedAt` — to pole nastavuje výhradně logCallOutcome
-// (skutečný zápis hovoru v appce). Jediná fáze, která opravdu znamená
-// "ještě nikdo nezasáhl", je 'new'. Schváleno explicitně: NEdomýšlet nic
-// navíc z poznámek ani neupravovat importovaná data automaticky —
-// pravidlo je čistě stage='new' AND lastContactedAt IS NULL AND
-// owner=Blahout AND neprázdný telefon.
 export type AutoCandidateLeadRow = {
   id: string;
-  stage: string;
-  contactPhone: string | null;
   lastContactedAt: Date | null;
-  ownerUserId: string | null;
+  nextFollowUpAt: Date | null;
   createdAt: Date;
 };
 
-export function isEligibleAutoCandidate(lead: AutoCandidateLeadRow, ownerUserId: string): boolean {
-  return (
-    lead.stage === "new" &&
-    lead.lastContactedAt === null &&
-    lead.ownerUserId === ownerUserId &&
-    lead.contactPhone !== null &&
-    lead.contactPhone.trim() !== ""
-  );
+export type AutoCandidateTier = "tier1" | "tier2" | "tier3" | "excluded";
+
+// `now` jako parametr (ne Date.now() uvnitř) — čistá funkce, testovatelná
+// bez systémového času. Termín "dnes nebo po termínu" se porovnává přes
+// pragueDateString (kalendářní den v Europe/Prague), ne přes syrový
+// timestamp — nextFollowUpAt je uložený na 12:00 UTC (viz
+// validateDailyCallOutcomeInput), takže datumové porovnání je spolehlivé
+// bez ohledu na to, v kolik hodin kurátor spustí návrh.
+export function classifyAutoCandidate(
+  lead: Pick<AutoCandidateLeadRow, "lastContactedAt" | "nextFollowUpAt">,
+  now: Date
+): AutoCandidateTier {
+  if (lead.nextFollowUpAt !== null) {
+    return pragueDateString(lead.nextFollowUpAt) <= pragueDateString(now) ? "tier1" : "excluded";
+  }
+  if (lead.lastContactedAt === null) {
+    return "tier2";
+  }
+  const elapsedMs = now.getTime() - lead.lastContactedAt.getTime();
+  return elapsedMs >= FOLLOW_UP_COOLDOWN_DAYS * DAY_MS ? "tier3" : "excluded";
 }
 
-// Deterministické řazení kandidátů pro automatický návrh — od nejstaršího
-// createdAt, stabilní tiebreak na id (stejný princip jako
-// compareLeadsForList/compareFocusProjectsForList).
-function compareCandidates(a: CandidateLeadRow, b: CandidateLeadRow): number {
-  const diff = a.createdAt.getTime() - b.createdAt.getTime();
+function compareByDateThenId(dateA: Date, idA: string, dateB: Date, idB: string): number {
+  const diff = dateA.getTime() - dateB.getTime();
   if (diff !== 0) return diff;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  return idA < idB ? -1 : idA > idB ? 1 : 0;
+}
+
+// Rozřadí kandidáty do vrstev a seřadí KAŽDOU vrstvu podle schváleného
+// pravidla (tier1 od nejvíc prošlého termínu, tier2 od nejstaršího
+// createdAt, tier3 od nejstaršího lastContactedAt, všude tiebreak na id),
+// pak je spojí v pořadí tier1 → tier2 → tier3. "excluded" se nikam
+// nezařadí. Výsledek je KOMPLETNÍ seřazený seznam — oříznutí na volnou
+// kapacitu fronty dělá autoCandidatesToAdd níže.
+export function orderAutoCandidates(candidates: AutoCandidateLeadRow[], now: Date): AutoCandidateLeadRow[] {
+  const tier1: AutoCandidateLeadRow[] = [];
+  const tier2: AutoCandidateLeadRow[] = [];
+  const tier3: AutoCandidateLeadRow[] = [];
+
+  for (const lead of candidates) {
+    const tier = classifyAutoCandidate(lead, now);
+    if (tier === "tier1") tier1.push(lead);
+    else if (tier === "tier2") tier2.push(lead);
+    else if (tier === "tier3") tier3.push(lead);
+  }
+
+  tier1.sort((a, b) => compareByDateThenId(a.nextFollowUpAt!, a.id, b.nextFollowUpAt!, b.id));
+  tier2.sort((a, b) => compareByDateThenId(a.createdAt, a.id, b.createdAt, b.id));
+  tier3.sort((a, b) => compareByDateThenId(a.lastContactedAt!, a.id, b.lastContactedAt!, b.id));
+
+  return [...tier1, ...tier2, ...tier3];
 }
 
 // Čistá funkce: kolik a kterých kandidátů doplnit, aby součet se
 // SOUČASNÝM počtem nevyřízených položek nepřekročil MAX_QUEUE_SIZE.
-// `candidates` už musí být filtrovaní na DB úrovni (owner=Blahout, aktivní
-// stav, telefon, lastContactedAt IS NULL, ještě ne ve frontě) — tahle
-// funkce jen deterministicky seřadí a ořízne.
-export function candidatesToAdd(currentPendingCount: number, candidates: CandidateLeadRow[]): CandidateLeadRow[] {
+// `candidates` už musí být filtrovaní na DB úrovni (owner=Blahout, fáze
+// v ACTIVE_LEAD_STAGES, telefon, ještě ne ve frontě) — tahle funkce
+// rozřadí do vrstev, seřadí a ořízne.
+export function autoCandidatesToAdd(
+  currentPendingCount: number,
+  candidates: AutoCandidateLeadRow[],
+  now: Date
+): AutoCandidateLeadRow[] {
   const remaining = Math.max(0, MAX_QUEUE_SIZE - currentPendingCount);
   if (remaining === 0) {
     return [];
   }
-  return [...candidates].sort(compareCandidates).slice(0, remaining);
+  return orderAutoCandidates(candidates, now).slice(0, remaining);
 }
 
 // Stejný limit vynucený i pro RUČNÍ přidání (bug nahlášený na Preview:
