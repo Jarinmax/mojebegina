@@ -25,6 +25,16 @@ function describeEntry(entry: OrderActivityEntry): string {
       return "přesměroval(a) zákazníka na platbu kartou (Stripe)";
     case "payment_duplicate":
       return "⚠ přijal(a) DALŠÍ platbu kartou k už zaplacené objednávce — zkontrolovat a vrátit ve Stripe";
+    // ESHOP 1.0 — e-maily k objednávce (lib/eshop/email/orderEmails.ts)
+    case "email_sent": {
+      const label = meta.template === "internal_new_order" ? "upozornění pro Beginu" : "potvrzení zákazníkovi";
+      const to = Array.isArray(meta.to) ? ` (${meta.to.join(", ")})` : "";
+      return `odeslal(a) e-mail: ${label}${to}${meta.test ? " — testovací režim" : ""}`;
+    }
+    case "email_failed": {
+      const label = meta.template === "internal_new_order" ? "upozornění pro Beginu" : "potvrzení zákazníkovi";
+      return `⚠ nepodařilo se odeslat e-mail: ${label} — ${meta.template === "internal_new_order" ? "objednávka je jen tady" : "kontaktovat zákazníka ručně"}`;
+    }
     case "payment_amount_mismatch":
       return "⚠ přijal(a) platbu, jejíž částka nesedí s objednávkou — objednávka NENÍ označená jako zaplacená";
     case "responsible_assigned":

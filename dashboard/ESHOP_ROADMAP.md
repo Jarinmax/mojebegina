@@ -71,6 +71,11 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   objednávka bez organizace + položky napojené na balení se snapshoty +
   systémový záznam „E-shop“; stav nová / nezaplacená; bez čísla, platby
   a e-mailu. V Production se neukládá. Postup: `ESHOP_POKLADNA_ZAPIS.md`.
+- **Potvrzovací e-maily (1. 10. 2026, Resend, jen Preview, bez migrace):**
+  zákazníkovi potvrzení (převod hned, karta až po potvrzení platby
+  Stripe — jedna zpráva), Begině interní upozornění s odkazem do
+  MojeBegina. Preview posílá jen na testovací adresy, Production nic.
+  Nastavení Resend/DNS/Vercel a test: `ESHOP_EMAILY.md`.
 - **Kroky 6a + 7 (28. 9. 2026, migrace 0018–0019, jen na větvi):** číslo
   objednávky (sloupec, číslování zatím vypnuté) a objednávka bez
   organizace (soukromý zákazník); MojeBegina je umí zobrazit. Postup:
@@ -122,7 +127,6 @@ rekapitulace.
 - Alkoholické koktejly: potvrzení 18+ v pokladně už je; zbývá ověření
   věku při předání (dopravce/řidič) a kontrola oprávnění k prodeji.
 - Ochrana formuláře proti spamu (rate limit, honeypot).
-- Potvrzovací e-mail zákazníkovi a upozornění pro Beginu.
 - Platební brána, QR platba u převodu.
 - Faktura (napojení na `invoices` / eDoklad).
 - Velkoodběratelé: přihlášený zákazník z organizace vidí své ceny

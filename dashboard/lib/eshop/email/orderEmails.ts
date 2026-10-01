@@ -1,0 +1,189 @@
+// ESHOP 1.0 — kdy a komu se posílají e-maily k objednávce.
+//
+//   převod, objednávka uložená      → zákazník: potvrzení (čeká na platbu)
+//                                     + Begina: interní upozornění
+//   karta, objednávka uložená       → NIC (zákazník je na platební stránce)
+//   karta, Stripe potvrdil platbu   → zákazník: JEDNO potvrzení (zaplaceno)
+//                                     + Begina: interní upozornění
+//   karta, zrušená/propadlá platba  → nic (stránka objednávky nabízí
+//                                     „Zaplatit znovu“, MojeBegina ji ukazuje
+//                                     jako nezaplacenou)
+//
+// Proti duplicitám: volá se jen při skutečném vzniku objednávky
+// (saveEshopOrder → alreadySaved = false) a při skutečném přepnutí na
+// Zaplaceno (webhook → "paid"); navíc každá šablona jde k objednávce jen
+// jednou (záznam email_sent v historii) a Resend dostane Idempotency-Key.
+//
+// E-mail se posílá AŽ PO uložení objednávky / platby a nikdy nevyhazuje
+// výjimku: výpadek Resendu objednávku neshodí ani nesmaže, jen se do
+// historie zapíše email_failed (MojeBegina ukáže varování).
+import { and, asc, eq, sql } from "drizzle-orm";
+import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import * as schema from "@/lib/db/schema";
+import { orderActivity, orderItems, orders } from "@/lib/db/schema";
+import { ESHOP_ACTOR_NAME } from "../orderWrite";
+import { emailConfig, resolveRecipients, type EmailConfig } from "./config";
+import { resendTransport, type EmailTransport } from "./resend";
+import { customerOrderEmail, internalOrderEmail, type EmailOrder, type RenderedEmail } from "./templates";
+
+type Db = NeonHttpDatabase<typeof schema>;
+
+export type OrderEmailTrigger = "order_created" | "payment_confirmed";
+export type OrderEmailTemplate = "customer_confirmation" | "internal_new_order";
+export type OrderEmailOutcome = { template: OrderEmailTemplate; status: "sent" | "duplicate" | "failed" | "no-recipient" };
+
+export const EMAIL_SENT = "email_sent";
+export const EMAIL_FAILED = "email_failed";
+
+type OrderForEmail = EmailOrder & { channel: string };
+
+/** Které e-maily daná událost spouští (čistá funkce). */
+export function emailsFor(
+  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus">,
+  trigger: OrderEmailTrigger
+): OrderEmailTemplate[] {
+  if (order.channel !== "eshop") return [];
+  const card = order.paymentMethodCode === "karta";
+  if (trigger === "order_created") {
+    return card ? [] : ["customer_confirmation", "internal_new_order"];
+  }
+  return card && order.paymentStatus === "paid" ? ["customer_confirmation", "internal_new_order"] : [];
+}
+
+export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderForEmail | null> {
+  const [order] = await db
+    .select({
+      id: orders.id,
+      channel: orders.channel,
+      orderNumber: orders.orderNumber,
+      contactName: orders.contactName,
+      contactEmail: orders.contactEmail,
+      recipientAddress: orders.recipientAddress,
+      shippingMethodCode: orders.shippingMethodCode,
+      shippingMethodLabel: orders.shippingMethodLabel,
+      paymentMethodCode: orders.paymentMethodCode,
+      paymentMethodLabel: orders.paymentMethodLabel,
+      paymentStatus: orders.paymentStatus,
+      subtotalKc: orders.subtotalKc,
+      discountKc: orders.discountKc,
+      shippingKc: orders.shippingKc,
+      totalKc: orders.totalKc,
+      customerNote: orders.customerNote,
+    })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!order) return null;
+  const items = await db
+    .select({
+      name: orderItems.name,
+      quantity: orderItems.quantity,
+      unitPriceKc: orderItems.unitPriceKc,
+      lineTotalKc: orderItems.lineTotalKc,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId))
+    .orderBy(asc(orderItems.name));
+  return { ...order, items };
+}
+
+async function alreadySent(db: Db, orderId: string, template: OrderEmailTemplate): Promise<boolean> {
+  const rows = await db
+    .select({ id: orderActivity.id })
+    .from(orderActivity)
+    .where(
+      and(
+        eq(orderActivity.orderId, orderId),
+        eq(orderActivity.kind, EMAIL_SENT),
+        sql`${orderActivity.metadata}->>'template' = ${template}`
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+async function record(db: Db, orderId: string, kind: string, metadata: Record<string, unknown>) {
+  await db.insert(orderActivity).values({
+    orderId,
+    actorType: "system",
+    authorUserId: null,
+    authorName: ESHOP_ACTOR_NAME,
+    kind,
+    metadata,
+  });
+}
+
+export type SendOrderEmailsOptions = { config?: EmailConfig | null; transport?: EmailTransport };
+
+export async function sendOrderEmails(
+  db: Db,
+  orderId: string,
+  trigger: OrderEmailTrigger,
+  baseUrl: string,
+  options: SendOrderEmailsOptions = {}
+): Promise<OrderEmailOutcome[]> {
+  const config = options.config === undefined ? emailConfig() : options.config;
+  if (!config) return [];
+  const outcomes: OrderEmailOutcome[] = [];
+  let planned: OrderEmailTemplate[] = [];
+  try {
+    const order = await loadOrderForEmail(db, orderId);
+    if (!order) return [];
+    const transport = options.transport ?? resendTransport(config.apiKey);
+    const test = config.testRecipients !== null;
+
+    planned = emailsFor(order, trigger);
+    for (const template of planned) {
+      if (await alreadySent(db, orderId, template)) {
+        outcomes.push({ template, status: "duplicate" });
+        continue;
+      }
+      const customer = template === "customer_confirmation";
+      const intended = customer ? (order.contactEmail ? [order.contactEmail] : []) : config.internalTo;
+      if (intended.length === 0) {
+        outcomes.push({ template, status: "no-recipient" });
+        continue;
+      }
+      const { to, withheld } = resolveRecipients(intended, config);
+      const ctx = { baseUrl, withheld, test };
+      const rendered: RenderedEmail = customer
+        ? customerOrderEmail(order, { ...ctx, bankAccount: config.bankAccount })
+        : internalOrderEmail(order, ctx);
+      // Interní upozornění: odpověď jde rovnou zákazníkovi — v testovacím
+      // režimu jen když je zákazník na seznamu (odpověď na [TEST] e-mail
+      // nesmí odejít na adresu z testovací objednávky).
+      const customerReply = order.contactEmail ? resolveRecipients([order.contactEmail], config) : null;
+      const replyTo = customer
+        ? config.replyTo
+        : customerReply && customerReply.withheld.length === 0
+          ? customerReply.to[0]
+          : config.replyTo;
+
+      const result = await transport(
+        { from: config.from, to, replyTo, ...rendered },
+        `eshop-${template}-${orderId}`
+      );
+      if (result.ok) {
+        await record(db, orderId, EMAIL_SENT, {
+          template,
+          provider: "resend",
+          messageId: result.id,
+          to,
+          ...(test ? { test: true, withheld } : {}),
+        });
+        outcomes.push({ template, status: "sent" });
+      } else {
+        console.error("E-shop: e-mail se nepodařilo odeslat", orderId, template, result.error);
+        await record(db, orderId, EMAIL_FAILED, { template, provider: "resend", to, error: result.error.slice(0, 300) });
+        outcomes.push({ template, status: "failed" });
+      }
+    }
+  } catch (error) {
+    // Ani chyba při čtení/zápisu historie nesmí shodit objednávku nebo webhook.
+    console.error("E-shop: e-maily k objednávce selhaly", orderId, trigger, error);
+    for (const template of planned) {
+      if (!outcomes.some((o) => o.template === template)) outcomes.push({ template, status: "failed" });
+    }
+  }
+  return outcomes;
+}

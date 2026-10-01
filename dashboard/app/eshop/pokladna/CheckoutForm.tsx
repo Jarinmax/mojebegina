@@ -63,6 +63,7 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
   const confirmation = state && "confirmation" in state ? state.confirmation : null;
   const savedOrderId = state && "confirmation" in state ? state.savedOrderId : null;
+  const email = state && "confirmation" in state ? state.email : "off";
 
   const redirectTo = state && "redirectTo" in state ? state.redirectTo : null;
 
@@ -94,8 +95,12 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
         {savedOrderId ? (
           <p className="text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2 mb-6">
             Testovací provoz: objednávka je uložená v Objednávkách Moje Begina (reference{" "}
-            <span className="font-mono">{savedOrderId.slice(0, 8)}</span>). Platba ani potvrzovací
-            e-mail zatím neproběhnou.
+            <span className="font-mono">{savedOrderId.slice(0, 8)}</span>).{" "}
+            {email === "sent"
+              ? "Potvrzení jsme poslali e-mailem (v testovacím provozu jen na testovací adresy)."
+              : email === "failed"
+                ? "Potvrzovací e-mail se nepodařilo odeslat — objednávka je i tak uložená."
+                : "Potvrzovací e-mail se v tomto prostředí neposílá."}
           </p>
         ) : (
           <p className="text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2 mb-6">

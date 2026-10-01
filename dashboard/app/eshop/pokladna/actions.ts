@@ -8,6 +8,8 @@
 // Vercel Production (isOrderWriteEnabled). Platba kartou (Stripe Checkout)
 // jen se Stripe nastaveným podle lib/eshop/stripe/config.ts — objednávka
 // se nejdřív uloží jako nezaplacená, pak se zákazník přesměruje na Stripe.
+// E-maily (lib/eshop/email/orderEmails.ts): u převodu hned po uložení,
+// u karty až po potvrzení platby webhookem Stripe.
 import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
@@ -17,6 +19,7 @@ import { isOrderWriteEnabled, parseOrderToken, saveEshopOrder } from "@/lib/esho
 import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/payment";
+import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 
 export type CheckoutState =
   | { error: string }
@@ -24,6 +27,8 @@ export type CheckoutState =
       confirmation: CheckoutValue;
       /** id uložené objednávky; null = neuloženo (Production bez povolení) */
       savedOrderId: string | null;
+      /** potvrzení e-mailem: odešlo / selhalo (objednávka je i tak uložená) / e-maily vypnuté */
+      email: "sent" | "failed" | "off";
     }
   | { redirectTo: string }
   | null;
@@ -72,7 +77,7 @@ export async function submitCheckoutAction(
   }
 
   if (!isOrderWriteEnabled()) {
-    return { confirmation: result.value, savedOrderId: null };
+    return { confirmation: result.value, savedOrderId: null, email: "off" };
   }
 
   const orderId = parseOrderToken(field("orderToken")) ?? randomUUID();
@@ -81,6 +86,7 @@ export async function submitCheckoutAction(
     if (!saved.ok) {
       return { error: saved.error };
     }
+    const baseUrl = await currentBaseUrl();
     if (result.value.payment.id === CARD_PAYMENT_METHOD && stripe) {
       // Objednávka je uložená i když platbu nejde otevřít (výpadek Stripe) —
       // zákazník ji zaplatí znovu ze stránky objednávky.
@@ -90,7 +96,7 @@ export async function submitCheckoutAction(
           db,
           getStripe(stripe).checkout.sessions,
           saved.orderId,
-          await currentBaseUrl()
+          baseUrl
         );
         return { redirectTo: payment.ok ? payment.url : fallback };
       } catch (error) {
@@ -98,7 +104,12 @@ export async function submitCheckoutAction(
         return { redirectTo: fallback };
       }
     }
-    return { confirmation: result.value, savedOrderId: saved.orderId };
+    // Jen u nově vzniklé objednávky (dvojí odeslání formuláře = žádný druhý
+    // e-mail). Nikdy nevyhazuje výjimku — objednávka je už uložená.
+    const emails = saved.alreadySaved ? [] : await sendOrderEmails(db, saved.orderId, "order_created", baseUrl);
+    const customerEmail = emails.find((e) => e.template === "customer_confirmation");
+    const email = customerEmail?.status === "sent" ? "sent" : customerEmail ? "failed" : "off";
+    return { confirmation: result.value, savedOrderId: saved.orderId, email };
   } catch (error) {
     console.error("E-shop: uložení objednávky selhalo", error);
     return { error: "Objednávku se nepodařilo uložit. Zkuste to prosím znovu za chvíli." };
