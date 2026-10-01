@@ -2,10 +2,16 @@ import Link from "next/link";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import type { CustomerCardData } from "@/lib/data/leads";
 
-export default function CustomerCard({ customer }: { customer: CustomerCardData }) {
+export default function CustomerCard({
+  customer,
+  returnTo,
+}: {
+  customer: CustomerCardData;
+  returnTo: string;
+}) {
   return (
     <Link
-      href={`/rizeni-firmy/obchod/zakaznici/${customer.id}`}
+      href={`/rizeni-firmy/obchod/zakaznici/${customer.id}?returnTo=${encodeURIComponent(returnTo)}`}
       className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-1">
