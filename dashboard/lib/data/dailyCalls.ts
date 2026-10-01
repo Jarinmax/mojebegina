@@ -30,6 +30,7 @@ import {
 import { ACTIVE_LEAD_STAGES, leadDisplayName, type LeadStage } from "./leadValidation";
 import {
   autoCandidatesToAdd,
+  buildLogDailyCallOutcomeQuery,
   canAddManualCandidate,
   interpretCallLogOutcome,
   pragueDateString,
@@ -487,38 +488,19 @@ export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOut
     return { ok: false, error: "Tento kontakt už je vyřízený nebo odebraný." };
   }
 
-  const activityId = randomUUID();
-  const result = await db.execute<{ id: string }>(sql`
-    WITH old_lead AS (
-      SELECT stage FROM leads WHERE id = ${item.leadId}
-    ),
-    claimed AS (
-      UPDATE daily_call_queue
-      SET status = 'done', done_at = now(), done_by = ${ctx.userId}, updated_at = now()
-      WHERE id = ${itemId} AND status = 'pending' AND lead_id = ${item.leadId}
-      RETURNING id
-    ),
-    lead_upd AS (
-      UPDATE leads
-      SET last_contacted_at = now(),
-          updated_at = now(),
-          stage = COALESCE(${value.stageChange}, stage),
-          next_follow_up_at = COALESCE(${value.nextFollowUpAt}, next_follow_up_at)
-      WHERE id = ${item.leadId} AND EXISTS (SELECT 1 FROM claimed)
-      RETURNING id
-    )
-    INSERT INTO lead_activity (id, lead_id, author_user_id, author_name, kind, body, metadata, created_at)
-    SELECT ${activityId}, ${item.leadId}, ${ctx.userId}, ${ctx.name}, 'call_logged', ${value.note},
-      jsonb_build_object(
-        'stageChangedTo', ${value.stageChange},
-        'nextFollowUpAt', ${value.nextFollowUpAt},
-        'from', (SELECT stage FROM old_lead),
-        'callResult', ${value.result}
-      ),
-      now()
-    WHERE EXISTS (SELECT 1 FROM claimed)
-    RETURNING id
-  `);
+  const result = await db.execute<{ id: string }>(
+    buildLogDailyCallOutcomeQuery({
+      itemId,
+      leadId: item.leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      activityId: randomUUID(),
+      note: value.note,
+      stageChange: value.stageChange,
+      nextFollowUpAt: value.nextFollowUpAt,
+      result: value.result,
+    })
+  );
 
   return interpretCallLogOutcome(result.rows.length);
 }

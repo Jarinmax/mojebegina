@@ -2,6 +2,7 @@
 // výběru, bez "server-only", stejný princip jako leadValidation.ts:
 // testovatelné bez databáze, kontrola a dotaz se skládají až v
 // dailyCalls.ts.
+import { sql } from "drizzle-orm";
 import { validateStageInput, type LeadStage } from "./leadValidation";
 
 // Výsledek hovoru je ZÁMĚRNĚ oddělený od LEAD_STAGES (obchodní fáze) —
@@ -214,6 +215,69 @@ export function interpretCallLogOutcome(insertedRowCount: number): { ok: true } 
     return { ok: false, error: "Tento kontakt už byl mezitím vyřízen (souběžný nebo opakovaný zápis)." };
   }
   return { ok: true };
+}
+
+// Bug nahlášený na Preview (chyba 500 při "Fázi neměnit" + prázdné "další
+// kontakt", tj. value.stageChange A value.nextFollowUpAt oba null
+// zároveň): Postgres u polymorfních funkcí jako jsonb_build_object (bere
+// VARIADIC "any") nedokáže odvodit typ netypovaného NULL parametru, pokud
+// vedle něj není žádný jinak typovaný argument stejné pozice, na který by
+// se mohl odvolat (na rozdíl od COALESCE, které typ odvodí ze sloupce
+// vedle sebe) — skončí chybou "could not determine data type of
+// parameter". Proto explicitní `::text`/`::timestamptz` cast u KAŽDÉHO
+// parametru uvnitř jsonb_build_object, i tam, kde by za normálních
+// okolností (nenulová hodnota) fungoval i bez castu.
+//
+// Vytčeno jako samostatná exportovaná funkce, co jen SESTAVÍ dotaz (nic
+// nespouští), aby šlo jeho přesné SQL ověřit testem bez databáze — viz
+// __tests__/dailyCallsValidation.test.ts. Žije tady (ne v dailyCalls.ts),
+// protože ten soubor má "import server-only", který se mimo Next.js build
+// nedá resolvovat — vitest by test s hodnotovým importem z dailyCalls.ts
+// nerozběhl (stejná konvence jako všude jinde v projektu: *.test.ts vždy
+// jen `import type` ze server-only souborů, nikdy hodnotu).
+export function buildLogDailyCallOutcomeQuery(params: {
+  itemId: string;
+  leadId: string;
+  authorUserId: string;
+  authorName: string | null;
+  activityId: string;
+  note: string;
+  stageChange: string | null;
+  nextFollowUpAt: Date | null;
+  result: string;
+}) {
+  const { itemId, leadId, authorUserId, authorName, activityId, note, stageChange, nextFollowUpAt, result } = params;
+  return sql`
+    WITH old_lead AS (
+      SELECT stage FROM leads WHERE id = ${leadId}
+    ),
+    claimed AS (
+      UPDATE daily_call_queue
+      SET status = 'done', done_at = now(), done_by = ${authorUserId}, updated_at = now()
+      WHERE id = ${itemId} AND status = 'pending' AND lead_id = ${leadId}
+      RETURNING id
+    ),
+    lead_upd AS (
+      UPDATE leads
+      SET last_contacted_at = now(),
+          updated_at = now(),
+          stage = COALESCE(${stageChange}::text, stage),
+          next_follow_up_at = COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at)
+      WHERE id = ${leadId} AND EXISTS (SELECT 1 FROM claimed)
+      RETURNING id
+    )
+    INSERT INTO lead_activity (id, lead_id, author_user_id, author_name, kind, body, metadata, created_at)
+    SELECT ${activityId}, ${leadId}, ${authorUserId}, ${authorName}, 'call_logged', ${note},
+      jsonb_build_object(
+        'stageChangedTo', ${stageChange}::text,
+        'nextFollowUpAt', ${nextFollowUpAt}::timestamptz,
+        'from', (SELECT stage FROM old_lead),
+        'callResult', ${result}::text
+      ),
+      now()
+    WHERE EXISTS (SELECT 1 FROM claimed)
+    RETURNING id
+  `;
 }
 
 // Prohození sousední dvojice v poli id — čistá logika za "posunout

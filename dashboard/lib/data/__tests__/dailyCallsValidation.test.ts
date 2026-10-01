@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 import {
   validateDailyCallOutcomeInput,
   canAddManualCandidate,
@@ -6,6 +7,7 @@ import {
   orderAutoCandidates,
   autoCandidatesToAdd,
   interpretCallLogOutcome,
+  buildLogDailyCallOutcomeQuery,
   swapAdjacent,
   pragueDateString,
   MAX_QUEUE_SIZE,
@@ -288,5 +290,77 @@ describe("pragueDateString — Security Phase 19", () => {
   it("respektuje Europe/Prague posun kolem půlnoci UTC (léto, UTC+2)", () => {
     // 23:30 UTC v létě = 01:30 následujícího dne v Praze
     expect(pragueDateString(new Date("2026-06-15T23:30:00Z"))).toBe("2026-06-16");
+  });
+});
+
+// Regresní test na chybu nahlášenou na Preview (Vercel error 2923716426):
+// zápis výsledku hovoru s "Fázi neměnit" (stageChange=null) a prázdným
+// "další kontakt" (nextFollowUpAt=null) skončil serverovou chybou 500.
+// Příčina: netypovaný NULL parametr předaný přímo do polymorfní funkce
+// jsonb_build_object (VARIADIC "any") — Postgres u ní (na rozdíl od
+// COALESCE, kde typ odvodí ze sloupce vedle sebe) nemá z čeho typ
+// odvodit a skončí chybou "could not determine data type of parameter".
+// Test sestaví dotaz přes buildLogDailyCallOutcomeQuery PŘESNĚ s touhle
+// kombinací a zkompiluje ho přes PgDialect().sqlToQuery() (funguje bez
+// databáze, viz drizzle-orm/pg-core) — ověřuje, že vygenerované SQL má
+// explicitní `::text`/`::timestamptz` cast na KAŽDÉM parametru uvnitř
+// jsonb_build_object, takže typová chyba nemůže nastat bez ohledu na to,
+// jestli jsou stageChange/nextFollowUpAt null nebo ne.
+describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", () => {
+  const dialect = new PgDialect();
+
+  function compile(stageChange: string | null, nextFollowUpAt: Date | null) {
+    const query = buildLogDailyCallOutcomeQuery({
+      itemId: "11111111-1111-1111-1111-111111111111",
+      leadId: "22222222-2222-2222-2222-222222222222",
+      authorUserId: "06240ac4-c050-47ea-998c-6c81389edf9f",
+      authorName: "Jaroslav Blahout",
+      activityId: "33333333-3333-3333-3333-333333333333",
+      note: "Test Preview – nedovoláno",
+      stageChange,
+      nextFollowUpAt,
+      result: "no_answer",
+    });
+    return dialect.sqlToQuery(query);
+  }
+
+  it("reprodukuje přesně nahlášenou kombinaci (fázi neměnit + prázdné další kontakt) beze zpádu na netypovaný NULL", () => {
+    const { sql, params } = compile(null, null);
+    // jsonb_build_object dostává 4 páry klíč/hodnota — každá hodnota musí
+    // mít explicitní cast hned za svým placeholderem, jinak je netypovaná.
+    // Nutné zachytit obsah NEgreedy až k UZAVÍRACÍ závorce jsonb_build_object
+    // samotné, ne k první "(" uvnitř (ta patří vnořenému podvýrazu
+    // `(SELECT stage FROM old_lead)`) — proto match až po `,\n      now()`.
+    const jsonbArgsMatch = sql.match(/jsonb_build_object\(([\s\S]*?)\),\s*now\(\)/);
+    expect(jsonbArgsMatch).not.toBeNull();
+    const jsonbArgs = jsonbArgsMatch![1];
+    expect(jsonbArgs).toMatch(/\$\d+::text/); // stageChangedTo
+    expect(jsonbArgs).toMatch(/\$\d+::timestamptz/); // nextFollowUpAt
+    expect(jsonbArgs).toMatch(/\$\d+::text/); // callResult
+    // Žádný placeholder uvnitř jsonb_build_object nesmí zůstat bez castu.
+    // Pozor: `\$\d+(?!::)` jako jediný regex by si u vícemístných čísel
+    // (např. $13) kvůli zpětnému sledování mohl odtrhnout jen "$1" a
+    // zbytek "3::text" vyhodnotit jako "bez castu" — proto se tu každý
+    // placeholder nejdřív najde celý přes matchAll a cast se ověřuje podle
+    // jeho SKUTEČNÉ pozice a délky, ne podle textového hledání podřetězce.
+    for (const match of jsonbArgs.matchAll(/\$\d+/g)) {
+      const after = jsonbArgs.slice(match.index + match[0].length);
+      expect(after.startsWith("::")).toBe(true);
+    }
+    // Reálná hodnota parametrů je null — přesně kombinace z hlášené chyby.
+    expect(params).toContain(null);
+  });
+
+  it("COALESCE pro stage i next_follow_up_at má taky explicitní cast", () => {
+    const { sql } = compile(null, null);
+    expect(sql).toMatch(/COALESCE\(\$\d+::text, stage\)/);
+    expect(sql).toMatch(/COALESCE\(\$\d+::timestamptz, next_follow_up_at\)/);
+  });
+
+  it("stejná struktura platí i s vyplněnou fází a termínem (nejde o větev jen pro null)", () => {
+    const { sql } = compile("contacted", new Date("2026-10-05T12:00:00.000Z"));
+    const jsonbArgs = sql.match(/jsonb_build_object\(([\s\S]*?)\),\s*now\(\)/)![1];
+    expect(jsonbArgs).toMatch(/\$\d+::text/);
+    expect(jsonbArgs).toMatch(/\$\d+::timestamptz/);
   });
 });
