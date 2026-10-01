@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getCockpitCounts, listLeads, listCustomers } from "@/lib/data/leads";
+import { getAuthContext } from "@/lib/data/authContext";
+import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import CockpitTiles from "./CockpitTiles";
 import LeadCard from "./LeadCard";
 import CustomerCard from "./CustomerCard";
@@ -28,6 +30,9 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   const viewParam = Array.isArray(searchParams.view) ? searchParams.view[0] : searchParams.view;
   const activeView: View = isView(viewParam) ? viewParam : "moje-leady";
 
+  const ctx = await getAuthContext();
+  const showDailyCallsLink = isDailyCallCurator(ctx) || isDailyCallWorker(ctx);
+
   const counts = await getCockpitCounts();
 
   const isLeadsView = activeView === "moje-leady" || activeView === "vsechny-leady";
@@ -53,6 +58,15 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           Nový lead
         </Link>
       </div>
+
+      {showDailyCallsLink && (
+        <Link
+          href="/rizeni-firmy/obchod/dnes"
+          className="block bg-white border border-begina-primary-200 rounded-xl p-4 mt-3 text-sm font-medium text-begina-primary-900"
+        >
+          Dnešní volání →
+        </Link>
+      )}
 
       <div className="mb-4 mt-4">
         <CockpitTiles counts={counts} />
