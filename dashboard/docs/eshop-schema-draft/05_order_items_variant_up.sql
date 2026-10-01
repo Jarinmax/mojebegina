@@ -1,6 +1,6 @@
 -- NÁVRH ESHOP 1.0 — NESPOUŠTĚT BEZ SCHVÁLENÍ. Viz dashboard/ESHOP_SCHEMA_PROPOSAL.md.
 -- Spouštět nejdřív na Neon branch, nikdy celou složku najednou.
--- Krok 5 (drizzle 0016): vazba položky na balení + snapshot SKU.
+-- Krok 5 (drizzle 0017): vazba položky na balení + snapshot SKU.
 -- name a unit_price_kc už snapshotem jsou a zůstávají beze změny.
 ALTER TABLE order_items
   ADD COLUMN product_variant_id uuid REFERENCES product_variants(id) ON DELETE RESTRICT,

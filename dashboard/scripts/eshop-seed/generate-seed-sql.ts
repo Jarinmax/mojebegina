@@ -1,4 +1,4 @@
-// ESHOP 1.0 — vygeneruje migraci 0013 (první naplnění katalogu) z
+// ESHOP 1.0 — vygeneruje migraci 0014 (první naplnění katalogu) z
 // lib/eshop/catalog.ts. NEBĚŽÍ proti DB — zapíše SQL soubor, který se
 // aplikuje stejně jako ostatní migrace (ručně v Neon Console, nejdřív na
 // testovací větvi). Ručně SQL neupravovat — změnit catalog.ts a spustit znovu.
@@ -15,7 +15,7 @@ import { writeFileSync } from "fs";
 import { resolve } from "path";
 import { seedRows } from "../../lib/eshop/seedFromCatalog";
 
-export const SEED_MIGRATION_PATH = resolve(__dirname, "../../drizzle/0013_eshop_1_0_products_seed.sql");
+export const SEED_MIGRATION_PATH = resolve(__dirname, "../../drizzle/0014_eshop_1_0_products_seed.sql");
 
 const q = (value: string | null) => (value === null ? "NULL" : `'${value.replace(/'/g, "''")}'`);
 const num = (value: number | null) => (value === null ? "NULL" : String(value));

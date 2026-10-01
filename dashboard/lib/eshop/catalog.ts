@@ -1,6 +1,6 @@
 // ⚠ OD PRODUKTŮ 1.0 (26. 9. 2026) SE ZA BĚHU NEPOUŽÍVÁ. Jediný zdroj
 // katalogu je DB (lib/eshop/catalogDb.ts). Tento soubor slouží jen jako
-// zdroj prvního naplnění DB (migrace 0013, scripts/eshop-seed/) a pro test
+// zdroj prvního naplnění DB (migrace 0014, scripts/eshop-seed/) a pro test
 // parity DB ↔ catalog.ts. Test v catalogDb.test.ts hlídá, že ho nic jiného
 // neimportuje. Smazat až po ověření DB varianty na Neonu (rozhodnutí vedení).
 //

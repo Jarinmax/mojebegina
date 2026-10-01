@@ -16,6 +16,7 @@ import NodeCard from "@/components/company-overview/NodeCard";
 import CompanyNoteForm from "./CompanyNoteForm";
 import CreateNodeForm from "./CreateNodeForm";
 import CompanyOverviewIntro from "./CompanyOverviewIntro";
+import CeoFocusPanel from "./CeoFocusPanel";
 import OrderSummaryTiles from "./objednavky/OrderSummaryTiles";
 import CrmCockpitTiles from "./obchod/CockpitTiles";
 
@@ -55,22 +56,7 @@ export default async function CompanyOverviewPage() {
     <div>
       <CompanyOverviewIntro lastUpdated={content.lastUpdated} />
 
-      {showCeoFocus && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-begina-primary-900">CEO přehled</h2>
-            <Link
-              href="/rizeni-firmy/ceo"
-              className="text-sm font-medium text-begina-primary-900 hover:underline"
-            >
-              Otevřít →
-            </Link>
-          </div>
-          <p className="text-sm text-neutral-500 bg-white border border-neutral-200 rounded-xl p-4">
-            Hlavní projekty, priority a na čem se právě pracuje — osobní pracovní prostor.
-          </p>
-        </div>
-      )}
+      {showCeoFocus && <CeoFocusPanel />}
 
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">

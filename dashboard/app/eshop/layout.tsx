@@ -29,7 +29,7 @@ const EMPTY_CATALOG = { categories: [], products: [] };
 
 export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
   // error.tsx chytá chyby stránek, ne tohoto layoutu — nedostupnou DB (nebo
-  // chybějící migrace 0012/0013 na dané větvi) proto řeší layout sám:
+  // chybějící migrace 0013/0014 na dané větvi) proto řeší layout sám:
   // zákazník uvidí zprávu, chyba jde do serverového logu.
   const catalog = await getCatalog().catch((error: unknown) => {
     console.error("E-shop: katalog z DB se nepodařilo načíst", error);

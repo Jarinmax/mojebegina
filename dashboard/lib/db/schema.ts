@@ -13,6 +13,7 @@ import {
   integer,
   boolean,
   timestamp,
+  date,
   uniqueIndex,
   index,
   bigint,
@@ -128,7 +129,7 @@ export const locations = pgTable("locations", {
 //     samoobslužné rozhraní. Dnes vždy NULL, nezaměňovat s contactName.
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  // ESHOP 1.0, krok 7 (migrace 0018): NULL = soukromý zákazník z e-shopu
+  // ESHOP 1.0, krok 7 (migrace 0019): NULL = soukromý zákazník z e-shopu
   // (bez IČO — žádné falešné organizace). Ruční objednávka organizaci mít
   // musí dál a objednávka bez organizace musí mít e-mail (CHECKy níže).
   buyerOrganizationId: uuid("buyer_organization_id").references(() => organizations.id),
@@ -156,7 +157,7 @@ export const orders = pgTable("orders", {
   orderedAt: timestamp("ordered_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  // ESHOP 1.0, krok 4 (migrace 0015). Defaulty zachovávají chování
+  // ESHOP 1.0, krok 4 (migrace 0016). Defaulty zachovávají chování
   // createOrder: ruční objednávka = channel "manual", sleva 0.
   channel: text("channel").notNull().default("manual"), // "manual" | "eshop" | "import"
   customerNote: text("customer_note"), // od zákazníka; `note` výše je interní
@@ -168,7 +169,7 @@ export const orders = pgTable("orders", {
   discountKc: integer("discount_kc").notNull().default(0),
   ageConfirmedAt: timestamp("age_confirmed_at", { withTimezone: true }), // doklad potvrzení 18+
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }), // souhlas s OP
-  // ESHOP 1.0, krok 6a (migrace 0017) — číslo objednávky, které vidí
+  // ESHOP 1.0, krok 6a (migrace 0018) — číslo objednávky, které vidí
   // zákazník. ZATÍM SE NEČÍSLUJE: sloupec je bez řady (NULL u všech
   // objednávek). Řada `order_number_seq` navazující na WooCommerce (MAX + 1)
   // se zapne až v den přepnutí pokladny (krok 6b). Není to číslo faktury.
@@ -200,7 +201,7 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   unitPriceKc: integer("unit_price_kc").notNull(),
   lineTotalKc: integer("line_total_kc").notNull(),
-  // ESHOP 1.0, krok 5 (migrace 0016). Závazná vazba je UUID balení, ne text
+  // ESHOP 1.0, krok 5 (migrace 0017). Závazná vazba je UUID balení, ne text
   // SKU; prodané balení nejde smazat (RESTRICT), jen deaktivovat. Ruční
   // objednávky (createOrder) dál ukládají NULL. Historie se zobrazuje ze
   // snapshotů (name, sku_snapshot, unit_price_kc), nikdy z živého katalogu.
@@ -403,7 +404,7 @@ export const companyNodeActivity = pgTable(
 // fulfillment/payment stavu, přiřazení odpovědné osoby), authorName jako
 // snapshot v okamžiku zápisu.
 //
-// ESHOP 1.0, krok 3 (migrace 0014) — actor_type: záznam může zapsat
+// ESHOP 1.0, krok 3 (migrace 0015) — actor_type: záznam může zapsat
 // i systém (objednávka z e-shopu) nebo zákazník, ne jen interní uživatel.
 // Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
 // "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
@@ -508,7 +509,7 @@ export const leadActivity = pgTable(
 
 // ESHOP 1.0 — Produkty 1.0 (návrh schválen vedením 26. 9. 2026, viz
 // ESHOP_SCHEMA_PROPOSAL.md). Jediný zdroj pravdy katalogu pro e-shop
-// i MojeBegina; první naplnění z lib/eshop/catalog.ts (migrace 0013).
+// i MojeBegina; první naplnění z lib/eshop/catalog.ts (migrace 0014).
 // Nic se nemaže: kategorie/produkty/balení mají is_active a FK z budoucích
 // objednávek budou RESTRICT. Budoucí receptury, výroba a sklad budou
 // ukazovat NA tyto tabulky, ne naopak.
@@ -674,6 +675,82 @@ export const focusProjects = pgTable("focus_projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Security Phase 19 (Denní volání 1.0) — jedna plochá průběžná fronta,
+// ZÁMĚRNĚ ne "jeden seznam na den" (viz diskuse v návrhu): nedokončené
+// položky musí přežít do dalšího dne beze změny identity, jen zůstávají
+// `status = 'pending'`. `position` řadí VŠECHNY pending položky (draft
+// i zveřejněné) v jedné sekvenci — přeřazení musí jít přes dočasný rozsah
+// pozic (viz dailyCalls.ts:applyQueueReorder), protože unikátní index níže
+// je partial (WHERE status='pending') a Postgres partial unique index
+// nejde deklarovat jako DEFERRABLE, takže se kontroluje ihned po každém
+// jednotlivém UPDATE v rámci transakce, ne až na COMMIT.
+//
+// published_at/published_by: NULL = draft, viditelný jen kurátorovi.
+// Automatické i ruční položky ZAČÍNAJÍ jako draft (schváleno explicitně) —
+// viditelnost pro pracovníka řídí výhradně kurátorovo "Zveřejnit návrh".
+// Auditní trojice (published_by/done_by/removed_by) + CHECK páry níže
+// vynucují, že se časové razítko a aktér vždy zapisují společně a že
+// odpovídají stavu položky — schváleno explicitně, aby žádný zápis nemohl
+// mít "osiřelé" razítko bez aktéra nebo naopak.
+export const dailyCallQueue = pgTable(
+  "daily_call_queue",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    position: integer("position").notNull(),
+    status: text("status").notNull().default("pending"), // "pending" | "done" | "removed"
+    source: text("source").notNull(), // "auto" | "manual"
+    addedBy: text("added_by").notNull(),
+    // Pracovní den (Europe/Prague), pro který byla položka navržena/přidána
+    // — čistě informační/řadicí údaj pro rozdělení "Nedokončeno z minula"
+    // vs. "Dnešní volání" na straně pracovníka, NENÍ identifikátor seznamu.
+    // Skutečný DB typ `date` (schváleno explicitně) — mode: "string" jen
+    // určuje, jak Drizzle hodnotu mapuje v JS (string "YYYY-MM-DD", ne
+    // Date objekt), ne typ sloupce v Postgresu. Původní `text` byl omyl,
+    // bez technického důvodu (opraveno na základě revize).
+    addedForDate: date("added_for_date", { mode: "string" }).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by"),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    doneBy: text("done_by"),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    removedBy: text("removed_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("daily_call_queue_status_position_idx").on(table.status, table.position),
+    uniqueIndex("daily_call_queue_lead_pending_idx")
+      .on(table.leadId)
+      .where(sql`${table.status} = 'pending'`),
+    uniqueIndex("daily_call_queue_position_pending_idx")
+      .on(table.position)
+      .where(sql`${table.status} = 'pending'`),
+    check("daily_call_queue_status_check", sql`${table.status} IN ('pending','done','removed')`),
+    check("daily_call_queue_source_check", sql`${table.source} IN ('auto','manual')`),
+    check(
+      "daily_call_queue_published_pair_check",
+      sql`(${table.publishedAt} IS NULL) = (${table.publishedBy} IS NULL)`
+    ),
+    check("daily_call_queue_done_pair_check", sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`),
+    check(
+      "daily_call_queue_removed_pair_check",
+      sql`(${table.removedAt} IS NULL) = (${table.removedBy} IS NULL)`
+    ),
+    check("daily_call_queue_done_status_check", sql`(${table.status} = 'done') = (${table.doneAt} IS NOT NULL)`),
+    check(
+      "daily_call_queue_removed_status_check",
+      sql`(${table.status} = 'removed') = (${table.removedAt} IS NOT NULL)`
+    ),
+    check(
+      "daily_call_queue_done_implies_published_check",
+      sql`${table.status} <> 'done' OR ${table.publishedAt} IS NOT NULL`
+    ),
+  ]
+);
 
 // Stejný vzor jako company_node_activity/lead_activity — jeden sdílený
 // timeline pro poznámky i systémové události, authorName jako snapshot.

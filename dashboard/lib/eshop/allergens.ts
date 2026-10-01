@@ -1,4 +1,4 @@
-// Kódy alergenů v DB (products.allergens, CHECK v migraci 0012) → český
+// Kódy alergenů v DB (products.allergens, CHECK v migraci 0013) → český
 // název podle přílohy II nařízení 1169/2011.
 
 import type { ALLERGEN_CODES } from "@/lib/db/schema";

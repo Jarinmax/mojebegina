@@ -4,7 +4,7 @@
 // Ovladač @neondatabase/serverless (neon-http) posílá dotazy jako HTTP POST
 // na https://api.<host>/sql. Tento preload v Node procesu přesměruje právě
 // tyto požadavky na PGlite (Postgres v paměti) se všemi migracemi z
-// drizzle/ (včetně 0012 + 0013) a vrátí odpověď ve formátu Neonu (surový
+// drizzle/ (včetně 0013 + 0014) a vrátí odpověď ve formátu Neonu (surový
 // text + OID typů, jako skutečný Neon s "Neon-Raw-Text-Output").
 //
 // Spuštění (build musí proběhnout předem; E2E_SQL_PORT volitelně, viz konec souboru):

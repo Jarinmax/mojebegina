@@ -17,21 +17,21 @@ vývoje; číslování tvrdým přepnutím (oddíl 4). Nic se zatím nemigruje d
 produkce.
 
 **Stav implementace:** krok 1 + 2 (Produkty 1.0) je implementovaný jako
-drizzle migrace `drizzle/0012_eshop_1_0_products.sql` a
-`drizzle/0013_eshop_1_0_products_seed.sql` — ty jsou závazné; SQL
+drizzle migrace `drizzle/0013_eshop_1_0_products.sql` a
+`drizzle/0014_eshop_1_0_products_seed.sql` — ty jsou závazné; SQL
 v `docs/eshop-schema-draft/01*` a `02*` byl návrh (obsahově stejný, liší
 se jen automatická jména UNIQUE omezení). Postup nasazení:
 `ESHOP_PRODUKTY_1_0.md`.
 
 Kroky 3–5 (27. 9. 2026): drizzle migrace
-`0014_eshop_1_0_order_activity_actor.sql`, `0015_eshop_1_0_orders_fields.sql`,
-`0016_eshop_1_0_order_items_variant.sql` — obsahově totožné s
+`0015_eshop_1_0_order_activity_actor.sql`, `0016_eshop_1_0_orders_fields.sql`,
+`0017_eshop_1_0_order_items_variant.sql` — obsahově totožné s
 `docs/eshop-schema-draft/03–05*_up.sql` (návratové `*_down.sql` platí
 beze změny, ověřeno testem). Postup nasazení:
 `ESHOP_OBJEDNAVKY_KROKY_3_5.md`.
 
-Kroky 6a + 7 (28. 9. 2026): `0017_eshop_1_0_order_number.sql`,
-`0018_eshop_1_0_orders_guest.sql` — obsahově totožné s
+Kroky 6a + 7 (28. 9. 2026): `0018_eshop_1_0_order_number.sql`,
+`0019_eshop_1_0_orders_guest.sql` — obsahově totožné s
 `docs/eshop-schema-draft/06a*_up.sql` a `07*_up.sql` (návratové
 `*_down.sql` platí, ověřeno testem). Postup: `ESHOP_OBJEDNAVKY_KROKY_6A_7.md`.
 Krok 6b (zapnutí číslování) zůstává na den přepnutí z WooCommerce.
@@ -39,7 +39,7 @@ Krok 6b (zapnutí číslování) zůstává na den přepnutí z WooCommerce.
 **SQL ke kontrole:** `docs/eshop-schema-draft/` — pro každý krok soubor
 `*_up.sql` a vratný `*_down.sql`, kontrolní dotazy `00_preflight_checks.sql`
 a `99_postflight_checks.sql`. Mimo složku `drizzle/`, aby je nic nespustilo
-omylem. Ve finální implementaci se z nich stanou drizzle migrace 0012–0018.
+omylem. Ve finální implementaci se z nich stanou drizzle migrace 0013–0019.
 
 ## Ověření návrhu (bez dotyku produkce)
 
