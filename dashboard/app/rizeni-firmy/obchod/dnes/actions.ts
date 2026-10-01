@@ -88,22 +88,41 @@ export async function moveQueueItemDownAction(itemId: string, _prevState: Action
   return null;
 }
 
+// Bug nahlášený na Preview (Vercel error 2923716426): neočekávaná chyba při
+// DB zápisu (konkrétně dřívější typová chyba Postgres, viz
+// dailyCallsValidation.ts:buildLogDailyCallOutcomeQuery) propadla z téhle
+// "use server" akce ven neošetřená — Next.js ji vykreslil jako celostránkový
+// pád ("This page couldn't load"), ne jako chybu ve formuláři, takže
+// uživatel neměl žádnou šanci zjistit, co se stalo, ani to bezpečně
+// zopakovat bez reloadu. Stejný precedent jako
+// app/admin/backfill-user-profiles-once/actions.ts: celé tělo akce v
+// try/catch, libovolná neočekávaná výjimka se převede na ActionState s
+// `error`, který CallOutcomeForm vykreslí přímo ve formuláři. Atomický CTE
+// zápis (viz dailyCalls.ts) garantuje, že neúspěšný pokus nenechá žádný
+// částečný stav — opakování akce je tedy vždy bezpečné.
 export async function logDailyCallOutcomeAction(
   itemId: string,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const result = await logDailyCallOutcome(itemId, {
-    result: String(formData.get("result") ?? ""),
-    note: String(formData.get("note") ?? ""),
-    stageChange: String(formData.get("stageChange") ?? ""),
-    nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
-  });
+  try {
+    const result = await logDailyCallOutcome(itemId, {
+      result: String(formData.get("result") ?? ""),
+      note: String(formData.get("note") ?? ""),
+      stageChange: String(formData.get("stageChange") ?? ""),
+      nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
+    });
 
-  if (!result.ok) {
-    return { error: result.error };
+    if (!result.ok) {
+      return { error: result.error };
+    }
+
+    revalidateDailyCalls();
+    return { success: "Výsledek hovoru byl uložen." };
+  } catch (error) {
+    console.error("logDailyCallOutcomeAction: neočekávaná chyba při zápisu výsledku hovoru", error);
+    return {
+      error: "Výsledek hovoru se nepodařilo uložit kvůli neočekávané chybě. Nic se mezitím nezapsalo, zkuste to prosím znovu.",
+    };
   }
-
-  revalidateDailyCalls();
-  return { success: "Výsledek hovoru byl uložen." };
 }
