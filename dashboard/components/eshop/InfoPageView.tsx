@@ -31,7 +31,7 @@ export function linkify(text: string): ReactNode[] {
   );
 }
 
-export default function InfoPageView({ page }: { page: InfoPage }) {
+export default function InfoPageView({ page, children }: { page: InfoPage; children?: ReactNode }) {
   return (
     <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-balance">{page.title}</h1>
@@ -107,6 +107,8 @@ export default function InfoPageView({ page }: { page: InfoPage }) {
           </p>
         </div>
       )}
+
+      {children}
 
       <p className="mt-8 text-sm text-neutral-500">
         Provozovatel: {OPERATOR.name}, {OPERATOR.address}, IČO {OPERATOR.ico}
