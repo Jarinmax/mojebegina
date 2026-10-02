@@ -89,6 +89,9 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
 **Objednávka se ukládá jen v Preview** (viz výše); v Production zatím jen
 rekapitulace.
 
+**Nasazení do Production:** plán, pojistky, SQL a rollback v
+`ESHOP_PRODUCTION_ROLLOUT.md` (připraveno 2. 10. 2026, nic nespuštěno).
+
 ## Co potřebujeme od vedení
 
 1. **Údaje o produktech** — velikost balení, složení, alergeny, výživové

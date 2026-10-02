@@ -4,7 +4,8 @@
 //   - mimo Vercel Production VÝHRADNĚ testovací klíč (sk_test_/rk_test_) —
 //     ostrý klíč omylem vložený do Preview se nepoužije,
 //   - ve Vercel Production navíc výslovně ESHOP_STRIPE_LIVE=on (den přepnutí
-//     z WooCommerce). Bez toho Production kartou platit nenabízí.
+//     z WooCommerce) a VÝHRADNĚ ostrý klíč (sk_live_/rk_live_). Bez toho
+//     Production kartou platit nenabízí.
 import { isOrderWriteEnabled } from "../orderWrite";
 
 type Env = Record<string, string | undefined>;
@@ -21,7 +22,9 @@ export function stripeConfig(env: Env = process.env): StripeConfig | null {
   const liveKey = /^(sk|rk)_live_/.test(secretKey);
   if (!testMode && !liveKey) return null;
   if (env.VERCEL_ENV === "production") {
-    if (env.ESHOP_STRIPE_LIVE !== "on") return null;
+    // Ostrý provoz: jen ostrý klíč — testovací klíč by „zaplatil“ objednávku
+    // testovací kartou bez skutečných peněz.
+    if (env.ESHOP_STRIPE_LIVE !== "on" || !liveKey) return null;
   } else if (!testMode) {
     return null;
   }

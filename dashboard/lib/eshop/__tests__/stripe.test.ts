@@ -44,6 +44,9 @@ describe("Stripe — kdy je platba kartou dostupná (Production guard)", () => {
     expect(isCardPaymentAvailable({ ...prod, ESHOP_ORDER_WRITE: "on" })).toBe(false);
     expect(isCardPaymentAvailable({ ...prod, ESHOP_STRIPE_LIVE: "on" })).toBe(false); // zápis objednávek vypnutý
     expect(isCardPaymentAvailable({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_STRIPE_LIVE: "on" })).toBe(true);
+    // Testovací klíč omylem v Production: ne (objednávka by se „zaplatila“ testovací kartou).
+    expect(isCardPaymentAvailable({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_STRIPE_LIVE: "on", STRIPE_SECRET_KEY: "sk_test_x" })).toBe(false);
+    expect(isCardPaymentAvailable({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_STRIPE_LIVE: "on", STRIPE_SECRET_KEY: "rk_live_x" })).toBe(true);
   });
 
   it("pokladna odmítne „Kartou online“, když karta není dostupná", () => {
