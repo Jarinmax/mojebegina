@@ -125,9 +125,11 @@ rekapitulace.
 6. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
    Stránky už existují a patička na ně vede (3. 10. 2026): `/eshop/o-nas`,
    `/eshop/doprava`, `/eshop/obchodni-podminky`,
-   `/eshop/ochrana-osobnich-udaju` (odkaz „GDPR“). Obchodní podmínky a GDPR
-   zatím ukazují „Text připravujeme“ — texty vložit do
-   `lib/eshop/infoPages.ts` (`blocks`). Pokladna u souhlasu odkazuje na obě.
+   `/eshop/ochrana-osobnich-udaju` (odkaz „GDPR“). **Obchodní podmínky dodány
+   a vložené 3. 10. 2026** (`lib/eshop/content/obchodniPodminky.ts`, účinné od
+   22. 9. 2026). GDPR zatím „Text připravujeme“ — vložit do
+   `lib/eshop/infoPages.ts`. Reklamační řád je součástí podmínek (čl. VIII).
+   Pokladna u souhlasu odkazuje na obě stránky.
 
 ## Další fáze
 

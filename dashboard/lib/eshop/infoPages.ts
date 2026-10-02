@@ -4,17 +4,24 @@
 //
 // `blocks: null` = text zatím nemáme → stránka existuje, odkaz funguje
 // a zobrazí se „Text připravujeme“ s kontaktem na provozovatele.
-// Právní texty (obchodní podmínky, GDPR) se NEvymýšlejí — doplní je vedení.
+// Právní texty se NEvymýšlejí — dodává je vedení (obchodní podmínky dodány
+// 3. 10. 2026, GDPR zatím chybí).
 import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethods } from "./shipping";
+import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
 
-export type InfoBlock = { heading?: string; paragraphs?: string[]; items?: string[] };
+/** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
+export type InfoPoint = { text: string; lines?: string[]; items?: string[]; after?: string };
+
+export type InfoBlock = { heading?: string; paragraphs?: string[]; items?: string[]; points?: InfoPoint[] };
 
 export type InfoPage = {
   path: string;
   footerLabel: string;
   title: string;
+  /** Řádek pod nadpisem, např. „Platné a účinné od …“. */
+  subtitle?: string;
   description: string;
   /** null = text připravujeme */
   blocks: InfoBlock[] | null;
@@ -88,12 +95,14 @@ const shippingPage: InfoPage = {
   pendingNote: "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
 };
 
+// Text dodaný vedením 3. 10. 2026: lib/eshop/content/obchodniPodminky.ts.
 const termsPage: InfoPage = {
   path: "/eshop/obchodni-podminky",
   footerLabel: "Obchodní podmínky",
-  title: "Obchodní podmínky",
-  description: "Obchodní podmínky e-shopu Begina.",
-  blocks: null,
+  title: "Obchodní podmínky e-shopu Begina.cz",
+  subtitle: `Platné a účinné od ${TERMS_EFFECTIVE}`,
+  description: "Obchodní podmínky e-shopu Begina.cz.",
+  blocks: TERMS_BLOCKS,
 };
 
 const privacyPage: InfoPage = {
