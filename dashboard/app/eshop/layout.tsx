@@ -6,6 +6,7 @@ import logoMark from "@/public/logo-begina-mark.png";
 import CartLink from "@/components/eshop/CartLink";
 import CatalogProvider from "@/components/eshop/CatalogProvider";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
+import EshopFooter from "@/components/eshop/EshopFooter";
 import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
@@ -59,26 +60,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
 
       <main className="flex-1">{catalog ? children : <CatalogUnavailable />}</main>
 
-      <footer className="border-t border-neutral-200 bg-begina-primary-50">
-        <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-neutral-600 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
-          {/* Údaje provozovatele převzaté ze stávající patičky begina.cz. */}
-          <address className="not-italic flex flex-col gap-0.5">
-            <span className="font-medium text-begina-primary-900">Provozovatel</span>
-            <span>Jaroslav Viner</span>
-            <a href="tel:+420774199975" className="hover:underline">+420 774 199 975</a>
-            <a href="mailto:info@begina.cz" className="hover:underline">info@begina.cz</a>
-            <span>Mostecká 273/21, 118 00 Praha 1</span>
-            <span>IČO: 74337297</span>
-          </address>
-          <div className="flex flex-col gap-1 sm:text-right">
-            <span>O nás</span>
-            <span>Doprava</span>
-            <span>Obchodní podmínky</span>
-            <span>GDPR</span>
-            <span className="text-xs text-neutral-400">(texty doplníme)</span>
-          </div>
-        </div>
-      </footer>
+      <EshopFooter />
     </div>
     </CatalogProvider>
   );

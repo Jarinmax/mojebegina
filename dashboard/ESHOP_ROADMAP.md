@@ -123,6 +123,11 @@ rekapitulace.
    nedává). Testovací režim hned, ostré platby po ověření firmy ve Stripe.
    Viz `ESHOP_STRIPE.md`; číslo účtu pro převod (QR).
 6. **Obchodní podmínky, reklamační řád, zásady ochrany osobních údajů.**
+   Stránky už existují a patička na ně vede (3. 10. 2026): `/eshop/o-nas`,
+   `/eshop/doprava`, `/eshop/obchodni-podminky`,
+   `/eshop/ochrana-osobnich-udaju` (odkaz „GDPR“). Obchodní podmínky a GDPR
+   zatím ukazují „Text připravujeme“ — texty vložit do
+   `lib/eshop/infoPages.ts` (`blocks`). Pokladna u souhlasu odkazuje na obě.
 
 ## Další fáze
 

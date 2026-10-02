@@ -10,6 +10,7 @@ import { shippingMethods, paymentMethodsFor, getShippingMethod } from "@/lib/esh
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
+import { INFO_PAGES } from "@/lib/eshop/infoPages";
 
 const initialState: CheckoutState = null;
 
@@ -349,7 +350,17 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
             onChange={(e) => set("termsAccepted", e.target.checked)}
             className="mt-0.5 accent-begina-primary-900"
           />
-          Souhlasím s obchodními podmínkami a beru na vědomí zpracování osobních údajů.
+          <span>
+            Souhlasím s{" "}
+            <a href={INFO_PAGES.terms.path} target="_blank" rel="noopener" className="underline underline-offset-2">
+              obchodními podmínkami
+            </a>{" "}
+            a beru na vědomí{" "}
+            <a href={INFO_PAGES.privacy.path} target="_blank" rel="noopener" className="underline underline-offset-2">
+              zpracování osobních údajů
+            </a>
+            .
+          </span>
         </label>
 
         {state && "error" in state && (

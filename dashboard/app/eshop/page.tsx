@@ -2,23 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { Snowflake } from "lucide-react";
 import { getCatalog } from "@/lib/eshop/catalogServer";
+import { filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 
 // Úvodní stránka záměrně stejně čistá jako dnešní begina.cz: úvodní text,
 // dlaždice kategorií, "Proč Begina". Produkty jsou až na stránkách
-// kategorií. Texty jsou převzaté doslova z begina.cz.
-const whyBegina = [
-  "pečlivý výběr kvalitních surovin",
-  "promyšlené kombinace chutí",
-  "důraz na vyváženost receptur",
-  "poctivá česká výroba",
-];
-
-const filteredWater = [
-  "je základem každé naší receptury",
-  "nechává vyniknout přirozenou chuť surovin",
-  "pomáhá zachovat čistý a vyvážený chuťový profil",
-];
-
+// kategorií. Texty jsou převzaté doslova z begina.cz (lib/eshop/infoPages.ts).
 export const dynamic = "force-dynamic";
 
 export default async function EshopPage() {
