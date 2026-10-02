@@ -9,6 +9,7 @@ import CallOutcomeForm from "./CallOutcomeForm";
 import AddLeadToListForm from "./AddLeadToListForm";
 import GenerateCandidatesButton from "./GenerateCandidatesButton";
 import PublishDraftButton from "./PublishDraftButton";
+import QueueRecipientNotice from "./QueueRecipientNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ async function CuratorSections() {
           </p>
           {totalPending < 10 && <GenerateCandidatesButton />}
         </div>
+        <QueueRecipientNotice count={published.length} />
         <AddLeadToListForm options={manualOptions} isFull={totalPending >= 10} />
       </div>
 
@@ -110,10 +112,11 @@ async function WorkerSections() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-white border border-neutral-200 rounded-xl p-4">
+      <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-2">
         <p className="text-sm text-neutral-600">
           Vyřízeno: <span className="font-medium text-begina-primary-900">{doneToday} z {totalToday}</span>
         </p>
+        <QueueRecipientNotice count={carriedOver.length + today.length} />
       </div>
 
       {carriedOver.length === 0 && today.length === 0 && (
