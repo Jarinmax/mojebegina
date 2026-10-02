@@ -30,7 +30,7 @@ je v DB `payment_status = 'paid'` (u karty ho nastavuje ověřený webhook).
 Obsah pro zákazníka: položky, doprava (adresa / místo odběru), celkem,
 způsob a stav platby, reference objednávky (až bude číslování zapnuté,
 číslo objednávky), odkaz na stránku stavu objednávky, u převodu platební
-údaje (`ESHOP_BANK_ACCOUNT`, jinak „pošleme co nejdříve“). Interně: jméno,
+údaje a QR Platbu (`ESHOP_PREVOD_QR.md`, bez účtu „pošleme co nejdříve“). Interně: jméno,
 částka, položky, doprava, stav platby, poznámka zákazníka, odkaz na detail
 v MojeBegina; „Odpovědět“ jde rovnou zákazníkovi.
 
@@ -96,7 +96,7 @@ Přesné hodnoty vždy z obrazovky Resendu. Obvykle:
 | `ESHOP_EMAIL_INTERNAL_TO` | adresy Jaroslava a Lucie, oddělené čárkou | interní upozornění |
 | `ESHOP_EMAIL_TEST_RECIPIENTS` | stejné adresy (+ další testeři) | povinné mimo Production |
 | `ESHOP_EMAIL_REPLY_TO` | např. `info@begina.cz` | volitelné |
-| `ESHOP_BANK_ACCOUNT` | `123456789/0100` | volitelné — číslo účtu v e-mailu u převodu |
+| `ESHOP_BANK_ACCOUNT`, `ESHOP_BANK_IBAN` | viz `ESHOP_PREVOD_QR.md` | platební údaje a QR u převodu |
 | `ESHOP_EMAIL_LIVE` | — | **nenastavovat**; až v den spuštění, jen Production |
 
 Settings → Environment Variables → u každé zaškrtnout **jen Preview** →

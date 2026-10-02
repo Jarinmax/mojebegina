@@ -1,3 +1,4 @@
+import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderDetail, listInternalStaff } from "@/lib/data/orders";
@@ -103,6 +104,13 @@ export default async function OrderDetailPage(
             <div>
               <p className="text-xs text-neutral-500 mb-0.5">Platba</p>
               <p className="text-sm text-begina-primary-900">{order.paymentMethodLabel}</p>
+              {order.transferDueAt && order.paymentStatus === "unpaid" && (
+                <p className={`text-xs ${order.paymentOverdue ? "text-red-700 font-medium" : "text-neutral-500"}`}>
+                  Splatnost {formatPragueDate(order.transferDueAt)}
+                  {order.orderNumber !== null && <> · VS {order.orderNumber}</>}
+                  {order.paymentOverdue && " — po splatnosti"}
+                </p>
+              )}
             </div>
           )}
           {order.customerNote && (

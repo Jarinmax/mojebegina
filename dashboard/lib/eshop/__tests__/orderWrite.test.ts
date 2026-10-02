@@ -146,7 +146,7 @@ describe("orderWrite — skutečný zápis přes neon-http (db.batch) nad PGlite
 
   it("uloží objednávku, položky napojené na balení a systémový záznam v jedné transakci", async () => {
     const result = await saveEshopOrder(db, ORDER_ID, checkoutValue());
-    expect(result).toEqual({ ok: true, orderId: ORDER_ID, alreadySaved: false });
+    expect(result).toEqual({ ok: true, orderId: ORDER_ID, orderNumber: null, alreadySaved: false });
 
     expect(
       await rows(sql`SELECT channel, buyer_organization_id, contact_email, subtotal_kc, discount_kc, shipping_kc,
@@ -199,6 +199,7 @@ describe("orderWrite — skutečný zápis přes neon-http (db.batch) nad PGlite
     expect(await saveEshopOrder(db, ORDER_ID, checkoutValue())).toEqual({
       ok: true,
       orderId: ORDER_ID,
+      orderNumber: null,
       alreadySaved: true,
     });
     expect(await rows(sql`SELECT count(*)::int AS n FROM orders WHERE id = ${ORDER_ID}`)).toEqual([{ n: 1 }]);

@@ -4,7 +4,17 @@ import { describe, expect, it, vi } from "vitest";
 import { emailConfig, parseEmailList, resolveRecipients } from "../email/config";
 import { emailsFor } from "../email/orderEmails";
 import { resendTransport } from "../email/resend";
-import { customerOrderEmail, internalOrderEmail, orderReference, paymentStateLabel, type EmailOrder } from "../email/templates";
+import {
+  customerOrderEmail,
+  customerPaymentReceivedEmail,
+  internalOrderEmail,
+  orderReference,
+  paymentStateLabel,
+  type EmailOrder,
+} from "../email/templates";
+import { transferInfo } from "../bankTransfer";
+
+const BANK = { account: "19-2000145399/0800", iban: "CZ6508000000192000145399" };
 
 const PREVIEW = {
   VERCEL_ENV: "preview",
@@ -22,7 +32,6 @@ describe("e-maily — kdy se vůbec posílají (pojistky)", () => {
       replyTo: null,
       internalTo: ["jaroslav@begina.test", "lucie@begina.test"],
       testRecipients: ["jaroslav@begina.test", "lucie@begina.test"],
-      bankAccount: null,
     });
   });
 
@@ -46,10 +55,9 @@ describe("e-maily — kdy se vůbec posílají (pojistky)", () => {
     expect(emailConfig({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_EMAIL_LIVE: "on" })).toMatchObject({ testRecipients: null });
   });
 
-  it("volitelné: odpovědi a číslo účtu", () => {
-    expect(emailConfig({ ...PREVIEW, ESHOP_EMAIL_REPLY_TO: "info@begina.cz", ESHOP_BANK_ACCOUNT: " 123456789/0100 " })).toMatchObject({
+  it("volitelné: adresa pro odpovědi", () => {
+    expect(emailConfig({ ...PREVIEW, ESHOP_EMAIL_REPLY_TO: "info@begina.cz" })).toMatchObject({
       replyTo: "info@begina.cz",
-      bankAccount: "123456789/0100",
     });
   });
 
@@ -98,6 +106,13 @@ describe("e-maily — které e-maily spouští která událost", () => {
     expect(emailsFor(order("karta", "unpaid"), "payment_confirmed")).toEqual([]);
   });
 
+  it("ručně označeno Zaplaceno: „Platbu jsme přijali“ — u karty jen když potvrzení o zaplacení ještě nepřišlo", () => {
+    expect(emailsFor(order("prevod", "paid"), "payment_marked_paid")).toEqual(["customer_payment_received"]);
+    expect(emailsFor(order("prevod", "unpaid"), "payment_marked_paid")).toEqual([]);
+    expect(emailsFor(order("karta", "paid"), "payment_marked_paid", new Set(["customer_confirmation"]))).toEqual([]);
+    expect(emailsFor(order("karta", "paid"), "payment_marked_paid")).toEqual(["customer_payment_received"]);
+  });
+
   it("ruční objednávka z MojeBegina: nikdy", () => {
     expect(emailsFor({ ...order("prevod"), channel: "manual" }, "order_created")).toEqual([]);
   });
@@ -119,6 +134,7 @@ const ORDER: EmailOrder = {
   shippingKc: 99,
   totalKc: 1236,
   customerNote: "Prosím zvonit <2×>",
+  orderedAt: new Date("2026-10-02T10:00:00Z"),
   items: [
     { name: "Kulajda", quantity: 2, unitPriceKc: 379, lineTotalKc: 758 },
     { name: "Dýňová polévka", quantity: 1, unitPriceKc: 379, lineTotalKc: 379 },
@@ -129,7 +145,7 @@ const kc = (n: number) => `${new Intl.NumberFormat("cs-CZ").format(n)} Kč`;
 
 describe("e-maily — obsah potvrzení pro zákazníka", () => {
   it("převod: přijetí, položky, doprava, celkem, způsob a stav platby, reference, odkaz — a NE „zaplaceno“", () => {
-    const mail = customerOrderEmail(ORDER, { ...CTX, bankAccount: null });
+    const mail = customerOrderEmail(ORDER, { ...CTX, transfer: null, qrContentId: null });
     expect(mail.subject).toBe("Přijali jsme vaši objednávku 11348d18");
     for (const part of [
       "Begina ji přijala",
@@ -152,16 +168,32 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
     }
   });
 
-  it("převod s číslem účtu: platební údaje včetně částky a zprávy pro příjemce", () => {
-    const mail = customerOrderEmail(ORDER, { ...CTX, bankAccount: "123456789/0100" });
-    expect(mail.text).toContain("Číslo účtu: 123456789/0100");
+  it("převod s účtem a číslem objednávky: účet, IBAN, částka, VS, splatnost (+5 dní) a QR přes cid:", () => {
+    const numbered = { ...ORDER, orderNumber: 900001 };
+    const transfer = transferInfo(numbered, BANK);
+    const mail = customerOrderEmail(numbered, { ...CTX, transfer, qrContentId: "qr-platba" });
+    expect(mail.text).toContain("Číslo účtu: 19-2000145399/0800");
+    expect(mail.text).toContain("IBAN: CZ65 0800 0000 1920 0014 5399");
     expect(mail.text).toContain(`Částka: ${kc(1236)}`);
-    expect(mail.text).toContain("Zpráva pro příjemce: Objednávka 11348d18");
+    expect(mail.text).toContain("Variabilní symbol: 900001");
+    expect(mail.text).toContain("Splatnost: 7. 10. 2026");
+    expect(mail.html).toContain('src="cid:qr-platba"');
+    expect(mail.html).toContain('alt="QR Platba"');
+    expect(mail.html).not.toContain("data:image");
+  });
+
+  it("převod bez čísla objednávky: bez VS a bez QR, místo toho zpráva pro příjemce", () => {
+    const transfer = transferInfo(ORDER, BANK);
+    const mail = customerOrderEmail(ORDER, { ...CTX, transfer, qrContentId: null });
+    expect(transfer?.spayd).toBeNull();
+    expect(mail.text).toContain("Zpráva pro příjemce: Begina objednavka 11348d18");
+    expect(mail.text).not.toContain("Variabilní symbol");
+    expect(mail.html).not.toContain("cid:");
   });
 
   it("karta zaplacená (po webhooku): jedno potvrzení se stavem „Zaplaceno kartou“, bez platebních údajů", () => {
     const paid = { ...ORDER, paymentMethodCode: "karta", paymentMethodLabel: "Kartou online", paymentStatus: "paid" };
-    const mail = customerOrderEmail(paid, { ...CTX, bankAccount: "123456789/0100" });
+    const mail = customerOrderEmail(paid, { ...CTX, transfer: transferInfo(paid, BANK), qrContentId: null });
     expect(mail.subject).toBe("Objednávka 11348d18 je zaplacená — děkujeme");
     expect(mail.text).toContain("Stav platby: Zaplaceno kartou");
     expect(mail.text).toContain("platbu jsme obdrželi");
@@ -171,7 +203,7 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
   it("karta NEzaplacená nikdy netvrdí „zaplaceno“", () => {
     const unpaid = { ...ORDER, paymentMethodCode: "karta", paymentMethodLabel: "Kartou online" };
     expect(paymentStateLabel(unpaid)).toBe("Čeká na platbu kartou");
-    const mail = customerOrderEmail(unpaid, { ...CTX, bankAccount: null });
+    const mail = customerOrderEmail(unpaid, { ...CTX, transfer: null, qrContentId: null });
     for (const body of [mail.subject, mail.text, mail.html]) {
       expect(body.toLowerCase()).not.toMatch(/zaplacen[oaá](?![\p{L}])|platbu jsme obdrželi/u);
     }
@@ -179,13 +211,13 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
 
   it("osobní odběr: místo adresy kde si objednávku vyzvednout", () => {
     const pickup = { ...ORDER, recipientAddress: null, shippingMethodCode: "osobni-odber", shippingMethodLabel: "Osobní vyzvednutí — Zahradní Bistro Begina", shippingKc: 0 };
-    const mail = customerOrderEmail(pickup, { ...CTX, bankAccount: null });
+    const mail = customerOrderEmail(pickup, { ...CTX, transfer: null, qrContentId: null });
     expect(mail.text).toContain("Vitice 119");
     expect(mail.text).toContain("Osobní vyzvednutí — Zahradní Bistro Begina: zdarma");
   });
 
   it("text od zákazníka se v HTML escapuje", () => {
-    const mail = customerOrderEmail(ORDER, { ...CTX, bankAccount: null });
+    const mail = customerOrderEmail(ORDER, { ...CTX, transfer: null, qrContentId: null });
     expect(mail.html).toContain("Jana &lt;b&gt;Nováková&lt;/b&gt;");
     expect(mail.html).toContain("Prosím zvonit &lt;2×&gt;");
     expect(mail.html).not.toContain("<b>Nováková</b>");
@@ -193,13 +225,13 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
 
   it("číslo objednávky (až se zapne číslování) má přednost před referencí", () => {
     expect(orderReference({ ...ORDER, orderNumber: 5101 })).toBe("5101");
-    expect(customerOrderEmail({ ...ORDER, orderNumber: 5101 }, { ...CTX, bankAccount: null }).subject).toBe(
+    expect(customerOrderEmail({ ...ORDER, orderNumber: 5101 }, { ...CTX, transfer: null, qrContentId: null }).subject).toBe(
       "Přijali jsme vaši objednávku 5101"
     );
   });
 
   it("testovací režim: [TEST] v předmětu a pruh s adresou, kam by e-mail šel", () => {
-    const mail = customerOrderEmail(ORDER, { ...CTX, test: true, withheld: ["jana@example.cz"], bankAccount: null });
+    const mail = customerOrderEmail(ORDER, { ...CTX, test: true, withheld: ["jana@example.cz"], transfer: null, qrContentId: null });
     expect(mail.subject).toBe("[TEST] Přijali jsme vaši objednávku 11348d18");
     expect(mail.html).toContain("TESTOVACÍ E-MAIL");
     expect(mail.html).toContain("jana@example.cz");
@@ -233,6 +265,17 @@ describe("e-maily — interní upozornění pro Beginu", () => {
   });
 });
 
+describe("e-maily — platba přijata", () => {
+  it("poděkování, částka, reference a odkaz; nic o čekání na platbu", () => {
+    const mail = customerPaymentReceivedEmail({ ...ORDER, orderNumber: 900001, paymentStatus: "paid" }, CTX);
+    expect(mail.subject).toBe("Platbu za objednávku 900001 jsme přijali");
+    expect(mail.text).toContain("platbu za vaši objednávku jsme přijali");
+    expect(mail.text).toContain(`Přijatá částka: ${kc(1236)}`);
+    expect(mail.text).toContain("https://preview.example/eshop/objednavka/");
+    expect(mail.text).not.toContain("Čeká na platbu");
+  });
+});
+
 describe("e-maily — Resend API", () => {
   const message = { from: "Begina <objednavky@begina.cz>", to: ["a@x.cz"], replyTo: "info@begina.cz", subject: "S", html: "<p>H</p>", text: "T" };
 
@@ -251,6 +294,18 @@ describe("e-maily — Resend API", () => {
       html: "<p>H</p>",
       text: "T",
     });
+  });
+
+  it("vložený obrázek se pošle jako příloha s content_id (base64)", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ id: "msg_2" }), { status: 200 }));
+    await resendTransport("re_x", fetchImpl as unknown as typeof fetch)(
+      { ...message, inlineImages: [{ filename: "qr-platba.png", contentBase64: "iVBORw0K", contentId: "qr-platba" }] },
+      "k"
+    );
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).attachments).toEqual([
+      { filename: "qr-platba.png", content: "iVBORw0K", content_id: "qr-platba" },
+    ]);
   });
 
   it("chyba Resendu i výpadek sítě vrátí { ok: false } (žádná výjimka)", async () => {

@@ -8,6 +8,14 @@
 //   karta, zrušená/propadlá platba  → nic (stránka objednávky nabízí
 //                                     „Zaplatit znovu“, MojeBegina ji ukazuje
 //                                     jako nezaplacenou)
+//   ručně označeno Zaplaceno        → zákazník: „Platbu jsme přijali“ (max.
+//     v MojeBegina                    jednou; u karty jen když mu ještě
+//                                     nepřišlo potvrzení o zaplacení)
+//
+// U převodu obsahuje potvrzení platební údaje a QR Platbu jako obrázek
+// vložený do e-mailu přes Content-ID (cid:) — spolehlivější než externí
+// obrázek (blokovaný do „zobrazit obrázky“) i než data: URL (Gmail
+// a Outlook je nezobrazí).
 //
 // Proti duplicitám: volá se jen při skutečném vzniku objednávky
 // (saveEshopOrder → alreadySaved = false) a při skutečném přepnutí na
@@ -24,12 +32,23 @@ import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { ESHOP_ACTOR_NAME } from "../orderWrite";
 import { emailConfig, resolveRecipients, type EmailConfig } from "./config";
 import { resendTransport, type EmailTransport } from "./resend";
-import { customerOrderEmail, internalOrderEmail, type EmailOrder, type RenderedEmail } from "./templates";
+import {
+  customerOrderEmail,
+  customerPaymentReceivedEmail,
+  internalOrderEmail,
+  type EmailOrder,
+  type RenderedEmail,
+} from "./templates";
+import { bankConfig, transferInfo, type BankConfig } from "../bankTransfer";
+import { qrPng } from "../qr";
+import type { InlineImage } from "./resend";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
-export type OrderEmailTrigger = "order_created" | "payment_confirmed";
-export type OrderEmailTemplate = "customer_confirmation" | "internal_new_order";
+export type OrderEmailTrigger = "order_created" | "payment_confirmed" | "payment_marked_paid";
+export type OrderEmailTemplate = "customer_confirmation" | "internal_new_order" | "customer_payment_received";
+
+const QR_CONTENT_ID = "qr-platba";
 export type OrderEmailOutcome = { template: OrderEmailTemplate; status: "sent" | "duplicate" | "failed" | "no-recipient" };
 
 export const EMAIL_SENT = "email_sent";
@@ -40,14 +59,22 @@ type OrderForEmail = EmailOrder & { channel: string };
 /** Které e-maily daná událost spouští (čistá funkce). */
 export function emailsFor(
   order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus">,
-  trigger: OrderEmailTrigger
+  trigger: OrderEmailTrigger,
+  alreadySentTemplates: ReadonlySet<string> = new Set()
 ): OrderEmailTemplate[] {
   if (order.channel !== "eshop") return [];
   const card = order.paymentMethodCode === "karta";
   if (trigger === "order_created") {
     return card ? [] : ["customer_confirmation", "internal_new_order"];
   }
-  return card && order.paymentStatus === "paid" ? ["customer_confirmation", "internal_new_order"] : [];
+  if (trigger === "payment_confirmed") {
+    return card && order.paymentStatus === "paid" ? ["customer_confirmation", "internal_new_order"] : [];
+  }
+  // Ručně označeno Zaplaceno. Kartou zaplacená objednávka už potvrzení
+  // „je zaplacená“ dostala od webhooku — druhá zpráva by byla navíc.
+  if (order.paymentStatus !== "paid") return [];
+  if (card && alreadySentTemplates.has("customer_confirmation")) return [];
+  return ["customer_payment_received"];
 }
 
 export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderForEmail | null> {
@@ -64,6 +91,7 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
       paymentMethodCode: orders.paymentMethodCode,
       paymentMethodLabel: orders.paymentMethodLabel,
       paymentStatus: orders.paymentStatus,
+      orderedAt: orders.orderedAt,
       subtotalKc: orders.subtotalKc,
       discountKc: orders.discountKc,
       shippingKc: orders.shippingKc,
@@ -87,19 +115,24 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
   return { ...order, items };
 }
 
-async function alreadySent(db: Db, orderId: string, template: OrderEmailTemplate): Promise<boolean> {
+async function sentTemplates(db: Db, orderId: string): Promise<Set<string>> {
   const rows = await db
-    .select({ id: orderActivity.id })
+    .select({ template: sql<string>`${orderActivity.metadata}->>'template'` })
     .from(orderActivity)
-    .where(
-      and(
-        eq(orderActivity.orderId, orderId),
-        eq(orderActivity.kind, EMAIL_SENT),
-        sql`${orderActivity.metadata}->>'template' = ${template}`
-      )
-    )
-    .limit(1);
-  return rows.length > 0;
+    .where(and(eq(orderActivity.orderId, orderId), eq(orderActivity.kind, EMAIL_SENT)));
+  return new Set(rows.map((r) => r.template));
+}
+
+async function qrImage(spayd: string | null): Promise<InlineImage | null> {
+  if (!spayd) return null;
+  try {
+    const png = await qrPng(spayd);
+    return { filename: "qr-platba.png", contentBase64: png.toString("base64"), contentId: QR_CONTENT_ID };
+  } catch (error) {
+    // Bez QR se e-mail pošle i tak — platební údaje jsou v něm textem.
+    console.error("E-shop: QR kód se nepodařilo vytvořit", error);
+    return null;
+  }
 }
 
 async function record(db: Db, orderId: string, kind: string, metadata: Record<string, unknown>) {
@@ -113,7 +146,7 @@ async function record(db: Db, orderId: string, kind: string, metadata: Record<st
   });
 }
 
-export type SendOrderEmailsOptions = { config?: EmailConfig | null; transport?: EmailTransport };
+export type SendOrderEmailsOptions = { config?: EmailConfig | null; transport?: EmailTransport; bank?: BankConfig };
 
 export async function sendOrderEmails(
   db: Db,
@@ -132,13 +165,15 @@ export async function sendOrderEmails(
     const transport = options.transport ?? resendTransport(config.apiKey);
     const test = config.testRecipients !== null;
 
-    planned = emailsFor(order, trigger);
+    const sent = await sentTemplates(db, orderId);
+    const transfer = transferInfo(order, options.bank ?? bankConfig());
+    planned = emailsFor(order, trigger, sent);
     for (const template of planned) {
-      if (await alreadySent(db, orderId, template)) {
+      if (sent.has(template)) {
         outcomes.push({ template, status: "duplicate" });
         continue;
       }
-      const customer = template === "customer_confirmation";
+      const customer = template !== "internal_new_order";
       const intended = customer ? (order.contactEmail ? [order.contactEmail] : []) : config.internalTo;
       if (intended.length === 0) {
         outcomes.push({ template, status: "no-recipient" });
@@ -146,9 +181,17 @@ export async function sendOrderEmails(
       }
       const { to, withheld } = resolveRecipients(intended, config);
       const ctx = { baseUrl, withheld, test };
-      const rendered: RenderedEmail = customer
-        ? customerOrderEmail(order, { ...ctx, bankAccount: config.bankAccount })
-        : internalOrderEmail(order, ctx);
+      let rendered: RenderedEmail;
+      let inlineImages: InlineImage[] = [];
+      if (template === "customer_confirmation") {
+        const qr = await qrImage(transfer?.spayd ?? null);
+        if (qr) inlineImages = [qr];
+        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null });
+      } else if (template === "customer_payment_received") {
+        rendered = customerPaymentReceivedEmail(order, ctx);
+      } else {
+        rendered = internalOrderEmail(order, { ...ctx, transfer });
+      }
       // Interní upozornění: odpověď jde rovnou zákazníkovi — v testovacím
       // režimu jen když je zákazník na seznamu (odpověď na [TEST] e-mail
       // nesmí odejít na adresu z testovací objednávky).
@@ -160,7 +203,7 @@ export async function sendOrderEmails(
           : config.replyTo;
 
       const result = await transport(
-        { from: config.from, to, replyTo, ...rendered },
+        { from: config.from, to, replyTo, ...rendered, inlineImages },
         `eshop-${template}-${orderId}`
       );
       if (result.ok) {
@@ -169,6 +212,7 @@ export async function sendOrderEmails(
           provider: "resend",
           messageId: result.id,
           to,
+          ...(inlineImages.length ? { qr: true } : {}),
           ...(test ? { test: true, withheld } : {}),
         });
         outcomes.push({ template, status: "sent" });

@@ -26,6 +26,11 @@ const ready = (async () => {
       if (statement.trim()) await pg.exec(statement);
     }
   }
+  // Volitelně zapnuté číslování objednávek (skript 06b, např. 900000 jako Preview).
+  if (process.env.E2E_ORDER_NUMBER_START) {
+    const numbering = readFileSync(join(DRIZZLE_DIR, "../docs/eshop-schema-draft/06b_order_number_cutover_up.sql"), "utf8");
+    await pg.exec(numbering.replaceAll("<MAX_WOO_ORDER_NUMBER>", process.env.E2E_ORDER_NUMBER_START));
+  }
 })();
 
 // Každý typ vrátit jako surový text — parsování dělá ovladač Neonu sám.

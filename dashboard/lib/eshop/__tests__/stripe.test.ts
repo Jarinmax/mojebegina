@@ -81,6 +81,8 @@ function cardValue() {
 
 describe("Stripe Checkout — parametry platby", () => {
   const order: PaymentOrder = {
+    orderNumber: null,
+    orderedAt: new Date("2026-10-02T10:00:00Z"),
     id: "0b6f7a52-3c1e-4d7a-9a55-6c2f8f0e4a11",
     channel: "eshop",
     paymentMethodCode: "karta",

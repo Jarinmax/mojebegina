@@ -1,6 +1,10 @@
 -- NÁVRH ESHOP 1.0 — NESPOUŠTĚT BEZ SCHVÁLENÍ. Viz dashboard/ESHOP_SCHEMA_PROPOSAL.md.
 -- Spouštět nejdřív na Neon branch, nikdy celou složku najednou.
--- Krok 6b (drizzle 0016b): ZAPNUTÍ ČÍSLOVÁNÍ V DEN PŘEPNUTÍ Z WOOCOMMERCE.
+-- Krok 6b (navazuje na drizzle 0018 = sloupec order_number): ZAPNUTÍ ČÍSLOVÁNÍ.
+-- Není to drizzle migrace: start řady se liší podle prostředí —
+--   Preview: 900000 (další číslo 900001, testovací řada; schváleno 2. 10. 2026),
+--   Production: nejvyšší číslo z WooCommerce, AŽ V DEN PŘEPNUTÍ.
+-- Testy (PGlite) spouštějí tentýž soubor: lib/eshop/__tests__/helpers/migratedDb.ts.
 --
 -- Postup (viz ESHOP_SCHEMA_PROPOSAL.md, oddíl Číslování):
 --   1. Ve WooCommerce vypnout pokladnu (údržba), počkat na dokončení plateb.

@@ -6,6 +6,7 @@
 // Begina: stručné interní upozornění s odkazem na detail v MojeBegina.
 import { formatKc } from "@/lib/format";
 import { getShippingMethod } from "../shipping";
+import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer";
 
 export type EmailOrder = {
   id: string;
@@ -18,6 +19,7 @@ export type EmailOrder = {
   paymentMethodCode: string | null;
   paymentMethodLabel: string | null;
   paymentStatus: string;
+  orderedAt: Date;
   subtotalKc: number;
   discountKc: number;
   shippingKc: number;
@@ -134,7 +136,12 @@ function button(href: string, label: string): string {
 
 // ---------- zákazník ----------
 
-function paymentInstructions(order: EmailOrder, bankAccount: string | null): { html: string; text: string } {
+/** Platební údaje k převodu: text vždy, QR jen když je k dispozici (obrázek vložený přes Content-ID). */
+function paymentInstructions(
+  order: EmailOrder,
+  transfer: TransferInfo | null,
+  qrContentId: string | null
+): { html: string; text: string } {
   if (order.paymentStatus === "paid") {
     return { html: "", text: "" };
   }
@@ -142,23 +149,35 @@ function paymentInstructions(order: EmailOrder, bankAccount: string | null): { h
     const text = "Platba kartou zatím nebyla dokončena. Zaplatit můžete na stránce objednávky.";
     return { html: `<p style="font-size:14px;margin:0 0 12px;">${text}</p>`, text: `${text}\n\n` };
   }
-  const reference = orderReference(order);
-  if (bankAccount) {
-    const lines: [string, string][] = [
-      ["Číslo účtu", bankAccount],
-      ["Částka", formatKc(order.totalKc)],
-      ["Zpráva pro příjemce", `Objednávka ${reference}`],
-    ];
-    return {
-      html: `<p style="font-size:14px;margin:0 0 8px;font-weight:600;">Platba převodem</p>${detailsTable(lines)}<div style="height:12px"></div>`,
-      text: `Platba převodem\n${lines.map(([l, v]) => `${l}: ${v}`).join("\n")}\n\n`,
-    };
+  if (!transfer) {
+    const text = "Platební údaje pro převod vám pošleme co nejdříve. Objednávku vyřídíme po připsání platby.";
+    return { html: `<p style="font-size:14px;margin:0 0 12px;">${text}</p>`, text: `${text}\n\n` };
   }
-  const text = "Platební údaje pro převod vám pošleme co nejdříve. Objednávku vyřídíme po připsání platby.";
-  return { html: `<p style="font-size:14px;margin:0 0 12px;">${text}</p>`, text: `${text}\n\n` };
+  const lines: [string, string][] = [];
+  if (transfer.account) lines.push(["Číslo účtu", transfer.account]);
+  if (transfer.iban) lines.push(["IBAN", formatIban(transfer.iban)]);
+  lines.push(["Částka", formatKc(transfer.amountKc)]);
+  if (transfer.variableSymbol) lines.push(["Variabilní symbol", transfer.variableSymbol]);
+  else lines.push(["Zpráva pro příjemce", transfer.message]);
+  lines.push(["Splatnost", formatPragueDate(transfer.dueAt)]);
+  const after = "Objednávku vyřídíme po připsání platby na účet.";
+  const qr =
+    qrContentId && transfer.spayd
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0 4px;"><tr><td style="padding:8px;border:1px solid #EDEDED;border-radius:8px;background:#FFFFFF;">` +
+        `<img src="cid:${qrContentId}" width="180" height="180" alt="QR Platba" style="display:block;width:180px;height:180px;border:0;"></td></tr></table>` +
+        `<p style="font-size:13px;color:#404040;margin:0 0 12px;">QR kód naskenujte v aplikaci své banky (QR Platba).</p>`
+      : "";
+  return {
+    html:
+      `<p style="font-size:14px;margin:0 0 8px;font-weight:600;">Platba převodem</p>${detailsTable(lines)}${qr}` +
+      `<p style="font-size:14px;margin:8px 0 16px;">${after}</p>`,
+    text: `Platba převodem\n${lines.map(([l, v]) => `${l}: ${v}`).join("\n")}\n${after}\n\n`,
+  };
 }
 
-export function customerOrderEmail(order: EmailOrder, ctx: Context & { bankAccount: string | null }): RenderedEmail {
+export type CustomerEmailContext = Context & { transfer: TransferInfo | null; qrContentId: string | null };
+
+export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext): RenderedEmail {
   const reference = orderReference(order);
   const paid = order.paymentStatus === "paid";
   const subject = `${subjectPrefix(ctx)}${paid ? `Objednávka ${reference} je zaplacená — děkujeme` : `Přijali jsme vaši objednávku ${reference}`}`;
@@ -173,7 +192,7 @@ export function customerOrderEmail(order: EmailOrder, ctx: Context & { bankAccou
     ["Stav platby", paymentStateLabel(order)],
   ];
   if (order.customerNote) details.push(["Vaše poznámka", order.customerNote]);
-  const instructions = paymentInstructions(order, ctx.bankAccount);
+  const instructions = paymentInstructions(order, ctx.transfer, ctx.qrContentId);
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
 
   const html = layout(
@@ -200,7 +219,7 @@ ${instructions.html}
 
 // ---------- interně pro Beginu ----------
 
-export function internalOrderEmail(order: EmailOrder, ctx: Context): RenderedEmail {
+export function internalOrderEmail(order: EmailOrder, ctx: Context & { transfer?: TransferInfo | null }): RenderedEmail {
   const reference = orderReference(order);
   const payment = paymentStateLabel(order);
   const subject = `${subjectPrefix(ctx)}Nová objednávka ${reference} — ${formatKc(order.totalKc)} — ${payment}`;
@@ -212,9 +231,13 @@ export function internalOrderEmail(order: EmailOrder, ctx: Context): RenderedEma
     ["Platba", `${order.paymentMethodLabel ?? "—"} — ${payment}`],
     ["Poznámka zákazníka", order.customerNote ?? "—"],
   ];
+  if (ctx.transfer) {
+    details.splice(4, 0, ["Splatnost", formatPragueDate(ctx.transfer.dueAt)]);
+    if (ctx.transfer.variableSymbol) details.splice(4, 0, ["Variabilní symbol", ctx.transfer.variableSymbol]);
+  }
   const reminder =
-    order.paymentStatus !== "paid" && order.paymentMethodCode !== "karta"
-      ? "Zákazník čeká na platební údaje k převodu, pokud mu nepřišly v potvrzení."
+    order.paymentStatus !== "paid" && order.paymentMethodCode !== "karta" && !ctx.transfer
+      ? "Zákazník čeká na platební údaje k převodu — v potvrzení je neměl (chybí nastavený účet)."
       : "";
 
   const html = layout(
@@ -234,5 +257,39 @@ ${reminder ? `<p style="margin:0 0 16px;color:#404040;">${escapeHtml(reminder)}<
     `Nová objednávka z e-shopu (${reference})\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
     `\n\n${itemsText(order)}\n\n${reminder ? `${reminder}\n\n` : ""}Detail v MojeBegina: ${adminUrl}\n`;
+  return { subject, html, text };
+}
+
+// ---------- zákazník: platba přijata (ruční označení v MojeBegina) ----------
+
+export function customerPaymentReceivedEmail(order: EmailOrder, ctx: Context): RenderedEmail {
+  const reference = orderReference(order);
+  const subject = `${subjectPrefix(ctx)}Platbu za objednávku ${reference} jsme přijali`;
+  const intro = "Děkujeme, platbu za vaši objednávku jsme přijali. Objednávku připravujeme.";
+  const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
+  const details: [string, string][] = [
+    ["Objednávka", reference],
+    ["Přijatá částka", formatKc(order.totalKc)],
+    ["Doprava", deliveryText(order)],
+  ];
+  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
+<p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+${detailsTable(details)}
+<div style="height:16px"></div>
+${itemsTable(order)}
+<div style="height:16px"></div>
+<p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    `${greeting}\n\n${intro}\n\n` +
+    details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${itemsText(order)}\n\nStav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }

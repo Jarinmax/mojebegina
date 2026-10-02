@@ -18,8 +18,6 @@ export type EmailConfig = {
   internalTo: string[];
   /** null = ostrý provoz (Production); jinak jediné povolené adresy. */
   testRecipients: string[] | null;
-  /** Číslo účtu pro převod; null = „platební údaje pošleme“. */
-  bankAccount: string | null;
 };
 
 const EMAIL = /^[^\s@,<>]+@[^\s@,<>]+\.[^\s@,<>]+$/;
@@ -56,7 +54,6 @@ export function emailConfig(env: Env = process.env): EmailConfig | null {
     replyTo,
     internalTo: parseEmailList(env.ESHOP_EMAIL_INTERNAL_TO),
     testRecipients,
-    bankAccount: env.ESHOP_BANK_ACCOUNT?.trim() || null,
   };
 }
 

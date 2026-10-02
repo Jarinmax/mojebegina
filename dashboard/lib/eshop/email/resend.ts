@@ -5,6 +5,9 @@
 // podruhé neodešle, ani kdyby se odeslání omylem zopakovalo.
 // Nikdy nevyhazuje výjimku — chyba se vrátí jako { ok: false }.
 
+/** Vložený obrázek: v HTML se odkazuje jako <img src="cid:{contentId}">. */
+export type InlineImage = { filename: string; contentBase64: string; contentId: string };
+
 export type EmailMessage = {
   from: string;
   to: string[];
@@ -12,6 +15,7 @@ export type EmailMessage = {
   subject: string;
   html: string;
   text: string;
+  inlineImages?: InlineImage[];
 };
 
 export type SendResult = { ok: true; id: string } | { ok: false; error: string };
@@ -38,6 +42,15 @@ export function resendTransport(apiKey: string, fetchImpl: typeof fetch = fetch)
           subject: message.subject,
           html: message.html,
           text: message.text,
+          ...(message.inlineImages?.length
+            ? {
+                attachments: message.inlineImages.map((image) => ({
+                  filename: image.filename,
+                  content: image.contentBase64,
+                  content_id: image.contentId,
+                })),
+              }
+            : {}),
         }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });

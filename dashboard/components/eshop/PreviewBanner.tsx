@@ -9,7 +9,7 @@ export default function PreviewBanner({ ordersSaved }: { ordersSaved: boolean })
         <p>
           <strong className="font-medium">Náhled e-shopu.</strong>{" "}
           {ordersSaved
-            ? "Testovací provoz: objednávky se ukládají do Moje Begina, bez platby a bez e-mailu."
+            ? "Testovací provoz: objednávky se ukládají do Moje Begina, platby jsou testovací a e-maily chodí jen na testovací adresy."
             : "Objednávky se zatím nikam neodesílají."}{" "}
           Údaje o produktech a ceny dopravy jsou k doplnění.
         </p>

@@ -4,8 +4,9 @@
 // (channel "eshop", soukromý zákazník bez organizace, e-mail povinný),
 // položky s vazbou na balení + snapshot SKU/názvu/ceny a systémový záznam
 // "E-shop" v historii. Stav jako u nové ruční objednávky: fulfillment
-// "new", platba "unpaid". Číslo objednávky zůstává NULL (číslování se
-// zapne až krokem 6b), platby ani e-maily se neřeší.
+// "new", platba "unpaid". Číslo objednávky přidělí databáze (výchozí
+// hodnota sloupce ze sekvence order_number_seq), jakmile je na daném
+// prostředí zapnuté číslování (skript 06b); do té doby zůstává NULL.
 //
 // Zapisuje se JEN mimo Vercel Production (Preview, lokální vývoj), dokud
 // se v Production výslovně nenastaví ESHOP_ORDER_WRITE=on — viz
@@ -112,16 +113,24 @@ export function buildEshopOrderRows(
   };
 }
 
-export type SaveOrderResult = { ok: true; orderId: string; alreadySaved: boolean } | { ok: false; error: string };
+export type SaveOrderResult =
+  | { ok: true; orderId: string; orderNumber: number | null; alreadySaved: boolean }
+  | { ok: false; error: string };
 
-async function orderExists(db: Db, orderId: string): Promise<boolean> {
-  const [row] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).limit(1);
-  return Boolean(row);
+/** undefined = objednávka neexistuje; jinak její číslo (null = číslování vypnuté). */
+async function existingOrderNumber(db: Db, orderId: string): Promise<number | null | undefined> {
+  const [row] = await db
+    .select({ orderNumber: orders.orderNumber })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  return row ? row.orderNumber : undefined;
 }
 
 export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutValue): Promise<SaveOrderResult> {
-  if (await orderExists(db, orderId)) {
-    return { ok: true, orderId, alreadySaved: true };
+  const existing = await existingOrderNumber(db, orderId);
+  if (existing !== undefined) {
+    return { ok: true, orderId, orderNumber: existing, alreadySaved: true };
   }
 
   const skus = value.pricedCart.lines.map((line) => line.sku);
@@ -146,10 +155,11 @@ export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutVal
   } catch (error) {
     // Souběžné dvojí odeslání: druhý batch narazí na primární klíč a celý
     // se vrátí (transakce) — objednávka už existuje jen jednou.
-    if (await orderExists(db, orderId)) {
-      return { ok: true, orderId, alreadySaved: true };
+    const raced = await existingOrderNumber(db, orderId);
+    if (raced !== undefined) {
+      return { ok: true, orderId, orderNumber: raced, alreadySaved: true };
     }
     throw error;
   }
-  return { ok: true, orderId, alreadySaved: false };
+  return { ok: true, orderId, orderNumber: (await existingOrderNumber(db, orderId)) ?? null, alreadySaved: false };
 }

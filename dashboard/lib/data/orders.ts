@@ -14,6 +14,9 @@ import { getAuthContext } from "./authContext";
 import { requireOrderAccess } from "./orderAuth";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
+import { getAppOrigin } from "@/lib/appOrigin";
+import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
+import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import {
   validateCreateOrderInput,
   validateFulfillmentStatusInput,
@@ -152,11 +155,11 @@ async function buildOrderCards(
       plannedDeliveryAt: o.plannedDeliveryAt,
       fulfillmentStatus: o.fulfillmentStatus as FulfillmentStatus,
       paymentStatus: o.paymentStatus as PaymentStatus,
-      // MVP: bez napojené faktury (invoices.dueAt) nemá "po splatnosti" z
-      // čeho se spočítat — invoices je zatím jen budoucí eDoklad hák (viz
-      // schema.ts), objednávky ho v 1.0 nezakládají. isPaymentOverdue tu
-      // zůstává jediné volané místo, aby šlo doplnit beze změny volajících.
-      paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null),
+      // Faktury (invoices.dueAt) objednávky v 1.0 nezakládají — isPaymentOverdue
+      // zůstává hák pro ně. ESHOP 1.0: převod z e-shopu má splatnost 5 dní
+      // od objednání (lib/eshop/bankTransfer.ts); po ní jen označení, nic
+      // se automaticky neruší.
+      paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null) || isTransferOverdue(o),
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
     };
@@ -219,6 +222,8 @@ export type OrderDetail = {
     paymentMethodLabel: string | null;
     customerNote: string | null;
     ageConfirmedAt: Date | null;
+    /** Splatnost převodu z e-shopu; null u ostatních objednávek. */
+    transferDueAt: Date | null;
   };
   items: OrderItemData[];
   activity: OrderActivityEntry[];
@@ -268,6 +273,8 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       paymentMethodLabel: row.paymentMethodLabel,
       customerNote: row.customerNote,
       ageConfirmedAt: row.ageConfirmedAt,
+      transferDueAt:
+        row.channel === "eshop" && row.paymentMethodCode === TRANSFER_PAYMENT_METHOD ? transferDueAt(row.orderedAt) : null,
     },
     items,
     activity: activityRows.map((r) => ({
@@ -413,6 +420,13 @@ export async function updatePaymentStatus(orderId: string, rawStatus: string): P
       metadata: { from: current.paymentStatus, to: validated.value },
     }),
   ]);
+
+  // ESHOP 1.0 — e-shopový zákazník dostane „Platbu jsme přijali“ (nejvýš
+  // jednou za objednávku, viz lib/eshop/email/orderEmails.ts). Nikdy
+  // nevyhazuje výjimku: změna stavu je už uložená.
+  if (validated.value === "paid" && current.paymentStatus !== "paid") {
+    await sendOrderEmails(db, orderId, "payment_marked_paid", await getAppOrigin());
+  }
 
   return { ok: true };
 }

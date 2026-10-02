@@ -76,6 +76,11 @@ Veřejně bez přihlášení na `/eshop`, zatím `noindex` a nikde neodkazováno
   Stripe — jedna zpráva), Begině interní upozornění s odkazem do
   MojeBegina. Preview posílá jen na testovací adresy, Production nic.
   Nastavení Resend/DNS/Vercel a test: `ESHOP_EMAILY.md`.
+- **Převod + QR platba + číslování (2. 10. 2026, jen Preview, bez drizzle
+  migrace):** číslo objednávky z DB (Preview řada od 900001, Production až
+  v den přepnutí), VS = číslo, splatnost 5 dní + „Po splatnosti“
+  v MojeBegina, QR Platba na stránce objednávky i v e-mailu, e-mail
+  „Platbu jsme přijali“ po ručním Zaplaceno. Postup: `ESHOP_PREVOD_QR.md`.
 - **Kroky 6a + 7 (28. 9. 2026, migrace 0018–0019, jen na větvi):** číslo
   objednávky (sloupec, číslování zatím vypnuté) a objednávka bez
   organizace (soukromý zákazník); MojeBegina je umí zobrazit. Postup:
@@ -127,7 +132,7 @@ rekapitulace.
 - Alkoholické koktejly: potvrzení 18+ v pokladně už je; zbývá ověření
   věku při předání (dopravce/řidič) a kontrola oprávnění k prodeji.
 - Ochrana formuláře proti spamu (rate limit, honeypot).
-- Platební brána, QR platba u převodu.
+- Automatické párování plateb z banky (např. Fio API).
 - Faktura (napojení na `invoices` / eDoklad).
 - Velkoodběratelé: přihlášený zákazník z organizace vidí své ceny
   a objednává na fakturu (`placedByUserId`).

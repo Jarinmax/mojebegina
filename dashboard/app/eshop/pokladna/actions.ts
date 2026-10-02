@@ -27,6 +27,8 @@ export type CheckoutState =
       confirmation: CheckoutValue;
       /** id uložené objednávky; null = neuloženo (Production bez povolení) */
       savedOrderId: string | null;
+      /** číslo objednávky; null = číslování vypnuté nebo neuloženo */
+      orderNumber: number | null;
       /** potvrzení e-mailem: odešlo / selhalo (objednávka je i tak uložená) / e-maily vypnuté */
       email: "sent" | "failed" | "off";
     }
@@ -77,7 +79,7 @@ export async function submitCheckoutAction(
   }
 
   if (!isOrderWriteEnabled()) {
-    return { confirmation: result.value, savedOrderId: null, email: "off" };
+    return { confirmation: result.value, savedOrderId: null, orderNumber: null, email: "off" };
   }
 
   const orderId = parseOrderToken(field("orderToken")) ?? randomUUID();
@@ -109,7 +111,7 @@ export async function submitCheckoutAction(
     const emails = saved.alreadySaved ? [] : await sendOrderEmails(db, saved.orderId, "order_created", baseUrl);
     const customerEmail = emails.find((e) => e.template === "customer_confirmation");
     const email = customerEmail?.status === "sent" ? "sent" : customerEmail ? "failed" : "off";
-    return { confirmation: result.value, savedOrderId: saved.orderId, email };
+    return { confirmation: result.value, savedOrderId: saved.orderId, orderNumber: saved.orderNumber, email };
   } catch (error) {
     console.error("E-shop: uložení objednávky selhalo", error);
     return { error: "Objednávku se nepodařilo uložit. Zkuste to prosím znovu za chvíli." };

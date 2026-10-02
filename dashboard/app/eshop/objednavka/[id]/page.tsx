@@ -7,7 +7,10 @@ import { formatKc } from "@/lib/format";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
 import { isCardPaymentAvailable } from "@/lib/eshop/stripe/config";
 import { canPayByCard, loadPaymentOrder } from "@/lib/eshop/stripe/payment";
+import { bankConfig, formatPragueDate, isTransferOverdue, transferInfo } from "@/lib/eshop/bankTransfer";
+import { qrSvg } from "@/lib/eshop/qr";
 import PayAgainButton from "./PayAgainButton";
+import TransferPayment from "./TransferPayment";
 
 // ESHOP 1.0 — stav e-shopové objednávky pro zákazníka (návrat ze Stripe).
 // Adresa obsahuje náhodné id objednávky; stránka ukazuje jen položky,
@@ -26,7 +29,11 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
 
   const paid = order.paymentStatus === "paid";
   const canPay = isCardPaymentAvailable() && canPayByCard(order).ok;
-  const reference = order.id.slice(0, 8);
+  const reference = order.orderNumber !== null ? String(order.orderNumber) : order.id.slice(0, 8);
+  // Převod: platební údaje + QR (QR jen s IBANem a číslem objednávky = VS).
+  const transfer = transferInfo(order, bankConfig());
+  const transferQr = transfer?.spayd ? await qrSvg(transfer.spayd).catch(() => null) : null;
+  const overdue = isTransferOverdue(order);
 
   let banner: { icon: typeof CircleCheck; title: string; text: string };
   if (paid) {
@@ -45,6 +52,14 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
       title: "Platební bránu se nepodařilo otevřít",
       text: "Objednávka je uložená, ale zatím nezaplacená. Zkuste zaplatit znovu.",
     };
+  } else if (transfer) {
+    banner = overdue
+      ? { icon: CircleAlert, title: "Platba je po splatnosti", text: "Objednávku jsme přijali, platbu převodem jsme ale zatím neobdrželi." }
+      : {
+          icon: Clock,
+          title: "Objednávka čeká na platbu převodem",
+          text: `Objednávku jsme přijali. Zaplaťte ji prosím do ${formatPragueDate(transfer.dueAt)}.`,
+        };
   } else {
     banner = { icon: Clock, title: "Objednávka čeká na zaplacení", text: "Objednávka je uložená, ale zatím nezaplacená." };
   }
@@ -58,7 +73,7 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
       </div>
       <p className="text-sm text-neutral-600 mb-1">{banner.text}</p>
       <p className="text-xs text-neutral-500 mb-6">
-        Reference objednávky: <span className="font-mono">{reference}</span>
+        {order.orderNumber !== null ? "Číslo objednávky" : "Reference objednávky"}: <span className="font-mono">{reference}</span>
       </p>
 
       <div className="border border-neutral-200 rounded-2xl p-5 text-sm mb-6">
@@ -83,6 +98,8 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
           </li>
         </ul>
       </div>
+
+      {transfer && <TransferPayment transfer={transfer} qrSvg={transferQr} overdue={overdue} />}
 
       {!paid && canPay && (
         <div className="mb-6">

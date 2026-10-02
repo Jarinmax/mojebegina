@@ -34,3 +34,14 @@ export async function createMigratedDb(upTo?: string) {
   }
   return { pg, db: drizzle(pg, { schema }) };
 }
+
+const NUMBERING_SQL = path.join(__dirname, "../../../../docs/eshop-schema-draft/06b_order_number_cutover_up.sql");
+
+/** Skript 06b (zapnutí číslování) se startem řady — stejný soubor, který se spouští na Neonu. */
+export function orderNumberingSql(start: number): string {
+  return readFileSync(NUMBERING_SQL, "utf8").replaceAll("<MAX_WOO_ORDER_NUMBER>", String(start));
+}
+
+export async function applyOrderNumbering(pg: PGlite, start: number) {
+  await pg.exec(orderNumberingSql(start));
+}

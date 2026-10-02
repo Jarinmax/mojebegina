@@ -30,6 +30,8 @@ export type CheckoutSessionsApi = {
 
 export type PaymentOrder = {
   id: string;
+  orderNumber: number | null;
+  orderedAt: Date;
   channel: string;
   paymentMethodCode: string | null;
   paymentStatus: string;
@@ -84,7 +86,7 @@ export function buildCheckoutSessionParams(order: PaymentOrder, baseUrl: string)
             price_data: {
               currency: "czk",
               unit_amount: order.totalKc * 100,
-              product_data: { name: `Objednávka Begina ${order.id.slice(0, 8)}` },
+              product_data: { name: `Objednávka Begina ${order.orderNumber ?? order.id.slice(0, 8)}` },
             },
           },
         ];
@@ -108,6 +110,8 @@ export async function loadPaymentOrder(db: Db, orderId: string): Promise<Payment
   const [order] = await db
     .select({
       id: orders.id,
+      orderNumber: orders.orderNumber,
+      orderedAt: orders.orderedAt,
       channel: orders.channel,
       paymentMethodCode: orders.paymentMethodCode,
       paymentStatus: orders.paymentStatus,
