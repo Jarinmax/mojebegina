@@ -47,13 +47,20 @@ export default function InfoPageView({ page }: { page: InfoPage }) {
                   {linkify(text)}
                 </p>
               ))}
-              {block.items && (
-                <ul className="flex flex-col gap-2 list-disc pl-5">
-                  {block.items.map((item) => (
-                    <li key={item}>{linkify(item)}</li>
-                  ))}
-                </ul>
-              )}
+              {block.items &&
+                (block.itemStyle === "check" ? (
+                  <ul className="flex flex-col gap-1.5">
+                    {block.items.map((item) => (
+                      <li key={item}>✔ {linkify(item)}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="flex flex-col gap-2 list-disc pl-5">
+                    {block.items.map((item) => (
+                      <li key={item}>{linkify(item)}</li>
+                    ))}
+                  </ul>
+                ))}
               {block.points && (
                 <ol className="flex flex-col gap-2.5 list-decimal pl-6 marker:text-neutral-500">
                   {block.points.map((point) => (

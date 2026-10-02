@@ -14,7 +14,14 @@ import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
 /** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
 export type InfoPoint = { text: string; lines?: string[]; items?: string[]; after?: string };
 
-export type InfoBlock = { heading?: string; paragraphs?: string[]; items?: string[]; points?: InfoPoint[] };
+export type InfoBlock = {
+  heading?: string;
+  paragraphs?: string[];
+  items?: string[];
+  /** "check" = odrážky ✔ (jako na begina.cz), jinak tečky */
+  itemStyle?: "check";
+  points?: InfoPoint[];
+};
 
 export type InfoPage = {
   path: string;
@@ -39,7 +46,7 @@ export const OPERATOR = {
   ico: "74337297",
 } as const;
 
-// Texty z begina.cz (doslova), sdílené s úvodní stránkou e-shopu.
+// Texty z begina.cz (doslova) pro úvodní stránku e-shopu.
 export const whyBegina = [
   "pečlivý výběr kvalitních surovin",
   "promyšlené kombinace chutí",
@@ -53,22 +60,49 @@ export const filteredWater = [
   "pomáhá zachovat čistý a vyvážený chuťový profil",
 ];
 
+// Text stránky O nás z begina.cz (www.begina.cz/o-nas/), dodaný vedením
+// 4. 10. 2026 jako snímky obrazovky; přepsaný doslova v pořadí na stránce.
 const aboutPage: InfoPage = {
   path: "/eshop/o-nas",
   footerLabel: "O nás",
   title: "O nás",
-  description: "Begina — čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje a alkoholické koktejly.",
+  description: "Begina — čerstvé polévky, sirupy a nápoje z čisté filtrované vody v praktickém balení.",
   blocks: [
     {
       paragraphs: [
-        "Čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje i alkoholické koktejly z pečlivě vybraných surovin a čisté filtrované vody.",
-        "Všechny produkty doručujeme chlazenou přepravou.",
+        "Chuť je pro mě základ.",
+        "Gastronomii se věnuji dlouhodobě, ale v roce 2018 jsem si začal víc všímat rozdílu mezi tím, kdy se jídlo jen připravuje, a kdy se skutečně tvoří s důrazem na kvalitu a chuť.",
+        "Hledal jsem způsob, jak ji zachovat i v čase.",
+        "Tehdy jsem narazil na Bag-in-Box systém, který dokáže chránit obsah bez přístupu vzduchu.",
+        "V roce 2023 jsem potkal Lucii a začali jsme tvořit společně.",
+        "V Českém Krumlově jsme otevřeli Simon Gallery. Právě tam vznikly první čaje a nápoje z čisté filtrované vody – jednoduché, poctivé a postavené na chuti.",
+        "Po návratu do Prahy jsme na tomhle základu postavili značku Begina.",
+        "Produkty připravuji z čisté filtrované vody a používám systém, který zachovává jejich chuť i při postupném používání.",
+        "Begina stojí na jedné věci –",
+        "že když něco chutná dobře, poznáš to hned.",
       ],
     },
-    { heading: "Proč Begina", items: whyBegina },
-    { heading: "Čistá filtrovaná voda", items: filteredWater },
+    {
+      paragraphs: ["Čerstvé polévky, sirupy a nápoje z čisté filtrované vody v praktickém balení pro každodenní použití."],
+    },
+    {
+      paragraphs: [
+        "Naše beginy připravujeme z čisté filtrované vody a plníme je do Bag-in-Box balení o objemu 3 litry.",
+        "Kromě toho nabízíme i další varianty balení podle typu produktu.",
+        "Použitý systém chrání obsah a umožňuje jeho postupnou spotřebu.",
+      ],
+      itemStyle: "check",
+      items: [
+        "profesionální příprava",
+        "praktické bag-in-box balení s kohoutkem",
+        "ochrana obsahu bez přístupu vzduchu",
+        "bez lepku",
+      ],
+    },
+    {
+      paragraphs: ["Jednoduchý způsob, jak mít čerstvou polévku nebo nápoj vždy po ruce."],
+    },
   ],
-  pendingNote: "Podrobnější představení Beginy doplníme.",
 };
 
 const shippingPage: InfoPage = {

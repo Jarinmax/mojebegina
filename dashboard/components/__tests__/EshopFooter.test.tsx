@@ -48,10 +48,28 @@ describe("informační stránky", () => {
     expect(screen.getByText(/Splatnost je 5 dní/)).toBeTruthy();
   });
 
-  it("O nás: texty z begina.cz", () => {
+  it("O nás: text z begina.cz/o-nas (dodaný 4. 10. 2026), celý a v pořadí", () => {
     render(<InfoPageView page={INFO_PAGES.about} />);
-    expect(screen.getByText("poctivá česká výroba")).toBeTruthy();
-    expect(screen.getByText("Všechny produkty doručujeme chlazenou přepravou.")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "O nás" })).toBeTruthy();
+    const text = document.querySelector("article")!.textContent!;
+    const order = [
+      "Chuť je pro mě základ.",
+      "v roce 2018",
+      "Bag-in-Box systém",
+      "V roce 2023 jsem potkal Lucii",
+      "Simon Gallery",
+      "postavili značku Begina.",
+      "že když něco chutná dobře, poznáš to hned.",
+      "v praktickém balení pro každodenní použití.",
+      "Bag-in-Box balení o objemu 3 litry.",
+      "✔ profesionální příprava",
+      "✔ bez lepku",
+      "Jednoduchý způsob, jak mít čerstvou polévku nebo nápoj vždy po ruce.",
+    ];
+    const positions = order.map((part) => text.indexOf(part));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(INFO_PAGES.about.pendingNote).toBeUndefined();
   });
 
   it("GDPR bez dodaného textu: „Text připravujeme“ + kontakt, nic vymyšleného", () => {
