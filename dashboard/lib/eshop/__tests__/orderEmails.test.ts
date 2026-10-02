@@ -302,8 +302,23 @@ describe("e-maily k objednávce — pokladna a Stripe nad DB (neon-http → PGli
   it("Production: ani s povoleným zápisem objednávek nic neodejde, dokud není ESHOP_EMAIL_LIVE=on", async () => {
     const ID = "d0d0d0d0-0000-4000-8000-000000000002";
     process.env.VERCEL_ENV = "production";
+    process.env.ESHOP_PUBLIC = "on";
     process.env.ESHOP_ORDER_WRITE = "on";
-    expect(await submitCheckoutAction(null, form(ID))).toMatchObject({ savedOrderId: ID, email: "off" });
+    try {
+      expect(await submitCheckoutAction(null, form(ID))).toMatchObject({ savedOrderId: ID, email: "off" });
+      expect(mail.sent).toHaveLength(0);
+    } finally {
+      delete process.env.ESHOP_PUBLIC;
+    }
+  });
+
+  it("Production se skrytým e-shopem (bez ESHOP_PUBLIC=on): pokladna nic nezpracuje ani s povoleným zápisem", async () => {
+    const ID = "d0d0d0d0-0000-4000-8000-000000000003";
+    process.env.VERCEL_ENV = "production";
+    process.env.ESHOP_ORDER_WRITE = "on";
+    process.env.ESHOP_EMAIL_LIVE = "on";
+    expect(await submitCheckoutAction(null, form(ID))).toEqual({ error: "E-shop zatím není spuštěný." });
     expect(mail.sent).toHaveLength(0);
+    expect((await rows(sql`SELECT count(*)::int AS n FROM orders WHERE id = ${ID}`))[0].n).toBe(0);
   });
 });

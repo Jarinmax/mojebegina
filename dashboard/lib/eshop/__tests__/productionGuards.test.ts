@@ -1,7 +1,7 @@
 // ESHOP 1.0 — pojistky pro Production: testovací nastavení z Preview se
 // nesmí projevit v ostrém provozu a naopak.
 import { describe, expect, it } from "vitest";
-import { storeMode } from "../storeMode";
+import { isEshopPublic, storeMode } from "../storeMode";
 import { emailConfig, resolveRecipients } from "../email/config";
 import { stripeConfig } from "../stripe/config";
 import { isOrderWriteEnabled } from "../orderWrite";
@@ -38,6 +38,20 @@ describe("Production: bez výslovného zapnutí nic", () => {
 
   it("po zapnutí zápisu: ostrý obchod bez pruhu „Náhled“", () => {
     expect(storeMode({ ...prod, ESHOP_ORDER_WRITE: "on" })).toBe("live");
+  });
+});
+
+describe("viditelnost e-shopu (ESHOP_PUBLIC)", () => {
+  it("Production: skrytý, dokud není ESHOP_PUBLIC=on — ani ostatní přepínače ho nezveřejní", () => {
+    expect(isEshopPublic({ VERCEL_ENV: "production" })).toBe(false);
+    expect(isEshopPublic({ VERCEL_ENV: "production", ESHOP_ORDER_WRITE: "on", ESHOP_STRIPE_LIVE: "on", ESHOP_EMAIL_LIVE: "on" })).toBe(false);
+    expect(isEshopPublic({ VERCEL_ENV: "production", ESHOP_PUBLIC: "1" })).toBe(false);
+    expect(isEshopPublic({ VERCEL_ENV: "production", ESHOP_PUBLIC: "on" })).toBe(true);
+  });
+
+  it("Preview a lokální vývoj: vždy dostupný pro testování", () => {
+    expect(isEshopPublic({ VERCEL_ENV: "preview" })).toBe(true);
+    expect(isEshopPublic({})).toBe(true);
   });
 });
 

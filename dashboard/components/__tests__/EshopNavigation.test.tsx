@@ -30,6 +30,17 @@ describe("tlačítko E-shop", () => {
     expect(link.getAttribute("target")).toBeNull();
   });
 
+  it("Řízení firmy v Production se skrytým e-shopem: tlačítko není (vedlo by na 404)", () => {
+    const saved = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "production";
+    try {
+      render(<CompanyOverviewIntro lastUpdated={new Date(Date.UTC(2026, 8, 21))} />);
+      expect(screen.queryByRole("link", { name: "E-shop Begina.cz" })).toBeNull();
+    } finally {
+      process.env.VERCEL_ENV = saved;
+    }
+  });
+
   it.each([
     ["Admin", <AdminHeader key="a" name="Jaroslav Viner" email="j@example.cz" />],
     ["Executive", <ExecutiveHeader key="e" name="Jiří Střelec" email="s@example.cz" />],

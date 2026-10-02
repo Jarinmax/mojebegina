@@ -8,13 +8,14 @@ import { parseOrderToken } from "@/lib/eshop/orderWrite";
 import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { startCardPayment } from "@/lib/eshop/stripe/payment";
+import { isEshopPublic } from "@/lib/eshop/storeMode";
 
 export type PayAgainState = { error: string } | { redirectTo: string } | null;
 
 export async function payAgainAction(_prev: PayAgainState, formData: FormData): Promise<PayAgainState> {
   const orderId = parseOrderToken(String(formData.get("orderId") ?? ""));
   const config = stripeConfig();
-  if (!orderId || !config) {
+  if (!orderId || !config || !isEshopPublic()) {
     return { error: "Platba kartou teď není dostupná." };
   }
   const h = await headers();

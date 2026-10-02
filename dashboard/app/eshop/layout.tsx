@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { notFound } from "next/navigation";
 import logoMark from "@/public/logo-begina-mark.png";
 import CartLink from "@/components/eshop/CartLink";
 import CatalogProvider from "@/components/eshop/CatalogProvider";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
-import { storeMode } from "@/lib/eshop/storeMode";
+import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 
@@ -28,6 +29,10 @@ export const dynamic = "force-dynamic";
 const EMPTY_CATALOG = { categories: [], products: [] };
 
 export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
+  // Production do spuštění: celý /eshop jako neexistující (404), bez dotazu do DB.
+  if (!isEshopPublic()) {
+    notFound();
+  }
   // error.tsx chytá chyby stránek, ne tohoto layoutu — nedostupnou DB (nebo
   // chybějící migrace 0013/0014 na dané větvi) proto řeší layout sám:
   // zákazník uvidí zprávu, chyba jde do serverového logu.

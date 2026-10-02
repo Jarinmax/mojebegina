@@ -20,6 +20,7 @@ import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/payment";
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
+import { isEshopPublic } from "@/lib/eshop/storeMode";
 
 export type CheckoutState =
   | { error: string }
@@ -47,6 +48,11 @@ export async function submitCheckoutAction(
   _prevState: CheckoutState,
   formData: FormData
 ): Promise<CheckoutState> {
+  // Skrytý e-shop (Production před spuštěním): server action jde zavolat
+  // i bez stránky — nic nezpracovat.
+  if (!isEshopPublic()) {
+    return { error: "E-shop zatím není spuštěný." };
+  }
   const field = (key: string) => String(formData.get(key) ?? "");
 
   // Past na roboty: pole je pro lidi skryté. Vyplněné = nic neukládat.

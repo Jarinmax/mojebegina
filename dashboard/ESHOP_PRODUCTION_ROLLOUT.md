@@ -38,6 +38,7 @@ Jeden PR `claude/great-bell-ffjwo3` → `main` (všechny commity z
 
 | Funkce | Zapne až | Pojistka v kódu |
 |---|---|---|
+| **Viditelnost `/eshop`** | `ESHOP_PUBLIC=on` | do té doby celý `/eshop` = 404, žádný dotaz do DB, pokladna nic nezpracuje, tlačítko v Řízení firmy schované (`lib/eshop/storeMode.ts`) |
 | Ukládání objednávek | `ESHOP_ORDER_WRITE=on` | `lib/eshop/orderWrite.ts` |
 | Karta (Stripe) | `ESHOP_STRIPE_LIVE=on` + **ostrý** klíč `sk_live_`/`rk_live_` | testovací klíč v Production se nepoužije |
 | E-maily | `ESHOP_EMAIL_LIVE=on` | v Production se `ESHOP_EMAIL_TEST_RECIPIENTS` ignoruje → žádné [TEST], žádné přesměrování |
@@ -48,10 +49,10 @@ Preview naopak zůstává vždy testovací (testovací Stripe klíč, e-maily je
 na testovací adresy), i kdyby tam někdo nastavil `*_LIVE=on`. Hlídá
 `lib/eshop/__tests__/productionGuards.test.ts`.
 
-**Po sloučení do `main` bude `moje.begina.cz/eshop` veřejně dostupný jako
-náhled** (pruh „Náhled e-shopu“, `noindex`, objednávky se nikam neodešlou,
-odkaz jen v Řízení firmy). Pokud to nechcete, nejdřív přidat přepínač,
-který e-shop v Production do spuštění skryje (malá změna, viz konec).
+**Po sloučení do `main` zůstane `moje.begina.cz/eshop` skrytý (404)**, dokud
+se nenastaví `ESHOP_PUBLIC=on` (rozhodnutí vedení 2. 10. 2026). Preview je
+dostupné vždy. Ověřeno na sestavené aplikaci: Production bez přepínače 404
+(i webhook), s přepínačem 200; MojeBegina beze změny.
 
 ## Číslování — produkční start řady
 
@@ -91,9 +92,8 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 1. PR `claude/great-bell-ffjwo3` → `main` (vytvoří Claude na pokyn),
    kontrola, sloučení = Vercel nasadí Production.
 2. Smoke test Production: MojeBegina (přihlášení, Objednávky, detail The Cup,
-   CRM, Denní volání, CEO přehled), `/eshop` s pruhem „Náhled“, pokladna
-   ukáže jen rekapitulaci, platba kartou neaktivní,
-   `/api/eshop/stripe/webhook` vrací 404.
+   CRM, Denní volání, CEO přehled), v Řízení firmy NENÍ tlačítko
+   „E-shop Begina.cz“, `/eshop` a `/api/eshop/stripe/webhook` vrací 404.
 
 ### Fáze C — den přepnutí z WooCommerce
 
@@ -111,8 +111,9 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 5. **Neon (production):** `20_numbering_before.sql` → `0 | 1 | 0 | 2 | 0 | 0 | 0`
    (rucni > 0 je v pořádku) → v `21_numbering_cutover.sql` doplnit START →
    spustit → `22_numbering_after.sql` → `1 | 1 | 1 | 2 | 0 | START | START+1`.
-6. **Vercel:** `ESHOP_ORDER_WRITE=on`, `ESHOP_EMAIL_LIVE=on`,
-   `ESHOP_STRIPE_LIVE=on` (všechny tři najednou) → Redeploy.
+6. **Vercel:** `ESHOP_PUBLIC=on`, `ESHOP_ORDER_WRITE=on`,
+   `ESHOP_EMAIL_LIVE=on`, `ESHOP_STRIPE_LIVE=on` (všechny čtyři najednou)
+   → Redeploy.
 7. **Kontrolní objednávky** (vlastní e-mail): převod (číslo START+1, QR
    naskenovat bez odeslání, e-mail + interní e-mail bez [TEST]) → ruční
    Zaplaceno → „Platbu jsme přijali“; karta malou částkou → „je zaplacená“
@@ -131,7 +132,7 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 | `ESHOP_EMAIL_REPLY_TO` | volitelně | C3 |
 | `STRIPE_SECRET_KEY` | `rk_live_…` / `sk_live_…` | C3 |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` ostrého endpointu | C3 |
-| `ESHOP_ORDER_WRITE` / `ESHOP_EMAIL_LIVE` / `ESHOP_STRIPE_LIVE` | `on` | C6 |
+| `ESHOP_PUBLIC` / `ESHOP_ORDER_WRITE` / `ESHOP_EMAIL_LIVE` / `ESHOP_STRIPE_LIVE` | `on` | C6 |
 | `ESHOP_EMAIL_TEST_RECIPIENTS` | **nenastavovat** (v Production se ignoruje) | — |
 
 U každé zaškrtnout **jen Production**. Preview proměnné nechat jen na Preview.
@@ -140,7 +141,7 @@ U každé zaškrtnout **jen Production**. Preview proměnné nechat jen na Previ
 
 | Situace | Postup | Data |
 |---|---|---|
-| Problém po C6 (objednávky, platby, e-maily) | Vercel: tři přepínače vypnout (nebo smazat) → Redeploy; WooCommerce pokladnu znovu zapnout | objednávky v DB zůstanou |
+| Problém po C6 (objednávky, platby, e-maily) | Vercel: `ESHOP_PUBLIC` a tři přepínače vypnout (nebo smazat) → Redeploy (e-shop zase 404); WooCommerce pokladnu znovu zapnout | objednávky v DB zůstanou |
 | Problém s kódem po B1 | Vercel → Deployments → předchozí Production → **Instant Rollback**; případně revert PR | DB beze změny |
 | Číslování (jen pokud zákazník ještě nedostal číslo) | e-shop vypnout → `29_numbering_rollback.sql` | přidělená čísla zůstanou |
 | Migrace (jen před spuštěním e-shopu) | starý kód (Instant Rollback) → `19_migrations_rollback.sql` | selže a nic nezmění, existují-li e-shopová data |
