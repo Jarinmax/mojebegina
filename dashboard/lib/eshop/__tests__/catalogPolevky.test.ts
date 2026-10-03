@@ -43,9 +43,9 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
 
   it("skript a kontrola po; opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 4 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 4 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 
   it("e-shop: Dýňová polévka z begina.cz (vláknina, sekce Pro koho, fotka); ostatní polévky beze změny", async () => {
@@ -83,7 +83,8 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     const repa = list[3];
     expect(repa.foodInfo.ingredients).toMatch(/červená řepa 9 %/);
     expect(repa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 189 kJ \/ 45 kcal.*vláknina 0,9 g$/);
-    expect(repa.image).toBeNull();
+    expect(repa.image).toBe("/eshop/rajcatova-polevka-s-cervenou-repou.jpg");
+    expect(existsSync(path.join(PUBLIC, repa.image!))).toBe(true);
     // Gulášová: nová polévka
     const gulas = list[4];
     expect(gulas.variants).toEqual([expect.objectContaining({ sku: "gulasova-polevka-z-hlivy-ustricne", priceKc: 379, servings: 12 })]);
@@ -104,6 +105,6 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(await soups()).toEqual(expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky"));
     expect(await check(pg, "40_polevky_before.sql")).toBe("3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 4 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 });

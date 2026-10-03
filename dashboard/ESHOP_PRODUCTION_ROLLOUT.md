@@ -90,7 +90,7 @@ první nová objednávka 5201).
 7. **Katalog — Čerstvé polévky** (`docs/eshop-catalog/`): `40_polevky_before.sql`
    → `3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0` → `41_polevky.sql`
    (celý soubor) → `42_polevky_after.sql` →
-   `6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 4 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí`.
+   `6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí`.
    Vrácení: `49_polevky_rollback.sql` (stav z migrace 0014).
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.

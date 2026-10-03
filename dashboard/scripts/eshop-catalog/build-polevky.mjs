@@ -98,7 +98,6 @@ export const SOUPS = [
     slug: "rajcatova-polevka-s-cervenou-repou",
     name: "Rajčatová polévka s červenou řepou",
     sortOrder: 35,
-    photo: false, // fotka čeká (snímek z webu poslaný během práce se neuložil)
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
     description: [
