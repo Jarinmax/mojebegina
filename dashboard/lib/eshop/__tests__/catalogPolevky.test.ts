@@ -64,7 +64,11 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     );
     expect(dyne.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, dýně Hokkaido 39 %, kokosové mléko 15 %/);
     expect(dyne.foodInfo.storage).toMatch(/Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení\.$/);
-    expect(dyne.foodInfo.allergens).toBeNull();
+    // všechny polévky: bez alergenů, trvanlivost 14 dnů (údaje vedení)
+    for (const soup of list) {
+      expect(soup.foodInfo.allergens, soup.slug).toEqual([]);
+      expect(soup.foodInfo.shelfLife, soup.slug).toBe("Do 14 dnů při zachování správného uskladnění (do 4 °C).");
+    }
     const parsed = parseDescription(dyne.description);
     expect(parsed.intro).toHaveLength(3);
     expect(parsed.sections).toEqual([{ title: "Pro koho je vhodná", blocks: [{ type: "ul", items: expect.any(Array) }] }]);

@@ -16,19 +16,31 @@ WHERE "slug" = ${q(slug)};
 `;
 }
 
-/** Produkt (vytvoří nebo přepíše texty, znovu zapne prodej). */
+/**
+ * Produkt (vytvoří nebo přepíše texty, znovu zapne prodej). Alergeny
+ * (`allergens`: [] = bez alergenů) a trvanlivost (`shelfLifeDays`,
+ * `shelfLifeNote`) jen pokud jsou u produktu uvedené.
+ */
 export function productSql(p, categorySlug, sortOrder) {
+  const optional = [
+    ["allergens", p.allergens, (v) => arr(v)],
+    ["shelf_life_days", p.shelfLifeDays, (v) => String(v)],
+    ["shelf_life_note", p.shelfLifeNote, (v) => q(v)],
+  ].filter(([, value]) => value !== undefined);
+  const extraCols = optional.map(([col]) => `, "${col}"`).join("");
+  const extraVals = optional.map(([, value, fmt]) => `, ${fmt(value)}`).join("");
+  const extraSets = optional.map(([col]) => `"${col}" = EXCLUDED."${col}", `).join("");
   return `INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
-  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings"${extraCols}, "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = ${q(categorySlug)}), ${q(p.slug)}, ${q(p.name)},
   ${q(p.shortDescription)}, ${arr(p.description)}, ${arr(p.highlights)},
-  ${q(p.taste)}, ${q(p.ingredients)}, ${json(p.nutrition)}, ${p.nutrition ? "'100ml'" : "NULL"}, ${q(p.storage)}, ${arr(p.warnings)}, ${sortOrder})
+  ${q(p.taste)}, ${q(p.ingredients)}, ${json(p.nutrition)}, ${p.nutrition ? "'100ml'" : "NULL"}, ${q(p.storage)}, ${arr(p.warnings)}${extraVals}, ${sortOrder})
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
   "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
   "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
-  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+  "warnings" = EXCLUDED."warnings", ${extraSets}"sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 `;
 }
 

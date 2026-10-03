@@ -77,7 +77,7 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "updated_at" = now();
 
-UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "updated_at" = now()
+UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "allergens" = NULL, "shelf_life_days" = NULL, "updated_at" = now()
 WHERE "slug" IN ('dynova-polevka', 'kulajda', 'rajcatova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka');
 
 DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('dynova-polevka', 'kulajda', 'rajcatova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka'))

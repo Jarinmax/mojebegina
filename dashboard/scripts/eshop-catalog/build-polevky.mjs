@@ -39,10 +39,19 @@ const bagInBox = (slug, price, servings) => ({
   price,
 });
 
+// Údaje vedení 3. 10. 2026: všechny polévky jsou bez alergenů a vydrží
+// do 14 dnů při správném uskladnění (do 4 °C).
+const SOUP_COMMON = {
+  allergens: [],
+  shelfLifeDays: 14,
+  shelfLifeNote: "Do 14 dnů při zachování správného uskladnění (do 4 °C).",
+};
+
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 // Pořadí (sortOrder) jako v migraci 0014: Dýňová 10, Kulajda 20, Rajčatová 30.
 export const SOUPS = [
   {
+    ...SOUP_COMMON,
     slug: "dynova-polevka",
     name: "Dýňová polévka",
     sortOrder: 10,
@@ -69,6 +78,7 @@ export const SOUPS = [
     variants: [bagInBox("dynova-polevka", 379, 12)],
   },
   {
+    ...SOUP_COMMON,
     slug: "kulajda",
     name: "Kulajda",
     sortOrder: 20,
@@ -95,6 +105,7 @@ export const SOUPS = [
     variants: [bagInBox("kulajda", 379, 12)],
   },
   {
+    ...SOUP_COMMON,
     slug: "rajcatova-polevka",
     name: "Rajčatová polévka",
     sortOrder: 30,
@@ -121,6 +132,7 @@ export const SOUPS = [
     variants: [bagInBox("rajcatova-polevka", 379, 12)],
   },
   {
+    ...SOUP_COMMON,
     slug: "rajcatova-polevka-s-cervenou-repou",
     name: "Rajčatová polévka s červenou řepou",
     sortOrder: 35,
@@ -147,6 +159,7 @@ export const SOUPS = [
     variants: [bagInBox("rajcatova-polevka-s-cervenou-repou", 379, 12)],
   },
   {
+    ...SOUP_COMMON,
     slug: "gulasova-polevka-z-hlivy-ustricne",
     name: "Gulášová polévka z hlívy ústřičné",
     sortOrder: 40,
@@ -174,6 +187,7 @@ export const SOUPS = [
     variants: [bagInBox("gulasova-polevka-z-hlivy-ustricne", 379, 12)],
   },
   {
+    ...SOUP_COMMON,
     slug: "spenatova-polevka",
     name: "Špenátová polévka",
     sortOrder: 50,
@@ -209,7 +223,7 @@ export function polevkySql() {
 -- scripts/eshop-catalog/build-polevky.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
 -- 2026): popis, chuť, pro koho, balení, složení, výživa na 100 ml
--- (vč. vlákniny), skladování. Alergeny a trvanlivost web neuvádí = „Doplníme“.
+-- (vč. vlákniny), skladování; alergeny (žádné) a trvanlivost 14 dnů od vedení.
 -- Ostatní polévky zůstávají, jak jsou (doplní se, až budou podklady).
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
@@ -248,7 +262,7 @@ export function polevkyRollbackSql() {
 -- scripts/eshop-catalog/build-polevky.mjs. Opětovné spuštění 41 vše vrátí.
 BEGIN;
 ${fromSeed.map((s) => `${s}\n`).join("\n")}
-UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "updated_at" = now()
+UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "allergens" = NULL, "shelf_life_days" = NULL, "updated_at" = now()
 WHERE "slug" IN (${list});
 
 DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN (${list}))
