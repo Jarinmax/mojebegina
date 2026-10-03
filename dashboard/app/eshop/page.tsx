@@ -3,7 +3,8 @@ import CategoryTile from "@/components/eshop/CategoryTile";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
-import { filteredWater, whyBegina } from "@/lib/eshop/infoPages";
+import Link from "next/link";
+import { INFO_PAGES, filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 
 // Úvodní stránka podle návrhu „Hero e-shopu Begina.cz“ (2. 10. 2026): hero
 // s ilustrací, pruh kategorií s ikonami; pod tím dosavadní obsah (dlaždice
@@ -30,8 +31,8 @@ export default async function EshopPage() {
 
         <section className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
           {[
-            { title: "Proč Begina", items: whyBegina },
-            { title: "Čistá filtrovaná voda", items: filteredWater },
+            { title: "Proč Begina", items: whyBegina, more: { href: INFO_PAGES.about.path, label: "Více o nás" } },
+            { title: "Čistá filtrovaná voda", items: filteredWater, more: { href: INFO_PAGES.water.path, label: "Více o vodě" } },
           ].map((block) => (
             <div key={block.title}>
               <h2 className="font-medium text-lg mb-3">{block.title}</h2>
@@ -40,6 +41,9 @@ export default async function EshopPage() {
                   <li key={item}>✓ {item}</li>
                 ))}
               </ul>
+              <Link href={block.more.href} className="mt-3 inline-block text-sm font-medium underline underline-offset-4">
+                {block.more.label}
+              </Link>
             </div>
           ))}
         </section>

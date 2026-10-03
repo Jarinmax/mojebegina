@@ -72,6 +72,26 @@ describe("informační stránky", () => {
     expect(INFO_PAGES.about.pendingNote).toBeUndefined();
   });
 
+  it("O vodě: text z begina.cz/o-vode (dodaný 3. 10. 2026), celý a v pořadí", () => {
+    render(<InfoPageView page={INFO_PAGES.water} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Voda je základ" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Kvalita vody je pro nás důležitá" })).toBeTruthy();
+    const text = document.querySelector("article")!.textContent!;
+    const order = [
+      "Voda je nezbytnou součástí života.",
+      "přibližně 71 % povrchu Země",
+      "hydrataci buněk, trávení a vstřebávání živin.",
+      "součástí zdravého životního stylu.",
+      "Kvalita vody je pro nás důležitá",
+      "konzistentní kvality napříč celou výrobou.",
+      "nechat vyniknout chuť použitých surovin.",
+    ];
+    const positions = order.map((part) => text.indexOf(part));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(existsSync(path.join(APP, INFO_PAGES.water.path, "page.tsx"))).toBe(true);
+  });
+
   it("GDPR bez dodaného textu: „Text připravujeme“ + kontakt, nic vymyšleného", () => {
     expect(INFO_PAGES.privacy.blocks).toBeNull();
     render(<InfoPageView page={INFO_PAGES.privacy} />);

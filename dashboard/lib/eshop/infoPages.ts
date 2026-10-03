@@ -1,6 +1,6 @@
-// ESHOP 1.0 — informační stránky z patičky (O nás, Doprava, Obchodní
+// ESHOP 1.0 — informační stránky (O nás, O vodě, Doprava, Obchodní
 // podmínky, Ochrana osobních údajů). JEDINÉ místo, kde jsou jejich texty
-// a adresy; patička i stránky se berou odsud.
+// a adresy; menu, patička i stránky se berou odsud.
 //
 // `blocks: null` = text zatím nemáme → stránka existuje, odkaz funguje
 // a zobrazí se „Text připravujeme“ s kontaktem na provozovatele.
@@ -105,6 +105,32 @@ const aboutPage: InfoPage = {
   ],
 };
 
+// Text stránky O vodě z begina.cz (www.begina.cz/o-vode/), dodaný vedením
+// 3. 10. 2026 jako snímek obrazovky; přepsaný doslova (nadpisy jako na webu).
+const waterPage: InfoPage = {
+  path: "/eshop/o-vode",
+  footerLabel: "O vodě",
+  title: "Voda je základ",
+  description: "Proč Begina používá čistou filtrovanou vodu.",
+  blocks: [
+    {
+      paragraphs: [
+        "Voda je nezbytnou součástí života.",
+        "Pokrývá přibližně 71 % povrchu Země a tvoří významnou část lidského těla.",
+        "Podílí se na transportu živin, odvádění odpadních látek a regulaci tělesné teploty. Současně je důležitá pro hydrataci buněk, trávení a vstřebávání živin.",
+        "Dostatečný příjem tekutin je součástí zdravého životního stylu.",
+      ],
+    },
+    {
+      heading: "Kvalita vody je pro nás důležitá",
+      paragraphs: [
+        "Voda tvoří převážnou část našich nápojů, a proto její kvalitě věnujeme mimořádnou pozornost. Používáme čistou filtrovanou vodu, která nám umožňuje dosahovat stabilní chuti a konzistentní kvality napříč celou výrobou.",
+        "Díky důkladné filtraci pracujeme s vodou, jejíž složení máme pod kontrolou. To nám umožňuje zachovat charakter jednotlivých receptur a nechat vyniknout chuť použitých surovin.",
+      ],
+    },
+  ],
+};
+
 const shippingPage: InfoPage = {
   path: "/eshop/doprava",
   footerLabel: "Doprava",
@@ -149,6 +175,7 @@ const privacyPage: InfoPage = {
 
 export const INFO_PAGES = {
   about: aboutPage,
+  water: waterPage,
   shipping: shippingPage,
   terms: termsPage,
   privacy: privacyPage,

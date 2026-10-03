@@ -43,13 +43,14 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     console.error("E-shop: katalog z DB se nepodařilo načíst", error);
     return null;
   });
-  // Menu z návrhu úvodní stránky: kategorie z katalogu + O nás.
+  // Menu z návrhu úvodní stránky: kategorie z katalogu + O nás, O vodě (jako begina.cz).
   const menu = [
     ...availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)).map((c) => ({
       href: `/eshop/kategorie/${c.slug}`,
       label: c.menuLabel,
     })),
     { href: INFO_PAGES.about.path, label: "O nás" },
+    { href: INFO_PAGES.water.path, label: "O vodě" },
   ];
   return (
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>

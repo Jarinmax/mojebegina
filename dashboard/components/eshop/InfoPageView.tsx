@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
 
-// Informační stránka e-shopu (O nás, Doprava, Obchodní podmínky, GDPR).
+// Informační stránka e-shopu (O nás, O vodě, Doprava, Obchodní podmínky, GDPR).
 // Obsah: lib/eshop/infoPages.ts.
 
 // E-mail, telefon a webové adresy v textu jako odkazy.
