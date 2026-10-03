@@ -72,7 +72,6 @@ export const SOUPS = [
     slug: "gulasova-polevka-z-hlivy-ustricne",
     name: "Gulášová polévka z hlívy ústřičné",
     sortOrder: 40,
-    photo: false, // fotka zatím chybí (na snímku z webu zakrytá ikonou lupy)
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
     description: [

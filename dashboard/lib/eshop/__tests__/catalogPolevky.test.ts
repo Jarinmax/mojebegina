@@ -43,9 +43,9 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
 
   it("skript a kontrola po; opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 1 | 1 | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 2 | 1 | 379 Kč, 12 porcí");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 1 | 1 | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 2 | 1 | 379 Kč, 12 porcí");
   });
 
   it("e-shop: Dýňová polévka z begina.cz (vláknina, sekce Pro koho, fotka); ostatní polévky beze změny", async () => {
@@ -74,10 +74,11 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     // Kulajda a Rajčatová jako v migraci 0014
     const seed = expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky");
     expect(list.slice(1, 3)).toEqual(seed.slice(1));
-    // Gulášová: nová polévka, zatím bez fotky
+    // Gulášová: nová polévka
     const gulas = list[3];
     expect(gulas.variants).toEqual([expect.objectContaining({ sku: "gulasova-polevka-z-hlivy-ustricne", priceKc: 379, servings: 12 })]);
-    expect(gulas.image).toBeNull();
+    expect(gulas.image).toBe("/eshop/gulasova-polevka-z-hlivy-ustricne.jpg");
+    expect(existsSync(path.join(PUBLIC, gulas.image!))).toBe(true);
     expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 8 %/);
     expect(gulas.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 149 kJ \/ 36 kcal.*vláknina 1,1 g$/);
     expect(parseDescription(gulas.description).sections[0].blocks[0]).toEqual(expect.objectContaining({ items: expect.arrayContaining(["pro vegany i vegetariány"]) }));
@@ -88,6 +89,6 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(await soups()).toEqual(expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky"));
     expect(await check(pg, "40_polevky_before.sql")).toBe("3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 1 | 1 | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 2 | 1 | 379 Kč, 12 porcí");
   });
 });

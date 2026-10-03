@@ -63,4 +63,9 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT "id", '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg', 'Gulášová polévka z hlívy ústřičné', 0 FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne'
+AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
+  WHERE p."slug" = 'gulasova-polevka-z-hlivy-ustricne' AND pi."url" = '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg');
+
 COMMIT;

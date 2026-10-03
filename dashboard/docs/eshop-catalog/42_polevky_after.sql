@@ -1,7 +1,7 @@
 -- ESHOP 1.0 — kontrola PO 41_polevky.sql (jen čtení).
 -- Očekáváno:
 --   polevky | sekce_kategorie | dynova_slozeni | dynova_baleni                   | dynova_cena | dynova_porci | fotky_polevek | dynova_baleni_pocet | gulasova
---   4       | 1               | ano            | 3 l Rodinná zásoba (bag-in-box) | 379         | 12           | 1             | 1                   | 379 Kč, 12 porcí
+--   4       | 1               | ano            | 3 l Rodinná zásoba (bag-in-box) | 379         | 12           | 2             | 1                   | 379 Kč, 12 porcí
 SELECT
   (SELECT count(*) FROM "products" p JOIN "product_categories" c ON c."id" = p."category_id" WHERE c."slug" = 'polevky' AND p."is_active") AS polevky,
   (SELECT coalesce(jsonb_array_length("detail_sections"), 0) FROM "product_categories" WHERE "slug" = 'polevky') AS sekce_kategorie,
