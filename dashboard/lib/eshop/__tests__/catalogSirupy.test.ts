@@ -94,7 +94,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     ]);
     // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
     expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
-    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup", "lipovy-sirup"]);
+    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup", "lipovy-sirup", "sipkovy-sirup"]);
     // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
     expect(lipa.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
@@ -108,7 +108,18 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(parseDescription(lipa.description).sections[0].blocks).toEqual([
       { type: "ul", items: expect.arrayContaining(["**Pro děti i dospělé:** díky své jemnosti a přirozeně nasládlému profilu chutná celé rodině."]) },
     ]);
-    expect(syrups.slice(3).every((p) => p.description.length === 0 && p.highlights.length === 0 && p.taste === null)).toBe(true);
+    // Šípkový: 40 % výluhu, citronová šťáva 9 %, šípek (Rosa canina)
+    const sipek = syrups[4];
+    expect(sipek.name).toBe("Šípkový sirup");
+    expect(sipek.shortDescription).toMatch(/přibližně na 3,30 Kč\.$/);
+    expect(sipek.highlights[0]).toBe("40 % bylinného výluhu");
+    expect(sipek.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
+    expect(parseDescription(sipek.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
+      ["Pro koho je vhodný", ["ul"]],
+      ["Jak sirup používat", ["ul", "p", "p"]],
+    ]);
+    // zatím bez textů: Ibiškový, Heřmánkový, Meduňkový
+    expect([3, 5, 6].map((i) => syrups[i]).every((p) => p.description.length === 0 && p.highlights.length === 0 && p.taste === null)).toBe(true);
     // Balení: popis u všech sirupů
     expect(syrups.every((p) => p.variants[0].description!.startsWith("Pro snadnou manipulaci") && p.variants[1].description!.startsWith("Lehké a nerozbitné"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;

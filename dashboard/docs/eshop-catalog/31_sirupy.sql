@@ -3,7 +3,7 @@
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
 -- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování),
--- Lipový (popis, chuť, složení, výživa, skladování);
+-- Lipový a Šípkový (popis, chuť, složení, výživa, skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
@@ -160,8 +160,8 @@ AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'sirupy'), 'sipkovy-sirup', 'Šípkový sirup',
-  NULL, '{}'::text[], '{}'::text[],
-  NULL, NULL, NULL, NULL, NULL, 50)
+  'Až 150 nápojů z jednoho balení (při doporučeném ředění 1:10). 200 ml nápoje při 3l balení vyjde přibližně na 3,30 Kč.', ARRAY['Šípkový sirup nabízí plnou a vyzrálou chuť šípkové růže s harmonickou hloubkou. Výrazný charakter šípku je ideální pro osvěžující domácí limonádu i hřejivý šípkový čaj. Vyniká přirozenou plností a dlouhým dozvukem.', '**Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.**', 'Připravujeme jej z mimořádně silného bylinného výluhu (40 %), kvalitního třtinového cukru a čisté filtrované vody.', '## Pro koho je vhodný', '- **Pro rodiny:** přírodní alternativa k běžným limonádám, kterou si oblíbí dospělí i děti.', '- **Pro milovníky klidných chvil:** ideální součást večerního rituálu pro chvíle odpočinku a pohody.', '- **Pro gastro provoz:** kvalitní a ekonomický základ pro prémiové domácí nápoje.', '## Jak sirup používat', '- **Osvěžující limonáda:** smíchejte s perlivou vodou, ledem a plátkem citronu.', '- **Hřejivý nápoj:** přidejte do horké vody pro chvíle pohody.', '- **V kuchyni:** skvěle osladí ranní kaši nebo jogurt s ovocem.', '**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**', 'Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.']::text[], ARRAY['40 % bylinného výluhu', 'z čisté filtrované vody', 'bez umělých aromat a barviv', 'až 150 nápojů z jednoho balení']::text[],
+  'Chuť je plná, kulatá a přirozeně vyvážená. Šípek vytváří vyzrálý chuťový profil s jemně hlubším dozvukem. V nápojích působí harmonicky a čistě, přesně tak, jak to od řemeslné výroby Begina očekáváte.', 'třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina)), citronová šťáva 9 %, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":1105,"energy_kcal":260,"fat":0,"saturates":0,"carbohydrate":65,"sugars":64,"protein":0,"salt":0}'::jsonb, '100ml', 'Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.', 50)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",

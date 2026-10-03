@@ -52,6 +52,11 @@ export const VARIANTS = [
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 const MIX = "**Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.**";
+// Závěr sekce „Jak sirup používat“ — u všech sirupů na begina.cz stejný.
+const GOLDEN_RULE = [
+  "**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**",
+  "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
+];
 const highlights = (extractPercent) => [
   `${extractPercent} % bylinného výluhu`,
   "z čisté filtrované vody",
@@ -105,8 +110,7 @@ export const SYRUPS = [
       "- **Osvěžující domácí limonáda:** smíchejte s perlivou vodou, ledem a plátkem citronu.",
       "- **Hřejivý nápoj:** přidejte do horké vody pro příjemně kořenitý nápoj.",
       "- **V kuchyni:** skvěle dochutí čaje, dezerty nebo jogurt s ovocem.",
-      "**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**",
-      "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
+      ...GOLDEN_RULE,
     ],
     taste:
       "Chuť je intenzivní, přímá a autenticky pálivá, přesně tak, jak to od poctivého zázvoru čekáte. Má plné a výrazné tělo, které v nápoji zůstává krásně čitelné až do posledního doušku. Působí svěže, s jemně zemitým závěrem, který příjemně zahřeje v horkém nápoji a osvěží v ledové limonádě.",
@@ -134,8 +138,7 @@ export const SYRUPS = [
       "## Jak sirup používat",
       "- **Osvěžující domácí limonáda:** smíchejte s perlivou vodou, ledem a snítkou máty.",
       "- **Hřejivý nápoj:** přidejte do horké vody pro chvíle pohody a zahřátí.",
-      "**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**",
-      "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
+      ...GOLDEN_RULE,
     ],
     taste:
       "Chuť je hluboká, medově jemná a přirozeně harmonická. Lípa je tradiční bylinka s konejšivým charakterem, která v nápojích působí velmi lehce a zanechá hebký pocit na patře.",
@@ -146,7 +149,35 @@ export const SYRUPS = [
       "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
   },
   { ...EMPTY, slug: "ibiskovy-sirup", name: "Ibiškový sirup", price3l: 499 },
-  { ...EMPTY, slug: "sipkovy-sirup", name: "Šípkový sirup", price3l: 499 },
+  {
+    ...EMPTY,
+    slug: "sipkovy-sirup",
+    name: "Šípkový sirup",
+    price3l: 499,
+    shortDescription: shortDescription("3,30"),
+    highlights: highlights(40),
+    description: [
+      "Šípkový sirup nabízí plnou a vyzrálou chuť šípkové růže s harmonickou hloubkou. Výrazný charakter šípku je ideální pro osvěžující domácí limonádu i hřejivý šípkový čaj. Vyniká přirozenou plností a dlouhým dozvukem.",
+      MIX,
+      "Připravujeme jej z mimořádně silného bylinného výluhu (40 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "## Pro koho je vhodný",
+      "- **Pro rodiny:** přírodní alternativa k běžným limonádám, kterou si oblíbí dospělí i děti.",
+      "- **Pro milovníky klidných chvil:** ideální součást večerního rituálu pro chvíle odpočinku a pohody.",
+      "- **Pro gastro provoz:** kvalitní a ekonomický základ pro prémiové domácí nápoje.",
+      "## Jak sirup používat",
+      "- **Osvěžující limonáda:** smíchejte s perlivou vodou, ledem a plátkem citronu.",
+      "- **Hřejivý nápoj:** přidejte do horké vody pro chvíle pohody.",
+      "- **V kuchyni:** skvěle osladí ranní kaši nebo jogurt s ovocem.",
+      ...GOLDEN_RULE,
+    ],
+    taste:
+      "Chuť je plná, kulatá a přirozeně vyvážená. Šípek vytváří vyzrálý chuťový profil s jemně hlubším dozvukem. V nápojích působí harmonicky a čistě, přesně tak, jak to od řemeslné výroby Begina očekáváte.",
+    ingredients:
+      "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina)), citronová šťáva 9 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    storage:
+      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+  },
   { ...EMPTY, slug: "hermankovy-sirup", name: "Heřmánkový sirup", price3l: 549 },
   { ...EMPTY, slug: "medunkovy-sirup-s-levanduli", name: "Meduňkový sirup s levandulí", price3l: 549 },
 ];
@@ -163,7 +194,7 @@ export function sirupySql() {
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
 -- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování),
--- Lipový (popis, chuť, složení, výživa, skladování);
+-- Lipový a Šípkový (popis, chuť, složení, výživa, skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
