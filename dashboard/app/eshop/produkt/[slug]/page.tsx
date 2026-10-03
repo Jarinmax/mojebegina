@@ -9,6 +9,8 @@ import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import PageCarousel from "@/components/eshop/PageCarousel";
+import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
+import { parseDescription } from "@/lib/eshop/productDescription";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,8 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
     notFound();
   }
   const hasChoice = product.variants.length > 1;
+  // Úvodní odstavce = „Popis“; sekce „## …“ (Pro koho je vhodný, Jak sirup používat…) až pod chutí, jako na begina.cz.
+  const description = parseDescription(product.description);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
@@ -105,12 +109,10 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             <p className="mt-3 text-sm font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>
           )}
 
-          {product.description.length > 0 && (
+          {description.intro.length > 0 && (
             <section className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
               <h2 className="font-medium text-begina-primary-900">Popis</h2>
-              {product.description.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
+              <DescriptionBlocks blocks={description.intro} />
             </section>
           )}
 
@@ -137,6 +139,13 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
               <p>{product.taste}</p>
             </section>
           )}
+
+          {description.sections.map((section) => (
+            <section key={section.title} className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
+              <h2 className="font-medium text-begina-primary-900">{section.title}</h2>
+              <DescriptionBlocks blocks={section.blocks} />
+            </section>
+          ))}
 
           {product.variants.some((variant) => variant.description) && (
             <section className="mt-8 border-t border-neutral-200 pt-6 text-neutral-700">

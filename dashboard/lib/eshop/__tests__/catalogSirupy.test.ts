@@ -6,6 +6,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { loadCatalog } from "../catalogDb";
+import { parseDescription } from "../productDescription";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { sirupySql } from "../../../scripts/eshop-catalog/build-sirupy.mjs";
 
@@ -87,6 +88,10 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       "na 100 ml: energie 1\u00a0105 kJ / 260 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 65 g (z toho cukry 64 g), bílkoviny 0 g, sůl 0 g"
     );
     expect(zazvor.foodInfo.storage).toMatch(/spotřebujte do 3 měsíců od otevření/);
+    expect(parseDescription(zazvor.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
+      ["Pro koho je vhodný", ["ul"]],
+      ["Jak sirup používat", ["ul", "p", "p"]],
+    ]);
     // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
     expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
     expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup"]);
@@ -96,6 +101,9 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(lipa.highlights[0]).toBe("39 % bylinného výluhu");
     expect(lipa.description[0]).toMatch(/^Lipový sirup nabízí jemnou, medovou/);
     expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
+    expect(parseDescription(lipa.description).sections[0].blocks).toEqual([
+      { type: "ul", items: expect.arrayContaining(["**Pro děti i dospělé:** díky své jemnosti a přirozeně nasládlému profilu chutná celé rodině."]) },
+    ]);
     expect(syrups.slice(3).every((p) => p.description.length === 0 && p.highlights.length === 0 && p.taste === null)).toBe(true);
     // Balení: popis u všech sirupů
     expect(syrups.every((p) => p.variants[0].description!.startsWith("Pro snadnou manipulaci") && p.variants[1].description!.startsWith("Lehké a nerozbitné"))).toBe(true);

@@ -50,7 +50,8 @@ export const VARIANTS = [
   },
 ];
 
-const MIX = "Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.";
+// Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
+const MIX = "**Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.**";
 const highlights = (extractPercent) => [
   `${extractPercent} % bylinného výluhu`,
   "z čisté filtrované vody",
@@ -96,6 +97,16 @@ export const SYRUPS = [
       "Zázvorový sirup je poctivý sirup s intenzivním řízem a hřejivým charakterem. Tento tradiční sirup v sobě nese sílu přírody a výraznou chuť zázvoru. Vyniká přirozeně kořenitou chutí a svěžím dozvukem.",
       MIX,
       "Připravujeme jej z mimořádně silného bylinného výluhu (39 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "## Pro koho je vhodný",
+      "- **Pro milovníky výrazných chutí:** ideální pro ty, kteří mají rádi přirozeně kořenité nápoje.",
+      "- **Pro domácí přípravu nápojů:** skvělý základ pro poctivé domácí limonády i hřejivé nápoje.",
+      "- **Pro gastro provozy:** kvalitní a ekonomický základ pro prémiové domácí nápoje.",
+      "## Jak sirup používat",
+      "- **Osvěžující domácí limonáda:** smíchejte s perlivou vodou, ledem a plátkem citronu.",
+      "- **Hřejivý nápoj:** přidejte do horké vody pro příjemně kořenitý nápoj.",
+      "- **V kuchyni:** skvěle dochutí čaje, dezerty nebo jogurt s ovocem.",
+      "**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**",
+      "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
     ],
     taste:
       "Chuť je intenzivní, přímá a autenticky pálivá, přesně tak, jak to od poctivého zázvoru čekáte. Má plné a výrazné tělo, které v nápoji zůstává krásně čitelné až do posledního doušku. Působí svěže, s jemně zemitým závěrem, který příjemně zahřeje v horkém nápoji a osvěží v ledové limonádě.",
@@ -116,6 +127,10 @@ export const SYRUPS = [
       "Lipový sirup nabízí jemnou, medovou a uklidňující chuť v každé kapce. Tato zlatavá radost v sobě nese klid letního podvečera a poctivost tradičního bylinkářství.",
       MIX,
       "Připravujeme jej z mimořádně silného bylinného výluhu (39 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "## Pro koho je vhodný",
+      "- **Pro děti i dospělé:** díky své jemnosti a přirozeně nasládlému profilu chutná celé rodině.",
+      "- **Pro chvíle relaxace:** ideální součást Vašeho rituálu pro zpomalení a pohodu po náročném dni.",
+      "- **Pro tvořivé barmany:** skvělý základ pro originální domácí limonády.",
     ],
     taste:
       "Chuť je hluboká, medově jemná a přirozeně harmonická. Lípa je tradiční bylinka s konejšivým charakterem, která v nápojích působí velmi lehce a zanechá hebký pocit na patře.",
@@ -138,7 +153,7 @@ export function sirupySql() {
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
 -- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování),
--- Lipový (popis, chuť);
+-- Lipový (popis, chuť, pro koho);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
