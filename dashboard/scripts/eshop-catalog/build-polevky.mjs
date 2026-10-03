@@ -95,6 +95,33 @@ export const SOUPS = [
     variants: [bagInBox("rajcatova-polevka", 379, 12)],
   },
   {
+    slug: "rajcatova-polevka-s-cervenou-repou",
+    name: "Rajčatová polévka s červenou řepou",
+    sortOrder: 35,
+    photo: false, // fotka čeká (snímek z webu poslaný během práce se neuložil)
+    shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
+    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    description: [
+      "Rajčatová polévka s červenou řepou nabízí jemnou a přirozeně vyváženou chuť. Zralá rajčata tvoří výrazný základ, který červená řepa přirozeně zjemňuje a propojuje do hladkého celku.",
+      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
+      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "## Pro koho je vhodná",
+      "- pro milovníky jemnějších rajčatových polévek",
+      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
+      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
+      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+    ],
+    taste:
+      "Je jemná, kulatá a vyvážená. Rajčatový základ doplňuje červená řepa, která chuť přirozeně uhlazuje a propojuje do hladkého celku. Výsledkem je hebká struktura a příjemně plný charakter.",
+    ingredients:
+      "čistá filtrovaná voda, pasírovaná rajčata 17 %, brambory 13 %, kokosové mléko 13 % (kokosový extrakt 70 %, voda, emulgátor E435), červená řepa 9 %, rajčatový protlak 3 %, cibule, petržel kořen, mořská sůl, třtinový cukr, olivový olej, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    nutrition: { energy_kj: 189, energy_kcal: 45, fat: 2.9, saturates: 2.4, carbohydrate: 3.9, sugars: 2.6, protein: 0.9, salt: 0.8, fibre: 0.9 },
+    storage:
+      "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.",
+    warnings: [],
+    variants: [bagInBox("rajcatova-polevka-s-cervenou-repou", 379, 12)],
+  },
+  {
     slug: "gulasova-polevka-z-hlivy-ustricne",
     name: "Gulášová polévka z hlívy ústřičné",
     sortOrder: 40,

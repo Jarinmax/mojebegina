@@ -1,4 +1,4 @@
--- ESHOP 1.0 — vrácení 41_polevky.sql: polévky Dýňová polévka, Rajčatová polévka, Gulášová polévka z hlívy ústřičné, Špenátová polévka
+-- ESHOP 1.0 — vrácení 41_polevky.sql: polévky Dýňová polévka, Rajčatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka
 -- zpět do stavu z migrace 0014 (krátký popis, balení bez názvu, cena), bez
 -- nových textů, výživy a fotky; nově přidané polévky se skryjí; společná
 -- sekce kategorie se odebere. Nic
@@ -54,15 +54,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "updated_at" = now();
 
 UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "updated_at" = now()
-WHERE "slug" IN ('dynova-polevka', 'rajcatova-polevka', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka');
+WHERE "slug" IN ('dynova-polevka', 'rajcatova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka');
 
-DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('dynova-polevka', 'rajcatova-polevka', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka'))
-  AND "url" IN ('/eshop/dynova-polevka.jpg', '/eshop/rajcatova-polevka.jpg', '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg', '/eshop/spenatova-polevka.jpg');
+DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('dynova-polevka', 'rajcatova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka'))
+  AND "url" IN ('/eshop/dynova-polevka.jpg', '/eshop/rajcatova-polevka.jpg', '/eshop/rajcatova-polevka-s-cervenou-repou.jpg', '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg', '/eshop/spenatova-polevka.jpg');
 
 -- Polévky, které v migraci 0014 nejsou: jen skrýt (objednávky zůstanou v pořádku).
 UPDATE "product_variants" SET "is_active" = false, "updated_at" = now()
-WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka'));
-UPDATE "products" SET "is_active" = false, "updated_at" = now() WHERE "slug" IN ('gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka');
+WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka'));
+UPDATE "products" SET "is_active" = false, "updated_at" = now() WHERE "slug" IN ('rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka');
 
 UPDATE "product_categories" SET "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'polevky';
 COMMIT;
