@@ -87,6 +87,11 @@ první nová objednávka 5201).
    `32_sirupy_after.sql` → `3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25`.
    Vrácení: `39_sirupy_rollback.sql` (sirupy skryje, nic nemaže). Na Preview
    se spouští nejdřív.
+7. **Katalog — Čerstvé polévky** (`docs/eshop-catalog/`): `40_polevky_before.sql`
+   → `3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0` → `41_polevky.sql`
+   (celý soubor) → `42_polevky_after.sql` →
+   `3 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 1 | 1`.
+   Vrácení: `49_polevky_rollback.sql` (stav z migrace 0014).
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich

@@ -569,7 +569,7 @@ export const products = pgTable(
     ingredients: text("ingredients"),
     allergens: text("allergens").array(),
     allergenNote: text("allergen_note"),
-    // {energy_kj, energy_kcal, fat, saturates, carbohydrate, sugars, protein, salt}
+    // {energy_kj, energy_kcal, fat, saturates, carbohydrate, sugars, protein, salt, fibre?}
     nutrition: jsonb("nutrition"),
     nutritionBasis: text("nutrition_basis"), // "100g" | "100ml"
     storageInstructions: text("storage_instructions"),

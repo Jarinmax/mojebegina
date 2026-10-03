@@ -7,6 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { categorySql, imageSql, productSql, variantSql } from "./sql.mjs";
 
 export const CATEGORY = {
   intro: [
@@ -288,10 +289,6 @@ export const SYRUPS = [
   },
 ];
 
-const q = (s) => (s === null ? "NULL" : `'${String(s).replaceAll("'", "''")}'`);
-const arr = (xs) => (xs.length ? `ARRAY[${xs.map(q).join(", ")}]::text[]` : "'{}'::text[]");
-const json = (v) => (v === null ? "NULL" : `${q(JSON.stringify(v))}::jsonb`);
-
 export function sirupySql() {
   const out = [];
   const w = (s) => out.push(s);
@@ -309,40 +306,13 @@ export function sirupySql() {
 -- (public/eshop/<slug>.jpg).
 BEGIN;
 `);
-  w(`UPDATE "product_categories" SET "intro" = ${arr(CATEGORY.intro)},
-  "detail_sections" = ${json(CATEGORY.detailSections)}, "updated_at" = now()
-WHERE "slug" = 'sirupy';
-`);
+  w(categorySql("sirupy", CATEGORY));
   SYRUPS.forEach((p, i) => {
-    w(`INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
-  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
-VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'sirupy'), ${q(p.slug)}, ${q(p.name)},
-  ${q(p.shortDescription)}, ${arr(p.description)}, ${arr(p.highlights)},
-  ${q(p.taste)}, ${q(p.ingredients)}, ${json(p.nutrition)}, ${p.nutrition ? "'100ml'" : "NULL"}, ${q(p.storage)}, ${arr(p.warnings)}, ${(i + 1) * 10})
-ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
-  "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
-  "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
-  "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
-  "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
-  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
-`);
+    w(productSql(p, "sirupy", (i + 1) * 10));
     VARIANTS.forEach((v, j) => {
-      w(`INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
-  "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = ${q(p.slug)}), ${q(`${p.slug}-${v.suffix}`)}, ${q(v.label)}, ${q(v.note)},
-  ${q(v.description)}, ${v.volumeMl}, ${v.servings}, ${v.price(p)}, ${(j + 1) * 10})
-ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
-  "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
-  "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
-  "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
-`);
+      w(variantSql(p.slug, { ...v, sku: `${p.slug}-${v.suffix}`, price: v.price(p) }, (j + 1) * 10));
     });
-    const url = `/eshop/${p.slug}.jpg`;
-    w(`INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", ${q(url)}, ${q(p.name)}, 0 FROM "products" WHERE "slug" = ${q(p.slug)}
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = ${q(p.slug)} AND pi."url" = ${q(url)});
-`);
+    w(imageSql(p));
   });
   w("COMMIT;\n");
   return out.join("\n");

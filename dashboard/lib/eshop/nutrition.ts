@@ -39,6 +39,8 @@ export function formatNutrition(raw: unknown, basis: string | null): string | nu
   return (
     `${per}: energie ${fmt(v.energy_kj)} kJ / ${fmt(v.energy_kcal)} kcal, tuky ${fmt(v.fat)} g ` +
     `(z toho nasycené ${fmt(v.saturates)} g), sacharidy ${fmt(v.carbohydrate)} g ` +
-    `(z toho cukry ${fmt(v.sugars)} g), bílkoviny ${fmt(v.protein)} g, sůl ${fmt(v.salt)} g`
+    `(z toho cukry ${fmt(v.sugars)} g), bílkoviny ${fmt(v.protein)} g, sůl ${fmt(v.salt)} g` +
+    // vláknina je nepovinná (uvádějí ji polévky)
+    (typeof n.fibre === "number" && Number.isFinite(n.fibre) ? `, vláknina ${fmt(n.fibre)} g` : "")
   );
 }
