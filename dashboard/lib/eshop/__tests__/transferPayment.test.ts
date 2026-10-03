@@ -175,7 +175,11 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
     // QR v e-mailu jde naskenovat a obsahuje správnou platbu.
     const png = PNG.sync.read(Buffer.from(image.contentBase64, "base64"));
     const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data ?? "";
-    expect(decoded).toMatch(new RegExp(`^SPD\\*1\\.0\\*ACC:${IBAN}\\*AM:758\\.00\\*CC:CZK\\*DT:\\d{8}\\*X-VS:900001\\*MSG:BEGINA OBJEDNAVKA 900001$`));
+    // Datum v QR = den vytvoření objednávky (český čas), ne splatnost.
+    const [{ ordered_day }] = (await rows(
+      sql`SELECT to_char(ordered_at AT TIME ZONE 'Europe/Prague', 'YYYYMMDD') AS ordered_day FROM orders WHERE id = ${TRANSFER}`
+    )) as { ordered_day: string }[];
+    expect(decoded).toBe(`SPD*1.0*ACC:${IBAN}*AM:758.00*CC:CZK*DT:${ordered_day}*X-VS:900001*MSG:BEGINA OBJEDNAVKA 900001`);
 
     expect(internal.subject).toContain("Nová objednávka 900001");
     expect(internal.text).toContain("Variabilní symbol: 900001");

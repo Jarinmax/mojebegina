@@ -26,8 +26,11 @@ z WooCommerce (start = nejvyšší číslo z WooCommerce).
   `ESHOP_BANK_IBAN`), není v kódu. IBAN se ověřuje kontrolním součtem —
   překlep = QR se neukáže.
 - **QR Platba** (český standard SPAYD, čtou ho všechny české bankovní
-  aplikace): IBAN, částka, CZK, splatnost, VS, zpráva „BEGINA OBJEDNAVKA
-  900001“. Jen když je IBAN i číslo objednávky. Testy QR obrázek čtou zpět
+  aplikace): IBAN, částka, CZK, datum platby, VS, zpráva „BEGINA OBJEDNAVKA
+  900001“. Jen když je IBAN i číslo objednávky. **Datum platby v QR = den
+  vytvoření objednávky** (český čas; rozhodnutí vedení 3. 10. 2026) —
+  některé bankovní aplikace ho použijí jako datum odeslání platby. Interní
+  splatnost +5 dní („Zaplaťte prosím do …“, „Po splatnosti“) je oddělená. Testy QR obrázek čtou zpět
   a ověřují přesný obsah (z e-mailu i ze stránky).
 - **E-mail:** QR je obrázek vložený do zprávy přes Content-ID (`cid:`) —
   zobrazí se i v klientech, které blokují externí obrázky; data: URL by

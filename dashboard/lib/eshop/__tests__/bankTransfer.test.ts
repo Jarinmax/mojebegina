@@ -5,6 +5,7 @@ import { PNG } from "pngjs";
 import {
   bankConfig,
   formatIban,
+  formatPragueDate,
   isTransferOverdue,
   normalizeIban,
   spaydString,
@@ -60,21 +61,37 @@ describe("splatnost 5 dní a „po splatnosti“", () => {
 });
 
 describe("QR Platba (SPAYD)", () => {
-  it("formát podle standardu ČBA: účet, částka, měna, splatnost, VS, zpráva bez diakritiky", () => {
+  it("formát podle standardu ČBA: účet, částka, měna, datum platby, VS, zpráva bez diakritiky", () => {
     expect(
-      spaydString({ iban: IBAN, amountKc: 2076, variableSymbol: "900001", message: "Begina objednávka 900001 *test*", dueAt: transferDueAt(ORDERED) })
-    ).toBe("SPD*1.0*ACC:CZ6508000000192000145399*AM:2076.00*CC:CZK*DT:20261007*X-VS:900001*MSG:BEGINA OBJEDNAVKA 900001 TEST");
+      spaydString({ iban: IBAN, amountKc: 2076, variableSymbol: "900001", message: "Begina objednávka 900001 *test*", paymentDate: ORDERED })
+    ).toBe("SPD*1.0*ACC:CZ6508000000192000145399*AM:2076.00*CC:CZK*DT:20261002*X-VS:900001*MSG:BEGINA OBJEDNAVKA 900001 TEST");
   });
 
-  it("splatnost podle českého času (objednávka těsně před půlnocí)", () => {
-    const lateEvening = new Date("2026-10-02T21:30:00Z"); // 23:30 v Praze
-    expect(spaydString({ iban: IBAN, amountKc: 1, variableSymbol: "1", message: "x", dueAt: transferDueAt(lateEvening) })).toContain(
-      "DT:20261007"
-    );
+  it("datum v QR = den vytvoření objednávky (3. 10. → 3. 10., 4. 10. → 4. 10.); interní splatnost zůstává +5 dní", () => {
+    const order = { id: "11348d18-506f-45b8-b65d-65df779471c7", orderNumber: 900001, totalKc: 2076, paymentMethodCode: "prevod", paymentStatus: "unpaid" };
+    const bank = { account: "19-2000145399/0800", iban: IBAN };
+    for (const [orderedAt, qrDate, due] of [
+      ["2026-10-03T08:00:00Z", "20261003", "8. 10. 2026"],
+      ["2026-10-04T15:00:00Z", "20261004", "9. 10. 2026"],
+    ] as const) {
+      const info = transferInfo({ ...order, orderedAt: new Date(orderedAt) }, bank)!;
+      expect(info.spayd).toContain(`*DT:${qrDate}*`);
+      expect(formatPragueDate(info.dueAt)).toBe(due);
+      expect(info.qrPaymentDate).toEqual(new Date(orderedAt));
+      // účet, částka a VS beze změny
+      expect(info.spayd).toBe(`SPD*1.0*ACC:${IBAN}*AM:2076.00*CC:CZK*DT:${qrDate}*X-VS:900001*MSG:BEGINA OBJEDNAVKA 900001`);
+    }
+  });
+
+  it("datum v QR podle českého času (objednávka kolem půlnoci)", () => {
+    const qr = (iso: string) => spaydString({ iban: IBAN, amountKc: 1, variableSymbol: "1", message: "x", paymentDate: new Date(iso) });
+    expect(qr("2026-10-02T21:30:00Z")).toContain("DT:20261002"); // 23:30 v Praze 2. 10.
+    expect(qr("2026-10-02T22:30:00Z")).toContain("DT:20261003"); // 0:30 v Praze 3. 10.
+    expect(qr("2026-12-31T23:30:00Z")).toContain("DT:20270101"); // zimní čas: 0:30 v Praze 1. 1.
   });
 
   it("odmítne neplatný VS nebo částku", () => {
-    const base = { iban: IBAN, amountKc: 100, variableSymbol: "900001", message: "x", dueAt: ORDERED };
+    const base = { iban: IBAN, amountKc: 100, variableSymbol: "900001", message: "x", paymentDate: ORDERED };
     expect(() => spaydString({ ...base, variableSymbol: "12345678901" })).toThrow();
     expect(() => spaydString({ ...base, variableSymbol: "ABC" })).toThrow();
     expect(() => spaydString({ ...base, amountKc: 0 })).toThrow();
@@ -92,7 +109,7 @@ describe("QR Platba (SPAYD)", () => {
   });
 
   it("vykreslený QR (PNG pro e-mail) jde přečíst zpátky na přesně tentýž text; SVG pro stránku", async () => {
-    const text = spaydString({ iban: IBAN, amountKc: 2076, variableSymbol: "900001", message: "Begina objednavka 900001", dueAt: transferDueAt(ORDERED) });
+    const text = spaydString({ iban: IBAN, amountKc: 2076, variableSymbol: "900001", message: "Begina objednavka 900001", paymentDate: ORDERED });
     const png = PNG.sync.read(await qrPng(text));
     expect(png.width).toBe(360);
     const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);

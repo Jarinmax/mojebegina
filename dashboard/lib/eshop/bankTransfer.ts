@@ -5,7 +5,9 @@
 //   ESHOP_BANK_ACCOUNT  tuzemský tvar pro zobrazení, např. 123456789/0100
 //   ESHOP_BANK_IBAN     IBAN pro QR platbu (ověřuje se kontrolní součet)
 // Bez platného IBANu se QR neukazuje; bez čísla objednávky (VS) taky ne —
-// platba bez VS by nešla spárovat.
+// platba bez VS by nešla spárovat. Datum v QR = den vytvoření objednávky;
+// interní splatnost (TRANSFER_DUE_DAYS) slouží jen pro „Po splatnosti“
+// a text „Zaplaťte prosím do …“.
 //
 // QR Platba = český standard SPAYD (Short Payment Descriptor, ČBA), který
 // čtou všechny české bankovní aplikace.
@@ -97,7 +99,18 @@ function yyyymmdd(date: Date): string {
   return parts.replaceAll("-", "");
 }
 
-export type SpaydInput = { iban: string; amountKc: number; variableSymbol: string; message: string; dueAt: Date };
+export type SpaydInput = {
+  iban: string;
+  amountKc: number;
+  variableSymbol: string;
+  message: string;
+  /**
+   * Datum platby v QR (pole DT). Některé bankovní aplikace ho použijí jako
+   * datum odeslání platby — proto vždy den vytvoření objednávky
+   * (rozhodnutí vedení 3. 10. 2026), ne interní splatnost.
+   */
+  paymentDate: Date;
+};
 
 export function spaydString(input: SpaydInput): string {
   if (!/^\d{1,10}$/.test(input.variableSymbol)) throw new Error("Variabilní symbol musí mít 1–10 číslic.");
@@ -108,7 +121,7 @@ export function spaydString(input: SpaydInput): string {
     `ACC:${input.iban}`,
     `AM:${input.amountKc.toFixed(2)}`,
     "CC:CZK",
-    `DT:${yyyymmdd(input.dueAt)}`,
+    `DT:${yyyymmdd(input.paymentDate)}`,
     `X-VS:${input.variableSymbol}`,
     `MSG:${spaydText(input.message, 60)}`,
   ].join("*");
@@ -122,7 +135,10 @@ export type TransferInfo = {
   variableSymbol: string | null;
   /** zpráva pro příjemce (vždy — i bez VS jde objednávku dohledat) */
   message: string;
+  /** interní splatnost (+5 dní): „Zaplaťte prosím do …“ a stav „Po splatnosti“ */
   dueAt: Date;
+  /** datum platby v QR = den vytvoření objednávky (Europe/Prague) */
+  qrPaymentDate: Date;
   /** text QR kódu; null = chybí IBAN nebo VS */
   spayd: string | null;
 };
@@ -144,9 +160,10 @@ export function transferInfo(order: TransferOrder, bank: BankConfig): TransferIn
   const reference = variableSymbol ?? order.id.slice(0, 8);
   const message = `Begina objednavka ${reference}`;
   const dueAt = transferDueAt(order.orderedAt);
+  const qrPaymentDate = order.orderedAt;
   const spayd =
     bank.iban && variableSymbol
-      ? spaydString({ iban: bank.iban, amountKc: order.totalKc, variableSymbol, message, dueAt })
+      ? spaydString({ iban: bank.iban, amountKc: order.totalKc, variableSymbol, message, paymentDate: qrPaymentDate })
       : null;
-  return { account: bank.account, iban: bank.iban, amountKc: order.totalKc, variableSymbol, message, dueAt, spayd };
+  return { account: bank.account, iban: bank.iban, amountKc: order.totalKc, variableSymbol, message, dueAt, qrPaymentDate, spayd };
 }
