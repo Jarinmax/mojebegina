@@ -86,3 +86,18 @@ s `<MAX_WOO_ORDER_NUMBER>` = `900000`. Návrat:
   se přečte na správnou platbu.
 - **Neověřeno:** skenování skutečnou bankovní aplikací a skutečné
   doručení e-mailu s QR — první test v Preview.
+
+## Rozhodnutí o VS a fakturaci (vedení 3. 10. 2026) — zatím neimplementováno
+
+- **Varianta A:** VS je samostatný platební identifikátor objednávky, uloží se
+  natrvalo do `orders.payment_vs` při vytvoření objednávky; zákazník platí
+  tímto VS (dnes se VS dopočítává z čísla objednávky — změní se s migrací).
+- Po potvrzení platby vznikne faktura s **vlastním číslem**, která ponese
+  stejné `payment_vs`. Platba ↔ objednávka ↔ faktura jednoznačně propojené.
+- Samostatná tabulka **`payments`** (přijaté platby) připravená na pozdější
+  automatické párování bankovních transakcí (VS + částka, jedinečné ID
+  transakce).
+- **Fakturace se zatím neimplementuje** — čeká na potvrzení číselné řady
+  faktur a způsobu napojení na e-doklad. Faktury The Cup 20260152
+  a 20260153 se **nepovažují** za řadu, ve které e-shop pokračuje
+  (potvrdí Lucie).
