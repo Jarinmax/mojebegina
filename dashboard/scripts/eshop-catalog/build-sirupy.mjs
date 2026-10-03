@@ -226,7 +226,35 @@ export const SYRUPS = [
     storage:
       "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
   },
-  { ...EMPTY, slug: "hermankovy-sirup", name: "Heřmánkový sirup", price3l: 549 },
+  {
+    ...EMPTY,
+    slug: "hermankovy-sirup",
+    name: "Heřmánkový sirup",
+    price3l: 549,
+    shortDescription: shortDescription("3,70"),
+    highlights: highlights(36),
+    description: [
+      "Heřmánkový sirup nabízí jemnou, čistou a bylinnou chuť s přirozeně konejšivým charakterem v každé kapce. Tento slunečný dar v sobě nese sílu přírody a poctivost tradičního bylinkářství. Vyniká svou typickou vůní a jemností, která přináší pocit pohody a harmonie.",
+      MIX,
+      "Připravujeme jej z mimořádně silného bylinného výluhu (36 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "## Pro koho je vhodný",
+      "- **Pro rodiny:** přírodní alternativa k běžným limonádám, kterou si oblíbí dospělí i děti.",
+      "- **Pro milovníky klidných chvil:** ideální součást večerního rituálu pro chvíle odpočinku.",
+      "- **Pro gastro provoz:** kvalitní a ekonomický základ pro prémiové domácí nápoje.",
+      "## Jak ho používat",
+      "- **Osvěžující domácí limonáda:** smíchejte s perlivou vodou, ledem a plátkem citronu.",
+      "- **Hřejivý nápoj:** přidejte do horké vody pro chvíle pohody.",
+      "- **V kuchyni:** skvěle osladí ranní kaši nebo jogurt s ovocem.",
+      ...GOLDEN_RULE,
+    ],
+    taste:
+      "Chuť je čistá, lehká a přirozeně květová. Heřmánek vytváří jemný profil, který v nápojích nepřebíjí, ale krásně doplňuje ostatní chutě. V ústech zanechá příjemně hebký a konejšivý dozvuk.",
+    ingredients:
+      "třtinový cukr, bylinný výluh 36 % (čistá filtrovaná voda, květ heřmánku (Matricaria chamomilla)), citronová šťáva 16 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    storage:
+      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+  },
   { ...EMPTY, slug: "medunkovy-sirup-s-levanduli", name: "Meduňkový sirup s levandulí", price3l: 549 },
 ];
 
@@ -241,7 +269,7 @@ export function sirupySql() {
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
--- Šaman, Zázvorový, Lipový, Ibiškový, Šípkový (popis, chuť, složení, výživa,
+-- všechny kromě Meduňkového (popis, chuť, složení, výživa,
 -- skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
