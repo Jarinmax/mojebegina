@@ -76,7 +76,15 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     }
     const saman = syrups[0];
     expect(saman.highlights).toEqual(["40 % bylinného výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z jednoho balení"]);
-    expect(saman.description).toHaveLength(3);
+    expect(parseDescription(saman.description).intro).toHaveLength(3);
+    expect(parseDescription(saman.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
+      ["Pro koho je vhodný", ["ul"]],
+      ["Jak jej používat", ["ul", "p", "p"]],
+    ]);
+    expect(saman.taste!.split("\n\n")).toHaveLength(2);
+    expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen pravý \(Panax ginseng\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
+    expect(saman.warnings).toEqual(["Není vhodné pro děti do 3 let, těhotné a kojící ženy."]);
+    expect(syrups.slice(1).every((p) => p.warnings.length === 0)).toBe(true);
     expect(saman.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
     // Zázvorový: úplné údaje z begina.cz (výživa na 100 ml).
     const zazvor = syrups[1];
@@ -94,7 +102,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     ]);
     // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
     expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
-    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup", "lipovy-sirup", "sipkovy-sirup"]);
+    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["bylinny-sirup-saman", "zazvorovy-sirup", "lipovy-sirup", "sipkovy-sirup"]);
     // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
     expect(lipa.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);

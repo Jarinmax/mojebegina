@@ -74,6 +74,7 @@ const EMPTY = {
   ingredients: null,
   nutrition: null,
   storage: null,
+  warnings: [],
 };
 
 // Pořadí jako na begina.cz/kategorie-produktu/sirupy.
@@ -89,7 +90,26 @@ export const SYRUPS = [
       "Bylinný sirup Šaman je výrazný sirup s hlubokým a soustředěným charakterem. Základ tvoří šípek, který doplňují čaga a ženšen, zatímco zázvor dodává chuti jemný kořeněný tón. Výsledkem je vyvážená a kultivovaná chuť s dlouhým dozvukem.",
       MIX,
       "Připravujeme jej z mimořádně silného bylinného výluhu (40 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "## Pro koho je vhodný",
+      "- **Pro milovníky výrazných chutí:** pro ty, kteří vyhledávají hluboké a kořenité bylinné nápoje.",
+      "- **Pro milovníky tradic:** pro každého, kdo oceňuje sílu bylin prověřených staletími.",
+      "- **Pro dospělé:** vzhledem k výrazné chuti a silnému bylinnému výluhu doporučujeme Šamana především dospělým.",
+      "- **Pro gastro provoz:** kvalitní a ekonomický základ pro prémiové domácí nápoje.",
+      "## Jak jej používat",
+      "- **Hřejivý bylinný čaj:** zalijte horkou vodou a vychutnejte jako výrazný hřejivý nápoj.",
+      "- **Osvěžující domácí limonáda:** smíchejte s perlivou vodou, ledem a plátkem citronu.",
+      "- **V kuchyni:** zajímavě dochutí čajové směsi nebo domácí nápoje.",
+      ...GOLDEN_RULE,
     ],
+    // Dva odstavce (prázdný řádek = nový odstavec).
+    taste:
+      "Chuť tohoto bylinného sirupu je hluboká a přirozeně vyvážená. Základ tvoří šípek, který přináší jemně svěží a plný charakter, doplněný zemitými tóny čagy. Výslednou chuť rozvíjí ženšen a zázvor, které dodávají směsi plnost a lehce kořenitý dozvuk.\n\nVzniká tak kultivovaný bylinný sirup s výrazným charakterem a dlouhým, hřejivým dozvukem na patře.",
+    ingredients:
+      "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale)), citronová šťáva 10 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    storage:
+      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    warnings: ["Není vhodné pro děti do 3 let, těhotné a kojící ženy."],
   },
   {
     ...EMPTY,
@@ -193,8 +213,8 @@ export function sirupySql() {
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
--- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování),
--- Lipový a Šípkový (popis, chuť, složení, výživa, skladování);
+-- Šaman, Zázvorový, Lipový, Šípkový (popis, chuť, složení, výživa,
+-- skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
@@ -210,16 +230,16 @@ WHERE "slug" = 'sirupy';
 `);
   SYRUPS.forEach((p, i) => {
     w(`INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
-  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "sort_order")
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'sirupy'), ${q(p.slug)}, ${q(p.name)},
   ${q(p.shortDescription)}, ${arr(p.description)}, ${arr(p.highlights)},
-  ${q(p.taste)}, ${q(p.ingredients)}, ${json(p.nutrition)}, ${p.nutrition ? "'100ml'" : "NULL"}, ${q(p.storage)}, ${(i + 1) * 10})
+  ${q(p.taste)}, ${q(p.ingredients)}, ${json(p.nutrition)}, ${p.nutrition ? "'100ml'" : "NULL"}, ${q(p.storage)}, ${arr(p.warnings)}, ${(i + 1) * 10})
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
   "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
   "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
-  "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 `);
     VARIANTS.forEach((v, j) => {
       w(`INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",

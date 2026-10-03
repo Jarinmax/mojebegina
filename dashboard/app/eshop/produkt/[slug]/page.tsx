@@ -136,7 +136,9 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           {product.taste && (
             <section className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
               <h2 className="font-medium text-begina-primary-900">Jak chutná {product.name}</h2>
-              <p>{product.taste}</p>
+              {product.taste.split(/\n\s*\n/).map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
             </section>
           )}
 
