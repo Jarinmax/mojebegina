@@ -43,7 +43,7 @@ function foodInfoRows(product: Product): { label: string; value: string | null }
           },
         ]
       : []),
-    { label: "Výživové hodnoty (100 g)", value: info.nutritionPer100g },
+    { label: "Výživové hodnoty", value: info.nutritionPer100g },
     { label: "Skladování", value: info.storage },
     { label: "Trvanlivost", value: info.shelfLife },
   ];

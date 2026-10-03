@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { loadCatalog } from "../catalogDb";
 import { createMigratedDb } from "./helpers/migratedDb";
+import { sirupySql } from "../../../scripts/eshop-catalog/build-sirupy.mjs";
 
 const DB_TEST = { timeout: 120_000 };
 const DIR = path.join(__dirname, "../../../docs/eshop-catalog");
@@ -27,6 +28,12 @@ const SYRUPS = [
   ["Heřmánkový sirup", 549],
   ["Meduňkový sirup s levandulí", 549],
 ] as const;
+
+describe("katalog — Bylinné sirupy: soubor", () => {
+  it("31_sirupy.sql = výstup generátoru (scripts/eshop-catalog/build-sirupy.mjs)", () => {
+    expect(file("31_sirupy.sql")).toBe(sirupySql());
+  });
+});
 
 describe("katalog — Bylinné sirupy", DB_TEST, () => {
   let pg: PGlite;
@@ -70,10 +77,27 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(saman.highlights).toEqual(["40 % bylinného výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z jednoho balení"]);
     expect(saman.description).toHaveLength(3);
     expect(saman.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
-    // Složení apod. nedodáno → na stránce „Doplníme“, nic vymyšleného.
-    expect(syrups.every((p) => p.foodInfo.ingredients === null && p.foodInfo.allergens === null)).toBe(true);
-    expect(syrups.slice(1).every((p) => p.description.length === 0 && p.highlights.length === 0)).toBe(true);
+    // Zázvorový: úplné údaje z begina.cz (výživa na 100 ml).
+    const zazvor = syrups[1];
+    expect(zazvor.shortDescription).toMatch(/přibližně na 3,30 Kč\.$/);
+    expect(zazvor.highlights[0]).toBe("39 % bylinného výluhu");
+    expect(zazvor.taste).toMatch(/^Chuť je intenzivní, přímá a autenticky pálivá/);
+    expect(zazvor.foodInfo.ingredients).toMatch(/^třtinový cukr, bylinný výluh 39 % \(čistá filtrovaná voda, zázvor/);
+    expect(zazvor.foodInfo.nutritionPer100g).toBe(
+      "na 100 ml: energie 1\u00a0105 kJ / 260 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 65 g (z toho cukry 64 g), bílkoviny 0 g, sůl 0 g"
+    );
+    expect(zazvor.foodInfo.storage).toMatch(/spotřebujte do 3 měsíců od otevření/);
+    // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
+    expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
+    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup"]);
+    expect(syrups.slice(2).every((p) => p.description.length === 0 && p.highlights.length === 0 && p.taste === null)).toBe(true);
+    // Balení: popis u všech sirupů
+    expect(syrups.every((p) => p.variants[0].description!.startsWith("Pro snadnou manipulaci") && p.variants[1].description!.startsWith("Lehké a nerozbitné"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;
+    // společná sekce detailu (i pro Šamana)
+    expect(category.detailSections).toEqual([
+      expect.objectContaining({ title: "Vhodné také pro gastro provozy a kanceláře", bullets: ["kavárny", "bistra", "menší restaurace", "kanceláře", "catering"] }),
+    ]);
     expect(category.intro[0]).toMatch(/^Bylinné sirupy Begina připravujeme řemeslně/);
     expect(category.intro[2]).toMatch(/zlaté pravidlo ředění 1:10/);
     // ostatní katalog beze změny
@@ -85,6 +109,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     let catalog = await loadCatalog(db);
     expect(catalog.products.filter((p) => p.category === "sirupy")).toHaveLength(0);
     expect(catalog.categories.find((c) => c.slug === "sirupy")!.intro).toEqual([]);
+    expect(catalog.categories.find((c) => c.slug === "sirupy")!.detailSections).toEqual([]);
     const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM products WHERE slug LIKE '%sirup%'`);
     expect(rows[0].n).toBe(7);
     await pg.exec(file("31_sirupy.sql"));
