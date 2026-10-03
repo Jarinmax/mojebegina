@@ -1,0 +1,44 @@
+-- ESHOP 1.0 — katalog: Čaje (Bylinný čaj Šaman)
+-- a společná sekce detailu čajů. VYGENEROVÁNO skriptem
+-- scripts/eshop-catalog/build-caje.mjs — ručně neupravovat.
+-- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
+-- 2026): popis, chuť, balení, složení, výživa na 100 ml, skladování,
+-- upozornění. Co web neuvádí (alergeny, trvanlivost) = „Doplníme“.
+--
+-- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
+-- transakce: chyba = nic se nezmění). Idempotentní — opakované spuštění
+-- nic nezdvojí, jen přepíše texty na aktuální. Kontrola před:
+-- 50_caje_before.sql, po: 52_caje_after.sql. Fotky jsou v kódu
+-- (public/eshop/<slug>.jpg). Vrácení: 59_caje_rollback.sql.
+BEGIN;
+
+UPDATE "product_categories" SET "detail_sections" = '[{"title":"Vhodné také pro gastro provozy a kanceláře","paragraphs":["Čaje Begina jsou praktické řešení pro:","Díky bag-in-box balení lze nápoj jednoduše dávkovat bez přístupu vzduchu a zbytečného odpadu."],"bullets":["kavárny","bistra","menší restaurace","kanceláře","catering"]}]'::jsonb, "updated_at" = now()
+WHERE "slug" = 'caje';
+
+INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
+VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'caje'), 'bylinny-caj-saman', 'Bylinný čaj Šaman',
+  'Až 12 nápojů (24,10 Kč za nápoj). Jeden nápoj = 250 ml.', ARRAY['Bylinný čaj Šaman spojuje zemitou hloubku šípku a čagy s jemnou energií ženšenu a hřejivým tónem zázvoru. Výsledkem je harmonická, plná chuť s dlouhým dozvukem.', 'Chuť působí klidně, vyrovnaně a soustředěně.', '**Prémiový bylinný čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**', 'Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.']::text[], ARRAY['z čisté filtrované vody', 'bez umělých aromat a barviv', 'hluboká, vyvážená chuť']::text[],
+  'Bylinný čaj Šaman má plnou, harmonickou chuť s výraznou hloubkou. V úvodu se objevuje jemná ovocnost šípku, která přechází do zemitých tónů čagy a ženšenu. Závěr doplňuje hřejivý nádech zázvoru, který chuť uzavírá do vyváženého, soustředěného celku.', 'čistá filtrovaná voda, třtinový cukr, citronová šťáva, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":98,"energy_kcal":23,"fat":0,"saturates":0,"carbohydrate":5.7,"sugars":5.7,"protein":0,"salt":0}'::jsonb, '100ml', 'Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.', ARRAY['Není vhodné pro děti do 3 let, těhotné a kojící ženy.']::text[], 10)
+ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
+  "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
+  "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
+  "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
+  "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
+  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
+  "volume_ml", "servings", "price_b2c_kc", "sort_order")
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'bylinny-caj-saman'), 'bylinny-caj-saman-3l', '3 l Rodinná zásoba (bag-in-box)', 'Ideální pro sdílení nebo více příležitostí.',
+  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 289, 10)
+ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
+  "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
+  "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
+  "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT "id", '/eshop/bylinny-caj-saman.jpg', 'Bylinný čaj Šaman', 0 FROM "products" WHERE "slug" = 'bylinny-caj-saman'
+AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
+  WHERE p."slug" = 'bylinny-caj-saman' AND pi."url" = '/eshop/bylinny-caj-saman.jpg');
+
+COMMIT;
