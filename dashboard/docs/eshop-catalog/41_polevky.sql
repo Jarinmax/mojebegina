@@ -1,4 +1,4 @@
--- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka)
+-- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Gulášová polévka z hlívy ústřičné)
 -- a společná sekce detailu polévek. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-polevky.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -41,5 +41,26 @@ INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
 SELECT "id", '/eshop/dynova-polevka.jpg', 'Dýňová polévka', 0 FROM "products" WHERE "slug" = 'dynova-polevka'
 AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
   WHERE p."slug" = 'dynova-polevka' AND pi."url" = '/eshop/dynova-polevka.jpg');
+
+INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
+VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'gulasova-polevka-z-hlivy-ustricne', 'Gulášová polévka z hlívy ústřičné',
+  'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Gulášová polévka z hlívy ústřičné nabízí výraznou a plnou chuť. Hlíva dodává pevnou strukturu, rajčatový základ hloubku a uzená paprika charakteristickou intenzitu.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky výrazných a sytějších chutí', '- pro ty, kteří hledají gulášovou polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro vegany i vegetariány', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'přirozeně bezlepková', 'z čisté filtrované vody']::text[],
+  'Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.', 'čistá filtrovaná voda, brambory 22 %, hlíva ústřičná (Pleurotus ostreatus) 8 %, cibule 5 %, rajčatový protlak 4 %, mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, paprika uzená, paprika sladká, chilli, pepř černý, skořice', '{"energy_kj":149,"energy_kcal":36,"fat":0.7,"saturates":0.1,"carbohydrate":5.4,"sugars":1.7,"protein":1.2,"salt":0.8,"fibre":1.1}'::jsonb, '100ml', 'Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.', '{}'::text[], 40)
+ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
+  "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
+  "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
+  "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
+  "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
+  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
+  "volume_ml", "servings", "price_b2c_kc", "sort_order")
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne'), 'gulasova-polevka-z-hlivy-ustricne', '3 l Rodinná zásoba (bag-in-box)', 'Rodinné balení vhodné na několik obědů nebo večeří.',
+  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 379, 10)
+ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
+  "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
+  "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
+  "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
 COMMIT;

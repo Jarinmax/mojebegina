@@ -68,6 +68,34 @@ export const SOUPS = [
     warnings: [],
     variants: [bagInBox("dynova-polevka", 379, 12)],
   },
+  {
+    slug: "gulasova-polevka-z-hlivy-ustricne",
+    name: "Gulášová polévka z hlívy ústřičné",
+    sortOrder: 40,
+    photo: false, // fotka zatím chybí (na snímku z webu zakrytá ikonou lupy)
+    shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
+    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    description: [
+      "Gulášová polévka z hlívy ústřičné nabízí výraznou a plnou chuť. Hlíva dodává pevnou strukturu, rajčatový základ hloubku a uzená paprika charakteristickou intenzitu.",
+      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
+      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "## Pro koho je vhodná",
+      "- pro milovníky výrazných a sytějších chutí",
+      "- pro ty, kteří hledají gulášovou polévku bez masa",
+      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
+      "- pro vegany i vegetariány",
+      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+    ],
+    taste:
+      "Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.",
+    ingredients:
+      "čistá filtrovaná voda, brambory 22 %, hlíva ústřičná (Pleurotus ostreatus) 8 %, cibule 5 %, rajčatový protlak 4 %, mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, paprika uzená, paprika sladká, chilli, pepř černý, skořice",
+    nutrition: { energy_kj: 149, energy_kcal: 36, fat: 0.7, saturates: 0.1, carbohydrate: 5.4, sugars: 1.7, protein: 1.2, salt: 0.8, fibre: 1.1 },
+    storage:
+      "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.",
+    warnings: [],
+    variants: [bagInBox("gulasova-polevka-z-hlivy-ustricne", 379, 12)],
+  },
 ];
 
 export function polevkySql() {
@@ -92,7 +120,7 @@ BEGIN;
   for (const soup of SOUPS) {
     w(productSql(soup, "polevky", soup.sortOrder));
     soup.variants.forEach((v, j) => w(variantSql(soup.slug, v, (j + 1) * 10)));
-    w(imageSql(soup));
+    if (soup.photo !== false) w(imageSql(soup));
   }
   w("COMMIT;\n");
   return out.join("\n");
@@ -102,6 +130,8 @@ BEGIN;
 export function polevkyRollbackSql() {
   const seed = readFileSync(join(HERE, "../../drizzle/0014_eshop_1_0_products_seed.sql"), "utf8");
   const slugs = SOUPS.map((s) => s.slug);
+  const isSeeded = (slug) => seed.includes(`'${slug}'`);
+  const added = slugs.filter((slug) => !isSeeded(slug));
   const fromSeed = seed
     .split("--> statement-breakpoint")
     .map((s) => s.trim())
@@ -109,7 +139,8 @@ export function polevkyRollbackSql() {
   const list = slugs.map(q).join(", ");
   return `-- ESHOP 1.0 — vrácení 41_polevky.sql: polévky ${SOUPS.map((s) => s.name).join(", ")}
 -- zpět do stavu z migrace 0014 (krátký popis, balení bez názvu, cena), bez
--- nových textů, výživy a fotky; společná sekce kategorie se odebere. Nic
+-- nových textů, výživy a fotky; nově přidané polévky se skryjí; společná
+-- sekce kategorie se odebere. Nic
 -- jiného se nemaže, objednávky zůstávají v pořádku. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-polevky.mjs. Opětovné spuštění 41 vše vrátí.
 BEGIN;
@@ -120,7 +151,16 @@ WHERE "slug" IN (${list});
 DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN (${list}))
   AND "url" IN (${SOUPS.map((s) => q(`/eshop/${s.slug}.jpg`)).join(", ")});
 
-UPDATE "product_categories" SET "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'polevky';
+${
+  added.length
+    ? `-- Polévky, které v migraci 0014 nejsou: jen skrýt (objednávky zůstanou v pořádku).
+UPDATE "product_variants" SET "is_active" = false, "updated_at" = now()
+WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN (${added.map(q).join(", ")}));
+UPDATE "products" SET "is_active" = false, "updated_at" = now() WHERE "slug" IN (${added.map(q).join(", ")});
+
+`
+    : ""
+}UPDATE "product_categories" SET "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'polevky';
 COMMIT;
 `;
 }
