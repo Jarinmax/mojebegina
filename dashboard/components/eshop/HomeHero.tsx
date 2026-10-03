@@ -4,19 +4,20 @@ import { Snowflake } from "lucide-react";
 
 // Úvod e-shopu podle návrhu „Hero e-shopu Begina.cz“ (2. 10. 2026).
 // Ilustrace je složená z výřezů návrhu (public/eshop/hero); krabice
-// bag-in-box je oproti návrhu prodloužená do obdélníku (jako skutečné balení).
-// Pozice prvků = jejich rozmístění v návrhu (oblast 930 × 570 bodů).
+// bag-in-box je oproti návrhu vyšší — obdélník na výšku (docs/eshop-design/tall_box.py).
+// Pozice prvků = jejich rozmístění v návrhu; oblast 930 × 690 bodů (návrh
+// 930 × 570 + 120 bodů nahoře pro vyšší krabici, ostatní prvky posunuté dolů).
 
 type Piece = { src: string; w: number; h: number; left: number; top: number; width: number; z: number };
 
 const PIECES: Piece[] = [
-  { src: "/eshop/hero/bag-in-box.webp", w: 703, h: 544, left: 31.8, top: 2.5, width: 65.2, z: 1 },
-  { src: "/eshop/hero/kelimek-dynova.webp", w: 217, h: 284, left: 54.5, top: 46.8, width: 22.3, z: 2 },
-  { src: "/eshop/hero/miska-polevka.webp", w: 413, h: 297, left: 19.5, top: 49.8, width: 38.8, z: 3 },
-  { src: "/eshop/hero/dyne.webp", w: 168, h: 148, left: 6.6, top: 64.6, width: 16.8, z: 4 },
-  { src: "/eshop/hero/listky-1.webp", w: 152, h: 55, left: 1.1, top: 85.3, width: 16.7, z: 4 },
-  { src: "/eshop/hero/listky-2.webp", w: 199, h: 93, left: 80.3, top: 73.5, width: 18.5, z: 4 },
-  { src: "/eshop/hero/listky-3.webp", w: 151, h: 51, left: 72.9, top: 88.3, width: 16.7, z: 4 },
+  { src: "/eshop/hero/bag-in-box.webp", w: 479, h: 700, left: 43.4, top: 0, width: 44.4, z: 1 },
+  { src: "/eshop/hero/kelimek-dynova.webp", w: 217, h: 284, left: 54.5, top: 56.1, width: 22.3, z: 2 },
+  { src: "/eshop/hero/miska-polevka.webp", w: 413, h: 297, left: 19.5, top: 58.5, width: 38.8, z: 3 },
+  { src: "/eshop/hero/dyne.webp", w: 168, h: 148, left: 6.6, top: 70.8, width: 16.8, z: 4 },
+  { src: "/eshop/hero/listky-1.webp", w: 152, h: 55, left: 1.1, top: 87.9, width: 16.7, z: 4 },
+  { src: "/eshop/hero/listky-2.webp", w: 199, h: 93, left: 80.3, top: 78.1, width: 18.5, z: 4 },
+  { src: "/eshop/hero/listky-3.webp", w: 151, h: 51, left: 72.9, top: 90.3, width: 16.7, z: 4 },
 ];
 
 function Heart() {
@@ -40,7 +41,7 @@ export default function HomeHero({ ctaHref }: { ctaHref: string }) {
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-8 sm:pt-14 lg:py-16 grid gap-8 lg:gap-4 lg:grid-cols-[5fr_7fr] items-center">
         <div className="relative z-10 lg:pl-6">
           <h1 className="font-serif text-[2.6rem] leading-[1.08] sm:text-6xl tracking-tight text-[#2A2622] text-balance">
-            <span className="sm:whitespace-nowrap">Poctivé jídlo a&nbsp;pití.</span>{" "}
+            <span className="block">Čerstvé polévky a&nbsp;nápoje.</span>
             <span className="block">
               Připravené s&nbsp;láskou
               <Heart />
@@ -62,7 +63,7 @@ export default function HomeHero({ ctaHref }: { ctaHref: string }) {
         </div>
 
         <div
-          className="relative w-full aspect-[930/570]"
+          className="relative w-full aspect-[930/690]"
           role="img"
           aria-label="Polévka v misce, kelímek Dýňové polévky a balení bag-in-box Begina"
         >
