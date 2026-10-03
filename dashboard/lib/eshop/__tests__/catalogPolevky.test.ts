@@ -43,9 +43,9 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
 
   it("skript a kontrola po; opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 
   it("e-shop: Dýňová polévka z begina.cz (vláknina, sekce Pro koho, fotka); ostatní polévky beze změny", async () => {
@@ -71,9 +71,12 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     const category = (await loadCatalog(db)).categories.find((c) => c.slug === "polevky")!;
     expect(category.detailSections[0]).toEqual(expect.objectContaining({ title: "Vhodné také pro gastro provozy a kanceláře" }));
     expect(category.detailSections[0].paragraphs[0]).toBe("Polévky Begina jsou praktické řešení pro:");
-    // Kulajda jako v migraci 0014
-    const seed = expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky");
-    expect(list[1]).toEqual(seed[1]);
+    const kulajda = list[1];
+    expect(kulajda.variants).toEqual([expect.objectContaining({ sku: "kulajda", label: "3 l Rodinná zásoba (bag-in-box)", priceKc: 379 })]);
+    expect(kulajda.image).toBe("/eshop/kulajda.jpg");
+    expect(existsSync(path.join(PUBLIC, kulajda.image!))).toBe(true);
+    expect(kulajda.foodInfo.ingredients).toMatch(/žampiony 7 %/);
+    expect(kulajda.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 187 kJ \/ 45 kcal.*vláknina 0,5 g$/);
     const rajce = list[2];
     expect(rajce.variants).toEqual([expect.objectContaining({ sku: "rajcatova-polevka", label: "3 l Rodinná zásoba (bag-in-box)", priceKc: 379 })]);
     expect(rajce.image).toBe("/eshop/rajcatova-polevka.jpg");
@@ -100,11 +103,11 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(parseDescription(gulas.description).sections[0].blocks[0]).toEqual(expect.objectContaining({ items: expect.arrayContaining(["pro vegany i vegetariány"]) }));
   });
 
-  it("vrácení: Dýňová a Rajčatová přesně jako po migraci 0014; nové spuštění 41 vše vrátí", async () => {
+  it("vrácení: Dýňová, Kulajda a Rajčatová přesně jako po migraci 0014; nové spuštění 41 vše vrátí", async () => {
     await pg.exec(file("49_polevky_rollback.sql"));
     expect(await soups()).toEqual(expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky"));
     expect(await check(pg, "40_polevky_before.sql")).toBe("3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 5 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 });

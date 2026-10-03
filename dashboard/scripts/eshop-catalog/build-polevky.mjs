@@ -69,6 +69,33 @@ export const SOUPS = [
     variants: [bagInBox("dynova-polevka", 379, 12)],
   },
   {
+    slug: "kulajda",
+    name: "Kulajda",
+    sortOrder: 20,
+    shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
+    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    description: [
+      "Kulajda stojí na plném základu brambor a žampionů. Čerstvý kopr a vyvážené koření vytvářejí harmonickou chuť s čistým charakterem.",
+      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
+      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "## Pro koho je vhodná",
+      "- pro milovníky krémových polévek s vyváženým charakterem",
+      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
+      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
+      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+    ],
+    // „…celé receptury“: konec slova na snímku zakrytý — ověřit na begina.cz.
+    taste:
+      "Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.",
+    ingredients:
+      "čistá filtrovaná voda, brambory 20 %, kokosové mléko 15 % (kokosový extrakt 70 %, voda, emulgátor E435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 187, energy_kcal: 45, fat: 2.9, saturates: 2.6, carbohydrate: 4.1, sugars: 0.5, protein: 0.7, salt: 0.7, fibre: 0.5 },
+    storage:
+      "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.",
+    warnings: [],
+    variants: [bagInBox("kulajda", 379, 12)],
+  },
+  {
     slug: "rajcatova-polevka",
     name: "Rajčatová polévka",
     sortOrder: 30,
