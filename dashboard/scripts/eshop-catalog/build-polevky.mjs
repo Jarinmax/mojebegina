@@ -95,6 +95,32 @@ export const SOUPS = [
     warnings: [],
     variants: [bagInBox("gulasova-polevka-z-hlivy-ustricne", 379, 12)],
   },
+  {
+    slug: "spenatova-polevka",
+    name: "Špenátová polévka",
+    sortOrder: 50,
+    shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
+    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    description: [
+      "Špenátová polévka nabízí jemně krémovou a přirozeně plnou chuť. Kvalitní špenát tvoří její výrazný základ, který doplňuje jemná struktura a vyvážené koření.",
+      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
+      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "## Pro koho je vhodná",
+      "- pro milovníky zeleninových krémových polévek",
+      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
+      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
+      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+    ],
+    taste:
+      "Špenát tvoří výrazný zeleninový základ, který doplňují brambory a pečlivě zvolené koření. Struktura je krémová, chuť vyvážená a čistá. Polévka působí svěže a harmonicky.",
+    ingredients:
+      "čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 % (70 % kokosový extrakt, voda, emulgátor E435), brambory 13 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 210, energy_kcal: 50, fat: 3.2, saturates: 1.7, carbohydrate: 4.1, sugars: 0.7, protein: 1.1, salt: 0.7, fibre: 0.8 },
+    storage:
+      "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.",
+    warnings: [],
+    variants: [bagInBox("spenatova-polevka", 379, 12)],
+  },
 ];
 
 export function polevkySql() {

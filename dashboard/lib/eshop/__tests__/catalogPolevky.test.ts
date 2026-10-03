@@ -43,14 +43,14 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
 
   it("skript a kontrola po; opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 2 | 1 | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("5 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 3 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 2 | 1 | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("5 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 3 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 
   it("e-shop: Dýňová polévka z begina.cz (vláknina, sekce Pro koho, fotka); ostatní polévky beze změny", async () => {
     const list = await soups();
-    expect(list.map((p) => p.name)).toEqual(["Dýňová polévka", "Kulajda", "Rajčatová polévka", "Gulášová polévka z hlívy ústřičné"]);
+    expect(list.map((p) => p.name)).toEqual(["Dýňová polévka", "Kulajda", "Rajčatová polévka", "Gulášová polévka z hlívy ústřičné", "Špenátová polévka"]);
     const dyne = list[0];
     expect(dyne.shortDescription).toBe("Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.");
     expect(dyne.highlights).toEqual(["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"]);
@@ -81,6 +81,11 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(existsSync(path.join(PUBLIC, gulas.image!))).toBe(true);
     expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 8 %/);
     expect(gulas.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 149 kJ \/ 36 kcal.*vláknina 1,1 g$/);
+    const spenat = list[4];
+    expect(spenat.image).toBe("/eshop/spenatova-polevka.jpg");
+    expect(existsSync(path.join(PUBLIC, spenat.image!))).toBe(true);
+    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 %/);
+    expect(spenat.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 210 kJ \/ 50 kcal.*vláknina 0,8 g$/);
     expect(parseDescription(gulas.description).sections[0].blocks[0]).toEqual(expect.objectContaining({ items: expect.arrayContaining(["pro vegany i vegetariány"]) }));
   });
 
@@ -89,6 +94,6 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(await soups()).toEqual(expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky"));
     expect(await check(pg, "40_polevky_before.sql")).toBe("3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("4 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 2 | 1 | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("5 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 3 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 });
