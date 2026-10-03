@@ -84,7 +84,6 @@ export const SOUPS = [
       "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
       "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
     ],
-    // „…celé receptury“: konec slova na snímku zakrytý — ověřit na begina.cz.
     taste:
       "Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.",
     ingredients:
