@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import ProductCard from "@/components/eshop/ProductCard";
+import PageCarousel from "@/components/eshop/PageCarousel";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,8 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
           ))}
         </ul>
       )}
+
+      <PageCarousel exceptCategory={category.slug} />
     </div>
   );
 }

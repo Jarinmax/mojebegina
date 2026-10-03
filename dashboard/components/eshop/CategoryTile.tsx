@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Category } from "@/lib/eshop/types";
 
-// Dlaždice kategorie (úvod e-shopu, kolotoč na stránce O nás).
+// Dlaždice kategorie (úvod e-shopu, kolotoč pod stránkami).
 export default function CategoryTile({
   category,
   sizes,

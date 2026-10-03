@@ -1,24 +1,25 @@
 "use client";
 
-// Kolotoč dlaždic kategorií (stránka O nás, jako na begina.cz/o-nas):
-// sám se posouvá dokola, šipky, tečky, posun prstem (scroll-snap).
+// Kolotoč dlaždic pod obsahem stránek e-shopu (jako na begina.cz):
+// kategorie nebo vybrané produkty (lib/eshop/pageCarousel.ts); sám se posouvá dokola, šipky, tečky, posun prstem (scroll-snap).
 // Zastaví se při najetí myší, při fokusu klávesnicí, po dotyku, ve skryté
 // záložce a úplně, když má uživatel v systému omezené animace; tlačítko
 // pauzy (WCAG 2.2.2).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import CategoryTile from "./CategoryTile";
+import ProductTile from "./ProductTile";
 import { AUTOPLAY_MS, nextIndex, positionFromScroll, prevIndex } from "@/lib/eshop/carousel";
-import type { Category } from "@/lib/eshop/types";
-
-type Tile = Pick<Category, "slug" | "name" | "image">;
+import type { CarouselTile } from "@/lib/eshop/pageCarousel";
 
 const GAP_PX = 16;
 
-export default function CategoryCarousel({ categories, label }: { categories: Tile[]; label: string }) {
+const SIZES = "(min-width: 768px) 260px, (min-width: 640px) 45vw, 62vw";
+
+export default function EshopCarousel({ tiles, label }: { tiles: CarouselTile[]; label: string }) {
   const track = useRef<HTMLUListElement>(null);
   const [index, setIndex] = useState(0);
-  const [last, setLast] = useState(Math.max(0, categories.length - 1));
+  const [last, setLast] = useState(Math.max(0, tiles.length - 1));
   const [paused, setPaused] = useState(false); // tlačítko pauzy
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -80,7 +81,7 @@ export default function CategoryCarousel({ categories, label }: { categories: Ti
     return () => window.clearInterval(timer);
   }, [running, index, last, goTo, touchedAt]);
 
-  if (categories.length === 0) return null;
+  if (tiles.length === 0) return null;
 
   return (
     <section
@@ -99,14 +100,18 @@ export default function CategoryCarousel({ categories, label }: { categories: Ti
         ref={track}
         className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {categories.map((category, i) => (
+        {tiles.map((tile, i) => (
           <li
-            key={category.slug}
+            key={tile.key}
             aria-roledescription="slide"
-            aria-label={`${i + 1} z ${categories.length}: ${category.name}`}
+            aria-label={`${i + 1} z ${tiles.length}: ${tile.name}`}
             className="snap-start shrink-0 w-[62%] sm:w-[calc((100%-1rem)/2)] md:w-[calc((100%-2rem)/3)]"
           >
-            <CategoryTile category={category} sizes="(min-width: 768px) 260px, (min-width: 640px) 45vw, 62vw" />
+            {tile.kind === "category" ? (
+              <CategoryTile category={{ slug: tile.key, name: tile.name, image: tile.image }} sizes={SIZES} />
+            ) : (
+              <ProductTile href={tile.href} name={tile.name} image={tile.image} sizes={SIZES} />
+            )}
           </li>
         ))}
       </ul>

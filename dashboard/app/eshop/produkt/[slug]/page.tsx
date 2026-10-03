@@ -8,6 +8,7 @@ import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
+import PageCarousel from "@/components/eshop/PageCarousel";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +172,8 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           </section>
         </div>
       </div>
+
+      <PageCarousel />
     </div>
   );
 }
