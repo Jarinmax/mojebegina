@@ -1,5 +1,4 @@
 import { getCatalog } from "@/lib/eshop/catalogServer";
-import CategoryTile from "@/components/eshop/CategoryTile";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
@@ -7,8 +6,9 @@ import Link from "next/link";
 import { INFO_PAGES, filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 
 // Úvodní stránka podle návrhu „Hero e-shopu Begina.cz“ (2. 10. 2026): hero
-// s ilustrací, pruh kategorií s ikonami; pod tím dosavadní obsah (dlaždice
-// kategorií s fotkami, „Proč Begina“ — texty doslova z begina.cz).
+// s ilustrací, pruh kategorií s ikonami a „Proč Begina“ (texty doslova
+// z begina.cz). Dlaždice kategorií s fotkami odebrány (3. 10. 2026) — úvod
+// má zůstat jednoduchý a čistý.
 export const dynamic = "force-dynamic";
 
 const STRIP_ID = "nabidka";
@@ -19,17 +19,8 @@ export default async function EshopPage() {
     <>
       <HomeHero ctaHref={`#${STRIP_ID}`} />
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-      <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10">
-        <h2 className="font-serif text-2xl text-center text-[#2A2622] mb-6">Naše nabídka</h2>
-        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
-          {categories.map((category) => (
-            <li key={category.slug}>
-              <CategoryTile category={category} sizes="(min-width: 1024px) 220px, (min-width: 640px) 33vw, 50vw" />
-            </li>
-          ))}
-        </ul>
-
-        <section className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
+      <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
           {[
             { title: "Proč Begina", items: whyBegina, more: { href: INFO_PAGES.about.path, label: "Více o nás" } },
             { title: "Čistá filtrovaná voda", items: filteredWater, more: { href: INFO_PAGES.water.path, label: "Více o vodě" } },
