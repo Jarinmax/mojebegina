@@ -2,7 +2,7 @@
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
--- Šaman, Zázvorový, Lipový, Šípkový (popis, chuť, složení, výživa,
+-- Šaman, Zázvorový, Lipový, Ibiškový, Šípkový (popis, chuť, složení, výživa,
 -- skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
@@ -127,8 +127,8 @@ AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'sirupy'), 'ibiskovy-sirup', 'Ibiškový sirup',
-  NULL, '{}'::text[], '{}'::text[],
-  NULL, NULL, NULL, NULL, NULL, '{}'::text[], 40)
+  'Až 150 nápojů z jednoho balení (při doporučeném ředění 1:10). 200 ml nápoje při 3l balení vyjde přibližně na 3,30 Kč.', ARRAY['Ibiškový sirup je poctivý bylinný sirup se svěžím, energickým a jasně definovaným charakterem. Tento rubínový poklad v sobě nese sílu slunce a čistou radost z přírody, která se odráží v jeho typické syté barvě. Výrazná chuť květů ibišku je ideální pro domácí limonádu, osvěžující letní nápoje i hřejivý ibiškový čaj. Vyniká přirozenou plností a osvěžujícím dozvukem.', '**Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.**', 'Připravujeme jej z mimořádně silného bylinného výluhu (41 %), kvalitního třtinového cukru a čisté filtrované vody.', '## Pro koho vhodný', '- **Pro celou rodinu:** díky své svěžesti a výrazné barvě chutná dětem i dospělým.', '- **Pro milovníky přírody:** ideální pro ty, kteří hledají poctivý ibiškový sirup z kvalitních surovin.', '- **Pro kreativce:** skvělý základ pro domácí limonády nebo hřejivé zimní nápoje.', '## Jak jej používat', '- **Ranní start:** začněte den sklenicí vlažné vody s ibiškovým sirupem. Příjemná chuť vás probudí a dodá energii do nového dne.', '- **Osvěžující limonáda:** v letních dnech doplňte perlivou vodou, ledem a plátkem citronu. Získáte drink s nádhernou barvou, který vypadá skvěle i v karafě.', '**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**', 'Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.']::text[], ARRAY['41 % bylinného výluhu', 'z čisté filtrované vody', 'bez umělých aromat a barviv', 'až 150 nápojů z jednoho balení']::text[],
+  'Chuť je výrazná, přirozeně svěží a hluboce harmonická. Ibišek dodává sirupu sytost a charakteristickou barvu, kterou doplňuje svěží tón citronové šťávy. Je to tradiční receptura s čistým a jasným projevem, který zanechá osvěžující pocit na patře.', 'třtinový cukr, bylinný výluh 41 % (čistá filtrovaná voda, květ ibišku (Hibiscus sabdariffa)), citronová šťáva 8 %, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":1105,"energy_kcal":260,"fat":0,"saturates":0,"carbohydrate":65,"sugars":64,"protein":0,"salt":0}'::jsonb, '100ml', 'Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.', '{}'::text[], 40)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",

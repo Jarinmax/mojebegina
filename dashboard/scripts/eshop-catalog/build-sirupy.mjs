@@ -168,7 +168,35 @@ export const SYRUPS = [
     storage:
       "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
   },
-  { ...EMPTY, slug: "ibiskovy-sirup", name: "Ibiškový sirup", price3l: 499 },
+  {
+    ...EMPTY,
+    slug: "ibiskovy-sirup",
+    name: "Ibiškový sirup",
+    price3l: 499,
+    shortDescription: shortDescription("3,30"),
+    highlights: highlights(41),
+    description: [
+      "Ibiškový sirup je poctivý bylinný sirup se svěžím, energickým a jasně definovaným charakterem. Tento rubínový poklad v sobě nese sílu slunce a čistou radost z přírody, která se odráží v jeho typické syté barvě. Výrazná chuť květů ibišku je ideální pro domácí limonádu, osvěžující letní nápoje i hřejivý ibiškový čaj. Vyniká přirozenou plností a osvěžujícím dozvukem.",
+      MIX,
+      "Připravujeme jej z mimořádně silného bylinného výluhu (41 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      // Nadpis doslova jako na begina.cz.
+      "## Pro koho vhodný",
+      "- **Pro celou rodinu:** díky své svěžesti a výrazné barvě chutná dětem i dospělým.",
+      "- **Pro milovníky přírody:** ideální pro ty, kteří hledají poctivý ibiškový sirup z kvalitních surovin.",
+      "- **Pro kreativce:** skvělý základ pro domácí limonády nebo hřejivé zimní nápoje.",
+      "## Jak jej používat",
+      "- **Ranní start:** začněte den sklenicí vlažné vody s ibiškovým sirupem. Příjemná chuť vás probudí a dodá energii do nového dne.",
+      "- **Osvěžující limonáda:** v letních dnech doplňte perlivou vodou, ledem a plátkem citronu. Získáte drink s nádhernou barvou, který vypadá skvěle i v karafě.",
+      ...GOLDEN_RULE,
+    ],
+    taste:
+      "Chuť je výrazná, přirozeně svěží a hluboce harmonická. Ibišek dodává sirupu sytost a charakteristickou barvu, kterou doplňuje svěží tón citronové šťávy. Je to tradiční receptura s čistým a jasným projevem, který zanechá osvěžující pocit na patře.",
+    ingredients:
+      "třtinový cukr, bylinný výluh 41 % (čistá filtrovaná voda, květ ibišku (Hibiscus sabdariffa)), citronová šťáva 8 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    storage:
+      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+  },
   {
     ...EMPTY,
     slug: "sipkovy-sirup",
@@ -213,7 +241,7 @@ export function sirupySql() {
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
--- Šaman, Zázvorový, Lipový, Šípkový (popis, chuť, složení, výživa,
+-- Šaman, Zázvorový, Lipový, Ibiškový, Šípkový (popis, chuť, složení, výživa,
 -- skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
