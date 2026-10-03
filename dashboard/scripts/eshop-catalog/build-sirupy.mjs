@@ -40,11 +40,13 @@ export const VARIANTS = [
     price: (product) => product.price3l,
   },
   {
+    // Balení 750 g (rozhodnutí vedení 3. 10. 2026; dříve „750 ml“). SKU zůstává
+    // beze změny, aby opakované spuštění skriptu přepsalo stávající balení.
     suffix: "750ml",
-    label: "750 ml Praktické balení",
+    label: "750 g Praktické balení",
     note: "Až 37 nápojů",
     description: "Lehké a nerozbitné balení vhodné na cesty, do práce nebo pro menší spotřebu.",
-    volumeMl: 750,
+    volumeMl: null, // hmotnost, ne objem
     servings: 37,
     price: () => 199,
   },

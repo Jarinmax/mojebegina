@@ -58,7 +58,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
   });
 
-  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 750 ml, fotky existují; text kategorie", async () => {
+  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 750 g, fotky existují; text kategorie", async () => {
     const catalog = await loadCatalog(db);
     const syrups = catalog.products.filter((p) => p.category === "sirupy");
     expect(syrups.map((p) => [p.name, p.variants.map((v) => [v.label, v.detail, v.priceKc])])).toEqual(
@@ -66,7 +66,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
         name,
         [
           ["3 l Rodinná zásoba (bag-in-box)", "Až 150 nápojů", price3l],
-          ["750 ml Praktické balení", "Až 37 nápojů", 199],
+          ["750 g Praktické balení", "Až 37 nápojů", 199],
         ],
       ])
     );
