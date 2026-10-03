@@ -90,7 +90,13 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
     expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
     expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup"]);
-    expect(syrups.slice(2).every((p) => p.description.length === 0 && p.highlights.length === 0 && p.taste === null)).toBe(true);
+    // Lipový: popis a chuť (složení a výživa zatím nedodány)
+    const lipa = syrups[2];
+    expect(lipa.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
+    expect(lipa.highlights[0]).toBe("39 % bylinného výluhu");
+    expect(lipa.description[0]).toMatch(/^Lipový sirup nabízí jemnou, medovou/);
+    expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
+    expect(syrups.slice(3).every((p) => p.description.length === 0 && p.highlights.length === 0 && p.taste === null)).toBe(true);
     // Balení: popis u všech sirupů
     expect(syrups.every((p) => p.variants[0].description!.startsWith("Pro snadnou manipulaci") && p.variants[1].description!.startsWith("Lehké a nerozbitné"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;

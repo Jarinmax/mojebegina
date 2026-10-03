@@ -105,7 +105,21 @@ export const SYRUPS = [
     storage:
       "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
   },
-  { ...EMPTY, slug: "lipovy-sirup", name: "Lipový sirup", price3l: 549 },
+  {
+    ...EMPTY,
+    slug: "lipovy-sirup",
+    name: "Lipový sirup",
+    price3l: 549,
+    shortDescription: shortDescription("3,70"),
+    highlights: highlights(39),
+    description: [
+      "Lipový sirup nabízí jemnou, medovou a uklidňující chuť v každé kapce. Tato zlatavá radost v sobě nese klid letního podvečera a poctivost tradičního bylinkářství.",
+      MIX,
+      "Připravujeme jej z mimořádně silného bylinného výluhu (39 %), kvalitního třtinového cukru a čisté filtrované vody.",
+    ],
+    taste:
+      "Chuť je hluboká, medově jemná a přirozeně harmonická. Lípa je tradiční bylinka s konejšivým charakterem, která v nápojích působí velmi lehce a zanechá hebký pocit na patře.",
+  },
   { ...EMPTY, slug: "ibiskovy-sirup", name: "Ibiškový sirup", price3l: 499 },
   { ...EMPTY, slug: "sipkovy-sirup", name: "Šípkový sirup", price3l: 499 },
   { ...EMPTY, slug: "hermankovy-sirup", name: "Heřmánkový sirup", price3l: 549 },
@@ -123,7 +137,8 @@ export function sirupySql() {
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
--- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování);
+-- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování),
+-- Lipový (popis, chuť);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
