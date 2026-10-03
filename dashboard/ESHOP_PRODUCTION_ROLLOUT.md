@@ -82,6 +82,11 @@ první nová objednávka 5201).
 4. `12_after_migrations.sql` → očekáváno
    `24 | 4 | 5 | 7 | 11 | 4 | 2 | 2 | 0 | 5 | 0 | 0 | YES | 0`.
 5. Claude ověří read-only (otisky dat The Cup, katalog).
+6. **Katalog — Bylinné sirupy** (`docs/eshop-catalog/`): `30_sirupy_before.sql`
+   → `1 | 0 | 0 | 0 | 0 | 7 | 11` → `31_sirupy.sql` (celý soubor) →
+   `32_sirupy_after.sql` → `3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25`.
+   Vrácení: `39_sirupy_rollback.sql` (sirupy skryje, nic nemaže). Na Preview
+   se spouští nejdřív.
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich
