@@ -131,9 +131,19 @@ export const SYRUPS = [
       "- **Pro děti i dospělé:** díky své jemnosti a přirozeně nasládlému profilu chutná celé rodině.",
       "- **Pro chvíle relaxace:** ideální součást Vašeho rituálu pro zpomalení a pohodu po náročném dni.",
       "- **Pro tvořivé barmany:** skvělý základ pro originální domácí limonády.",
+      "## Jak sirup používat",
+      "- **Osvěžující domácí limonáda:** smíchejte s perlivou vodou, ledem a snítkou máty.",
+      "- **Hřejivý nápoj:** přidejte do horké vody pro chvíle pohody a zahřátí.",
+      "**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**",
+      "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
     ],
     taste:
       "Chuť je hluboká, medově jemná a přirozeně harmonická. Lípa je tradiční bylinka s konejšivým charakterem, která v nápojích působí velmi lehce a zanechá hebký pocit na patře.",
+    ingredients:
+      "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, lipový květ (Tiliae flos)), citronová šťáva 12 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    storage:
+      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
   },
   { ...EMPTY, slug: "ibiskovy-sirup", name: "Ibiškový sirup", price3l: 499 },
   { ...EMPTY, slug: "sipkovy-sirup", name: "Šípkový sirup", price3l: 499 },
@@ -153,7 +163,7 @@ export function sirupySql() {
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty z begina.cz (dodané vedením 3. 10. 2026). Úplné údaje zatím:
 -- Šaman (popis), Zázvorový (popis, chuť, složení, výživa, skladování),
--- Lipový (popis, chuť, pro koho);
+-- Lipový (popis, chuť, složení, výživa, skladování);
 -- ostatní jen název, fotka, balení. Chybějící = „Doplníme“.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna

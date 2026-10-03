@@ -94,13 +94,17 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     ]);
     // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
     expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
-    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup"]);
-    // Lipový: popis a chuť (složení a výživa zatím nedodány)
+    expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["zazvorovy-sirup", "lipovy-sirup"]);
+    // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
     expect(lipa.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
     expect(lipa.highlights[0]).toBe("39 % bylinného výluhu");
     expect(lipa.description[0]).toMatch(/^Lipový sirup nabízí jemnou, medovou/);
     expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
+    expect(lipa.foodInfo.ingredients).toMatch(/lipový květ \(Tiliae flos\)/);
+    expect(lipa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 1\u00a0105 kJ \/ 260 kcal/);
+    expect(lipa.foodInfo.storage).toMatch(/v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců\./);
+    expect(parseDescription(lipa.description).sections.map((x) => x.title)).toEqual(["Pro koho je vhodný", "Jak sirup používat"]);
     expect(parseDescription(lipa.description).sections[0].blocks).toEqual([
       { type: "ul", items: expect.arrayContaining(["**Pro děti i dospělé:** díky své jemnosti a přirozeně nasládlému profilu chutná celé rodině."]) },
     ]);
