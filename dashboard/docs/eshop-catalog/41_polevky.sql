@@ -1,4 +1,4 @@
--- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Gulášová polévka z hlívy ústřičné, Špenátová polévka)
+-- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Rajčatová polévka, Gulášová polévka z hlívy ústřičné, Špenátová polévka)
 -- a společná sekce detailu polévek. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-polevky.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -41,6 +41,32 @@ INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
 SELECT "id", '/eshop/dynova-polevka.jpg', 'Dýňová polévka', 0 FROM "products" WHERE "slug" = 'dynova-polevka'
 AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
   WHERE p."slug" = 'dynova-polevka' AND pi."url" = '/eshop/dynova-polevka.jpg');
+
+INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
+VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'rajcatova-polevka', 'Rajčatová polévka',
+  'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky rajčatových polévek', '- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'přirozeně bezlepková', 'z čisté filtrované vody']::text[],
+  'Základ tvoří kvalitní rajčata, která dávají polévce výraz a hloubku. Pečlivě zvolené koření doplňuje celkovou harmonii a podtrhuje plnost chuti. Struktura je jemná, chuť vyvážená a přirozeně plná.', 'čistá filtrovaná voda, pasírovaná rajčata 27 %, rajčatový protlak 7 %, brambory 7 %, kokosové mléko 7 % (kokosový extrakt 70 %, voda, emulgátor E435), cibule 5 %, petržel kořen, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, pepř černý, kardamom, hřebíček, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C), přírodní aroma', '{"energy_kj":255,"energy_kcal":61,"fat":4.4,"saturates":1.6,"carbohydrate":5.1,"sugars":1.6,"protein":0.9,"salt":0.8,"fibre":0.7}'::jsonb, '100ml', 'Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.', '{}'::text[], 30)
+ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
+  "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
+  "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
+  "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
+  "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
+  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
+  "volume_ml", "servings", "price_b2c_kc", "sort_order")
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka'), 'rajcatova-polevka', '3 l Rodinná zásoba (bag-in-box)', 'Rodinné balení vhodné na několik obědů nebo večeří.',
+  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 379, 10)
+ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
+  "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
+  "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
+  "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT "id", '/eshop/rajcatova-polevka.jpg', 'Rajčatová polévka', 0 FROM "products" WHERE "slug" = 'rajcatova-polevka'
+AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
+  WHERE p."slug" = 'rajcatova-polevka' AND pi."url" = '/eshop/rajcatova-polevka.jpg');
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")

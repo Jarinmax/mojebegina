@@ -69,6 +69,32 @@ export const SOUPS = [
     variants: [bagInBox("dynova-polevka", 379, 12)],
   },
   {
+    slug: "rajcatova-polevka",
+    name: "Rajčatová polévka",
+    sortOrder: 30,
+    shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
+    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    description: [
+      "Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.",
+      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
+      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "## Pro koho je vhodná",
+      "- pro milovníky rajčatových polévek",
+      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
+      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
+      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+    ],
+    taste:
+      "Základ tvoří kvalitní rajčata, která dávají polévce výraz a hloubku. Pečlivě zvolené koření doplňuje celkovou harmonii a podtrhuje plnost chuti. Struktura je jemná, chuť vyvážená a přirozeně plná.",
+    ingredients:
+      "čistá filtrovaná voda, pasírovaná rajčata 27 %, rajčatový protlak 7 %, brambory 7 %, kokosové mléko 7 % (kokosový extrakt 70 %, voda, emulgátor E435), cibule 5 %, petržel kořen, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, pepř černý, kardamom, hřebíček, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    nutrition: { energy_kj: 255, energy_kcal: 61, fat: 4.4, saturates: 1.6, carbohydrate: 5.1, sugars: 1.6, protein: 0.9, salt: 0.8, fibre: 0.7 },
+    storage:
+      "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.",
+    warnings: [],
+    variants: [bagInBox("rajcatova-polevka", 379, 12)],
+  },
+  {
     slug: "gulasova-polevka-z-hlivy-ustricne",
     name: "Gulášová polévka z hlívy ústřičné",
     sortOrder: 40,
