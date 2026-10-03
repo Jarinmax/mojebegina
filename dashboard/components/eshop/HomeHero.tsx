@@ -38,32 +38,33 @@ export default function HomeHero({ ctaHref }: { ctaHref: string }) {
         height={332}
         className="hidden lg:block absolute left-0 top-[38%] w-[52px] h-auto opacity-80"
       />
-      <div className="max-w-6xl mx-auto px-4 pt-10 pb-8 sm:pt-14 lg:py-16 grid gap-8 lg:gap-4 lg:grid-cols-[5fr_7fr] items-center">
+      {/* Na počítači se hero přizpůsobí výšce okna, aby pod ním byl hned vidět pruh kategorií. */}
+      <div className="max-w-6xl mx-auto px-4 pt-10 pb-8 sm:pt-14 lg:py-[clamp(1.25rem,3.5vh,3rem)] grid gap-8 lg:gap-6 lg:grid-cols-2 items-center">
         <div className="relative z-10 lg:pl-6">
-          <h1 className="font-serif text-[2.6rem] leading-[1.08] sm:text-6xl tracking-tight text-[#2A2622] text-balance">
+          <h1 className="font-serif text-[2.6rem] leading-[1.08] sm:text-6xl lg:text-[clamp(2.4rem,6.4vh,3.75rem)] lg:leading-[1.05] tracking-tight text-[#2A2622] text-balance">
             <span className="block">Čerstvé polévky a&nbsp;nápoje.</span>
             <span className="block">
               Připravené s&nbsp;láskou
               <Heart />
             </span>
           </h1>
-          <p className="mt-6 text-base sm:text-lg text-[#3B3631] max-w-md leading-relaxed">
+          <p className="mt-6 lg:mt-[clamp(0.75rem,2.2vh,1.5rem)] text-base sm:text-lg text-[#3B3631] max-w-md leading-relaxed">
             Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje z pečlivě vybraných surovin a čisté filtrované vody.
           </p>
           <Link
             href={ctaHref}
-            className="mt-7 inline-flex items-center justify-center rounded-full bg-[#E2702C] hover:bg-[#C95F20] transition-colors px-12 py-3.5 text-lg text-white shadow-md shadow-[#E2702C]/25"
+            className="mt-7 lg:mt-[clamp(1rem,2.6vh,1.75rem)] inline-flex items-center justify-center rounded-full bg-[#E2702C] hover:bg-[#C95F20] transition-colors px-12 py-3.5 lg:py-3 text-lg text-white shadow-md shadow-[#E2702C]/25"
           >
             Vybrat si
           </Link>
-          <p className="mt-6 flex items-center gap-2 text-sm text-[#5E6B34]">
+          <p className="mt-6 lg:mt-[clamp(0.75rem,2.2vh,1.5rem)] flex items-center gap-2 text-sm text-[#5E6B34]">
             <Snowflake className="w-4 h-4" aria-hidden="true" />
             Doručujeme chlazenou přepravou
           </p>
         </div>
 
         <div
-          className="relative w-full aspect-[930/690]"
+          className="relative w-full aspect-[930/690] sm:max-w-[30rem] sm:mx-auto lg:max-w-none lg:w-auto lg:h-[clamp(17rem,min(calc(100svh_-_21rem),calc((min(100vw,72rem)_-_3.5rem)_*_0.37)),26rem)] lg:mx-auto"
           role="img"
           aria-label="Polévka v misce, kelímek Dýňové polévky a balení bag-in-box Begina"
         >

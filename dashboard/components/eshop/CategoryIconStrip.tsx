@@ -3,10 +3,11 @@ import Link from "next/link";
 import type { HomeCategory } from "@/lib/eshop/homeNav";
 
 // Pruh kategorií s kreslenými ikonami pod hero (návrh úvodní stránky).
+// Na počítači kompaktní, aby byl vidět hned po otevření stránky (spolu s hero).
 export default function CategoryIconStrip({ id, categories }: { id: string; categories: HomeCategory[] }) {
   return (
     <nav id={id} aria-label="Kategorie" className="bg-[#FBF8F3] scroll-mt-20">
-      <ul className="max-w-5xl mx-auto px-2 py-6 sm:py-8 flex flex-wrap justify-center gap-y-6">
+      <ul className="max-w-5xl mx-auto px-2 py-6 sm:py-8 lg:py-4 flex flex-wrap justify-center gap-y-6">
         {categories.map((category, i) => (
           <li
             key={category.slug}
@@ -16,7 +17,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
               href={`/eshop/kategorie/${category.slug}`}
               className="group flex flex-col items-center gap-2 px-2 text-center"
             >
-              <span className="h-20 sm:h-24 flex items-end">
+              <span className="h-20 sm:h-24 lg:h-[clamp(3.5rem,9vh,5.5rem)] flex items-end">
                 <Image
                   src={category.icon}
                   alt=""
