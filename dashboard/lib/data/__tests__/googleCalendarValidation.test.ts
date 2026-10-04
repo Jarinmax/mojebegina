@@ -308,6 +308,9 @@ describe("createOrPatchEvent — Security Phase 20 (idempotence vůči pádu mez
       insertEvent: async () => {
         calls.push("insert");
       },
+      getEvent: async () => {
+        calls.push("get");
+      },
       patchEvent: async () => {
         calls.push("patch");
       },
@@ -320,12 +323,15 @@ describe("createOrPatchEvent — Security Phase 20 (idempotence vůči pádu mez
     expect(calls).toEqual(["insert"]);
   });
 
-  it("retry po pádu mezi Googlem a DB: insertEvent vrátí konflikt → spadne na patch, žádný druhý insert", async () => {
+  it("retry po pádu mezi Googlem a DB (i po dřívějším smazání se stejným id): insertEvent vrátí konflikt → events.get, pak events.patch, žádný druhý insert", async () => {
     const calls: string[] = [];
     const client: GoogleCalendarClient = {
       insertEvent: async () => {
         calls.push("insert");
         throw new GoogleConflictError("already exists");
+      },
+      getEvent: async () => {
+        calls.push("get");
       },
       patchEvent: async () => {
         calls.push("patch");
@@ -336,15 +342,18 @@ describe("createOrPatchEvent — Security Phase 20 (idempotence vůči pádu mez
     };
     const result = await createOrPatchEvent(client, "cal-1", "mbabc", makeEvent());
     expect(result).toBe("patched");
-    // Přesně jeden insert pokus (ten, co narazí na konflikt) a přesně
-    // jeden patch — nikdy druhý insert, žádná duplicitní událost.
-    expect(calls).toEqual(["insert", "patch"]);
+    // Přesně jeden insert pokus (ten, co narazí na konflikt), potom get a
+    // patch ve správném pořadí — nikdy druhý insert, žádná duplicitní událost.
+    expect(calls).toEqual(["insert", "get", "patch"]);
   });
 
-  it("jiná chyba než konflikt se nepohltí a nejde na patch", async () => {
+  it("jiná chyba než konflikt se nepohltí a nejde na get/patch", async () => {
     const client: GoogleCalendarClient = {
       insertEvent: async () => {
         throw new Error("network timeout");
+      },
+      getEvent: async () => {
+        throw new Error("nemělo se volat");
       },
       patchEvent: async () => {
         throw new Error("nemělo se volat");

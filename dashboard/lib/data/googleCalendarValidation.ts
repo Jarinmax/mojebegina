@@ -133,6 +133,7 @@ export type CalendarEventInput = {
 
 export type GoogleCalendarClient = {
   insertEvent(calendarId: string, eventId: string, event: CalendarEventInput): Promise<void>;
+  getEvent(calendarId: string, eventId: string): Promise<void>;
   patchEvent(calendarId: string, eventId: string, event: CalendarEventInput): Promise<void>;
   deleteEvent(calendarId: string, eventId: string): Promise<void>;
 };
@@ -148,10 +149,17 @@ export async function createOrPatchEvent(
     return "created";
   } catch (err) {
     if (err instanceof GoogleConflictError) {
-      // Google událost s tímhle deterministickým id už má (typicky proto,
+      // Google událost s tímhle deterministickým id už má — typicky proto,
       // že minulý pokus u Googlu uspěl, ale zápis do lead_calendar_sync
-      // spadl dřív, než se to stihlo zaznamenat) — PATCH na stejném id,
-      // nikdy druhý insert, žádná duplicita.
+      // spadl dřív, než se to stihlo zaznamenat, NEBO proto, že dřívější
+      // smazání (events.delete) nechalo událost v Googlu ve stavu
+      // "cancelled" po dobu retenční lhůty — insert se stejným id na ni
+      // narazí na 409, i když je "smazaná". Schválený postup: nejdřív
+      // events.get (potvrdí, že událost existuje, byť třeba cancelled),
+      // potom events.patch na stejném id (nikdy druhý insert) — a
+      // toCalendarResource vždy nastavuje status "confirmed", takže patch
+      // cancelled událost i "vzkřísí".
+      await client.getEvent(calendarId, eventId);
       await client.patchEvent(calendarId, eventId, event);
       return "patched";
     }

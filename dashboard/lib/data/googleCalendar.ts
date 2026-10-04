@@ -250,6 +250,7 @@ function isConflictError(err: unknown): boolean {
 function toCalendarResource(event: CalendarEventInput): calendar_v3.Schema$Event {
   const endUtc = new Date(event.startUtc.getTime() + event.durationMinutes * 60000);
   return {
+    status: "confirmed", // i na patchi po events.get — vzkřísí dřív smazanou (cancelled) událost se stejným deterministickým id
     summary: event.summary,
     description: event.description,
     start: { dateTime: event.startUtc.toISOString(), timeZone: "Europe/Prague" },
@@ -276,6 +277,9 @@ function buildRealClient(authClient: InstanceType<typeof google.auth.OAuth2>): G
         }
         throw err;
       }
+    },
+    async getEvent(calendarId, eventId) {
+      await calendar.events.get({ calendarId, eventId });
     },
     async patchEvent(calendarId, eventId, event) {
       await calendar.events.patch({ calendarId, eventId, requestBody: toCalendarResource(event) });
