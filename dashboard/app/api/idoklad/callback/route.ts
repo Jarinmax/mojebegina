@@ -23,7 +23,6 @@ import {
   IDOKLAD_TEST_PAGE_PATH,
 } from "@/lib/finance/oauthCookies";
 import { runReadOnlyAccountCheck, type ReadOnlyCheckFailure, type ReadOnlyCheckResult } from "@/lib/finance/readOnlyCheck";
-import { getAppOrigin } from "@/lib/appOrigin";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +41,7 @@ export async function GET(request: Request) {
     if (config.production) {
       return new NextResponse("Not found", { status: 404 });
     }
-    return NextResponse.redirect(new URL(IDOKLAD_TEST_PAGE_PATH, await getAppOrigin()));
+    return NextResponse.redirect(new URL(IDOKLAD_TEST_PAGE_PATH, request.url));
   }
 
   const cookieStore = await cookies();

@@ -11,7 +11,6 @@ import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isFinanceManager } from "@/lib/data/financeAuth";
-import { getAppOrigin } from "@/lib/appOrigin";
 import { buildAuthorizeUrl, createOAuthState } from "@/lib/finance/idoklad/oauth";
 import { resolveIdokladOAuthConfig } from "@/lib/finance/oauthConfig";
 import {
@@ -23,14 +22,14 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   const config = resolveIdokladOAuthConfig(process.env);
   if (!config.ok) {
     if (config.production) {
       return new NextResponse("Not found", { status: 404 });
     }
-    // Stránka testu ukáže, co chybí (jen názvy proměnných).
-    return NextResponse.redirect(new URL(IDOKLAD_TEST_PAGE_PATH, await getAppOrigin()));
+    // Stránka testu (na stejné adrese) ukáže, co chybí — jen názvy proměnných.
+    return NextResponse.redirect(new URL(IDOKLAD_TEST_PAGE_PATH, request.url));
   }
 
   const h = await headers();

@@ -216,9 +216,11 @@ požadavek než GET a POST na token); oprávnění.
 ## 15. OAuth připojení — první read-only test (jen Preview, 4. 10. 2026)
 
 Developer aplikace iDokladu **MojeBegina**, flow **AuthorizationCode**,
-Redirect URI pro Production i Preview větve `claude/great-bell-ffjwo3`.
-Implementováno jen na `claude/great-bell-ffjwo3`; v Production jsou obě
-routy vypnuté (404).
+Redirect URI pro Production a Preview. Test je na větvích
+`claude/great-bell-ffjwo3` i `feature/finance-1-0` (proměnné prostředí
+vedení nastavilo pro `feature/finance-1-0`); v Production jsou obě routy
+vypnuté (404). Každá Preview větev potřebuje v iDokladu vlastní Redirect
+URI a ve Vercelu vlastní `IDOKLAD_REDIRECT_URI`.
 
 **Průchod:** `/rizeni-firmy/finance/idoklad` (jen Viner) → „Připojit iDoklad
 (jen čtení)“ → `/api/idoklad/connect` (podepsaný `state` vázaný na userId,
@@ -236,20 +238,20 @@ authorize `https://identity.idoklad.cz/server/connect/authorize`, token
 `https://identity.idoklad.cz/server/connect/token`. Pojistka povoluje POST
 jen na tyto dvě přesné tokenové adresy (+ v2 pro Client Credentials).
 
-**Proměnné prostředí — Vercel, prostředí Preview, větev `claude/great-bell-ffjwo3`:**
+**Proměnné prostředí — Vercel, prostředí Preview, větev `feature/finance-1-0`:**
 
 | Proměnná | Hodnota | Citlivá |
 |---|---|---|
 | `IDOKLAD_OAUTH_TEST_ENABLED` | `on` | ne |
 | `IDOKLAD_CLIENT_ID` | Client ID aplikace MojeBegina | ne (ale nesdílet) |
 | `IDOKLAD_CLIENT_SECRET` | nový Client Secret | **ano (Sensitive)** |
-| `IDOKLAD_REDIRECT_URI` | `https://mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app/api/idoklad/callback` | ne |
+| `IDOKLAD_REDIRECT_URI` | `https://mojebegina-git-feature-finance-1-0-jarin-max.vercel.app/api/idoklad/callback` (adresu větve ověřit ve Vercelu; musí být i v iDokladu mezi Redirect URI) | ne |
 | `IDOKLAD_OAUTH_STATE_SECRET` | náhodný řetězec ≥ 32 znaků (`openssl rand -base64 32`) | **ano (Sensitive)** |
 | `FINANCE_COMPANY_ICO` | IČO Beginy (volitelné — označí, zda jde o agendu Beginy) | ne |
 | `FINANCE_VAT_MODE` | `non_payer` (volitelné — porovná se s iDokladem) | ne |
 
 V Production se nic nenastavuje. Test se musí spustit z adresy větve
-(`mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app`), ne
+(`mojebegina-git-feature-finance-1-0-jarin-max.vercel.app`), ne
 z adresy konkrétního nasazení — jinak by cookie se `state` při návratu
 chyběla (route sama přesměruje na adresu větve).
 
