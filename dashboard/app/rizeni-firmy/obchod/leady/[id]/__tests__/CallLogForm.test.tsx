@@ -17,6 +17,7 @@ import CallLogForm from "../CallLogForm";
 vi.mock("../../../actions", () => ({
   logCallOutcomeAction: async () => null,
   removeLeadFollowUpAction: async () => null,
+  retryLeadCalendarSyncAction: async () => null,
 }));
 
 afterEach(() => {
@@ -25,7 +26,9 @@ afterEach(() => {
 
 describe("CallLogForm — Security Phase 16.5", () => {
   it("bez naplánovaného stavu (nový lead) se souhrnný blok nezobrazí", () => {
-    const { container } = render(<CallLogForm leadId="lead-1" nextFollowUpAt={null} nextStepNote={null} />);
+    const { container } = render(
+      <CallLogForm leadId="lead-1" nextFollowUpAt={null} nextStepNote={null} calendarSync={null} />
+    );
     expect(screen.queryByText(/Další kontakt:/)).toBeNull();
     expect(screen.queryByText(/Další krok:/)).toBeNull();
     // Formulářová pole zůstávají prázdná/neřízená bez ohledu na to.
@@ -35,7 +38,12 @@ describe("CallLogForm — Security Phase 16.5", () => {
 
   it("s uloženým nextFollowUpAt i nextStepNote zobrazí oba jako aktuální plán, i když jsou pole formuláře prázdná", () => {
     render(
-      <CallLogForm leadId="lead-1" nextFollowUpAt={new Date("2026-09-26T12:00:00.000Z")} nextStepNote="Zavolat a domluvit vzorek" />
+      <CallLogForm
+        leadId="lead-1"
+        nextFollowUpAt={new Date("2026-09-26T12:00:00.000Z")}
+        nextStepNote="Zavolat a domluvit vzorek"
+        calendarSync={null}
+      />
     );
     expect(screen.getByText(/Další kontakt:/)).toBeTruthy();
     // 2026-09-26T12:00:00.000Z je v září letní čas (CEST, UTC+2) → 14:00.
@@ -45,14 +53,41 @@ describe("CallLogForm — Security Phase 16.5", () => {
   });
 
   it("jen s nextStepNote (bez data) zobrazí pouze další krok", () => {
-    render(<CallLogForm leadId="lead-1" nextFollowUpAt={null} nextStepNote="Poslat vzorek" />);
+    render(<CallLogForm leadId="lead-1" nextFollowUpAt={null} nextStepNote="Poslat vzorek" calendarSync={null} />);
     expect(screen.queryByText(/Další kontakt:/)).toBeNull();
     expect(screen.getByText(/Další krok:/)).toBeTruthy();
   });
 
   it("jen s nextFollowUpAt (bez dalšího kroku) zobrazí pouze datum", () => {
-    render(<CallLogForm leadId="lead-1" nextFollowUpAt={new Date("2026-01-01T12:00:00.000Z")} nextStepNote={null} />);
+    render(
+      <CallLogForm leadId="lead-1" nextFollowUpAt={new Date("2026-01-01T12:00:00.000Z")} nextStepNote={null} calendarSync={null} />
+    );
     expect(screen.getByText(/Další kontakt:/)).toBeTruthy();
     expect(screen.queryByText(/Další krok:/)).toBeNull();
+  });
+
+  it("bez chyby synchronizace (status synced/pending/null) se varování a tlačítko 'Zkusit znovu' nezobrazí", () => {
+    render(
+      <CallLogForm
+        leadId="lead-1"
+        nextFollowUpAt={null}
+        nextStepNote={null}
+        calendarSync={{ status: "synced", lastError: null }}
+      />
+    );
+    expect(screen.queryByText("Zkusit znovu")).toBeNull();
+  });
+
+  it("se status 'failed' zobrazí srozumitelnou chybu i tlačítko 'Zkusit znovu'", () => {
+    render(
+      <CallLogForm
+        leadId="lead-1"
+        nextFollowUpAt={null}
+        nextStepNote={null}
+        calendarSync={{ status: "failed", lastError: "Google Kalendář není propojen." }}
+      />
+    );
+    expect(screen.getByText(/Synchronizace s Google kalendářem se nezdařila: Google Kalendář není propojen\./)).toBeTruthy();
+    expect(screen.getByText("Zkusit znovu")).toBeTruthy();
   });
 });

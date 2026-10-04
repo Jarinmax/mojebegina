@@ -17,6 +17,7 @@ import {
   assignCustomerOwner,
   setCustomerAcquiredBy,
   removeLeadFollowUp,
+  retryLeadCalendarSync,
 } from "@/lib/data/leads";
 import type { CreateCustomerInput } from "@/lib/data/createCustomerValidation";
 
@@ -91,6 +92,19 @@ export async function removeLeadFollowUpAction(leadId: string, _prevState: Actio
 
   revalidateCrm(leadId);
   return { success: "Naplánovaný kontakt byl odstraněn." };
+}
+
+// Security Phase 20 (Google Kalendář 1.0) — idempotentní "Zkusit znovu"
+// pro lead_calendar_sync ve stavu "failed" (viz retryLeadCalendarSync).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (id, state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function retryLeadCalendarSyncAction(leadId: string, _prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await retryLeadCalendarSync(leadId);
+  if (!result.ok) {
+    return { error: `Synchronizace s Google kalendářem se nezdařila: ${result.error}` };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "Synchronizace s Google kalendářem proběhla úspěšně." };
 }
 
 export async function updateLeadStageAction(

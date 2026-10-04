@@ -13,7 +13,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { leads, leadActivity, organizations, orders, userRoles } from "@/lib/db/schema";
+import { leads, leadActivity, leadCalendarSync, organizations, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
@@ -47,6 +47,27 @@ async function reconcileCalendarAfterCommit(leadId: string): Promise<void> {
     // Stav zůstává v lead_calendar_sync (pending/failed) — uživatel uvidí
     // "synchronizace kalendáře selhala" a může zopakovat.
   }
+}
+
+// Security Phase 20 (Google Kalendář 1.0) — idempotentní "Zkusit znovu"
+// pro lead_calendar_sync ve stavu "failed". reconcileLeadCalendarEvent
+// je bezpečné zavolat opakovaně (deterministické event id, 409 → patch),
+// takže sem žádná speciální logika navíc nejde — jen ověření přístupu,
+// zavolání a přečtení výsledného stavu pro srozumitelnou chybu uživateli.
+export async function retryLeadCalendarSync(leadId: string): Promise<LeadResult> {
+  await requireCrmContext();
+  await reconcileLeadCalendarEvent(leadId);
+
+  const [row] = await db
+    .select({ syncStatus: leadCalendarSync.syncStatus, lastError: leadCalendarSync.lastError })
+    .from(leadCalendarSync)
+    .where(eq(leadCalendarSync.leadId, leadId))
+    .limit(1);
+
+  if (row?.syncStatus === "failed") {
+    return { ok: false, error: row.lastError ?? "Synchronizace s Google kalendářem se nezdařila." };
+  }
+  return { ok: true };
 }
 
 export async function requireCrmContext(): Promise<NonNullable<AuthContext>> {
@@ -250,6 +271,8 @@ export type LeadActivityEntry = {
   createdAt: Date;
 };
 
+export type LeadCalendarSyncStatus = { status: "pending" | "synced" | "failed"; lastError: string | null };
+
 export type LeadDetail = {
   lead: LeadCardData & {
     address: string | null;
@@ -257,6 +280,7 @@ export type LeadDetail = {
     acquiredByUserId: string | null;
     acquiredByName: string | null;
     convertedOrganizationId: string | null;
+    calendarSync: LeadCalendarSyncStatus | null;
   };
   activity: LeadActivityEntry[];
 };
@@ -272,6 +296,12 @@ export async function getLeadDetail(leadId: string): Promise<LeadDetail | null> 
   const [card] = await buildLeadCards([row]);
   const acquiredBy = row.acquiredByUserId ? await getUserProfile(row.acquiredByUserId) : null;
 
+  const [syncRow] = await db
+    .select({ syncStatus: leadCalendarSync.syncStatus, lastError: leadCalendarSync.lastError })
+    .from(leadCalendarSync)
+    .where(eq(leadCalendarSync.leadId, leadId))
+    .limit(1);
+
   const activityRows = await db.select().from(leadActivity).where(eq(leadActivity.leadId, leadId));
   activityRows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
@@ -283,6 +313,7 @@ export async function getLeadDetail(leadId: string): Promise<LeadDetail | null> 
       acquiredByUserId: row.acquiredByUserId,
       acquiredByName: acquiredBy?.name ?? acquiredBy?.email ?? null,
       convertedOrganizationId: row.convertedOrganizationId,
+      calendarSync: syncRow ? { status: syncRow.syncStatus as "pending" | "synced" | "failed", lastError: syncRow.lastError } : null,
     },
     activity: activityRows.map((r) => ({
       id: r.id,

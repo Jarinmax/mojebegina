@@ -1,11 +1,17 @@
 "use client";
 
 import { useActionState } from "react";
-import { logCallOutcomeAction, removeLeadFollowUpAction, type ActionState } from "../../actions";
+import {
+  logCallOutcomeAction,
+  removeLeadFollowUpAction,
+  retryLeadCalendarSyncAction,
+  type ActionState,
+} from "../../actions";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
 import { STAGE_LABELS } from "../../leadLabels";
 import { formatCzechDateTime } from "@/lib/format";
 import type { LeadStage } from "@/lib/data/leadValidation";
+import type { LeadCalendarSyncStatus } from "@/lib/data/leads";
 
 const initialState: ActionState = null;
 
@@ -13,6 +19,7 @@ type Props = {
   leadId: string;
   nextFollowUpAt: Date | null;
   nextStepNote: string | null;
+  calendarSync: LeadCalendarSyncStatus | null;
 };
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
@@ -33,12 +40,15 @@ type Props = {
 // validateCallLogInput). Samostatné tlačítko "Odstranit naplánovaný
 // kontakt" — prázdná pole v hlavním formuláři znamenají "neřešeno", ne
 // "smazat", takže smazání potřebuje vlastní, jednoznačnou akci.
-export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Props) {
+export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, calendarSync }: Props) {
   const boundAction = logCallOutcomeAction.bind(null, leadId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
   const boundRemoveAction = removeLeadFollowUpAction.bind(null, leadId);
   const [removeState, removeFormAction, removePending] = useActionState(boundRemoveAction, initialState);
+
+  const boundRetryAction = retryLeadCalendarSyncAction.bind(null, leadId);
+  const [retryState, retryFormAction, retryPending] = useActionState(boundRetryAction, initialState);
 
   const hasPlannedState = nextFollowUpAt !== null || nextStepNote !== null;
 
@@ -71,6 +81,25 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Pr
         </div>
       )}
       {removeState && "error" in removeState && <p className="text-sm text-begina-accent-700">{removeState.error}</p>}
+
+      {calendarSync?.status === "failed" && !(retryState && "success" in retryState) && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 flex items-center justify-between gap-2 flex-wrap">
+          <p>
+            Synchronizace s Google kalendářem se nezdařila
+            {calendarSync.lastError ? `: ${calendarSync.lastError}` : "."}
+          </p>
+          <button
+            type="submit"
+            formAction={retryFormAction}
+            disabled={retryPending}
+            className="text-xs font-medium text-begina-primary-900 disabled:opacity-50 shrink-0"
+          >
+            {retryPending ? "Zkouším znovu…" : "Zkusit znovu"}
+          </button>
+        </div>
+      )}
+      {retryState && "error" in retryState && <p className="text-sm text-begina-accent-700">{retryState.error}</p>}
+      {retryState && "success" in retryState && <p className="text-sm text-emerald-700">{retryState.success}</p>}
 
       <textarea
         name="note"
