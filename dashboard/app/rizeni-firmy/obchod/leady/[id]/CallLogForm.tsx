@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { logCallOutcomeAction, type ActionState } from "../../actions";
+import { logCallOutcomeAction, removeLeadFollowUpAction, type ActionState } from "../../actions";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
 import { STAGE_LABELS } from "../../leadLabels";
-import { formatCzechDate } from "@/lib/format";
+import { formatCzechDateTime } from "@/lib/format";
 import type { LeadStage } from "@/lib/data/leadValidation";
 
 const initialState: ActionState = null;
@@ -26,9 +26,19 @@ type Props = {
 // Proto se aktuální naplánovaný stav (nextFollowUpAt/nextStepNote z DB,
 // ne z formuláře) zobrazuje samostatně nad formulářem — nezávisle na tom,
 // jestli jsou pole zrovna vyplněná nebo prázdná.
+//
+// Security Phase 20 (Google Kalendář 1.0) — datum i čas dalšího kontaktu
+// (appka z termínu vytváří kalendářovou událost, potřebuje přesný čas, ne
+// jen den), POVINNÉ SPOLEČNĚ, jakmile se vůbec vyplní (viz
+// validateCallLogInput). Samostatné tlačítko "Odstranit naplánovaný
+// kontakt" — prázdná pole v hlavním formuláři znamenají "neřešeno", ne
+// "smazat", takže smazání potřebuje vlastní, jednoznačnou akci.
 export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Props) {
   const boundAction = logCallOutcomeAction.bind(null, leadId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
+
+  const boundRemoveAction = removeLeadFollowUpAction.bind(null, leadId);
+  const [removeState, removeFormAction, removePending] = useActionState(boundRemoveAction, initialState);
 
   const hasPlannedState = nextFollowUpAt !== null || nextStepNote !== null;
 
@@ -37,11 +47,21 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Pr
       <p className="text-sm font-medium text-begina-primary-900">Zápis po hovoru</p>
 
       {hasPlannedState && (
-        <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2 text-sm text-begina-primary-900">
+        <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2 text-sm text-begina-primary-900 flex flex-col gap-1">
           {nextFollowUpAt && (
-            <p>
-              Další kontakt: <span className="font-medium">{formatCzechDate(nextFollowUpAt)}</span>
-            </p>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p>
+                Další kontakt: <span className="font-medium">{formatCzechDateTime(nextFollowUpAt)}</span>
+              </p>
+              <button
+                type="submit"
+                formAction={removeFormAction}
+                disabled={removePending}
+                className="text-xs font-medium text-begina-accent-700 disabled:opacity-50"
+              >
+                {removePending ? "Odstraňuji…" : "Odstranit naplánovaný kontakt"}
+              </button>
+            </div>
           )}
           {nextStepNote && (
             <p>
@@ -50,6 +70,7 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Pr
           )}
         </div>
       )}
+      {removeState && "error" in removeState && <p className="text-sm text-begina-accent-700">{removeState.error}</p>}
 
       <textarea
         name="note"
@@ -78,15 +99,24 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Pr
           </select>
         </div>
         <div>
-          <label htmlFor="nextFollowUpAt" className="text-xs text-neutral-500 mb-1 block">
+          <label htmlFor="nextFollowUpAtDate" className="text-xs text-neutral-500 mb-1 block">
             Další kontakt
           </label>
-          <input
-            id="nextFollowUpAt"
-            name="nextFollowUpAt"
-            type="date"
-            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-          />
+          <div className="flex gap-2">
+            <input
+              id="nextFollowUpAtDate"
+              name="nextFollowUpAtDate"
+              type="date"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+            <input
+              id="nextFollowUpAtTime"
+              name="nextFollowUpAtTime"
+              type="time"
+              aria-label="Čas dalšího kontaktu"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+          </div>
         </div>
       </div>
 

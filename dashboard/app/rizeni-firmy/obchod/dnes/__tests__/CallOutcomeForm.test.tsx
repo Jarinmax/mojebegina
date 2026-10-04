@@ -50,7 +50,7 @@ describe("CallOutcomeForm — Security Phase 19", () => {
     expect(dateInput.required).toBe(false);
   });
 
-  it("po výběru výsledku 'Zavolat později' se datum stane required", () => {
+  it("po výběru výsledku 'Zavolat později' se datum i čas stanou required", () => {
     render(<CallOutcomeForm itemId="item-1" />);
     fireEvent.click(screen.getByText("Zapsat výsledek"));
 
@@ -59,5 +59,7 @@ describe("CallOutcomeForm — Security Phase 19", () => {
 
     const dateInput = screen.getByLabelText(/^Další kontakt/) as HTMLInputElement;
     expect(dateInput.required).toBe(true);
+    const timeInput = screen.getByLabelText("Čas dalšího kontaktu") as HTMLInputElement;
+    expect(timeInput.required).toBe(true);
   });
 });

@@ -87,16 +87,26 @@ export default function CallOutcomeForm({ itemId }: { itemId: string }) {
           </select>
         </div>
         <div>
-          <label htmlFor={`nextFollowUpAt-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
+          <label htmlFor={`nextFollowUpAtDate-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
             Další kontakt{result === "call_back_later" ? " (povinné)" : ""}
           </label>
-          <input
-            id={`nextFollowUpAt-${itemId}`}
-            name="nextFollowUpAt"
-            type="date"
-            required={result === "call_back_later"}
-            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-          />
+          <div className="flex gap-2">
+            <input
+              id={`nextFollowUpAtDate-${itemId}`}
+              name="nextFollowUpAtDate"
+              type="date"
+              required={result === "call_back_later"}
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+            <input
+              id={`nextFollowUpAtTime-${itemId}`}
+              name="nextFollowUpAtTime"
+              type="time"
+              required={result === "call_back_later"}
+              aria-label="Čas dalšího kontaktu"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+          </div>
         </div>
       </div>
 

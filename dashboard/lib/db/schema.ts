@@ -429,7 +429,8 @@ export const leadActivity = pgTable(
     authorUserId: text("author_user_id").notNull(),
     authorName: text("author_name"),
     // "created" | "stage_changed" | "owner_assigned" | "acquired_by_set" |
-    // "call_logged" | "note_added" | "converted" | "company_name_set"
+    // "call_logged" | "note_added" | "converted" | "company_name_set" |
+    // "follow_up_removed" (Security Phase 20)
     kind: text("kind").notNull(),
     body: text("body"),
     metadata: jsonb("metadata"),
@@ -543,6 +544,57 @@ export const dailyCallQueue = pgTable(
     ),
   ]
 );
+
+// Security Phase 20 (Google Kalendář 1.0) — propojení Blahoutova Google
+// účtu s appkou, schváleno výhradně pro Blahouta samotného (nikdy Viner
+// jménem Blahouta — gate v googleCalendarAuth.ts kontroluje konkrétní
+// userId, ne jen roli, stejný princip jako dailyCallsAuth.ts).
+// `googleCalendarId` je sekundární kalendář "MojeBegina – volání",
+// založený appkou při prvním propojení (scope `calendar.app.created` —
+// appka smí spravovat jen kalendáře, které sama vytvořila, nikdy
+// Blahoutův osobní primární kalendář).
+// `refreshTokenEncrypted` je base64 (IV + ciphertext + auth tag z
+// AES-256-GCM, klíč jen ve Vercel env, nikdy v DB) — text sloupec, ne
+// bytea, kvůli jednoduššímu a spolehlivějšímu zacházení přes
+// @neondatabase/serverless (stejný princip jako jsonb.metadata jinde v
+// schématu — binární data se v týhle appce nikdy neukládají přímo).
+// UNIQUE(userId), ne primární klíč na userId — opětovné propojení po
+// odpojení musí jít přes UPDATE existujícího řádku (ON CONFLICT), ne
+// založení druhého řádku pro stejného uživatele.
+export const googleCalendarConnections = pgTable("google_calendar_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().unique(),
+  googleAccountEmail: text("google_account_email").notNull(),
+  googleCalendarId: text("google_calendar_id").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  grantedScopes: text("granted_scopes").notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+// Security Phase 20 — 1:1 na leads (jeden lead má nejvýš jednu "aktivní"
+// připomínku dalšího kontaktu, tedy nejvýš jednu kalendářovou událost).
+// `syncedNextFollowUpAt`/`googleEventId` odrážejí stav, který NAPOSLEDY
+// úspěšně odpovídal Google kalendáři — "reconcile" mechanismus
+// (googleCalendar.ts:reconcileLeadCalendarEvent) porovnává tohle se
+// skutečným (efektivním) stavem leadu a podle rozdílu rozhoduje
+// create/update/delete/noop. `googleEventId` je DETERMINISTICKY odvozené
+// z leadId (ne přidělené Googlem) — řeší pád mezi vytvořením v Googlu a
+// zápisem sem (viz komentář u buildGoogleEventId v
+// googleCalendarValidation.ts).
+export const leadCalendarSync = pgTable("lead_calendar_sync", {
+  leadId: uuid("lead_id")
+    .primaryKey()
+    .references(() => leads.id),
+  googleEventId: text("google_event_id"),
+  syncedNextFollowUpAt: timestamp("synced_next_follow_up_at", { withTimezone: true }),
+  syncStatus: text("sync_status").notNull().default("pending"), // "pending" | "synced" | "failed"
+  lastError: text("last_error"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+},
+(table) => [
+  check("lead_calendar_sync_status_check", sql`${table.syncStatus} IN ('pending','synced','failed')`),
+]);
 
 // Stejný vzor jako company_node_activity/lead_activity — jeden sdílený
 // timeline pro poznámky i systémové události, authorName jako snapshot.

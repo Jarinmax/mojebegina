@@ -10,6 +10,7 @@ import AddLeadToListForm from "./AddLeadToListForm";
 import GenerateCandidatesButton from "./GenerateCandidatesButton";
 import PublishDraftButton from "./PublishDraftButton";
 import QueueRecipientNotice from "./QueueRecipientNotice";
+import GoogleCalendarStatus from "./GoogleCalendarStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ async function CuratorSections() {
           {totalPending < 10 && <GenerateCandidatesButton />}
         </div>
         <QueueRecipientNotice count={published.length} />
+        <GoogleCalendarStatus />
         <AddLeadToListForm options={manualOptions} isFull={totalPending >= 10} />
       </div>
 
@@ -117,6 +119,7 @@ async function WorkerSections() {
           Vyřízeno: <span className="font-medium text-begina-primary-900">{doneToday} z {totalToday}</span>
         </p>
         <QueueRecipientNotice count={carriedOver.length + today.length} />
+        <GoogleCalendarStatus />
       </div>
 
       {carriedOver.length === 0 && today.length === 0 && (

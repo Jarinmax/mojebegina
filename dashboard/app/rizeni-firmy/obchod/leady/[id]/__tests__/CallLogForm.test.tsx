@@ -16,6 +16,7 @@ import CallLogForm from "../CallLogForm";
 
 vi.mock("../../../actions", () => ({
   logCallOutcomeAction: async () => null,
+  removeLeadFollowUpAction: async () => null,
 }));
 
 afterEach(() => {
@@ -37,7 +38,8 @@ describe("CallLogForm — Security Phase 16.5", () => {
       <CallLogForm leadId="lead-1" nextFollowUpAt={new Date("2026-09-26T12:00:00.000Z")} nextStepNote="Zavolat a domluvit vzorek" />
     );
     expect(screen.getByText(/Další kontakt:/)).toBeTruthy();
-    expect(screen.getByText("26. 9. 2026")).toBeTruthy();
+    // 2026-09-26T12:00:00.000Z je v září letní čas (CEST, UTC+2) → 14:00.
+    expect(screen.getByText("26. 9. 2026 14:00")).toBeTruthy();
     expect(screen.getByText(/Další krok:/)).toBeTruthy();
     expect(screen.getByText("Zavolat a domluvit vzorek")).toBeTruthy();
   });

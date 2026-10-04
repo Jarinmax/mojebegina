@@ -39,6 +39,7 @@ import {
   MAX_QUEUE_SIZE,
   type DailyCallOutcomeInput,
 } from "./dailyCallsValidation";
+import { reconcileLeadCalendarEvent } from "./googleCalendar";
 import type { AuthContext } from "./types";
 
 export async function requireDailyCallCuratorContext(): Promise<NonNullable<AuthContext>> {
@@ -502,5 +503,21 @@ export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOut
     })
   );
 
-  return interpretCallLogOutcome(result.rows.length);
+  const outcome = interpretCallLogOutcome(result.rows.length);
+
+  // Security Phase 20 (Google Kalendář 1.0) — AŽ PO úspěšném commitu výše
+  // (ten už je nevratný). Selhání tady nesmí vrátit zpět správně uložený
+  // zápis hovoru — stejný princip jako logDailyCallOutcomeAction (try/catch
+  // obalující jen best-effort vedlejší účinek, ne hlavní zápis).
+  if (outcome.ok) {
+    try {
+      await reconcileLeadCalendarEvent(item.leadId);
+    } catch {
+      // Stav synchronizace (pending/failed) zůstává v lead_calendar_sync —
+      // uživatel uvidí "synchronizace kalendáře selhala" a může zopakovat,
+      // CRM zápis výše je v pořádku bez ohledu na tohle.
+    }
+  }
+
+  return outcome;
 }
