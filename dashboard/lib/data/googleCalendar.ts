@@ -335,22 +335,23 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
 
   if (action === "noop") return;
 
-  const owner = await getAuthorizedClientForOwner();
-  if (!owner.ok) {
-    await markSyncFailed(leadId, "Google Kalendář není propojen.");
-    return;
-  }
-
-  const client = buildRealClient(owner.client);
-  const eventId = buildGoogleEventId(leadId);
-  const [lastNoteRow] = await db
-    .select({ body: leadActivity.body })
-    .from(leadActivity)
-    .where(eq(leadActivity.leadId, leadId))
-    .orderBy(desc(leadActivity.createdAt))
-    .limit(1);
-
+  // Celé tělo níže (včetně getAuthorizedClientForOwner — dešifrování
+  // refresh tokenu, čtení poslední poznámky) je v JEDNOM try/catch, ne
+  // jen volání Google API: selhání dešifrování (otočený/chybějící
+  // GOOGLE_TOKEN_ENCRYPTION_KEY, poškozená hodnota v DB) nebo chyba při
+  // čtení lastNoteRow musí stejně skončit jako "failed" se srozumitelnou
+  // zprávou, jinak by uživatel neviděl žádnou chybu ani tlačítko "Zkusit
+  // znovu" a synchronizace by tiše zůstala nehotová napořád.
   try {
+    const owner = await getAuthorizedClientForOwner();
+    if (!owner.ok) {
+      await markSyncFailed(leadId, "Google Kalendář není propojen.");
+      return;
+    }
+
+    const client = buildRealClient(owner.client);
+    const eventId = buildGoogleEventId(leadId);
+
     if (action === "delete") {
       await client.deleteEvent(owner.calendarId, eventId);
       await markSyncSynced(leadId, null, null);
@@ -358,6 +359,13 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
     }
 
     if (!current) return; // create/update vždy mají current != null
+
+    const [lastNoteRow] = await db
+      .select({ body: leadActivity.body })
+      .from(leadActivity)
+      .where(eq(leadActivity.leadId, leadId))
+      .orderBy(desc(leadActivity.createdAt))
+      .limit(1);
 
     const event: CalendarEventInput = {
       summary: buildEventTitle(
