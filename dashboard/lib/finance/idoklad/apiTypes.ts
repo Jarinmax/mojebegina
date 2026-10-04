@@ -121,4 +121,6 @@ export type ApiAgenda = {
   IsRegisteredForVat?: boolean | null;
   DefaultCurrencyId?: number | null;
   Contact?: { IdentificationNumber?: string | null; VatIdentificationNumber?: string | null } | null;
+  // SubscriptionType: 0 Free, 1 Basic, 2 Standard, 3 Premium
+  Subscription?: { Type?: ApiEnum | null; IsTrial?: boolean | null; DateTo?: string | null } | null;
 };

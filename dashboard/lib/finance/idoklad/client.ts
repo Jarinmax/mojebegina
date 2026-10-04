@@ -37,8 +37,12 @@ export type IdokladLogEvent = {
   code?: string;
 };
 
+// Přihlášení: buď Client Credentials (klient si token získá sám), nebo
+// hotový access token z Authorization Code flow (OAuth přihlášení
+// uživatele iDokladu) — ten klient jen používá, neobnovuje a nikam neukládá.
 export type IdokladClientOptions = {
-  credentials: IdokladCredentials;
+  credentials?: IdokladCredentials;
+  accessToken?: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
   requestBudget?: number;
@@ -71,7 +75,8 @@ const TOKEN_REFRESH_MARGIN_MS = 60_000;
 const DEFAULT_REQUEST_BUDGET = 500;
 
 export class IdokladClient {
-  private readonly credentials: IdokladCredentials;
+  private readonly credentials: IdokladCredentials | null;
+  private readonly staticToken: boolean;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
   private readonly requestBudget: number;
@@ -80,10 +85,16 @@ export class IdokladClient {
   private requests = 0;
 
   constructor(options: IdokladClientOptions) {
-    if (!options.credentials.clientId || !options.credentials.clientSecret) {
+    if (options.accessToken) {
+      this.credentials = null;
+      this.staticToken = true;
+      this.token = { value: options.accessToken, expiresAt: Number.POSITIVE_INFINITY };
+    } else if (options.credentials?.clientId && options.credentials.clientSecret) {
+      this.credentials = options.credentials;
+      this.staticToken = false;
+    } else {
       throw new IdokladError("not_configured");
     }
-    this.credentials = options.credentials;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.now = options.now ?? Date.now;
     this.requestBudget = options.requestBudget ?? DEFAULT_REQUEST_BUDGET;
@@ -99,7 +110,9 @@ export class IdokladClient {
   }
 
   private secrets(): string[] {
-    return [this.credentials.clientId, this.credentials.clientSecret, this.token?.value ?? ""];
+    return [this.credentials?.clientId, this.credentials?.clientSecret, this.token?.value].filter(
+      (value): value is string => typeof value === "string"
+    );
   }
 
   private async send(method: "GET" | "POST", url: string, init: RequestInit): Promise<Response> {
@@ -134,6 +147,10 @@ export class IdokladClient {
   private async getAccessToken(): Promise<string> {
     if (this.token && this.token.expiresAt - TOKEN_REFRESH_MARGIN_MS > this.now()) {
       return this.token.value;
+    }
+    if (!this.credentials) {
+      // Token z OAuth vypršel nebo byl odmítnut — tento klient ho neobnovuje.
+      throw new IdokladError("auth_failed", { userMessage: "Přihlášení k iDokladu vypršelo. Připojte iDoklad znovu." });
     }
     const body = new URLSearchParams({
       grant_type: "client_credentials",
@@ -189,7 +206,7 @@ export class IdokladClient {
       envelope = null;
     }
     if (!response.ok || (envelope && envelope.IsSuccess === false)) {
-      if (response.status === 401) {
+      if (response.status === 401 && !this.staticToken) {
         // Token mohl vypršet dřív, než tvrdil expires_in — příště nový.
         this.token = null;
       }

@@ -3,13 +3,14 @@
 // umí i zapisovat. Proto KAŽDÝ požadavek klienta projde touto funkcí ještě
 // před odesláním:
 //
-//   • POST je povolený jen na PŘESNOU adresu identity serveru pro token
-//     (bez query, bez jiné cesty, bez jiného hostu),
+//   • POST je povolený jen na PŘESNÉ adresy identity serveru pro token
+//     (IDOKLAD_ALLOWED_TOKEN_URLS — bez query, bez jiné cesty a hostu),
 //   • na datové API (api.idoklad.cz/v3) je povolený výhradně GET, a jen na
 //     kolekce/cesty ze seznamu v endpoints.ts,
 //   • vše ostatní (PUT, PATCH, DELETE, POST na API, jiný host, http,
 //     přihlašovací údaje v URL, „..“ v cestě, jiný port) se odmítne.
 import {
+  IDOKLAD_ALLOWED_TOKEN_URLS,
   IDOKLAD_API_HOST,
   IDOKLAD_API_PATH_PREFIX,
   IDOKLAD_READABLE_COLLECTIONS,
@@ -63,7 +64,7 @@ export function assertIdokladRequestAllowed(method: string, rawUrl: string): voi
     if (normalizedMethod !== "POST") {
       throw new IdokladRequestBlockedError("na identity server je povolený jen POST pro token");
     }
-    if (url.search !== "" || url.hash !== "" || url.href !== IDOKLAD_TOKEN_URL) {
+    if (url.search !== "" || url.hash !== "" || !IDOKLAD_ALLOWED_TOKEN_URLS.includes(url.href)) {
       throw new IdokladRequestBlockedError("POST je povolený jen na adresu pro získání tokenu");
     }
     return;

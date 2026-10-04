@@ -14,6 +14,8 @@ export type FakeIdokladOptions = {
   // Po tolika GET požadavcích na data začne vracet 429 (limit API).
   rateLimitAfter?: number;
   tokenStatus?: number;
+  // Kolekce, pro které falešný iDoklad vrátí daný HTTP stav.
+  failCollections?: Record<string, number>;
 };
 
 function envelope(data: unknown, status = 200): Response {
@@ -82,6 +84,10 @@ export function createFakeIdoklad(options: FakeIdokladOptions) {
       return envelope(options.agenda);
     }
     const collection = path.slice(1);
+    const failStatus = options.failCollections?.[collection];
+    if (failStatus) {
+      return envelope(null, failStatus);
+    }
     const all = ((options.collections[collection] ?? []) as Record<string, unknown>[])
       .slice()
       .sort((a, b) => Number(a.Id) - Number(b.Id));
