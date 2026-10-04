@@ -24,7 +24,8 @@ describe("token — jediný povolený POST", () => {
 
   it("POST na jinou cestu identity serveru neprojde", () => {
     blocked("POST", "https://identity.idoklad.cz/server/v2/connect/authorize");
-    blocked("POST", "https://identity.idoklad.cz/server/connect/token");
+    blocked("POST", "https://identity.idoklad.cz/server/connect/authorize");
+    blocked("POST", "https://identity.idoklad.cz/server/connect/userinfo");
     blocked("POST", `${IDOKLAD_TOKEN_URL}?x=1`);
     blocked("POST", `${IDOKLAD_TOKEN_URL}/`);
   });

@@ -12,6 +12,17 @@ export const IDOKLAD_API_PATH_PREFIX = "/v3";
 export const IDOKLAD_TOKEN_URL = "https://identity.idoklad.cz/server/v2/connect/token";
 export const IDOKLAD_TOKEN_SCOPE = "idoklad_api";
 
+// Authorization Code flow (developer aplikace „MojeBegina“). Oficiální SDK
+// adresu přihlášení nesestavuje; dvojici authorize + token používají shodně
+// konektor Orchesty (@orchesty/connector-idoklad, 29. 9. 2026) a knihovny
+// mervit/iDoklad-v3 a DobryProgramator. Autorizační kód se vyměňuje na
+// tokenové adrese STEJNÉHO identity serveru, odkud přišel.
+export const IDOKLAD_AUTHORIZE_URL = "https://identity.idoklad.cz/server/connect/authorize";
+export const IDOKLAD_AUTH_CODE_TOKEN_URL = "https://identity.idoklad.cz/server/connect/token";
+
+// Jediné adresy, kam smí odejít POST (získání tokenu).
+export const IDOKLAD_ALLOWED_TOKEN_URLS: readonly string[] = [IDOKLAD_TOKEN_URL, IDOKLAD_AUTH_CODE_TOKEN_URL];
+
 // Kolekce, které smí Finance 1.0 ČÍST. Cokoli mimo seznam klient odmítne
 // ještě před odesláním požadavku. BankAccounts/BankStatements/CashRegisters/
 // CashVouchers jsou tu jen pro jednorázovou read-only kontrolu, které

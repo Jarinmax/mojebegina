@@ -212,3 +212,50 @@ neplátce; DUZP; segmenty; pražský čas; synchronizace end-to-end nad
 falešným iDokladem (počáteční import, navázání po limitu přes víc běhů,
 429, smazání/obnovení, úprava dokladu, pojistky agendy a DPH, žádný jiný
 požadavek než GET a POST na token); oprávnění.
+
+## 15. OAuth připojení — první read-only test (jen Preview, 4. 10. 2026)
+
+Developer aplikace iDokladu **MojeBegina**, flow **AuthorizationCode**,
+Redirect URI pro Production i Preview větve `claude/great-bell-ffjwo3`.
+Implementováno jen na `claude/great-bell-ffjwo3`; v Production jsou obě
+routy vypnuté (404).
+
+**Průchod:** `/rizeni-firmy/finance/idoklad` (jen Viner) → „Připojit iDoklad
+(jen čtení)“ → `/api/idoklad/connect` (podepsaný `state` vázaný na userId,
+httpOnly cookie 10 min) → přihlášení v iDokladu → `/api/idoklad/callback`
+(ověření `state`, výměna kódu za token, read-only kontrola, token se
+zahodí) → stránka s výsledkem.
+
+**Co se přečte:** `GET /Account/CurrentAgenda` (název, IČO, DPH, tarif)
+a u 14 kolekcí jen počet záznamů (pageSize=1). Nic se nezapisuje do
+iDokladu ani do DB. Scope jen `idoklad_api` — bez `offline_access`, takže
+nevznikne refresh token.
+
+**Adresy (neoficiální, shodně Orchesty 29. 9. 2026 a dvě PHP knihovny):**
+authorize `https://identity.idoklad.cz/server/connect/authorize`, token
+`https://identity.idoklad.cz/server/connect/token`. Pojistka povoluje POST
+jen na tyto dvě přesné tokenové adresy (+ v2 pro Client Credentials).
+
+**Proměnné prostředí — Vercel, prostředí Preview, větev `claude/great-bell-ffjwo3`:**
+
+| Proměnná | Hodnota | Citlivá |
+|---|---|---|
+| `IDOKLAD_OAUTH_TEST_ENABLED` | `on` | ne |
+| `IDOKLAD_CLIENT_ID` | Client ID aplikace MojeBegina | ne (ale nesdílet) |
+| `IDOKLAD_CLIENT_SECRET` | nový Client Secret | **ano (Sensitive)** |
+| `IDOKLAD_REDIRECT_URI` | `https://mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app/api/idoklad/callback` | ne |
+| `IDOKLAD_OAUTH_STATE_SECRET` | náhodný řetězec ≥ 32 znaků (`openssl rand -base64 32`) | **ano (Sensitive)** |
+| `FINANCE_COMPANY_ICO` | IČO Beginy (volitelné — označí, zda jde o agendu Beginy) | ne |
+| `FINANCE_VAT_MODE` | `non_payer` (volitelné — porovná se s iDokladem) | ne |
+
+V Production se nic nenastavuje. Test se musí spustit z adresy větve
+(`mojebegina-git-claude-great-bell-ffjwo3-jarin-max.vercel.app`), ne
+z adresy konkrétního nasazení — jinak by cookie se `state` při návratu
+chyběla (route sama přesměruje na adresu větve).
+
+**Dopad na návrh synchronizace (oddíly 5 a 9):** s Authorization Code
+neurčují agendu přístupové údaje aplikace, ale **uživatel, který se
+přihlásí**. Trvalá synchronizace bude potřebovat refresh token
+(`offline_access`) uložený šifrovaně v DB (vzor `googleCalendarCrypto.ts`)
+— to je samostatné rozhodnutí před migrací. Pojistka IČO agendy
+(`assertAgendaAllowed`) zůstává.
