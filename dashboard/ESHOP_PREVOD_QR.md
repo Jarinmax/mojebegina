@@ -6,7 +6,9 @@ z WooCommerce (start = nejvyšší číslo z WooCommerce).
 
 ## Rozhodnutí vedení (2. 10. 2026)
 
-- Číslování a QR platba v jednom kroku; **VS = číslo objednávky**.
+- Číslování a QR platba v jednom kroku; ~~VS = číslo objednávky~~ — od
+  kroku B (6. 10. 2026) je **VS = `orders.payment_vs`** (řada 7xxxxxxx,
+  neměnný), zpráva pro příjemce dál nese číslo objednávky.
 - Preview: testovací řada od **900001**.
 - Splatnost převodu **5 dní**; po splatnosti se objednávka jen označí
   („Po splatnosti“ v MojeBegina), nic se automaticky neruší.
@@ -87,11 +89,11 @@ s `<MAX_WOO_ORDER_NUMBER>` = `900000`. Návrat:
 - **Neověřeno:** skenování skutečnou bankovní aplikací a skutečné
   doručení e-mailu s QR — první test v Preview.
 
-## Rozhodnutí o VS a fakturaci (vedení 3. 10. 2026) — zatím neimplementováno
+## Rozhodnutí o VS a fakturaci (vedení 3. 10. 2026) — VS hotový (krok B, 6. 10. 2026), fakturace zatím ne
 
 - **Varianta A:** VS je samostatný platební identifikátor objednávky, uloží se
   natrvalo do `orders.payment_vs` při vytvoření objednávky; zákazník platí
-  tímto VS (dnes se VS dopočítává z čísla objednávky — změní se s migrací).
+  tímto VS (hotovo: krok B, `docs/eshop-payments/`, 6. 10. 2026).
 - Po potvrzení platby vznikne faktura s **vlastním číslem**, která ponese
   stejné `payment_vs`. Platba ↔ objednávka ↔ faktura jednoznačně propojené.
 - Samostatná tabulka **`payments`** (přijaté platby) připravená na pozdější

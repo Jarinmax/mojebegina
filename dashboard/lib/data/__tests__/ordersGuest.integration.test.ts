@@ -52,8 +52,8 @@ describe("objednávka bez organizace v MojeBegina", DB_TEST, () => {
       VALUES ('${ORG_ORDER}', '${ORG}', 'firma@example.cz', 758, 0, 758, 'paid', '2026-09-01');
       INSERT INTO order_items (order_id, name, quantity, unit_price_kc, line_total_kc)
       VALUES ('${ORG_ORDER}', 'Kulajda', 2, 379, 758);
-      INSERT INTO orders (id, channel, contact_name, contact_email, subtotal_kc, shipping_kc, total_kc, payment_status, ordered_at)
-      VALUES ('${GUEST_ORDER}', 'eshop', 'Jana Nováková', 'jana@example.cz', 379, 99, 478, 'unpaid', '2026-09-20');
+      INSERT INTO orders (id, channel, contact_name, contact_email, subtotal_kc, shipping_kc, total_kc, payment_status, ordered_at, payment_vs)
+      VALUES ('${GUEST_ORDER}', 'eshop', 'Jana Nováková', 'jana@example.cz', 379, 99, 478, 'unpaid', '2026-09-20', '70000001');
       INSERT INTO order_items (order_id, name, quantity, unit_price_kc, line_total_kc)
       VALUES ('${GUEST_ORDER}', 'Rajčatová polévka', 1, 379, 379);
       INSERT INTO leads (id, source, contact_email) VALUES ('${LEAD}', 'eshop', 'jana@example.cz');`);

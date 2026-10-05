@@ -2,15 +2,17 @@
 // v app/api/eshop/stripe/webhook/route.ts).
 //
 // Idempotence: Stripe smí stejnou událost poslat víckrát (a platby
-// WooCommerce na stejném účtu chodí sem taky). Objednávka se přepne na
-// Zaplaceno jediným SQL příkazem (UPDATE ... WHERE payment_status <> 'paid'
-// + INSERT aktivity z téhož výsledku) — opakovaná nebo souběžná událost
-// nic nezmění a nezapíše druhý záznam.
+// WooCommerce na stejném účtu chodí sem taky). Každý pokus (Checkout
+// Session) je jeden řádek v payments (UNIQUE source + external_id);
+// úspěšná platba ho přepne na „proběhlo“ a v téže transakci se přepočítá
+// objednávka (lib/eshop/payments.ts) — Zaplaceno až po úhradě celé částky,
+// opakovaná nebo souběžná událost nic nezmění a nezapíše druhý záznam.
 import { sql } from "drizzle-orm";
 import type Stripe from "stripe";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { STRIPE_SOURCE } from "./payment";
+import { closeStripeAttempt, recordStripeSuccess } from "../payments";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -61,57 +63,59 @@ export async function handleStripeEvent(db: Db, event: Pick<Stripe.Event, "id" |
   const orderId = session.client_reference_id ?? "";
   if (!UUID.test(orderId) || session.metadata?.orderId !== orderId) return "ignored-foreign";
 
-  // Zrušená / propadlá / neúspěšná platba: objednávka zůstává nezaplacená
-  // a zákazník může zaplatit znovu.
+  const rows = (
+    await db.execute(sql`SELECT total_kc, payment_status, payment_vs FROM orders WHERE id = ${orderId} AND channel = 'eshop'`)
+  ).rows as { total_kc: number; payment_status: string; payment_vs: string | null }[];
+  const order = rows[0];
+  if (!order) return "ignored-unknown-order";
+  const requiredHal = order.total_kc * 100;
+  const attempt = {
+    orderId,
+    checkoutSessionId: session.id,
+    amountHal: session.amount_total ?? requiredHal,
+    vs: order.payment_vs,
+  };
+
+  // Zrušená / propadlá / neúspěšná platba: pokus se uzavře, objednávka
+  // zůstává nezaplacená a zákazník může zaplatit znovu.
   if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+    await closeStripeAttempt(db, {
+      ...attempt,
+      status: event.type === "checkout.session.expired" ? "cancelled" : "failed",
+    });
     return "no-change";
   }
   if (session.payment_status !== "paid") return "not-paid-yet";
 
-  const rows = (await db.execute(sql`SELECT total_kc, payment_status FROM orders WHERE id = ${orderId} AND channel = 'eshop'`))
-    .rows as { total_kc: number; payment_status: string }[];
-  const order = rows[0];
-  if (!order) return "ignored-unknown-order";
-
   const pi = paymentIntentId(session);
   const key = pi ?? session.id;
-  if (session.currency !== "czk" || session.amount_total !== order.total_kc * 100) {
-    await warnOnce(
-      db,
-      orderId,
-      "payment_amount_mismatch",
-      { key, provider: "stripe", checkoutSession: session.id, paymentIntent: pi, amount: session.amount_total, currency: session.currency },
-      key
-    );
+  const mismatchMeta = {
+    key,
+    provider: "stripe",
+    checkoutSession: session.id,
+    paymentIntent: pi,
+    amount: session.amount_total,
+    currency: session.currency,
+  };
+  // Jiná měna se do plateb nezapíše (evidujeme jen CZK) — jen varování.
+  if (session.currency !== "czk" || session.amount_total === null) {
+    await warnOnce(db, orderId, "payment_amount_mismatch", mismatchMeta, key);
     return "amount-mismatch";
   }
 
-  const meta = JSON.stringify({
-    key,
-    provider: "stripe",
-    to: "paid",
-    checkoutSession: session.id,
-    paymentIntent: pi,
+  // Peníze přišly → platba se zapíše vždy (i s nesedící částkou);
+  // Zaplaceno nastaví až přepočet, když je uhrazená celá částka.
+  const result = await recordStripeSuccess(db, {
+    ...attempt,
+    amountHal: session.amount_total,
+    paymentIntentId: pi,
     eventId: event.id,
   });
-  const updated = (
-    await db.execute(sql`
-      WITH prev AS (
-        SELECT id, payment_status FROM orders
-        WHERE id = ${orderId} AND channel = 'eshop' AND payment_status <> 'paid'
-        FOR UPDATE
-      ),
-      upd AS (
-        UPDATE orders o SET payment_status = 'paid', paid_at = now()
-        FROM prev WHERE o.id = prev.id
-        RETURNING o.id, prev.payment_status AS from_status
-      )
-      INSERT INTO order_activity (order_id, actor_type, author_name, kind, metadata)
-      SELECT id, 'system', 'Stripe', 'payment_status_changed', ${meta}::jsonb || jsonb_build_object('from', from_status)
-      FROM upd
-      RETURNING order_id`)
-  ).rows;
-  if (updated.length > 0) return "paid";
+  if (result.settled) return "paid";
+  if (session.amount_total !== requiredHal) {
+    await warnOnce(db, orderId, "payment_amount_mismatch", mismatchMeta, key);
+    return "amount-mismatch";
+  }
 
   // Už zaplaceno: buď opakovaná událost téže platby (nic), nebo zákazník
   // zaplatil podruhé v jiné záložce → varování pro vrácení peněz.

@@ -10,6 +10,8 @@ import { applyOrderNumbering, createMigratedDb, orderNumberingSql } from "./help
 const DB_TEST = { timeout: 60_000 };
 const DOWN = readFileSync(path.join(__dirname, "../../../docs/eshop-schema-draft/06b_order_number_cutover_down.sql"), "utf8");
 const ORG = "00000000-0000-4000-8000-000000000001";
+// Skript 06b běžel na Preview před platbami (drizzle 0020 přidává povinný VS).
+const BEFORE_PAYMENTS = "0019_eshop_1_0_orders_guest";
 
 async function seedLikePreview(pg: PGlite) {
   await pg.exec(`
@@ -33,7 +35,7 @@ describe("číslování objednávek — skript 06b (Preview: start 900000)", DB_
   let pg: PGlite;
 
   beforeAll(async () => {
-    ({ pg } = await createMigratedDb());
+    ({ pg } = await createMigratedDb(BEFORE_PAYMENTS));
     await seedLikePreview(pg);
     await applyOrderNumbering(pg, 900000);
   }, DB_TEST.timeout);
@@ -96,14 +98,14 @@ describe("číslování objednávek — skript 06b (Preview: start 900000)", DB_
 
 describe("číslování — pojistky skriptu", DB_TEST, () => {
   it("bez doplněného startu řady skript skončí chybou (nic se nespustí)", async () => {
-    const { pg } = await createMigratedDb();
+    const { pg } = await createMigratedDb(BEFORE_PAYMENTS);
     await expect(pg.exec(readFileSync(path.join(__dirname, "../../../docs/eshop-schema-draft/06b_order_number_cutover_up.sql"), "utf8"))).rejects.toThrow();
     const { rows } = await pg.query(`SELECT 1 FROM pg_class WHERE relname = 'order_number_seq'`);
     expect(rows).toHaveLength(0);
   });
 
   it("když už existuje vyšší číslo než start řady, skript se zastaví a nic nezmění", async () => {
-    const { pg } = await createMigratedDb();
+    const { pg } = await createMigratedDb(BEFORE_PAYMENTS);
     await pg.exec(`INSERT INTO orders (channel, contact_email, subtotal_kc, total_kc, payment_status, order_number) VALUES ('eshop', 'q@example.cz', 1, 1, 'unpaid', 950000)`);
     await expect(pg.exec(orderNumberingSql(900000))).rejects.toThrow(/vyšší než zvolený start/);
     const { rows } = await pg.query(`SELECT 1 FROM pg_class WHERE relname = 'order_number_seq'`);

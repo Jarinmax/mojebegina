@@ -10,6 +10,7 @@ import type { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { invoices, orders } from "@/lib/db/schema";
 import { createMigratedDb } from "./helpers/migratedDb";
+import { DRIZZLE_TAG, drizzleSql } from "../../../scripts/eshop-payments/build-drizzle.mjs";
 
 const DB_TEST = { timeout: 120_000 };
 const DIR = path.join(__dirname, "../../../docs/eshop-payments");
@@ -54,7 +55,8 @@ describe("platby a fakturace — krok A nad daty jako na Preview", DB_TEST, () =
   const pay = (cols: string, vals: string) => pg.exec(`INSERT INTO payments (${cols}) VALUES (${vals})`);
 
   beforeAll(async () => {
-    ({ pg, db } = await createMigratedDb());
+    // stav Preview před krokem A: migrace do 0019 (krok A+B je v drizzle 0020)
+    ({ pg, db } = await createMigratedDb("0019_eshop_1_0_orders_guest"));
     await pg.exec(`
       INSERT INTO organizations (id, ico, name, registered_address) VALUES ('${ORG}', '11935367', 'The Cup s.r.o.', 'Praha');
       INSERT INTO orders (id, buyer_organization_id, subtotal_kc, total_kc, payment_status, channel) VALUES
@@ -208,5 +210,58 @@ describe("platby a fakturace — krok A nad daty jako na Preview", DB_TEST, () =
     // a migrace jde po vrácení spustit znovu
     await pg.exec(file("11_migration.sql"));
     expect(await check(pg, "12_after.sql")).toBe("5 | 1 | 1 | 1 | 0 | 2 | 2 | 9 | 0 | 0 | 9");
+  });
+});
+
+describe("drizzle 0020 = balíček z Preview (krok A + B)", () => {
+  it("soubor odpovídá výstupu scripts/eshop-payments/build-drizzle.mjs", () => {
+    expect(readFileSync(path.join(__dirname, `../../../drizzle/${DRIZZLE_TAG}.sql`), "utf8")).toBe(drizzleSql());
+  });
+});
+
+describe("platby a fakturace — krok B (povinný VS) nad daty jako na Preview", DB_TEST, () => {
+  let pg: PGlite;
+  const q = async (s: string) => (await pg.query<Record<string, unknown>>(s)).rows;
+  const oldCodeInsert = `INSERT INTO orders (subtotal_kc, total_kc, payment_status, channel, contact_email) VALUES (1, 1, 'unpaid', 'eshop', 'stary@kod.cz')`;
+
+  beforeAll(async () => {
+    ({ pg } = await createMigratedDb("0019_eshop_1_0_orders_guest"));
+    await pg.exec(`
+      INSERT INTO orders (subtotal_kc, total_kc, payment_status, channel, contact_email, ordered_at)
+        SELECT 379, 379, 'unpaid', 'eshop', 'zakaznik' || g || '@example.cz', '2026-10-01'::timestamptz + g * interval '1 hour'
+        FROM generate_series(1, 6) g;`);
+    await pg.exec(file("11_migration.sql")); // krok A (na Preview spuštěn 5. 10. 2026)
+  });
+
+  it("před nasazením kódu: kontrola před ukáže, že migraci ještě NESPOUŠTĚT", async () => {
+    expect(await check(pg, "20_before.sql")).toBe("ano | 0 | 6 | 6 | null");
+  });
+
+  it("nový kód + testovací objednávka → kontrola před → migrace → kontrola po", async () => {
+    // nová pokladna: VS v témže INSERTu (PAYMENT_VS_SQL)
+    await pg.exec(`INSERT INTO orders (subtotal_kc, total_kc, payment_status, channel, contact_email, payment_vs)
+      VALUES (379, 379, 'unpaid', 'eshop', 'test@begina.cz', '7' || lpad(nextval('payment_vs_seq')::text, 7, '0'))`);
+    expect(await check(pg, "20_before.sql")).toBe("ano | 0 | 7 | 6 | 70000001");
+    await pg.exec(file("21_migration.sql"));
+    expect(await check(pg, "22_after.sql")).toBe("1 | 7 | 0 | ano | ano");
+    // starší objednávky dostaly VS v pořadí, v jakém vznikly
+    expect((await q(`SELECT payment_vs FROM orders WHERE contact_email LIKE 'zakaznik%' ORDER BY ordered_at`)).map((r) => r.payment_vs)).toEqual([
+      "70000002", "70000003", "70000004", "70000005", "70000006", "70000007",
+    ]);
+    // stará pokladna bez VS už objednávku neuloží; ruční objednávka VS mít nemusí
+    await expect(pg.exec(oldCodeInsert)).rejects.toThrow(/orders_eshop_requires_vs/);
+    await pg.exec(`INSERT INTO organizations (id, ico, name, registered_address) VALUES ('${ORG}', '11935367', 'The Cup s.r.o.', 'Praha')`);
+    await pg.exec(`INSERT INTO orders (buyer_organization_id, subtotal_kc, total_kc, payment_status, channel) VALUES ('${ORG}', 1, 1, 'unpaid', 'manual')`);
+  });
+
+  it("vrácení kroku B: jen vypne povinnost, VS zůstanou; migrace jde spustit znovu", async () => {
+    await pg.exec(file("29_rollback.sql"));
+    expect(await check(pg, "20_before.sql")).toBe("ano | 0 | 7 | 0 | 70000001");
+    await pg.exec(oldCodeInsert);
+    await pg.exec(`DELETE FROM orders WHERE contact_email = 'stary@kod.cz'`);
+    await pg.exec(file("21_migration.sql"));
+    expect(await check(pg, "22_after.sql")).toBe("1 | 7 | 0 | ano | ano");
+    // krok A se s přidělenými VS vrátit nedá (data by se ztratila) — skript se zastaví
+    await expect(pg.exec(file("19_rollback.sql"))).rejects.toThrow(/Vrácení zastaveno/);
   });
 });

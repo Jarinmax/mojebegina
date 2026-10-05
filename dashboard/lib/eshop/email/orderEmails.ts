@@ -83,6 +83,7 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
       id: orders.id,
       channel: orders.channel,
       orderNumber: orders.orderNumber,
+      paymentVs: orders.paymentVs,
       contactName: orders.contactName,
       contactEmail: orders.contactEmail,
       recipientAddress: orders.recipientAddress,

@@ -9,6 +9,7 @@ import {
   createOrder,
   updateFulfillmentStatus,
   updatePaymentStatus,
+  recordOrderPayment,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
@@ -81,6 +82,30 @@ export async function updatePaymentStatusAction(
 
   revalidateOrder(orderId);
   return { success: "Stav platby byl uložen." };
+}
+
+// ESHOP 1.0 — „Zapsat platbu“ (e-shopové objednávky): Zaplaceno se nastaví
+// samo, až je uhrazená celá částka (lib/eshop/payments.ts).
+export async function recordPaymentAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const field = (key: string) => String(formData.get(key) ?? "");
+  const result = await recordOrderPayment(orderId, {
+    token: field("token"),
+    amountKc: field("amountKc"),
+    date: field("date"),
+    method: field("method"),
+    note: field("note"),
+  });
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateOrder(orderId);
+  if (!result.recorded) return { success: "Tahle platba už je zapsaná." };
+  return { success: result.settled ? "Platba zapsána — objednávka je zaplacená." : "Platba zapsána." };
 }
 
 export async function assignResponsibleAction(

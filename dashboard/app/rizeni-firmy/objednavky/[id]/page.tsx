@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,6 +8,7 @@ import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
 import FulfillmentStatusForm from "../FulfillmentStatusForm";
 import PaymentStatusForm from "../PaymentStatusForm";
+import OrderPayments from "../OrderPayments";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
@@ -32,7 +34,7 @@ export default async function OrderDetailPage(
   if (!detail) {
     notFound();
   }
-  const { order, items, activity } = detail;
+  const { order, items, activity, payments } = detail;
   const staff = await listInternalStaff();
 
   return (
@@ -107,7 +109,7 @@ export default async function OrderDetailPage(
               {order.transferDueAt && order.paymentStatus === "unpaid" && (
                 <p className={`text-xs ${order.paymentOverdue ? "text-red-700 font-medium" : "text-neutral-500"}`}>
                   Splatnost {formatPragueDate(order.transferDueAt)}
-                  {order.orderNumber !== null && <> · VS {order.orderNumber}</>}
+                  {order.paymentVs !== null && <> · VS {order.paymentVs}</>}
                   {order.paymentOverdue && " — po splatnosti"}
                 </p>
               )}
@@ -159,7 +161,18 @@ export default async function OrderDetailPage(
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
         <FulfillmentStatusForm orderId={order.id} currentStatus={order.fulfillmentStatus} />
-        <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />
+        {payments ? (
+          // E-shop: Zaplaceno se počítá z plateb — místo přepínání „Zapsat platbu“.
+          <OrderPayments
+            orderId={order.id}
+            summary={payments}
+            paymentVs={order.paymentVs}
+            token={randomUUID()}
+            today={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date())}
+          />
+        ) : (
+          <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />
+        )}
         <ResponsibleForm
           orderId={order.id}
           responsibleUserId={order.responsibleUserId}

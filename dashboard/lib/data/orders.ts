@@ -18,6 +18,12 @@ import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import {
+  loadOrderPayments,
+  parseAmountKcToHal,
+  recordManualPayment,
+  type OrderPaymentSummary,
+} from "@/lib/eshop/payments";
+import {
   validateCreateOrderInput,
   validateFulfillmentStatusInput,
   validatePaymentStatusInput,
@@ -224,9 +230,13 @@ export type OrderDetail = {
     ageConfirmedAt: Date | null;
     /** Splatnost převodu z e-shopu; null u ostatních objednávek. */
     transferDueAt: Date | null;
+    /** Platební identifikátor (VS 7xxxxxxx) e-shopové objednávky; null u ostatních. */
+    paymentVs: string | null;
   };
   items: OrderItemData[];
   activity: OrderActivityEntry[];
+  /** Platby a stav úhrady — jen e-shopové objednávky (ostatní null). */
+  payments: OrderPaymentSummary | null;
 };
 
 export async function getOrderDetail(orderId: string): Promise<OrderDetail | null> {
@@ -275,8 +285,10 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       ageConfirmedAt: row.ageConfirmedAt,
       transferDueAt:
         row.channel === "eshop" && row.paymentMethodCode === TRANSFER_PAYMENT_METHOD ? transferDueAt(row.orderedAt) : null,
+      paymentVs: row.paymentVs,
     },
     items,
+    payments: row.channel === "eshop" ? await loadOrderPayments(db, orderId) : null,
     activity: activityRows.map((r) => ({
       id: r.id,
       kind: r.kind,
@@ -396,12 +408,17 @@ export async function updatePaymentStatus(orderId: string, rawStatus: string): P
   }
 
   const [current] = await db
-    .select({ paymentStatus: orders.paymentStatus })
+    .select({ paymentStatus: orders.paymentStatus, channel: orders.channel })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
   if (!current) {
     return { ok: false, error: "Objednávka nebyla nalezena." };
+  }
+  // ESHOP 1.0 — u e-shopové objednávky se stav nepřepíná: „Zaplaceno“
+  // se počítá z plateb (recordOrderPayment / Stripe, lib/eshop/payments.ts).
+  if (current.channel === "eshop") {
+    return { ok: false, error: "U e-shopové objednávky se stav platby nepřepíná — zapište platbu." };
   }
 
   await db.batch([
@@ -421,14 +438,75 @@ export async function updatePaymentStatus(orderId: string, rawStatus: string): P
     }),
   ]);
 
-  // ESHOP 1.0 — e-shopový zákazník dostane „Platbu jsme přijali“ (nejvýš
-  // jednou za objednávku, viz lib/eshop/email/orderEmails.ts). Nikdy
-  // nevyhazuje výjimku: změna stavu je už uložená.
-  if (validated.value === "paid" && current.paymentStatus !== "paid") {
+  return { ok: true };
+}
+
+export type RecordPaymentInput = {
+  token: string;
+  amountKc: string;
+  date: string; // YYYY-MM-DD (den, kdy peníze přišly)
+  method: string;
+  note: string;
+};
+
+export type RecordPaymentResult =
+  | { ok: true; recorded: boolean; settled: boolean }
+  | { ok: false; error: string };
+
+const MANUAL_METHODS = ["bank_transfer", "cash"] as const;
+const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Dnešní datum v Praze jako YYYY-MM-DD. */
+function pragueToday(now: Date): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(now);
+}
+
+/**
+ * ESHOP 1.0 — „Zapsat platbu“ k e-shopové objednávce (převod / hotovost).
+ * Platba se zapíše do payments; Zaplaceno nastaví přepočet, až je uhrazená
+ * celá částka — pak zákazník dostane „Platbu jsme přijali“ (nejvýš jednou).
+ * Stejný token formuláře = žádná druhá platba.
+ */
+export async function recordOrderPayment(orderId: string, input: RecordPaymentInput): Promise<RecordPaymentResult> {
+  const ctx = await requireOrderContext();
+
+  if (!TOKEN_RE.test(input.token)) return { ok: false, error: "Formulář vypršel — obnovte prosím stránku." };
+  const amountHal = parseAmountKcToHal(input.amountKc);
+  if (amountHal === null) return { ok: false, error: "Zadejte částku v Kč (např. 379 nebo 379,50)." };
+  const method = MANUAL_METHODS.find((m) => m === input.method);
+  if (!method) return { ok: false, error: "Vyberte způsob platby." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || Number.isNaN(Date.parse(`${input.date}T12:00:00Z`))) {
+    return { ok: false, error: "Zadejte datum platby." };
+  }
+  if (input.date > pragueToday(new Date())) return { ok: false, error: "Datum platby nemůže být v budoucnosti." };
+  const note = input.note.trim().slice(0, 500) || null;
+
+  const [order] = await db
+    .select({ channel: orders.channel, paymentVs: orders.paymentVs })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!order) return { ok: false, error: "Objednávka nebyla nalezena." };
+  if (order.channel !== "eshop") return { ok: false, error: "Platby se zatím zapisují jen u e-shopových objednávek." };
+
+  const result = await recordManualPayment(db, {
+    orderId,
+    token: input.token.toLowerCase(),
+    method,
+    amountHal,
+    // poledne UTC = tentýž den v Praze
+    occurredAt: new Date(`${input.date}T12:00:00Z`),
+    note,
+    vs: order.paymentVs,
+    user: { userId: ctx.userId, name: ctx.name ?? ctx.email },
+  });
+
+  // Zaplaceno teď → „Platbu jsme přijali“ (nejvýš jednou za objednávku,
+  // lib/eshop/email/orderEmails.ts). Nikdy nevyhazuje výjimku.
+  if (result.settled) {
     await sendOrderEmails(db, orderId, "payment_marked_paid", await getAppOrigin());
   }
-
-  return { ok: true };
+  return { ok: true, ...result };
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {

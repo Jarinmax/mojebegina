@@ -7,17 +7,24 @@
 // "new", platba "unpaid". Číslo objednávky přidělí databáze (výchozí
 // hodnota sloupce ze sekvence order_number_seq), jakmile je na daném
 // prostředí zapnuté číslování (skript 06b); do té doby zůstává NULL.
+// Platební identifikátor (VS, 7xxxxxxx) přidělí databáze ze řady
+// payment_vs_seq v témže INSERTu (PAYMENT_VS_SQL) — je neměnný a QR,
+// stránka objednávky i e-maily ho jen čtou (docs/eshop-payments).
 //
 // Zapisuje se JEN mimo Vercel Production (Preview, lokální vývoj), dokud
 // se v Production výslovně nenastaví ESHOP_ORDER_WRITE=on — viz
 // isOrderWriteEnabled.
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import type { PgInsertValue } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders, productVariants } from "@/lib/db/schema";
 import type { CheckoutValue } from "./checkout";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
+
+/** VS z řady payment_vs_seq: 8 číslic začínajících 7 (70000001, 70000002, …). */
+export const PAYMENT_VS_SQL = sql`'7' || lpad(nextval('payment_vs_seq')::text, 7, '0')`;
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -36,7 +43,7 @@ export function isOrderWriteEnabled(env: Record<string, string | undefined> = pr
 export type VariantRef = { id: string; priceKc: number };
 
 type OrderRows = {
-  order: typeof orders.$inferInsert;
+  order: PgInsertValue<typeof orders>; // paymentVs = SQL (PAYMENT_VS_SQL)
   items: (typeof orderItems.$inferInsert)[];
   activity: typeof orderActivity.$inferInsert;
 };
@@ -98,6 +105,7 @@ export function buildEshopOrderRows(
         ageConfirmedAt: pricedCart.containsAgeRestricted ? now : null,
         termsAcceptedAt: now,
         orderedAt: now,
+        paymentVs: PAYMENT_VS_SQL,
       },
       items,
       activity: {
@@ -114,23 +122,25 @@ export function buildEshopOrderRows(
 }
 
 export type SaveOrderResult =
-  | { ok: true; orderId: string; orderNumber: number | null; alreadySaved: boolean }
+  | { ok: true; orderId: string; orderNumber: number | null; paymentVs: string | null; alreadySaved: boolean }
   | { ok: false; error: string };
 
-/** undefined = objednávka neexistuje; jinak její číslo (null = číslování vypnuté). */
-async function existingOrderNumber(db: Db, orderId: string): Promise<number | null | undefined> {
+type SavedNumbers = { orderNumber: number | null; paymentVs: string | null };
+
+/** undefined = objednávka neexistuje; jinak její číslo (null = číslování vypnuté) a VS. */
+async function existingOrder(db: Db, orderId: string): Promise<SavedNumbers | undefined> {
   const [row] = await db
-    .select({ orderNumber: orders.orderNumber })
+    .select({ orderNumber: orders.orderNumber, paymentVs: orders.paymentVs })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
-  return row ? row.orderNumber : undefined;
+  return row;
 }
 
 export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutValue): Promise<SaveOrderResult> {
-  const existing = await existingOrderNumber(db, orderId);
+  const existing = await existingOrder(db, orderId);
   if (existing !== undefined) {
-    return { ok: true, orderId, orderNumber: existing, alreadySaved: true };
+    return { ok: true, orderId, ...existing, alreadySaved: true };
   }
 
   const skus = value.pricedCart.lines.map((line) => line.sku);
@@ -155,11 +165,12 @@ export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutVal
   } catch (error) {
     // Souběžné dvojí odeslání: druhý batch narazí na primární klíč a celý
     // se vrátí (transakce) — objednávka už existuje jen jednou.
-    const raced = await existingOrderNumber(db, orderId);
+    const raced = await existingOrder(db, orderId);
     if (raced !== undefined) {
-      return { ok: true, orderId, orderNumber: raced, alreadySaved: true };
+      return { ok: true, orderId, ...raced, alreadySaved: true };
     }
     throw error;
   }
-  return { ok: true, orderId, orderNumber: (await existingOrderNumber(db, orderId)) ?? null, alreadySaved: false };
+  const saved = await existingOrder(db, orderId);
+  return { ok: true, orderId, orderNumber: saved?.orderNumber ?? null, paymentVs: saved?.paymentVs ?? null, alreadySaved: false };
 }

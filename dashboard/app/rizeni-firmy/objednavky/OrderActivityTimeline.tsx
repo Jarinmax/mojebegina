@@ -18,7 +18,16 @@ function describeEntry(entry: OrderActivityEntry): string {
     }
     case "payment_status_changed": {
       const to = String(meta.to ?? "") as PaymentStatus;
+      // ESHOP 1.0 — přepočet z plateb (Stripe / zapsaná platba), ne ruční přepnutí
+      if (meta.provider === "stripe" || meta.provider === "manual") {
+        return `— objednávka je uhrazená celá, stav platby „${PAYMENT_LABELS[to] ?? to}“`;
+      }
       return `nastavil(a) stav platby na „${PAYMENT_LABELS[to] ?? to}“`;
+    }
+    case "payment_recorded": {
+      const hal = Number(meta.amountHal ?? 0);
+      const amount = hal % 100 === 0 ? `${(hal / 100).toLocaleString("cs-CZ")} Kč` : `${(hal / 100).toFixed(2).replace(".", ",")} Kč`;
+      return `zapsal(a) platbu ${amount} ${meta.method === "cash" ? "hotově" : "převodem"}`;
     }
     // ESHOP 1.0 — platba kartou (Stripe)
     case "payment_started":
@@ -36,7 +45,7 @@ function describeEntry(entry: OrderActivityEntry): string {
       return `⚠ nepodařilo se odeslat e-mail: ${label} — ${meta.template === "internal_new_order" ? "objednávka je jen tady" : "kontaktovat zákazníka ručně"}`;
     }
     case "payment_amount_mismatch":
-      return "⚠ přijal(a) platbu, jejíž částka nesedí s objednávkou — objednávka NENÍ označená jako zaplacená";
+      return "⚠ přijal(a) platbu, jejíž částka nesedí s objednávkou — zkontrolovat (Zaplaceno jen při úhradě celé částky)";
     case "responsible_assigned":
       return meta.responsibleUserId
         ? `přiřadil(a) odpovědnou osobu: ${String(meta.responsibleName ?? meta.responsibleUserId)}`

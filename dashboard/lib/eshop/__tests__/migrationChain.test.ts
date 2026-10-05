@@ -36,6 +36,7 @@ const ESHOP = [
   "0017_eshop_1_0_order_items_variant",
   "0018_eshop_1_0_order_number",
   "0019_eshop_1_0_orders_guest",
+  "0020_eshop_1_0_payments_invoicing",
 ];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
@@ -54,7 +55,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0019 hned za nimi", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0020 hned za nimi", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
@@ -88,7 +89,7 @@ describe("řetězec migrací Drizzle", () => {
     }
   });
 
-  it("e-shop nemění tabulky z main (0013–0019 = stejné jako 0012)", () => {
+  it("e-shop nemění tabulky z main (0013–0020 = stejné jako 0012)", () => {
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
     for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);
@@ -100,8 +101,10 @@ describe("řetězec migrací Drizzle", () => {
     async () => {
       const { pg } = await createMigratedDb();
       const { rows } = await pg.query<{ t: string; c: string }>(
-        `SELECT table_schema || '.' || table_name AS t, column_name AS c
-           FROM information_schema.columns WHERE table_schema = 'public'`
+        `SELECT c.table_schema || '.' || c.table_name AS t, c.column_name AS c
+           FROM information_schema.columns c
+           JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+          WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'` // pohledy (order_payment_balance) snapshot nevede
       );
       const actual: Record<string, string[]> = {};
       for (const { t, c } of rows) (actual[t] ??= []).push(c);

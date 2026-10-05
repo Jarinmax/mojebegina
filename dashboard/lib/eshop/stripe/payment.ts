@@ -13,6 +13,7 @@ import type Stripe from "stripe";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
+import { recordStripeAttempt } from "../payments";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -31,6 +32,7 @@ export type CheckoutSessionsApi = {
 export type PaymentOrder = {
   id: string;
   orderNumber: number | null;
+  paymentVs: string | null;
   orderedAt: Date;
   channel: string;
   paymentMethodCode: string | null;
@@ -111,6 +113,7 @@ export async function loadPaymentOrder(db: Db, orderId: string): Promise<Payment
     .select({
       id: orders.id,
       orderNumber: orders.orderNumber,
+      paymentVs: orders.paymentVs,
       orderedAt: orders.orderedAt,
       channel: orders.channel,
       paymentMethodCode: orders.paymentMethodCode,
@@ -167,7 +170,14 @@ export async function startCardPayment(
   });
   if (!session.url) return { ok: false, error: "Platební bránu se nepodařilo otevřít." };
 
-  // Souběžný dvojklik dostane od Stripe tutéž stránku — záznam jen jednou.
+  // Souběžný dvojklik dostane od Stripe tutéž stránku — záznam jen jednou
+  // (pokus v payments i v historii).
+  await recordStripeAttempt(db, {
+    orderId,
+    checkoutSessionId: session.id,
+    amountHal: order.totalKc * 100,
+    vs: order.paymentVs,
+  });
   const metadata = JSON.stringify({ provider: "stripe", checkoutSession: session.id, attempt: attempts.length + 1 });
   await db.execute(sql`
     INSERT INTO order_activity (order_id, actor_type, author_name, kind, metadata)

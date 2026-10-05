@@ -85,6 +85,7 @@ function cardValue() {
 describe("Stripe Checkout — parametry platby", () => {
   const order: PaymentOrder = {
     orderNumber: null,
+    paymentVs: "70000001",
     orderedAt: new Date("2026-10-02T10:00:00Z"),
     id: "0b6f7a52-3c1e-4d7a-9a55-6c2f8f0e4a11",
     channel: "eshop",
@@ -332,6 +333,21 @@ describe("Stripe — objednávka, platba a webhook nad DB (neon-http → PGlite)
     expect((await sendWebhook(second)).body.outcome).toBe("second-payment");
     expect((await sendWebhook(second)).body.outcome).toBe("second-payment");
     expect((await activity(ORDER)).filter((x) => x.kind === "payment_duplicate")).toHaveLength(1);
+  });
+
+  it("payments: každý pokus je jeden záznam (idempotentně), Zaplaceno až po celé částce", async () => {
+    const { rows } = await db.execute(sql`
+      SELECT external_id, method, direction, status, amount_hal::int AS hal, vs, occurred_at IS NOT NULL AS kdy
+      FROM payments WHERE order_id = ${ORDER} ORDER BY external_id`);
+    expect(rows).toEqual([
+      // pokus 1: propadl (cancelled), pak přišla „zaplacená“ událost s nesedící částkou — peníze se evidují
+      { external_id: "cs_test_1", method: "card", direction: "inflow", status: "succeeded", hal: 100, vs: "70000001", kdy: true },
+      { external_id: "cs_test_2", method: "card", direction: "inflow", status: "succeeded", hal: 98600, vs: "70000001", kdy: true },
+      // druhá platba jinou kartou → přeplaceno, k vrácení
+      { external_id: "cs_test_9", method: "card", direction: "inflow", status: "succeeded", hal: 98600, vs: "70000001", kdy: true },
+    ]);
+    const { rows: balance } = await db.execute(sql`SELECT balance_state FROM order_payment_balance WHERE order_id = ${ORDER}`);
+    expect(balance).toEqual([{ balance_state: "overpaid" }]);
   });
 
   it("zaplacenou objednávku už nejde znovu platit", async () => {

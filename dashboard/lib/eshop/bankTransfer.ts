@@ -4,8 +4,8 @@
 // Účet se NEukládá v kódu — bere se z proměnných prostředí:
 //   ESHOP_BANK_ACCOUNT  tuzemský tvar pro zobrazení, např. 123456789/0100
 //   ESHOP_BANK_IBAN     IBAN pro QR platbu (ověřuje se kontrolní součet)
-// Bez platného IBANu se QR neukazuje; bez čísla objednávky (VS) taky ne —
-// platba bez VS by nešla spárovat. Datum v QR = den vytvoření objednávky;
+// Bez platného IBANu se QR neukazuje; bez uloženého VS (orders.payment_vs,
+// řada 7xxxxxxx) taky ne — platba bez VS by nešla spárovat. Datum v QR = den vytvoření objednávky;
 // interní splatnost (TRANSFER_DUE_DAYS) slouží jen pro „Po splatnosti“
 // a text „Zaplaťte prosím do …“.
 //
@@ -131,7 +131,7 @@ export type TransferInfo = {
   account: string | null;
   iban: string | null;
   amountKc: number;
-  /** číslo objednávky; null = číslování ještě není zapnuté */
+  /** uložený platební identifikátor objednávky (orders.payment_vs); null = starší objednávka bez VS */
   variableSymbol: string | null;
   /** zpráva pro příjemce (vždy — i bez VS jde objednávku dohledat) */
   message: string;
@@ -146,6 +146,7 @@ export type TransferInfo = {
 type TransferOrder = {
   id: string;
   orderNumber: number | null;
+  paymentVs: string | null;
   totalKc: number;
   orderedAt: Date;
   paymentMethodCode: string | null;
@@ -156,8 +157,10 @@ type TransferOrder = {
 export function transferInfo(order: TransferOrder, bank: BankConfig): TransferInfo | null {
   if (order.paymentMethodCode !== TRANSFER_PAYMENT_METHOD || order.paymentStatus !== "unpaid") return null;
   if (!bank.account && !bank.iban) return null;
-  const variableSymbol = order.orderNumber !== null ? String(order.orderNumber) : null;
-  const reference = variableSymbol ?? order.id.slice(0, 8);
+  // VS = uložený payment_vs (nikdy se nedopočítává); zpráva pro příjemce
+  // nese číslo objednávky, které zákazník vidí.
+  const variableSymbol = order.paymentVs;
+  const reference = order.orderNumber !== null ? String(order.orderNumber) : order.id.slice(0, 8);
   const message = `Begina objednavka ${reference}`;
   const dueAt = transferDueAt(order.orderedAt);
   const qrPaymentDate = order.orderedAt;

@@ -103,7 +103,13 @@ první nová objednávka 5201).
    (čísla v `<>` = hodnoty z kontroly před; před během ověřit, že žádná
    faktura nemá prázdné číslo / datum / stav / organizaci). Zpětně
    kompatibilní, dnešní kód funguje dál. Vrácení: `19_rollback.sql`
-   (jen dokud nevznikla data). Krok B (povinný VS) až s kódem.
+   (jen dokud nevznikla data). **Krok A musí v Production proběhnout
+   PŘED nasazením kódu kroku B** — nový kód čte a zapisuje `payment_vs`
+   a `payments`.
+10. **Platby — krok B (povinný VS)**: až PO nasazení kódu a jedné
+   testovací objednávce: `20_before.sql` (nejnovější e-shopová objednávka
+   má VS) → `21_migration.sql` → `22_after.sql` → `1 | <e-shop> | 0 | ano | ano`.
+   Vrácení: `29_rollback.sql` (vypne jen povinnost, VS zůstávají).
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich

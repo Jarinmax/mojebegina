@@ -3,6 +3,7 @@
 // (ovladač Neonu → PGlite se všemi migracemi a se ZAPNUTÝM číslováním od
 // 900000 jako na Preview). Resend a Stripe API nahrazují napodobeniny.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import Stripe from "stripe";
 import jsQR from "jsqr";
@@ -158,13 +159,13 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
   const TRANSFER = "a1a1a1a1-1111-4111-8111-111111111111";
   const CARD = "b2b2b2b2-2222-4222-8222-222222222222";
 
-  it("převod: objednávka dostane číslo 900001 a potvrzení obsahuje účet, VS, splatnost a QR (vložený obrázek cid:)", async () => {
+  it("převod: objednávka dostane číslo 900001 a VS 70000001; potvrzení obsahuje účet, VS, splatnost a QR (vložený obrázek cid:)", async () => {
     const result = await submitCheckoutAction(null, form(TRANSFER));
     expect(result).toMatchObject({ savedOrderId: TRANSFER, orderNumber: 900001, email: "sent" });
 
     const [customer, internal] = mail.sent;
     expect(customer.subject).toBe("[TEST] Přijali jsme vaši objednávku 900001");
-    for (const part of ["Číslo účtu: 19-2000145399/0800", "IBAN: CZ65 0800 0000 1920 0014 5399", "Variabilní symbol: 900001", "Splatnost: "]) {
+    for (const part of ["Číslo účtu: 19-2000145399/0800", "IBAN: CZ65 0800 0000 1920 0014 5399", "Variabilní symbol: 70000001", "Splatnost: "]) {
       expect(customer.text).toContain(part);
     }
     expect(customer.html).toContain('src="cid:qr-platba"');
@@ -179,10 +180,10 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
     const [{ ordered_day }] = (await rows(
       sql`SELECT to_char(ordered_at AT TIME ZONE 'Europe/Prague', 'YYYYMMDD') AS ordered_day FROM orders WHERE id = ${TRANSFER}`
     )) as { ordered_day: string }[];
-    expect(decoded).toBe(`SPD*1.0*ACC:${IBAN}*AM:758.00*CC:CZK*DT:${ordered_day}*X-VS:900001*MSG:BEGINA OBJEDNAVKA 900001`);
+    expect(decoded).toBe(`SPD*1.0*ACC:${IBAN}*AM:758.00*CC:CZK*DT:${ordered_day}*X-VS:70000001*MSG:BEGINA OBJEDNAVKA 900001`);
 
     expect(internal.subject).toContain("Nová objednávka 900001");
-    expect(internal.text).toContain("Variabilní symbol: 900001");
+    expect(internal.text).toContain("Variabilní symbol: 70000001");
     expect(internal.inlineImages ?? []).toHaveLength(0);
     expect(await emailLog(TRANSFER)).toEqual(["email_sent:customer_confirmation:qr", "email_sent:internal_new_order"]);
   });
@@ -210,16 +211,45 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
     expect((await orders.getOrderDetail(CARD))?.order.transferDueAt).toBeNull();
   });
 
-  it("ruční označení Zaplaceno: zákazník dostane „Platbu jsme přijali“ — jen jednou, i po přepnutí tam a zpět", async () => {
-    expect(await orders.updatePaymentStatus(TRANSFER, "paid")).toEqual({ ok: true });
+  // ESHOP 1.0 (platby a fakturace, krok B): u e-shopu se Zaplaceno nepřepíná,
+  // zapisuje se platba (payments) a Zaplaceno nastaví přepočet.
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
+  const payment = (amountKc: string, token: string = randomUUID()) => ({ token, amountKc, date: today, method: "bank_transfer", note: "" });
+
+  it("zapsaná platba převodem: částečná úhrada nic nepošle; doplatek → Zaplaceno a „Platbu jsme přijali“ jen jednou", async () => {
+    expect(await orders.updatePaymentStatus(TRANSFER, "paid")).toEqual({
+      ok: false,
+      error: "U e-shopové objednávky se stav platby nepřepíná — zapište platbu.",
+    });
+    expect(await orders.recordOrderPayment(TRANSFER, payment("300"))).toEqual({ ok: true, recorded: true, settled: false });
+    expect(mail.sent).toHaveLength(0);
+    expect((await rows(sql`SELECT payment_status FROM orders WHERE id = ${TRANSFER}`))[0].payment_status).toBe("unpaid");
+    expect((await orders.getOrderDetail(TRANSFER))?.payments).toMatchObject({
+      balanceState: "partially_paid",
+      netHal: 30000,
+      remainingHal: 45800,
+    });
+
+    const token = randomUUID();
+    expect(await orders.recordOrderPayment(TRANSFER, payment("458", token))).toEqual({ ok: true, recorded: true, settled: true });
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0].subject).toBe("[TEST] Platbu za objednávku 900001 jsme přijali");
     expect(mail.sent[0].to).toEqual(["jaroslav@begina.test", "lucie@begina.test"]);
     expect(mail.sent[0].text).toContain("V ostrém provozu by šel na: jana@example.cz");
 
-    await orders.updatePaymentStatus(TRANSFER, "unpaid");
-    await orders.updatePaymentStatus(TRANSFER, "paid");
+    // dvojí odeslání formuláře (stejný token) = žádná druhá platba ani e-mail
+    expect(await orders.recordOrderPayment(TRANSFER, payment("458", token))).toEqual({ ok: true, recorded: false, settled: false });
     expect(mail.sent).toHaveLength(1);
+    expect(
+      await rows(sql`SELECT source, method, direction, status, amount_hal::int AS hal, vs, recorded_by_user_id IS NOT NULL AS kdo
+                     FROM payments WHERE order_id = ${TRANSFER} ORDER BY amount_hal`)
+    ).toEqual([
+      { source: "manual", method: "bank_transfer", direction: "inflow", status: "succeeded", hal: 30000, vs: "70000001", kdo: true },
+      { source: "manual", method: "bank_transfer", direction: "inflow", status: "succeeded", hal: 45800, vs: "70000001", kdo: true },
+    ]);
+    expect(await rows(sql`SELECT payment_status, paid_at IS NOT NULL AS paid_at FROM orders WHERE id = ${TRANSFER}`)).toEqual([
+      { payment_status: "paid", paid_at: true },
+    ]);
     expect(await emailLog(TRANSFER)).toEqual([
       "email_sent:customer_confirmation:qr",
       "email_sent:internal_new_order",
@@ -227,17 +257,33 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
     ]);
   });
 
-  it("kartou zaplacená objednávka (potvrzení už dostala): ruční Zaplaceno nic dalšího nepošle", async () => {
-    await orders.updatePaymentStatus(CARD, "unpaid");
-    await orders.updatePaymentStatus(CARD, "paid");
+  it("neplatný zápis platby se odmítne a nic neuloží", async () => {
+    const ID = "e5e5e5e5-5555-4555-8555-555555555555";
+    await submitCheckoutAction(null, form(ID));
+    const before = mail.sent.length;
+    expect(await orders.recordOrderPayment(ID, { ...payment("0") })).toMatchObject({ ok: false });
+    expect(await orders.recordOrderPayment(ID, { ...payment("abc") })).toMatchObject({ ok: false });
+    expect(await orders.recordOrderPayment(ID, { ...payment("100"), date: "2999-01-01" })).toEqual({
+      ok: false,
+      error: "Datum platby nemůže být v budoucnosti.",
+    });
+    expect(await orders.recordOrderPayment(ID, { ...payment("100"), method: "card" })).toEqual({ ok: false, error: "Vyberte způsob platby." });
+    expect(await orders.recordOrderPayment(ID, { ...payment("100"), token: "x" })).toMatchObject({ ok: false });
+    expect(await rows(sql`SELECT count(*)::int AS n FROM payments WHERE order_id = ${ID}`)).toEqual([{ n: 0 }]);
+    expect(mail.sent).toHaveLength(before);
+  });
+
+  it("kartou zaplacená objednávka: ruční přepínání stavu u e-shopu nejde, nic dalšího se nepošle", async () => {
+    expect(await orders.updatePaymentStatus(CARD, "unpaid")).toMatchObject({ ok: false });
+    expect((await rows(sql`SELECT payment_status FROM orders WHERE id = ${CARD}`))[0].payment_status).toBe("paid");
     expect(mail.sent).toHaveLength(0);
   });
 
-  it("výpadek e-mailu při ručním Zaplaceno: stav se uloží, v historii varování", async () => {
+  it("výpadek e-mailu po zapsané platbě: Zaplaceno se uloží, v historii varování", async () => {
     const ID = "d4d4d4d4-4444-4444-8444-444444444444";
     await submitCheckoutAction(null, form(ID));
     mail.mode = "error";
-    expect(await orders.updatePaymentStatus(ID, "paid")).toEqual({ ok: true });
+    expect(await orders.recordOrderPayment(ID, payment("758"))).toEqual({ ok: true, recorded: true, settled: true });
     expect((await rows(sql`SELECT payment_status FROM orders WHERE id = ${ID}`))[0].payment_status).toBe("paid");
     expect((await emailLog(ID)).at(-1)).toBe("email_failed:customer_payment_received");
   });

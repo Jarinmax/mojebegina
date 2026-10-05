@@ -141,6 +141,13 @@
       "when": 1790686565626,
       "tag": "0019_eshop_1_0_orders_guest",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791237560047,
+      "tag": "0020_eshop_1_0_payments_invoicing",
+      "breakpoints": true
     }
   ]
 }

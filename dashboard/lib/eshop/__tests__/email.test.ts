@@ -121,6 +121,7 @@ describe("e-maily — které e-maily spouští která událost", () => {
 const ORDER: EmailOrder = {
   id: "11348d18-506f-45b8-b65d-65df779471c7",
   orderNumber: null,
+  paymentVs: null,
   contactName: "Jana <b>Nováková</b>",
   contactEmail: "jana@example.cz",
   recipientAddress: "Prvního pluku 14, 18600 Praha",
@@ -168,21 +169,21 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
     }
   });
 
-  it("převod s účtem a číslem objednávky: účet, IBAN, částka, VS, splatnost (+5 dní) a QR přes cid:", () => {
-    const numbered = { ...ORDER, orderNumber: 900001 };
+  it("převod s účtem, číslem objednávky a VS: účet, IBAN, částka, VS (payment_vs), splatnost (+5 dní) a QR přes cid:", () => {
+    const numbered = { ...ORDER, orderNumber: 900001, paymentVs: "70000001" };
     const transfer = transferInfo(numbered, BANK);
     const mail = customerOrderEmail(numbered, { ...CTX, transfer, qrContentId: "qr-platba" });
     expect(mail.text).toContain("Číslo účtu: 19-2000145399/0800");
     expect(mail.text).toContain("IBAN: CZ65 0800 0000 1920 0014 5399");
     expect(mail.text).toContain(`Částka: ${kc(1236)}`);
-    expect(mail.text).toContain("Variabilní symbol: 900001");
+    expect(mail.text).toContain("Variabilní symbol: 70000001");
     expect(mail.text).toContain("Splatnost: 7. 10. 2026");
     expect(mail.html).toContain('src="cid:qr-platba"');
     expect(mail.html).toContain('alt="QR Platba"');
     expect(mail.html).not.toContain("data:image");
   });
 
-  it("převod bez čísla objednávky: bez VS a bez QR, místo toho zpráva pro příjemce", () => {
+  it("převod bez VS (starší objednávka): bez VS a bez QR, místo toho zpráva pro příjemce", () => {
     const transfer = transferInfo(ORDER, BANK);
     const mail = customerOrderEmail(ORDER, { ...CTX, transfer, qrContentId: null });
     expect(transfer?.spayd).toBeNull();

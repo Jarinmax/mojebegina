@@ -68,7 +68,7 @@ describe("produkční SQL — migrace 0013–0019 nad daty jako v Production", D
 
   it("migrace projdou a schéma je přesně jako na Preview (všechny migrace)", async () => {
     await pg.exec(file("11_migrations_0013_0019.sql"));
-    const preview = (await createMigratedDb()).pg;
+    const preview = (await createMigratedDb("0019_eshop_1_0_orders_guest")).pg; // balíček 0013–0019 (platby = docs/eshop-payments)
     expect(await schema(pg)).toEqual(await schema(preview));
   });
 

@@ -11,6 +11,7 @@ import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer
 export type EmailOrder = {
   id: string;
   orderNumber: number | null;
+  paymentVs: string | null;
   contactName: string | null;
   contactEmail: string | null;
   recipientAddress: string | null;

@@ -45,6 +45,27 @@ pravdy, testovaný `lib/eshop/__tests__/paymentsMigration.test.ts`):
 ověřena read-only: `5 | 1 | 1 | 1 | 0 | 2 | 2 | 9 | 0 | 0 | 9`.
 Production: nespuštěno.
 
+**Krok B (6. 10. 2026) — kód hotový na větvi, migrace NESPUŠTĚNA:**
+
+| Soubor | Co dělá |
+|---|---|
+| `20_before.sql` | kontrola před: krok A je hotový, nejnovější e-shopová objednávka už má VS (= nový kód běží) |
+| `21_migration.sql` | doplní VS starším e-shopovým objednávkám (v pořadí vzniku) + `orders_eshop_requires_vs` |
+| `22_after.sql` | kontrola po: povinný VS platí, žádná e-shopová objednávka bez VS, VS unikátní a ve formátu |
+| `29_rollback.sql` | vypne jen povinnost; přidělené VS zůstávají (jsou neměnné) — vždy bezpečné |
+
+Kód kroku B: pokladna přiděluje VS z řady v témže INSERTu
+(`PAYMENT_VS_SQL`, `lib/eshop/orderWrite.ts`); QR, stránka objednávky
+a e-maily čtou uložený `payment_vs` (číslo objednávky se jako VS už
+nepoužívá); Stripe zapisuje každý pokus (Checkout Session) do `payments`
+a úspěšná platba v téže transakci přepočítá Zaplaceno
+(`lib/eshop/payments.ts`); v MojeBegina u e-shopové objednávky místo
+přepínání stavu „Platby“ + „Zapsat platbu“ (převod / hotovost, částka,
+datum, poznámka). Ruční B2B objednávky přepínají stav jako dosud.
+`schema.ts` + `drizzle/0020_eshop_1_0_payments_invoicing.sql` (= krok A + B,
+generuje `scripts/eshop-payments/build-drizzle.mjs`). Fakturace v iDokladu
+zatím neběží.
+
 **Krok A je zpětně kompatibilní** — dnešní kód nové sloupce nezná
 a funguje dál, migraci lze spustit před nasazením nového kódu.
 **Krok B** (připraví se spolu s kódem pokladny): doplnění VS starým

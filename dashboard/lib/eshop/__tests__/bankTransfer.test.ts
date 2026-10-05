@@ -68,7 +68,7 @@ describe("QR Platba (SPAYD)", () => {
   });
 
   it("datum v QR = den vytvoření objednávky (3. 10. → 3. 10., 4. 10. → 4. 10.); interní splatnost zůstává +5 dní", () => {
-    const order = { id: "11348d18-506f-45b8-b65d-65df779471c7", orderNumber: 900001, totalKc: 2076, paymentMethodCode: "prevod", paymentStatus: "unpaid" };
+    const order = { id: "11348d18-506f-45b8-b65d-65df779471c7", orderNumber: 900001, paymentVs: "70000001", totalKc: 2076, paymentMethodCode: "prevod", paymentStatus: "unpaid" };
     const bank = { account: "19-2000145399/0800", iban: IBAN };
     for (const [orderedAt, qrDate, due] of [
       ["2026-10-03T08:00:00Z", "20261003", "8. 10. 2026"],
@@ -79,7 +79,8 @@ describe("QR Platba (SPAYD)", () => {
       expect(formatPragueDate(info.dueAt)).toBe(due);
       expect(info.qrPaymentDate).toEqual(new Date(orderedAt));
       // účet, částka a VS beze změny
-      expect(info.spayd).toBe(`SPD*1.0*ACC:${IBAN}*AM:2076.00*CC:CZK*DT:${qrDate}*X-VS:900001*MSG:BEGINA OBJEDNAVKA 900001`);
+      // VS = uložený payment_vs; zpráva nese číslo objednávky
+      expect(info.spayd).toBe(`SPD*1.0*ACC:${IBAN}*AM:2076.00*CC:CZK*DT:${qrDate}*X-VS:70000001*MSG:BEGINA OBJEDNAVKA 900001`);
     }
   });
 
@@ -97,11 +98,18 @@ describe("QR Platba (SPAYD)", () => {
     expect(() => spaydString({ ...base, amountKc: 0 })).toThrow();
   });
 
-  it("údaje k objednávce: QR jen s IBANem a číslem objednávky; jen nezaplacený převod", () => {
-    const order = { id: "11348d18-506f-45b8-b65d-65df779471c7", orderNumber: 900001, totalKc: 2076, orderedAt: ORDERED, paymentMethodCode: "prevod", paymentStatus: "unpaid" };
+  it("údaje k objednávce: VS = uložený payment_vs (nikdy číslo objednávky); QR jen s IBANem a VS; jen nezaplacený převod", () => {
+    const order = { id: "11348d18-506f-45b8-b65d-65df779471c7", orderNumber: 900001, paymentVs: "70000001", totalKc: 2076, orderedAt: ORDERED, paymentMethodCode: "prevod", paymentStatus: "unpaid" };
     const bank = { account: "19-2000145399/0800", iban: IBAN };
-    expect(transferInfo(order, bank)).toMatchObject({ variableSymbol: "900001", amountKc: 2076, spayd: expect.stringContaining("X-VS:900001") });
-    expect(transferInfo({ ...order, orderNumber: null }, bank)).toMatchObject({ variableSymbol: null, spayd: null, message: "Begina objednavka 11348d18" });
+    expect(transferInfo(order, bank)).toMatchObject({
+      variableSymbol: "70000001",
+      amountKc: 2076,
+      message: "Begina objednavka 900001",
+      spayd: expect.stringContaining("X-VS:70000001"),
+    });
+    // starší objednávka bez VS: žádný QR ani VS (číslo objednávky se jako VS NEpoužije)
+    expect(transferInfo({ ...order, paymentVs: null }, bank)).toMatchObject({ variableSymbol: null, spayd: null, message: "Begina objednavka 900001" });
+    expect(transferInfo({ ...order, orderNumber: null }, bank)).toMatchObject({ variableSymbol: "70000001", message: "Begina objednavka 11348d18" });
     expect(transferInfo(order, { ...bank, iban: null })).toMatchObject({ spayd: null, account: "19-2000145399/0800" });
     expect(transferInfo(order, { account: null, iban: null })).toBeNull();
     expect(transferInfo({ ...order, paymentStatus: "paid" }, bank)).toBeNull();
