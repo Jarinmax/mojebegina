@@ -101,5 +101,5 @@ s `<MAX_WOO_ORDER_NUMBER>` = `900000`. Návrat:
   faktur a způsobu napojení na e-doklad. Faktury The Cup 20260152
   a 20260153 se **nepovažují** za řadu, ve které e-shop pokračuje
   (potvrdí Lucie).
-- Přesný návrh schématu a workflow (5. 10. 2026, k odsouhlasení):
+- Finální schéma a workflow (5. 10. 2026, směr schválen, schéma k odsouhlasení):
   `ESHOP_FAKTURACE_NAVRH.md`.
