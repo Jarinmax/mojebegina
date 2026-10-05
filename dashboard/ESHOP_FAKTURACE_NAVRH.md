@@ -41,6 +41,10 @@ pravdy, testovaný `lib/eshop/__tests__/paymentsMigration.test.ts`):
 | `12_after.sql` | kontrola po (jen čtení) |
 | `19_rollback.sql` | vrácení kroku A; zastaví se, pokud už vznikla data |
 
+**Preview: krok A spuštěn vedením 5. 10. 2026 (23:54)**, kontrola po
+ověřena read-only: `5 | 1 | 1 | 1 | 0 | 2 | 2 | 9 | 0 | 0 | 9`.
+Production: nespuštěno.
+
 **Krok A je zpětně kompatibilní** — dnešní kód nové sloupce nezná
 a funguje dál, migraci lze spustit před nasazením nového kódu.
 **Krok B** (připraví se spolu s kódem pokladny): doplnění VS starým
