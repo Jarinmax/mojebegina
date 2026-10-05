@@ -96,6 +96,14 @@ první nová objednávka 5201).
    → `1 | 0 | 0 | 17` → `51_caje.sql` (celý soubor) → `52_caje_after.sql`
    → `8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů`.
    Vrácení: `59_caje_rollback.sql` (čaje skryje, nic nemaže).
+9. **Platby a fakturace — krok A** (`docs/eshop-payments/`, schéma
+   `ESHOP_FAKTURACE_NAVRH.md`): `10_before.sql` → `0 | 0 | 1 | <faktury> |
+   <objednávky> | <e-shop>` → `11_migration.sql` (celý soubor) →
+   `12_after.sql` → `5 | 1 | 1 | 1 | 0 | <faktury> | <faktury> | <objednávky> | 0 | 0 | <objednávky>`
+   (čísla v `<>` = hodnoty z kontroly před; před během ověřit, že žádná
+   faktura nemá prázdné číslo / datum / stav / organizaci). Zpětně
+   kompatibilní, dnešní kód funguje dál. Vrácení: `19_rollback.sql`
+   (jen dokud nevznikla data). Krok B (povinný VS) až s kódem.
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich

@@ -1,6 +1,6 @@
 # ESHOP 1.0 — fakturace přes iDoklad: finální schéma k odsouhlasení
 
-Stav: **NÁVRH v2 (5. 10. 2026), nic z toho neběží.** Žádná migrace, žádný
+Stav: **SCHVÁLENO (5. 10. 2026), v3 s úpravami; migrační balíček pro Preview připraven, NESPUŠTĚN.** Žádná migrace, žádný
 zápis do Production DB ani do iDokladu, žádné živé vystavování faktur.
 Směr schválil Jaroslav Viner 5. 10. 2026 (varianta A z `ESHOP_PREVOD_QR.md`)
 s úpravou: **více plateb na jednu objednávku** a faktura, která do budoucna
@@ -27,252 +27,126 @@ agenda Jaroslav Viner, IČO 74337297, neplátce DPH, API v3 odpovídá.
 | Objednávka | `orders.order_number` | řada `order_number_seq` (dnes) | odeslání objednávky |
 | Platební identifikátor | `orders.payment_vs` | řada `payment_vs_seq` (`7xxxxxxx`) | odeslání objednávky, **neměnný** |
 | Platba (0…n na objednávku) | `payments.source` + `payments.external_id` | Stripe / banka / formulář | každý pokus, příjem, vratka |
-| Faktura / dobropis | číslo dokladu | **iDoklad** (e-shopová řada) | po úhradě celé částky / při opravě |
+| Faktura / dobropis | číslo dokladu | poskytovatel (dnes **iDoklad**, e-shopová řada) | po úhradě celé částky / při opravě |
 
-## 2. Schéma (SQL k odsouhlasení — NESPOUŠTĚT)
+## 2. Schéma (schváleno 5. 10. 2026, v3 s úpravami)
+
+**Přesné SQL je v migračním balíčku `docs/eshop-payments/`** (jediný zdroj
+pravdy, testovaný `lib/eshop/__tests__/paymentsMigration.test.ts`):
+
+| Soubor | Co dělá |
+|---|---|
+| `10_before.sql` | kontrola před (jen čtení) |
+| `11_migration.sql` | **krok A** — jen přidává (jedna transakce) |
+| `12_after.sql` | kontrola po (jen čtení) |
+| `19_rollback.sql` | vrácení kroku A; zastaví se, pokud už vznikla data |
+
+**Krok A je zpětně kompatibilní** — dnešní kód nové sloupce nezná
+a funguje dál, migraci lze spustit před nasazením nového kódu.
+**Krok B** (připraví se spolu s kódem pokladny): doplnění VS starým
+e-shopovým objednávkám na Preview + `orders_eshop_requires_vs`
+(e-shopová objednávka bez VS nevznikne). Dřív by dnešní pokladna, která
+VS ještě nepřiděluje, objednávku neuložila.
 
 ### 2.1 `orders.payment_vs`
+- `text`, `UNIQUE`, formát `^7[0-9]{7}$`, řada `payment_vs_seq`
+  (1…9 999 999, bez přetočení). Pokladna: `'7' || lpad(nextval('payment_vs_seq')::text, 7, '0')`.
+- **Neměnnost hlídá databáze** (trigger `orders_payment_vs_immutable`):
+  nastavený VS nejde přepsat ani smazat.
 
-```sql
-CREATE SEQUENCE payment_vs_seq START 1 MAXVALUE 9999999 NO CYCLE;
-ALTER TABLE orders ADD COLUMN payment_vs text;
-ALTER TABLE orders ADD CONSTRAINT orders_payment_vs_key UNIQUE (payment_vs);
-ALTER TABLE orders ADD CONSTRAINT orders_payment_vs_format
-  CHECK (payment_vs IS NULL OR payment_vs ~ '^7[0-9]{7}$');
-ALTER TABLE orders ADD CONSTRAINT orders_eshop_requires_vs
-  CHECK (channel <> 'eshop' OR payment_vs IS NOT NULL) NOT VALID;
+### 2.2 `payments` — libovolný počet záznamů k objednávce
 
--- VS je neměnný: jakmile je nastaven, nejde přepsat ani smazat
-CREATE FUNCTION orders_payment_vs_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF OLD.payment_vs IS NOT NULL AND NEW.payment_vs IS DISTINCT FROM OLD.payment_vs THEN
-    RAISE EXCEPTION 'payment_vs je neměnný (objednávka %)', OLD.id;
-  END IF;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER orders_payment_vs_immutable BEFORE UPDATE OF payment_vs ON orders
-  FOR EACH ROW EXECUTE FUNCTION orders_payment_vs_immutable();
-```
+**Stav transakce a směr peněz jsou dvě samostatné veličiny; částka je
+vždy kladná** (`amount_hal > 0`, haléře).
 
-- Hodnotu přidělí pokladna v **tomtéž INSERTu** jako objednávku:
-  `'7' || lpad(nextval('payment_vs_seq')::text, 7, '0')`. QR (`X-VS`),
-  e-mail i stránka objednávky ji jen čtou; dnešní dopočet VS z čísla
-  objednávky (`bankTransfer.ts`) zmizí.
-- Řada `7xxxxxxx` se nepotká s VS faktur B2B (`2026xxxx`) ani s čísly
-  objednávek WooCommerce → spolehlivé párování banky.
-- **Stávající objednávky:** Production e-shop ještě neběží → nic. Na
-  Preview je 6 testovacích e-shopových objednávek (900001–900007); dostanou
-  nové VS z řady (testovací data, žádný skutečný zákazník podle nich
-  neplatí). Pak `VALIDATE CONSTRAINT orders_eshop_requires_vs`.
+| Sloupec | Hodnoty |
+|---|---|
+| `direction` | `inflow` (příjem) · `outflow` (vratka zákazníkovi) |
+| `status` | `pending` (pokus / čeká) · `succeeded` (peníze se pohnuly) · `failed` · `cancelled` · `superseded` (ruční potvrzení nahrazené importem banky) · `refunded` (příjem, který byl celý vrácen) |
+| `match_status` | `matched` · `unmatched` · `needs_review` |
+| `source` + `external_id` | `UNIQUE` — idempotence (viz níže) |
+| `refund_of_payment_id` | vratka → původní příjem (jen `outflow`) |
+| `superseded_by_payment_id` | povinné právě u `superseded` |
 
-### 2.2 `payments` — libovolný počet platebních záznamů k objednávce
+Pravidla v DB: vratka je vždy `outflow`; `refunded` jen u `inflow`;
+`superseded` ⇔ odkaz na nahrazující záznam; proběhlé peníze
+(`succeeded` / `superseded` / `refunded`) mají `occurred_at`; ruční
+záznam má `recorded_by_user_id`; spárovaný má objednávku; jen CZK.
 
-Jeden řádek = jedna transakce u jednoho zdroje (pokus Stripe, příchozí
-převod, ruční potvrzení, vratka). **Žádné omezení „jedna platba na
-objednávku“.**
+| Situace | source | external_id |
+|---|---|---|
+| Pokus o platbu kartou | `stripe` | Checkout Session `cs_…` (`pending` → `succeeded` / `failed` / `cancelled`) |
+| Vratka kartou | `stripe` | refund `re_…` (`outflow`) |
+| Ruční potvrzení / ruční vratka | `manual` | jednorázový token formuláře |
+| Import banky | `bank` | `<účet>:<ID pohybu>` |
 
-```sql
-CREATE TABLE payments (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id             uuid REFERENCES orders(id),   -- NULL = přišlo, ale zatím nespárováno (banka)
-  source               text NOT NULL,                 -- 'stripe' | 'bank' | 'manual'
-  external_id          text NOT NULL,                 -- unikátní ID u zdroje (viz tabulka níže)
-  method               text NOT NULL,                 -- 'card' | 'bank_transfer' | 'cash'
-  direction            text NOT NULL DEFAULT 'in',    -- 'in' = příjem, 'out' = vratka zákazníkovi
-  status               text NOT NULL,                 -- 'pending' | 'succeeded' | 'failed' | 'cancelled'
-  amount_hal           bigint NOT NULL,               -- vždy kladná, haléře; směr určuje direction
-  currency             text NOT NULL DEFAULT 'CZK',
-  vs                   text,                          -- VS, se kterým peníze přišly / odešly
-  refund_of_payment_id uuid REFERENCES payments(id),  -- vratka → původní příjem
-  superseded_by_payment_id uuid REFERENCES payments(id), -- ruční potvrzení, které později doložil import banky
-  match_status         text NOT NULL DEFAULT 'matched', -- 'matched' | 'unmatched' | 'needs_review'
-  occurred_at          timestamptz,                   -- kdy peníze skutečně přišly/odešly (u pending NULL)
-  recorded_by_user_id  text,                          -- kdo zapsal ruční záznam / párování
-  note                 text,
-  raw                  jsonb,                         -- výřez ze Stripe/banky, NIKDY údaje o kartě
-  created_at           timestamptz NOT NULL DEFAULT now(),
-  updated_at           timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT payments_source_external_key UNIQUE (source, external_id),
-  CONSTRAINT payments_source_check    CHECK (source IN ('stripe','bank','manual')),
-  CONSTRAINT payments_method_check    CHECK (method IN ('card','bank_transfer','cash')),
-  CONSTRAINT payments_direction_check CHECK (direction IN ('in','out')),
-  CONSTRAINT payments_status_check    CHECK (status IN ('pending','succeeded','failed','cancelled')),
-  CONSTRAINT payments_match_check     CHECK (match_status IN ('matched','unmatched','needs_review')),
-  CONSTRAINT payments_currency_czk    CHECK (currency = 'CZK'),
-  CONSTRAINT payments_amount_positive CHECK (amount_hal > 0),
-  CONSTRAINT payments_matched_has_order CHECK (match_status <> 'matched' OR order_id IS NOT NULL),
-  CONSTRAINT payments_refund_is_out   CHECK (refund_of_payment_id IS NULL OR direction = 'out'),
-  CONSTRAINT payments_succeeded_has_time CHECK (status <> 'succeeded' OR occurred_at IS NOT NULL),
-  CONSTRAINT payments_manual_has_user CHECK (source <> 'manual' OR recorded_by_user_id IS NOT NULL),
-  CONSTRAINT payments_not_self_superseded CHECK (superseded_by_payment_id IS DISTINCT FROM id)
-);
-CREATE INDEX payments_order_idx ON payments (order_id);
-CREATE INDEX payments_vs_idx ON payments (vs);
-CREATE INDEX payments_unmatched_idx ON payments (created_at) WHERE match_status <> 'matched';
-```
+**Stav úhrady** — pohled `order_payment_balance` (`required_hal`,
+`received_hal`, `refunded_hal`, `net_hal`, `balance_state`): příjem se
+počítá u `inflow` se stavem `succeeded` nebo `refunded` (peníze přišly),
+vratka u `outflow` se stavem `succeeded`; pokusy, neúspěšné, zrušené
+a nahrazené záznamy nikdy. `balance_state`: `unpaid` · `partially_paid` ·
+`paid` · `overpaid` · `refunded`. **Zaplaceno = `paid` / `overpaid`.**
+`orders.payment_status` zůstává souhrnem pro obrazovky (`unpaid` /
+`invoiced` / `paid`, kód v `main` je zná); u e-shopu ho nastavuje jen
+přepočet z pohledu ve stejné transakci jako zápis platby.
 
-**Idempotence — co je `external_id` u jednotlivých zdrojů:**
+### 2.3 `invoices` — obchodní doklad (faktura i dobropis)
 
-| Situace | source | external_id | Poznámka |
-|---|---|---|---|
-| Pokus o platbu kartou | `stripe` | ID Checkout Session `cs_…` | vznikne `pending` při přesměrování; webhook ho přepne na `succeeded` / `failed` / `cancelled` (vypršení) |
-| Vratka kartou | `stripe` | ID refundu `re_…` | `direction = out`, `refund_of_payment_id` → původní platba |
-| Ruční potvrzení „Zaplaceno“ / ruční vratka | `manual` | jednorázový token formuláře (UUID) | dvojklik ani opakované odeslání nezapíše dvě platby |
-| Budoucí import banky | `bank` | `<číslo účtu>:<ID pohybu z banky>` | stejný pohyb z opakovaného importu se nezapíše znovu |
+Rozšíření stávající tabulky; importované faktury The Cup dostanou
+`origin = 'import'`, `doc_state = 'issued'`, `document_type = 'invoice'`
+a jinak se nemění.
 
-Opakovaný webhook / import = `INSERT … ON CONFLICT (source, external_id)
-DO UPDATE` jen u změny stavu (`pending → succeeded`), nikdy druhý řádek.
+| Sloupec | Význam |
+|---|---|
+| `document_type` | `invoice` · `credit_note` |
+| `corrects_invoice_id` | dobropis → opravovaná faktura (povinné právě u dobropisu) |
+| `origin` | `eshop` · `import` · `manual` (u nových řádků povinné) |
+| `doc_state` | `draft` (požádáno, čeká na číslo) · `issued` · `void` (nikdy nevystavený pokus) |
+| `invoice_number`, `issued_at` | číslo a datum k zobrazení — u `issued` povinné; u dokladů od poskytovatele kopie z vazby níže |
+| `payment_vs`, `customer_id`, `pdf_sent_at`, `updated_at` | VS, zákazník, kdy MojeBegina poslala PDF |
 
-**Kdy je objednávka zaplacená** (počítá se, neukládá se ručně):
+- **Jedna ostrá prodejní faktura na objednávku**: částečný unikátní index
+  `(order_id) WHERE document_type = 'invoice' AND doc_state <> 'void'`
+  (nahrazuje dnešní `invoices_order_id_unique`). Dobropisů může být víc.
+- Vystavený doklad se nemaže ani nepřepisuje — opravuje se dobropisem.
+- `organization_id`, `invoice_number`, `issued_at`, `status` přestávají
+  být povinné (soukromý zákazník; číslo až od poskytovatele; `status` je
+  historický stav z importu). `external_edoklad_id` zůstává beze změny
+  (historický sloupec), nový kód používá vazbu níže.
 
-```sql
-CREATE VIEW order_payment_balance AS
-SELECT o.id AS order_id,
-       o.total_kc * 100 AS required_hal,
-       coalesce(sum(p.amount_hal) FILTER (WHERE p.direction = 'in'),  0) AS received_hal,
-       coalesce(sum(p.amount_hal) FILTER (WHERE p.direction = 'out'), 0) AS refunded_hal,
-       coalesce(sum(CASE p.direction WHEN 'in' THEN p.amount_hal ELSE -p.amount_hal END), 0) AS net_hal,
-       CASE
-         WHEN coalesce(sum(p.amount_hal) FILTER (WHERE p.direction = 'out'), 0) > 0
-              AND coalesce(sum(CASE p.direction WHEN 'in' THEN p.amount_hal ELSE -p.amount_hal END), 0) <= 0
-           THEN 'refunded'
-         WHEN coalesce(sum(CASE p.direction WHEN 'in' THEN p.amount_hal ELSE -p.amount_hal END), 0) <= 0 THEN 'unpaid'
-         WHEN coalesce(sum(CASE p.direction WHEN 'in' THEN p.amount_hal ELSE -p.amount_hal END), 0) < o.total_kc * 100 THEN 'partially_paid'
-         WHEN coalesce(sum(CASE p.direction WHEN 'in' THEN p.amount_hal ELSE -p.amount_hal END), 0) = o.total_kc * 100 THEN 'paid'
-         ELSE 'overpaid'
-       END AS balance_state
-FROM orders o
-LEFT JOIN payments p
-  ON p.order_id = o.id
- AND p.status = 'succeeded'
- AND p.match_status = 'matched'
- AND p.superseded_by_payment_id IS NULL
-GROUP BY o.id, o.total_kc;
-```
+### 2.4 `invoice_provider_links` — obecná vazba na externího poskytovatele
 
-- Počítají se jen **úspěšné, spárované, nenahrazené** záznamy. Pokusy
-  (`pending`), neúspěšné a zrušené platby se evidují, ale nic nezaplatí.
-- **Zaplaceno = `paid` nebo `overpaid`** (přijatá čistá částka ≥ požadovaná).
-  Částečná úhrada (`partially_paid`) zaplaceno **není** — doplatek je další
-  řádek v `payments`, po něm se stav přepočítá. Přeplatek se ukáže
-  v MojeBegina jako „k vrácení“.
-- `orders.payment_status` a `orders.paid_at` zůstávají jako **souhrn pro
-  obrazovky** (stávající hodnoty `unpaid` / `invoiced` / `paid` — kód
-  v `main` je zná). U e-shopových objednávek je nastavuje výhradně
-  přepočet z `order_payment_balance` ve **stejné transakci** jako zápis
-  platby: `paid`, pokud je stav `paid` / `overpaid`, jinak `unpaid`.
-  Podrobný stav (částečně, přeplaceno, vráceno) čte MojeBegina z pohledu.
-  Ruční přepínání „Zaplaceno“ v MojeBegina se u e-shopu změní na **zápis
-  ruční platby** (částka, datum, kdo) — ne na přepnutí stavu.
-- **Ruční potvrzení + pozdější import banky:** když import banky najde
-  stejnou platbu, kterou už někdo potvrdil ručně (stejný VS a částka),
-  ruční řádek dostane `superseded_by_payment_id` → peníze se nezapočítají
-  dvakrát a zůstane doklad, kdo co kdy potvrdil.
-- **Jedna platba za víc objednávek** (B2B zaplatí dvě faktury jedním
-  převodem) se v e-shopu V1 neřeší; banka ji zapíše jako `needs_review`.
-  Do budoucna jde doplnit tabulka rozpadu `payment_allocations` bez změny
-  `payments`.
+Dnes iDoklad; jiný poskytovatel = jen jiná hodnota `provider` (formát
+`^[a-z][a-z0-9_]*$`, ne pevný seznam).
 
-### 2.3 `invoices` — prodejní faktura i budoucí dobropis
+| Sloupec | Význam |
+|---|---|
+| `invoice_id`, `provider` | doklad a poskytovatel |
+| `state` | `pending` · `dry_run` · `issued` · `failed` · `void` |
+| `external_id`, `external_number`, `issued_at` | ID a číslo dokladu u poskytovatele, datum vystavení — u `issued` povinné |
+| `number_series`, `external_url` | řada (e-shopová), odkaz na doklad |
+| `pdf_storage_key`, `pdf_sha256`, `pdf_fetched_at` | uložené PDF |
+| `attempts`, `last_error`, `last_error_at`, `next_attempt_at` | chybový stav a opakování (`failed` musí mít popis chyby) |
+| `request_payload`, `response_ref` | co jsme poslali / poslali bychom, reference z odpovědi (bez tajných údajů) |
 
-Rozšíření stávající tabulky. Na Preview jsou v ní jen 2 importované
-faktury The Cup (20260152, 20260153) — zůstanou beze změny
-(`provider = 'import'`, `document_type = 'invoice'`).
+Unikátní: `(provider, external_id)`, `(provider, external_number)`;
+**nejvýš jedna aktivní vazba na doklad** (`state <> 'void'`), historie
+pokusů zůstává.
 
-```sql
-ALTER TABLE invoices DROP CONSTRAINT invoices_order_id_unique;      -- nahrazuje částečný index níže
-ALTER TABLE invoices ALTER COLUMN organization_id DROP NOT NULL;   -- soukromý zákazník bez IČO
-ALTER TABLE invoices ALTER COLUMN invoice_number DROP NOT NULL;    -- číslo přidělí až iDoklad
-ALTER TABLE invoices ALTER COLUMN issued_at DROP NOT NULL;
-ALTER TABLE invoices
-  ADD COLUMN document_type        text NOT NULL DEFAULT 'invoice',    -- 'invoice' | 'credit_note'
-  ADD COLUMN corrects_invoice_id  uuid REFERENCES invoices(id),       -- dobropis → opravovaná faktura
-  ADD COLUMN provider             text NOT NULL DEFAULT 'import',     -- 'idoklad' | 'import' | 'manual'
-  ADD COLUMN payment_vs           text,                               -- = orders.payment_vs
-  ADD COLUMN issue_state          text NOT NULL DEFAULT 'issued',     -- 'pending' | 'issued' | 'failed' | 'dry_run' | 'void'
-  ADD COLUMN issue_attempts       integer NOT NULL DEFAULT 0,
-  ADD COLUMN last_error           text,                               -- očištěná chyba, bez tokenů
-  ADD COLUMN number_series        text,                               -- název/ID e-shopové řady v iDokladu (audit)
-  ADD COLUMN customer_id          uuid,                               -- → invoice_customers (FK níže)
-  ADD COLUMN request_payload      jsonb,                              -- co jsme poslali / poslali bychom (dry-run)
-  ADD COLUMN pdf_sent_at          timestamptz,                        -- kdy MojeBegina poslala PDF zákazníkovi
-  ADD COLUMN updated_at           timestamptz NOT NULL DEFAULT now();
-ALTER TABLE invoices ADD CONSTRAINT invoices_document_type_check
-  CHECK (document_type IN ('invoice','credit_note'));
-ALTER TABLE invoices ADD CONSTRAINT invoices_provider_check
-  CHECK (provider IN ('idoklad','import','manual'));
-ALTER TABLE invoices ADD CONSTRAINT invoices_issue_state_check
-  CHECK (issue_state IN ('pending','issued','failed','dry_run','void'));
-ALTER TABLE invoices ADD CONSTRAINT invoices_credit_note_has_origin
-  CHECK ((document_type = 'credit_note') = (corrects_invoice_id IS NOT NULL));
-ALTER TABLE invoices ADD CONSTRAINT invoices_issued_has_number
-  CHECK (issue_state <> 'issued' OR (invoice_number IS NOT NULL AND issued_at IS NOT NULL));
--- jedna ostrá prodejní faktura na objednávku (dobropisů může být víc)
-CREATE UNIQUE INDEX invoices_one_sales_invoice_per_order
-  ON invoices (order_id) WHERE document_type = 'invoice' AND issue_state <> 'void';
--- číslo dokladu unikátní v rámci zdroje
-CREATE UNIQUE INDEX invoices_provider_number_key
-  ON invoices (provider, invoice_number) WHERE invoice_number IS NOT NULL;
--- jeden doklad iDokladu = jeden řádek
-CREATE UNIQUE INDEX invoices_external_id_key
-  ON invoices (provider, external_edoklad_id) WHERE external_edoklad_id IS NOT NULL;
-```
+### 2.5 `invoice_customers` + `invoice_customer_refs`
 
-- **Prodejní faktura:** max. jedna na objednávku (ne-`void`). `void` je
-  jen pro neodeslaný pokus (např. `dry_run` / `failed` před vystavením),
-  ostrou fakturu nikdy nemažeme ani nepřepisujeme — opravuje se
-  dobropisem.
-- **Dobropis / opravný doklad** (V1 neimplementuje, schéma ho unese):
-  řádek `document_type = 'credit_note'`, `corrects_invoice_id` → faktura,
-  `total_kc` záporně, vlastní číslo z iDokladu. Vratka peněz je zvlášť
-  v `payments` (`direction = out`).
-- `external_edoklad_id` se nepřejmenovává (čte ho kód v `main`) — nese
-  ID dokladu v iDokladu.
-- ⚠ Dnešní `getCustomerOrders` (`lib/data/dashboard.ts`) spojuje
-  objednávky s `invoices` bez filtru — se zavedením dobropisů musí spojení
-  brát jen `document_type = 'invoice'` (jinak by se objednávka zobrazila
-  dvakrát). Upraví se ve stejném kroku jako migrace; dokud dobropisy
-  nevzniknou, chování se nemění.
-
-### 2.4 `invoice_customers` — zákazníci a jejich kontakty v iDokladu
-
-```sql
-CREATE TABLE invoice_customers (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  kind                 text NOT NULL,                  -- 'person' | 'company'
-  email_normalized     text,                           -- lower(trim(email))
-  ico                  text,                           -- jen firma, 8 číslic
-  name                 text NOT NULL,                  -- jméno / název firmy (poslední známý)
-  organization_id      uuid REFERENCES organizations(id), -- firma, kterou už MojeBegina zná
-  idoklad_contact_id   text,                           -- ID kontaktu v iDokladu (NULL = ještě nezaložen)
-  created_at           timestamptz NOT NULL DEFAULT now(),
-  updated_at           timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT invoice_customers_kind_check CHECK (kind IN ('person','company')),
-  CONSTRAINT invoice_customers_ico_format CHECK (ico IS NULL OR ico ~ '^[0-9]{8}$'),
-  CONSTRAINT invoice_customers_person_by_email CHECK (kind <> 'person' OR (email_normalized IS NOT NULL AND ico IS NULL)),
-  CONSTRAINT invoice_customers_company_key CHECK (kind <> 'company' OR ico IS NOT NULL OR email_normalized IS NOT NULL)
-);
--- soukromá osoba: jeden zákazník na e-mail
-CREATE UNIQUE INDEX invoice_customers_person_email_key
-  ON invoice_customers (email_normalized) WHERE kind = 'person';
--- firma: primárně jedna na IČO, firma bez IČO jedna na e-mail
-CREATE UNIQUE INDEX invoice_customers_company_ico_key
-  ON invoice_customers (ico) WHERE kind = 'company' AND ico IS NOT NULL;
-CREATE UNIQUE INDEX invoice_customers_company_email_key
-  ON invoice_customers (email_normalized) WHERE kind = 'company' AND ico IS NULL;
-CREATE UNIQUE INDEX invoice_customers_idoklad_key
-  ON invoice_customers (idoklad_contact_id) WHERE idoklad_contact_id IS NOT NULL;
-ALTER TABLE invoices ADD CONSTRAINT invoices_customer_fk
-  FOREIGN KEY (customer_id) REFERENCES invoice_customers(id);
-```
-
-- **Deduplikace:** firma (objednávka s IČO) → podle IČO, bez IČO podle
-  e-mailu; soukromá osoba → podle e-mailu. Žádný společný kontakt.
-- Než se kontakt v iDokladu založí, MojeBegina ho tam **vyhledá** (GET
-  podle IČO / e-mailu) — B2B firmy, které už v iDokladu jsou, se znovu
-  nezakládají; uloží se jen jejich `idoklad_contact_id`.
-- Fakturační údaje (jméno, adresa) jdou na fakturu ze **snapshotu
-  objednávky** — změna adresy u zákazníka nezmění starou fakturu.
+- `invoice_customers`: `kind` (`person` / `company`), `email_normalized`,
+  `ico`, `name`, `organization_id`. Unikátní: osoba podle e-mailu; firma
+  podle IČO, firma bez IČO podle e-mailu.
+- `invoice_customer_refs`: kontakt zákazníka u poskytovatele
+  (`provider`, `external_id`) — `UNIQUE (provider, external_id)`
+  a jeden kontakt na zákazníka a poskytovatele.
+- Před založením kontaktu MojeBegina kontakt u poskytovatele vyhledá
+  (IČO / e-mail), existující B2B firmy se nezakládají znovu. Údaje na
+  faktuře jsou ze snapshotu objednávky.
+- ⚠ `getCustomerOrders` (`lib/data/dashboard.ts`) spojuje objednávky
+  s `invoices` bez filtru — s dobropisy musí brát jen
+  `document_type = 'invoice'`. Upraví se spolu s kódem kroku B.
 
 ## 3. Workflow
 
@@ -284,27 +158,28 @@ Objednávka (checkout)
 Platba (libovolně mnoho záznamů)
   ├─ karta: přesměrování → payments(stripe, cs_…, pending)
   │         webhook → stejný řádek succeeded / failed / cancelled
-  ├─ převod (V1): MojeBegina „Zapsat platbu“ → payments(manual, token formuláře, succeeded)
+  ├─ převod (V1): MojeBegina „Zapsat platbu“ → payments(manual, token formuláře, inflow, succeeded)
   ├─ převod (později): import banky → payments(bank, účet:ID pohybu) → párování VS + částka
-  └─ vratka: payments(…, direction = out, refund_of_payment_id)
+  └─ vratka: payments(…, outflow, refund_of_payment_id); původní příjem → refunded (celá vratka)
   → VE STEJNÉ TRANSAKCI: přepočet order_payment_balance
        paid/overpaid  → orders.payment_status = paid, paid_at,
                         order_activity „Zaplaceno“,
-                        invoices(invoice, pending) — jen pokud ještě neexistuje
+                        invoices(invoice, draft) + invoice_provider_links(idoklad, pending)
+                        — jen pokud prodejní faktura ještě neexistuje
        partially_paid → aktivita „Částečná úhrada X Kč, zbývá Y Kč“
 
 Vystavení faktury (samostatný krok, opakovatelný; cron + tlačítko „Vystavit znovu“)
   1. invoice_customers: najít podle IČO / e-mailu, jinak vyhledat v iDokladu,
      jinak založit kontakt v iDokladu
-  2. POJISTKA: GET IssuedInvoices s VS = payment_vs → už existuje? jen uložit číslo a ID
+  2. POJISTKA: vyhledat u poskytovatele doklad s VS = payment_vs → už existuje? jen uložit číslo a ID
   3. POST IssuedInvoices: e-shopová řada, neplátce DPH, VS = payment_vs,
      datum vystavení = den úhrady, položky = snapshot order_items + doprava,
      štítek „E-shop“, BEZ odeslání e-mailu z iDokladu
   4. označit jako uhrazenou (FullyPay — přesnou cestu ověřit v oficiálním SDK)
-  5. uložit číslo a ID → issue_state = issued
+  5. uložit číslo a ID do vazby (issued) a do faktury (invoice_number, issued_at, doc_state = issued)
   6. stáhnout PDF z iDokladu → e-mail „Platbu jsme přijali“ s PDF → pdf_sent_at
 
-Chyba v 1–6 → issue_state = failed, last_error, další pokus později.
+Chyba v 1–6 → vazba state = failed, last_error, next_attempt_at; další pokus později.
 Objednávka zůstává zaplacená; platba se zapíše vždy, i když iDoklad neodpovídá.
 ```
 
@@ -323,7 +198,7 @@ Objednávka zůstává zaplacená; platba se zapíše vždy, i když iDoklad neo
   a stažení PDF. Žádné mazání, úpravy, odesílání e-mailů z iDokladu.
 - Vypínač `IDOKLAD_INVOICING_ENABLED` (+ ID e-shopové řady
   `IDOKLAD_ESHOP_SEQUENCE_ID`): bez něj jen **dry-run** — sestaví a uloží
-  návrh faktury (`issue_state = dry_run`, `request_payload`), nic
+  návrh faktury (vazba `state = dry_run`, `request_payload`), nic
   neodešle. **Na Preview vždy dry-run** (jediná agenda je ostrá agenda
   Beginy). Production až po samostatném schválení.
 - Pojistka agendy: zapisovat jen do agendy s IČO 74337297 a režimem DPH
@@ -331,13 +206,14 @@ Objednávka zůstává zaplacená; platba se zapíše vždy, i když iDoklad neo
 - Token pro běh bez člověka (refresh token, `offline_access`, šifrovaně
   v DB) — společné rozhodnutí s Finance, řeší se jednou pro obojí.
 
-## 5. Pořadí implementace (po schválení schématu)
+## 5. Pořadí implementace
 
-1. Migrace: `payment_vs`, `payments`, pohled `order_payment_balance`,
-   rozšíření `invoices`, `invoice_customers` (skripty před / migrace / po /
-   rollback; Preview spouští vedení ručně, Production až po schválení).
-2. Pokladna a QR na `payment_vs`; Stripe zapisuje pokusy a výsledky do
-   `payments`; ruční „Zapsat platbu“ v MojeBegina; přepočet stavu.
+1. **Krok A — migrace** (`docs/eshop-payments/`, připraveno): Preview
+   spouští vedení ručně po souhlasu; Production až po samostatném schválení.
+2. **Krok B — kód + povinný VS**: pokladna a QR na `payment_vs`; Stripe
+   zapisuje pokusy a výsledky do `payments`; ruční „Zapsat platbu“
+   v MojeBegina; přepočet stavu; `schema.ts` + drizzle migrace; doplnění VS
+   starým e-shopovým objednávkám na Preview a `orders_eshop_requires_vs`.
 3. Modul vystavení faktury v režimu dry-run + v detailu objednávky
    „Platby“ a „Faktura: čeká / vystavena č. … / chyba“.
 4. Testy nad falešným iDokladem: dvojí webhook, částečná úhrada
