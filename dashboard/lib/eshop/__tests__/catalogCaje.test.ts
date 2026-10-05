@@ -40,13 +40,20 @@ describe("katalog — Čaje", DB_TEST, () => {
   it("před, skript, po; opakované spuštění nic nezdvojí", async () => {
     expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 17");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("1 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 1");
+    expect(await check(pg, "52_caje_after.sql")).toBe("2 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 2 | 249 Kč, 12 nápojů");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("1 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 1");
+    expect(await check(pg, "52_caje_after.sql")).toBe("2 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 2 | 249 Kč, 12 nápojů");
   });
 
   it("e-shop: Bylinný čaj Šaman z begina.cz", async () => {
-    const [saman] = await teas();
+    const [saman, zazvor] = await teas();
+    expect(zazvor.name).toBe("Zázvorový čaj");
+    expect(zazvor.shortDescription).toBe("Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.");
+    expect(zazvor.variants).toEqual([expect.objectContaining({ sku: "zazvorovy-caj-3l", priceKc: 249, servings: 12 })]);
+    expect(zazvor.image).toBe("/eshop/zazvorovy-caj.jpg");
+    expect(existsSync(path.join(PUBLIC, zazvor.image!))).toBe(true);
+    expect(zazvor.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 94 kJ \/ 22 kcal/);
+    expect(zazvor.warnings).toEqual([]);
     expect(saman.name).toBe("Bylinný čaj Šaman");
     expect(saman.shortDescription).toBe("Až 12 nápojů (24,10 Kč za nápoj). Jeden nápoj = 250 ml.");
     expect(saman.variants).toEqual([
@@ -69,8 +76,8 @@ describe("katalog — Čaje", DB_TEST, () => {
   it("vrácení čaje skryje, nic nesmaže; nové spuštění 51 je vrátí", async () => {
     await pg.exec(file("59_caje_rollback.sql"));
     expect(await teas()).toEqual([]);
-    expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 18");
+    expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 19");
     await pg.exec(file("51_caje.sql"));
-    expect(await teas()).toHaveLength(1);
+    expect(await teas()).toHaveLength(2);
   });
 });

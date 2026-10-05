@@ -67,6 +67,26 @@ export const TEAS = [
     warnings: ["Není vhodné pro děti do 3 let, těhotné a kojící ženy."],
     variants: [bagInBox("bylinny-caj-saman", 289, 12)],
   },
+  {
+    slug: "zazvorovy-caj",
+    name: "Zázvorový čaj",
+    sortOrder: 20,
+    shortDescription: "Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.",
+    highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "výrazná, plná chuť"],
+    description: [
+      "Zázvorový čaj spojuje výraznou chuť zázvoru se svěžím nádechem citronu a jemně vyváženým profilem.",
+      "Výsledkem je plná, čistá chuť s příjemně osvěžujícím dojmem.",
+      "**Čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste: "Výrazná chuť zázvoru se svěžím nádechem citronu působí vyváženě a příjemně zahřívajícím dojmem.",
+    ingredients:
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, zázvor (Zingiber officinale), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
+    storage: STORAGE,
+    warnings: [],
+    variants: [bagInBox("zazvorovy-caj", 249, 12)],
+  },
 ];
 
 export function cajeSql() {

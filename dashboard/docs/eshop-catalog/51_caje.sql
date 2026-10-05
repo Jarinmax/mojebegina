@@ -1,4 +1,4 @@
--- ESHOP 1.0 — katalog: Čaje (Bylinný čaj Šaman)
+-- ESHOP 1.0 — katalog: Čaje (Bylinný čaj Šaman, Zázvorový čaj)
 -- a společná sekce detailu čajů. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-caje.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -41,5 +41,31 @@ INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
 SELECT "id", '/eshop/bylinny-caj-saman.jpg', 'Bylinný čaj Šaman', 0 FROM "products" WHERE "slug" = 'bylinny-caj-saman'
 AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
   WHERE p."slug" = 'bylinny-caj-saman' AND pi."url" = '/eshop/bylinny-caj-saman.jpg');
+
+INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "sort_order")
+VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'caje'), 'zazvorovy-caj', 'Zázvorový čaj',
+  'Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.', ARRAY['Zázvorový čaj spojuje výraznou chuť zázvoru se svěžím nádechem citronu a jemně vyváženým profilem.', 'Výsledkem je plná, čistá chuť s příjemně osvěžujícím dojmem.', '**Čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**', 'Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.']::text[], ARRAY['z čisté filtrované vody', 'bez umělých aromat a barviv', 'výrazná, plná chuť']::text[],
+  'Výrazná chuť zázvoru se svěžím nádechem citronu působí vyváženě a příjemně zahřívajícím dojmem.', 'čistá filtrovaná voda, třtinový cukr, citronová šťáva, zázvor (Zingiber officinale), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":94,"energy_kcal":22,"fat":0,"saturates":0,"carbohydrate":5.6,"sugars":5.6,"protein":0,"salt":0}'::jsonb, '100ml', 'Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.', '{}'::text[], 20)
+ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
+  "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
+  "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
+  "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
+  "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
+  "warnings" = EXCLUDED."warnings", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
+  "volume_ml", "servings", "price_b2c_kc", "sort_order")
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-caj'), 'zazvorovy-caj-3l', '3 l Rodinná zásoba (bag-in-box)', 'Ideální pro sdílení nebo více příležitostí.',
+  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 249, 10)
+ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
+  "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
+  "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
+  "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT "id", '/eshop/zazvorovy-caj.jpg', 'Zázvorový čaj', 0 FROM "products" WHERE "slug" = 'zazvorovy-caj'
+AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
+  WHERE p."slug" = 'zazvorovy-caj' AND pi."url" = '/eshop/zazvorovy-caj.jpg');
 
 COMMIT;
