@@ -40,9 +40,9 @@ describe("katalog — Čaje", DB_TEST, () => {
   it("před, skript, po; opakované spuštění nic nezdvojí", async () => {
     expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 17");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("7 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 7 | 249 Kč, 12 nápojů");
+    expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("7 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 7 | 249 Kč, 12 nápojů");
+    expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů");
   });
 
   it("e-shop: Bylinný čaj Šaman z begina.cz", async () => {
@@ -77,6 +77,11 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(existsSync(path.join(PUBLIC, ibisek.image!))).toBe(true);
     expect(ibisek.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 113 kJ \/ 27 kcal, .*sacharidy 6,7 g/);
     expect(ibisek.warnings).toEqual([]);
+    const medunka = (await teas())[7];
+    expect([medunka.name, medunka.variants[0].priceKc, medunka.image]).toEqual(["Meduňkový čaj s levandulí", 249, "/eshop/medunkovy-caj-s-levanduli.jpg"]);
+    expect(existsSync(path.join(PUBLIC, medunka.image!))).toBe(true);
+    expect(medunka.foodInfo.ingredients).toMatch(/květ levandule \(Lavandula angustifolia\)/);
+    expect(medunka.warnings).toEqual([]);
     expect(saman.name).toBe("Bylinný čaj Šaman");
     expect(saman.shortDescription).toBe("Až 12 nápojů (24,10 Kč za nápoj). Jeden nápoj = 250 ml.");
     expect(saman.variants).toEqual([
@@ -102,8 +107,8 @@ describe("katalog — Čaje", DB_TEST, () => {
   it("vrácení čaje skryje, nic nesmaže; nové spuštění 51 je vrátí", async () => {
     await pg.exec(file("59_caje_rollback.sql"));
     expect(await teas()).toEqual([]);
-    expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 24");
+    expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 25");
     await pg.exec(file("51_caje.sql"));
-    expect(await teas()).toHaveLength(7);
+    expect(await teas()).toHaveLength(8);
   });
 });

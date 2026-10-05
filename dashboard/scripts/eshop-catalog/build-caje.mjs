@@ -206,6 +206,27 @@ export const TEAS = [
     warnings: [],
     variants: [bagInBox("ibiskovy-caj", 249, 12)],
   },
+  {
+    ...TEA_COMMON,
+    slug: "medunkovy-caj-s-levanduli",
+    name: "Meduňkový čaj s levandulí",
+    sortOrder: 80,
+    shortDescription: "Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.",
+    highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "harmonická, jemná chuť"],
+    description: [
+      "Meduňkový čaj s levandulí spojuje jemnou chuť meduňky s lehkou květinovou vůní levandule a svěžím nádechem citronu. Výsledkem je vyvážená, čistá chuť s jemným květinovým charakterem.",
+      "Chuť působí lehce a harmonicky.",
+      "**Bylinný čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste: "Jemná, harmonická chuť meduňky s lehkým květinovým nádechem levandule působí svěže a vyváženě.",
+    ingredients:
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
+    storage: STORAGE,
+    warnings: [],
+    variants: [bagInBox("medunkovy-caj-s-levanduli", 249, 12)],
+  },
 ];
 
 export function cajeSql() {
