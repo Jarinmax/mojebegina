@@ -12,8 +12,12 @@ import { categorySql, imageSql, productSql, q, variantSql } from "./sql.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-// Text kategorie (intro) zatím nedodán — zůstává beze změny.
+// Text kategorie z begina.cz/kategorie-produktu/caje (snímek vedení 5. 10. 2026).
 export const CATEGORY = {
+  intro: [
+    "Čaje Begina jsou hotové nápoje připravené z kvalitních bylin a pečlivě vybraných surovin na základě čisté filtrované vody.",
+    "Každá receptura je navržena tak, aby nabízela plnou, vyváženou chuť bez nutnosti další úpravy. Stačí nalít, vychutnat horké nebo ledové a nechat vyniknout jejich přirozenou hloubku a harmonii.",
+  ],
   detailSections: [
     {
       title: "Vhodné také pro gastro provozy a kanceláře",
@@ -104,7 +108,7 @@ BEGIN;
 UPDATE "product_variants" SET "is_active" = false, "updated_at" = now()
 WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN (${list}));
 UPDATE "products" SET "is_active" = false, "updated_at" = now() WHERE "slug" IN (${list});
-UPDATE "product_categories" SET "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'caje';
+UPDATE "product_categories" SET "intro" = '{}'::text[], "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'caje';
 COMMIT;
 `;
 }

@@ -62,6 +62,8 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(saman.foodInfo.shelfLife).toBeNull();
     const category = (await loadCatalog(db)).categories.find((c) => c.slug === "caje")!;
     expect(category.detailSections[0].paragraphs[0]).toBe("Čaje Begina jsou praktické řešení pro:");
+    expect(category.intro).toHaveLength(2);
+    expect(category.intro[0]).toMatch(/^Čaje Begina jsou hotové nápoje/);
   });
 
   it("vrácení čaje skryje, nic nesmaže; nové spuštění 51 je vrátí", async () => {

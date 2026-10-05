@@ -7,5 +7,5 @@ BEGIN;
 UPDATE "product_variants" SET "is_active" = false, "updated_at" = now()
 WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('bylinny-caj-saman'));
 UPDATE "products" SET "is_active" = false, "updated_at" = now() WHERE "slug" IN ('bylinny-caj-saman');
-UPDATE "product_categories" SET "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'caje';
+UPDATE "product_categories" SET "intro" = '{}'::text[], "detail_sections" = NULL, "updated_at" = now() WHERE "slug" = 'caje';
 COMMIT;

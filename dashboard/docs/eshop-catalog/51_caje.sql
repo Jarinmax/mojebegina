@@ -12,7 +12,8 @@
 -- (public/eshop/<slug>.jpg). Vrácení: 59_caje_rollback.sql.
 BEGIN;
 
-UPDATE "product_categories" SET "detail_sections" = '[{"title":"Vhodné také pro gastro provozy a kanceláře","paragraphs":["Čaje Begina jsou praktické řešení pro:","Díky bag-in-box balení lze nápoj jednoduše dávkovat bez přístupu vzduchu a zbytečného odpadu."],"bullets":["kavárny","bistra","menší restaurace","kanceláře","catering"]}]'::jsonb, "updated_at" = now()
+UPDATE "product_categories" SET "intro" = ARRAY['Čaje Begina jsou hotové nápoje připravené z kvalitních bylin a pečlivě vybraných surovin na základě čisté filtrované vody.', 'Každá receptura je navržena tak, aby nabízela plnou, vyváženou chuť bez nutnosti další úpravy. Stačí nalít, vychutnat horké nebo ledové a nechat vyniknout jejich přirozenou hloubku a harmonii.']::text[],
+  "detail_sections" = '[{"title":"Vhodné také pro gastro provozy a kanceláře","paragraphs":["Čaje Begina jsou praktické řešení pro:","Díky bag-in-box balení lze nápoj jednoduše dávkovat bez přístupu vzduchu a zbytečného odpadu."],"bullets":["kavárny","bistra","menší restaurace","kanceláře","catering"]}]'::jsonb, "updated_at" = now()
 WHERE "slug" = 'caje';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
