@@ -163,6 +163,28 @@ export const TEAS = [
     warnings: ["Obsahuje kofein – není vhodné pro děti, těhotné a kojící ženy."],
     variants: [bagInBox("cerny-caj-golden-nepal", 269, 12)],
   },
+  {
+    ...TEA_COMMON,
+    slug: "jasminovy-zeleny-caj",
+    name: "Jasmínový zelený čaj",
+    sortOrder: 60,
+    shortDescription: "Až 12 nápojů (22,40 Kč za nápoj). Jeden nápoj = 250 ml.",
+    highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "jemná, vyvážená chuť"],
+    description: [
+      "Jasmínový zelený čaj spojuje jemnost čaje Sencha s typickou vůní jasmínu a svěžím nádechem citronu. Výsledkem je plná, čistá chuť s lehkým květinovým charakterem a příjemně osvěžujícím dozvukem.",
+      "Chuť působí lehce, svěže a harmonicky.",
+      "**Čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste:
+      "Jemná, svěží chuť zeleného čaje Sencha s květinovou vůní jasmínu a lehkým citrusovým nádechem. Působí čistě, lehce a osvěžujícím dojmem.",
+    ingredients:
+      "čistá filtrovaná voda, třtinový cukr, citrónová šťáva, zelený čaj Sencha (Camellia sinensis), květ jasmínu (Jasminum officinale), regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 95, energy_kcal: 23, fat: 0, saturates: 0, carbohydrate: 5.7, sugars: 5.7, protein: 0, salt: 0 },
+    storage: STORAGE,
+    warnings: ["Obsahuje kofein – není vhodné pro děti, těhotné a kojící ženy."],
+    variants: [bagInBox("jasminovy-zeleny-caj", 269, 12)],
+  },
 ];
 
 export function cajeSql() {

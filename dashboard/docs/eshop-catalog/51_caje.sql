@@ -1,4 +1,4 @@
--- ESHOP 1.0 — katalog: Čaje (Bylinný čaj Šaman, Zázvorový čaj, Lipový čaj, Heřmánkový čaj, Černý čaj Golden Nepal)
+-- ESHOP 1.0 — katalog: Čaje (Bylinný čaj Šaman, Zázvorový čaj, Lipový čaj, Heřmánkový čaj, Černý čaj Golden Nepal, Jasmínový zelený čaj)
 -- a společná sekce detailu čajů. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-caje.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -145,5 +145,31 @@ INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
 SELECT "id", '/eshop/cerny-caj-golden-nepal.jpg', 'Černý čaj Golden Nepal', 0 FROM "products" WHERE "slug" = 'cerny-caj-golden-nepal'
 AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
   WHERE p."slug" = 'cerny-caj-golden-nepal' AND pi."url" = '/eshop/cerny-caj-golden-nepal.jpg');
+
+INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
+  "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
+VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'caje'), 'jasminovy-zeleny-caj', 'Jasmínový zelený čaj',
+  'Až 12 nápojů (22,40 Kč za nápoj). Jeden nápoj = 250 ml.', ARRAY['Jasmínový zelený čaj spojuje jemnost čaje Sencha s typickou vůní jasmínu a svěžím nádechem citronu. Výsledkem je plná, čistá chuť s lehkým květinovým charakterem a příjemně osvěžujícím dozvukem.', 'Chuť působí lehce, svěže a harmonicky.', '**Čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**', 'Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.']::text[], ARRAY['z čisté filtrované vody', 'bez umělých aromat a barviv', 'jemná, vyvážená chuť']::text[],
+  'Jemná, svěží chuť zeleného čaje Sencha s květinovou vůní jasmínu a lehkým citrusovým nádechem. Působí čistě, lehce a osvěžujícím dojmem.', 'čistá filtrovaná voda, třtinový cukr, citrónová šťáva, zelený čaj Sencha (Camellia sinensis), květ jasmínu (Jasminum officinale), regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":95,"energy_kcal":23,"fat":0,"saturates":0,"carbohydrate":5.7,"sugars":5.7,"protein":0,"salt":0}'::jsonb, '100ml', 'Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.', ARRAY['Obsahuje kofein – není vhodné pro děti, těhotné a kojící ženy.']::text[], '{}'::text[], 60, 'Do 2 měsíců při skladování v lednici do 4 °C.', 60)
+ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
+  "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
+  "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
+  "ingredients" = EXCLUDED."ingredients", "nutrition" = EXCLUDED."nutrition",
+  "nutrition_basis" = EXCLUDED."nutrition_basis", "storage_instructions" = EXCLUDED."storage_instructions",
+  "warnings" = EXCLUDED."warnings", "allergens" = EXCLUDED."allergens", "shelf_life_days" = EXCLUDED."shelf_life_days", "shelf_life_note" = EXCLUDED."shelf_life_note", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
+  "volume_ml", "servings", "price_b2c_kc", "sort_order")
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'jasminovy-zeleny-caj'), 'jasminovy-zeleny-caj-3l', '3 l Rodinná zásoba (bag-in-box)', 'Ideální pro sdílení nebo více příležitostí.',
+  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 269, 10)
+ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
+  "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
+  "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
+  "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
+
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT "id", '/eshop/jasminovy-zeleny-caj.jpg', 'Jasmínový zelený čaj', 0 FROM "products" WHERE "slug" = 'jasminovy-zeleny-caj'
+AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
+  WHERE p."slug" = 'jasminovy-zeleny-caj' AND pi."url" = '/eshop/jasminovy-zeleny-caj.jpg');
 
 COMMIT;
