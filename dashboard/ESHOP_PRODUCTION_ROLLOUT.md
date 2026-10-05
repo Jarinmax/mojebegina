@@ -94,7 +94,7 @@ první nová objednávka 5201).
    Vrácení: `49_polevky_rollback.sql` (stav z migrace 0014).
 8. **Katalog — Čaje** (`docs/eshop-catalog/`): `50_caje_before.sql`
    → `1 | 0 | 0 | 17` → `51_caje.sql` (celý soubor) → `52_caje_after.sql`
-   → `3 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 2 | 249 Kč, 12 nápojů`.
+   → `4 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 3 | 249 Kč, 12 nápojů`.
    Vrácení: `59_caje_rollback.sql` (čaje skryje, nic nemaže).
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.

@@ -120,6 +120,28 @@ export const TEAS = [
     warnings: [],
     variants: [bagInBox("lipovy-caj", 259, 12)],
   },
+  {
+    ...TEA_COMMON,
+    slug: "hermankovy-caj",
+    name: "Heřmánkový čaj",
+    sortOrder: 40,
+    shortDescription: "Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.",
+    highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "jemná, vyvážená chuť"],
+    description: [
+      "Heřmánkový čaj přináší jemnou a harmonickou chuť heřmánku s lehce nasládlým charakterem a příjemně hladkým dozvukem.",
+      "Chuť působí lehce, čistě a harmonicky.",
+      "**Bylinný čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste:
+      "Heřmánkový čaj má jemnou, hladkou chuť s lehce nasládlým charakterem a příjemně uklidňujícím dozvukem. Chuť působí čistě, vyváženě a harmonicky.",
+    ingredients:
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, květ heřmánku (Matricaria chamomilla), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
+    storage: STORAGE,
+    warnings: [],
+    variants: [bagInBox("hermankovy-caj", 249, 12)],
+  },
 ];
 
 export function cajeSql() {
