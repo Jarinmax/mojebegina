@@ -45,7 +45,9 @@ pravdy, testovaný `lib/eshop/__tests__/paymentsMigration.test.ts`):
 ověřena read-only: `5 | 1 | 1 | 1 | 0 | 2 | 2 | 9 | 0 | 0 | 9`.
 Production: nespuštěno.
 
-**Krok B (6. 10. 2026) — kód hotový na větvi, migrace NESPUŠTĚNA:**
+**Krok B (6. 10. 2026) — kód nasazen na Preview; migrace spuštěna vedením na Preview 6. 10. 2026,
+kontrola po ověřena read-only: `1 | 7 | 0 | ano | ano` (900008 → 70000001 z nového kódu,
+900002–900007 → 70000002–70000007). Production: nespuštěno.**
 
 | Soubor | Co dělá |
 |---|---|
