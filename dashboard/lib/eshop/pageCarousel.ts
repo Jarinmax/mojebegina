@@ -14,12 +14,16 @@ export type CarouselTile = {
 
 export type PageCarouselContent = { label: string; tiles: CarouselTile[] };
 
-/** Nápoje pro stránku O vodě (výběr vedení 3. 10. 2026), v tomto pořadí. */
+/**
+ * Nápoje pro stránku O vodě (výběr vedení 3. 10. 2026), v tomto pořadí.
+ * „Golden Nepál Ice Tea“ = Černý čaj Golden Nepal (potvrzeno vedením
+ * 6. 10. 2026) — hledá se podle názvu v katalogu.
+ */
 export const WATER_DRINKS = [
   "Červánkové nebe",
   "Dům u jezera",
   "Heřmánkový ledový čaj",
-  "Golden Nepál Ice Tea",
+  "Černý čaj Golden Nepal",
 ] as const;
 
 /** Kategorie s nápoji — náhrada na stránce O vodě, dokud vybrané nápoje nejsou v katalogu. */

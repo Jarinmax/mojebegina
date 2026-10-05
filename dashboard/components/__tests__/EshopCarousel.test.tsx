@@ -127,15 +127,15 @@ describe("co ukazuje kolotoč na stránkách", () => {
   });
 
   it("O vodě: vybrané nápoje v pořadí od vedení, nalezené podle názvu (velikost písmen, diakritika)", () => {
-    expect(WATER_DRINKS).toEqual(["Červánkové nebe", "Dům u jezera", "Heřmánkový ledový čaj", "Golden Nepál Ice Tea"]);
-    const catalog = catalogWith(["Golden Nepal ice tea", "Kulajda", "ČERVÁNKOVÉ NEBE", "Heřmánkový ledový čaj", "Dům u jezera"]);
+    expect(WATER_DRINKS).toEqual(["Červánkové nebe", "Dům u jezera", "Heřmánkový ledový čaj", "Černý čaj Golden Nepal"]);
+    const catalog = catalogWith(["CERNY CAJ GOLDEN NEPAL", "Kulajda", "ČERVÁNKOVÉ NEBE", "Heřmánkový ledový čaj", "Dům u jezera"]);
     const { label, tiles } = waterCarousel(catalog);
     expect(label).toBe("Nápoje");
     expect(tiles.map((t) => [t.name, t.href, t.kind])).toEqual([
       ["ČERVÁNKOVÉ NEBE", "/eshop/produkt/p-2", "product"],
       ["Dům u jezera", "/eshop/produkt/p-4", "product"],
       ["Heřmánkový ledový čaj", "/eshop/produkt/p-3", "product"],
-      ["Golden Nepal ice tea", "/eshop/produkt/p-0", "product"],
+      ["CERNY CAJ GOLDEN NEPAL", "/eshop/produkt/p-0", "product"],
     ]);
   });
 
