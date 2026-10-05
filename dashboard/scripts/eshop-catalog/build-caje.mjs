@@ -185,6 +185,27 @@ export const TEAS = [
     warnings: ["Obsahuje kofein – není vhodné pro děti, těhotné a kojící ženy."],
     variants: [bagInBox("jasminovy-zeleny-caj", 269, 12)],
   },
+  {
+    ...TEA_COMMON,
+    slug: "ibiskovy-caj",
+    name: "Ibiškový čaj",
+    sortOrder: 70,
+    shortDescription: "Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.",
+    highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "výrazná, vyvážená chuť"],
+    description: [
+      "Ibiškový čaj přináší výraznou, svěží chuť ibišku s plným a osvěžujícím dozvukem. Výsledkem je vyvážená, plná chuť s přirozenou svěžestí.",
+      "Chuť působí svěže, výrazně a harmonicky.",
+      "**Čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste: "Ibiškový čaj má výraznou, svěží chuť s plným a osvěžujícím dozvukem.",
+    ingredients:
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, ibišek (Hibiscus), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 113, energy_kcal: 27, fat: 0, saturates: 0, carbohydrate: 6.7, sugars: 6.7, protein: 0, salt: 0 },
+    storage: STORAGE,
+    warnings: [],
+    variants: [bagInBox("ibiskovy-caj", 249, 12)],
+  },
 ];
 
 export function cajeSql() {

@@ -1,7 +1,7 @@
 -- ESHOP 1.0 — kontrola PO 51_caje.sql (jen čtení).
 -- Očekáváno:
 --   caje_v_prodeji | sekce_kategorie | saman_baleni                           | fotky_caju | zazvorovy
---   6              | 1               | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 6          | 249 Kč, 12 nápojů
+--   7              | 1               | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 7          | 249 Kč, 12 nápojů
 SELECT
   (SELECT count(*) FROM "products" p JOIN "product_categories" c ON c."id" = p."category_id" WHERE c."slug" = 'caje' AND p."is_active") AS caje_v_prodeji,
   (SELECT coalesce(jsonb_array_length("detail_sections"), 0) FROM "product_categories" WHERE "slug" = 'caje') AS sekce_kategorie,
