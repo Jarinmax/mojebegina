@@ -97,6 +97,29 @@ export const TEAS = [
     warnings: [],
     variants: [bagInBox("zazvorovy-caj", 249, 12)],
   },
+  {
+    ...TEA_COMMON,
+    slug: "lipovy-caj",
+    name: "Lipový čaj",
+    sortOrder: 30,
+    photo: false, // fotka čeká (snímek poslaný během práce se neuložil)
+    shortDescription: "Až 12 nápojů (21,60 Kč za nápoj). Jeden nápoj = 250 ml.",
+    highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "čistá, vyvážená chuť"],
+    description: [
+      "Lipový čaj přináší jemnou a harmonickou chuť lipového květu s lehce nasládlým charakterem a příjemně hladkým dozvukem. Výsledkem je plná, čistá chuť s jemným květinovým charakterem a přirozenou lehkostí.",
+      "Chuť působí jemně, hladce a harmonicky.",
+      "**Bylinný čaj, který máte v lednici vždy připravený. Stačí ohřát nebo podávat vychlazený – ideálně ve sklenici s ledem.**",
+      "Připravujeme ho z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozený charakter jednotlivých ingrediencí.",
+    ],
+    taste:
+      "Lipový čaj má jemnou, hladkou chuť s lehce nasládlým charakterem a typickým květinovým nádechem. Chuť působí čistě, vyváženě a harmonicky.",
+    ingredients:
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, lipový květ (Tiliae flos), regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
+    storage: STORAGE,
+    warnings: [],
+    variants: [bagInBox("lipovy-caj", 259, 12)],
+  },
 ];
 
 export function cajeSql() {
@@ -120,7 +143,7 @@ BEGIN;
   for (const tea of TEAS) {
     w(productSql(tea, "caje", tea.sortOrder));
     tea.variants.forEach((v, j) => w(variantSql(tea.slug, v, (j + 1) * 10)));
-    w(imageSql(tea));
+    if (tea.photo !== false) w(imageSql(tea));
   }
   w("COMMIT;\n");
   return out.join("\n");
