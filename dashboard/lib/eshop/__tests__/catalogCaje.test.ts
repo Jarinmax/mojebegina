@@ -40,9 +40,9 @@ describe("katalog — Čaje", DB_TEST, () => {
   it("před, skript, po; opakované spuštění nic nezdvojí", async () => {
     expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 17");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("5 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 4 | 249 Kč, 12 nápojů");
+    expect(await check(pg, "52_caje_after.sql")).toBe("5 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 5 | 249 Kč, 12 nápojů");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("5 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 4 | 249 Kč, 12 nápojů");
+    expect(await check(pg, "52_caje_after.sql")).toBe("5 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 5 | 249 Kč, 12 nápojů");
   });
 
   it("e-shop: Bylinný čaj Šaman z begina.cz", async () => {
@@ -55,7 +55,7 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(zazvor.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 94 kJ \/ 22 kcal/);
     expect(zazvor.warnings).toEqual([]);
     const lipa = (await teas())[2];
-    expect([lipa.name, lipa.variants[0].priceKc, lipa.image]).toEqual(["Lipový čaj", 259, null]);
+    expect([lipa.name, lipa.variants[0].priceKc, lipa.image]).toEqual(["Lipový čaj", 259, "/eshop/lipovy-caj.jpg"]);
     expect(lipa.foodInfo.ingredients).toMatch(/lipový květ \(Tiliae flos\)/);
     const hermanek = (await teas())[3];
     expect([hermanek.name, hermanek.variants[0].priceKc, hermanek.image]).toEqual(["Heřmánkový čaj", 249, "/eshop/hermankovy-caj.jpg"]);

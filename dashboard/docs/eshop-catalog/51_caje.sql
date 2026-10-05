@@ -89,6 +89,11 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT "id", '/eshop/lipovy-caj.jpg', 'Lipový čaj', 0 FROM "products" WHERE "slug" = 'lipovy-caj'
+AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
+  WHERE p."slug" = 'lipovy-caj' AND pi."url" = '/eshop/lipovy-caj.jpg');
+
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'caje'), 'hermankovy-caj', 'Heřmánkový čaj',

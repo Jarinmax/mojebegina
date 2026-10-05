@@ -102,7 +102,6 @@ export const TEAS = [
     slug: "lipovy-caj",
     name: "Lipový čaj",
     sortOrder: 30,
-    photo: false, // fotka čeká (snímek poslaný během práce se neuložil)
     shortDescription: "Až 12 nápojů (21,60 Kč za nápoj). Jeden nápoj = 250 ml.",
     highlights: ["z čisté filtrované vody", "bez umělých aromat a barviv", "čistá, vyvážená chuť"],
     description: [
