@@ -65,8 +65,11 @@ describe("katalog — Čaje", DB_TEST, () => {
       "na 100 ml: energie 98 kJ / 23 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 5,7 g (z toho cukry 5,7 g), bílkoviny 0 g, sůl 0 g"
     );
     expect(saman.warnings).toEqual(["Není vhodné pro děti do 3 let, těhotné a kojící ženy."]);
-    expect(saman.foodInfo.allergens).toBeNull();
-    expect(saman.foodInfo.shelfLife).toBeNull();
+    // všechny čaje: bez alergenů, trvanlivost 2 měsíce (údaje vedení 5. 10. 2026)
+    for (const tea of await teas()) {
+      expect(tea.foodInfo.allergens, tea.slug).toEqual([]);
+      expect(tea.foodInfo.shelfLife, tea.slug).toBe("Do 2 měsíců při skladování v lednici do 4 °C.");
+    }
     const category = (await loadCatalog(db)).categories.find((c) => c.slug === "caje")!;
     expect(category.detailSections[0].paragraphs[0]).toBe("Čaje Begina jsou praktické řešení pro:");
     expect(category.intro).toHaveLength(2);

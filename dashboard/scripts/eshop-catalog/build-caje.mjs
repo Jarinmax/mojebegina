@@ -44,9 +44,18 @@ const bagInBox = (slug, price, servings) => ({
 const STORAGE =
   "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení.";
 
+// Údaje vedení 5. 10. 2026: čaje jsou bez alergenů, trvanlivost 2 měsíce
+// při skladování v lednici do 4 °C.
+const TEA_COMMON = {
+  allergens: [],
+  shelfLifeDays: 60,
+  shelfLifeNote: "Do 2 měsíců při skladování v lednici do 4 °C.",
+};
+
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 export const TEAS = [
   {
+    ...TEA_COMMON,
     slug: "bylinny-caj-saman",
     name: "Bylinný čaj Šaman",
     sortOrder: 10,
@@ -68,6 +77,7 @@ export const TEAS = [
     variants: [bagInBox("bylinny-caj-saman", 289, 12)],
   },
   {
+    ...TEA_COMMON,
     slug: "zazvorovy-caj",
     name: "Zázvorový čaj",
     sortOrder: 20,
@@ -97,7 +107,7 @@ export function cajeSql() {
 -- scripts/eshop-catalog/build-caje.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
 -- 2026): popis, chuť, balení, složení, výživa na 100 ml, skladování,
--- upozornění. Co web neuvádí (alergeny, trvanlivost) = „Doplníme“.
+-- upozornění; alergeny (žádné) a trvanlivost 2 měsíce od vedení.
 --
 -- Spouští vedení v Neon SQL Editoru CELÝ soubor najednou (jedna
 -- transakce: chyba = nic se nezmění). Idempotentní — opakované spuštění
