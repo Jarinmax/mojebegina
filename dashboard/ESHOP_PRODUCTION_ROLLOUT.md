@@ -96,6 +96,7 @@ první nová objednávka 5201).
    → `1 | 0 | 0 | 17` → `51_caje.sql` (celý soubor) → `52_caje_after.sql`
    → `8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů`.
    Vrácení: `59_caje_rollback.sql` (čaje skryje, nic nemaže).
+   *Preview: spuštěno vedením 6. 10. 2026, kontrola po ověřena read-only.*
 9. **Platby a fakturace — krok A** (`docs/eshop-payments/`, schéma
    `ESHOP_FAKTURACE_NAVRH.md`): `10_before.sql` → `0 | 0 | 1 | <faktury> |
    <objednávky> | <e-shop>` → `11_migration.sql` (celý soubor) →
