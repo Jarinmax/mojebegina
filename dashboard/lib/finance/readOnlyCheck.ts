@@ -5,7 +5,9 @@
 //   • u každé kolekce 1 stránka o velikosti 1 → jen POČET záznamů
 //     (TotalItems). Obsah dokladu se do výsledku nedostane,
 //   • číselné řady (GET /NumericSequences): ID, název, formát, typ dokladu,
-//     výchozí — pro výběr e-shopové řady faktur. Nic se nezakládá ani nemění.
+//     výchozí — pro výběr e-shopové řady faktur. Nic se nezakládá ani nemění,
+//   • číselníky pro e-shopové faktury (codebookCheck.ts): způsoby úhrady,
+//     CZK, CZE, výchozí faktura agendy, další číslo v řadě 7277293.
 // Nic se neukládá do DB; výsledek je jen pro zobrazení přihlášenému
 // Vinerovi. Odpovídá i na otevřenou otázku, které agendy Begina v iDokladu
 // skutečně používá (banka, pokladna, prodejky).
@@ -14,6 +16,7 @@ import type { IdokladCollection } from "./idoklad/endpoints";
 import { IdokladError } from "./idoklad/errors";
 import type { ApiAgenda, ApiNumericSequence } from "./idoklad/apiTypes";
 import { normalizeAgenda, toIsoDate } from "./idoklad/normalize";
+import { runCodebookCheck, type CodebookCheck } from "./codebookCheck";
 import type { VatMode } from "./types";
 
 export const READ_ONLY_CHECK_COLLECTIONS: Array<{ collection: IdokladCollection; label: string }> = [
@@ -80,11 +83,16 @@ export function unpackSequences(tuples: SequenceTuple[]): NumericSequenceRow[] {
 
 /** Rozdělí výsledek na hlavní cookie (bez řad) a cookie s řadami. */
 export function splitResultForCookies(result: ReadOnlyCheckResult): {
-  main: Omit<ReadOnlyCheckResult, "numericSequences" | "numericSequencesError">;
+  main: Omit<ReadOnlyCheckResult, "numericSequences" | "numericSequencesError" | "codebooks" | "codebooksError">;
   sequences: { s: SequenceTuple[] | null; e: string | null };
+  codebooks: { c: CodebookCheck | null; e: string | null };
 } {
-  const { numericSequences, numericSequencesError, ...main } = result;
-  return { main, sequences: { s: numericSequences ? packSequences(numericSequences) : null, e: numericSequencesError } };
+  const { numericSequences, numericSequencesError, codebooks, codebooksError, ...main } = result;
+  return {
+    main,
+    sequences: { s: numericSequences ? packSequences(numericSequences) : null, e: numericSequencesError },
+    codebooks: { c: codebooks, e: codebooksError },
+  };
 }
 
 export function sequenceDocumentTypeLabel(type: string | null): string {
@@ -124,6 +132,9 @@ export type ReadOnlyCheckResult = {
   /** číselné řady agendy (null = nepodařilo se načíst, viz numericSequencesError) */
   numericSequences: NumericSequenceRow[] | null;
   numericSequencesError: string | null;
+  /** číselníky pro e-shopové faktury (null = nepodařilo se, viz codebooksError) */
+  codebooks: CodebookCheck | null;
+  codebooksError: string | null;
   requestCount: number;
   refreshTokenReturned: boolean;
 };
@@ -187,6 +198,24 @@ export async function runReadOnlyAccountCheck(options: {
     }
   }
 
+  // Číselníky pro ostré vystavování e-shopových faktur — jen čtení,
+  // jednotlivé chyby nezastaví test (jsou ve výsledku).
+  let codebooks: CodebookCheck | null = null;
+  let codebooksError: string | null = null;
+  try {
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(options.now);
+    codebooks = await runCodebookCheck(client, apiAgenda, today);
+  } catch (error) {
+    if (error instanceof IdokladError) {
+      if (["auth_failed", "rate_limited", "budget_exhausted", "request_blocked", "api_not_allowed", "billing"].includes(error.code)) {
+        throw error;
+      }
+      codebooksError = error.userMessage;
+    } else {
+      throw error;
+    }
+  }
+
   return {
     ok: true,
     checkedAt: options.now.toISOString(),
@@ -204,6 +233,8 @@ export async function runReadOnlyAccountCheck(options: {
     counts,
     numericSequences,
     numericSequencesError,
+    codebooks,
+    codebooksError,
     requestCount: client.requestCount,
     refreshTokenReturned: options.refreshTokenReturned ?? false,
   };

@@ -62,13 +62,15 @@ describe("runReadOnlyAccountCheck", () => {
     expect(result.counts).toHaveLength(READ_ONLY_CHECK_COLLECTIONS.length);
     expect(result.counts.find((row) => row.collection === "IssuedInvoices")?.total).toBe(fixtureIssuedInvoices.length);
     expect(result.counts.find((row) => row.collection === "BankStatements")?.total).toBe(0);
-    expect(result.requestCount).toBe(1 + READ_ONLY_CHECK_COLLECTIONS.length + 1);
+    // agenda + počty + číselné řady + 5 číselníků (úhrady, CZK, CZE, výchozí faktura, další číslo)
+    expect(result.requestCount).toBe(1 + READ_ONLY_CHECK_COLLECTIONS.length + 1 + 5);
 
     expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
     expect(fake.calls.every((call) => call.url.startsWith("https://api.idoklad.cz/v3/"))).toBe(true);
     // Jen počty: každá kolekce s pageSize=1
     const pageSizes = fake.calls
       .filter((call) => !call.url.includes("/Account/") && !call.url.includes("/NumericSequences"))
+      .filter((call) => !/\/(PaymentOptions|Currencies|Countries|IssuedInvoices\/Default)/.test(call.url))
       .map((call) => new URL(call.url).searchParams.get("pageSize"));
     expect(new Set(pageSizes)).toEqual(new Set(["1"]));
     // Výsledek neobsahuje token ani obsah dokladů
@@ -91,7 +93,7 @@ describe("runReadOnlyAccountCheck", () => {
       "Vydané faktury",
       "typ 3",
     ]);
-    const seqCalls = fake.calls.filter((call) => call.url.includes("/NumericSequences"));
+    const seqCalls = fake.calls.filter((call) => new URL(call.url).pathname === "/v3/NumericSequences");
     expect(seqCalls).toHaveLength(1);
     expect(seqCalls[0].method).toBe("GET");
     expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
@@ -167,5 +169,109 @@ describe("runReadOnlyAccountCheck", () => {
     expect(error.code).toBe("auth_failed");
     // klient s OAuth tokenem si sám nový token nevyžádá
     expect(fake.calls.some((call) => call.method === "POST")).toBe(false);
+  });
+});
+
+describe("číselníky pro e-shopové faktury (bod 3, jen čtení)", () => {
+  const PAYMENT_OPTIONS = [
+    { Id: 1, Name: "Převodem", Code: "B", IsDefault: true },
+    { Id: 2, Name: "Hotově", Code: "H", IsDefault: false },
+    { Id: 3, Name: "Kartou", Code: "K", IsDefault: false },
+    { Id: 4, Name: "Dobírka", Code: "D", IsDefault: false },
+  ];
+  const SINGLES = {
+    "/IssuedInvoices/Default": {
+      CurrencyId: 2,
+      PaymentOptionId: 1,
+      AccountNumber: "19-2000145399",
+      IsIncomeTax: true,
+      Items: [{ PriceType: 0, VatRateType: 2, VatRate: 0 }],
+    },
+    "/NumericSequences/DocumentNumbers/IssuedInvoice": {
+      Unique: { DocumentNumber: "9260001", DocumentSerialNumber: 1, NumericSequenceId: 7277293 },
+    },
+  };
+
+  function full(paymentOptions = PAYMENT_OPTIONS) {
+    return setup({
+      agenda: { ...fixtureAgenda, IsRegisteredForVat: false, PreferredPriceType: 0, PreferredVatRate: 0, DefaultCurrencyId: 2 },
+      collections: {
+        NumericSequences: SEQUENCES,
+        PaymentOptions: paymentOptions,
+        Currencies: [
+          { Id: 2, Code: "CZK", Name: "Česká koruna" },
+          { Id: 3, Code: "EUR", Name: "Euro" },
+        ],
+        Countries: [
+          { Id: 2, Code: "CZE", Name: "Česká republika" },
+          { Id: 3, Code: "SVK", Name: "Slovensko" },
+        ],
+      },
+      singles: SINGLES,
+    });
+  }
+
+  it("způsoby úhrady, CZK, CZE, typ ceny u neplátce, další číslo v řadě 7277293 — jen GET", async () => {
+    const { fake, client } = full();
+    const result = await runReadOnlyAccountCheck({ client, companyIco: null, vatModeConfigured: "non_payer", now: FIXTURE_NOW });
+    expect(result.codebooksError).toBeNull();
+    expect(result.codebooks).toEqual({
+      agenda: { preferredPriceType: "0", preferredVatRate: "0", isVatPayer: false, defaultCurrencyId: 2 },
+      czk: [{ id: 2, code: "CZK", name: "Česká koruna" }],
+      cze: [{ id: 2, code: "CZE", name: "Česká republika" }],
+      paymentOptions: [
+        { id: 1, name: "Převodem", code: "B", isDefault: true },
+        { id: 2, name: "Hotově", code: "H", isDefault: false },
+        { id: 3, name: "Kartou", code: "K", isDefault: false },
+        { id: 4, name: "Dobírka", code: "D", isDefault: false },
+      ],
+      methods: [
+        { method: "bank_transfer", label: "převodem", ids: [1] },
+        { method: "card", label: "kartou", ids: [3] },
+        { method: "cash", label: "hotově", ids: [2] },
+      ],
+      defaultInvoice: {
+        currencyId: 2,
+        paymentOptionId: 1,
+        itemPriceType: "0",
+        itemVatRateType: "2",
+        itemVatRate: 0,
+        hasItem: true,
+        hasBankAccount: true,
+        isIncomeTax: true,
+      },
+      nextEshopNumber: { documentNumber: "9260001", serial: 1, sequenceId: 7277293 },
+      errors: [],
+    });
+    expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
+    const numbers = fake.calls.find((c) => c.url.includes("/DocumentNumbers/"))!;
+    expect(new URL(numbers.url).searchParams.get("numericSequenceId")).toBe("7277293");
+    expect(fake.calls.some((c) => /Code~eq~CZK/.test(decodeURIComponent(c.url)))).toBe(true);
+
+    // vše se vejde do vlastní podepsané cookie
+    const { codebooks, main } = splitResultForCookies(result);
+    expect(main).not.toHaveProperty("codebooks");
+    expect(signPayload({ v: 1, u: "user-id-0123456789abcdef", ...codebooks }, "x".repeat(32)).length).toBeLessThan(3800);
+  });
+
+  it("nejednoznačný způsob úhrady se ukáže (e-shop by fakturu nevystavil)", async () => {
+    const { client } = full([...PAYMENT_OPTIONS, { Id: 9, Name: "Převodem — zahraničí", Code: "BZ", IsDefault: false }]);
+    const result = await runReadOnlyAccountCheck({ client, companyIco: null, vatModeConfigured: null, now: FIXTURE_NOW });
+    expect(result.codebooks!.methods[0]).toEqual({ method: "bank_transfer", label: "převodem", ids: [1, 9] });
+  });
+
+  it("nedostupný číselník = jen hláška, test pokračuje; dlouhý seznam se vejde do cookie", async () => {
+    const failing = setup({ failCollections: { PaymentOptions: 403 } });
+    const result = await runReadOnlyAccountCheck({ client: failing.client, companyIco: null, vatModeConfigured: null, now: FIXTURE_NOW });
+    expect(result.codebooks!.paymentOptions).toBeNull();
+    expect(result.codebooks!.errors[0]).toMatch(/^Způsoby úhrady: /);
+    expect(result.counts).toHaveLength(READ_ONLY_CHECK_COLLECTIONS.length);
+
+    const many = Array.from({ length: 40 }, (_, i) => ({ Id: 100 + i, Name: `Způsob úhrady s dlouhým názvem ${i}`, Code: `KOD${i}`, IsDefault: false }));
+    const big = full(many);
+    const bigResult = await runReadOnlyAccountCheck({ client: big.client, companyIco: null, vatModeConfigured: null, now: FIXTURE_NOW });
+    expect(bigResult.codebooks!.paymentOptions).toHaveLength(15);
+    const { codebooks } = splitResultForCookies(bigResult);
+    expect(signPayload({ v: 1, u: "user-id-0123456789abcdef", ...codebooks }, "x".repeat(32)).length).toBeLessThan(3800);
   });
 });

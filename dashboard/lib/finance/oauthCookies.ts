@@ -10,5 +10,6 @@ export const IDOKLAD_STATE_COOKIE = "idoklad_oauth_state";
 export const IDOKLAD_STATE_COOKIE_PATH = "/api/idoklad";
 export const IDOKLAD_RESULT_COOKIE = "idoklad_oauth_result";
 export const IDOKLAD_SEQUENCES_COOKIE = "idoklad_oauth_sequences";
+export const IDOKLAD_CODEBOOKS_COOKIE = "idoklad_oauth_codebooks";
 export const IDOKLAD_TEST_PAGE_PATH = "/rizeni-firmy/finance/idoklad";
 export const IDOKLAD_COOKIE_MAX_AGE_SECONDS = 10 * 60;

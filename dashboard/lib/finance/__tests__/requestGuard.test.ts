@@ -46,6 +46,13 @@ describe("datové API — jen GET", () => {
       "/Tags",
       "/NumericSequences",
       "/Account/CurrentAgenda",
+      // číselníky pro e-shopové faktury (jen čtení)
+      "/PaymentOptions",
+      "/Currencies",
+      "/Countries",
+      // šablona výchozí faktury a náhled dalšího čísla — nic se nezakládá ani nerezervuje
+      "/IssuedInvoices/Default",
+      "/NumericSequences/DocumentNumbers/IssuedInvoice",
     ]) {
       expect(() => assertIdokladRequestAllowed("GET", `${API}${path}?page=1&pageSize=100`)).not.toThrow();
     }
@@ -58,6 +65,12 @@ describe("datové API — jen GET", () => {
       // číselné řady: jen čtení — založit, upravit ani smazat nejde
       blocked(method, `${API}/NumericSequences`);
       blocked(method, `${API}/NumericSequences/7`);
+      // číselníky a výchozí faktura: jen čtení
+      blocked(method, `${API}/PaymentOptions`);
+      blocked(method, `${API}/Currencies`);
+      blocked(method, `${API}/Countries`);
+      blocked(method, `${API}/IssuedInvoices/Default`);
+      blocked(method, `${API}/NumericSequences/DocumentNumbers/IssuedInvoice`);
     }
   });
 
@@ -65,8 +78,10 @@ describe("datové API — jen GET", () => {
     for (const path of [
       "/Webhooks",
       "/IssuedInvoices/123/Copy",
-      "/IssuedInvoices/Default",
+      "/IssuedInvoices/Recount",
       "/IssuedInvoices/123/Recount",
+      "/NumericSequences/DocumentNumbers/CreditNote",
+      "/Reports/IssuedInvoice/1/Pdf",
       "/Mails/IssuedInvoice/Send",
       "/Batch",
       "/Account/Agendas/DeleteRequest",

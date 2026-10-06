@@ -16,6 +16,8 @@ export type FakeIdokladOptions = {
   tokenStatus?: number;
   // Kolekce, pro které falešný iDoklad vrátí daný HTTP stav.
   failCollections?: Record<string, number>;
+  // Jednotlivé (ne-kolekční) cesty bez /v3 → Data (např. /IssuedInvoices/Default).
+  singles?: Record<string, unknown>;
 };
 
 function envelope(data: unknown, status = 200): Response {
@@ -34,13 +36,15 @@ function fieldValue(item: Record<string, unknown>, field: string): unknown {
 
 function applyFilter(items: Record<string, unknown>[], filter: string | null): Record<string, unknown>[] {
   if (!filter) return items;
-  const parts = filter.split("~and~").map((part) => /^\((\w+)~gte~(.+)\)$/.exec(part));
+  const parts = filter.split("~and~").map((part) => /^\(?(\w+)~(gte|eq)~([^)]+)\)?$/.exec(part));
   return items.filter((item) =>
     parts.every((match) => {
       if (!match) throw new Error(`Falešný iDoklad nezná filtr ${filter}`);
-      const value = fieldValue(item, match[1]);
+      const [, field, operator, expected] = match;
+      const value = fieldValue(item, field);
+      if (operator === "eq") return String(value) === expected;
       // Porovnání jako text stačí: oba tvary začínají yyyy-MM-dd.
-      return typeof value === "string" && value.replace("T", " ") >= match[2];
+      return typeof value === "string" && value.replace("T", " ") >= expected;
     })
   );
 }
@@ -82,6 +86,9 @@ export function createFakeIdoklad(options: FakeIdokladOptions) {
     const path = parsed.pathname.replace(/^\/v3/, "");
     if (path === "/Account/CurrentAgenda") {
       return envelope(options.agenda);
+    }
+    if (options.singles && path in options.singles) {
+      return envelope(options.singles[path]);
     }
     const collection = path.slice(1);
     const failStatus = options.failCollections?.[collection];

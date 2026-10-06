@@ -45,12 +45,23 @@ export const IDOKLAD_READABLE_COLLECTIONS = [
   // Číselné řady — jen pro read-only výpis v testu připojení (výběr
   // e-shopové řady faktur, IDOKLAD_ESHOP_SEQUENCE_ID). Jen GET.
   "NumericSequences",
+  // Číselníky pro ostré vystavování e-shopových faktur (způsob úhrady,
+  // měna, země) — jen read-only ověření v testu připojení. Jen GET.
+  "PaymentOptions",
+  "Currencies",
+  "Countries",
 ] as const;
 
 export type IdokladCollection = (typeof IDOKLAD_READABLE_COLLECTIONS)[number];
 
 // Jednotlivé (ne-kolekční) čtecí cesty.
-export const IDOKLAD_READABLE_SINGLE_PATHS = ["/Account/CurrentAgenda"] as const;
+export const IDOKLAD_READABLE_SINGLE_PATHS = [
+  "/Account/CurrentAgenda",
+  // výchozí (nevystavená) faktura agendy — jen šablona hodnot, nic se nezakládá
+  "/IssuedInvoices/Default",
+  // náhled dalšího čísla v řadě — nic se nerezervuje
+  "/NumericSequences/DocumentNumbers/IssuedInvoice",
+] as const;
 
 export const IDOKLAD_DEFAULT_PAGE_SIZE = 100; // SDK: výchozí 20, v příkladu 100; maximum neověřeno
 export const IDOKLAD_DATE_FILTER_FORMAT = "yyyy-MM-dd HH:mm:ss.fff";

@@ -19,6 +19,7 @@ import {
   IDOKLAD_COOKIE_MAX_AGE_SECONDS,
   IDOKLAD_RESULT_COOKIE,
   IDOKLAD_SEQUENCES_COOKIE,
+  IDOKLAD_CODEBOOKS_COOKIE,
   IDOKLAD_STATE_COOKIE,
   IDOKLAD_STATE_COOKIE_PATH,
   IDOKLAD_TEST_PAGE_PATH,
@@ -71,12 +72,14 @@ export async function GET(request: Request) {
       maxAge: IDOKLAD_COOKIE_MAX_AGE_SECONDS,
     };
     if (result.ok) {
-      const { main, sequences } = splitResultForCookies(result);
+      const { main, sequences, codebooks } = splitResultForCookies(result);
       cookieStore.set(IDOKLAD_RESULT_COOKIE, signPayload({ v: 1, u: ctx.userId, r: main }, config.stateSecret), options);
       cookieStore.set(IDOKLAD_SEQUENCES_COOKIE, signPayload({ v: 1, u: ctx.userId, ...sequences }, config.stateSecret), options);
+      cookieStore.set(IDOKLAD_CODEBOOKS_COOKIE, signPayload({ v: 1, u: ctx.userId, ...codebooks }, config.stateSecret), options);
     } else {
       cookieStore.set(IDOKLAD_RESULT_COOKIE, signPayload({ v: 1, u: ctx.userId, r: result }, config.stateSecret), options);
       cookieStore.set(IDOKLAD_SEQUENCES_COOKIE, "", { ...options, maxAge: 0 });
+      cookieStore.set(IDOKLAD_CODEBOOKS_COOKIE, "", { ...options, maxAge: 0 });
     }
     return NextResponse.redirect(new URL(IDOKLAD_TEST_PAGE_PATH, config.redirectOrigin));
   };

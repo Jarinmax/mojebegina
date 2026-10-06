@@ -234,8 +234,16 @@ a u 14 kolekcí jen počet záznamů (pageSize=1). **Od 6. 10. 2026 navíc**
 výpis číselných řad (ID, název, formát, typ dokladu, výchozí) pro výběr
 e-shopové řady vydaných faktur (`IDOKLAD_ESHOP_SEQUENCE_ID` na e-shopové
 větvi). Výpis jde na stránku v samostatné podepsané cookie (limit ~4 kB),
-max. 20 řad. Nic se nezapisuje do
-iDokladu ani do DB. Scope jen `idoklad_api` — bez `offline_access`, takže
+max. 20 řad. **Od 7. 10. 2026 navíc** (bod 3 e-shopové fakturace, jen
+čtení, `lib/finance/codebookCheck.ts`): `GET /PaymentOptions`,
+`/Currencies?filter=Code~eq~CZK`, `/Countries?filter=Code~eq~CZE`,
+`/IssuedInvoices/Default` (šablona — nic nezakládá) a
+`/NumericSequences/DocumentNumbers/IssuedInvoice?numericSequenceId=7277293`
+(náhled dalšího čísla — nic nerezervuje). Stránka ukáže ID CZK a CZE,
+způsoby úhrady a jak je e-shop spáruje (převodem / kartou / hotově — musí
+vyjít právě jeden), typ ceny a sazbu položky výchozí faktury u neplátce
+a další číslo v řadě E-shop Begina. Vlastní podepsaná cookie. Nic se
+nezapisuje do iDokladu ani do DB. Scope jen `idoklad_api` — bez `offline_access`, takže
 nevznikne refresh token.
 
 **Adresy (neoficiální, shodně Orchesty 29. 9. 2026 a dvě PHP knihovny):**
