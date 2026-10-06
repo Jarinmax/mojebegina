@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { blockingProblems, buildInvoiceDraft, parseCheckoutAddress, type DraftOrder, type DraftPayment } from "../invoicing/draft";
 import { idokladRequests } from "../invoicing/idoklad";
-import { LIVE_INVOICING_IMPLEMENTED, invoiceNumberSeriesId, invoicingMode } from "../invoicing/mode";
+import { LIVE_INVOICING_IMPLEMENTED, invoiceNumberSeriesId, invoicingMode, liveInvoicingGate } from "../invoicing/mode";
 
 const ORDER: DraftOrder = {
   id: "c2ca5147-74a9-4e6f-b6c8-5275fa93ed33",
@@ -144,19 +144,39 @@ describe("návrh faktury — data pro iDoklad (nic se neodesílá)", () => {
       IsEet: false,
     });
     expect(req.invoice.Items).toEqual([
-      { Name: "Kulajda", Code: "kulajda", Amount: 2, Unit: "ks", UnitPrice: 379, PriceType: "OnlyBase", VatRateType: "Zero" },
-      { Name: "Doprava: Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 99, PriceType: "OnlyBase", VatRateType: "Zero" },
+      { Name: "Kulajda", Code: "kulajda", Amount: 2, Unit: "ks", UnitPrice: 379 },
+      { Name: "Doprava: Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 99 },
     ]);
   });
 });
 
 describe("režim fakturace", () => {
-  it("vždy jen návrh — Preview, Production i Production se zapnutým přepínačem", () => {
-    expect(LIVE_INVOICING_IMPLEMENTED).toBe(false);
-    for (const env of [{}, { VERCEL_ENV: "preview", IDOKLAD_INVOICING_ENABLED: "on" }, { VERCEL_ENV: "production" }, { VERCEL_ENV: "production", IDOKLAD_INVOICING_ENABLED: "on" }]) {
+  const LIVE = {
+    VERCEL_ENV: "production",
+    IDOKLAD_INVOICING_ENABLED: "on",
+    IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
+    IDOKLAD_ESHOP_CLIENT_ID: "cid",
+    IDOKLAD_ESHOP_CLIENT_SECRET: "secret",
+  };
+
+  it("Preview je VŽDY jen návrh — i se všemi přepínači a přístupovými údaji", () => {
+    expect(LIVE_INVOICING_IMPLEMENTED).toBe(true);
+    for (const VERCEL_ENV of ["preview", "development", undefined, "Production", " production"]) {
+      const env = { ...LIVE, VERCEL_ENV };
       expect(invoicingMode(env).mode).toBe("dry_run");
+      expect(liveInvoicingGate(env).open).toBe(false);
     }
-    expect(invoicingMode({ VERCEL_ENV: "preview" }).reason).toMatch(/nikdy nic neodesílá/);
+    expect(invoicingMode({ ...LIVE, VERCEL_ENV: "preview" }).reason).toMatch(/nikdy nic neodesílá/);
+  });
+
+  it("Production: ostře jen se zapnutím, řadou 7277293 a přístupovými údaji", () => {
+    expect(invoicingMode(LIVE).mode).toBe("live");
+    expect(invoicingMode({ ...LIVE, IDOKLAD_INVOICING_ENABLED: "yes" }).mode).toBe("dry_run");
+    expect(invoicingMode({ ...LIVE, IDOKLAD_INVOICING_ENABLED: undefined }).mode).toBe("dry_run");
+    // jiná řada (např. výchozí B2B 2032369) bránu zavře
+    expect(invoicingMode({ ...LIVE, IDOKLAD_ESHOP_SEQUENCE_ID: "2032369" }).reason).toMatch(/musí být 7277293/);
+    expect(invoicingMode({ ...LIVE, IDOKLAD_ESHOP_SEQUENCE_ID: undefined }).mode).toBe("dry_run");
+    expect(invoicingMode({ ...LIVE, IDOKLAD_ESHOP_CLIENT_SECRET: " " }).reason).toMatch(/přístupové údaje/);
   });
 
   it("ID číselné řady jen z IDOKLAD_ESHOP_SEQUENCE_ID", () => {

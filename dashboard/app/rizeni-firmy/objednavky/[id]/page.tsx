@@ -10,6 +10,7 @@ import FulfillmentStatusForm from "../FulfillmentStatusForm";
 import PaymentStatusForm from "../PaymentStatusForm";
 import OrderPayments from "../OrderPayments";
 import OrderInvoiceDraft from "../OrderInvoiceDraft";
+import { invoicingMode } from "@/lib/eshop/invoicing/mode";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
@@ -185,7 +186,12 @@ export default async function OrderDetailPage(
 
       {order.channel === "eshop" && (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-          <OrderInvoiceDraft orderId={order.id} invoice={invoice} paid={order.paymentStatus === "paid"} />
+          <OrderInvoiceDraft
+            orderId={order.id}
+            invoice={invoice}
+            paid={order.paymentStatus === "paid"}
+            live={invoicingMode().mode === "live"}
+          />
         </div>
       )}
 

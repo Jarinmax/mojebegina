@@ -256,6 +256,59 @@ a WooCommerce pluginu — e-shop by se s ní promíchal).
 - Na Production se proměnná nastaví až při ostrém přepnutí (stejné ID —
   řada patří agendě Begina, ne prostředí).
 
+## 2.8 Ostré vystavení do iDokladu — kód hotový, na Preview zablokovaný (7. 10. 2026)
+
+Kód je kompletní (`lib/eshop/invoicing/issue.ts`, `idokladHttp.ts`,
+`afterPaid.ts`); **zapíná se jen bránou** `liveInvoicingGate` (mode.ts),
+která je otevřená, jen když platí vše zároveň:
+
+| Podmínka | Hodnota |
+|---|---|
+| `VERCEL_ENV` (systémová, na Preview ji nelze nastavit) | `production` |
+| `IDOKLAD_INVOICING_ENABLED` | `on` |
+| `IDOKLAD_ESHOP_SEQUENCE_ID` | přesně `7277293` (jinak zavřeno) |
+| `IDOKLAD_ESHOP_CLIENT_ID` + `IDOKLAD_ESHOP_CLIENT_SECRET` | Client Credentials agendy Begina |
+
+Druhá pojistka v HTTP klientovi: zápis (jen `POST /Contacts`,
+`POST /IssuedInvoices`, `PUT /IssuedDocumentPayments/FullyPay/{id}`) projde
+jen klientem z otevřené brány a brána se ověří znovu před KAŽDÝM zápisem.
+Vše ostatní (DELETE, PATCH, `/Mails`, číselné řady, dobropisy, webhooky,
+jiný host) se zablokuje před odesláním. Test: klient s `writesAllowed: true`
+na Preview nezavolá `fetch` ani jednou.
+
+**Postup vystavení (pořadí):** zaplaceno? (`payment_status = paid` A
+`order_payment_balance = paid/overpaid`, VS 7xxxxxxx) → zámek vazby (10 min,
+souběh = jediná faktura) → aktuální návrh bez blokujících chyb → agenda
+(IČO 74337297, neplátce) → řada 7277293 (vydané faktury, ne výchozí, název
+„E-shop Begina“) → známé ID z iDokladu, jinak hledání faktury podle VS
+(1 = připojit, >1 = stop, jiná řada = stop) → kontakt (vazba
+`invoice_customer_refs` → hledání podle e-mailu → založení, země CZE) →
+CZK, způsob úhrady (převodem/kartou/hotově podle názvu, jednoznačně) →
+výchozí faktura agendy (účet, konst. symbol, typ ceny a sazba položek) →
+další číslo v řadě (`NumericSequences/DocumentNumbers`, formát 9{RR}{NNNN})
+→ `POST /IssuedInvoices` → **ID hned do DB** → kontrola částky a nulové
+DPH → `FullyPay` → kontrola „Paid“ → PDF (`Reports/IssuedInvoice/{id}/Pdf`,
+`%PDF-`, SHA-256) → **teprve teď** `invoices.doc_state = issued` +
+`invoice_provider_links.state = issued` jedním příkazem → e-mail MojeBegina
+s PDF, `pdf_sent_at`.
+
+**Chyba kdekoli:** faktura zůstane `draft`, vazba `failed` + `last_error`
+(+ ID z iDokladu, pokud faktura už vznikla). MojeBegina ukáže „objednávka
+NENÍ vyfakturovaná“ a tlačítko „Vystavit fakturu znovu“ (jen v ostrém
+režimu) — další pokus fakturu podle ID/VS jen dokončí, novou nevytvoří.
+Zákazník dostane potvrzení platby bez faktury a po dokončení zvlášť
+„Faktura k objednávce“ s PDF. iDoklad sám nic neposílá.
+
+**Testy:** `lib/eshop/__tests__/idokladLive.test.ts` (19, napodobenina
+iDoklad API v3 + PGlite): Preview nic, celý tok, idempotence, souběh,
+ztracená odpověď po vytvoření, chyba „uhrazeno“, nesedící částka, výchozí /
+chybějící / přejmenovaná řada, cizí agenda, plátce DPH, víc faktur s VS,
+faktura s VS v jiné řadě, nezaplaceno, kontakt podle e-mailu a vazby.
+
+**Ověřit read-only před zapnutím (bod 3, test na `feature/finance-1-0`):**
+názvy způsobů úhrady (převod / karta / hotově — musí sedět jednoznačně),
+CZK, CZE, výchozí faktura agendy (typ ceny a sazba položek u neplátce).
+
 ## 3. Workflow
 
 ```

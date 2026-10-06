@@ -176,15 +176,27 @@ function paymentInstructions(
   };
 }
 
-export type CustomerEmailContext = Context & { transfer: TransferInfo | null; qrContentId: string | null };
+export type CustomerEmailContext = Context & {
+  transfer: TransferInfo | null;
+  qrContentId: string | null;
+  /** číslo faktury v příloze (ostrý provoz, faktura z iDokladu) */
+  invoiceNumber?: string | null;
+};
+
+/** Věta o přiložené faktuře (PDF posílá MojeBegina, ne iDoklad). */
+function invoiceSentence(invoiceNumber: string | null | undefined): string {
+  return invoiceNumber ? `V příloze posíláme fakturu č. ${invoiceNumber}.` : "";
+}
 
 export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext): RenderedEmail {
   const reference = orderReference(order);
   const paid = order.paymentStatus === "paid";
   const subject = `${subjectPrefix(ctx)}${paid ? `Objednávka ${reference} je zaplacená — děkujeme` : `Přijali jsme vaši objednávku ${reference}`}`;
-  const intro = paid
-    ? "Děkujeme za objednávku. Begina ji přijala a platbu jsme obdrželi — objednávku připravujeme."
-    : "Děkujeme za objednávku. Begina ji přijala a připravíme ji po zaplacení.";
+  const intro =
+    (paid
+      ? "Děkujeme za objednávku. Begina ji přijala a platbu jsme obdrželi — objednávku připravujeme."
+      : "Děkujeme za objednávku. Begina ji přijala a připravíme ji po zaplacení.") +
+    (paid && ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
   const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
   const details: [string, string][] = [
     ["Objednávka", reference],
@@ -263,10 +275,20 @@ ${reminder ? `<p style="margin:0 0 16px;color:#404040;">${escapeHtml(reminder)}<
 
 // ---------- zákazník: platba přijata (ruční označení v MojeBegina) ----------
 
-export function customerPaymentReceivedEmail(order: EmailOrder, ctx: Context): RenderedEmail {
+export function customerPaymentReceivedEmail(
+  order: EmailOrder,
+  ctx: Context & { invoiceNumber?: string | null; late?: boolean }
+): RenderedEmail {
   const reference = orderReference(order);
-  const subject = `${subjectPrefix(ctx)}Platbu za objednávku ${reference} jsme přijali`;
-  const intro = "Děkujeme, platbu za vaši objednávku jsme přijali. Objednávku připravujeme.";
+  // „late“: faktura vznikla až po potvrzení platby — posílá se zvlášť
+  const subject = ctx.late
+    ? `${subjectPrefix(ctx)}Faktura k objednávce ${reference}`
+    : `${subjectPrefix(ctx)}Platbu za objednávku ${reference} jsme přijali`;
+  const intro =
+    (ctx.late
+      ? "Platbu za vaši objednávku jsme přijali."
+      : "Děkujeme, platbu za vaši objednávku jsme přijali. Objednávku připravujeme.") +
+    (ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
   const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
   const details: [string, string][] = [
     ["Objednávka", reference],

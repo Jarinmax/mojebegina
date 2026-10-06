@@ -94,6 +94,8 @@ export type DraftConfig = {
   numberSeriesId: string | null;
   /** problém s nastavením řady (neplatné ID) — z numberSeries.parseSeriesId */
   numberSeriesProblem?: InvoiceProblem | null;
+  /** ostrý režim: řadu a číselníky ověřuje až vystavení (issue.ts) proti iDokladu */
+  live?: boolean;
 };
 
 const PRAGUE_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" });
@@ -178,18 +180,20 @@ export function buildInvoiceDraft(
       "live",
       "Chybí ID e-shopové číselné řady v iDokladu (IDOKLAD_ESHOP_SEQUENCE_ID) — doplnit před ostrým vystavováním."
     );
-  } else {
+  } else if (!config.live) {
     add(
       "number_series_unverified",
       "live",
       `Řadu ID ${config.numberSeriesId} ověřit v iDokladu: existuje, je pro vydané faktury a není výchozí (výchozí patří B2B).`
     );
   }
-  add(
-    "verify_idoklad_fields",
-    "live",
-    "Před ostrým zapnutím ověřit v oficiálním SDK iDokladu názvy polí a číselníky (způsob úhrady, měna, země, typ ceny u neplátce)."
-  );
+  if (!config.live) {
+    add(
+      "verify_idoklad_fields",
+      "live",
+      "Před ostrým zapnutím ověřit read-only číselníky iDokladu (způsob úhrady, CZK, Česká republika, typ ceny u neplátce)."
+    );
+  }
 
   return {
     problems,

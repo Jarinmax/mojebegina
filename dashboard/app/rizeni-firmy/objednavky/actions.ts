@@ -11,6 +11,7 @@ import {
   updatePaymentStatus,
   recordOrderPayment,
   prepareOrderInvoiceDraft,
+  issueOrderInvoice,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
@@ -126,6 +127,12 @@ export async function prepareInvoiceDraftAction(
     default:
       return { error: result.result.reason };
   }
+}
+
+export async function issueInvoiceAction(orderId: string): Promise<ActionState> {
+  const result = await issueOrderInvoice(orderId);
+  revalidateOrder(orderId);
+  return result.ok ? { success: result.message } : { error: result.error };
 }
 
 export async function assignResponsibleAction(

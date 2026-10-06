@@ -8,7 +8,7 @@ import { buildInvoiceDraft } from "@/lib/eshop/invoicing/draft";
 import { IDOKLAD_ISSUE_STEPS, idokladRequests } from "@/lib/eshop/invoicing/idoklad";
 import type { OrderInvoiceView } from "@/lib/eshop/invoicing/service";
 
-vi.mock("../actions", () => ({ prepareInvoiceDraftAction: async () => null }));
+vi.mock("../actions", () => ({ prepareInvoiceDraftAction: async () => null, issueInvoiceAction: async () => null }));
 
 afterEach(cleanup);
 
@@ -42,6 +42,7 @@ function invoiceView(recipientAddress: string | null): OrderInvoiceView {
     totalKc: 379,
     paymentVs: "70000001",
     createdAt: new Date(),
+    pdfSentAt: null,
     link: {
       provider: "idoklad",
       state: "dry_run",
@@ -50,6 +51,9 @@ function invoiceView(recipientAddress: string | null): OrderInvoiceView {
       externalNumber: null,
       lastError: null,
       attempts: 0,
+      issuedAt: null,
+      pdfFetchedAt: null,
+      busyUntil: null,
       updatedAt: new Date(),
       payload: {
         version: 1,
@@ -98,5 +102,53 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     render(<OrderInvoiceDraft orderId="o1" invoice={issued} paid />);
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText(/Lipová 5, 60200/)).toBeTruthy();
+  });
+});
+
+describe("faktura v detailu objednávky — ostrý provoz", () => {
+  function issuedView() {
+    const v = invoiceView(null);
+    v.docState = "issued";
+    v.invoiceNumber = "9260001";
+    v.issuedAt = new Date("2026-10-07T08:00:00Z");
+    v.link = { ...v.link!, state: "issued", externalId: "555", externalNumber: "9260001", numberSeries: "7277293" };
+    return v;
+  }
+
+  it("vystavená: číslo, řada, uhrazeno, PDF odesláno — bez tlačítek", () => {
+    const v = issuedView();
+    v.pdfSentAt = new Date("2026-10-07T08:00:05Z");
+    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("Ostrý provoz — faktury se vystavují v iDokladu");
+    expect(text).toContain("Vystaveno v iDokladu — faktura č. 9260001 · uhrazeno");
+    expect(text).toContain("řada 7277293");
+    expect(text).toMatch(/PDF zákazníkovi: odesláno/);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("vystavená, PDF neodešlo → „Poslat fakturu zákazníkovi“", () => {
+    render(<OrderInvoiceDraft orderId="o1" invoice={issuedView()} paid live />);
+    expect(screen.getByRole("button", { name: "Poslat fakturu zákazníkovi" })).toBeTruthy();
+  });
+
+  it("chyba vystavení: jasně NEvyfakturováno, důvod, ID z iDokladu, opakování", () => {
+    const v = invoiceView(null);
+    v.link = { ...v.link!, state: "failed", lastError: "iDoklad nedostupný: timeout", attempts: 2, externalId: "555", externalNumber: "9260001" };
+    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("objednávka NENÍ vyfakturovaná");
+    expect(text).toContain("iDoklad nedostupný: timeout");
+    expect(text).toContain("další pokus ji jen dokončí, novou nevytvoří");
+    expect(screen.getByRole("button", { name: "Vystavit fakturu znovu" })).toBeTruthy();
+    // rozpracovanou fakturu (ID z iDokladu) nejde přegenerovat
+    expect(screen.queryByRole("button", { name: /Přegenerovat/ })).toBeNull();
+  });
+
+  it("mimo ostrý provoz se tlačítko vystavení nikdy neukáže", () => {
+    const v = invoiceView(null);
+    v.link = { ...v.link!, state: "failed", lastError: "x", attempts: 1 };
+    render(<OrderInvoiceDraft orderId="o1" invoice={v} paid />);
+    expect(screen.queryByRole("button", { name: /Vystavit/ })).toBeNull();
   });
 });

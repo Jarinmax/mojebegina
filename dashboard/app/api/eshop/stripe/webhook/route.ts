@@ -12,8 +12,10 @@ import { db } from "@/lib/db/client";
 import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { handleStripeEvent } from "@/lib/eshop/stripe/webhook";
-import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
-import { prepareInvoiceDraftSafe } from "@/lib/eshop/invoicing/service";
+import { invoiceAndNotifyPaid } from "@/lib/eshop/invoicing/afterPaid";
+
+// ostrý provoz: vystavení faktury v iDokladu proběhne před e-mailem
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const config = stripeConfig();
@@ -35,9 +37,9 @@ export async function POST(request: Request) {
     if (outcome === "paid") {
       // handleStripeEvent už ověřil, že client_reference_id je naše objednávka.
       const orderId = (event.data.object as { client_reference_id: string }).client_reference_id;
-      // návrh faktury (dnes jen návrh, do iDokladu nic); nikdy nevyhazuje výjimku
-      await prepareInvoiceDraftSafe(db, orderId);
-      await sendOrderEmails(db, orderId, "payment_confirmed", new URL(request.url).origin);
+      // návrh faktury → v ostrém režimu vystavení v iDokladu → e-mail s PDF
+      // (mimo Production jen návrh, do iDokladu nic); nikdy nevyhazuje výjimku
+      await invoiceAndNotifyPaid(db, orderId, "payment_confirmed", new URL(request.url).origin);
     }
     return Response.json({ received: true, outcome });
   } catch (error) {

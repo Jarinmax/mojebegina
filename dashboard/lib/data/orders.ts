@@ -16,7 +16,8 @@ import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
-import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
+import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { invoicingMode } from "@/lib/eshop/invoicing/mode";
 import {
   loadOrderPayments,
   parseAmountKcToHal,
@@ -26,7 +27,6 @@ import {
 import {
   loadOrderInvoice,
   prepareInvoiceDraft,
-  prepareInvoiceDraftSafe,
   type OrderInvoiceView,
   type PrepareResult,
 } from "@/lib/eshop/invoicing/service";
@@ -511,12 +511,15 @@ export async function recordOrderPayment(orderId: string, input: RecordPaymentIn
     user: { userId: ctx.userId, name: ctx.name ?? ctx.email },
   });
 
-  // Zaplaceno teď → návrh faktury (dnes jen návrh, do iDokladu nic) a
-  // „Platbu jsme přijali“ (nejvýš jednou, lib/eshop/email/orderEmails.ts).
-  // Ani jedno nevyhazuje výjimku — platba je už uložená.
+  // Zaplaceno teď → návrh faktury → (jen ostrý provoz) vystavení v iDokladu
+  // → „Platbu jsme přijali“ s PDF (nejvýš jednou, lib/eshop/email/orderEmails.ts).
+  // Nic z toho nevyhazuje výjimku — platba je už uložená.
   if (result.settled) {
-    await prepareInvoiceDraftSafe(db, orderId, { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email });
-    await sendOrderEmails(db, orderId, "payment_marked_paid", await getAppOrigin());
+    await invoiceAndNotifyPaid(db, orderId, "payment_marked_paid", await getAppOrigin(), {
+      type: "user",
+      userId: ctx.userId,
+      name: ctx.name ?? ctx.email,
+    });
   }
   return { ok: true, ...result };
 }
@@ -536,6 +539,37 @@ export async function prepareOrderInvoiceDraft(
   });
   if (result.status === "skipped") return { ok: false, error: result.reason };
   return { ok: true, result };
+}
+
+/**
+ * ESHOP 1.0 — „Vystavit fakturu v iDokladu“ z MojeBegina (opakování po
+ * chybě / dokončení rozpracovaného vystavení). Jen v ostrém režimu —
+ * na Preview vrátí důvod a do iDokladu nic nepošle.
+ */
+export async function issueOrderInvoice(
+  orderId: string
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const mode = invoicingMode();
+  if (mode.mode !== "live") return { ok: false, error: mode.reason };
+  const result = await issueAndSendInvoice(db, orderId, await getAppOrigin(), {
+    type: "user",
+    userId: ctx.userId,
+    name: ctx.name ?? ctx.email,
+  });
+  switch (result.status) {
+    case "issued":
+      return {
+        ok: true,
+        message: `Faktura ${result.invoiceNumber} je vystavená a uhrazená${result.emailed ? " a odeslaná zákazníkovi" : ""}.`,
+      };
+    case "already_issued":
+      return { ok: true, message: `Faktura ${result.invoiceNumber ?? ""} už je vystavená${result.emailed ? " — PDF odesláno zákazníkovi" : ""}.` };
+    case "skipped":
+      return { ok: false, error: result.reason };
+    default:
+      return { ok: false, error: result.error };
+  }
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {

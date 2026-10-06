@@ -44,10 +44,12 @@ Jeden PR `claude/great-bell-ffjwo3` → `main` (všechny commity z
 | E-maily | `ESHOP_EMAIL_LIVE=on` | v Production se `ESHOP_EMAIL_TEST_RECIPIENTS` ignoruje → žádné [TEST], žádné přesměrování |
 | Pruh „Náhled e-shopu“ | zmizí s `ESHOP_ORDER_WRITE=on` | `lib/eshop/storeMode.ts` |
 | Číslování | SQL `21_numbering_cutover.sql` | start řady 1000–899999 (900000+ je Preview) |
+| **Faktury v iDokladu** | `IDOKLAD_INVOICING_ENABLED=on` + `IDOKLAD_ESHOP_SEQUENCE_ID=7277293` + `IDOKLAD_ESHOP_CLIENT_ID/SECRET` | jen Vercel Production; mimo ni jen návrh. Zápis jen 3 operace (kontakt, faktura, uhrazeno), před zápisem kontrola agendy, řady a VS (`lib/eshop/invoicing/mode.ts`, `idokladHttp.ts`, `issue.ts`) |
 
 Preview naopak zůstává vždy testovací (testovací Stripe klíč, e-maily jen
-na testovací adresy), i kdyby tam někdo nastavil `*_LIVE=on`. Hlídá
-`lib/eshop/__tests__/productionGuards.test.ts`.
+na testovací adresy, faktury jen jako návrh), i kdyby tam někdo nastavil
+`*_LIVE=on` nebo přepínače iDokladu. Hlídá
+`lib/eshop/__tests__/productionGuards.test.ts` a `idokladLive.test.ts`.
 
 **Po sloučení do `main` zůstane `moje.begina.cz/eshop` skrytý (404)**, dokud
 se nenastaví `ESHOP_PUBLIC=on` (rozhodnutí vedení 2. 10. 2026). Preview je
@@ -148,6 +150,14 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
    Zaplaceno → „Platbu jsme přijali“; karta malou částkou → „je zaplacená“
    → vrátit ve Stripe. Claude ověří read-only.
 8. Přesměrování z begina.cz / zapnutí indexace — až po rozhodnutí o doméně.
+9. **Faktury v iDokladu (samostatné schválení, až po prvním kontrolovaném
+   ostrém testu — `ESHOP_FAKTURACE_NAVRH.md` 2.8):** iDoklad → Nastavení →
+   API → Client ID + Client Secret agendy Begina → Vercel (jen Production)
+   `IDOKLAD_ESHOP_CLIENT_ID`, `IDOKLAD_ESHOP_CLIENT_SECRET`,
+   `IDOKLAD_ESHOP_SEQUENCE_ID=7277293`, `IDOKLAD_INVOICING_ENABLED=on` →
+   Redeploy. Kontrola: zaplacená objednávka → v MojeBegina „Vystaveno
+   v iDokladu — faktura č. 926xxxx · uhrazeno“, PDF v e-mailu. Vypnutí =
+   smazat `IDOKLAD_INVOICING_ENABLED` → Redeploy (zase jen návrh).
 
 ### Vercel — proměnné pro Production
 
@@ -163,6 +173,9 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` ostrého endpointu | C3 |
 | `ESHOP_PUBLIC` / `ESHOP_ORDER_WRITE` / `ESHOP_EMAIL_LIVE` / `ESHOP_STRIPE_LIVE` | `on` | C6 |
 | `ESHOP_EMAIL_TEST_RECIPIENTS` | **nenastavovat** (v Production se ignoruje) | — |
+| `IDOKLAD_ESHOP_SEQUENCE_ID` | `7277293` (E-shop Begina) | C9 |
+| `IDOKLAD_ESHOP_CLIENT_ID` / `IDOKLAD_ESHOP_CLIENT_SECRET` | Client Credentials agendy Begina (tajné) | C9 |
+| `IDOKLAD_INVOICING_ENABLED` | `on` | C9, poslední |
 
 U každé zaškrtnout **jen Production**. Preview proměnné nechat jen na Preview.
 

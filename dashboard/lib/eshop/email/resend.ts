@@ -8,6 +8,9 @@
 /** Vložený obrázek: v HTML se odkazuje jako <img src="cid:{contentId}">. */
 export type InlineImage = { filename: string; contentBase64: string; contentId: string };
 
+/** Běžná příloha (např. PDF faktury). */
+export type Attachment = { filename: string; contentBase64: string };
+
 export type EmailMessage = {
   from: string;
   to: string[];
@@ -16,6 +19,7 @@ export type EmailMessage = {
   html: string;
   text: string;
   inlineImages?: InlineImage[];
+  attachments?: Attachment[];
 };
 
 export type SendResult = { ok: true; id: string } | { ok: false; error: string };
@@ -42,13 +46,16 @@ export function resendTransport(apiKey: string, fetchImpl: typeof fetch = fetch)
           subject: message.subject,
           html: message.html,
           text: message.text,
-          ...(message.inlineImages?.length
+          ...(message.inlineImages?.length || message.attachments?.length
             ? {
-                attachments: message.inlineImages.map((image) => ({
-                  filename: image.filename,
-                  content: image.contentBase64,
-                  content_id: image.contentId,
-                })),
+                attachments: [
+                  ...(message.inlineImages ?? []).map((image) => ({
+                    filename: image.filename,
+                    content: image.contentBase64,
+                    content_id: image.contentId,
+                  })),
+                  ...(message.attachments ?? []).map((file) => ({ filename: file.filename, content: file.contentBase64 })),
+                ],
               }
             : {}),
         }),

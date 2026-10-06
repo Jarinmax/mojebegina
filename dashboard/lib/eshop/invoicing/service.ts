@@ -2,8 +2,10 @@
 // (invoices + invoice_provider_links + invoice_customers).
 //
 // Vzniká po úplné úhradě (Stripe webhook, „Zapsat platbu“) nebo ručně
-// v MojeBegina. Režim je dnes vždy návrh (mode.ts): request_payload
-// obsahuje přesně to, co by šlo do iDokladu, a nic se neodesílá.
+// v MojeBegina. V režimu návrhu (mode.ts, vždy mimo Production) obsahuje
+// request_payload přesně to, co by šlo do iDokladu, a nic se neodesílá.
+// V ostrém režimu vzniká vazba ve stavu „pending“ a vystavení provede
+// issue.ts.
 //
 // Pojistka proti dvojí faktuře: jedna prodejní faktura na objednávku
 // (částečný unikátní index invoices_one_sales_invoice_per_order) a jedna
@@ -24,7 +26,7 @@ type Env = Record<string, string | undefined>;
 /** Co je uložené v invoice_provider_links.request_payload (verze 1). */
 export type DraftPayload = {
   version: 1;
-  mode: "dry_run";
+  mode: "dry_run" | "live";
   modeReason: string;
   generatedAt: string;
   draft: InvoiceDraft;
@@ -89,7 +91,7 @@ async function loadInputs(db: Db, orderId: string) {
   return { order, items, payments: paymentRows.map((p) => ({ ...p, amountHal: Number(p.amountHal) })) };
 }
 
-function activitySql(orderId: string, actor: InvoiceActor, kind: string, meta: Record<string, unknown>) {
+export function activitySql(orderId: string, actor: InvoiceActor, kind: string, meta: Record<string, unknown>) {
   const userId = actor.type === "user" ? actor.userId : null;
   return sql`
     INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
@@ -102,6 +104,37 @@ function problemCounts(problems: InvoiceProblem[]) {
     live: problems.filter((p) => p.severity === "live").length,
     warnings: problems.filter((p) => p.severity === "warning").length,
   };
+}
+
+export type DraftInputs = NonNullable<Awaited<ReturnType<typeof loadInputs>>>;
+
+/** Načte objednávku, položky a platby (pro návrh i ostré vystavení). */
+export function loadDraftInputs(db: Db, orderId: string) {
+  return loadInputs(db, orderId);
+}
+
+/** Návrh faktury + data pro iDoklad z aktuálních údajů objednávky (bez zápisu). */
+export function buildDraftPayload(inputs: DraftInputs, env: Env = process.env) {
+  const mode = invoicingMode(env);
+  const seriesConfig = invoiceNumberSeries(env);
+  const series = seriesConfig.id;
+  const { draft, problems } = buildInvoiceDraft(inputs.order, inputs.items, inputs.payments, {
+    numberSeriesId: series,
+    // chybějící ID hlásí návrh sám; tady jen neplatná hodnota
+    numberSeriesProblem: seriesConfig.problem?.code === "invalid_number_series" ? seriesConfig.problem : null,
+    live: mode.mode === "live",
+  });
+  const payload: DraftPayload = {
+    version: 1,
+    mode: mode.mode,
+    modeReason: mode.reason,
+    generatedAt: new Date().toISOString(),
+    draft,
+    problems,
+    idoklad: idokladRequests(draft),
+    steps: IDOKLAD_ISSUE_STEPS,
+  };
+  return { mode, series, draft, problems, payload };
 }
 
 /**
@@ -122,25 +155,9 @@ export async function prepareInvoiceDraft(
   if (order.channel !== "eshop") return { status: "skipped", reason: "Návrh faktury se tvoří jen k e-shopovým objednávkám." };
   if (order.paymentStatus !== "paid") return { status: "skipped", reason: "Návrh faktury vznikne až po úplném zaplacení." };
 
-  const mode = invoicingMode(env);
-  const seriesConfig = invoiceNumberSeries(env);
-  const series = seriesConfig.id;
-  const { draft, problems } = buildInvoiceDraft(order, inputs.items, inputs.payments, {
-    numberSeriesId: series,
-    // chybějící ID hlásí návrh sám; tady jen neplatná hodnota
-    numberSeriesProblem: seriesConfig.problem?.code === "invalid_number_series" ? seriesConfig.problem : null,
-  });
-  const payload: DraftPayload = {
-    version: 1,
-    mode: mode.mode,
-    modeReason: mode.reason,
-    generatedAt: new Date().toISOString(),
-    draft,
-    problems,
-    idoklad: idokladRequests(draft),
-    steps: IDOKLAD_ISSUE_STEPS,
-  };
+  const { mode, series, draft, problems, payload } = buildDraftPayload(inputs, env);
   const payloadJson = JSON.stringify(payload);
+  const linkState = mode.mode === "live" ? "pending" : "dry_run";
   const email = draft.customer.email;
 
   // Zákazník (osoba podle e-mailu) + faktura + vazba v jednom příkazu.
@@ -164,7 +181,7 @@ export async function prepareInvoiceDraft(
         RETURNING id
       )
       INSERT INTO invoice_provider_links (invoice_id, provider, state, number_series, request_payload)
-      SELECT id, ${IDOKLAD_PROVIDER}, ${mode.mode}, ${series}, ${payloadJson}::jsonb FROM inv
+      SELECT id, ${IDOKLAD_PROVIDER}, ${linkState}, ${series}, ${payloadJson}::jsonb FROM inv
       RETURNING invoice_id`)
   ).rows;
 
@@ -176,7 +193,9 @@ export async function prepareInvoiceDraft(
 
   if (!options.regenerate) return { status: "exists", reason: "Návrh faktury k objednávce už existuje." };
 
-  // Přegenerovat jde jen návrh, ne vystavenou fakturu.
+  // Přegenerovat jde jen návrh, ne vystavenou fakturu — a ne ve chvíli, kdy
+  // vystavení právě běží (next_attempt_at v budoucnosti) nebo kdy faktura
+  // v iDokladu už vznikla (external_id), jen se ještě nedokončila.
   const customer = email
     ? ((
         await db.execute(sql`
@@ -196,13 +215,17 @@ export async function prepareInvoiceDraft(
         RETURNING id
       )
       UPDATE invoice_provider_links l SET request_payload = ${payloadJson}::jsonb, number_series = ${series},
-        state = ${mode.mode}, updated_at = now()
+        state = CASE WHEN l.state = 'failed' THEN 'failed' ELSE ${linkState} END, updated_at = now()
       FROM inv
       WHERE l.invoice_id = inv.id AND l.provider = ${IDOKLAD_PROVIDER} AND l.state IN ('dry_run', 'pending', 'failed')
+        AND l.external_id IS NULL AND (l.next_attempt_at IS NULL OR l.next_attempt_at < now())
       RETURNING l.id`)
   ).rows;
   if (updated.length === 0) {
-    return { status: "exists", reason: "Faktura je už vystavená — návrh nejde přepsat (opravuje se dobropisem)." };
+    return {
+      status: "exists",
+      reason: "Faktura je už vystavená nebo se právě vystavuje — návrh nejde přepsat (vystavená se opravuje dobropisem).",
+    };
   }
   await db.execute(activitySql(orderId, actor, "invoice_draft_regenerated", { mode: mode.mode, ...counts }));
   return { status: "regenerated", problems };
@@ -232,6 +255,7 @@ export type OrderInvoiceView = {
   totalKc: number;
   paymentVs: string | null;
   createdAt: Date;
+  pdfSentAt: Date | null;
   link: {
     provider: string;
     state: string;
@@ -240,6 +264,10 @@ export type OrderInvoiceView = {
     externalNumber: string | null;
     lastError: string | null;
     attempts: number;
+    issuedAt: Date | null;
+    pdfFetchedAt: Date | null;
+    /** vystavení právě běží (zámek do tohoto času) */
+    busyUntil: Date | null;
     updatedAt: Date;
     payload: DraftPayload | null;
   } | null;
@@ -256,6 +284,7 @@ export async function loadOrderInvoice(db: Db, orderId: string): Promise<OrderIn
       totalKc: invoices.totalKc,
       paymentVs: invoices.paymentVs,
       createdAt: invoices.createdAt,
+      pdfSentAt: invoices.pdfSentAt,
     })
     .from(invoices)
     .where(and(eq(invoices.orderId, orderId), eq(invoices.documentType, "invoice"), ne(invoices.docState, "void")))
@@ -275,6 +304,7 @@ export async function loadOrderInvoice(db: Db, orderId: string): Promise<OrderIn
     totalKc: invoice.totalKc,
     paymentVs: invoice.paymentVs,
     createdAt: invoice.createdAt,
+    pdfSentAt: invoice.pdfSentAt,
     link: link
       ? {
           provider: link.provider,
@@ -284,6 +314,9 @@ export async function loadOrderInvoice(db: Db, orderId: string): Promise<OrderIn
           externalNumber: link.externalNumber,
           lastError: link.lastError,
           attempts: link.attempts,
+          issuedAt: link.issuedAt,
+          pdfFetchedAt: link.pdfFetchedAt,
+          busyUntil: link.nextAttemptAt && link.nextAttemptAt > new Date() ? link.nextAttemptAt : null,
           updatedAt: link.updatedAt,
           payload: (link.requestPayload as DraftPayload | null) ?? null,
         }

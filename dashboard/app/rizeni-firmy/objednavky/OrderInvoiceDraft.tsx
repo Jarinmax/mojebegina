@@ -1,10 +1,12 @@
 "use client";
 
-// ESHOP 1.0 — faktura e-shopové objednávky v MojeBegina. Dnes jen REŽIM
-// NÁVRHU: ukazuje přesně, co by se do iDokladu odeslalo, a co chybí nebo
-// nesedí. Do iDokladu se nic neodesílá (lib/eshop/invoicing/mode.ts).
+// ESHOP 1.0 — faktura e-shopové objednávky v MojeBegina.
+//   režim návrhu (vždy mimo Production): ukazuje přesně, co by se do
+//     iDokladu odeslalo, a co chybí nebo nesedí; do iDokladu nic,
+//   ostrý provoz (lib/eshop/invoicing/mode.ts): stav vystavení v iDokladu
+//     (číslo, uhrazeno, PDF odesláno) a při chybě „Vystavit fakturu znovu“.
 import { useActionState } from "react";
-import { prepareInvoiceDraftAction, type ActionState } from "./actions";
+import { issueInvoiceAction, prepareInvoiceDraftAction, type ActionState } from "./actions";
 import type { OrderInvoiceView } from "@/lib/eshop/invoicing/service";
 import type { InvoiceProblem } from "@/lib/eshop/invoicing/draft";
 import { formatKc } from "@/lib/format";
@@ -60,23 +62,109 @@ function DraftButton({ orderId, regenerate }: { orderId: string; regenerate: boo
   );
 }
 
+function czDateTime(value: Date | string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("cs-CZ", { timeZone: "Europe/Prague", dateStyle: "short", timeStyle: "short" });
+}
+
+function IssueButton({ orderId, label }: { orderId: string; label: string }) {
+  const boundAction = issueInvoiceAction.bind(null, orderId);
+  const [state, formAction, pending] = useActionState(boundAction, initialState);
+  return (
+    <form action={formAction} className="flex flex-col gap-1">
+      <div>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-begina-primary-900 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? "Vystavuji v iDokladu…" : label}
+        </button>
+      </div>
+      {state && "error" in state && <p className="text-xs text-begina-accent-700">{state.error}</p>}
+      {state && "success" in state && <p className="text-xs text-emerald-700">{state.success}</p>}
+    </form>
+  );
+}
+
+/** Stav vystavení v iDokladu (ostrý provoz). */
+function IssueStatus({ orderId, invoice, live, paid }: { orderId: string; invoice: OrderInvoiceView; live: boolean; paid: boolean }) {
+  const link = invoice.link;
+  if (invoice.docState === "issued") {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 flex flex-col gap-1">
+        <p className="text-sm font-medium">
+          Vystaveno v iDokladu — faktura č. {invoice.invoiceNumber} · uhrazeno
+        </p>
+        <p>
+          Vystaveno {czDateTime(invoice.issuedAt)} · řada {link?.numberSeries ?? "—"} · ID v iDokladu {link?.externalId ?? "—"}
+        </p>
+        <p>
+          PDF zákazníkovi:{" "}
+          {invoice.pdfSentAt ? `odesláno ${czDateTime(invoice.pdfSentAt)} (e-mail MojeBegina)` : "zatím neodesláno"}
+        </p>
+        {live && paid && !invoice.pdfSentAt && <IssueButton orderId={orderId} label="Poslat fakturu zákazníkovi" />}
+      </div>
+    );
+  }
+  if (!link || link.state === "dry_run") return null;
+  if (link.busyUntil) {
+    return (
+      <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+        Faktura se právě vystavuje v iDokladu (pokus {link.attempts}).
+      </p>
+    );
+  }
+  if (link.state === "failed") {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex flex-col gap-1">
+        <p className="text-sm font-medium">Vystavení v iDokladu se nepovedlo — objednávka NENÍ vyfakturovaná</p>
+        <p>{link.lastError}</p>
+        <p>
+          Pokusů: {link.attempts}
+          {link.externalId &&
+            ` · faktura v iDokladu už vznikla (ID ${link.externalId}${link.externalNumber ? `, č. ${link.externalNumber}` : ""}) — další pokus ji jen dokončí, novou nevytvoří`}
+        </p>
+        {live && paid && <IssueButton orderId={orderId} label="Vystavit fakturu znovu" />}
+      </div>
+    );
+  }
+  // pending bez zámku: čeká na vystavení (např. přerušený pokus)
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex flex-col gap-1">
+      <p>Faktura čeká na vystavení v iDokladu.</p>
+      {live && paid && <IssueButton orderId={orderId} label="Vystavit fakturu v iDokladu" />}
+    </div>
+  );
+}
+
 export default function OrderInvoiceDraft({
   orderId,
   invoice,
   paid,
+  live = false,
 }: {
   orderId: string;
   invoice: OrderInvoiceView | null;
   paid: boolean;
+  /** ostrý provoz fakturace (brána v mode.ts otevřená) */
+  live?: boolean;
 }) {
   const payload = invoice?.link?.payload ?? null;
+  const issued = invoice?.docState === "issued";
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-xs text-neutral-500">Faktura (iDoklad)</p>
-        <p className="text-xs font-medium text-sky-700">Režim návrhu — do iDokladu se nic neodesílá</p>
+        {live ? (
+          <p className="text-xs font-medium text-emerald-700">Ostrý provoz — faktury se vystavují v iDokladu</p>
+        ) : (
+          <p className="text-xs font-medium text-sky-700">Režim návrhu — do iDokladu se nic neodesílá</p>
+        )}
       </div>
+
+      {invoice && <IssueStatus orderId={orderId} invoice={invoice} live={live} paid={paid} />}
 
       {!invoice && (
         <>
@@ -108,7 +196,7 @@ export default function OrderInvoiceDraft({
             tone="border-amber-200 bg-amber-50 text-amber-800"
           />
           <ProblemList
-            title="Doplnit před ostrým vystavováním (v režimu návrhu nevadí)"
+            title={live ? "Brání ostrému vystavení" : "Doplnit před ostrým vystavováním (v režimu návrhu nevadí)"}
             problems={payload.problems.filter((p) => p.severity === "live")}
             tone="border-neutral-200 bg-neutral-50 text-neutral-700"
           />
@@ -145,7 +233,11 @@ export default function OrderInvoiceDraft({
               {payload.draft.numberSeriesId ?? <span className="text-neutral-500">e-shopová řada — ID zatím nepotvrzené</span>}
             </dd>
             <dt className="text-neutral-500">Číslo faktury</dt>
-            <dd className="text-neutral-500">přidělí iDoklad při ostrém vystavení</dd>
+            {issued ? (
+              <dd className="text-begina-primary-900 font-mono">{invoice.invoiceNumber}</dd>
+            ) : (
+              <dd className="text-neutral-500">přidělí iDoklad při ostrém vystavení</dd>
+            )}
           </dl>
 
           <div>
@@ -183,7 +275,7 @@ export default function OrderInvoiceDraft({
           </div>
 
           <div>
-            <p className="text-xs text-neutral-500 mb-1">Co by se stalo při ostrém vystavení</p>
+            <p className="text-xs text-neutral-500 mb-1">{live ? "Postup ostrého vystavení" : "Co by se stalo při ostrém vystavení"}</p>
             <ol className="list-decimal pl-4 text-xs text-neutral-600 flex flex-col gap-0.5">
               {payload.steps.map((step) => (
                 <li key={step}>{step}</li>
@@ -212,7 +304,7 @@ export default function OrderInvoiceDraft({
           <p className="text-xs text-neutral-400">
             Návrh připraven {new Date(payload.generatedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
           </p>
-          {invoice.docState === "draft" && invoice.link?.state !== "issued" && (
+          {invoice.docState === "draft" && invoice.link?.state !== "issued" && !invoice.link?.externalId && !invoice.link?.busyUntil && (
             <DraftButton orderId={orderId} regenerate />
           )}
         </>

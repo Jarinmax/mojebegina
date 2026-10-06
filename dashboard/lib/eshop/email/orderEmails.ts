@@ -11,6 +11,11 @@
 //   ručně označeno Zaplaceno        → zákazník: „Platbu jsme přijali“ (max.
 //     v MojeBegina                    jednou; u karty jen když mu ještě
 //                                     nepřišlo potvrzení o zaplacení)
+//   faktura vystavená až později    → zákazník: „Faktura k objednávce“ s PDF
+//     (ostrý provoz, issue.ts)        (jen když PDF ještě neodešlo)
+//
+// Ostrý provoz fakturace: PDF faktury z iDokladu (option invoicePdf) se
+// přiloží k potvrzení o zaplacení. iDoklad sám zákazníkovi nic neposílá.
 //
 // U převodu obsahuje potvrzení platební údaje a QR Platbu jako obrázek
 // vložený do e-mailu přes Content-ID (cid:) — spolehlivější než externí
@@ -41,12 +46,17 @@ import {
 } from "./templates";
 import { bankConfig, transferInfo, type BankConfig } from "../bankTransfer";
 import { qrPng } from "../qr";
-import type { InlineImage } from "./resend";
+import type { Attachment, InlineImage } from "./resend";
+import type { InvoicePdf } from "../invoicing/issue";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
-export type OrderEmailTrigger = "order_created" | "payment_confirmed" | "payment_marked_paid";
-export type OrderEmailTemplate = "customer_confirmation" | "internal_new_order" | "customer_payment_received";
+export type OrderEmailTrigger = "order_created" | "payment_confirmed" | "payment_marked_paid" | "invoice_issued";
+export type OrderEmailTemplate =
+  | "customer_confirmation"
+  | "internal_new_order"
+  | "customer_payment_received"
+  | "customer_invoice";
 
 const QR_CONTENT_ID = "qr-platba";
 export type OrderEmailOutcome = { template: OrderEmailTemplate; status: "sent" | "duplicate" | "failed" | "no-recipient" };
@@ -69,6 +79,9 @@ export function emailsFor(
   }
   if (trigger === "payment_confirmed") {
     return card && order.paymentStatus === "paid" ? ["customer_confirmation", "internal_new_order"] : [];
+  }
+  if (trigger === "invoice_issued") {
+    return order.paymentStatus === "paid" ? ["customer_invoice"] : [];
   }
   // Ručně označeno Zaplaceno. Kartou zaplacená objednávka už potvrzení
   // „je zaplacená“ dostala od webhooku — druhá zpráva by byla navíc.
@@ -147,7 +160,19 @@ async function record(db: Db, orderId: string, kind: string, metadata: Record<st
   });
 }
 
-export type SendOrderEmailsOptions = { config?: EmailConfig | null; transport?: EmailTransport; bank?: BankConfig };
+export type SendOrderEmailsOptions = {
+  config?: EmailConfig | null;
+  transport?: EmailTransport;
+  bank?: BankConfig;
+  /** PDF vystavené faktury — přiloží se k potvrzení o zaplacení */
+  invoicePdf?: InvoicePdf | null;
+};
+
+/** Ke kterému e-mailu patří PDF faktury (jen zaplacená objednávka). */
+function carriesInvoice(template: OrderEmailTemplate, paid: boolean): boolean {
+  if (!paid) return false;
+  return template === "customer_confirmation" || template === "customer_payment_received" || template === "customer_invoice";
+}
 
 export async function sendOrderEmails(
   db: Db,
@@ -184,12 +209,19 @@ export async function sendOrderEmails(
       const ctx = { baseUrl, withheld, test };
       let rendered: RenderedEmail;
       let inlineImages: InlineImage[] = [];
+      const pdf = carriesInvoice(template, order.paymentStatus === "paid") ? (options.invoicePdf ?? null) : null;
+      if (template === "customer_invoice" && !pdf) {
+        outcomes.push({ template, status: "failed" });
+        continue;
+      }
+      const attachments: Attachment[] = pdf ? [{ filename: pdf.filename, contentBase64: pdf.contentBase64 }] : [];
+      const invoiceNumber = pdf?.invoiceNumber ?? null;
       if (template === "customer_confirmation") {
         const qr = await qrImage(transfer?.spayd ?? null);
         if (qr) inlineImages = [qr];
-        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null });
-      } else if (template === "customer_payment_received") {
-        rendered = customerPaymentReceivedEmail(order, ctx);
+        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber });
+      } else if (template === "customer_payment_received" || template === "customer_invoice") {
+        rendered = customerPaymentReceivedEmail(order, { ...ctx, invoiceNumber, late: template === "customer_invoice" });
       } else {
         rendered = internalOrderEmail(order, { ...ctx, transfer });
       }
@@ -204,7 +236,7 @@ export async function sendOrderEmails(
           : config.replyTo;
 
       const result = await transport(
-        { from: config.from, to, replyTo, ...rendered, inlineImages },
+        { from: config.from, to, replyTo, ...rendered, inlineImages, attachments },
         `eshop-${template}-${orderId}`
       );
       if (result.ok) {
@@ -214,8 +246,14 @@ export async function sendOrderEmails(
           messageId: result.id,
           to,
           ...(inlineImages.length ? { qr: true } : {}),
+          ...(invoiceNumber ? { invoice: invoiceNumber } : {}),
           ...(test ? { test: true, withheld } : {}),
         });
+        if (invoiceNumber) {
+          await db.execute(sql`
+            UPDATE invoices SET pdf_sent_at = now(), updated_at = now()
+            WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued' AND pdf_sent_at IS NULL`);
+        }
         outcomes.push({ template, status: "sent" });
       } else {
         console.error("E-shop: e-mail se nepodařilo odeslat", orderId, template, result.error);

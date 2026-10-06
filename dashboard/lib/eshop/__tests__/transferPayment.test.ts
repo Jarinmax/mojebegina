@@ -358,7 +358,10 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
     await rows(sql`UPDATE invoices SET doc_state = 'issued', invoice_number = 'E2026001', issued_at = now() WHERE order_id = ${TRANSFER}`);
     expect(await orders.prepareOrderInvoiceDraft(TRANSFER, true)).toEqual({
       ok: true,
-      result: { status: "exists", reason: "Faktura je už vystavená — návrh nejde přepsat (opravuje se dobropisem)." },
+      result: {
+        status: "exists",
+        reason: "Faktura je už vystavená nebo se právě vystavuje — návrh nejde přepsat (vystavená se opravuje dobropisem).",
+      },
     });
   });
 
