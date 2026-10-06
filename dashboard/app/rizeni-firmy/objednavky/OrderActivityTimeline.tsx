@@ -24,6 +24,15 @@ function describeEntry(entry: OrderActivityEntry): string {
       }
       return `nastavil(a) stav platby na „${PAYMENT_LABELS[to] ?? to}“`;
     }
+    // ESHOP 1.0 — návrh faktury (režim návrhu, do iDokladu se nic neodesílá)
+    case "invoice_draft_created":
+    case "invoice_draft_regenerated": {
+      const verb = entry.kind === "invoice_draft_created" ? "připravil(a) návrh faktury" : "přegeneroval(a) návrh faktury";
+      const errors = Number(meta.errors ?? 0);
+      return `${verb} (režim návrhu — do iDokladu se nic neodeslalo)${errors > 0 ? ` — ⚠ chyby v datech: ${errors}` : ""}`;
+    }
+    case "invoice_draft_failed":
+      return `⚠ návrh faktury se nepodařilo připravit — ${String(meta.error ?? "neznámá chyba")}`;
     case "payment_recorded": {
       const hal = Number(meta.amountHal ?? 0);
       const amount = hal % 100 === 0 ? `${(hal / 100).toLocaleString("cs-CZ")} Kč` : `${(hal / 100).toFixed(2).replace(".", ",")} Kč`;

@@ -13,6 +13,7 @@ import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { handleStripeEvent } from "@/lib/eshop/stripe/webhook";
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
+import { prepareInvoiceDraftSafe } from "@/lib/eshop/invoicing/service";
 
 export async function POST(request: Request) {
   const config = stripeConfig();
@@ -34,6 +35,8 @@ export async function POST(request: Request) {
     if (outcome === "paid") {
       // handleStripeEvent už ověřil, že client_reference_id je naše objednávka.
       const orderId = (event.data.object as { client_reference_id: string }).client_reference_id;
+      // návrh faktury (dnes jen návrh, do iDokladu nic); nikdy nevyhazuje výjimku
+      await prepareInvoiceDraftSafe(db, orderId);
       await sendOrderEmails(db, orderId, "payment_confirmed", new URL(request.url).origin);
     }
     return Response.json({ received: true, outcome });

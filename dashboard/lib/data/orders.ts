@@ -24,6 +24,13 @@ import {
   type OrderPaymentSummary,
 } from "@/lib/eshop/payments";
 import {
+  loadOrderInvoice,
+  prepareInvoiceDraft,
+  prepareInvoiceDraftSafe,
+  type OrderInvoiceView,
+  type PrepareResult,
+} from "@/lib/eshop/invoicing/service";
+import {
   validateCreateOrderInput,
   validateFulfillmentStatusInput,
   validatePaymentStatusInput,
@@ -237,6 +244,8 @@ export type OrderDetail = {
   activity: OrderActivityEntry[];
   /** Platby a stav úhrady — jen e-shopové objednávky (ostatní null). */
   payments: OrderPaymentSummary | null;
+  /** Prodejní faktura / návrh faktury — jen e-shopové objednávky. */
+  invoice: OrderInvoiceView | null;
 };
 
 export async function getOrderDetail(orderId: string): Promise<OrderDetail | null> {
@@ -289,6 +298,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     },
     items,
     payments: row.channel === "eshop" ? await loadOrderPayments(db, orderId) : null,
+    invoice: row.channel === "eshop" ? await loadOrderInvoice(db, orderId) : null,
     activity: activityRows.map((r) => ({
       id: r.id,
       kind: r.kind,
@@ -501,12 +511,31 @@ export async function recordOrderPayment(orderId: string, input: RecordPaymentIn
     user: { userId: ctx.userId, name: ctx.name ?? ctx.email },
   });
 
-  // Zaplaceno teď → „Platbu jsme přijali“ (nejvýš jednou za objednávku,
-  // lib/eshop/email/orderEmails.ts). Nikdy nevyhazuje výjimku.
+  // Zaplaceno teď → návrh faktury (dnes jen návrh, do iDokladu nic) a
+  // „Platbu jsme přijali“ (nejvýš jednou, lib/eshop/email/orderEmails.ts).
+  // Ani jedno nevyhazuje výjimku — platba je už uložená.
   if (result.settled) {
+    await prepareInvoiceDraftSafe(db, orderId, { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email });
     await sendOrderEmails(db, orderId, "payment_marked_paid", await getAppOrigin());
   }
   return { ok: true, ...result };
+}
+
+/**
+ * ESHOP 1.0 — „Vytvořit / Přegenerovat návrh faktury“ z MojeBegina (režim
+ * návrhu: do iDokladu se nic neodesílá). Vystavenou fakturu nepřepíše.
+ */
+export async function prepareOrderInvoiceDraft(
+  orderId: string,
+  regenerate: boolean
+): Promise<{ ok: true; result: PrepareResult } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const result = await prepareInvoiceDraft(db, orderId, {
+    regenerate,
+    actor: { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email },
+  });
+  if (result.status === "skipped") return { ok: false, error: result.reason };
+  return { ok: true, result };
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {

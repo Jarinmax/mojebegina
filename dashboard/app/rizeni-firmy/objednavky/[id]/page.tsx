@@ -9,6 +9,7 @@ import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
 import FulfillmentStatusForm from "../FulfillmentStatusForm";
 import PaymentStatusForm from "../PaymentStatusForm";
 import OrderPayments from "../OrderPayments";
+import OrderInvoiceDraft from "../OrderInvoiceDraft";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
@@ -34,7 +35,7 @@ export default async function OrderDetailPage(
   if (!detail) {
     notFound();
   }
-  const { order, items, activity, payments } = detail;
+  const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
 
   return (
@@ -181,6 +182,12 @@ export default async function OrderDetailPage(
         />
         <NoteForm orderId={order.id} currentNote={order.note} />
       </div>
+
+      {order.channel === "eshop" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+          <OrderInvoiceDraft orderId={order.id} invoice={invoice} paid={order.paymentStatus === "paid"} />
+        </div>
+      )}
 
       <div className="mb-4">
         <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Aktivita</h2>

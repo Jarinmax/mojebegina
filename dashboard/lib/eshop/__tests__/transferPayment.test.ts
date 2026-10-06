@@ -82,10 +82,18 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
   let orders: typeof import("@/lib/data/orders");
   const saved = { ...process.env };
   const signer = new Stripe("sk_test_begina");
+  // každý síťový požadavek mimo testovací DB (iDoklad nesmí dostat nic)
+  const outbound: string[] = [];
 
   beforeAll(async () => {
     Object.assign(process.env, ENV);
     await import("../../../scripts/eshop-e2e/neon-http-pglite.mjs");
+    const shimFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (!/neon\.tech\/sql$/.test(url)) outbound.push(url);
+      return shimFetch(input, init);
+    }) as typeof fetch;
     ({ db } = await import("@/lib/db/client"));
     ({ POST } = await import("@/app/api/eshop/stripe/webhook/route"));
     ({ submitCheckoutAction } = await import("@/app/eshop/pokladna/actions"));
@@ -286,6 +294,84 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
     expect(await orders.recordOrderPayment(ID, payment("758"))).toEqual({ ok: true, recorded: true, settled: true });
     expect((await rows(sql`SELECT payment_status FROM orders WHERE id = ${ID}`))[0].payment_status).toBe("paid");
     expect((await emailLog(ID)).at(-1)).toBe("email_failed:customer_payment_received");
+  });
+
+  // ESHOP 1.0 — návrh faktury po úplném zaplacení (režim návrhu, do iDokladu nic)
+  const invoiceState = async (id: string) =>
+    rows(sql`SELECT i.origin, i.document_type, i.doc_state, i.total_kc, i.payment_vs, i.customer_id IS NOT NULL AS zakaznik,
+                    l.provider, l.state, l.number_series, l.request_payload->'draft'->>'vs' AS draft_vs,
+                    jsonb_array_length(l.request_payload->'draft'->'payments') AS platby,
+                    l.request_payload->'draft'->>'paymentMethod' AS uhrada,
+                    (SELECT count(*)::int FROM jsonb_array_elements(l.request_payload->'problems') p WHERE p->>'severity' = 'error') AS chyby
+             FROM invoices i JOIN invoice_provider_links l ON l.invoice_id = i.id
+             WHERE i.order_id = ${id} AND l.state <> 'void'`);
+
+  it("návrh faktury: po zapsané úhradě celé částky vznikl jednou, s VS, zákazníkem a vazbou na obě platby", async () => {
+    expect(await invoiceState(TRANSFER)).toEqual([
+      {
+        origin: "eshop",
+        document_type: "invoice",
+        doc_state: "draft",
+        total_kc: 758,
+        payment_vs: "70000001",
+        zakaznik: true,
+        provider: "idoklad",
+        state: "dry_run",
+        number_series: null,
+        draft_vs: "70000001",
+        platby: 2,
+        uhrada: "bank_transfer",
+        chyby: 0,
+      },
+    ]);
+    const detail = await orders.getOrderDetail(TRANSFER);
+    expect(detail?.invoice?.link?.payload?.idoklad.duplicateCheck.filter).toBe("VariableSymbol~eq~70000001");
+    expect(detail?.invoice?.link?.payload?.draft.lines).toEqual([
+      { kind: "item", name: "Kulajda", sku: "kulajda", quantity: 2, unitPriceKc: 379, totalKc: 758 },
+    ]);
+    expect(
+      (await rows(sql`SELECT kind, author_name FROM order_activity WHERE order_id = ${TRANSFER} AND kind LIKE 'invoice%'`))
+    ).toEqual([{ kind: "invoice_draft_created", author_name: "Lucie Test" }]);
+  });
+
+  it("návrh faktury: kartou zaplacená objednávka (webhook) má návrh se způsobem úhrady kartou; zákazník podle e-mailu jen jednou", async () => {
+    expect(await invoiceState(CARD)).toMatchObject([{ state: "dry_run", uhrada: "card", platby: 1, chyby: 0 }]);
+    expect(await rows(sql`SELECT count(*)::int AS n FROM invoice_customers WHERE email_normalized = 'jana@example.cz'`)).toEqual([{ n: 1 }]);
+  });
+
+  it("návrh faktury: opakované vytvoření nic nezdvojí; přegenerovat jde jen návrh", async () => {
+    expect(await orders.prepareOrderInvoiceDraft(TRANSFER, false)).toEqual({
+      ok: true,
+      result: { status: "exists", reason: "Návrh faktury k objednávce už existuje." },
+    });
+    expect(await orders.prepareOrderInvoiceDraft(TRANSFER, true)).toMatchObject({ ok: true, result: { status: "regenerated" } });
+    expect(await rows(sql`SELECT count(*)::int AS n FROM invoices WHERE order_id = ${TRANSFER}`)).toEqual([{ n: 1 }]);
+    expect(await rows(sql`SELECT count(*)::int AS n FROM invoice_provider_links l JOIN invoices i ON i.id = l.invoice_id WHERE i.order_id = ${TRANSFER}`)).toEqual([{ n: 1 }]);
+    // druhá prodejní faktura k téže objednávce nevznikne ani přímo v DB
+    await expect(
+      rows(sql`INSERT INTO invoices (order_id, origin, total_kc) VALUES (${TRANSFER}, 'eshop', 758)`)
+    ).rejects.toThrow();
+
+    // vystavenou fakturu (simulace ostrého stavu) návrh nepřepíše
+    await rows(sql`UPDATE invoice_provider_links l SET state = 'issued', external_id = '777', external_number = 'E2026001', issued_at = now()
+                   FROM invoices i WHERE l.invoice_id = i.id AND i.order_id = ${TRANSFER}`);
+    await rows(sql`UPDATE invoices SET doc_state = 'issued', invoice_number = 'E2026001', issued_at = now() WHERE order_id = ${TRANSFER}`);
+    expect(await orders.prepareOrderInvoiceDraft(TRANSFER, true)).toEqual({
+      ok: true,
+      result: { status: "exists", reason: "Faktura je už vystavená — návrh nejde přepsat (opravuje se dobropisem)." },
+    });
+  });
+
+  it("návrh faktury: nezaplacená objednávka žádný návrh nemá ani nedostane", async () => {
+    const ID = "f6f6f6f6-6666-4666-8666-666666666666";
+    await submitCheckoutAction(null, form(ID));
+    expect(await orders.prepareOrderInvoiceDraft(ID, false)).toEqual({ ok: false, error: "Návrh faktury vznikne až po úplném zaplacení." });
+    expect(await rows(sql`SELECT count(*)::int AS n FROM invoices WHERE order_id = ${ID}`)).toEqual([{ n: 0 }]);
+    expect((await orders.getOrderDetail(ID))?.invoice).toBeNull();
+  });
+
+  it("do iDokladu ani jinam mimo testovací DB neodešel žádný požadavek", () => {
+    expect(outbound.filter((url) => /idoklad/i.test(url))).toEqual([]);
   });
 
   it("ruční objednávka (ne e-shop): žádný e-mail", async () => {

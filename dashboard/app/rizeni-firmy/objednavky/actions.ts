@@ -10,6 +10,7 @@ import {
   updateFulfillmentStatus,
   updatePaymentStatus,
   recordOrderPayment,
+  prepareOrderInvoiceDraft,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
@@ -106,6 +107,25 @@ export async function recordPaymentAction(
   revalidateOrder(orderId);
   if (!result.recorded) return { success: "Tahle platba už je zapsaná." };
   return { success: result.settled ? "Platba zapsána — objednávka je zaplacená." : "Platba zapsána." };
+}
+
+// ESHOP 1.0 — návrh faktury (režim návrhu, do iDokladu se nic neodesílá).
+export async function prepareInvoiceDraftAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await prepareOrderInvoiceDraft(orderId, formData.get("regenerate") === "1");
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  switch (result.result.status) {
+    case "created":
+      return { success: "Návrh faktury je připravený." };
+    case "regenerated":
+      return { success: "Návrh faktury je přegenerovaný z aktuálních údajů." };
+    default:
+      return { error: result.result.reason };
+  }
 }
 
 export async function assignResponsibleAction(

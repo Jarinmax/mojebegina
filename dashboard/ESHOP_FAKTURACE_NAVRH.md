@@ -175,6 +175,39 @@ pokusů zůstává.
   s `invoices` bez filtru — s dobropisy musí brát jen
   `document_type = 'invoice'`. Upraví se spolu s kódem kroku B.
 
+## 2.6 Fakturace — režim návrhu (6. 10. 2026, hotovo na větvi)
+
+Bez migrace (používá tabulky z kroku A). **Do iDokladu se nic neodesílá**
+— kód nemá žádného síťového klienta pro zápis a `invoicingMode()` vrací
+vždy `dry_run` (i v Production s `IDOKLAD_INVOICING_ENABLED=on`).
+
+| Soubor | Co dělá |
+|---|---|
+| `lib/eshop/invoicing/draft.ts` | čistě: objednávka + položky + platby → návrh faktury (odběratel, řádky vč. dopravy a slevy, VS, data = den úplné úhrady, způsob úhrady, platby, které fakturu kryjí) a problémy (`error` = data nesedí, `warning` = ke kontrole, `live` = doplnit před ostrým vystavením) |
+| `lib/eshop/invoicing/idoklad.ts` | čistě: návrh → požadavky iDokladu API v3 (kontakt, pojistka podle VS, vydaná faktura); číselná ID číselníků zatím `null` (ověřit v SDK) |
+| `lib/eshop/invoicing/mode.ts` | režim (vždy návrh) a `IDOKLAD_ESHOP_SEQUENCE_ID` (ID e-shopové řady, zatím nepotvrzené) |
+| `lib/eshop/invoicing/service.ts` | uložení: zákazník (osoba podle e-mailu) + `invoices` (draft) + `invoice_provider_links` (`dry_run`, `request_payload` = vše výše) v jednom příkazu; přegenerování jen dokud není vystaveno |
+
+- Vzniká automaticky po úplném zaplacení (Stripe webhook, „Zapsat
+  platbu“), nebo tlačítkem „Vytvořit návrh faktury“ v MojeBegina. Chyba
+  návrhu nikdy nezruší platbu — zapíše se do historie objednávky.
+- **Pojistka proti dvojí faktuře:** jedna prodejní faktura na objednávku
+  a jedna aktivní vazba na poskytovatele (unikátní indexy) — opakované
+  i souběžné volání nic nezdvojí; v ostrém režimu navíc vyhledání faktury
+  s VS v iDokladu před vystavením.
+- **MojeBegina, detail e-shopové objednávky → blok „Faktura (iDoklad)“:**
+  režim návrhu, chyby / upozornění / co doplnit před ostrým provozem,
+  odběratel, VS, data, položky, platby, kroky ostrého vystavení a přesná
+  data pro iDoklad (JSON); „Přegenerovat návrh z aktuálních údajů“.
+
+**Zapnutí ostrého vystavování (později, samostatné schválení) — beze
+změny architektury:** doplnit `IDOKLAD_ESHOP_SEQUENCE_ID`, ověřit pole
+a číselníky v SDK, přidat live provider (kontakt → kontrola VS → POST
+faktury → uhrazeno → PDF) s vlastní pojistkou zápisu podle vzoru
+finance `requestGuard`, refresh token (`offline_access`) a změnit jen
+`invoicingMode()`. Stav vazby pak přejde `pending → issued / failed`
+(sloupce na to už jsou).
+
 ## 3. Workflow
 
 ```
