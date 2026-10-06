@@ -185,7 +185,7 @@ vždy `dry_run` (i v Production s `IDOKLAD_INVOICING_ENABLED=on`).
 |---|---|
 | `lib/eshop/invoicing/draft.ts` | čistě: objednávka + položky + platby → návrh faktury (odběratel, řádky vč. dopravy a slevy, VS, data = den úplné úhrady, způsob úhrady, platby, které fakturu kryjí) a problémy (`error` = data nesedí, `warning` = ke kontrole, `live` = doplnit před ostrým vystavením) |
 | `lib/eshop/invoicing/idoklad.ts` | čistě: návrh → požadavky iDokladu API v3 (kontakt, pojistka podle VS, vydaná faktura); číselná ID číselníků zatím `null` (ověřit v SDK) |
-| `lib/eshop/invoicing/mode.ts` | režim (vždy návrh) a `IDOKLAD_ESHOP_SEQUENCE_ID` (ID e-shopové řady, zatím nepotvrzené) |
+| `lib/eshop/invoicing/mode.ts` | režim (vždy návrh) a `IDOKLAD_ESHOP_SEQUENCE_ID` (ID e-shopové řady — potvrzeno **7277293**, viz 2.7) |
 | `lib/eshop/invoicing/service.ts` | uložení: zákazník (osoba podle e-mailu) + `invoices` (draft) + `invoice_provider_links` (`dry_run`, `request_payload` = vše výše) v jednom příkazu; přegenerování jen dokud není vystaveno |
 
 - Vzniká automaticky po úplném zaplacení (Stripe webhook, „Zapsat
@@ -234,6 +234,27 @@ a WooCommerce pluginu — e-shop by se s ní promíchal).
 4. Před ostrým vystavováním ověří řadu automaticky live provider
    (`checkEshopSeries` nad čtecím dotazem z bodu 2) a nevystaví nic, pokud
    řada nesedí.
+
+**Stav (7. 10. 2026) — kroky 1–3 hotové:**
+
+| ID | Název | Formát | Typ dokladu | Výchozí | Poslední číslo / rok |
+|---|---|---|---|---|---|
+| **7277293** | E-shop Begina | `9{RR}{NNNN}` | Vydané faktury (DocumentType 0) | **ne** | 0 / 2026 |
+
+- Řadu založilo vedení ručně v iDokladu; ID přečetl read-only test
+  iDokladu na `feature/finance-1-0` (nic se nezapsalo). Výchozí řada
+  vydaných faktur (B2B) je 2032369 `{RRRR}{NNNN}` — e-shop ji nepoužívá.
+- Čísla faktur: 9260001, 9260002, … (9 + rok 26 + 4 místa = max. 9 999
+  faktur za rok). **VS na faktuře zůstává `payment_vs` objednávky
+  (7xxxxxxx)**, ne číslo faktury — zákazník platil dřív, než faktura
+  vznikla, a podle VS funguje pojistka proti dvojí faktuře.
+- Preview `claude/great-bell-ffjwo3`: `IDOKLAD_ESHOP_SEQUENCE_ID=7277293`
+  (jen Preview této větve). Objednávka 900008 po „Přegenerovat návrh“:
+  `invoice_provider_links.number_series` = návrh = `NumericSequenceId`
+  = 7277293, VS 70000001, stav `dry_run`, 1 faktura / 1 vazba (ověřeno
+  read-only v Neon Preview).
+- Na Production se proměnná nastaví až při ostrém přepnutí (stejné ID —
+  řada patří agendě Begina, ne prostředí).
 
 ## 3. Workflow
 
