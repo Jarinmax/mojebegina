@@ -4,8 +4,15 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { isFinanceManager } from "@/lib/data/financeAuth";
 import { verifySignedPayload } from "@/lib/finance/idoklad/oauth";
 import { resolveIdokladOAuthConfig } from "@/lib/finance/oauthConfig";
-import { IDOKLAD_RESULT_COOKIE } from "@/lib/finance/oauthCookies";
-import type { ReadOnlyCheckFailure, ReadOnlyCheckResult } from "@/lib/finance/readOnlyCheck";
+import { IDOKLAD_RESULT_COOKIE, IDOKLAD_SEQUENCES_COOKIE } from "@/lib/finance/oauthCookies";
+import {
+  sequenceDocumentTypeLabel,
+  unpackSequences,
+  type NumericSequenceRow,
+  type ReadOnlyCheckFailure,
+  type ReadOnlyCheckResult,
+  type SequenceTuple,
+} from "@/lib/finance/readOnlyCheck";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +49,9 @@ export default async function IdokladTestPage() {
 
   const config = resolveIdokladOAuthConfig(process.env);
   let result: ReadOnlyCheckResult | ReadOnlyCheckFailure | null = null;
+  // undefined = výpis řad v cookie chybí (starší výsledek) → „spusťte test znovu“
+  let sequences: NumericSequenceRow[] | null | undefined = undefined;
+  let sequencesError: string | null = null;
   if (config.ok) {
     const cookieStore = await cookies();
     const stored = verifySignedPayload<{ v: number; u: string; r: ReadOnlyCheckResult | ReadOnlyCheckFailure }>(
@@ -50,6 +60,14 @@ export default async function IdokladTestPage() {
     );
     if (stored && stored.v === 1 && stored.u === ctx!.userId) {
       result = stored.r;
+    }
+    const storedSequences = verifySignedPayload<{ v: number; u: string; s: SequenceTuple[] | null; e: string | null }>(
+      cookieStore.get(IDOKLAD_SEQUENCES_COOKIE)?.value,
+      config.stateSecret
+    );
+    if (storedSequences && storedSequences.v === 1 && storedSequences.u === ctx!.userId) {
+      sequences = storedSequences.s ? unpackSequences(storedSequences.s) : null;
+      sequencesError = storedSequences.e;
     }
   }
 
@@ -65,6 +83,7 @@ export default async function IdokladTestPage() {
         <ul className="list-disc pl-5 space-y-0.5">
           <li>Přesměruje na přihlášení do iDokladu a po návratu přečte název agendy, IČO, režim DPH a tarif.</li>
           <li>U dokladů zjistí jen jejich počet — obsah dokladů se nečte do výsledku ani neukládá.</li>
+          <li>Vypíše číselné řady (ID, název, formát, typ dokladu, výchozí) — jen pro čtení, žádnou řadu nezakládá ani nemění.</li>
           <li>Do iDokladu nic nezapisuje a nic nevystavuje. Přístupový token se po kontrole zahodí, refresh token se nežádá.</li>
           <li>Do databáze MojeBegina se nic neukládá. Production se netýká.</li>
         </ul>
@@ -160,6 +179,47 @@ export default async function IdokladTestPage() {
               ))}
             </tbody>
           </table>
+
+          <h2 className="mt-6 text-sm font-medium text-begina-primary-900">Číselné řady v iDokladu (jen čtení)</h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            Pro výběr e-shopové řady vydaných faktur (IDOKLAD_ESHOP_SEQUENCE_ID): řada pro vydané faktury, která NENÍ
+            výchozí. Nic se tu nezakládá ani nemění.
+          </p>
+          {sequences === undefined ? (
+            <p className="mt-2 text-sm text-neutral-500">Výpis řad v tomto výsledku chybí — spusťte test znovu.</p>
+          ) : sequences === null ? (
+            <p className="mt-2 text-sm text-red-700">{sequencesError ?? "Číselné řady se nepodařilo načíst."}</p>
+          ) : sequences.length === 0 ? (
+            <p className="mt-2 text-sm text-neutral-500">Agenda nemá žádné číselné řady.</p>
+          ) : (
+            <table className="w-full mt-2 text-sm">
+              <thead>
+                <tr className="text-left text-neutral-500 border-b border-neutral-200">
+                  <th className="py-1 font-normal">ID</th>
+                  <th className="py-1 font-normal">Název</th>
+                  <th className="py-1 font-normal">Formát</th>
+                  <th className="py-1 font-normal">Typ dokladu</th>
+                  <th className="py-1 font-normal">Výchozí</th>
+                  <th className="py-1 font-normal text-right">Poslední číslo / rok</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sequences.map((row, i) => (
+                  <tr key={row.id ?? `r${i}`} className="border-b border-neutral-100">
+                    <td className="py-1 font-mono">{row.id ?? "—"}</td>
+                    <td className="py-1">{row.name ?? "—"}</td>
+                    <td className="py-1 font-mono">{row.numberFormat ?? "—"}</td>
+                    <td className="py-1">{sequenceDocumentTypeLabel(row.documentType)}</td>
+                    <td className="py-1">{row.isDefault === null ? "—" : row.isDefault ? "ano" : "ne"}</td>
+                    <td className="py-1 text-right">
+                      {row.lastNumber ?? "—"}
+                      {row.year ? ` / ${row.year}` : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           {result.refreshTokenReturned && (
             <p className="mt-3 text-xs text-amber-800">

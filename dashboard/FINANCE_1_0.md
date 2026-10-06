@@ -229,7 +229,12 @@ httpOnly cookie 10 min) → přihlášení v iDokladu → `/api/idoklad/callback
 zahodí) → stránka s výsledkem.
 
 **Co se přečte:** `GET /Account/CurrentAgenda` (název, IČO, DPH, tarif)
-a u 14 kolekcí jen počet záznamů (pageSize=1). Nic se nezapisuje do
+a u 14 kolekcí jen počet záznamů (pageSize=1). **Od 6. 10. 2026 navíc**
+`GET /NumericSequences` (jen čtení, kolekce přidaná do povolených) —
+výpis číselných řad (ID, název, formát, typ dokladu, výchozí) pro výběr
+e-shopové řady vydaných faktur (`IDOKLAD_ESHOP_SEQUENCE_ID` na e-shopové
+větvi). Výpis jde na stránku v samostatné podepsané cookie (limit ~4 kB),
+max. 20 řad. Nic se nezapisuje do
 iDokladu ani do DB. Scope jen `idoklad_api` — bez `offline_access`, takže
 nevznikne refresh token.
 

@@ -18,15 +18,21 @@ import { resolveIdokladOAuthConfig } from "@/lib/finance/oauthConfig";
 import {
   IDOKLAD_COOKIE_MAX_AGE_SECONDS,
   IDOKLAD_RESULT_COOKIE,
+  IDOKLAD_SEQUENCES_COOKIE,
   IDOKLAD_STATE_COOKIE,
   IDOKLAD_STATE_COOKIE_PATH,
   IDOKLAD_TEST_PAGE_PATH,
 } from "@/lib/finance/oauthCookies";
-import { runReadOnlyAccountCheck, type ReadOnlyCheckFailure, type ReadOnlyCheckResult } from "@/lib/finance/readOnlyCheck";
+import {
+  runReadOnlyAccountCheck,
+  splitResultForCookies,
+  type ReadOnlyCheckFailure,
+  type ReadOnlyCheckResult,
+} from "@/lib/finance/readOnlyCheck";
 
 export const dynamic = "force-dynamic";
 
-// Limit požadavků pro jeden test: agenda + 14 počtů s rezervou.
+// Limit požadavků pro jeden test: agenda + počty kolekcí + číselné řady, s rezervou.
 const CHECK_REQUEST_BUDGET = 30;
 
 function oauthErrorMessage(error: string): string {
@@ -57,13 +63,21 @@ export async function GET(request: Request) {
   }
 
   const finish = (result: ReadOnlyCheckResult | ReadOnlyCheckFailure) => {
-    cookieStore.set(IDOKLAD_RESULT_COOKIE, signPayload({ v: 1, u: ctx.userId, r: result }, config.stateSecret), {
+    const options = {
       httpOnly: true,
       secure: true,
-      sameSite: "lax",
+      sameSite: "lax" as const,
       path: IDOKLAD_TEST_PAGE_PATH,
       maxAge: IDOKLAD_COOKIE_MAX_AGE_SECONDS,
-    });
+    };
+    if (result.ok) {
+      const { main, sequences } = splitResultForCookies(result);
+      cookieStore.set(IDOKLAD_RESULT_COOKIE, signPayload({ v: 1, u: ctx.userId, r: main }, config.stateSecret), options);
+      cookieStore.set(IDOKLAD_SEQUENCES_COOKIE, signPayload({ v: 1, u: ctx.userId, ...sequences }, config.stateSecret), options);
+    } else {
+      cookieStore.set(IDOKLAD_RESULT_COOKIE, signPayload({ v: 1, u: ctx.userId, r: result }, config.stateSecret), options);
+      cookieStore.set(IDOKLAD_SEQUENCES_COOKIE, "", { ...options, maxAge: 0 });
+    }
     return NextResponse.redirect(new URL(IDOKLAD_TEST_PAGE_PATH, config.redirectOrigin));
   };
   const failure = (code: string, message: string) =>

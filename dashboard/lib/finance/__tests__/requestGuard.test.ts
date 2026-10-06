@@ -44,6 +44,7 @@ describe("datové API — jen GET", () => {
       "/IssuedDocumentPayments",
       "/ReceivedDocumentPayments",
       "/Tags",
+      "/NumericSequences",
       "/Account/CurrentAgenda",
     ]) {
       expect(() => assertIdokladRequestAllowed("GET", `${API}${path}?page=1&pageSize=100`)).not.toThrow();
@@ -54,6 +55,9 @@ describe("datové API — jen GET", () => {
     for (const method of ["POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]) {
       blocked(method, `${API}/IssuedInvoices`);
       blocked(method, `${API}/IssuedInvoices/123`);
+      // číselné řady: jen čtení — založit, upravit ani smazat nejde
+      blocked(method, `${API}/NumericSequences`);
+      blocked(method, `${API}/NumericSequences/7`);
     }
   });
 

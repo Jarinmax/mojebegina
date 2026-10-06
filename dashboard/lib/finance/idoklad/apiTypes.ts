@@ -114,6 +114,17 @@ export type ApiReceivedDocumentPayment = {
 
 export type ApiTag = { Id?: number; Name?: string | null };
 
+/** Číselná řada (GET /NumericSequences) — jen pole, která výpis ukazuje. */
+export type ApiNumericSequence = {
+  Id?: number;
+  Name?: string | null;
+  NumberFormat?: string | null;
+  DocumentType?: ApiEnum; // 0 = vydané faktury (ostatní hodnoty se ukazují číslem)
+  IsDefault?: boolean | null;
+  LastNumber?: number | null;
+  Year?: number | null;
+};
+
 export type ApiAgenda = {
   Id?: number;
   Name?: string | null;

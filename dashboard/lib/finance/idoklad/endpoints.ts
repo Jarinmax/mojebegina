@@ -42,6 +42,9 @@ export const IDOKLAD_READABLE_COLLECTIONS = [
   "BankStatements",
   "CashRegisters",
   "CashVouchers",
+  // Číselné řady — jen pro read-only výpis v testu připojení (výběr
+  // e-shopové řady faktur, IDOKLAD_ESHOP_SEQUENCE_ID). Jen GET.
+  "NumericSequences",
 ] as const;
 
 export type IdokladCollection = (typeof IDOKLAD_READABLE_COLLECTIONS)[number];

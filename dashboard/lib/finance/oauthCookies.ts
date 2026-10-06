@@ -4,8 +4,11 @@
 //              se hned maže (jednorázová),
 //   • RESULT — výsledek read-only kontroly (název agendy, IČO, počty) pro
 //              stránku testu. Neobsahuje token ani jiné přístupové údaje.
+//   • SEQUENCES — výpis číselných řad (ID, název, formát, typ, výchozí) —
+//              samostatně, aby se oba výsledky vešly do limitu cookie.
 export const IDOKLAD_STATE_COOKIE = "idoklad_oauth_state";
 export const IDOKLAD_STATE_COOKIE_PATH = "/api/idoklad";
 export const IDOKLAD_RESULT_COOKIE = "idoklad_oauth_result";
+export const IDOKLAD_SEQUENCES_COOKIE = "idoklad_oauth_sequences";
 export const IDOKLAD_TEST_PAGE_PATH = "/rizeni-firmy/finance/idoklad";
 export const IDOKLAD_COOKIE_MAX_AGE_SECONDS = 10 * 60;
