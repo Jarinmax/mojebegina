@@ -208,6 +208,33 @@ finance `requestGuard`, refresh token (`offline_access`) a změnit jen
 `invoicingMode()`. Stav vazby pak přejde `pending → issued / failed`
 (sloupce na to už jsou).
 
+## 2.7 E-shopová číselná řada v iDokladu — napojení (6. 10. 2026)
+
+Kód je připravený (`lib/eshop/invoicing/numberSeries.ts`): MojeBegina
+zná jen **ID řady** (`IDOKLAD_ESHOP_SEQUENCE_ID`), čísla faktur přiděluje
+iDoklad. Návrh faktury ukazuje stav: chybí ID → „doplnit“; neplatné ID →
+problém; platné ID → „ověřit v iDokladu“. Ověření (`checkEshopSeries`)
+proti seznamu řad z iDokladu hlídá, že řada existuje, je pro **vydané
+faktury** a **není výchozí** (výchozí řada patří ruční B2B fakturaci
+a WooCommerce pluginu — e-shop by se s ní promíchal).
+
+**Postup:**
+1. V iDokladu (agenda Begina) založit novou číselnou řadu **pro vydané
+   faktury**, odlišitelnou od B2B (např. s předponou „E“), a **nenastavovat
+   ji jako výchozí**. Ověřit, že tarif víc řad dovoluje.
+2. Zjistit její **ID** — aplikace iDokladu ho neukazuje; čte se jen přes
+   API: `GET /v3/NumericSequences?filter=DocumentType~eq~0` (jen čtení).
+   Nejjednodušeji rozšířit read-only test iDokladu na `feature/finance-1-0`
+   o výpis řad (ID, název, formát, výchozí ano/ne) — **jiná větev, jen se
+   souhlasem vedení**.
+3. Ve Vercelu nastavit pro Preview této větve `IDOKLAD_ESHOP_SEQUENCE_ID`
+   = ID řady (není tajné) a nechat Preview znovu nasadit; v MojeBegina
+   u zaplacené objednávky „Přegenerovat návrh“ → místo „Chybí ID…“ se
+   ukáže „Řadu ID … ověřit v iDokladu“.
+4. Před ostrým vystavováním ověří řadu automaticky live provider
+   (`checkEshopSeries` nad čtecím dotazem z bodu 2) a nevystaví nic, pokud
+   řada nesedí.
+
 ## 3. Workflow
 
 ```

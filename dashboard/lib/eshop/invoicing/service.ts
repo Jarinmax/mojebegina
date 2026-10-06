@@ -16,7 +16,7 @@ import * as schema from "@/lib/db/schema";
 import { invoiceProviderLinks, invoices, orderItems, orders, payments } from "@/lib/db/schema";
 import { buildInvoiceDraft, type InvoiceDraft, type InvoiceProblem } from "./draft";
 import { IDOKLAD_ISSUE_STEPS, IDOKLAD_PROVIDER, idokladRequests, type IdokladRequests } from "./idoklad";
-import { invoiceNumberSeriesId, invoicingMode } from "./mode";
+import { invoiceNumberSeries, invoicingMode } from "./mode";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
@@ -123,8 +123,13 @@ export async function prepareInvoiceDraft(
   if (order.paymentStatus !== "paid") return { status: "skipped", reason: "Návrh faktury vznikne až po úplném zaplacení." };
 
   const mode = invoicingMode(env);
-  const series = invoiceNumberSeriesId(env);
-  const { draft, problems } = buildInvoiceDraft(order, inputs.items, inputs.payments, { numberSeriesId: series });
+  const seriesConfig = invoiceNumberSeries(env);
+  const series = seriesConfig.id;
+  const { draft, problems } = buildInvoiceDraft(order, inputs.items, inputs.payments, {
+    numberSeriesId: series,
+    // chybějící ID hlásí návrh sám; tady jen neplatná hodnota
+    numberSeriesProblem: seriesConfig.problem?.code === "invalid_number_series" ? seriesConfig.problem : null,
+  });
   const payload: DraftPayload = {
     version: 1,
     mode: mode.mode,

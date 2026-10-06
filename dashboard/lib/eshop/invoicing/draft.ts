@@ -90,7 +90,11 @@ export type InvoiceDraft = {
   note: string;
 };
 
-export type DraftConfig = { numberSeriesId: string | null };
+export type DraftConfig = {
+  numberSeriesId: string | null;
+  /** problém s nastavením řady (neplatné ID) — z numberSeries.parseSeriesId */
+  numberSeriesProblem?: InvoiceProblem | null;
+};
 
 const PRAGUE_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" });
 
@@ -166,11 +170,19 @@ export function buildInvoiceDraft(
     add("address_unparsed", "warning", `Adresu „${order.recipientAddress}“ se nepodařilo rozdělit na ulici, PSČ a město — zkontrolovat.`);
   }
 
-  if (!config.numberSeriesId) {
+  if (config.numberSeriesProblem) {
+    problems.push(config.numberSeriesProblem);
+  } else if (!config.numberSeriesId) {
     add(
       "no_number_series",
       "live",
       "Chybí ID e-shopové číselné řady v iDokladu (IDOKLAD_ESHOP_SEQUENCE_ID) — doplnit před ostrým vystavováním."
+    );
+  } else {
+    add(
+      "number_series_unverified",
+      "live",
+      `Řadu ID ${config.numberSeriesId} ověřit v iDokladu: existuje, je pro vydané faktury a není výchozí (výchozí patří B2B).`
     );
   }
   add(

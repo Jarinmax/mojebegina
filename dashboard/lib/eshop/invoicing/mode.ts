@@ -5,6 +5,8 @@
 // pojistka zápisu podle vzoru finance requestGuard a samostatné schválení
 // vedení. Přepnutí pak nemění architekturu — jen tuto funkci.
 
+import { parseSeriesId, type SeriesConfig } from "./numberSeries";
+
 type Env = Record<string, string | undefined>;
 
 export type InvoicingMode = { mode: "dry_run"; reason: string };
@@ -22,8 +24,12 @@ export function invoicingMode(env: Env = process.env): InvoicingMode {
   return { mode: "dry_run", reason: "Ostré vystavování v iDokladu není zapnuté — vzniká jen návrh." };
 }
 
-/** ID e-shopové číselné řady v iDokladu; null = zatím nepotvrzené. */
+/** ID e-shopové číselné řady v iDokladu; null = zatím nepotvrzené nebo neplatné. */
 export function invoiceNumberSeriesId(env: Env = process.env): string | null {
-  const value = env.IDOKLAD_ESHOP_SEQUENCE_ID?.trim();
-  return value ? value : null;
+  return parseSeriesId(env.IDOKLAD_ESHOP_SEQUENCE_ID).id;
+}
+
+/** ID řady + případný problém s nastavením (pro návrh faktury). */
+export function invoiceNumberSeries(env: Env = process.env): SeriesConfig {
+  return parseSeriesId(env.IDOKLAD_ESHOP_SEQUENCE_ID);
 }
