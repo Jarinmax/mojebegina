@@ -14,7 +14,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
-import { PRODUCTION_MAIN, guardedMigrationsSql } from "../../../scripts/eshop-production/build-sql.mjs";
+import { PRODUCTION_MAIN, guardedMigrationsSql, guardedPhaseARestSql } from "../../../scripts/eshop-production/build-sql.mjs";
 
 const ROOT = path.join(__dirname, "../../../docs");
 const file = (dir: string, name: string) => readFileSync(path.join(ROOT, dir, name), "utf8");
@@ -215,5 +215,79 @@ describe("pojistka 11_migrations_0013_0019_MAIN.sql — jen Production main, jen
       (await db.query(`SELECT slug FROM products ORDER BY slug`)).rows,
     ];
     expect(await dump(a)).toEqual(await dump(b));
+  });
+});
+
+describe("13_katalog_a_platby_A_MAIN.sql — zbytek fáze A v jedné transakci, jen main", { timeout: 240_000 }, () => {
+  const REST = "13_katalog_a_platby_A_MAIN.sql";
+  async function afterMigrations(timeline: string | null = PRODUCTION_MAIN.timelineId) {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    if (timeline !== PRODUCTION_MAIN.timelineId) await pg.exec(`SET neon.timeline_id = '${timeline ?? ""}'`);
+    return pg;
+  }
+  const afterChecks = async (pg: PGlite) => [
+    await check(pg, file("eshop-catalog", "32_sirupy_after.sql")),
+    await check(pg, file("eshop-catalog", "42_polevky_after.sql")),
+    await check(pg, file("eshop-catalog", "52_caje_after.sql")),
+    await check(pg, file("eshop-payments", "12_after.sql")),
+  ];
+
+  it("soubor = výstup generátoru", () => {
+    expect(file("eshop-production", REST)).toBe(guardedPhaseARestSql());
+  });
+
+  it("na main po migracích: všechny kontroly po = hodnoty v dokumentaci; stejné jako 4 skripty zvlášť", async () => {
+    const pg = await afterMigrations();
+    await run(pg, file("eshop-production", REST));
+    expect(await afterChecks(pg)).toEqual([
+      "3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 25 | 36", // celkem až po polévkách a čajích
+      "6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí",
+      "8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů",
+      "5 | 1 | 1 | 1 | 0 | 2 | 2 | 2 | 0 | 0 | 2",
+    ]);
+    const separate = await afterMigrations();
+    for (const [dir, name] of [
+      ["eshop-catalog", "31_sirupy.sql"],
+      ["eshop-catalog", "41_polevky.sql"],
+      ["eshop-catalog", "51_caje.sql"],
+      ["eshop-payments", "11_migration.sql"],
+    ]) {
+      await run(separate, file(dir, name));
+    }
+    const dump = async (db: PGlite) => [
+      (await db.query(`SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = 'public' ORDER BY 1, 2`)).rows,
+      (await db.query(`SELECT slug, name, is_active FROM products ORDER BY slug`)).rows,
+      (await db.query(`SELECT sku, price_b2c_kc, is_active FROM product_variants ORDER BY sku`)).rows,
+      (await db.query(`SELECT slug, intro FROM product_categories ORDER BY slug`)).rows,
+      (await db.query(`SELECT origin, doc_state, invoice_number FROM invoices ORDER BY invoice_number`)).rows,
+    ];
+    expect(await dump(pg)).toEqual(await dump(separate));
+  });
+
+  it("jiná větev (backup) → STOP, nic se nezmění", async () => {
+    const pg = await afterMigrations("c57cebc6ddf2b187ed1fcdd53c402b60");
+    const before = await check(pg, file("eshop-production", "12_after_migrations.sql"));
+    await expect(run(pg, file("eshop-production", REST))).rejects.toThrow(/NENÍ Production větev main/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-production", "12_after_migrations.sql"))).toBe(before);
+  });
+
+  it("před migracemi 0013–0019 → STOP", async () => {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await expect(run(pg, file("eshop-production", REST))).rejects.toThrow(/chybí migrace 0013–0019/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-production", "10_before_migrations.sql"))).toBe("20 | 0 | 23 | 0 | 0 | 2 | 5 | 0 | 2 | 0 | 2");
+  });
+
+  it("druhé spuštění → STOP „už běžely“, nic se nezmění", async () => {
+    const pg = await afterMigrations();
+    await run(pg, file("eshop-production", REST));
+    const done = await afterChecks(pg);
+    await expect(run(pg, file("eshop-production", REST))).rejects.toThrow(/už běžely/);
+    await pg.exec("ROLLBACK");
+    expect(await afterChecks(pg)).toEqual(done);
   });
 });

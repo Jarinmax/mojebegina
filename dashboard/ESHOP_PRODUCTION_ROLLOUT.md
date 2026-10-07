@@ -109,32 +109,40 @@ první nová objednávka 5201).
    „OK: Production main, stav před migracemi…“ a žádná chyba.
 4. `12_after_migrations.sql` → očekáváno
    `24 | 4 | 5 | 7 | 11 | 4 | 2 | 2 | 0 | 5 | 0 | 0 | YES | 0`.
-5. Claude ověří read-only (otisky dat The Cup, katalog).
-6. **Katalog — Bylinné sirupy** (`docs/eshop-catalog/`): `30_sirupy_before.sql`
-   → `1 | 0 | 0 | 0 | 0 | 7 | 11` → `31_sirupy.sql` (celý soubor) →
-   `32_sirupy_after.sql` → `3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25`.
-   Vrácení: `39_sirupy_rollback.sql` (sirupy skryje, nic nemaže). Na Preview
-   se spouští nejdřív.
-7. **Katalog — Čerstvé polévky** (`docs/eshop-catalog/`): `40_polevky_before.sql`
-   → `3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0` → `41_polevky.sql`
-   (celý soubor) → `42_polevky_after.sql` →
-   `6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí`.
-   Vrácení: `49_polevky_rollback.sql` (stav z migrace 0014).
-8. **Katalog — Čaje** (`docs/eshop-catalog/`): `50_caje_before.sql`
-   → `1 | 0 | 0 | 17` → `51_caje.sql` (celý soubor) → `52_caje_after.sql`
-   → `8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů`.
-   Vrácení: `59_caje_rollback.sql` (čaje skryje, nic nemaže).
-   *Preview: spuštěno vedením 6. 10. 2026, kontrola po ověřena read-only.*
-9. **Platby a fakturace — krok A** (`docs/eshop-payments/`, schéma
-   `ESHOP_FAKTURACE_NAVRH.md`): `10_before.sql` → `0 | 0 | 1 | <faktury> |
-   <objednávky> | <e-shop>` → `11_migration.sql` (celý soubor) →
-   `12_after.sql` → `5 | 1 | 1 | 1 | 0 | <faktury> | <faktury> | <objednávky> | 0 | 0 | <objednávky>`
-   (čísla v `<>` = hodnoty z kontroly před; před během ověřit, že žádná
-   faktura nemá prázdné číslo / datum / stav / organizaci). Zpětně
-   kompatibilní, dnešní kód funguje dál. Vrácení: `19_rollback.sql`
-   (jen dokud nevznikla data). **Krok A musí v Production proběhnout
-   PŘED nasazením kódu kroku B** — nový kód čte a zapisuje `payment_vs`
-   a `payments`.
+   **HOTOVO 7. 10. 2026** — kroky 3–4 spustilo vedení na `main`, Claude
+   ověřil read-only: kontrola po přesně podle očekávání, otisk schématu
+   536 / `14229d10ab5a4169290d17d6931c1543` = generálka, otisk produktů
+   `45175ca4…` = generálka, data The Cup (objednávky, faktury, položky)
+   beze změny, záloha nedotčená (20 tabulek).
+5. **Kontroly před na `main` (Claude, read-only 7. 10.)**: sirupy
+   `1 | 0 | 0 | 0 | 0 | 7 | 11`, polévky
+   `3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0`, čaje
+   `1 | 0 | 0 | 7` (17 by bylo až po sirupech), platby `0 | 0 | 1 | 2 | 2 | 0`,
+   žádná faktura s prázdným číslem / stavem (sloupce jsou NOT NULL).
+6. **`13_katalog_a_platby_A_MAIN.sql`** — celý soubor najednou (jedna
+   transakce). Obsahuje beze změny `docs/eshop-catalog/31_sirupy.sql`,
+   `41_polevky.sql`, `51_caje.sql` a `docs/eshop-payments/11_migration.sql`
+   (krok A plateb a fakturace, schéma `ESHOP_FAKTURACE_NAVRH.md`), jejich
+   vlastní `BEGIN/COMMIT` vynechány. Pojistka na začátku: jen `main`, jen
+   po migracích 0013–0019, jen jednou (bez tabulky `payments`, 7 produktů).
+   Jinak „STOP: …“ a nic se nezmění (ověřeno v `productionRehearsal.test.ts`,
+   výsledek = stejný jako 4 skripty zvlášť). Úspěch = v Messages
+   „OK: Production main po migracích 0013–0019…“.
+7. Kontroly po (Claude read-only):
+   - `32_sirupy_after.sql` → `3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 25 | 36`
+     (poslední dva sloupce jsou celkové počty — už včetně polévek a čajů);
+   - `42_polevky_after.sql` →
+     `6 | 1 | ano | 3 l Rodinná zásoba (bag-in-box) | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí`;
+   - `52_caje_after.sql` → `8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů`;
+   - `docs/eshop-payments/12_after.sql` → `5 | 1 | 1 | 1 | 0 | 2 | 2 | 2 | 0 | 0 | 2`.
+8. Vrácení (jen kdyby bylo potřeba, v opačném pořadí):
+   `eshop-payments/19_rollback.sql` (jen dokud nevznikla data),
+   `59_caje_rollback.sql`, `49_polevky_rollback.sql`, `39_sirupy_rollback.sql`
+   (sirupy a čaje skryje, nic nemaže). Katalog je na webu vidět až po
+   zapnutí e-shopu. Dnešní `main` kód nové sloupce a tabulky ignoruje.
+   **Krok A plateb musí v Production proběhnout PŘED nasazením kódu
+   kroku B** — nový kód čte a zapisuje `payment_vs` a `payments`.
+9. *(Jednotlivé skripty 30–52 a eshop-payments/10–12 zůstávají pro Preview.)*
 10. **Platby — krok B (povinný VS)**: až PO nasazení kódu a jedné
    testovací objednávce: `20_before.sql` (nejnovější e-shopová objednávka
    má VS) → `21_migration.sql` → `22_after.sql` → `1 | <e-shop> | 0 | ano | ano`.

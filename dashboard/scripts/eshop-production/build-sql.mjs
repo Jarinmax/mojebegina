@@ -117,9 +117,62 @@ $guard$;`;
   );
 }
 
+/** Zbytek fáze A: katalogy (sirupy, polévky, čaje) + platby krok A — v tomto pořadí. */
+export const PHASE_A_REST = [
+  "docs/eshop-catalog/31_sirupy.sql",
+  "docs/eshop-catalog/41_polevky.sql",
+  "docs/eshop-catalog/51_caje.sql",
+  "docs/eshop-payments/11_migration.sql",
+];
+
+/**
+ * Chráněný zbytek fáze A pro Production main v JEDNÉ transakci: obsah
+ * skriptů beze změny (jen bez jejich vlastních BEGIN/COMMIT), na začátku
+ * pojistka — větev main (neon.timeline_id) a stav PO migracích 0013–0019
+ * a PŘED katalogem / platbami. Chyba kdekoli = nic se nezmění.
+ */
+export function guardedPhaseARestSql(timelineId = PRODUCTION_MAIN.timelineId) {
+  const parts = PHASE_A_REST.map((file) => {
+    const body = read(file)
+      .split("\n")
+      .filter((line) => !/^\s*(BEGIN|COMMIT)\s*;\s*$/.test(line))
+      .join("\n")
+      .trim();
+    return `-- ===== ${file} =====\n${body}\n`;
+  });
+  const guard = `DO $guard$
+DECLARE
+  timeline text := current_setting('neon.timeline_id', true);
+BEGIN
+  IF timeline IS DISTINCT FROM '${timelineId}' THEN
+    RAISE EXCEPTION 'STOP: tohle NENÍ Production větev main (neon.timeline_id = %). Nic se nezměnilo.', coalesce(timeline, 'neznámý');
+  END IF;
+  IF (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public') < 24
+     OR NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'products') THEN
+    RAISE EXCEPTION 'STOP: chybí migrace 0013–0019 (nejdřív 11_migrations_0013_0019_MAIN.sql). Nic se nezměnilo.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'payments')
+     OR (SELECT count(*) FROM products) <> 7 THEN
+    RAISE EXCEPTION 'STOP: katalog nebo platby už běžely (nebo neočekávaný stav). Nic se nezměnilo.';
+  END IF;
+  RAISE NOTICE 'OK: Production main po migracích 0013–0019 — pokračuji katalogem a platbami (krok A).';
+END
+$guard$;`;
+  return (
+    `-- PRODUCTION main — fáze A, zbytek: katalog Sirupy + Polévky + Čaje a platby krok A S POJISTKOU\n` +
+    `-- (VYGENEROVÁNO scripts/eshop-production/build-sql.mjs z ${PHASE_A_REST.join(", ")}).\n` +
+    `-- Obsah skriptů beze změny, jen v JEDNÉ transakci. Jako první krok kontrola: větev main\n` +
+    `-- (neon.timeline_id ${timelineId}) + stav po migracích 0013–0019. Jinak „STOP“ a NIC se nezmění.\n` +
+    `-- Spouštět CELÉ najednou v Neon SQL Editoru. Kontroly po: 32_sirupy_after (sloupce produkty | baleni_celkem\n` +
+    `-- budou 25 | 36, protože se počítají až po polévkách a čajích), 42_polevky_after, 52_caje_after, eshop-payments/12_after.\n\n` +
+    `BEGIN;\n\n-- ===== POJISTKA: jen Production main, jen jednou =====\n${guard}\n\n${parts.join("\n")}\nCOMMIT;\n`
+  );
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019.sql"), migrationsSql());
   writeFileSync(join(ROOT, "docs/eshop-production/19_migrations_rollback.sql"), rollbackSql());
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019_MAIN.sql"), guardedMigrationsSql());
-  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql");
+  writeFileSync(join(ROOT, "docs/eshop-production/13_katalog_a_platby_A_MAIN.sql"), guardedPhaseARestSql());
+  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql, 13_katalog_a_platby_A_MAIN.sql");
 }
