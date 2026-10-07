@@ -169,7 +169,8 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     });
     expect(outbound.slice(before).filter((u) => /idoklad/.test(u))).toEqual([]);
     expect(await state(id)).toMatchObject({ doc_state: "draft", state: "dry_run", external_id: null });
-    expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: expect.stringMatching(/Preview/) });
+    // přihlášený (admin-1) není oprávněný vystavovat; Preview + oprávněný: idokladManual.test.ts
+    expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: expect.stringMatching(/smí vystavit jen/) });
   });
 
   it("Preview: vystavení se ani nespustí — žádný požadavek, ani na token", async () => {
@@ -208,7 +209,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       NumericSequenceId: 7277293,
       DocumentSerialNumber: Number(next.number.slice(3)),
       VariableSymbol: vs,
-      CurrencyId: 2, // CZK
+      CurrencyId: 1, // CZK (agenda Beginy)
       PaymentOptionId: 1, // Bank transfer / převodem
       PartnerId: 900,
       IsEet: false,
@@ -218,13 +219,13 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     });
     expect(vs).toMatch(/^7\d{7}$/);
     expect(post.Items).toEqual([
-      { Name: "Kulajda", Code: "kulajda", Amount: 2, Unit: "ks", UnitPrice: 379, PriceType: 0, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
+      { Name: "Kulajda", Code: "kulajda", Amount: 2, Unit: "ks", UnitPrice: 379, PriceType: 1, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
     ]);
     expect(String(post.DateOfIssue)).toMatch(/^\d{4}-\d{2}-\d{2}T12:00:00\.000$/);
     const contact = fake.calls.find((c) => c.method === "POST" && c.path === "/Contacts")!.body;
     expect(contact).toMatchObject({ CompanyName: "Jana Nováková", Email: "jana@example.cz", CountryId: 2 });
     // pořadí: kontroly agendy a řady PŘED prvním zápisem
-    const firstWrite = fake.calls.findIndex((c) => c.method !== "GET");
+    const firstWrite = fake.calls.findIndex((c) => c.method !== "GET" && c.path !== "TOKEN");
     const order_ = fake.calls.map((c) => c.path);
     expect(order_.indexOf("/Account/CurrentAgenda")).toBeLessThan(firstWrite);
     expect(order_.indexOf("/NumericSequences")).toBeLessThan(firstWrite);
@@ -330,7 +331,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     ["řada 7277293 je výchozí", { sequences: [{ Id: 7277293, Name: "E-shop Begina", DocumentType: 0, IsDefault: true, NumberFormat: "9{RR}{NNNN}" }] }, /výchozí/],
     ["řada 7277293 neexistuje", { sequences: [{ Id: 2032369, Name: "Výchozí", DocumentType: 0, IsDefault: true, NumberFormat: "{RRRR}{NNNN}" }] }, /neexistuje/],
     ["řada se jmenuje jinak", { sequences: [{ Id: 7277293, Name: "Velkoobchod", DocumentType: 0, IsDefault: false, NumberFormat: "9{RR}{NNNN}" }] }, /jmenuje/],
-    ["jiná agenda (IČO)", { ico: "12345678" }, /není Begina/],
+    ["jiná agenda (IČO)", { ico: "12345678" }, /není to Begina/],
     ["agenda je plátce DPH", { vatPayer: true }, /plátce DPH/],
   ];
   for (const [label, options, message] of blocked) {

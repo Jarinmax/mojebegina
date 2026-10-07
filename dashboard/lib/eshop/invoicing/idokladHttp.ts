@@ -141,13 +141,17 @@ export class EshopIdokladClient {
 
   constructor(options: EshopIdokladClientOptions) {
     if (!options.clientId || !options.clientSecret) throw new IdokladApiError("Chybí přístupové údaje k iDokladu.");
+    // Výchozí hodnoty přes ?? (ne „...options“): volající předává i výslovné
+    // undefined (např. fetchImpl: deps.fetchImpl) a to nesmí výchozí přepsat.
     this.opts = {
-      fetchImpl: fetch,
-      now: Date.now,
-      requestBudget: 40,
-      timeoutMs: 10_000,
-      env: process.env,
-      ...options,
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      writesAllowed: options.writesAllowed,
+      fetchImpl: options.fetchImpl ?? fetch,
+      now: options.now ?? Date.now,
+      requestBudget: options.requestBudget ?? 40,
+      timeoutMs: options.timeoutMs ?? 10_000,
+      env: options.env ?? process.env,
     };
   }
 
@@ -163,6 +167,11 @@ export class EshopIdokladClient {
 
   get requestCount(): number {
     return this.count;
+  }
+
+  /** true = přihlášení (Client Credentials) prošlo a klient má token */
+  get authenticated(): boolean {
+    return this.token !== null;
   }
 
   private redact(text: string): string {

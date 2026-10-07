@@ -44,7 +44,7 @@ Jeden PR `claude/great-bell-ffjwo3` → `main` (všechny commity z
 | E-maily | `ESHOP_EMAIL_LIVE=on` | v Production se `ESHOP_EMAIL_TEST_RECIPIENTS` ignoruje → žádné [TEST], žádné přesměrování |
 | Pruh „Náhled e-shopu“ | zmizí s `ESHOP_ORDER_WRITE=on` | `lib/eshop/storeMode.ts` |
 | Číslování | SQL `21_numbering_cutover.sql` | start řady 1000–899999 (900000+ je Preview) |
-| **Faktury v iDokladu** | `IDOKLAD_INVOICING_ENABLED=on` + `IDOKLAD_ESHOP_SEQUENCE_ID=7277293` + `IDOKLAD_ESHOP_CLIENT_ID/SECRET` | jen Vercel Production; mimo ni jen návrh. Zápis jen 3 operace (kontakt, faktura, uhrazeno), před zápisem kontrola agendy, řady a VS (`lib/eshop/invoicing/mode.ts`, `idokladHttp.ts`, `issue.ts`) |
+| **Faktury v iDokladu** | `IDOKLAD_INVOICING_ENABLED=manual` (jen tlačítkem) / `on` (automat) + `IDOKLAD_ESHOP_SEQUENCE_ID=7277293` + `IDOKLAD_ESHOP_CLIENT_ID/SECRET` | jen Vercel Production; mimo ni jen návrh. Zápis jen 3 operace (kontakt, faktura, uhrazeno), před zápisem kontrola agendy, řady a VS (`lib/eshop/invoicing/mode.ts`, `idokladHttp.ts`, `issue.ts`) |
 
 Preview naopak zůstává vždy testovací (testovací Stripe klíč, e-maily jen
 na testovací adresy, faktury jen jako návrh), i kdyby tam někdo nastavil
@@ -175,7 +175,7 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 | `ESHOP_EMAIL_TEST_RECIPIENTS` | **nenastavovat** (v Production se ignoruje) | — |
 | `IDOKLAD_ESHOP_SEQUENCE_ID` | `7277293` (E-shop Begina) | C9 |
 | `IDOKLAD_ESHOP_CLIENT_ID` / `IDOKLAD_ESHOP_CLIENT_SECRET` | Client Credentials agendy Begina (tajné) | C9 |
-| `IDOKLAD_INVOICING_ENABLED` | `on` | C9, poslední |
+| `IDOKLAD_INVOICING_ENABLED` | `manual` pro první test, `on` až po schválení (chybí / `off` = jen návrh) | C9, poslední |
 
 U každé zaškrtnout **jen Production**. Preview proměnné nechat jen na Preview.
 

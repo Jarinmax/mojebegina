@@ -128,14 +128,14 @@ describe("faktura v detailu objednávky — ostrý provoz", () => {
   });
 
   it("vystavená, PDF neodešlo → „Poslat fakturu zákazníkovi“", () => {
-    render(<OrderInvoiceDraft orderId="o1" invoice={issuedView()} paid live />);
+    render(<OrderInvoiceDraft orderId="o1" invoice={issuedView()} paid live canIssue />);
     expect(screen.getByRole("button", { name: "Poslat fakturu zákazníkovi" })).toBeTruthy();
   });
 
   it("chyba vystavení: jasně NEvyfakturováno, důvod, ID z iDokladu, opakování", () => {
     const v = invoiceView(null);
     v.link = { ...v.link!, state: "failed", lastError: "iDoklad nedostupný: timeout", attempts: 2, externalId: "555", externalNumber: "9260001" };
-    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live />);
+    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live canIssue />);
     const text = container.textContent ?? "";
     expect(text).toContain("objednávka NENÍ vyfakturovaná");
     expect(text).toContain("iDoklad nedostupný: timeout");
@@ -145,10 +145,42 @@ describe("faktura v detailu objednávky — ostrý provoz", () => {
     expect(screen.queryByRole("button", { name: /Přegenerovat/ })).toBeNull();
   });
 
+  it("manual: čekající faktura → „Vystavit fakturu v iDokladu“ jen oprávněnému a jen u zaplacené", () => {
+    const v = invoiceView(null);
+    v.link = { ...v.link!, state: "pending" };
+    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live trigger="manual" canIssue issuer />);
+    expect(container.textContent).toContain("Ostrý provoz — ruční vystavení (jen tlačítkem)");
+    expect(screen.getByRole("button", { name: "Vystavit fakturu v iDokladu" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "kontrola připojení" }).getAttribute("href")).toBe("/rizeni-firmy/objednavky/idoklad");
+    cleanup();
+    // neoprávněný uživatel: stav ano, tlačítko ne
+    const other = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live trigger="manual" canIssue={false} />);
+    expect(other.container.textContent).toContain("Faktura čeká na vystavení v iDokladu.");
+    expect(screen.queryByRole("button", { name: /Vystavit/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "kontrola připojení" })).toBeNull();
+    cleanup();
+    // nezaplacená objednávka: tlačítko ne
+    render(<OrderInvoiceDraft orderId="o1" invoice={v} paid={false} live trigger="manual" canIssue issuer />);
+    expect(screen.queryByRole("button", { name: /Vystavit/ })).toBeNull();
+  });
+
+  it("manual: zaplaceno, ale návrh ještě nevznikl → tlačítko (motor si návrh založí sám)", () => {
+    render(<OrderInvoiceDraft orderId="o1" invoice={null} paid live trigger="manual" canIssue issuer />);
+    expect(screen.getByRole("button", { name: "Vystavit fakturu v iDokladu" })).toBeTruthy();
+  });
+
+  it("vystavení právě běží → žádné tlačítko (dvojklik)", () => {
+    const v = invoiceView(null);
+    v.link = { ...v.link!, state: "pending", busyUntil: new Date(Date.now() + 60_000), attempts: 1 };
+    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={v} paid live trigger="manual" canIssue issuer />);
+    expect(container.textContent).toContain("Faktura se právě vystavuje v iDokladu");
+    expect(screen.queryByRole("button", { name: /Vystavit/ })).toBeNull();
+  });
+
   it("mimo ostrý provoz se tlačítko vystavení nikdy neukáže", () => {
     const v = invoiceView(null);
     v.link = { ...v.link!, state: "failed", lastError: "x", attempts: 1 };
-    render(<OrderInvoiceDraft orderId="o1" invoice={v} paid />);
+    render(<OrderInvoiceDraft orderId="o1" invoice={v} paid canIssue issuer />);
     expect(screen.queryByRole("button", { name: /Vystavit/ })).toBeNull();
   });
 });

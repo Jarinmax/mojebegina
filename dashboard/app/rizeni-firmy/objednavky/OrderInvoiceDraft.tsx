@@ -5,6 +5,7 @@
 //     iDokladu odeslalo, a co chybí nebo nesedí; do iDokladu nic,
 //   ostrý provoz (lib/eshop/invoicing/mode.ts): stav vystavení v iDokladu
 //     (číslo, uhrazeno, PDF odesláno) a při chybě „Vystavit fakturu znovu“.
+import Link from "next/link";
 import { useActionState } from "react";
 import { issueInvoiceAction, prepareInvoiceDraftAction, type ActionState } from "./actions";
 import type { OrderInvoiceView } from "@/lib/eshop/invoicing/service";
@@ -87,10 +88,27 @@ function IssueButton({ orderId, label }: { orderId: string; label: string }) {
   );
 }
 
-/** Stav vystavení v iDokladu (ostrý provoz). */
-function IssueStatus({ orderId, invoice, live, paid }: { orderId: string; invoice: OrderInvoiceView; live: boolean; paid: boolean }) {
-  const link = invoice.link;
-  if (invoice.docState === "issued") {
+/**
+ * Stav vystavení v iDokladu (ostrý provoz) a jediné místo s tlačítkem
+ * „Vystavit fakturu“. Tlačítko jen když `canIssue` (ostrý provoz manual/on
+ * + oprávněný uživatel — rozhoduje server) a objednávka je zaplacená,
+ * faktura ještě není vystavená a vystavení právě neběží. I tak server
+ * všechno ověří znovu; dvojklik nic nezdvojí (zámek + idempotence motoru).
+ */
+function IssueStatus({
+  orderId,
+  invoice,
+  canIssue,
+  paid,
+}: {
+  orderId: string;
+  invoice: OrderInvoiceView | null;
+  canIssue: boolean;
+  paid: boolean;
+}) {
+  const link = invoice?.link ?? null;
+  const allowed = canIssue && paid;
+  if (invoice?.docState === "issued") {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 flex flex-col gap-1">
         <p className="text-sm font-medium">
@@ -103,19 +121,18 @@ function IssueStatus({ orderId, invoice, live, paid }: { orderId: string; invoic
           PDF zákazníkovi:{" "}
           {invoice.pdfSentAt ? `odesláno ${czDateTime(invoice.pdfSentAt)} (e-mail MojeBegina)` : "zatím neodesláno"}
         </p>
-        {live && paid && !invoice.pdfSentAt && <IssueButton orderId={orderId} label="Poslat fakturu zákazníkovi" />}
+        {allowed && !invoice.pdfSentAt && <IssueButton orderId={orderId} label="Poslat fakturu zákazníkovi" />}
       </div>
     );
   }
-  if (!link || link.state === "dry_run") return null;
-  if (link.busyUntil) {
+  if (link?.busyUntil) {
     return (
       <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
         Faktura se právě vystavuje v iDokladu (pokus {link.attempts}).
       </p>
     );
   }
-  if (link.state === "failed") {
+  if (link?.state === "failed") {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex flex-col gap-1">
         <p className="text-sm font-medium">Vystavení v iDokladu se nepovedlo — objednávka NENÍ vyfakturovaná</p>
@@ -125,15 +142,22 @@ function IssueStatus({ orderId, invoice, live, paid }: { orderId: string; invoic
           {link.externalId &&
             ` · faktura v iDokladu už vznikla (ID ${link.externalId}${link.externalNumber ? `, č. ${link.externalNumber}` : ""}) — další pokus ji jen dokončí, novou nevytvoří`}
         </p>
-        {live && paid && <IssueButton orderId={orderId} label="Vystavit fakturu znovu" />}
+        {allowed && <IssueButton orderId={orderId} label="Vystavit fakturu znovu" />}
       </div>
     );
   }
-  // pending bez zámku: čeká na vystavení (např. přerušený pokus)
+  // ostrý provoz, zaplaceno, ještě nevystaveno (manual: čeká na tlačítko)
+  if (!allowed) {
+    return link?.state === "pending" ? (
+      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        Faktura čeká na vystavení v iDokladu.
+      </p>
+    ) : null;
+  }
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex flex-col gap-1">
-      <p>Faktura čeká na vystavení v iDokladu.</p>
-      {live && paid && <IssueButton orderId={orderId} label="Vystavit fakturu v iDokladu" />}
+      <p>Faktura ještě není vystavená v iDokladu. Před zápisem proběhne kontrola iDokladu; při jakékoli chybě se nic nevystaví.</p>
+      <IssueButton orderId={orderId} label="Vystavit fakturu v iDokladu" />
     </div>
   );
 }
@@ -143,12 +167,21 @@ export default function OrderInvoiceDraft({
   invoice,
   paid,
   live = false,
+  trigger = "off",
+  canIssue = false,
+  issuer = false,
 }: {
   orderId: string;
   invoice: OrderInvoiceView | null;
   paid: boolean;
   /** ostrý provoz fakturace (brána v mode.ts otevřená) */
   live?: boolean;
+  /** off / manual / on */
+  trigger?: "off" | "manual" | "on";
+  /** smí tento uživatel vystavit (ostrý provoz + oprávnění) — rozhoduje server */
+  canIssue?: boolean;
+  /** oprávněný uživatel (odkaz na kontrolu připojení iDokladu) */
+  issuer?: boolean;
 }) {
   const payload = invoice?.link?.payload ?? null;
   const issued = invoice?.docState === "issued";
@@ -156,15 +189,28 @@ export default function OrderInvoiceDraft({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-xs text-neutral-500">Faktura (iDoklad)</p>
+        <p className="text-xs text-neutral-500">
+          Faktura (iDoklad)
+          {issuer && (
+            <Link href="/rizeni-firmy/objednavky/idoklad" className="ml-2 text-begina-primary-900 hover:underline">
+              kontrola připojení
+            </Link>
+          )}
+        </p>
         {live ? (
-          <p className="text-xs font-medium text-emerald-700">Ostrý provoz — faktury se vystavují v iDokladu</p>
+          <p className="text-xs font-medium text-emerald-700">
+            {trigger === "manual"
+              ? "Ostrý provoz — ruční vystavení (jen tlačítkem)"
+              : "Ostrý provoz — faktury se vystavují v iDokladu automaticky"}
+          </p>
         ) : (
           <p className="text-xs font-medium text-sky-700">Režim návrhu — do iDokladu se nic neodesílá</p>
         )}
       </div>
 
-      {invoice && <IssueStatus orderId={orderId} invoice={invoice} live={live} paid={paid} />}
+      {(invoice || (live && canIssue && paid)) && (
+        <IssueStatus orderId={orderId} invoice={invoice} canIssue={live && canIssue} paid={paid} />
+      )}
 
       {!invoice && (
         <>

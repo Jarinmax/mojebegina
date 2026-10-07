@@ -12,12 +12,18 @@ import {
   recordOrderPayment,
   prepareOrderInvoiceDraft,
   issueOrderInvoice,
+  runEshopIdokladPreflight,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
 } from "@/lib/data/orders";
 
 export type ActionState = { error: string } | { success: string } | null;
+
+export type PreflightActionState =
+  | { result: import("@/lib/eshop/invoicing/preflight").PreflightResult }
+  | { error: string }
+  | null;
 
 function revalidateOrder(orderId?: string) {
   revalidatePath("/rizeni-firmy");
@@ -133,6 +139,12 @@ export async function issueInvoiceAction(orderId: string): Promise<ActionState> 
   const result = await issueOrderInvoice(orderId);
   revalidateOrder(orderId);
   return result.ok ? { success: result.message } : { error: result.error };
+}
+
+/** Kontrola připojení iDokladu — jen čtení, nic se nezapisuje ani neukládá. */
+export async function runIdokladPreflightAction(): Promise<PreflightActionState> {
+  const outcome = await runEshopIdokladPreflight();
+  return outcome.ok ? { result: outcome.result } : { error: outcome.error };
 }
 
 export async function assignResponsibleAction(

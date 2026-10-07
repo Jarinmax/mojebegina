@@ -309,6 +309,51 @@ faktura s VS v jiné řadě, nezaplaceno, kontakt podle e-mailu a vazby.
 názvy způsobů úhrady (převod / karta / hotově — musí sedět jednoznačně),
 CZK, CZ, výchozí faktura agendy (typ ceny a sazba položek u neplátce).
 
+## 2.9 Ruční režim (B1) a kontrola iDokladu před vystavením (B2) — 7. 10. 2026
+
+**Přepínač `IDOKLAD_INVOICING_ENABLED` — tři stavy** (`lib/eshop/invoicing/mode.ts`):
+
+| Hodnota | Co se stane po zaplacení | Tlačítko „Vystavit fakturu v iDokladu“ |
+|---|---|---|
+| chybí / `off` (i neplatná hodnota, např. `ON`, `yes`) | jen návrh, do iDokladu nic | ne |
+| `manual` | jen návrh — **nic automaticky** | ano, jen oprávněný uživatel, jen zaplacená a nevystavená objednávka |
+| `on` | automatické vystavení | ano (opakování po chybě) |
+
+`manual` i `on` volají **tentýž motor** `issueInvoice` (issue.ts) se stejnou
+kontrolou, zámkem a idempotencí. **Preview je vždy jen návrh** — i s `manual`
+/ `on` a Production přístupovými údaji (brána vyžaduje `VERCEL_ENV=production`,
+akce i motor to ověřují samy a HTTP klient znovu před každým zápisem).
+
+**Oprávnění** (`lib/data/invoiceAuth.ts`): vystavit fakturu a spustit kontrolu
+iDokladu smí jen Jaroslav Viner s aktivní rolí ADMIN (stejně jako Finance 1.0).
+
+**Kontrola iDokladu — preflight** (`lib/eshop/invoicing/preflight.ts`), jen
+GET + token: přihlášení Client Credentials, agenda IČO 74337297, neplátce DPH,
+CZK, CZ, Bank transfer / Credit card / Cash (dobírka vyloučená, každý právě
+jeden), řada 7277293 „E-shop Begina“ (vydané, ne výchozí), další číslo
+(9{RR}{NNNN}, jen náhled), typ ceny položek. **Kterákoli kontrola neprojde =
+faktura se nevystaví** (stav „failed“ s důvodem, žádný zápis). Proběhne
+automaticky před KAŽDÝM pokusem o vystavení a jde spustit ručně:
+**MojeBegina → Objednávky → detail e-shopové objednávky → „kontrola
+připojení“** (`/rizeni-firmy/objednavky/idoklad`) — stejné Production údaje
+(`IDOKLAD_ESHOP_CLIENT_ID/SECRET`), klient bez práva zápisu, funguje i s
+vypnutou fakturací.
+
+**Pozor na e-maily v Production:** „Platbu jsme přijali“ i „Faktura
+k objednávce“ (PDF) odejdou jen s `ESHOP_EMAIL_LIVE=on` **a zároveň**
+`ESHOP_ORDER_WRITE=on` (`lib/eshop/email/config.ts`). Během prvního testu
+faktury proto `ESHOP_ORDER_WRITE` nevypínat; objednávky zastaví
+`ESHOP_PUBLIC` (bez něj je `/eshop` 404).
+
+**Opraveno při B1/B2 (testy to odhalily):** HTTP klient bral výslovné
+`fetchImpl: undefined` jako hodnotu → ostré vystavení by v Production vždy
+spadlo; konflikt vazby zákazník ↔ kontakt iDokladu (stejný kontakt u dvou
+zákazníků) zastavoval vystavení — vazba je teď jen zkratka a neblokuje.
+
+**Testy:** `idokladManual.test.ts` (off, manual, on, Preview+manual,
+Preview+on, dvojklik, oprávnění, selhání Client Credentials, každá kritická
+kontrola, sdílený kontakt), `idokladLive.test.ts`, UI `OrderInvoiceDraft.test.tsx`.
+
 ## 3. Workflow
 
 ```

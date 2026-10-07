@@ -1,8 +1,10 @@
 // ESHOP 1.0 — co se stane po úplném zaplacení e-shopové objednávky.
 //
 //   1. návrh faktury (vždy; nikdy nevyhodí výjimku),
-//   2. jen v ostrém režimu (mode.ts — na Preview NIKDY): vystavení
-//      v iDokladu (issue.ts) a PDF faktury,
+//   2. jen v automatickém ostrém režimu „on“ (mode.ts — na Preview NIKDY):
+//      vystavení v iDokladu (issue.ts) a PDF faktury. V režimu „manual“
+//      se tu NIC nevystavuje — faktura čeká na tlačítko v detailu
+//      objednávky (issueAndSendInvoice níže, tentýž motor),
 //   3. e-mail zákazníkovi „Platbu jsme přijali“ (resp. potvrzení
 //      zaplacené objednávky kartou) — s PDF faktury v příloze, pokud je.
 //
@@ -35,10 +37,11 @@ export async function invoiceAndNotifyPaid(
   deps: AfterPaidDeps = {}
 ): Promise<{ invoice: IssueResult | null; emails: OrderEmailOutcome[] }> {
   const env = deps.env ?? process.env;
-  await prepareInvoiceDraftSafe(db, orderId, actor);
+  await prepareInvoiceDraftSafe(db, orderId, actor, env);
   let invoice: IssueResult | null = null;
   let pdf: InvoicePdf | null = null;
-  if (invoicingMode(env).mode === "live") {
+  const mode = invoicingMode(env);
+  if (mode.mode === "live" && mode.automatic) {
     invoice = await issueInvoiceSafe(db, orderId, { env, actor, fetchImpl: deps.fetchImpl });
     if (invoice.status === "issued") pdf = invoice.pdf;
   }
@@ -47,9 +50,11 @@ export async function invoiceAndNotifyPaid(
 }
 
 /**
- * MojeBegina „Vystavit fakturu v iDokladu“ (opakování po chybě) — vystaví
- * (nebo dokončí rozpracované vystavení) a pokud zákazník PDF ještě
- * nedostal, pošle „Faktura k objednávce“.
+ * MojeBegina „Vystavit fakturu v iDokladu“ (režim „manual“, nebo opakování
+ * po chybě v „on“) — tentýž motor issueInvoice: vystaví (nebo dokončí
+ * rozpracované vystavení) a pokud zákazník PDF ještě nedostal, pošle
+ * „Faktura k objednávce“. Mimo ostrý provoz (Preview) vrátí „skipped“
+ * a nic nevolá. Oprávnění ověřuje volající (lib/data/orders.ts).
  */
 export async function issueAndSendInvoice(
   db: Db,

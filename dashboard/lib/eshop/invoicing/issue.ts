@@ -1,16 +1,21 @@
 // ESHOP 1.0 — OSTRÉ vystavení e-shopové faktury v iDokladu.
 //
-// Spouští se jen při otevřené bráně ostrého provozu (mode.ts:
-// liveInvoicingGate — Vercel Production + IDOKLAD_INVOICING_ENABLED=on +
-// řada 7277293 + přístupové údaje). Jinak se nic nevolá a vrátí se
-// „skipped“. Na Preview proto nikdy nevznikne ani jeden požadavek.
+// JEDINÝ vystavovací motor pro oba ostré režimy (mode.ts): „on“ ho spustí
+// automaticky po zaplacení (afterPaid.ts), „manual“ jen výslovnou akcí
+// oprávněného uživatele v detailu objednávky. Spouští se jen při otevřené
+// bráně ostrého provozu (liveInvoicingGate — Vercel Production + přepínač
+// manual/on + řada 7277293 + přístupové údaje). Jinak se nic nevolá
+// a vrátí se „skipped“. Na Preview proto nikdy nevznikne ani jeden
+// požadavek — ani s „manual“, ani s „on“.
 //
 // Pojistky (schválené vedením 7. 10. 2026):
 //   1. jen skutečně zaplacená e-shopová objednávka (orders.payment_status
 //      = paid A ZÁROVEŇ přepočet plateb order_payment_balance = paid/overpaid),
-//   2. jen řada 7277293 „E-shop Begina“ — před zápisem se ověří, že
-//      existuje, je pro vydané faktury, NENÍ výchozí a sedí název,
-//   3. jen agenda Begina (IČO 74337297) a jen neplátce DPH,
+//   2+3. před KAŽDÝM pokusem kontrola iDokladu (preflight.ts, jen čtení):
+//      přihlášení, agenda Begina (IČO 74337297), neplátce DPH, CZK, CZ,
+//      převod / karta / hotově (ne dobírka), řada 7277293 „E-shop Begina“
+//      (vydané faktury, ne výchozí), další číslo, typ ceny. Neprojde-li
+//      kterákoli, faktura se nevystaví (žádné varování k přeskočení),
 //   4. VS faktury = payment_vs objednávky (7xxxxxxx),
 //   5. před vytvořením hledání faktury s tímto VS v iDokladu — když
 //      existuje, jen se připojí (nic nového nevznikne); víc faktur = stop,
@@ -31,26 +36,16 @@ import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { blockingProblems, type InvoiceDraft } from "./draft";
-import {
-  CZECH_REPUBLIC_COUNTRY_CODE,
-  IDOKLAD_ENUMS,
-  IDOKLAD_PROVIDER,
-  PAYMENT_OPTION_MATCH,
-  contactPostBody,
-  invoicePostBody,
-  type ItemPricing,
-} from "./idoklad";
+import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter } from "./idokladHttp";
-import { BEGINA_ICO, ESHOP_SERIES, liveInvoicingGate } from "./mode";
-import { ISSUED_INVOICE_DOCUMENT_TYPE, checkEshopSeries, type IdokladNumericSequence } from "./numberSeries";
+import { liveInvoicingGate } from "./mode";
+import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
 
 export const ISSUE_LEASE_MINUTES = 10;
-/** Číslo faktury v řadě 9{RR}{NNNN}: 9 + rok (2 číslice) + pořadí (4 číslice). */
-const ESHOP_NUMBER_RE = /^9\d{2}\d{4}$/;
 
 export type InvoicePdf = { filename: string; contentBase64: string; invoiceNumber: string };
 
@@ -81,45 +76,11 @@ function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function documentTypeNumber(value: unknown): number {
-  if (typeof value === "number") return value;
-  if (value === "IssuedInvoice") return ISSUED_INVOICE_DOCUMENT_TYPE;
-  return -1;
-}
-
 function sameAmount(a: unknown, kc: number): boolean {
   return typeof a === "number" && Math.abs(a - kc) < 0.005;
 }
 
 // ------------------------------------------------------------- kontroly iDokladu
-
-async function assertAgenda(client: EshopIdokladClient) {
-  const agenda = await client.get<{
-    IsRegisteredForVat?: boolean | null;
-    PreferredPriceType?: number | string | null;
-    Contact?: { IdentificationNumber?: string | null } | null;
-  }>("/Account/CurrentAgenda");
-  const ico = agenda?.Contact?.IdentificationNumber?.replace(/\s/g, "") ?? null;
-  if (ico !== BEGINA_ICO) throw new IssueStop(`Přihlášená agenda iDokladu není Begina (IČO ${ico ?? "neuvedeno"}) — nic se nevystavilo.`);
-  if (agenda.IsRegisteredForVat !== false) {
-    throw new IssueStop("Agenda v iDokladu je vedená jako plátce DPH — e-shop počítá s neplátcem, nic se nevystavilo.");
-  }
-  return agenda;
-}
-
-async function assertSeries(client: EshopIdokladClient, seriesId: string): Promise<IdokladNumericSequence> {
-  const page = await client.list<IdokladNumericSequence>(
-    "/NumericSequences",
-    `DocumentType~eq~${ISSUED_INVOICE_DOCUMENT_TYPE}`
-  );
-  const sequences = page.Items.map((s) => ({ ...s, DocumentType: documentTypeNumber(s.DocumentType) }));
-  const check = checkEshopSeries(seriesId, sequences);
-  if (!check.ok) throw new IssueStop(check.problems.map((p) => p.message).join(" "));
-  if ((check.sequence.Name ?? "").trim().toLowerCase() !== ESHOP_SERIES.name.toLowerCase()) {
-    throw new IssueStop(`Řada ${seriesId} se v iDokladu jmenuje „${check.sequence.Name ?? ""}“, ne „${ESHOP_SERIES.name}“ — nic se nevystavilo.`);
-  }
-  return check.sequence;
-}
 
 /** Faktura s VS v iDokladu (pojistka proti dvojí faktuře). */
 async function findByVs(client: EshopIdokladClient, vs: string): Promise<IdokladInvoice | null> {
@@ -142,7 +103,13 @@ function assertOurInvoice(invoice: IdokladInvoice, vs: string) {
   }
 }
 
-async function resolveContact(db: Db, client: EshopIdokladClient, draft: InvoiceDraft, customerId: string | null): Promise<number> {
+async function resolveContact(
+  db: Db,
+  client: EshopIdokladClient,
+  draft: InvoiceDraft,
+  customerId: string | null,
+  countryId: number
+): Promise<number> {
   // 1. známá vazba zákazník → kontakt iDokladu
   if (customerId) {
     const ref = (
@@ -166,67 +133,24 @@ async function resolveContact(db: Db, client: EshopIdokladClient, draft: Invoice
   let partnerId = same[0]?.Id ?? null;
   // 3. založení
   if (!partnerId) {
-    const countries = await client.list<{ Id: number; Code?: string | null }>(
-      "/Countries",
-      eqFilter("Code", CZECH_REPUBLIC_COUNTRY_CODE),
-      5
-    );
-    const cz = countries.Items.filter((c) => c.Code === CZECH_REPUBLIC_COUNTRY_CODE);
-    if (cz.length !== 1) throw new IssueStop("V číselníku zemí iDokladu se nepodařilo jednoznačně najít Českou republiku (CZ).");
-    const created = await client.post<{ Id: number }>("/Contacts", contactPostBody(draft, { countryId: cz[0].Id }));
+    // země CZ z kontroly iDokladu (preflight.ts)
+    const created = await client.post<{ Id: number }>("/Contacts", contactPostBody(draft, { countryId }));
     if (!created?.Id) throw new IdokladApiError("iDoklad nevrátil ID nového kontaktu.");
     partnerId = created.Id;
   }
   if (customerId) {
-    await db.execute(sql`
-      INSERT INTO invoice_customer_refs (customer_id, provider, external_id)
-      VALUES (${customerId}, ${IDOKLAD_PROVIDER}, ${String(partnerId)})
-      ON CONFLICT (customer_id, provider) DO UPDATE SET external_id = EXCLUDED.external_id`);
+    // Vazba zákazník → kontakt je jen zkratka pro příště. Když už kontakt
+    // patří jinému zákazníkovi MojeBegina (stejný e-mail u osoby i firmy)
+    // nebo se změnil, nic se nepřepisuje a vystavení pokračuje — příště se
+    // kontakt najde znovu podle e-mailu.
+    await db
+      .execute(sql`
+        INSERT INTO invoice_customer_refs (customer_id, provider, external_id)
+        VALUES (${customerId}, ${IDOKLAD_PROVIDER}, ${String(partnerId)})
+        ON CONFLICT DO NOTHING`)
+      .catch((error: unknown) => console.error("Fakturace: vazbu na kontakt iDokladu se nepodařilo uložit", customerId, error));
   }
   return partnerId;
-}
-
-async function resolveCurrency(client: EshopIdokladClient): Promise<number> {
-  const page = await client.list<{ Id: number; Code?: string | null }>("/Currencies", eqFilter("Code", "CZK"), 5);
-  const czk = page.Items.filter((c) => c.Code === "CZK");
-  if (czk.length !== 1) throw new IssueStop("V číselníku měn iDokladu se nepodařilo jednoznačně najít CZK.");
-  return czk[0].Id;
-}
-
-async function resolvePaymentOption(client: EshopIdokladClient, method: string | null): Promise<number> {
-  const rule = method ? PAYMENT_OPTION_MATCH[method] : undefined;
-  if (!rule) throw new IssueStop(`Neznámý způsob úhrady „${method ?? "—"}“ — není jak ho zapsat do iDokladu.`);
-  const page = await client.list<{ Id: number; Name?: string | null }>("/PaymentOptions");
-  const matches = page.Items.filter((o) => rule.name.test(o.Name ?? "") && !rule.exclude.test(o.Name ?? ""));
-  if (matches.length !== 1) {
-    throw new IssueStop(
-      `Způsob úhrady „${rule.label}“ se v číselníku iDokladu nepodařilo jednoznačně najít (nalezeno ${matches.length}).`
-    );
-  }
-  return matches[0].Id;
-}
-
-/** Typ ceny a sazba u položek: podle výchozí faktury agendy (neplátce). */
-function resolvePricing(defaults: Record<string, unknown>, agenda: { PreferredPriceType?: number | string | null }): ItemPricing {
-  const item = Array.isArray(defaults.Items) ? (defaults.Items[0] as Record<string, unknown> | undefined) : undefined;
-  return {
-    priceType: num(item?.PriceType) ?? num(agenda.PreferredPriceType) ?? IDOKLAD_ENUMS.PriceType.WithVat,
-    vatRateType: num(item?.VatRateType) ?? IDOKLAD_ENUMS.VatRateType.Zero,
-  };
-}
-
-async function nextDocumentSerial(client: EshopIdokladClient, seriesId: string, day: string): Promise<number> {
-  const numbers = await client.get<{
-    Unique?: { DocumentSerialNumber?: number; DocumentNumber?: string; NumericSequenceId?: number } | null;
-  }>("/NumericSequences/DocumentNumbers/IssuedInvoice", { date: day, numericSequenceId: seriesId });
-  const unique = numbers?.Unique;
-  if (!unique || String(unique.NumericSequenceId) !== seriesId || typeof unique.DocumentSerialNumber !== "number") {
-    throw new IssueStop(`iDoklad nevrátil další číslo dokladu v řadě ${seriesId}.`);
-  }
-  if (!unique.DocumentNumber || !ESHOP_NUMBER_RE.test(unique.DocumentNumber)) {
-    throw new IssueStop(`Další číslo v řadě ${seriesId} („${unique.DocumentNumber ?? "—"}“) neodpovídá formátu 9{RR}{NNNN}.`);
-  }
-  return unique.DocumentSerialNumber;
 }
 
 async function fetchPdf(client: EshopIdokladClient, externalId: string, invoiceNumber: string) {
@@ -342,8 +266,11 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
       env,
       fetchImpl: deps.fetchImpl,
     });
-    const agenda = await assertAgenda(client);
-    await assertSeries(client, gate.seriesId);
+    // kontrola iDokladu před KAŽDÝM pokusem (jen čtení) — stejná jako
+    // ruční „Kontrola připojení iDokladu“; cokoli neprojde = nic se nezapíše
+    const preflight = await runIdokladPreflight(client, { seriesId: gate.seriesId, day });
+    if (!preflight.ok || !preflight.resolved) throw new IssueStop(preflightFailureSummary(preflight));
+    const resolved = preflight.resolved;
 
     // pojistka proti dvojí faktuře: známé ID, jinak hledání podle VS
     let invoice: IdokladInvoice | null = null;
@@ -355,22 +282,21 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
     const adopted = invoice !== null;
 
     if (!invoice) {
-      const partnerId = await resolveContact(db, client, draft, claimed.customer_id);
-      const currencyId = await resolveCurrency(client);
-      const paymentOptionId = await resolvePaymentOption(client, draft.paymentMethod);
-      const defaults = (await client.get<Record<string, unknown>>("/IssuedInvoices/Default")) ?? {};
-      const documentSerialNumber = await nextDocumentSerial(client, gate.seriesId, day);
+      const method = draft.paymentMethod ?? "";
+      const paymentOptionId = resolved.paymentOptionIds[method];
+      if (!paymentOptionId) throw new IssueStop(`Neznámý způsob úhrady „${method || "—"}“ — není jak ho zapsat do iDokladu.`);
+      const partnerId = await resolveContact(db, client, draft, claimed.customer_id, resolved.countryId);
       const body = invoicePostBody(
         draft,
         {
           partnerId,
           numericSequenceId: Number(gate.seriesId),
-          documentSerialNumber,
-          currencyId,
+          documentSerialNumber: resolved.next.serial,
+          currencyId: resolved.currencyId,
           paymentOptionId,
-          pricing: resolvePricing(defaults, agenda),
+          pricing: resolved.pricing,
         },
-        defaults
+        resolved.defaults
       );
       invoice = await client.post<IdokladInvoice>("/IssuedInvoices", body);
       if (!invoice?.Id) throw new IdokladApiError("iDoklad nevrátil ID nové faktury.");
@@ -420,6 +346,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
     const responseRef = {
       adopted,
       requests: client.requestCount,
+      trigger: gate.trigger,
       paymentStatus: "paid",
       pdf: pdf ? `idoklad:Reports/IssuedInvoice/${externalId}/Pdf` : null,
     };
@@ -442,7 +369,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
         )
         INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
         SELECT ${orderId}, ${actor.type}, ${actor.type === "user" ? actor.userId : null}, ${actor.name}, 'invoice_issued',
-               ${JSON.stringify({ invoiceNumber, externalId, adopted, series: gate.seriesId })}::jsonb
+               ${JSON.stringify({ invoiceNumber, externalId, adopted, series: gate.seriesId, trigger: gate.trigger })}::jsonb
         FROM inv
         RETURNING id`)
     ).rows;

@@ -235,9 +235,14 @@ export async function prepareInvoiceDraft(
  * Po úplném zaplacení: návrh faktury, ale NIKDY nevyhodí výjimku — platba
  * je už uložená. Chyba se zapíše do historie objednávky.
  */
-export async function prepareInvoiceDraftSafe(db: Db, orderId: string, actor?: InvoiceActor): Promise<void> {
+export async function prepareInvoiceDraftSafe(
+  db: Db,
+  orderId: string,
+  actor?: InvoiceActor,
+  env: Env = process.env
+): Promise<void> {
   try {
-    await prepareInvoiceDraft(db, orderId, { actor });
+    await prepareInvoiceDraft(db, orderId, { actor }, env);
   } catch (error) {
     console.error("Fakturace: návrh faktury se nepodařilo vytvořit", orderId, error);
     const message = error instanceof Error ? error.message.slice(0, 300) : "neznámá chyba";

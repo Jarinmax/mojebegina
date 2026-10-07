@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOrderDetail, listInternalStaff } from "@/lib/data/orders";
+import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff } from "@/lib/data/orders";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
@@ -10,7 +10,6 @@ import FulfillmentStatusForm from "../FulfillmentStatusForm";
 import PaymentStatusForm from "../PaymentStatusForm";
 import OrderPayments from "../OrderPayments";
 import OrderInvoiceDraft from "../OrderInvoiceDraft";
-import { invoicingMode } from "@/lib/eshop/invoicing/mode";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
@@ -38,6 +37,7 @@ export default async function OrderDetailPage(
   }
   const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
+  const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
 
   return (
     <div>
@@ -190,7 +190,10 @@ export default async function OrderDetailPage(
             orderId={order.id}
             invoice={invoice}
             paid={order.paymentStatus === "paid"}
-            live={invoicingMode().mode === "live"}
+            live={invoiceAccess?.mode.mode === "live"}
+            trigger={invoiceAccess?.mode.trigger ?? "off"}
+            canIssue={invoiceAccess?.canIssue ?? false}
+            issuer={invoiceAccess?.issuer ?? false}
           />
         </div>
       )}

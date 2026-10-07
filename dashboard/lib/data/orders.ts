@@ -17,7 +17,9 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
-import { invoicingMode } from "@/lib/eshop/invoicing/mode";
+import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
+import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
+import { isInvoiceIssuer } from "./invoiceAuth";
 import {
   loadOrderPayments,
   parseAmountKcToHal,
@@ -541,15 +543,34 @@ export async function prepareOrderInvoiceDraft(
   return { ok: true, result };
 }
 
+export type InvoiceIssueAccess = {
+  mode: InvoicingMode;
+  /** přihlášený uživatel smí vystavovat (invoiceAuth.ts) */
+  issuer: boolean;
+  /** tlačítko „Vystavit fakturu“ má smysl ukázat (ostrý provoz + oprávnění) */
+  canIssue: boolean;
+};
+
+/** Pro detail objednávky: režim fakturace a zda smí tento uživatel vystavit. */
+export async function getInvoiceIssueAccess(): Promise<InvoiceIssueAccess> {
+  const ctx = await requireOrderContext();
+  const mode = invoicingMode();
+  const issuer = isInvoiceIssuer(ctx);
+  return { mode, issuer, canIssue: issuer && mode.mode === "live" };
+}
+
 /**
- * ESHOP 1.0 — „Vystavit fakturu v iDokladu“ z MojeBegina (opakování po
- * chybě / dokončení rozpracovaného vystavení). Jen v ostrém režimu —
- * na Preview vrátí důvod a do iDokladu nic nepošle.
+ * ESHOP 1.0 — „Vystavit fakturu v iDokladu“ z MojeBegina: režim „manual“
+ * (jediná cesta k vystavení), v „on“ opakování po chybě. Tentýž motor jako
+ * automat (issue.ts) včetně kontroly iDokladu a idempotence. Jen oprávněný
+ * uživatel a jen v ostrém provozu — na Preview vrátí důvod a do iDokladu
+ * nic nepošle (ani s IDOKLAD_INVOICING_ENABLED=manual/on).
  */
 export async function issueOrderInvoice(
   orderId: string
 ): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Fakturu do iDokladu smí vystavit jen Jaroslav Viner (role ADMIN)." };
   const mode = invoicingMode();
   if (mode.mode !== "live") return { ok: false, error: mode.reason };
   const result = await issueAndSendInvoice(db, orderId, await getAppOrigin(), {
@@ -570,6 +591,18 @@ export async function issueOrderInvoice(
     default:
       return { ok: false, error: result.error };
   }
+}
+
+/**
+ * ESHOP 1.0 — ruční kontrola připojení iDokladu (jen čtení) se stejnými
+ * Client Credentials, jaké použije ostré vystavení. Jen oprávněný uživatel.
+ */
+export async function runEshopIdokladPreflight(): Promise<
+  { ok: true; result: PreflightResult } | { ok: false; error: string }
+> {
+  const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Kontrolu iDokladu smí spustit jen Jaroslav Viner (role ADMIN)." };
+  return runPreflightFromEnv();
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {
