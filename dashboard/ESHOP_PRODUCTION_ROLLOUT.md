@@ -143,6 +143,13 @@ první nová objednávka 5201).
    **Krok A plateb musí v Production proběhnout PŘED nasazením kódu
    kroku B** — nový kód čte a zapisuje `payment_vs` a `payments`.
 9. *(Jednotlivé skripty 30–52 a eshop-payments/10–12 zůstávají pro Preview.)*
+
+   **Kroky 6–7 HOTOVO 7. 10. 2026 ~10:50** — vedení spustilo
+   `13_katalog_a_platby_A_MAIN.sql` na `main` („108: COMMIT“, bez chyby),
+   Claude ověřil read-only: všechny čtyři kontroly po přesně podle bodu 7;
+   29 tabulek (24 + 5 nových), objednávky 2, položky 5, faktury 2
+   (obě `import / issued / invoice`), platby 0, VS 0. **Fáze A (kromě kroku
+   B plateb, bod 10) je v Production hotová.**
 10. **Platby — krok B (povinný VS)**: až PO nasazení kódu a jedné
    testovací objednávce: `20_before.sql` (nejnovější e-shopová objednávka
    má VS) → `21_migration.sql` → `22_after.sql` → `1 | <e-shop> | 0 | ano | ano`.
