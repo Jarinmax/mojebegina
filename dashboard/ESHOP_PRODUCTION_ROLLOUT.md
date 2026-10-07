@@ -150,6 +150,10 @@ první nová objednávka 5201).
    29 tabulek (24 + 5 nových), objednávky 2, položky 5, faktury 2
    (obě `import / issued / invoice`), platby 0, VS 0. **Fáze A (kromě kroku
    B plateb, bod 10) je v Production hotová.**
+   Otisk schématu 696 / `e8ba7d8f747dd0efebab1a6b2edc1236` a otisk katalogu
+   `d9ec90f6171c304ed313b2ffbb3ae1e8` = přesně generálka (kopie Production
+   + oba soubory MAIN); generálka zároveň ověřuje schéma = kód na větvi.
+   Otisky dat The Cup (`bf5cab26…`, `cd856266…`, `cef7751c…`) beze změny.
 10. **Platby — krok B (povinný VS)**: až PO nasazení kódu a jedné
    testovací objednávce: `20_before.sql` (nejnovější e-shopová objednávka
    má VS) → `21_migration.sql` → `22_after.sql` → `1 | <e-shop> | 0 | ano | ano`.
