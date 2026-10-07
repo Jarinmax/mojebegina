@@ -16,8 +16,12 @@ import {
   date,
   uniqueIndex,
   index,
+  bigint,
   jsonb,
+  numeric,
   check,
+  unique,
+  pgView,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -127,9 +131,10 @@ export const locations = pgTable("locations", {
 //     samoobslužné rozhraní. Dnes vždy NULL, nezaměňovat s contactName.
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  buyerOrganizationId: uuid("buyer_organization_id")
-    .notNull()
-    .references(() => organizations.id),
+  // ESHOP 1.0, krok 7 (migrace 0019): NULL = soukromý zákazník z e-shopu
+  // (bez IČO — žádné falešné organizace). Ruční objednávka organizaci mít
+  // musí dál a objednávka bez organizace musí mít e-mail (CHECKy níže).
+  buyerOrganizationId: uuid("buyer_organization_id").references(() => organizations.id),
   placedByUserId: text("placed_by_user_id"),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
@@ -154,7 +159,49 @@ export const orders = pgTable("orders", {
   orderedAt: timestamp("ordered_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  // ESHOP 1.0, krok 4 (migrace 0016). Defaulty zachovávají chování
+  // createOrder: ruční objednávka = channel "manual", sleva 0.
+  channel: text("channel").notNull().default("manual"), // "manual" | "eshop" | "import"
+  customerNote: text("customer_note"), // od zákazníka; `note` výše je interní
+  shippingMethodCode: text("shipping_method_code"),
+  shippingMethodLabel: text("shipping_method_label"), // snapshot názvu
+  paymentMethodCode: text("payment_method_code"),
+  paymentMethodLabel: text("payment_method_label"), // snapshot názvu
+  // Sleva na zboží. Partnerský obrat = subtotal − discount (bez dopravy).
+  discountKc: integer("discount_kc").notNull().default(0),
+  ageConfirmedAt: timestamp("age_confirmed_at", { withTimezone: true }), // doklad potvrzení 18+
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }), // souhlas s OP
+  // ESHOP 1.0, krok 6a (migrace 0018) — číslo objednávky, které vidí
+  // zákazník. ZATÍM SE NEČÍSLUJE: sloupec je bez řady (NULL u všech
+  // objednávek). Řada `order_number_seq` navazující na WooCommerce (MAX + 1)
+  // se zapne až v den přepnutí pokladny (krok 6b). Není to číslo faktury.
+  orderNumber: bigint("order_number", { mode: "number" }),
+  // ESHOP 1.0, platby a fakturace (docs/eshop-payments, krok A+B) — platební
+  // identifikátor (VS) e-shopové objednávky: 8 číslic začínajících 7 z řady
+  // `payment_vs_seq` (přiděluje pokladna při uložení, PAYMENT_VS_SQL
+  // v lib/eshop/orderWrite.ts). Neměnný (trigger orders_payment_vs_immutable);
+  // zákazník s ním platí, faktura ho nese. Není to číslo objednávky ani faktury.
+  paymentVs: text("payment_vs"),
+}, (table) => [
+  uniqueIndex("orders_order_number_key").on(table.orderNumber),
+  unique("orders_payment_vs_key").on(table.paymentVs),
+  check("orders_payment_vs_format", sql`${table.paymentVs} IS NULL OR ${table.paymentVs} ~ '^7[0-9]{7}$'`),
+  check("orders_eshop_requires_vs", sql`${table.channel} <> 'eshop' OR ${table.paymentVs} IS NOT NULL`),
+  check("orders_channel_check", sql`${table.channel} IN ('manual', 'eshop', 'import')`),
+  check("orders_discount_nonnegative", sql`${table.discountKc} >= 0`),
+  check(
+    "orders_total_consistent",
+    sql`${table.totalKc} = ${table.subtotalKc} - ${table.discountKc} + ${table.shippingKc}`
+  ),
+  check(
+    "orders_manual_requires_org",
+    sql`${table.channel} <> 'manual' OR ${table.buyerOrganizationId} IS NOT NULL`
+  ),
+  check(
+    "orders_guest_requires_contact",
+    sql`${table.buyerOrganizationId} IS NOT NULL OR ${table.contactEmail} IS NOT NULL`
+  ),
+]);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -165,26 +212,235 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   unitPriceKc: integer("unit_price_kc").notNull(),
   lineTotalKc: integer("line_total_kc").notNull(),
-});
+  // ESHOP 1.0, krok 5 (migrace 0017). Závazná vazba je UUID balení, ne text
+  // SKU; prodané balení nejde smazat (RESTRICT), jen deaktivovat. Ruční
+  // objednávky (createOrder) dál ukládají NULL. Historie se zobrazuje ze
+  // snapshotů (name, sku_snapshot, unit_price_kc), nikdy z živého katalogu.
+  productVariantId: uuid("product_variant_id").references(() => productVariants.id, {
+    onDelete: "restrict",
+  }),
+  skuSnapshot: text("sku_snapshot"),
+}, (table) => [
+  index("order_items_product_variant_idx").on(table.productVariantId),
+  check("order_items_quantity_positive", sql`${table.quantity} > 0`),
+  check(
+    "order_items_line_total_consistent",
+    sql`${table.lineTotalKc} = ${table.quantity} * ${table.unitPriceKc}`
+  ),
+  check(
+    "order_items_variant_has_sku",
+    sql`${table.productVariantId} IS NULL OR ${table.skuSnapshot} IS NOT NULL`
+  ),
+]);
 
+// Obchodní doklad k objednávce: prodejní faktura i dobropis (ESHOP 1.0,
+// platby a fakturace — docs/eshop-payments). Číslo přiděluje poskytovatel
+// (dnes iDoklad, vazba invoiceProviderLinks); `invoiceNumber`/`issuedAt`
+// jsou kopie k zobrazení. Jedna ostrá prodejní faktura na objednávku
+// (částečný unikátní index), dobropisů může být víc. Vystavený doklad se
+// nemaže ani nepřepisuje — opravuje se dobropisem. `status` a
+// `externalEdokladId` jsou historické sloupce z importu.
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
   orderId: uuid("order_id")
     .notNull()
-    .unique()
     .references(() => orders.id),
-  organizationId: uuid("organization_id")
-    .notNull()
-    .references(() => organizations.id),
-  invoiceNumber: text("invoice_number").notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id),
+  invoiceNumber: text("invoice_number"),
   externalEdokladId: text("external_edoklad_id"),
-  status: text("status").notNull(), // odráží stav v eDokladu
+  status: text("status"), // historický stav z importu; nový kód používá docState
   totalKc: integer("total_kc").notNull(),
-  issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+  issuedAt: timestamp("issued_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  documentType: text("document_type").notNull().default("invoice"), // "invoice" | "credit_note"
+  correctsInvoiceId: uuid("corrects_invoice_id").references((): AnyPgColumn => invoices.id),
+  origin: text("origin").notNull(), // "eshop" | "import" | "manual"
+  docState: text("doc_state").notNull().default("draft"), // "draft" | "issued" | "void"
+  paymentVs: text("payment_vs"),
+  customerId: uuid("customer_id").references(() => invoiceCustomers.id),
+  pdfSentAt: timestamp("pdf_sent_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("invoices_one_sales_invoice_per_order")
+    .on(table.orderId)
+    .where(sql`${table.documentType} = 'invoice' AND ${table.docState} <> 'void'`),
+  index("invoices_order_idx").on(table.orderId),
+  check("invoices_document_type_check", sql`${table.documentType} IN ('invoice', 'credit_note')`),
+  check("invoices_origin_check", sql`${table.origin} IN ('eshop', 'import', 'manual')`),
+  check("invoices_doc_state_check", sql`${table.docState} IN ('draft', 'issued', 'void')`),
+  check(
+    "invoices_credit_note_has_origin",
+    sql`(${table.documentType} = 'credit_note') = (${table.correctsInvoiceId} IS NOT NULL)`
+  ),
+  check(
+    "invoices_issued_has_number",
+    sql`${table.docState} <> 'issued' OR (${table.invoiceNumber} IS NOT NULL AND ${table.issuedAt} IS NOT NULL)`
+  ),
+]);
+
+// Platby — libovolný počet záznamů k objednávce (pokus Stripe, převod,
+// ruční zápis, import banky, doplatek, vratka). Jeden řádek = jedna
+// transakce u jednoho zdroje; idempotence podle (source, externalId).
+// Směr peněz (direction) a stav transakce (status) jsou nezávislé, částka
+// je vždy kladná (haléře). Zaplacenost se počítá v pohledu
+// order_payment_balance, ne ručně.
+export const payments = pgTable("payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").references(() => orders.id),
+  source: text("source").notNull(), // "stripe" | "bank" | "manual"
+  externalId: text("external_id").notNull(), // cs_… / re_… / účet:ID pohybu / token formuláře
+  method: text("method").notNull(), // "card" | "bank_transfer" | "cash"
+  direction: text("direction").notNull(), // "inflow" | "outflow"
+  status: text("status").notNull(), // "pending" | "succeeded" | "failed" | "cancelled" | "superseded" | "refunded"
+  amountHal: bigint("amount_hal", { mode: "number" }).notNull(),
+  currency: text("currency").notNull().default("CZK"),
+  vs: text("vs"),
+  refundOfPaymentId: uuid("refund_of_payment_id").references((): AnyPgColumn => payments.id),
+  supersededByPaymentId: uuid("superseded_by_payment_id").references((): AnyPgColumn => payments.id),
+  matchStatus: text("match_status").notNull().default("matched"), // "matched" | "unmatched" | "needs_review"
+  occurredAt: timestamp("occurred_at", { withTimezone: true }),
+  recordedByUserId: text("recorded_by_user_id"),
+  note: text("note"),
+  raw: jsonb("raw"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("payments_source_external_key").on(table.source, table.externalId),
+  index("payments_order_idx").on(table.orderId),
+  index("payments_vs_idx").on(table.vs),
+  index("payments_needs_attention_idx").on(table.createdAt).where(sql`${table.matchStatus} <> 'matched'`),
+  check("payments_source_check", sql`${table.source} IN ('stripe', 'bank', 'manual')`),
+  check("payments_method_check", sql`${table.method} IN ('card', 'bank_transfer', 'cash')`),
+  check("payments_direction_check", sql`${table.direction} IN ('inflow', 'outflow')`),
+  check(
+    "payments_status_check",
+    sql`${table.status} IN ('pending', 'succeeded', 'failed', 'cancelled', 'superseded', 'refunded')`
+  ),
+  check("payments_match_check", sql`${table.matchStatus} IN ('matched', 'unmatched', 'needs_review')`),
+  check("payments_currency_czk", sql`${table.currency} = 'CZK'`),
+  check("payments_amount_positive", sql`${table.amountHal} > 0`),
+  check("payments_matched_has_order", sql`${table.matchStatus} <> 'matched' OR ${table.orderId} IS NOT NULL`),
+  check("payments_refund_is_outflow", sql`${table.refundOfPaymentId} IS NULL OR ${table.direction} = 'outflow'`),
+  check("payments_refunded_is_inflow", sql`${table.status} <> 'refunded' OR ${table.direction} = 'inflow'`),
+  check(
+    "payments_superseded_has_link",
+    sql`(${table.status} = 'superseded') = (${table.supersededByPaymentId} IS NOT NULL)`
+  ),
+  check("payments_not_self_superseded", sql`${table.supersededByPaymentId} IS DISTINCT FROM ${table.id}`),
+  check(
+    "payments_settled_has_time",
+    sql`${table.status} NOT IN ('succeeded', 'superseded', 'refunded') OR ${table.occurredAt} IS NOT NULL`
+  ),
+  check("payments_manual_has_user", sql`${table.source} <> 'manual' OR ${table.recordedByUserId} IS NOT NULL`),
+  check("payments_vs_format", sql`${table.vs} IS NULL OR ${table.vs} ~ '^[0-9]{1,10}$'`),
+]);
+
+// Stav úhrady objednávky (pohled, definice v migraci). balanceState:
+// "unpaid" | "partially_paid" | "paid" | "overpaid" | "refunded".
+export const orderPaymentBalance = pgView("order_payment_balance", {
+  orderId: uuid("order_id").notNull(),
+  requiredHal: bigint("required_hal", { mode: "number" }).notNull(),
+  receivedHal: bigint("received_hal", { mode: "number" }).notNull(),
+  refundedHal: bigint("refunded_hal", { mode: "number" }).notNull(),
+  netHal: bigint("net_hal", { mode: "number" }).notNull(),
+  balanceState: text("balance_state").notNull(),
+}).existing();
+
+// Zákazníci pro fakturaci: osoba podle e-mailu, firma podle IČO (bez IČO
+// podle e-mailu). Kontakt u poskytovatele je ve invoiceCustomerRefs.
+export const invoiceCustomers = pgTable("invoice_customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind").notNull(), // "person" | "company"
+  emailNormalized: text("email_normalized"),
+  ico: text("ico"),
+  name: text("name").notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("invoice_customers_person_email_key").on(table.emailNormalized).where(sql`${table.kind} = 'person'`),
+  uniqueIndex("invoice_customers_company_ico_key")
+    .on(table.ico)
+    .where(sql`${table.kind} = 'company' AND ${table.ico} IS NOT NULL`),
+  uniqueIndex("invoice_customers_company_email_key")
+    .on(table.emailNormalized)
+    .where(sql`${table.kind} = 'company' AND ${table.ico} IS NULL`),
+  check("invoice_customers_kind_check", sql`${table.kind} IN ('person', 'company')`),
+  check("invoice_customers_ico_format", sql`${table.ico} IS NULL OR ${table.ico} ~ '^[0-9]{8}$'`),
+  check(
+    "invoice_customers_person_by_email",
+    sql`${table.kind} <> 'person' OR (${table.emailNormalized} IS NOT NULL AND ${table.ico} IS NULL)`
+  ),
+  check(
+    "invoice_customers_company_key",
+    sql`${table.kind} <> 'company' OR ${table.ico} IS NOT NULL OR ${table.emailNormalized} IS NOT NULL`
+  ),
+]);
+
+export const invoiceCustomerRefs = pgTable("invoice_customer_refs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => invoiceCustomers.id),
+  provider: text("provider").notNull(), // "idoklad"
+  externalId: text("external_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("invoice_customer_refs_external_key").on(table.provider, table.externalId),
+  unique("invoice_customer_refs_one_per_provider").on(table.customerId, table.provider),
+  check("invoice_customer_refs_provider_format", sql`${table.provider} ~ '^[a-z][a-z0-9_]*$'`),
+]);
+
+// Obecná vazba dokladu na externího poskytovatele (dnes iDoklad). Historie
+// pokusů zůstává, aktivní vazba (state <> 'void') je na doklad nejvýš jedna.
+export const invoiceProviderLinks = pgTable("invoice_provider_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoices.id),
+  provider: text("provider").notNull(),
+  state: text("state").notNull().default("pending"), // "pending" | "dry_run" | "issued" | "failed" | "void"
+  externalId: text("external_id"),
+  externalNumber: text("external_number"),
+  numberSeries: text("number_series"),
+  issuedAt: timestamp("issued_at", { withTimezone: true }),
+  externalUrl: text("external_url"),
+  pdfStorageKey: text("pdf_storage_key"),
+  pdfSha256: text("pdf_sha256"),
+  pdfFetchedAt: timestamp("pdf_fetched_at", { withTimezone: true }),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+  requestPayload: jsonb("request_payload"),
+  responseRef: jsonb("response_ref"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("invoice_provider_links_one_active").on(table.invoiceId).where(sql`${table.state} <> 'void'`),
+  uniqueIndex("invoice_provider_links_external_id_key")
+    .on(table.provider, table.externalId)
+    .where(sql`${table.externalId} IS NOT NULL`),
+  uniqueIndex("invoice_provider_links_external_number_key")
+    .on(table.provider, table.externalNumber)
+    .where(sql`${table.externalNumber} IS NOT NULL`),
+  index("invoice_provider_links_retry_idx")
+    .on(table.nextAttemptAt)
+    .where(sql`${table.state} IN ('pending', 'failed')`),
+  check("invoice_provider_links_provider_format", sql`${table.provider} ~ '^[a-z][a-z0-9_]*$'`),
+  check(
+    "invoice_provider_links_state_check",
+    sql`${table.state} IN ('pending', 'dry_run', 'issued', 'failed', 'void')`
+  ),
+  check(
+    "invoice_provider_links_issued_complete",
+    sql`${table.state} <> 'issued' OR (${table.externalId} IS NOT NULL AND ${table.externalNumber} IS NOT NULL AND ${table.issuedAt} IS NOT NULL)`
+  ),
+  check("invoice_provider_links_failed_has_error", sql`${table.state} <> 'failed' OR ${table.lastError} IS NOT NULL`),
+  check("invoice_provider_links_attempts_nonnegative", sql`${table.attempts} >= 0`),
+]);
 
 // MVP: notifikace patří konkrétnímu uživateli (ne sdílené "read" napříč
 // členy organizace — viz Security Phase 2, sekce 3).
@@ -348,6 +604,12 @@ export const companyNodeActivity = pgTable(
 // timeline pro poznámky i systémové události (vytvoření, změna
 // fulfillment/payment stavu, přiřazení odpovědné osoby), authorName jako
 // snapshot v okamžiku zápisu.
+//
+// ESHOP 1.0, krok 3 (migrace 0015) — actor_type: záznam může zapsat
+// i systém (objednávka z e-shopu) nebo zákazník, ne jen interní uživatel.
+// Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
+// "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
+// záznam (actor_type "user") musí autora mít dál — hlídá CHECK.
 export const orderActivity = pgTable(
   "order_activity",
   {
@@ -355,14 +617,22 @@ export const orderActivity = pgTable(
     orderId: uuid("order_id")
       .notNull()
       .references(() => orders.id),
-    authorUserId: text("author_user_id").notNull(),
-    authorName: text("author_name"),
+    actorType: text("actor_type").notNull().default("user"), // "user" | "system" | "customer"
+    authorUserId: text("author_user_id"),
+    authorName: text("author_name"), // u systému např. "E-shop"
     kind: text("kind").notNull(), // "created" | "fulfillment_status_changed" | "payment_status_changed" | "responsible_assigned" | "note_added"
     body: text("body"),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("order_activity_order_id_idx").on(table.orderId, table.createdAt)]
+  (table) => [
+    index("order_activity_order_id_idx").on(table.orderId, table.createdAt),
+    check("order_activity_actor_type_check", sql`${table.actorType} IN ('user', 'system', 'customer')`),
+    check(
+      "order_activity_user_has_author",
+      sql`${table.actorType} <> 'user' OR ${table.authorUserId} IS NOT NULL`
+    ),
+  ]
 );
 
 // Security Phase 16 (Obchod/CRM 1.0) — leady jsou ZÁMĚRNĚ samostatná
@@ -437,6 +707,145 @@ export const leadActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("lead_activity_lead_id_idx").on(table.leadId, table.createdAt)]
+);
+
+// ESHOP 1.0 — Produkty 1.0 (návrh schválen vedením 26. 9. 2026, viz
+// ESHOP_SCHEMA_PROPOSAL.md). Jediný zdroj pravdy katalogu pro e-shop
+// i MojeBegina; první naplnění z lib/eshop/catalog.ts (migrace 0014).
+// Nic se nemaže: kategorie/produkty/balení mají is_active a FK z budoucích
+// objednávek budou RESTRICT. Budoucí receptury, výroba a sklad budou
+// ukazovat NA tyto tabulky, ne naopak.
+
+const SLUG_FORMAT = "^[a-z0-9]+(-[a-z0-9]+)*$";
+
+export const productCategories = pgTable(
+  "product_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    intro: text("intro").array().notNull().default(sql`'{}'::text[]`),
+    // [{title, paragraphs[], bullets[]}] — společné sekce detailu produktu
+    detailSections: jsonb("detail_sections"),
+    imageUrl: text("image_url"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("product_categories_slug_format", sql`${table.slug} ~ ${sql.raw(`'${SLUG_FORMAT}'`)}`)]
+);
+
+// Kódy alergenů podle přílohy II nařízení 1169/2011. allergens = NULL
+// znamená "zatím neznámé" (e-shop ukáže "Doplníme"), '{}' = bez alergenů.
+export const ALLERGEN_CODES = [
+  "gluten",
+  "crustaceans",
+  "eggs",
+  "fish",
+  "peanuts",
+  "soy",
+  "milk",
+  "nuts",
+  "celery",
+  "mustard",
+  "sesame",
+  "sulphites",
+  "lupin",
+  "molluscs",
+] as const;
+
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => productCategories.id, { onDelete: "restrict" }),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    shortDescription: text("short_description"),
+    description: text("description").array().notNull().default(sql`'{}'::text[]`),
+    highlights: text("highlights").array().notNull().default(sql`'{}'::text[]`),
+    tasteDescription: text("taste_description"),
+    ingredients: text("ingredients"),
+    allergens: text("allergens").array(),
+    allergenNote: text("allergen_note"),
+    // {energy_kj, energy_kcal, fat, saturates, carbohydrate, sugars, protein, salt, fibre?}
+    nutrition: jsonb("nutrition"),
+    nutritionBasis: text("nutrition_basis"), // "100g" | "100ml"
+    storageInstructions: text("storage_instructions"),
+    shelfLifeDays: integer("shelf_life_days"),
+    shelfLifeNote: text("shelf_life_note"),
+    alcoholPercent: numeric("alcohol_percent", { precision: 4, scale: 1, mode: "number" }),
+    isAgeRestricted: boolean("is_age_restricted").notNull().default(false),
+    warnings: text("warnings").array().notNull().default(sql`'{}'::text[]`),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("products_category_idx").on(table.categoryId, table.sortOrder),
+    check("products_slug_format", sql`${table.slug} ~ ${sql.raw(`'${SLUG_FORMAT}'`)}`),
+    check(
+      "products_allergens_known",
+      sql`${table.allergens} <@ ARRAY[${sql.raw(ALLERGEN_CODES.map((code) => `'${code}'`).join(", "))}]::text[]`
+    ),
+    check("products_nutrition_basis_check", sql`${table.nutritionBasis} IN ('100g', '100ml')`),
+    check("products_shelf_life_positive", sql`${table.shelfLifeDays} > 0`),
+    check("products_alcohol_range", sql`${table.alcoholPercent} BETWEEN 0 AND 100`),
+    // Nad 0,5 % obj. je nápoj alkoholický → musí být 18+.
+    check(
+      "products_alcohol_requires_age_restriction",
+      sql`${table.alcoholPercent} IS NULL OR ${table.alcoholPercent} <= 0.5 OR ${table.isAgeRestricted}`
+    ),
+  ]
+);
+
+// Jedno balení = jedno SKU = to, co je v košíku a (od kroku 5) v order_items.
+export const productVariants = pgTable(
+  "product_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    sku: text("sku").notNull().unique(),
+    label: text("label"), // NULL = balení zatím neznámé
+    shortNote: text("short_note"),
+    packageDescription: text("package_description"),
+    volumeMl: integer("volume_ml"), // doprava na begina.cz se počítá podle objemu
+    servings: integer("servings"),
+    priceB2cKc: integer("price_b2c_kc").notNull(), // konečná cena, Begina není plátce DPH
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("product_variants_product_idx").on(table.productId, table.sortOrder),
+    check("product_variants_sku_format", sql`${table.sku} ~ ${sql.raw(`'${SLUG_FORMAT}'`)}`),
+    check("product_variants_volume_positive", sql`${table.volumeMl} > 0`),
+    check("product_variants_servings_positive", sql`${table.servings} > 0`),
+    check("product_variants_price_nonnegative", sql`${table.priceB2cKc} >= 0`),
+  ]
+);
+
+export const productImages = pgTable(
+  "product_images",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
+    url: text("url").notNull(),
+    alt: text("alt"),
+    sortOrder: integer("sort_order").notNull().default(0), // 0 = hlavní fotka
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("product_images_product_idx").on(table.productId, table.sortOrder)]
 );
 
 // Security Phase 17 (CEO přehled 1.0) — osobní pracovní prostor pro

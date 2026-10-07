@@ -1,10 +1,15 @@
+import { randomUUID } from "crypto";
+import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOrderDetail, listInternalStaff } from "@/lib/data/orders";
+import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff } from "@/lib/data/orders";
 import { formatCzechDate, formatKc } from "@/lib/format";
+import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
 import FulfillmentStatusForm from "../FulfillmentStatusForm";
 import PaymentStatusForm from "../PaymentStatusForm";
+import OrderPayments from "../OrderPayments";
+import OrderInvoiceDraft from "../OrderInvoiceDraft";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
@@ -30,8 +35,9 @@ export default async function OrderDetailPage(
   if (!detail) {
     notFound();
   }
-  const { order, items, activity } = detail;
+  const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
+  const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
 
   return (
     <div>
@@ -43,7 +49,12 @@ export default async function OrderDetailPage(
       </Link>
 
       <div className="flex items-start justify-between gap-3 mt-1 mb-1">
-        <h1 className="text-lg font-medium text-begina-primary-900">{order.buyerOrganizationName}</h1>
+        <h1 className="text-lg font-medium text-begina-primary-900">
+          {order.orderNumber !== null && (
+            <span className="text-neutral-500 font-normal mr-2">{formatOrderNumber(order.orderNumber)}</span>
+          )}
+          {order.buyerOrganizationName}
+        </h1>
         <p className="text-lg font-medium text-begina-primary-900 whitespace-nowrap">
           {formatKc(order.totalKc)}
         </p>
@@ -81,7 +92,44 @@ export default async function OrderDetailPage(
         {order.enteredByName && (
           <p className="text-xs text-neutral-400">Zapsal(a) do systému: {order.enteredByName}</p>
         )}
+        {order.channel === "eshop" && <p className="text-xs text-neutral-400">Objednávka z e-shopu</p>}
       </div>
+
+      {(order.shippingMethodLabel || order.paymentMethodLabel || order.recipientAddress || order.customerNote) && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
+          {order.shippingMethodLabel && (
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Doručení</p>
+              <p className="text-sm text-begina-primary-900">{order.shippingMethodLabel}</p>
+              {order.recipientAddress && <p className="text-xs text-neutral-500">{order.recipientAddress}</p>}
+            </div>
+          )}
+          {order.paymentMethodLabel && (
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Platba</p>
+              <p className="text-sm text-begina-primary-900">{order.paymentMethodLabel}</p>
+              {order.transferDueAt && order.paymentStatus === "unpaid" && (
+                <p className={`text-xs ${order.paymentOverdue ? "text-red-700 font-medium" : "text-neutral-500"}`}>
+                  Splatnost {formatPragueDate(order.transferDueAt)}
+                  {order.paymentVs !== null && <> · VS {order.paymentVs}</>}
+                  {order.paymentOverdue && " — po splatnosti"}
+                </p>
+              )}
+            </div>
+          )}
+          {order.customerNote && (
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Poznámka zákazníka</p>
+              <p className="text-sm text-begina-primary-900 whitespace-pre-wrap">{order.customerNote}</p>
+            </div>
+          )}
+          {order.ageConfirmedAt && (
+            <p className="text-xs text-neutral-400">
+              Zákazník potvrdil věk 18+ ({formatCzechDate(order.ageConfirmedAt)}) — ověřit při předání.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
         <p className="text-sm font-medium text-begina-primary-900 mb-2">Položky</p>
@@ -115,7 +163,18 @@ export default async function OrderDetailPage(
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
         <FulfillmentStatusForm orderId={order.id} currentStatus={order.fulfillmentStatus} />
-        <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />
+        {payments ? (
+          // E-shop: Zaplaceno se počítá z plateb — místo přepínání „Zapsat platbu“.
+          <OrderPayments
+            orderId={order.id}
+            summary={payments}
+            paymentVs={order.paymentVs}
+            token={randomUUID()}
+            today={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date())}
+          />
+        ) : (
+          <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />
+        )}
         <ResponsibleForm
           orderId={order.id}
           responsibleUserId={order.responsibleUserId}
@@ -124,6 +183,20 @@ export default async function OrderDetailPage(
         />
         <NoteForm orderId={order.id} currentNote={order.note} />
       </div>
+
+      {order.channel === "eshop" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+          <OrderInvoiceDraft
+            orderId={order.id}
+            invoice={invoice}
+            paid={order.paymentStatus === "paid"}
+            live={invoiceAccess?.mode.mode === "live"}
+            trigger={invoiceAccess?.mode.trigger ?? "off"}
+            canIssue={invoiceAccess?.canIssue ?? false}
+            issuer={invoiceAccess?.issuer ?? false}
+          />
+        </div>
+      )}
 
       <div className="mb-4">
         <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Aktivita</h2>

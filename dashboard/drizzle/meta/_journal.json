@@ -96,8 +96,57 @@
     {
       "idx": 13,
       "version": "7",
-      "when": 1791101919986,
-      "tag": "0013_phase_20_google_calendar",
+      "when": 1790686565620,
+      "tag": "0013_eshop_1_0_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790686565621,
+      "tag": "0014_eshop_1_0_products_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790686565622,
+      "tag": "0015_eshop_1_0_order_activity_actor",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790686565623,
+      "tag": "0016_eshop_1_0_orders_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790686565624,
+      "tag": "0017_eshop_1_0_order_items_variant",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790686565625,
+      "tag": "0018_eshop_1_0_order_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790686565626,
+      "tag": "0019_eshop_1_0_orders_guest",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791237560047,
+      "tag": "0020_eshop_1_0_payments_invoicing",
       "breakpoints": true
     }
   ]

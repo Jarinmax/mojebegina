@@ -6,11 +6,11 @@
 // typicky z URL segmentu admin stránky.
 import "server-only";
 import { randomUUID } from "crypto";
-import { headers } from "next/headers";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { organizations, organizationMemberships, userActivations, userRoles } from "@/lib/db/schema";
 import { auth } from "@/lib/auth/server";
+import { getAppOrigin } from "@/lib/appOrigin";
 import { getAuthContext } from "./authContext";
 import { requireAdmin, requireAdminOrExecutive } from "./adminAuth";
 import { validateCreateCustomerInput, type CreateCustomerInput } from "./createCustomerValidation";
@@ -201,25 +201,6 @@ export type CreateCustomerResult =
   | { ok: true; organizationId: string }
   | { ok: false; error: string };
 
-// P0 hotfix — aktivační/reset odkaz se dřív vždy odvozoval z Host hlavičky
-// příchozího požadavku. Když ADMIN akci ("Pozvat zákazníka"/"Poslat znovu
-// odkaz") spustil, zatímco sám prohlížel appku přes *.vercel.app doménu
-// (chráněnou Vercel Deployment Protection), ne přes moje.begina.cz, odkaz
-// v e-mailu vedl na tu chráněnou Vercel doménu — příjemce místo
-// /nastavit-heslo narazil na Vercel přihlašovací stránku. V produkci
-// (VERCEL_ENV === "production") proto origin pevně fixujeme na jedinou
-// skutečnou produkční doménu bez ohledu na to, odkud ADMIN akci spustil.
-// Mimo produkci (Preview/dev) zůstává odvození z hlavičky beze změny.
-async function getAppOrigin(): Promise<string> {
-  if (process.env.VERCEL_ENV === "production") {
-    return "https://moje.begina.cz";
-  }
-
-  const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const host = h.get("host") ?? "moje.begina.cz";
-  return `${proto}://${host}`;
-}
 
 // Security Phase 13 — oprava mezery zjištěné při zakládání Fillette s.r.o.:
 // tahle funkce dřív VŽDY volala auth.admin.createUser, i pro e-mail, který

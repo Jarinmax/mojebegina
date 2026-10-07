@@ -13,6 +13,25 @@ import { orders, orderItems, orderActivity, organizations, userRoles } from "@/l
 import { getAuthContext } from "./authContext";
 import { requireOrderAccess } from "./orderAuth";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
+import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
+import { getAppOrigin } from "@/lib/appOrigin";
+import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
+import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
+import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
+import { isInvoiceIssuer } from "./invoiceAuth";
+import {
+  loadOrderPayments,
+  parseAmountKcToHal,
+  recordManualPayment,
+  type OrderPaymentSummary,
+} from "@/lib/eshop/payments";
+import {
+  loadOrderInvoice,
+  prepareInvoiceDraft,
+  type OrderInvoiceView,
+  type PrepareResult,
+} from "@/lib/eshop/invoicing/service";
 import {
   validateCreateOrderInput,
   validateFulfillmentStatusInput,
@@ -75,7 +94,11 @@ export async function listInternalStaff(): Promise<InternalStaffOption[]> {
 
 export type OrderCardData = {
   id: string;
-  buyerOrganizationId: string;
+  // Číslo pro zákazníka — NULL, dokud se nečísluje (ESHOP 1.0, krok 6b).
+  orderNumber: number | null;
+  // NULL = soukromý zákazník bez organizace (ESHOP 1.0, krok 7);
+  // buyerOrganizationName je pak „Soukromý zákazník“ a kdo to je, říká contactName.
+  buyerOrganizationId: string | null;
   buyerOrganizationName: string;
   contactName: string | null;
   itemsSummary: string;
@@ -105,7 +128,7 @@ async function buildOrderCards(
     return [];
   }
 
-  const orgIds = [...new Set(orderRows.map((o) => o.buyerOrganizationId))];
+  const orgIds = distinctOrganizationIds(orderRows);
   const orgRows = orgIds.length
     ? await db
         .select({ id: organizations.id, name: organizations.name })
@@ -137,8 +160,9 @@ async function buildOrderCards(
     const responsible = o.responsibleUserId ? responsibleProfiles.get(o.responsibleUserId) : null;
     return {
       id: o.id,
+      orderNumber: o.orderNumber,
       buyerOrganizationId: o.buyerOrganizationId,
-      buyerOrganizationName: orgNameById.get(o.buyerOrganizationId) ?? "Neznámá organizace",
+      buyerOrganizationName: buyerDisplayName(o.buyerOrganizationId, orgNameById),
       contactName: o.contactName,
       itemsSummary: (itemsByOrder.get(o.id) ?? []).join(", "),
       totalKc: o.totalKc,
@@ -146,11 +170,11 @@ async function buildOrderCards(
       plannedDeliveryAt: o.plannedDeliveryAt,
       fulfillmentStatus: o.fulfillmentStatus as FulfillmentStatus,
       paymentStatus: o.paymentStatus as PaymentStatus,
-      // MVP: bez napojené faktury (invoices.dueAt) nemá "po splatnosti" z
-      // čeho se spočítat — invoices je zatím jen budoucí eDoklad hák (viz
-      // schema.ts), objednávky ho v 1.0 nezakládají. isPaymentOverdue tu
-      // zůstává jediné volané místo, aby šlo doplnit beze změny volajících.
-      paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null),
+      // Faktury (invoices.dueAt) objednávky v 1.0 nezakládají — isPaymentOverdue
+      // zůstává hák pro ně. ESHOP 1.0: převod z e-shopu má splatnost 5 dní
+      // od objednání (lib/eshop/bankTransfer.ts); po ní jen označení, nic
+      // se automaticky neruší.
+      paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null) || isTransferOverdue(o),
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
     };
@@ -187,7 +211,10 @@ export type OrderItemData = { name: string; quantity: number; unitPriceKc: numbe
 export type OrderActivityEntry = {
   id: string;
   kind: string;
-  authorUserId: string;
+  // "user" | "system" | "customer" — systém a zákazník nemají Neon Auth účet,
+  // authorUserId je u nich NULL (ESHOP 1.0, krok 3).
+  actorType: string;
+  authorUserId: string | null;
   authorName: string | null;
   body: string | null;
   metadata: unknown;
@@ -203,9 +230,24 @@ export type OrderDetail = {
     enteredByUserId: string | null;
     enteredByName: string | null;
     note: string | null;
+    // ESHOP 1.0 — údaje z pokladny e-shopu (u ručních objednávek NULL).
+    channel: string;
+    recipientAddress: string | null;
+    shippingMethodLabel: string | null;
+    paymentMethodLabel: string | null;
+    customerNote: string | null;
+    ageConfirmedAt: Date | null;
+    /** Splatnost převodu z e-shopu; null u ostatních objednávek. */
+    transferDueAt: Date | null;
+    /** Platební identifikátor (VS 7xxxxxxx) e-shopové objednávky; null u ostatních. */
+    paymentVs: string | null;
   };
   items: OrderItemData[];
   activity: OrderActivityEntry[];
+  /** Platby a stav úhrady — jen e-shopové objednávky (ostatní null). */
+  payments: OrderPaymentSummary | null;
+  /** Prodejní faktura / návrh faktury — jen e-shopové objednávky. */
+  invoice: OrderInvoiceView | null;
 };
 
 export async function getOrderDetail(orderId: string): Promise<OrderDetail | null> {
@@ -246,11 +288,23 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       enteredByUserId: row.enteredByUserId,
       enteredByName: enteredBy?.name ?? enteredBy?.email ?? null,
       note: row.note,
+      channel: row.channel,
+      recipientAddress: row.recipientAddress,
+      shippingMethodLabel: row.shippingMethodLabel,
+      paymentMethodLabel: row.paymentMethodLabel,
+      customerNote: row.customerNote,
+      ageConfirmedAt: row.ageConfirmedAt,
+      transferDueAt:
+        row.channel === "eshop" && row.paymentMethodCode === TRANSFER_PAYMENT_METHOD ? transferDueAt(row.orderedAt) : null,
+      paymentVs: row.paymentVs,
     },
     items,
+    payments: row.channel === "eshop" ? await loadOrderPayments(db, orderId) : null,
+    invoice: row.channel === "eshop" ? await loadOrderInvoice(db, orderId) : null,
     activity: activityRows.map((r) => ({
       id: r.id,
       kind: r.kind,
+      actorType: r.actorType,
       authorUserId: r.authorUserId,
       authorName: r.authorName,
       body: r.body,
@@ -366,12 +420,17 @@ export async function updatePaymentStatus(orderId: string, rawStatus: string): P
   }
 
   const [current] = await db
-    .select({ paymentStatus: orders.paymentStatus })
+    .select({ paymentStatus: orders.paymentStatus, channel: orders.channel })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
   if (!current) {
     return { ok: false, error: "Objednávka nebyla nalezena." };
+  }
+  // ESHOP 1.0 — u e-shopové objednávky se stav nepřepíná: „Zaplaceno“
+  // se počítá z plateb (recordOrderPayment / Stripe, lib/eshop/payments.ts).
+  if (current.channel === "eshop") {
+    return { ok: false, error: "U e-shopové objednávky se stav platby nepřepíná — zapište platbu." };
   }
 
   await db.batch([
@@ -392,6 +451,158 @@ export async function updatePaymentStatus(orderId: string, rawStatus: string): P
   ]);
 
   return { ok: true };
+}
+
+export type RecordPaymentInput = {
+  token: string;
+  amountKc: string;
+  date: string; // YYYY-MM-DD (den, kdy peníze přišly)
+  method: string;
+  note: string;
+};
+
+export type RecordPaymentResult =
+  | { ok: true; recorded: boolean; settled: boolean }
+  | { ok: false; error: string };
+
+const MANUAL_METHODS = ["bank_transfer", "cash"] as const;
+const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Dnešní datum v Praze jako YYYY-MM-DD. */
+function pragueToday(now: Date): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(now);
+}
+
+/**
+ * ESHOP 1.0 — „Zapsat platbu“ k e-shopové objednávce (převod / hotovost).
+ * Platba se zapíše do payments; Zaplaceno nastaví přepočet, až je uhrazená
+ * celá částka — pak zákazník dostane „Platbu jsme přijali“ (nejvýš jednou).
+ * Stejný token formuláře = žádná druhá platba.
+ */
+export async function recordOrderPayment(orderId: string, input: RecordPaymentInput): Promise<RecordPaymentResult> {
+  const ctx = await requireOrderContext();
+
+  if (!TOKEN_RE.test(input.token)) return { ok: false, error: "Formulář vypršel — obnovte prosím stránku." };
+  const amountHal = parseAmountKcToHal(input.amountKc);
+  if (amountHal === null) return { ok: false, error: "Zadejte částku v Kč (např. 379 nebo 379,50)." };
+  const method = MANUAL_METHODS.find((m) => m === input.method);
+  if (!method) return { ok: false, error: "Vyberte způsob platby." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || Number.isNaN(Date.parse(`${input.date}T12:00:00Z`))) {
+    return { ok: false, error: "Zadejte datum platby." };
+  }
+  if (input.date > pragueToday(new Date())) return { ok: false, error: "Datum platby nemůže být v budoucnosti." };
+  const note = input.note.trim().slice(0, 500) || null;
+
+  const [order] = await db
+    .select({ channel: orders.channel, paymentVs: orders.paymentVs })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!order) return { ok: false, error: "Objednávka nebyla nalezena." };
+  if (order.channel !== "eshop") return { ok: false, error: "Platby se zatím zapisují jen u e-shopových objednávek." };
+
+  const result = await recordManualPayment(db, {
+    orderId,
+    token: input.token.toLowerCase(),
+    method,
+    amountHal,
+    // poledne UTC = tentýž den v Praze
+    occurredAt: new Date(`${input.date}T12:00:00Z`),
+    note,
+    vs: order.paymentVs,
+    user: { userId: ctx.userId, name: ctx.name ?? ctx.email },
+  });
+
+  // Zaplaceno teď → návrh faktury → (jen ostrý provoz) vystavení v iDokladu
+  // → „Platbu jsme přijali“ s PDF (nejvýš jednou, lib/eshop/email/orderEmails.ts).
+  // Nic z toho nevyhazuje výjimku — platba je už uložená.
+  if (result.settled) {
+    await invoiceAndNotifyPaid(db, orderId, "payment_marked_paid", await getAppOrigin(), {
+      type: "user",
+      userId: ctx.userId,
+      name: ctx.name ?? ctx.email,
+    });
+  }
+  return { ok: true, ...result };
+}
+
+/**
+ * ESHOP 1.0 — „Vytvořit / Přegenerovat návrh faktury“ z MojeBegina (režim
+ * návrhu: do iDokladu se nic neodesílá). Vystavenou fakturu nepřepíše.
+ */
+export async function prepareOrderInvoiceDraft(
+  orderId: string,
+  regenerate: boolean
+): Promise<{ ok: true; result: PrepareResult } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const result = await prepareInvoiceDraft(db, orderId, {
+    regenerate,
+    actor: { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email },
+  });
+  if (result.status === "skipped") return { ok: false, error: result.reason };
+  return { ok: true, result };
+}
+
+export type InvoiceIssueAccess = {
+  mode: InvoicingMode;
+  /** přihlášený uživatel smí vystavovat (invoiceAuth.ts) */
+  issuer: boolean;
+  /** tlačítko „Vystavit fakturu“ má smysl ukázat (ostrý provoz + oprávnění) */
+  canIssue: boolean;
+};
+
+/** Pro detail objednávky: režim fakturace a zda smí tento uživatel vystavit. */
+export async function getInvoiceIssueAccess(): Promise<InvoiceIssueAccess> {
+  const ctx = await requireOrderContext();
+  const mode = invoicingMode();
+  const issuer = isInvoiceIssuer(ctx);
+  return { mode, issuer, canIssue: issuer && mode.mode === "live" };
+}
+
+/**
+ * ESHOP 1.0 — „Vystavit fakturu v iDokladu“ z MojeBegina: režim „manual“
+ * (jediná cesta k vystavení), v „on“ opakování po chybě. Tentýž motor jako
+ * automat (issue.ts) včetně kontroly iDokladu a idempotence. Jen oprávněný
+ * uživatel a jen v ostrém provozu — na Preview vrátí důvod a do iDokladu
+ * nic nepošle (ani s IDOKLAD_INVOICING_ENABLED=manual/on).
+ */
+export async function issueOrderInvoice(
+  orderId: string
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Fakturu do iDokladu smí vystavit jen Jaroslav Viner (role ADMIN)." };
+  const mode = invoicingMode();
+  if (mode.mode !== "live") return { ok: false, error: mode.reason };
+  const result = await issueAndSendInvoice(db, orderId, await getAppOrigin(), {
+    type: "user",
+    userId: ctx.userId,
+    name: ctx.name ?? ctx.email,
+  });
+  switch (result.status) {
+    case "issued":
+      return {
+        ok: true,
+        message: `Faktura ${result.invoiceNumber} je vystavená a uhrazená${result.emailed ? " a odeslaná zákazníkovi" : ""}.`,
+      };
+    case "already_issued":
+      return { ok: true, message: `Faktura ${result.invoiceNumber ?? ""} už je vystavená${result.emailed ? " — PDF odesláno zákazníkovi" : ""}.` };
+    case "skipped":
+      return { ok: false, error: result.reason };
+    default:
+      return { ok: false, error: result.error };
+  }
+}
+
+/**
+ * ESHOP 1.0 — ruční kontrola připojení iDokladu (jen čtení) se stejnými
+ * Client Credentials, jaké použije ostré vystavení. Jen oprávněný uživatel.
+ */
+export async function runEshopIdokladPreflight(): Promise<
+  { ok: true; result: PreflightResult } | { ok: false; error: string }
+> {
+  const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Kontrolu iDokladu smí spustit jen Jaroslav Viner (role ADMIN)." };
+  return runPreflightFromEnv();
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {
