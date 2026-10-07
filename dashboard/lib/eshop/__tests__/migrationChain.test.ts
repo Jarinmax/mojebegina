@@ -96,8 +96,14 @@ describe("řetězec migrací Drizzle", () => {
   });
 
   it("e-shop nemění tabulky z main (0013–0020 = stejné jako 0012)", () => {
+    // Ohraničeno na e-shopův vlastní (souvislý) blok, ne "od FIRST_ESHOP_IDX
+    // do konce journalu" — po 0021 (Google Kalendář) a 0022 (Denní volání
+    // 1.1, Security Phase 21 post-implementation audit) daily_call_queue
+    // LEGITIMNĚ dostává nový sloupec `resulting_activity_id`. Tahle
+    // migrace ale NENÍ e-shopová a tenhle test o ní nic netvrdí.
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
-    for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
+    const lastEshopIdx = FIRST_ESHOP_IDX + ESHOP.length - 1;
+    for (let i = FIRST_ESHOP_IDX; i <= lastEshopIdx; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);
     }
   });
