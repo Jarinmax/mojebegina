@@ -35,6 +35,20 @@
 //     testovací fixturou (K pro kartu) a reálnou agendou Beginy (P pro
 //     kartu) se liší, takže není spolehlivější než rozšířený název.
 //
+// OPRAVA 7. 10. 2026 (druhý ostrý read-only test proti agendě Beginy):
+//   • Agenda Beginy má kromě „Cash“ (ID 3) i samostatnou volbu „Cash on
+//     delivery“ (ID 4, dobírka) — širší vzor /cash/i je OBĚ, takže
+//     „hotově“ vycházelo jako nejednoznačné (2 shody). Nejde o chybu
+//     bezpečnostní pojistky (víc shod správně zastavilo, ne tiše
+//     vybralo), ale dobírka a platba v hotovosti na místě jsou dvě různé
+//     věci a e-shop potřebuje najít přesně tu druhou. Řešení není ID 3
+//     (ID nejsou mezi agendami garantovaná — viz výše), ale výslovné
+//     VYLOUČENÍ dobírkových názvů: anglicky „on delivery“, česky
+//     „dobírka“/„dobírkou“ a „při doručení“. Stejné vyloučení platí i pro
+//     ostatní dvě metody pro případ budoucí podobné kolize (např. „Card on
+//     delivery“), i když u Beginy dnes nenastává.
+const DELIVERY_PAYMENT_EXCLUDE = /(dob[ií]rk|p[řr]i\s*doru[cč]en[ií]|on\s*delivery)/i;
+//
 // Párování způsobů úhrady je STEJNÉ jako v ostrém vystavení e-shopu
 // (větev claude/great-bell-ffjwo3, lib/eshop/invoicing/idoklad.ts
 // PAYMENT_OPTION_MATCH) — test tak ověří, že e-shop najde právě jeden.
@@ -45,9 +59,9 @@ export const ESHOP_SEQUENCE_ID = 7277293;
 export const CZECH_REPUBLIC_COUNTRY_CODE = "CZ";
 
 export const ESHOP_PAYMENT_METHODS = [
-  { method: "bank_transfer", label: "převodem", name: /(p[řr]evod|bank\s*transfer|wire\s*transfer)/i },
-  { method: "card", label: "kartou", name: /(kart|card)/i },
-  { method: "cash", label: "hotově", name: /(hotov|\bcash\b)/i },
+  { method: "bank_transfer", label: "převodem", name: /(p[řr]evod|bank\s*transfer|wire\s*transfer)/i, exclude: DELIVERY_PAYMENT_EXCLUDE },
+  { method: "card", label: "kartou", name: /(kart|card)/i, exclude: DELIVERY_PAYMENT_EXCLUDE },
+  { method: "cash", label: "hotově", name: /(hotov|\bcash\b)/i, exclude: DELIVERY_PAYMENT_EXCLUDE },
 ] as const;
 
 const PRICE_TYPES: Record<string, string> = {
@@ -158,7 +172,9 @@ export async function runCodebookCheck(client: IdokladClient, agenda: AgendaLike
   const methods = ESHOP_PAYMENT_METHODS.map((m) => ({
     method: m.method,
     label: m.label,
-    ids: (payment?.items ?? []).filter((o) => m.name.test(o.Name ?? "")).map((o) => numOrNull(o.Id) ?? -1),
+    ids: (payment?.items ?? [])
+      .filter((o) => m.name.test(o.Name ?? "") && !m.exclude.test(o.Name ?? ""))
+      .map((o) => numOrNull(o.Id) ?? -1),
   }));
   const pick = (rows: { Id?: number; Code?: string; Name?: string }[] | undefined) =>
     rows?.slice(0, 3).map((r) => ({ id: numOrNull(r.Id), code: cap(r.Code, 5), name: cap(r.Name, 30) })) ?? null;

@@ -58,7 +58,7 @@ function CodebookSection({ codebooks, error }: { codebooks: CodebookCheck | null
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <dt className="text-neutral-500">Měna CZK</dt>
         <dd className={codebooks.czk?.length === 1 ? "text-green-700" : "text-red-700"}>{id(codebooks.czk)}</dd>
-        <dt className="text-neutral-500">Země Česká republika (CZE)</dt>
+        <dt className="text-neutral-500">Země Česká republika (CZ)</dt>
         <dd className={codebooks.cze?.length === 1 ? "text-green-700" : "text-red-700"}>{id(codebooks.cze)}</dd>
         <dt className="text-neutral-500">Agenda — plátce DPH</dt>
         <dd>

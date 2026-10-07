@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { IdokladClient } from "../idoklad/client";
 import { IdokladError } from "../idoklad/errors";
+import { ESHOP_PAYMENT_METHODS } from "../codebookCheck";
 import {
   MAX_SEQUENCES,
   READ_ONLY_CHECK_COLLECTIONS,
@@ -263,12 +264,15 @@ describe("číselníky pro e-shopové faktury (bod 3, jen čtení)", () => {
   // iDoklad u českých agend vrací ANGLICKÉ názvy způsobů úhrady ("Bank
   // transfer"/"Credit card"/"Cash"), ne české — a Code se mezi agendami liší
   // (karta: "P" v Begině, dřív předpokládané "K" v testovací fixtuře). Tenhle
-  // test používá přesně ty hodnoty, co vrátila reálná agenda.
-  it("skutečná odpověď agendy Beginy (anglické názvy, jiné kódy) — všechny tři metody se najdou", async () => {
+  // test používá přesně ty hodnoty, co vrátila reálná agenda — VČETNĚ
+  // samostatné "Cash on delivery" (ID 4, dobírka), kterou druhé ostré
+  // spuštění odhalilo vedle "Cash" (ID 3). "hotově" musí najít JEN Cash.
+  it("skutečná odpověď agendy Beginy (anglické názvy, jiné kódy, Cash vs. Cash on delivery) — všechny tři metody jednoznačně", async () => {
     const { client } = full([
       { Id: 1, Name: "Bank transfer", Code: "B", IsDefault: true },
       { Id: 2, Name: "Credit card", Code: "P", IsDefault: false },
       { Id: 3, Name: "Cash", Code: "H", IsDefault: false },
+      { Id: 4, Name: "Cash on delivery", Code: "D", IsDefault: false },
     ]);
     const result = await runReadOnlyAccountCheck({ client, companyIco: null, vatModeConfigured: null, now: FIXTURE_NOW });
     expect(result.codebooks!.methods).toEqual([
@@ -276,6 +280,29 @@ describe("číselníky pro e-shopové faktury (bod 3, jen čtení)", () => {
       { method: "card", label: "kartou", ids: [2] },
       { method: "cash", label: "hotově", ids: [3] },
     ]);
+  });
+
+  it("'hotově' nezamění Cash za Cash on delivery, ani Hotově za Hotově při doručení/dobírku", () => {
+    const CASE_IDS = (options: { Id: number; Name: string }[]) =>
+      options.filter((o) => ESHOP_PAYMENT_METHODS[2].name.test(o.Name) && !ESHOP_PAYMENT_METHODS[2].exclude.test(o.Name)).map((o) => o.Id);
+    expect(
+      CASE_IDS([
+        { Id: 3, Name: "Cash" },
+        { Id: 4, Name: "Cash on delivery" },
+      ])
+    ).toEqual([3]);
+    expect(
+      CASE_IDS([
+        { Id: 5, Name: "Hotově" },
+        { Id: 6, Name: "Hotově při doručení" },
+      ])
+    ).toEqual([5]);
+    expect(
+      CASE_IDS([
+        { Id: 5, Name: "Hotově" },
+        { Id: 7, Name: "Dobírka" },
+      ])
+    ).toEqual([5]);
   });
 
   it("nejednoznačný způsob úhrady se ukáže (e-shop by fakturu nevystavil)", async () => {
