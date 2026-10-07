@@ -154,10 +154,17 @@ první nová objednávka 5201).
    `d9ec90f6171c304ed313b2ffbb3ae1e8` = přesně generálka (kopie Production
    + oba soubory MAIN); generálka zároveň ověřuje schéma = kód na větvi.
    Otisky dat The Cup (`bf5cab26…`, `cd856266…`, `cef7751c…`) beze změny.
-10. **Platby — krok B (povinný VS)**: až PO nasazení kódu a jedné
-   testovací objednávce: `20_before.sql` (nejnovější e-shopová objednávka
-   má VS) → `21_migration.sql` → `22_after.sql` → `1 | <e-shop> | 0 | ano | ano`.
-   Vrácení: `29_rollback.sql` (vypne jen povinnost, VS zůstávají).
+10. **Platby — krok B (povinný VS) — ZMĚNA POŘADÍ (rozhodnutí vedení 7. 10.
+   2026): PŘED první e-shopovou objednávkou**, aby pojistka VS platila dřív,
+   než se zapne `ESHOP_PUBLIC` / `ESHOP_ORDER_WRITE`. Kód, který VS přiděluje,
+   je v Production od sloučení PR #9 (testy kódu běží na schématu s touto
+   pojistkou — drizzle 0020). Soubor **`docs/eshop-production/15_platby_B_MAIN.sql`**
+   (celý najednou): obsah `eshop-payments/21_migration.sql` + pojistka — jen
+   `main`, krok A hotový, krok B ještě ne, **žádná e-shopová objednávka**;
+   jinak „STOP“ a nic se nezmění (`productionRehearsal.test.ts`).
+   Kontrola před `eshop-payments/20_before.sql` → `ano | 0 | 0 | 0 | NULL`;
+   po `22_after.sql` → `1 | 0 | 0 | ano | ano`. The Cup se netýká
+   (`channel <> 'eshop'`). Vrácení: `29_rollback.sql` (vypne jen povinnost).
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich

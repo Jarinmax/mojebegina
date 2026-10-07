@@ -14,7 +14,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
-import { PRODUCTION_MAIN, guardedMigrationsSql, guardedPhaseARestSql } from "../../../scripts/eshop-production/build-sql.mjs";
+import { PRODUCTION_MAIN, guardedMigrationsSql, guardedPaymentsBSql, guardedPhaseARestSql } from "../../../scripts/eshop-production/build-sql.mjs";
 
 const ROOT = path.join(__dirname, "../../../docs");
 const file = (dir: string, name: string) => readFileSync(path.join(ROOT, dir, name), "utf8");
@@ -289,5 +289,79 @@ describe("13_katalog_a_platby_A_MAIN.sql — zbytek fáze A v jedné transakci, 
     await expect(run(pg, file("eshop-production", REST))).rejects.toThrow(/už běžely/);
     await pg.exec("ROLLBACK");
     expect(await afterChecks(pg)).toEqual(done);
+  });
+});
+
+describe("15_platby_B_MAIN.sql — povinný VS PŘED první e-shopovou objednávkou, jen main", { timeout: 240_000 }, () => {
+  const B = "15_platby_B_MAIN.sql";
+  const ESHOP_ORDER = (vs: string) => `
+    INSERT INTO orders (channel, contact_email, contact_name, subtotal_kc, shipping_kc, total_kc, payment_status, payment_vs)
+    VALUES ('eshop', 'jaroslav@begina.cz', 'Jaroslav Viner', 129, 99, 228, 'unpaid', ${vs})`;
+  const NEXT_VS = `'7' || lpad(nextval('payment_vs_seq')::text, 7, '0')`;
+  const theCup = async (pg: PGlite) =>
+    (await pg.query(`SELECT id, total_kc, payment_status, fulfillment_status, payment_vs, channel FROM orders ORDER BY id`)).rows;
+  /** Stav Production 7. 10. 2026 po fázi A (oba soubory MAIN). */
+  async function afterPhaseA(timeline: string | null = PRODUCTION_MAIN.timelineId) {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    await run(pg, file("eshop-production", "13_katalog_a_platby_A_MAIN.sql"));
+    if (timeline !== PRODUCTION_MAIN.timelineId) await pg.exec(`SET neon.timeline_id = '${timeline ?? ""}'`);
+    return pg;
+  }
+
+  it("soubor = výstup generátoru; obsahuje 21_migration.sql beze změny kódu", () => {
+    const sqlText = file("eshop-production", B);
+    expect(sqlText).toBe(guardedPaymentsBSql());
+    expect(sqlText).toContain("ADD CONSTRAINT orders_eshop_requires_vs\n  CHECK (channel <> 'eshop' OR payment_vs IS NOT NULL);");
+    expect(sqlText.match(/^(BEGIN|COMMIT);$/gm)).toEqual(["BEGIN;", "COMMIT;"]);
+  });
+
+  it("na main po fázi A: před / migrace / po; The Cup beze změny; pak objednávka bez VS neprojde, s VS ano (70000001)", async () => {
+    const pg = await afterPhaseA();
+    expect(await check(pg, file("eshop-payments", "20_before.sql"))).toBe("ano | 0 | 0 | 0 | NULL");
+    const cup = await theCup(pg);
+    await run(pg, file("eshop-production", B));
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 0 | 0 | ano | ano");
+    expect(await theCup(pg)).toEqual(cup);
+    await expect(pg.exec(ESHOP_ORDER("NULL"))).rejects.toThrow(/orders_eshop_requires_vs/);
+    await pg.exec(ESHOP_ORDER(NEXT_VS));
+    const { rows } = await pg.query(`SELECT order_number, payment_vs FROM orders WHERE channel = 'eshop'`);
+    expect(rows).toEqual([{ order_number: null, payment_vs: "70000001" }]);
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 1 | 0 | ano | ano");
+    // vrácení vypne jen povinnost, VS zůstává
+    await run(pg, file("eshop-payments", "29_rollback.sql"));
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("0 | 1 | 0 | ano | ano");
+  });
+
+  it("jiná větev (backup) → STOP, nic se nezmění", async () => {
+    const pg = await afterPhaseA("c57cebc6ddf2b187ed1fcdd53c402b60");
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/NENÍ Production větev main/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-payments", "20_before.sql"))).toBe("ano | 0 | 0 | 0 | NULL");
+  });
+
+  it("bez kroku A → STOP", async () => {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/chybí platby krok A/);
+    await pg.exec("ROLLBACK");
+  });
+
+  it("druhé spuštění → STOP „už běžel“", async () => {
+    const pg = await afterPhaseA();
+    await run(pg, file("eshop-production", B));
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/krok B už běžel/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 0 | 0 | ano | ano");
+  });
+
+  it("už existuje e-shopová objednávka → STOP, nic se nezmění", async () => {
+    const pg = await afterPhaseA();
+    await pg.exec(ESHOP_ORDER(NEXT_VS));
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/už je e-shopová objednávka/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-payments", "20_before.sql"))).toBe("ano | 0 | 1 | 0 | 70000001");
   });
 });
