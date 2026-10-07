@@ -203,22 +203,22 @@ describe("číselníky pro e-shopové faktury (bod 3, jen čtení)", () => {
           { Id: 3, Code: "EUR", Name: "Euro" },
         ],
         Countries: [
-          { Id: 2, Code: "CZE", Name: "Česká republika" },
-          { Id: 3, Code: "SVK", Name: "Slovensko" },
+          { Id: 2, Code: "CZ", Name: "Česká republika" },
+          { Id: 3, Code: "SK", Name: "Slovensko" },
         ],
       },
       singles: SINGLES,
     });
   }
 
-  it("způsoby úhrady, CZK, CZE, typ ceny u neplátce, další číslo v řadě 7277293 — jen GET", async () => {
+  it("způsoby úhrady, CZK, CZ, typ ceny u neplátce, další číslo v řadě 7277293 — jen GET", async () => {
     const { fake, client } = full();
     const result = await runReadOnlyAccountCheck({ client, companyIco: null, vatModeConfigured: "non_payer", now: FIXTURE_NOW });
     expect(result.codebooksError).toBeNull();
     expect(result.codebooks).toEqual({
       agenda: { preferredPriceType: "0", preferredVatRate: "0", isVatPayer: false, defaultCurrencyId: 2 },
       czk: [{ id: 2, code: "CZK", name: "Česká koruna" }],
-      cze: [{ id: 2, code: "CZE", name: "Česká republika" }],
+      cze: [{ id: 2, code: "CZ", name: "Česká republika" }],
       paymentOptions: [
         { id: 1, name: "Převodem", code: "B", isDefault: true },
         { id: 2, name: "Hotově", code: "H", isDefault: false },
@@ -247,11 +247,35 @@ describe("číselníky pro e-shopové faktury (bod 3, jen čtení)", () => {
     const numbers = fake.calls.find((c) => c.url.includes("/DocumentNumbers/"))!;
     expect(new URL(numbers.url).searchParams.get("numericSequenceId")).toBe("7277293");
     expect(fake.calls.some((c) => /Code~eq~CZK/.test(decodeURIComponent(c.url)))).toBe(true);
+    // regrese 7. 10. 2026: filtr zemí musí jít na "CZ" (ISO alpha-2, ověřeno
+    // integračním testem oficiálního SDK), ne na dřív použité "CZE" — to
+    // v reálné agendě Beginy nikdy nic nenašlo.
+    expect(fake.calls.some((c) => /Code~eq~CZ(?!K)/.test(decodeURIComponent(c.url)))).toBe(true);
+    expect(fake.calls.some((c) => /Code~eq~CZE/.test(decodeURIComponent(c.url)))).toBe(false);
 
     // vše se vejde do vlastní podepsané cookie
     const { codebooks, main } = splitResultForCookies(result);
     expect(main).not.toHaveProperty("codebooks");
     expect(signPayload({ v: 1, u: "user-id-0123456789abcdef", ...codebooks }, "x".repeat(32)).length).toBeLessThan(3800);
+  });
+
+  // regrese 7. 10. 2026: živý read-only test proti agendě Beginy ukázal, že
+  // iDoklad u českých agend vrací ANGLICKÉ názvy způsobů úhrady ("Bank
+  // transfer"/"Credit card"/"Cash"), ne české — a Code se mezi agendami liší
+  // (karta: "P" v Begině, dřív předpokládané "K" v testovací fixtuře). Tenhle
+  // test používá přesně ty hodnoty, co vrátila reálná agenda.
+  it("skutečná odpověď agendy Beginy (anglické názvy, jiné kódy) — všechny tři metody se najdou", async () => {
+    const { client } = full([
+      { Id: 1, Name: "Bank transfer", Code: "B", IsDefault: true },
+      { Id: 2, Name: "Credit card", Code: "P", IsDefault: false },
+      { Id: 3, Name: "Cash", Code: "H", IsDefault: false },
+    ]);
+    const result = await runReadOnlyAccountCheck({ client, companyIco: null, vatModeConfigured: null, now: FIXTURE_NOW });
+    expect(result.codebooks!.methods).toEqual([
+      { method: "bank_transfer", label: "převodem", ids: [1] },
+      { method: "card", label: "kartou", ids: [2] },
+      { method: "cash", label: "hotově", ids: [3] },
+    ]);
   });
 
   it("nejednoznačný způsob úhrady se ukáže (e-shop by fakturu nevystavil)", async () => {

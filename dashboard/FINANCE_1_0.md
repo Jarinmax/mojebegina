@@ -236,15 +236,30 @@ e-shopové řady vydaných faktur (`IDOKLAD_ESHOP_SEQUENCE_ID` na e-shopové
 větvi). Výpis jde na stránku v samostatné podepsané cookie (limit ~4 kB),
 max. 20 řad. **Od 7. 10. 2026 navíc** (bod 3 e-shopové fakturace, jen
 čtení, `lib/finance/codebookCheck.ts`): `GET /PaymentOptions`,
-`/Currencies?filter=Code~eq~CZK`, `/Countries?filter=Code~eq~CZE`,
+`/Currencies?filter=Code~eq~CZK`, `/Countries?filter=Code~eq~CZ`,
 `/IssuedInvoices/Default` (šablona — nic nezakládá) a
 `/NumericSequences/DocumentNumbers/IssuedInvoice?numericSequenceId=7277293`
-(náhled dalšího čísla — nic nerezervuje). Stránka ukáže ID CZK a CZE,
+(náhled dalšího čísla — nic nerezervuje). Stránka ukáže ID CZK a CZ,
 způsoby úhrady a jak je e-shop spáruje (převodem / kartou / hotově — musí
 vyjít právě jeden), typ ceny a sazbu položky výchozí faktury u neplátce
 a další číslo v řadě E-shop Begina. Vlastní podepsaná cookie. Nic se
 nezapisuje do iDokladu ani do DB. Scope jen `idoklad_api` — bez `offline_access`, takže
 nevznikne refresh token.
+
+**Oprava 7. 10. 2026 (po prvním ostrém read-only spuštění proti agendě
+Beginy):** `Countries.Code` je ISO ALPHA-2 („CZ"), ne ALPHA-3 („CZE"),
+jak chybně tvrdí doc komentář v oficiálním SDK (Solitea/IdokladSdk) —
+jeho vlastní integrační test ale filtruje `Code.IsEqual("CZ")` a
+prochází proti živému API. Filtr `Code~eq~CZE` proto v reálné agendě
+nikdy nic nenašel. Zároveň `PaymentOptionListGetModel` (SDK) nemá žádné
+pole s typem/enumem způsobu úhrady — jen `Id` (pořadí vzniku, mezi
+agendami NENÍ stejné), `Code` a `Name` (obojí prostý, uživatelem
+přejmenovatelný text, bez garance API kontraktem). Agenda Beginy navíc
+vrací anglické názvy („Bank transfer“/„Credit card“/„Cash“), ne české —
+párování podle `Name` teď pokrývá obě jazykové varianty a `Code` se
+nepoužívá jako rozhodující pole (mezi testovací fixturou a Beginou se u
+karty liší: „K“ vs. „P“). Opraveno v `lib/finance/codebookCheck.ts`,
+ověřeno druhým read-only spuštěním.
 
 **Adresy (neoficiální, shodně Orchesty 29. 9. 2026 a dvě PHP knihovny):**
 authorize `https://identity.idoklad.cz/server/connect/authorize`, token

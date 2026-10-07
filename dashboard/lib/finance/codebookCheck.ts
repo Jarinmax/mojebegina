@@ -4,7 +4,7 @@
 // Jen GET (pojistka klienta). Nic se nezakládá, nemění ani neukládá do DB:
 //   • GET /PaymentOptions                — způsoby úhrady (převod / karta / hotově),
 //   • GET /Currencies?filter=Code~eq~CZK — ID české koruny,
-//   • GET /Countries?filter=Code~eq~CZE  — ID České republiky (ISO alpha-3),
+//   • GET /Countries?filter=Code~eq~CZ   — ID České republiky,
 //   • GET /IssuedInvoices/Default        — výchozí faktura agendy (typ ceny
 //                                          a sazba položek u neplátce, účet…),
 //   • GET /NumericSequences/DocumentNumbers/IssuedInvoice
@@ -13,6 +13,28 @@
 // Údaje z agendy (preferovaný typ ceny, sazba, plátce DPH, výchozí měna)
 // přicházejí z už načtené GET /Account/CurrentAgenda.
 //
+// OPRAVA 7. 10. 2026 (zjištěno živým read-only testem proti agendě Beginy):
+//   • Countries.Code je ISO ALPHA-2 ("CZ"), ne ALPHA-3 ("CZE") — doc komentář
+//     v CountryListGetModel.cs oficiálního SDK (Solitea/IdokladSdk) tvrdí
+//     ALPHA-3, ale vlastní integrační test SDK (CountryTests.cs) filtruje
+//     `Code.IsEqual("CZ")` a prochází proti živému API — kód věří testu,
+//     ne komentáři. Dřív použité „CZE“ proto v reálné agendě nikdy nic
+//     nenašlo (nulová shoda), i když číslo samo bylo v pořádku.
+//   • PaymentOptionListGetModel (oficiální SDK) nemá ŽÁDNÝ enum/typ pole —
+//     jen Id (pořadí vzniku v konkrétní agendě, NENÍ přes agendy stejné;
+//     v Begině je výchozí/bankovní převod ID 1, v testovací agendě SDK
+//     samotného je defaultní jiné ID), Code a Name (obojí prostý text,
+//     oboje uživatel v iDokladu může přejmenovat). ŽÁDNÉ z toho není
+//     garantované API kontraktem. Name navíc není ani jazykově stabilní —
+//     agenda Beginy vrací anglicky „Bank transfer“/„Credit card“/„Cash“,
+//     ne česky „Převodem“/„Kartou“/„Hotově“, jak se čekalo. Párování proto
+//     místo dřívější úzké české regulární hlídky používá širší vzor
+//     pokrývající obě jazykové varianty — a pořád vyžaduje ROVNĚ JEDNU
+//     shodu (víc nebo žádná shoda = viditelně červeně, nikdy tiché
+//     uhodnutí). Code se záměrně nepoužívá jako rozhodující pole — mezi
+//     testovací fixturou (K pro kartu) a reálnou agendou Beginy (P pro
+//     kartu) se liší, takže není spolehlivější než rozšířený název.
+//
 // Párování způsobů úhrady je STEJNÉ jako v ostrém vystavení e-shopu
 // (větev claude/great-bell-ffjwo3, lib/eshop/invoicing/idoklad.ts
 // PAYMENT_OPTION_MATCH) — test tak ověří, že e-shop najde právě jeden.
@@ -20,11 +42,12 @@ import type { IdokladClient } from "./idoklad/client";
 import { IdokladError } from "./idoklad/errors";
 
 export const ESHOP_SEQUENCE_ID = 7277293;
+export const CZECH_REPUBLIC_COUNTRY_CODE = "CZ";
 
 export const ESHOP_PAYMENT_METHODS = [
-  { method: "bank_transfer", label: "převodem", name: /p[řr]evod/i },
-  { method: "card", label: "kartou", name: /kart/i },
-  { method: "cash", label: "hotově", name: /hotov/i },
+  { method: "bank_transfer", label: "převodem", name: /(p[řr]evod|bank\s*transfer|wire\s*transfer)/i },
+  { method: "card", label: "kartou", name: /(kart|card)/i },
+  { method: "cash", label: "hotově", name: /(hotov|\bcash\b)/i },
 ] as const;
 
 const PRICE_TYPES: Record<string, string> = {
@@ -112,7 +135,10 @@ export async function runCodebookCheck(client: IdokladClient, agenda: AgendaLike
     client.getPage<{ Id?: number; Code?: string; Name?: string }>("Currencies", 1, { pageSize: 10, filter: "Code~eq~CZK" })
   );
   const countries = await attempt("Země", () =>
-    client.getPage<{ Id?: number; Code?: string; Name?: string }>("Countries", 1, { pageSize: 10, filter: "Code~eq~CZE" })
+    client.getPage<{ Id?: number; Code?: string; Name?: string }>("Countries", 1, {
+      pageSize: 10,
+      filter: `Code~eq~${CZECH_REPUBLIC_COUNTRY_CODE}`,
+    })
   );
   const defaults = await attempt("Výchozí faktura", () => client.get<Record<string, unknown>>("/IssuedInvoices/Default"));
   const numbers = await attempt("Další číslo v řadě E-shop Begina", () =>
