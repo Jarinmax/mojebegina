@@ -14,6 +14,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
+import { PRODUCTION_MAIN, guardedMigrationsSql } from "../../../scripts/eshop-production/build-sql.mjs";
 
 const ROOT = path.join(__dirname, "../../../docs");
 const file = (dir: string, name: string) => readFileSync(path.join(ROOT, dir, name), "utf8");
@@ -61,8 +62,10 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("eshop-production", "10_before_migrations.sql"))).toBe("20 | 0 | 23 | 0 | 0 | 2 | 5 | 0 | 2 | 0 | 2");
   });
 
-  it("A3–A4 — migrace 0013–0019 (celý soubor) → kontrola po", async () => {
-    await run(pg, file("eshop-production", "11_migrations_0013_0019.sql"));
+  it("A3–A4 — migrace 0013–0019 S POJISTKOU (soubor pro Production main) → kontrola po", async () => {
+    // jako Neon na větvi main
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
     expect(await check(pg, file("eshop-production", "12_after_migrations.sql"))).toBe(
       "24 | 4 | 5 | 7 | 11 | 4 | 2 | 2 | 0 | 5 | 0 | 0 | YES | 0"
     );
@@ -165,5 +168,52 @@ describe("varianta pořadí: první testovací objednávka PŘED zapnutím čís
     await run(pg, file("eshop-production", "21_numbering_cutover.sql").replace("<START>", String(START)));
     const after = await pg.query<{ order_number: number }>(`SELECT order_number FROM orders WHERE channel = 'eshop'`);
     expect(after.rows).toEqual([{ order_number: START + 1 }]);
+  });
+});
+
+describe("pojistka 11_migrations_0013_0019_MAIN.sql — jen Production main, jen jednou", { timeout: 180_000 }, () => {
+  const tables = async (pg: PGlite) =>
+    (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public'`)).rows[0].n;
+
+  it("soubor = výstup generátoru (nikdo ho neupravil ručně)", () => {
+    expect(file("eshop-production", "11_migrations_0013_0019_MAIN.sql")).toBe(guardedMigrationsSql());
+  });
+
+  for (const [label, setup] of [
+    ["jiná větev (např. backup) — jiný neon.timeline_id", `SET neon.timeline_id = '00000000000000000000000000000000'`],
+    ["mimo Neon / bez timeline", ""],
+  ] as const) {
+    it(`${label} → STOP, nic se nezmění`, async () => {
+      const pg = await productionReplica();
+      if (setup) await pg.exec(setup);
+      await expect(run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"))).rejects.toThrow(/NENÍ Production větev main/);
+      await pg.exec("ROLLBACK");
+      expect(await tables(pg)).toBe(20);
+      expect(await check(pg, file("eshop-production", "10_before_migrations.sql"))).toBe("20 | 0 | 23 | 0 | 0 | 2 | 5 | 0 | 2 | 0 | 2");
+    });
+  }
+
+  it("druhé spuštění na main → STOP „už běžela“, nic se nezmění", async () => {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    const after = await check(pg, file("eshop-production", "12_after_migrations.sql"));
+    await expect(run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"))).rejects.toThrow(/není ve stavu před migracemi/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-production", "12_after_migrations.sql"))).toBe(after);
+  });
+
+  it("chráněná i původní verze dají stejné schéma a data", async () => {
+    const a = await productionReplica();
+    await a.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(a, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    const b = await productionReplica();
+    await run(b, file("eshop-production", "11_migrations_0013_0019.sql"));
+    const dump = async (db: PGlite) => [
+      await check(db, file("eshop-production", "12_after_migrations.sql")),
+      (await db.query(`SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' ORDER BY 1, 2`)).rows,
+      (await db.query(`SELECT slug FROM products ORDER BY slug`)).rows,
+    ];
+    expect(await dump(a)).toEqual(await dump(b));
   });
 });

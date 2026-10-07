@@ -94,11 +94,19 @@ první nová objednávka 5201).
 
 ### Fáze A — databáze (kdykoli předem, e-shop zůstává vypnutý)
 
+0. **Záloha:** větev `backup-before-eshop-production-2026-10-07` (z `main`,
+   data + schéma, bez auto-delete) — vytvořena vedením 7. 10. 2026 ~9:29.
 1. Neon → SQL Editor → **větev production (`main`)**, DB `neondb`.
 2. `10_before_migrations.sql` → očekáváno
    `20 | 0 | 23 | 0 | 0 | 2 | 5 | 0 | 2 | 0 | 2`. Jinak STOP.
-3. `11_migrations_0013_0019.sql` — **celý soubor najednou** (jedna
-   transakce: chyba = nic se nezmění).
+3. **`11_migrations_0013_0019_MAIN.sql`** — celý soubor najednou (jedna
+   transakce). Obsah migrací = přesně `11_migrations_0013_0019.sql`, navíc
+   jako první krok transakce **pojistka**: běží jen na větvi `main`
+   (`neon.timeline_id = 70a96b3677653646e65343cae8e27182`, endpoint
+   `ep-orange-lake-b2zctiy8`) a jen ve stavu před migracemi. Na backupu,
+   Preview nebo podruhé skončí hláškou „STOP: …“ a **nic se nezmění**
+   (ověřeno v `productionRehearsal.test.ts`). Úspěch = v záložce Messages
+   „OK: Production main, stav před migracemi…“ a žádná chyba.
 4. `12_after_migrations.sql` → očekáváno
    `24 | 4 | 5 | 7 | 11 | 4 | 2 | 2 | 0 | 5 | 0 | 0 | YES | 0`.
 5. Claude ověří read-only (otisky dat The Cup, katalog).

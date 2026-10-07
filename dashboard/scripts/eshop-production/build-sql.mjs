@@ -66,8 +66,60 @@ export function rollbackSql() {
   );
 }
 
+// Production větev `main` v Neonu (ověřeno read-only 7. 10. 2026):
+// neon.timeline_id je pro každou větev jiný (backup, Preview…), proto ho
+// chráněná verze migrace kontroluje jako první příkaz transakce.
+export const PRODUCTION_MAIN = {
+  timelineId: "70a96b3677653646e65343cae8e27182",
+  endpointId: "ep-orange-lake-b2zctiy8",
+};
+
+/**
+ * Chráněná verze 11_migrations_0013_0019.sql pro ruční spuštění v Neon SQL
+ * Editoru: uvnitř téže transakce nejdřív ověří, že běží na větvi `main`
+ * (neon.timeline_id) a že Production je ve stavu před migracemi (20 tabulek,
+ * žádná e-shopová tabulka, objednávky The Cup). Jinak výjimka → transakce se
+ * zruší a nic se nezmění (ani na backupu, ani na Preview, ani podruhé na main).
+ */
+export function guardedMigrationsSql(timelineId = PRODUCTION_MAIN.timelineId) {
+  const body = migrationsSql()
+    .split("\n")
+    .filter((line) => !line.startsWith("-- "))
+    .join("\n")
+    .replace(/^\s*BEGIN;\n/, "")
+    .replace(/COMMIT;\n$/, "")
+    .trim();
+  const guard = `DO $guard$
+DECLARE
+  timeline text := current_setting('neon.timeline_id', true);
+BEGIN
+  IF timeline IS DISTINCT FROM '${timelineId}' THEN
+    RAISE EXCEPTION 'STOP: tohle NENÍ Production větev main (neon.timeline_id = %). Nic se nezměnilo.', coalesce(timeline, 'neznámý');
+  END IF;
+  IF (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public') <> 20
+     OR EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'product%')
+     OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'channel') THEN
+    RAISE EXCEPTION 'STOP: Production není ve stavu před migracemi (migrace už běžela?). Nic se nezměnilo.';
+  END IF;
+  IF (SELECT count(*) FROM orders WHERE id IN ('329f54d5-5a7d-4522-a21e-b7ad9cde24e2', '984e3645-1f2f-4444-8e8e-eeac75165a0a')) <> 2 THEN
+    RAISE EXCEPTION 'STOP: chybí objednávky The Cup — neočekávaná data. Nic se nezměnilo.';
+  END IF;
+  RAISE NOTICE 'OK: Production main, stav před migracemi — pokračuji migracemi 0013–0019.';
+END
+$guard$;`;
+  return (
+    `-- PRODUCTION main — e-shopové migrace 0013–0019 S POJISTKOU (VYGENEROVÁNO scripts/eshop-production/build-sql.mjs).\n` +
+    `-- Obsah migrací = přesně 11_migrations_0013_0019.sql (drizzle 0013–0019). Navíc jako PRVNÍ krok\n` +
+    `-- transakce kontrola: větev main (neon.timeline_id ${timelineId}) + stav před migracemi.\n` +
+    `-- Na jiné větvi (backup, Preview) nebo podruhé se transakce zastaví a NIC se nezmění.\n` +
+    `-- Spouštět CELÉ najednou v Neon SQL Editoru (jedna transakce).\n\n` +
+    `BEGIN;\n\n-- ===== POJISTKA: jen Production main, jen jednou =====\n${guard}\n\n${body}\n\nCOMMIT;\n`
+  );
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019.sql"), migrationsSql());
   writeFileSync(join(ROOT, "docs/eshop-production/19_migrations_rollback.sql"), rollbackSql());
-  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 19_migrations_rollback.sql");
+  writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019_MAIN.sql"), guardedMigrationsSql());
+  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql");
 }
