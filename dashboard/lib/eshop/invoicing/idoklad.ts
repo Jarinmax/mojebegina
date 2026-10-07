@@ -17,6 +17,18 @@ import type { InvoiceDraft } from "./draft";
 
 export const IDOKLAD_PROVIDER = "idoklad";
 
+// OPRAVA 7. 10. 2026 (zjištěno živým read-only testem proti agendě Beginy,
+// potvrzeno proti oficiálnímu SDK Solitea/IdokladSdk a přeneseno sem z
+// feature/finance-1-0, lib/finance/codebookCheck.ts, po druhém ověření
+// stejným testem — viz FINANCE_1_0.md):
+//   • Countries.Code je ISO ALPHA-2 ("CZ"), ne ALPHA-3 ("CZE") — doc
+//     komentář v CountryListGetModel.cs oficiálního SDK tvrdí ALPHA-3, ale
+//     vlastní integrační test SDK (CountryTests.cs) filtruje
+//     Code.IsEqual("CZ") a prochází proti živému API. Dřív použité "CZE"
+//     by v resolveContact() nikdy nenašlo Českou republiku a zakládání
+//     nového kontaktu by vždy skončilo stopem.
+export const CZECH_REPUBLIC_COUNTRY_CODE = "CZ";
+
 /** iDoklad API v3 výčty (IdokladSdk/Enums). */
 export const IDOKLAD_ENUMS = {
   PriceType: { WithVat: 0, WithoutVat: 1, OnlyBase: 2 },
@@ -54,11 +66,22 @@ export function idokladDate(day: string): string {
 
 export type ItemPricing = { priceType: number; vatRateType: number };
 
+// OPRAVA 7. 10. 2026 (stejný zdroj jako oprava CZE→CZ výše):
+// PaymentOptionListGetModel (oficiální SDK) nemá žádné pole s typem/enumem
+// způsobu úhrady — jen Id (pořadí vzniku v konkrétní agendě, mezi agendami
+// NENÍ stejné), Code a Name (obojí prostý text, uživatel ho v iDokladu může
+// přejmenovat). Žádné z toho API kontrakt negarantuje. Agenda Beginy navíc
+// vrací anglické názvy ("Bank transfer"/"Credit card"/"Cash"), ne české,
+// jak čekala dřívější úzká hlídka — vzor teď pokrývá obě jazykové varianty.
+// Code se záměrně nepoužívá jako rozhodující pole (u karty se liší mezi
+// testovací fixturou "K" a Beginou "P"). resolvePaymentOption() (issue.ts)
+// i tak vždy vyžaduje PRÁVĚ JEDNU shodu — víc nebo žádná shoda = stop bez
+// zápisu, nikdy tiché uhodnutí.
 /** Způsob úhrady v MojeBegina → jak ho poznat v číselníku PaymentOptions iDokladu. */
 export const PAYMENT_OPTION_MATCH: Record<string, { label: string; name: RegExp }> = {
-  bank_transfer: { label: "převodem", name: /p[řr]evod/i },
-  card: { label: "kartou", name: /kart/i },
-  cash: { label: "hotově", name: /hotov/i },
+  bank_transfer: { label: "převodem", name: /(p[řr]evod|bank\s*transfer|wire\s*transfer)/i },
+  card: { label: "kartou", name: /(kart|card)/i },
+  cash: { label: "hotově", name: /(hotov|\bcash\b)/i },
 };
 
 export type IdokladRequests = {

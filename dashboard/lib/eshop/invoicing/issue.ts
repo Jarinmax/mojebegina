@@ -32,6 +32,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { blockingProblems, type InvoiceDraft } from "./draft";
 import {
+  CZECH_REPUBLIC_COUNTRY_CODE,
   IDOKLAD_ENUMS,
   IDOKLAD_PROVIDER,
   PAYMENT_OPTION_MATCH,
@@ -165,9 +166,13 @@ async function resolveContact(db: Db, client: EshopIdokladClient, draft: Invoice
   let partnerId = same[0]?.Id ?? null;
   // 3. založení
   if (!partnerId) {
-    const countries = await client.list<{ Id: number; Code?: string | null }>("/Countries", eqFilter("Code", "CZE"), 5);
-    const cz = countries.Items.filter((c) => c.Code === "CZE");
-    if (cz.length !== 1) throw new IssueStop("V číselníku zemí iDokladu se nepodařilo jednoznačně najít Českou republiku (CZE).");
+    const countries = await client.list<{ Id: number; Code?: string | null }>(
+      "/Countries",
+      eqFilter("Code", CZECH_REPUBLIC_COUNTRY_CODE),
+      5
+    );
+    const cz = countries.Items.filter((c) => c.Code === CZECH_REPUBLIC_COUNTRY_CODE);
+    if (cz.length !== 1) throw new IssueStop("V číselníku zemí iDokladu se nepodařilo jednoznačně najít Českou republiku (CZ).");
     const created = await client.post<{ Id: number }>("/Contacts", contactPostBody(draft, { countryId: cz[0].Id }));
     if (!created?.Id) throw new IdokladApiError("iDoklad nevrátil ID nového kontaktu.");
     partnerId = created.Id;

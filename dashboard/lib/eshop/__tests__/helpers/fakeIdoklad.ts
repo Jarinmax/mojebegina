@@ -111,13 +111,16 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     } else if (method === "GET" && path === "/Currencies") {
       response = page([{ Id: 2, Code: "CZK", Name: "Česká koruna" }].filter((c) => c.Code === filterValue(query, "Code")));
     } else if (method === "GET" && path === "/Countries") {
-      response = page([{ Id: 2, Code: "CZE", Name: "Česká republika" }].filter((c) => c.Code === filterValue(query, "Code")));
+      // CZ = ISO ALPHA-2 (ověřeno proti oficiálnímu SDK, viz CZECH_REPUBLIC_COUNTRY_CODE v idoklad.ts) — ne dřívější chybné "CZE".
+      response = page([{ Id: 2, Code: "CZ", Name: "Česká republika" }].filter((c) => c.Code === filterValue(query, "Code")));
     } else if (method === "GET" && path === "/PaymentOptions") {
+      // Přesně odpovídá skutečné agendě Beginy (ověřeno živým read-only testem 7. 10. 2026) —
+      // anglické názvy, ne dřív předpokládané české; Code u karty "P", ne "K".
       response = page([
-        { Id: 1, Name: "Převodem", Code: "B", IsDefault: true },
-        { Id: 2, Name: "Hotově", Code: "H", IsDefault: false },
-        { Id: 3, Name: "Kartou", Code: "K", IsDefault: false },
-        { Id: 4, Name: "Dobírka", Code: "D", IsDefault: false },
+        { Id: 1, Name: "Bank transfer", Code: "B", IsDefault: true },
+        { Id: 2, Name: "Cash", Code: "H", IsDefault: false },
+        { Id: 3, Name: "Credit card", Code: "P", IsDefault: false },
+        { Id: 4, Name: "Cash on delivery", Code: "D", IsDefault: false },
       ]);
     } else if (method === "GET" && path === "/IssuedInvoices/Default") {
       response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, Items: [{ PriceType: 0, VatRateType: 2 }] });

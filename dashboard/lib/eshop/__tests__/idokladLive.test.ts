@@ -199,13 +199,17 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     // jen tři povolené zápisy, nic jiného (žádné /Mails, DELETE, PATCH)
     expect(fake.writes()).toEqual(["POST /Contacts", "POST /IssuedInvoices", `PUT /IssuedDocumentPayments/FullyPay/${next.id}`]);
     expect(fake.calls.some((c) => /Mails/.test(c.path))).toBe(false);
+    // regrese 7. 10. 2026: nový kontakt hledá zemi podle "CZ" (ISO ALPHA-2),
+    // nikdy podle dřív chybného "CZE" — jinak by založení kontaktu vždy spadlo.
+    const countriesCall = fake.calls.find((c) => c.path === "/Countries")!;
+    expect(countriesCall.query.filter).toBe("Code~eq~CZ");
     const post = fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
     expect(post).toMatchObject({
       NumericSequenceId: 7277293,
       DocumentSerialNumber: Number(next.number.slice(3)),
       VariableSymbol: vs,
       CurrencyId: 2, // CZK
-      PaymentOptionId: 1, // Převodem
+      PaymentOptionId: 1, // Bank transfer / převodem
       PartnerId: 900,
       IsEet: false,
       IsIncomeTax: true,

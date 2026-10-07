@@ -282,7 +282,7 @@ souběh = jediná faktura) → aktuální návrh bez blokujících chyb → agen
 (IČO 74337297, neplátce) → řada 7277293 (vydané faktury, ne výchozí, název
 „E-shop Begina“) → známé ID z iDokladu, jinak hledání faktury podle VS
 (1 = připojit, >1 = stop, jiná řada = stop) → kontakt (vazba
-`invoice_customer_refs` → hledání podle e-mailu → založení, země CZE) →
+`invoice_customer_refs` → hledání podle e-mailu → založení, země CZ) →
 CZK, způsob úhrady (převodem/kartou/hotově podle názvu, jednoznačně) →
 výchozí faktura agendy (účet, konst. symbol, typ ceny a sazba položek) →
 další číslo v řadě (`NumericSequences/DocumentNumbers`, formát 9{RR}{NNNN})
@@ -307,7 +307,7 @@ faktura s VS v jiné řadě, nezaplaceno, kontakt podle e-mailu a vazby.
 
 **Ověřit read-only před zapnutím (bod 3, test na `feature/finance-1-0`):**
 názvy způsobů úhrady (převod / karta / hotově — musí sedět jednoznačně),
-CZK, CZE, výchozí faktura agendy (typ ceny a sazba položek u neplátce).
+CZK, CZ, výchozí faktura agendy (typ ceny a sazba položek u neplátce).
 
 ## 3. Workflow
 
