@@ -350,6 +350,12 @@ faktury proto `ESHOP_ORDER_WRITE` nevypínat; objednávky zastaví
 spadlo; konflikt vazby zákazník ↔ kontakt iDokladu (stejný kontakt u dvou
 zákazníků) zastavoval vystavení — vazba je teď jen zkratka a neblokuje.
 
+**Stav B1 (uzavřeno vedením 7. 10. 2026):** ověřeno automatickými testy
+a Preview DB po nasazení `5866e30` (objednávka 900008 zůstala `dry_run`, bez
+external_id, bez čísla faktury, bez pokusu; na větvi žádná stopa zápisu do
+iDokladu). Interaktivní test ve Vercelu neproveden — prostředí Claude nemá
+přístup k Vercelu; vedení ho nepožaduje.
+
 **Testy:** `idokladManual.test.ts` (off, manual, on, Preview+manual,
 Preview+on, dvojklik, oprávnění, selhání Client Credentials, každá kritická
 kontrola, sdílený kontakt), `idokladLive.test.ts`, UI `OrderInvoiceDraft.test.tsx`.

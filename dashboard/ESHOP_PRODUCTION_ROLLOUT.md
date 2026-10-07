@@ -17,6 +17,24 @@ v Production: `lib/eshop/__tests__/productionSql.test.ts`).
 | Tabulek | 20 | 24 |
 | Objednávky | 2 (The Cup, import), 5 položek, 0 historie | testovací |
 
+## Audit a generálka (7. 10. 2026, Claude, jen čtení)
+
+| Kontrola | Výsledek |
+|---|---|
+| Production DB `10_before_migrations.sql` (read-only) | `20 \| 0 \| 23 \| 0 \| 0 \| 2 \| 5 \| 0 \| 2 \| 0 \| 2` = očekáváno |
+| Otisk schématu Production (sloupce + omezení + indexy) | 391 objektů, md5 `8037d9ff647fb1f91b696f5d73986416` = **přesně** schéma migrací 0000–0012 |
+| Data Production pro migrace | 2 objednávky The Cup (758 / 1137 Kč, paid, delivered), 5 položek, 2 faktury (paid, číslo, datum, bez ID iDokladu), 0 historie = testovací kopie |
+| **Generálka celého postupu** (`lib/eshop/__tests__/productionRehearsal.test.ts`) nad kopií Production: A2 → A3/A4 → sirupy → polévky → čaje → platby krok A → číslování → e-shopová objednávka → platby krok B | **každá kontrola = hodnota v tomto dokumentu**; výsledné schéma = schéma kódu + pojistka `orders_number_required` (stejně jako Preview) |
+| Varianta: testovací objednávka před zapnutím číslování | funguje; číslování jí pak přidělí START+1 |
+| Sestavená aplikace v režimu Production bez přepínačů | `/eshop`, `/eshop/pokladna`, `/eshop/kategorie/*` → 404; POST webhook → 404; MojeBegina → přihlášení; fakturace jen návrh |
+| Větev vs. `main` | `claude/great-bell-ffjwo3` obsahuje celý `main` (7663c67) → sloučení bez konfliktu |
+| B1 (off/manual/on) | ověřeno automatickými testy + Preview DB po nasazení `5866e30` (900008 = `dry_run`, žádná stopa zápisu do iDokladu); interaktivní test ve Vercelu neproveden — prostředí nemá přístup k Vercelu |
+
+**Doporučené pořadí pro první fakturu:** číslování (C5, START určí vedení) PŘED
+testovací objednávkou — faktura pak nese číslo objednávky. E-maily v Production
+jdou jen s `ESHOP_EMAIL_LIVE=on` **a** `ESHOP_ORDER_WRITE=on`; během testu
+faktury `ESHOP_ORDER_WRITE` nevypínat, objednávky zastaví `ESHOP_PUBLIC`.
+
 ## Co se do Production dostane
 
 Jeden PR `claude/great-bell-ffjwo3` → `main` (všechny commity z
