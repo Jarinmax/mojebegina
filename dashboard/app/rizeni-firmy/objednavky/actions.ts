@@ -9,12 +9,21 @@ import {
   createOrder,
   updateFulfillmentStatus,
   updatePaymentStatus,
+  recordOrderPayment,
+  prepareOrderInvoiceDraft,
+  issueOrderInvoice,
+  runEshopIdokladPreflight,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
 } from "@/lib/data/orders";
 
 export type ActionState = { error: string } | { success: string } | null;
+
+export type PreflightActionState =
+  | { result: import("@/lib/eshop/invoicing/preflight").PreflightResult }
+  | { error: string }
+  | null;
 
 function revalidateOrder(orderId?: string) {
   revalidatePath("/rizeni-firmy");
@@ -81,6 +90,61 @@ export async function updatePaymentStatusAction(
 
   revalidateOrder(orderId);
   return { success: "Stav platby byl uložen." };
+}
+
+// ESHOP 1.0 — „Zapsat platbu“ (e-shopové objednávky): Zaplaceno se nastaví
+// samo, až je uhrazená celá částka (lib/eshop/payments.ts).
+export async function recordPaymentAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const field = (key: string) => String(formData.get(key) ?? "");
+  const result = await recordOrderPayment(orderId, {
+    token: field("token"),
+    amountKc: field("amountKc"),
+    date: field("date"),
+    method: field("method"),
+    note: field("note"),
+  });
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateOrder(orderId);
+  if (!result.recorded) return { success: "Tahle platba už je zapsaná." };
+  return { success: result.settled ? "Platba zapsána — objednávka je zaplacená." : "Platba zapsána." };
+}
+
+// ESHOP 1.0 — návrh faktury (režim návrhu, do iDokladu se nic neodesílá).
+export async function prepareInvoiceDraftAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await prepareOrderInvoiceDraft(orderId, formData.get("regenerate") === "1");
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  switch (result.result.status) {
+    case "created":
+      return { success: "Návrh faktury je připravený." };
+    case "regenerated":
+      return { success: "Návrh faktury je přegenerovaný z aktuálních údajů." };
+    default:
+      return { error: result.result.reason };
+  }
+}
+
+export async function issueInvoiceAction(orderId: string): Promise<ActionState> {
+  const result = await issueOrderInvoice(orderId);
+  revalidateOrder(orderId);
+  return result.ok ? { success: result.message } : { error: result.error };
+}
+
+/** Kontrola připojení iDokladu — jen čtení, nic se nezapisuje ani neukládá. */
+export async function runIdokladPreflightAction(): Promise<PreflightActionState> {
+  const outcome = await runEshopIdokladPreflight();
+  return outcome.ok ? { result: outcome.result } : { error: outcome.error };
 }
 
 export async function assignResponsibleAction(

@@ -19,6 +19,7 @@ import { requireCrmAccess } from "./crmAuth";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
+import { distinctOrganizationIds } from "./orderBuyer";
 import {
   validateCreateLeadInput,
   validateStageInput,
@@ -208,6 +209,7 @@ export async function getCockpitCounts(): Promise<CockpitCounts> {
 
     const firstOrderByOrg = new Map<string, Date>();
     for (const row of orderRows) {
+      if (!row.buyerOrganizationId) continue; // soukromý zákazník (SQL ho sem nepustí, jen pro typy)
       const current = firstOrderByOrg.get(row.buyerOrganizationId);
       if (!current || row.orderedAt.getTime() < current.getTime()) {
         firstOrderByOrg.set(row.buyerOrganizationId, row.orderedAt);
@@ -542,7 +544,8 @@ export async function findDuplicateOrganizations(leadId: string): Promise<Duplic
       .select({ buyerOrganizationId: orders.buyerOrganizationId })
       .from(orders)
       .where(or(...conditions));
-    const orgIds = [...new Set(matchingOrders.map((o) => o.buyerOrganizationId))];
+    // Objednávky soukromých zákazníků (bez organizace) na organizaci neukazují.
+    const orgIds = distinctOrganizationIds(matchingOrders);
     if (orgIds.length > 0) {
       contactMatches = await db.select(selectCols).from(organizations).where(inArray(organizations.id, orgIds));
     }
@@ -722,6 +725,7 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
 
   const statsByOrg = new Map<string, { count: number; total: number; last: Date | null }>();
   for (const row of activeOrders) {
+    if (!row.buyerOrganizationId) continue; // soukromý zákazník (SQL ho sem nepustí, jen pro typy)
     const current = statsByOrg.get(row.buyerOrganizationId) ?? { count: 0, total: 0, last: null };
     current.count += 1;
     current.total += row.totalKc;
