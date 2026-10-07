@@ -10,6 +10,9 @@ import {
   buildLogDailyCallOutcomeQuery,
   swapAdjacent,
   pragueDateString,
+  isPragueSameDay,
+  isRelevantActivityEntry,
+  RELEVANT_ACTIVITY_KINDS,
   MAX_QUEUE_SIZE,
   FOLLOW_UP_COOLDOWN_DAYS,
   type AutoCandidateLeadRow,
@@ -437,5 +440,126 @@ describe("buildLogDailyCallOutcomeQuery — next_follow_up_at se skutečně maž
     const { sql } = compile(null);
     expect(sql).toMatch(/INSERT INTO lead_calendar_sync/);
     expect(sql).toMatch(/ON CONFLICT \(lead_id\) DO UPDATE SET sync_status = 'pending'/);
+  });
+});
+
+// Security Phase 21 (Denní volání 1.1) — resulting_activity_id musí vznikat
+// VÝHRADNĚ uvnitř `claimed`, tedy přesně v tom samém UPDATU, co je jediný
+// gate celého příkazu. Žádný test tady neběží proti databázi (stejná
+// konvence jako testy výše — PgDialect().sqlToQuery() funguje čistě na
+// zkompilovaném SQL textu), ale struktura dotazu sama dokazuje, že:
+//   - prohraný/souběžný claim (0 řádků v `claimed`) znemožní jak
+//     resulting_activity_id tak INSERT do lead_activity (oba jsou součástí
+//     stejného UPDATE/gate), takže osiřelá aktivita nemůže vzniknout;
+//   - dvě různá vyřízení (různé itemId/activityId na stejném leadu) si
+//     nikdy nepřepíšou/nespletou vazbu, protože každé volání funkce
+//     sestaví ÚPLNĚ NOVÝ, nezávislý dotaz se svými vlastními parametry.
+describe("buildLogDailyCallOutcomeQuery — resulting_activity_id (Security Phase 21)", () => {
+  const dialect = new PgDialect();
+
+  function compile(itemId: string, leadId: string, activityId: string) {
+    const query = buildLogDailyCallOutcomeQuery({
+      itemId,
+      leadId,
+      authorUserId: "06240ac4-c050-47ea-998c-6c81389edf9f",
+      authorName: "Jaroslav Blahout",
+      activityId,
+      note: "Test",
+      stageChange: null,
+      nextFollowUpAt: null,
+      result: "no_answer",
+    });
+    return dialect.sqlToQuery(query);
+  }
+
+  it("resulting_activity_id se nastavuje PŘÍMO uvnitř claimed CTE, ne mimo něj", () => {
+    const { sql } = compile(
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222",
+      "33333333-3333-3333-3333-333333333333"
+    );
+    const claimedMatch = sql.match(/claimed AS \(([\s\S]*?)\),\s*lead_upd AS/);
+    expect(claimedMatch).not.toBeNull();
+    const claimedSql = claimedMatch![1];
+    expect(claimedSql).toMatch(/resulting_activity_id = \$\d+/);
+    // Jediný gate zůstává WHERE status='pending' — beze změny.
+    expect(claimedSql).toMatch(/WHERE id = \$\d+ AND status = 'pending' AND lead_id = \$\d+/);
+  });
+
+  it("INSERT do lead_activity zůstává gatovaný WHERE EXISTS (SELECT 1 FROM claimed) i po přidání vazby", () => {
+    const { sql } = compile(
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222",
+      "33333333-3333-3333-3333-333333333333"
+    );
+    expect(sql).toMatch(/INSERT INTO lead_activity[\s\S]*WHERE EXISTS \(SELECT 1 FROM claimed\)/);
+  });
+
+  it("stejný activityId je parametrem jak pro resulting_activity_id, tak pro id vkládané aktivity", () => {
+    const activityId = "33333333-3333-3333-3333-333333333333";
+    const { params } = compile("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", activityId);
+    expect(params.filter((p) => p === activityId).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("dvě vyřízení stejného leada (různé itemId/activityId) vytvoří dva nezávislé dotazy bez křížení parametrů", () => {
+    const leadId = "22222222-2222-2222-2222-222222222222";
+    const first = compile("11111111-1111-1111-1111-111111111111", leadId, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    const second = compile("44444444-4444-4444-4444-444444444444", leadId, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    expect(first.params).toContain("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    expect(first.params).not.toContain("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    expect(second.params).toContain("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    expect(second.params).not.toContain("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  });
+});
+
+describe("isRelevantActivityEntry / RELEVANT_ACTIVITY_KINDS (Security Phase 21)", () => {
+  it("call_logged se zapsanou poznámkou je relevantní", () => {
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: "Slíbil zavolat zpět." })).toBe(true);
+  });
+
+  it("created se zapsanou poznámkou (budoucí import) je relevantní", () => {
+    expect(isRelevantActivityEntry({ kind: "created", body: "Poznámka z importu." })).toBe(true);
+  });
+
+  it("administrativní záznamy (stage_changed, owner_assigned, …) NEJSOU relevantní, i kdyby měly body", () => {
+    expect(isRelevantActivityEntry({ kind: "stage_changed", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "owner_assigned", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "acquired_by_set", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "converted", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "company_name_set", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "follow_up_removed", body: "cokoliv" })).toBe(false);
+  });
+
+  it("relevantní druh bez textu (body null/prázdné) se nezobrazí — pouhé 'body IS NOT NULL' nestačí ani naopak", () => {
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: null })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: "" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: "   " })).toBe(false);
+  });
+
+  it("RELEVANT_ACTIVITY_KINDS obsahuje přesně call_logged a created", () => {
+    expect(RELEVANT_ACTIVITY_KINDS).toEqual(["call_logged", "created"]);
+  });
+});
+
+describe("isPragueSameDay (Security Phase 21)", () => {
+  it("stejný kalendářní den v Europe/Prague = true", () => {
+    expect(isPragueSameDay(new Date("2026-10-07T06:00:00.000Z"), new Date("2026-10-07T20:00:00.000Z"))).toBe(true);
+  });
+
+  it("různý kalendářní den = false", () => {
+    // 2026-10-08 je ještě CEST (DST v Česku koncí až 25. 10. 2026), tedy
+    // UTC+2 — 2026-10-07T23:30 UTC = 2026-10-08T01:30 CEST (už jiný den).
+    expect(isPragueSameDay(new Date("2026-10-07T12:00:00.000Z"), new Date("2026-10-07T23:30:00.000Z"))).toBe(false);
+  });
+
+  it("půlnoc Europe/Prague kolem letního času (CEST, UTC+2) se počítá správně", () => {
+    // 2026-06-07 21:59 UTC = 2026-06-07 23:59 CEST; 2026-06-07 22:01 UTC = 2026-06-08 00:01 CEST.
+    expect(isPragueSameDay(new Date("2026-06-07T21:59:00.000Z"), new Date("2026-06-07T22:01:00.000Z"))).toBe(false);
+  });
+
+  it("půlnoc Europe/Prague kolem zimního času (CET, UTC+1) se počítá správně", () => {
+    // 2026-01-07T22:59 UTC = 2026-01-07T23:59 CET; 2026-01-07T23:01 UTC = 2026-01-08T00:01 CET.
+    expect(isPragueSameDay(new Date("2026-01-07T22:59:00.000Z"), new Date("2026-01-07T23:01:00.000Z"))).toBe(false);
   });
 });

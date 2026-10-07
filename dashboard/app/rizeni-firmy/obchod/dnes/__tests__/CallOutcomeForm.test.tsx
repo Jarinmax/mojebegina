@@ -6,11 +6,18 @@
 // kontaktu se stává povinným (`required`) jen po výběru výsledku "Zavolat
 // později".
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CallOutcomeForm from "../CallOutcomeForm";
+import { DailyCallOutcomeContext } from "../DailyCallOutcomeContext";
+import type { LogCallOutcomeActionState } from "../actions";
+
+const mockAction = vi.fn<
+  (itemId: string, prevState: LogCallOutcomeActionState, formData: FormData) => Promise<LogCallOutcomeActionState>
+>(async () => ({ status: "idle" }));
 
 vi.mock("../actions", () => ({
-  logDailyCallOutcomeAction: async () => null,
+  logDailyCallOutcomeAction: (itemId: string, prevState: LogCallOutcomeActionState, formData: FormData) =>
+    mockAction(itemId, prevState, formData),
 }));
 
 afterEach(() => {
@@ -61,5 +68,43 @@ describe("CallOutcomeForm — Security Phase 19", () => {
     expect(dateInput.required).toBe(true);
     const timeInput = screen.getByLabelText("Čas dalšího kontaktu") as HTMLInputElement;
     expect(timeInput.required).toBe(true);
+  });
+});
+
+// Security Phase 21 (Denní volání 1.1) — bod 3 schváleného zadání: úspěch
+// se musí oznámit NAHORU přes Context (notifySaved), ne vykreslit lokálně
+// — tahle komponenta i karta kolem ní totiž po úspěchu zmizí ze
+// serverových dat.
+describe("CallOutcomeForm — oznámení úspěchu přes Context (Security Phase 21)", () => {
+  it("po úspěšném uložení zavolá notifySaved s itemId a uloženou poznámkou, ne lokální success text", async () => {
+    mockAction.mockResolvedValueOnce({
+      status: "saved",
+      itemId: "item-1",
+      note: "Dovoláno, pošlu nabídku.",
+      resultLabel: "Dovoláno – zájem",
+      nextFollowUpAtLabel: null,
+    });
+    const notifySaved = vi.fn();
+
+    render(
+      <DailyCallOutcomeContext.Provider value={{ notifySaved, highlightId: null, registerRef: () => {} }}>
+        <CallOutcomeForm itemId="item-1" />
+      </DailyCallOutcomeContext.Provider>
+    );
+
+    fireEvent.click(screen.getByText("Zapsat výsledek"));
+    fireEvent.change(screen.getByLabelText("Výsledek hovoru"), { target: { value: "reached_interested" } });
+    fireEvent.change(screen.getByPlaceholderText("Co bylo domluveno…"), {
+      target: { value: "Dovoláno, pošlu nabídku." },
+    });
+    fireEvent.click(screen.getByText("Uložit výsledek"));
+
+    await waitFor(() => expect(notifySaved).toHaveBeenCalledTimes(1));
+    expect(notifySaved).toHaveBeenCalledWith(
+      expect.objectContaining({ itemId: "item-1", note: "Dovoláno, pošlu nabídku." })
+    );
+    // Žádný lokální "success" text v téhle komponentě — potvrzení žije
+    // v nadřazeném controlleru (DailyCallsWorkArea), ne tady.
+    expect(screen.queryByText("Výsledek uložen")).toBeNull();
   });
 });

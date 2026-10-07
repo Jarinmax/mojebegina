@@ -222,6 +222,35 @@ export function interpretCallLogOutcome(insertedRowCount: number): { ok: true } 
   return { ok: true };
 }
 
+// Security Phase 21 (Denní volání 1.1) — "relevantní" aktivita pro přípravu
+// na hovor NENÍ totéž jako "aktivita s nějakým textem" (schváleno
+// explicitně: pouhé `body IS NOT NULL` by zahrnulo i budoucí systémové
+// záznamy, kdyby jim někdy `body` začal nastavovat). Explicitní seznam
+// druhů, ne odvozování z toho, co má/nemá text:
+//   - "call_logged" — skutečný zápis výsledku hovoru (Denní volání i
+//     CallLogForm na detailu leada obě zapisují tento druh).
+//   - "created" — dnes v appce nikde nenastavuje `body` (viz
+//     createLead/companyNodes.ts/orders.ts/ceoFocus.ts), ale schváleno
+//     explicitně jako budoucí rozšiřovací bod pro importní poznámku bez
+//     nutnosti měnit tenhle filtr.
+// Ostatní druhy (stage_changed, owner_assigned, acquired_by_set,
+// converted, company_name_set, follow_up_removed) jsou administrativní
+// záznamy CRM, ne poznámky k přípravě na hovor — vyloučené i kdyby měly
+// `body` vyplněné.
+export const RELEVANT_ACTIVITY_KINDS = ["call_logged", "created"] as const;
+
+export function isRelevantActivityEntry(entry: { kind: string; body: string | null }): boolean {
+  return (RELEVANT_ACTIVITY_KINDS as readonly string[]).includes(entry.kind) && !!entry.body && entry.body.trim() !== "";
+}
+
+// Čistá kontrola denní hranice v Europe/Prague přes kalendářní den
+// (pragueDateString), ne přes syrový timestamp — stejný princip jako
+// classifyAutoCandidate výše. Použito pro testování "vyřízeno DNES" bez
+// nutnosti sahat na databázové NOW().
+export function isPragueSameDay(a: Date, b: Date): boolean {
+  return pragueDateString(a) === pragueDateString(b);
+}
+
 // Bug nahlášený na Preview (chyba 500 při "Fázi neměnit" + prázdné "další
 // kontakt", tj. value.stageChange A value.nextFollowUpAt oba null
 // zároveň): Postgres u polymorfních funkcí jako jsonb_build_object (bere
@@ -254,6 +283,17 @@ export function interpretCallLogOutcome(insertedRowCount: number): { ok: true } 
 // nedá resolvovat — vitest by test s hodnotovým importem z dailyCalls.ts
 // nerozběhl (stejná konvence jako všude jinde v projektu: *.test.ts vždy
 // jen `import type` ze server-only souborů, nikdy hodnotu).
+// Security Phase 21 (Denní volání 1.1) — `resulting_activity_id` se
+// nastavuje PŘÍMO v `claimed`, v tomtéž UPDATE, co je jediný gate celého
+// příkazu (`WHERE status='pending'`). `activityId` je hotové UUID
+// vygenerované v JS (`randomUUID()` v dailyCalls.ts) PŘED spuštěním
+// dotazu, ne hodnota generovaná až INSERTem níž — proto ho lze zapsat do
+// `claimed` bez ohledu na pořadí CTE. Když claim prohraje (0 řádků),
+// `claimed` UPDATE se neprovede vůbec, takže `resulting_activity_id`
+// nikdy neukáže na aktivitu, která by (kvůli prohranému claimu) nakonec
+// nevznikla — INSERT do lead_activity níž je ostatně taky gatovaný
+// `WHERE EXISTS (SELECT 1 FROM claimed)`, takže osiřelá aktivita nemůže
+// vzniknout ani při souběhu.
 export function buildLogDailyCallOutcomeQuery(params: {
   itemId: string;
   leadId: string;
@@ -272,7 +312,8 @@ export function buildLogDailyCallOutcomeQuery(params: {
     ),
     claimed AS (
       UPDATE daily_call_queue
-      SET status = 'done', done_at = now(), done_by = ${authorUserId}, updated_at = now()
+      SET status = 'done', done_at = now(), done_by = ${authorUserId}, updated_at = now(),
+          resulting_activity_id = ${activityId}
       WHERE id = ${itemId} AND status = 'pending' AND lead_id = ${leadId}
       RETURNING id
     ),

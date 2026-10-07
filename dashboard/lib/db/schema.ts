@@ -511,6 +511,19 @@ export const dailyCallQueue = pgTable(
     doneBy: text("done_by"),
     removedAt: timestamp("removed_at", { withTimezone: true }),
     removedBy: text("removed_by"),
+    // Security Phase 21 (Denní volání 1.1 — historie a "Dnes vyřízeno") —
+    // ukazatel na PRÁVĚ TEN lead_activity záznam, který vznikl vyřízením
+    // téhle konkrétní položky fronty. Nullable (staré `done` řádky z doby
+    // před touto změnou ho nemají a zůstávají NULL, bez odhadovaného
+    // zpětného dohledání). Nastavuje se výhradně uvnitř stejného
+    // atomického CTE jako přechod na `done` (viz
+    // dailyCallsValidation.ts:buildLogDailyCallOutcomeQuery) — nikdy
+    // samostatným zápisem. Je to ČISTĚ odkaz (FK), ne kopie textu poznámky
+    // — ta se čte vždy autoritativně z lead_activity. `ON DELETE SET NULL`,
+    // aby případné (dnes nepoužívané) smazání aktivity nikdy nezablokovalo
+    // mazání/retenci — ztráta ukazatele je bezpečná degradace (položka pak
+    // jen nemá dohledatelný detail, ne chyba).
+    resultingActivityId: uuid("resulting_activity_id").references(() => leadActivity.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -22,8 +22,21 @@ import {
   moveQueueItemDown,
   logDailyCallOutcome,
 } from "@/lib/data/dailyCalls";
+import { CALL_RESULT_LABELS } from "./dailyCallLabels";
+import { formatCzechDateTime } from "@/lib/format";
 
 export type ActionState = { error: string } | { success: string } | null;
+
+// Security Phase 21 (Denní volání 1.1) — bod 3 schváleného zadání: server
+// akce musí vrátit dost informací (itemId + přesně to, co se uložilo), aby
+// potvrzení mohlo žít MIMO mizející pending kartu (viz
+// DailyCallsWorkArea.tsx). Žádná nová kopie poznámky — `note` je jen echo
+// téhož zápisu ve stejném requestu, autoritativní zdroj zůstává
+// lead_activity.
+export type LogCallOutcomeActionState =
+  | { status: "idle" }
+  | { status: "error"; error: string }
+  | { status: "saved"; itemId: string; note: string; resultLabel: string; nextFollowUpAtLabel: string | null };
 
 function revalidateDailyCalls() {
   revalidatePath("/rizeni-firmy/obchod/dnes");
@@ -102,9 +115,9 @@ export async function moveQueueItemDownAction(itemId: string, _prevState: Action
 // částečný stav — opakování akce je tedy vždy bezpečné.
 export async function logDailyCallOutcomeAction(
   itemId: string,
-  _prevState: ActionState,
+  _prevState: LogCallOutcomeActionState,
   formData: FormData
-): Promise<ActionState> {
+): Promise<LogCallOutcomeActionState> {
   try {
     const result = await logDailyCallOutcome(itemId, {
       result: String(formData.get("result") ?? ""),
@@ -115,14 +128,21 @@ export async function logDailyCallOutcomeAction(
     });
 
     if (!result.ok) {
-      return { error: result.error };
+      return { status: "error", error: result.error };
     }
 
     revalidateDailyCalls();
-    return { success: "Výsledek hovoru byl uložen." };
+    return {
+      status: "saved",
+      itemId: result.itemId,
+      note: result.note,
+      resultLabel: CALL_RESULT_LABELS[result.result],
+      nextFollowUpAtLabel: result.nextFollowUpAt ? formatCzechDateTime(result.nextFollowUpAt) : null,
+    };
   } catch (error) {
     console.error("logDailyCallOutcomeAction: neočekávaná chyba při zápisu výsledku hovoru", error);
     return {
+      status: "error",
       error: "Výsledek hovoru se nepodařilo uložit kvůli neočekávané chybě. Nic se mezitím nezapsalo, zkuste to prosím znovu.",
     };
   }

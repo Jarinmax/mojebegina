@@ -18,9 +18,9 @@
 // přeskočit) — viz komentář přímo u logDailyCallOutcome.
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { dailyCallQueue, leads } from "@/lib/db/schema";
+import { dailyCallQueue, leadActivity, leads } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import {
   requireDailyCallCuratorAccess,
@@ -33,10 +33,12 @@ import {
   buildLogDailyCallOutcomeQuery,
   canAddManualCandidate,
   interpretCallLogOutcome,
+  isRelevantActivityEntry,
   pragueDateString,
   swapAdjacent,
   validateDailyCallOutcomeInput,
   MAX_QUEUE_SIZE,
+  type CallResult,
   type DailyCallOutcomeInput,
 } from "./dailyCallsValidation";
 import { reconcileLeadCalendarEvent } from "./googleCalendar";
@@ -54,6 +56,19 @@ export async function requireDailyCallWorkerContext(): Promise<NonNullable<AuthC
 
 // --- Zobrazovací karty -------------------------------------------------
 
+// Security Phase 21 (Denní volání 1.1) — minimální výřez lead_activity pro
+// přípravu na hovor přímo v Denním volání. `metadata` zůstává `unknown`
+// (JSONB bez pevného typu v DB) — čtecí strana (dnes dailyCallLabels
+// a/nebo UI komponenty) si ho bezpečně přetypuje jen pro `kind==='call_logged'`.
+export type ActivityPreviewEntry = {
+  id: string;
+  kind: string;
+  authorName: string | null;
+  body: string | null;
+  metadata: unknown;
+  createdAt: Date;
+};
+
 export type QueueItemCardData = {
   id: string;
   position: number;
@@ -64,10 +79,61 @@ export type QueueItemCardData = {
   displayName: string;
   contactPhone: string | null;
   stage: LeadStage;
-  lastNote: string | null;
+  nextFollowUpAt: Date | null;
+  // Relevantní historie (viz RELEVANT_ACTIVITY_KINDS), nejnovější první,
+  // BEZE stropu — UI si sama zobrazí posledních N vždy vidět a zbytek za
+  // rozbalením. Žádný strop tady schválně, ať se rozhodnutí "kolik je
+  // vždy vidět" nepromítne do datové vrstvy.
+  activity: ActivityPreviewEntry[];
 };
 
 type QueueRow = typeof dailyCallQueue.$inferSelect;
+
+// Jeden dotaz pro všechny leady najednou (ne N+1 smyčka jako dřív u
+// "poslední poznámky") — výsledek se seřadí a rozdělí až v JS. Sdíleno
+// mezi pending kartami (buildQueueCards) i "Dnes vyřízeno" (getDoneTodayItems),
+// aby obě zobrazení četla historii stejným pravidlem.
+async function fetchRelevantActivityByLead(leadIds: string[]): Promise<Map<string, ActivityPreviewEntry[]>> {
+  const byLead = new Map<string, ActivityPreviewEntry[]>();
+  if (leadIds.length === 0) {
+    return byLead;
+  }
+
+  const rows = await db
+    .select({
+      id: leadActivity.id,
+      leadId: leadActivity.leadId,
+      kind: leadActivity.kind,
+      authorName: leadActivity.authorName,
+      body: leadActivity.body,
+      metadata: leadActivity.metadata,
+      createdAt: leadActivity.createdAt,
+    })
+    .from(leadActivity)
+    .where(inArray(leadActivity.leadId, leadIds))
+    .orderBy(desc(leadActivity.createdAt));
+
+  for (const row of rows) {
+    if (!isRelevantActivityEntry(row)) {
+      continue;
+    }
+    const entry: ActivityPreviewEntry = {
+      id: row.id,
+      kind: row.kind,
+      authorName: row.authorName,
+      body: row.body,
+      metadata: row.metadata,
+      createdAt: row.createdAt,
+    };
+    const existing = byLead.get(row.leadId);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      byLead.set(row.leadId, [entry]);
+    }
+  }
+  return byLead;
+}
 
 async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
   if (rows.length === 0) {
@@ -82,26 +148,13 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       contactPhone: leads.contactPhone,
       contactEmail: leads.contactEmail,
       stage: leads.stage,
+      nextFollowUpAt: leads.nextFollowUpAt,
     })
     .from(leads)
     .where(inArray(leads.id, leadIds));
   const leadById = new Map(leadRows.map((l) => [l.id, l]));
 
-  // Poslední poznámka na lead — max 10 položek ve frontě, N+1 je tu
-  // v pořádku (stejné měřítko jako jinde v appce, žádný seznam nikdy
-  // nepřekročí MAX_QUEUE_SIZE).
-  const lastNotes = await Promise.all(
-    leadIds.map(async (leadId) => {
-      const result = await db.execute<{ body: string | null }>(sql`
-        SELECT body FROM lead_activity
-        WHERE lead_id = ${leadId} AND body IS NOT NULL
-        ORDER BY created_at DESC
-        LIMIT 1
-      `);
-      return [leadId, result.rows[0]?.body ?? null] as const;
-    })
-  );
-  const lastNoteByLead = new Map(lastNotes);
+  const activityByLead = await fetchRelevantActivityByLead(leadIds);
 
   return rows.map((r) => {
     const lead = leadById.get(r.leadId);
@@ -115,7 +168,100 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       displayName: lead ? leadDisplayName(lead) : "Neznámý lead",
       contactPhone: lead?.contactPhone ?? null,
       stage: (lead?.stage as LeadStage) ?? "new",
-      lastNote: lastNoteByLead.get(r.leadId) ?? null,
+      nextFollowUpAt: lead?.nextFollowUpAt ?? null,
+      activity: activityByLead.get(r.leadId) ?? [],
+    };
+  });
+}
+
+// --- "Dnes vyřízeno" ------------------------------------------------------
+
+// Security Phase 21 (Denní volání 1.1) — výsledek/poznámka/změna fáze/další
+// kontakt se čtou ze SNAPSHOTU té KONKRÉTNÍ aktivity, kterou vyřízení téhle
+// queue položky vytvořilo (metadata zapsaná v okamžiku zápisu, viz
+// buildLogDailyCallOutcomeQuery) — NE z aktuálního stavu leadu, který může
+// mezitím ujet dál (další hovor, další posun fáze). Jméno a telefon naopak
+// čteme aktuální (bod 6 schváleného zadání) — tam naopak chceme "teď platný"
+// údaj, ne zamrzlý.
+export type DoneTodayItem = {
+  id: string; // daily_call_queue.id
+  leadId: string;
+  displayName: string;
+  contactPhone: string | null;
+  doneAt: Date;
+  result: CallResult | null;
+  note: string | null;
+  stageFrom: LeadStage | null;
+  stageTo: LeadStage | null;
+  nextFollowUpAt: Date | null;
+  activity: ActivityPreviewEntry[];
+};
+
+type DoneTodayRow = {
+  queueItemId: string;
+  leadId: string;
+  doneAt: Date;
+  activityBody: string | null;
+  activityMetadata: unknown;
+};
+
+// Gatováno requireDailyCallWorkerContext() — stejná allowlist (Viner i
+// Blahout) jako getWorkerQueueView/getCuratorQueueView, oba ji už volají
+// dřív v řetězci. Dotaz NEBERE leadId ani žádný jiný vstup od klienta —
+// je vždy odvozen jen z daily_call_queue (status='done' + dnešní den
+// v Europe/Prague), takže žádné cizí leadId zvenku nemůže rozšířit, co se
+// vrátí (bod 11/4 schváleného zadání). Fronta je koncepčně jedna sdílená
+// (pro Blahouta), ne rozdělená po jednotlivých pracovnících — proto tu
+// není (a nemůže být) filtr na konkrétního "vlastníka řádku" nad rámec
+// samotné role/allowlistu v requireDailyCallWorkerContext(): to je jediná
+// hranice, kterou dnešní schéma fronty vůbec umožňuje vyjádřit.
+export async function getDoneTodayItems(): Promise<DoneTodayItem[]> {
+  await requireDailyCallWorkerContext();
+
+  const rows = await db.execute<DoneTodayRow>(sql`
+    SELECT q.id AS "queueItemId", q.lead_id AS "leadId", q.done_at AS "doneAt",
+           a.body AS "activityBody", a.metadata AS "activityMetadata"
+    FROM daily_call_queue q
+    JOIN lead_activity a ON a.id = q.resulting_activity_id
+    WHERE q.status = 'done'
+      AND (q.done_at AT TIME ZONE 'Europe/Prague')::date = (now() AT TIME ZONE 'Europe/Prague')::date
+    ORDER BY q.done_at DESC
+  `);
+  if (rows.rows.length === 0) {
+    return [];
+  }
+
+  const leadIds = [...new Set(rows.rows.map((r) => r.leadId))];
+  const leadRows = await db
+    .select({ id: leads.id, companyName: leads.companyName, contactName: leads.contactName, contactPhone: leads.contactPhone, contactEmail: leads.contactEmail })
+    .from(leads)
+    .where(inArray(leads.id, leadIds));
+  const leadById = new Map(leadRows.map((l) => [l.id, l]));
+  const activityByLead = await fetchRelevantActivityByLead(leadIds);
+
+  return rows.rows.map((r) => {
+    const lead = leadById.get(r.leadId);
+    const meta = (r.activityMetadata ?? {}) as Record<string, unknown>;
+    const stageTo = typeof meta.stageChangedTo === "string" ? (meta.stageChangedTo as LeadStage) : null;
+    const stageFrom = typeof meta.from === "string" ? (meta.from as LeadStage) : null;
+    const nextFollowUpAtRaw = meta.nextFollowUpAt;
+    const nextFollowUpAt =
+      typeof nextFollowUpAtRaw === "string" || nextFollowUpAtRaw instanceof Date
+        ? new Date(nextFollowUpAtRaw)
+        : null;
+    const resultRaw = meta.callResult;
+    return {
+      id: r.queueItemId,
+      leadId: r.leadId,
+      displayName: lead ? leadDisplayName(lead) : "Neznámý lead",
+      contactPhone: lead?.contactPhone ?? null,
+      doneAt: r.doneAt,
+      result: typeof resultRaw === "string" ? (resultRaw as CallResult) : null,
+      note: r.activityBody,
+      stageFrom,
+      stageTo,
+      nextFollowUpAt: nextFollowUpAt && !Number.isNaN(nextFollowUpAt.getTime()) ? nextFollowUpAt : null,
+      activity: activityByLead.get(r.leadId) ?? [],
     };
   });
 }
@@ -125,6 +271,7 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
 export type CuratorQueueView = {
   draft: QueueItemCardData[];
   published: QueueItemCardData[];
+  doneTodayItems: DoneTodayItem[];
 };
 
 export async function getCuratorQueueView(): Promise<CuratorQueueView> {
@@ -136,10 +283,11 @@ export async function getCuratorQueueView(): Promise<CuratorQueueView> {
     .where(eq(dailyCallQueue.status, "pending"))
     .orderBy(asc(dailyCallQueue.position));
 
-  const cards = await buildQueueCards(rows);
+  const [cards, doneTodayItems] = await Promise.all([buildQueueCards(rows), getDoneTodayItems()]);
   return {
     draft: cards.filter((c) => c.isDraft),
     published: cards.filter((c) => !c.isDraft),
+    doneTodayItems,
   };
 }
 
@@ -150,17 +298,8 @@ export type WorkerQueueView = {
   today: QueueItemCardData[];
   doneToday: number;
   totalToday: number;
+  doneTodayItems: DoneTodayItem[];
 };
-
-async function countDoneToday(): Promise<number> {
-  const result = await db.execute<{ count: number }>(sql`
-    SELECT COUNT(*)::int AS count
-    FROM daily_call_queue
-    WHERE status = 'done'
-      AND (done_at AT TIME ZONE 'Europe/Prague')::date = (now() AT TIME ZONE 'Europe/Prague')::date
-  `);
-  return (result.rows[0]?.count as number | undefined) ?? 0;
-}
 
 // Progress = dokončeno dnes / (dokončeno dnes + aktuálně publikované
 // pending) — schváleno explicitně (revize návrhu, bod 1). Drafty ani
@@ -176,14 +315,15 @@ export async function getWorkerQueueView(): Promise<WorkerQueueView> {
     .where(and(eq(dailyCallQueue.status, "pending"), sql`${dailyCallQueue.publishedAt} IS NOT NULL`))
     .orderBy(asc(dailyCallQueue.position));
 
-  const cards = await buildQueueCards(publishedPendingRows);
-  const doneToday = await countDoneToday();
+  const [cards, doneTodayItems] = await Promise.all([buildQueueCards(publishedPendingRows), getDoneTodayItems()]);
+  const doneToday = doneTodayItems.length;
 
   return {
     carriedOver: cards.filter((c) => c.addedForDate < todayStr),
     today: cards.filter((c) => c.addedForDate >= todayStr),
     doneToday,
     totalToday: doneToday + cards.length,
+    doneTodayItems,
   };
 }
 
@@ -455,6 +595,17 @@ export async function moveQueueItemDown(itemId: string): Promise<DailyCallResult
 
 // --- Zápis výsledku hovoru (pracovník) ------------------------------------
 
+// Security Phase 21 (Denní volání 1.1) — bod 3 schváleného zadání:
+// potvrzení po uložení musí žít MIMO mizející pending kartu, takže server
+// akce (actions.ts) potřebuje dost informací k jeho vykreslení BEZ
+// dalšího čtení. `note`/`result`/`nextFollowUpAt` jsou přesně ty hodnoty,
+// které se právě zapsaly (po validaci/trimu) — autoritativní zdroj pro
+// text poznámky zůstává lead_activity, tohle je jen echo TÉHOŽ zápisu ve
+// stejném requestu, ne nová kopie žijící jinde.
+export type LogCallOutcomeResult =
+  | { ok: true; itemId: string; note: string; result: CallResult; nextFollowUpAt: Date | null }
+  | { ok: false; error: string };
+
 // Atomický zápis: jediný SQL příkaz s řetězenými CTE. `claimed` je jediný
 // gate (UPDATE ... WHERE status='pending') — `lead_upd` i finální INSERT
 // běží jen `WHERE EXISTS (SELECT 1 FROM claimed)`. Postgres provede
@@ -465,7 +616,10 @@ export async function moveQueueItemDown(itemId: string): Promise<DailyCallResult
 // stav, kdy se zapíše `lead_activity`, ale položka fronty zůstane
 // `pending`, ani naopak — a dvojitý/souběžný submit na stejné položce
 // zaručeně "vyhraje" jen jednou (druhý pokus dostane 0 řádků zpátky).
-export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOutcomeInput): Promise<DailyCallResult> {
+export async function logDailyCallOutcome(
+  itemId: string,
+  rawInput: DailyCallOutcomeInput
+): Promise<LogCallOutcomeResult> {
   const ctx = await requireDailyCallWorkerContext();
 
   const validated = validateDailyCallOutcomeInput(rawInput);
@@ -504,20 +658,21 @@ export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOut
   );
 
   const outcome = interpretCallLogOutcome(result.rows.length);
+  if (!outcome.ok) {
+    return outcome;
+  }
 
   // Security Phase 20 (Google Kalendář 1.0) — AŽ PO úspěšném commitu výše
   // (ten už je nevratný). Selhání tady nesmí vrátit zpět správně uložený
   // zápis hovoru — stejný princip jako logDailyCallOutcomeAction (try/catch
   // obalující jen best-effort vedlejší účinek, ne hlavní zápis).
-  if (outcome.ok) {
-    try {
-      await reconcileLeadCalendarEvent(item.leadId);
-    } catch {
-      // Stav synchronizace (pending/failed) zůstává v lead_calendar_sync —
-      // uživatel uvidí "synchronizace kalendáře selhala" a může zopakovat,
-      // CRM zápis výše je v pořádku bez ohledu na tohle.
-    }
+  try {
+    await reconcileLeadCalendarEvent(item.leadId);
+  } catch {
+    // Stav synchronizace (pending/failed) zůstává v lead_calendar_sync —
+    // uživatel uvidí "synchronizace kalendáře selhala" a může zopakovat,
+    // CRM zápis výše je v pořádku bez ohledu na tohle.
   }
 
-  return outcome;
+  return { ok: true, itemId, note: value.note, result: value.result, nextFollowUpAt: value.nextFollowUpAt };
 }
