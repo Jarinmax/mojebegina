@@ -1,0 +1,3 @@
+ALTER TABLE "orders" ALTER COLUMN "buyer_organization_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_manual_requires_org" CHECK ("orders"."channel" <> 'manual' OR "orders"."buyer_organization_id" IS NOT NULL);--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_guest_requires_contact" CHECK ("orders"."buyer_organization_id" IS NOT NULL OR "orders"."contact_email" IS NOT NULL);

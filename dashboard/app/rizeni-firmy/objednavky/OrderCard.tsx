@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import { FulfillmentBadge, PaymentBadge } from "./OrderStatusBadges";
 import type { OrderCardData } from "@/lib/data/orders";
+import { formatOrderNumber } from "@/lib/data/orderBuyer";
 
 export default function OrderCard({ order }: { order: OrderCardData }) {
   return (
@@ -10,7 +11,12 @@ export default function OrderCard({ order }: { order: OrderCardData }) {
       className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-1">
-        <p className="text-sm font-medium text-begina-primary-900">{order.buyerOrganizationName}</p>
+        <p className="text-sm font-medium text-begina-primary-900">
+          {order.orderNumber !== null && (
+            <span className="text-neutral-500 font-normal mr-1.5">{formatOrderNumber(order.orderNumber)}</span>
+          )}
+          {order.buyerOrganizationName}
+        </p>
         <p className="text-sm font-medium text-begina-primary-900 whitespace-nowrap">
           {formatKc(order.totalKc)}
         </p>
