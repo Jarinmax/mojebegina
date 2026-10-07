@@ -197,7 +197,7 @@ async function resolvePaymentOption(client: EshopIdokladClient, method: string |
   const rule = method ? PAYMENT_OPTION_MATCH[method] : undefined;
   if (!rule) throw new IssueStop(`Neznámý způsob úhrady „${method ?? "—"}“ — není jak ho zapsat do iDokladu.`);
   const page = await client.list<{ Id: number; Name?: string | null }>("/PaymentOptions");
-  const matches = page.Items.filter((o) => rule.name.test(o.Name ?? ""));
+  const matches = page.Items.filter((o) => rule.name.test(o.Name ?? "") && !rule.exclude.test(o.Name ?? ""));
   if (matches.length !== 1) {
     throw new IssueStop(
       `Způsob úhrady „${rule.label}“ se v číselníku iDokladu nepodařilo jednoznačně najít (nalezeno ${matches.length}).`

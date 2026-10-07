@@ -77,11 +77,24 @@ export type ItemPricing = { priceType: number; vatRateType: number };
 // testovací fixturou "K" a Beginou "P"). resolvePaymentOption() (issue.ts)
 // i tak vždy vyžaduje PRÁVĚ JEDNU shodu — víc nebo žádná shoda = stop bez
 // zápisu, nikdy tiché uhodnutí.
+//
+// OPRAVA 7. 10. 2026 (druhý ostrý read-only test proti agendě Beginy,
+// přeneseno z feature/finance-1-0, lib/finance/codebookCheck.ts):
+// agenda Beginy má kromě "Cash" (ID 3) i samostatnou "Cash on delivery"
+// (ID 4, dobírka) — širší /cash/i matchoval obojí, "hotově" proto
+// vycházelo nejednoznačně (bezpečně zastavilo, ale zbytečně — dobírka
+// a platba v hotovosti na místě jsou dvě různé věci). Řešení není ID 3
+// (ID nejsou mezi agendami garantovaná), ale výslovné VYLOUČENÍ
+// dobírkových názvů (anglicky "on delivery", česky "dobírka"/
+// "dobírkou"/"při doručení") — platí pro všechny tři metody pro případ
+// budoucí podobné kolize u převodu/karty.
+const DELIVERY_PAYMENT_EXCLUDE = /(dob[ií]rk|p[řr]i\s*doru[cč]en[ií]|on\s*delivery)/i;
+
 /** Způsob úhrady v MojeBegina → jak ho poznat v číselníku PaymentOptions iDokladu. */
-export const PAYMENT_OPTION_MATCH: Record<string, { label: string; name: RegExp }> = {
-  bank_transfer: { label: "převodem", name: /(p[řr]evod|bank\s*transfer|wire\s*transfer)/i },
-  card: { label: "kartou", name: /(kart|card)/i },
-  cash: { label: "hotově", name: /(hotov|\bcash\b)/i },
+export const PAYMENT_OPTION_MATCH: Record<string, { label: string; name: RegExp; exclude: RegExp }> = {
+  bank_transfer: { label: "převodem", name: /(p[řr]evod|bank\s*transfer|wire\s*transfer)/i, exclude: DELIVERY_PAYMENT_EXCLUDE },
+  card: { label: "kartou", name: /(kart|card)/i, exclude: DELIVERY_PAYMENT_EXCLUDE },
+  cash: { label: "hotově", name: /(hotov|\bcash\b)/i, exclude: DELIVERY_PAYMENT_EXCLUDE },
 };
 
 export type IdokladRequests = {
