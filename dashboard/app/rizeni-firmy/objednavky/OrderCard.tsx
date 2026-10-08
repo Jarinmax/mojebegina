@@ -31,7 +31,7 @@ export default function OrderCard({ order }: { order: OrderCardData }) {
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
-        <CancelledMoneyBadge money={order.cancelledMoney} />
+        <CancelledMoneyBadge money={order.moneyAlert} />
       </div>
 
       <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">

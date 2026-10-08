@@ -91,3 +91,38 @@ export async function issueAndSendInvoice(
   const outcomes = await sendOrderEmails(db, orderId, "invoice_issued", baseUrl, { ...deps.email, invoicePdf: pdf });
   return { ...result, emailed: outcomes.some((o) => o.status === "sent") };
 }
+
+/**
+ * Náhradní objednávka s převedenou platbou (lib/eshop/cancellation.ts):
+ * je-li tím zaplacená, návrh faktury a v automatickém ostrém režimu
+ * vystavení (PDF přiložené k e-mailu) — vše podle skutečného stavu platby,
+ * jedna faktura (motor issue.ts). Pak JEDINÝ e-mail „Náhradní objednávka“
+ * (žádné „Přijali jsme objednávku“ ani „Platbu jsme přijali“). Doplatek
+ * později jde běžnou cestou (invoiceAndNotifyPaid).
+ */
+export async function invoiceAndNotifyReplacement(
+  db: Db,
+  orderId: string,
+  baseUrl: string,
+  actor: InvoiceActor,
+  replacement: { settled: boolean; fromReference: string; receivedHal: number },
+  deps: AfterPaidDeps = {}
+): Promise<{ invoice: IssueResult | null; emails: OrderEmailOutcome[] }> {
+  const env = deps.env ?? process.env;
+  let invoice: IssueResult | null = null;
+  let pdf: InvoicePdf | null = null;
+  if (replacement.settled) {
+    await prepareInvoiceDraftSafe(db, orderId, actor, env);
+    const mode = invoicingMode(env);
+    if (mode.mode === "live" && mode.automatic) {
+      invoice = await issueInvoiceSafe(db, orderId, { env, actor, fetchImpl: deps.fetchImpl });
+      if (invoice.status === "issued") pdf = invoice.pdf;
+    }
+  }
+  const emails = await sendOrderEmails(db, orderId, "replacement_created", baseUrl, {
+    ...deps.email,
+    invoicePdf: pdf,
+    replacement: { fromReference: replacement.fromReference, receivedHal: replacement.receivedHal },
+  });
+  return { invoice, emails };
+}

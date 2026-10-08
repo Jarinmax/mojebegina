@@ -13,7 +13,8 @@ import {
   type ActionState,
 } from "./actions";
 import FormMessage from "./FormMessage";
-import type { CancelledMoney } from "@/lib/eshop/cancellation";
+import ReplacementOrderForm, { type ReplacementFormData } from "./ReplacementOrderForm";
+import type { MoneyAlert } from "@/lib/eshop/cancellation";
 
 const initialState: ActionState = null;
 
@@ -41,9 +42,9 @@ function TransferForm({ orderId }: { orderId: string }) {
   const [state, formAction, pending] = useActionState(transferPaymentAction.bind(null, orderId), initialState);
   return (
     <form action={formAction} className="flex flex-col gap-2 border border-neutral-200 bg-white rounded-lg p-3">
-      <p className="text-sm font-medium text-begina-primary-900">Zákazník souhlasí s jiným produktem</p>
+      <p className="text-sm font-medium text-begina-primary-900">Převést platbu na existující objednávku</p>
       <p className="text-xs text-neutral-500">
-        Platba se převede celá na jeho e-shopovou objednávku. Rozdíl ceny: doplatek, nebo přeplatek k vrácení.
+        Zákazník si novou objednávku vytvořil sám v e-shopu. Platba se převede celá; rozdíl ceny: doplatek, nebo přeplatek k vrácení.
       </p>
       <input name="target" required inputMode="numeric" placeholder="Číslo nebo variabilní symbol nové objednávky" className={INPUT} />
       <ConsentFields />
@@ -114,12 +115,27 @@ export default function CancelledMoneyPanel({
   orderId,
   money,
   today,
+  replacement = null,
 }: {
   orderId: string;
-  money: CancelledMoney;
+  money: MoneyAlert;
   /** dnešní datum v Praze (YYYY-MM-DD) */
   today: string;
+  /** podklady pro „Vytvořit náhradní objednávku“ (jen u storna s drženými penězi) */
+  replacement?: ReplacementFormData | null;
 }) {
+  if (money.stage === "overpaid") {
+    return (
+      <div className="border border-red-200 bg-red-50 rounded-xl p-4 mb-4 flex flex-col gap-2">
+        <p className="text-sm font-medium text-red-800">Přeplatek k vrácení — {kc(money.heldHal)}</p>
+        <p className="text-xs text-red-800">
+          Objednávka je zaplacená a přeplacená. Přeplatek patří zákazníkovi: vraťte ho (u platby kartou ve Stripe) a vrácení tu
+          zapište. Do té doby je veden jako závazek, ne jako vrácené peníze.
+        </p>
+        <RecordRefundForm orderId={orderId} heldHal={money.heldHal} today={today} />
+      </div>
+    );
+  }
   if (money.stage === "refund") {
     return (
       <div className="border border-red-200 bg-red-50 rounded-xl p-4 mb-4 flex flex-col gap-2">
@@ -138,6 +154,7 @@ export default function CancelledMoneyPanel({
         Objednávka je stornovaná, ale máme zákazníkovy peníze. Kontaktujte ho a nabídněte jiný produkt nebo novou objednávku.
         Bez jeho souhlasu platbu nepřevádějte; pokud chce peníze zpět, nezdržujte ho.
       </p>
+      {replacement && <ReplacementOrderForm orderId={orderId} data={replacement} />}
       <TransferForm orderId={orderId} />
       <RequestRefundForm orderId={orderId} />
     </div>

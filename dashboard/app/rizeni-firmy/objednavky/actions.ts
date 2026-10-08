@@ -20,6 +20,7 @@ import {
   requestOrderRefund,
   recordOrderRefund,
   transferOrderPayment,
+  createReplacementFromCancelled,
   type StatusChangeResult,
 } from "@/lib/data/orders";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
@@ -302,4 +303,48 @@ export async function transferPaymentAction(
       result.settled ? " — ta je teď zaplacená." : " — zákazník ji ještě doplatí."
     }`,
   };
+}
+
+export async function createReplacementAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const field = (key: string) => String(formData.get(key) ?? "");
+  const skus = formData.getAll("sku").map(String);
+  const quantities = formData.getAll("quantity").map(String);
+  const cart = skus
+    .map((sku, i) => ({ sku, quantity: Number.parseInt(quantities[i] ?? "", 10) }))
+    .filter((line) => line.sku && Number.isInteger(line.quantity) && line.quantity > 0);
+  if (cart.length === 0) return { error: "Vyberte aspoň jeden produkt." };
+  const result = await createReplacementFromCancelled(orderId, {
+    token: field("token"),
+    cart: JSON.stringify(cart),
+    shippingMethodId: field("shippingMethodId"),
+    street: field("street"),
+    city: field("city"),
+    zip: field("zip"),
+    ageConfirmed: formData.get("ageConfirmed") === "on",
+    consent: formData.get("consent") === "on",
+    note: field("note"),
+  });
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  revalidateOrder(result.orderId);
+  const ref = result.orderNumber ?? result.paymentVs ?? result.orderId.slice(0, 8);
+  if (result.alreadyCreated) return { success: `Náhradní objednávka ${ref} už je vytvořená.` };
+  const diff = result.requiredHal - result.movedHal;
+  const state =
+    diff > 0
+      ? `zákazník doplatí ${kcText(diff)} (QR jen na doplatek)`
+      : diff < 0
+        ? `je zaplacená, přeplatek ${kcText(-diff)} je k vrácení`
+        : "je zaplacená";
+  const email =
+    result.email === "sent"
+      ? " Zákazníkovi odešel e-mail o náhradní objednávce."
+      : result.email === "failed"
+        ? " ⚠ E-mail zákazníkovi se nepodařilo odeslat — kontaktujte ho."
+        : "";
+  return { success: `Náhradní objednávka ${ref} vytvořena a platba převedena — ${state}.${email}` };
 }

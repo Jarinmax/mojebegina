@@ -6,6 +6,7 @@ import { emailsFor } from "../email/orderEmails";
 import { resendTransport } from "../email/resend";
 import {
   customerCancellationEmail,
+  customerReplacementEmail,
   customerOrderEmail,
   customerPaymentReceivedEmail,
   internalOrderEmail,
@@ -358,5 +359,41 @@ describe("e-maily — potvrzení zrušení objednávky (storno)", () => {
     const mail = customerCancellationEmail(ORDER, { ...CTX, test: true, withheld: ["jana@example.cz"], heldHal: 0 });
     expect(mail.subject).toBe("[TEST] Objednávka 11348d18 byla zrušena");
     expect(mail.text).toContain("V ostrém provozu by šel na: jana@example.cz.");
+  });
+});
+
+describe("e-maily — náhradní objednávka s převedenou platbou", () => {
+  const order = { ...ORDER, orderNumber: 900042, paymentVs: "70000042", totalKc: 758, paymentStatus: "paid" };
+  const ctx = { ...CTX, fromReference: "900041", transfer: null, qrContentId: null };
+
+  it("stejná částka: zaplaceno, nic nehradit — žádné platební údaje", () => {
+    const mail = customerReplacementEmail(order, { ...ctx, receivedHal: 75800 });
+    expect(mail.subject).toBe("Náhradní objednávka 900042 — použili jsme vaši platbu");
+    expect(mail.text).toContain("místo zrušené objednávky 900041 vytvořili náhradní objednávku 900042");
+    expect(mail.text).toContain("Objednávka je zaplacená — nic dalšího nehraďte.");
+    expect(mail.text).not.toMatch(/Variabilní symbol|Číslo účtu|Zbývá doplatit/);
+  });
+
+  it("doplatek: jen zbytek, ne celá částka", () => {
+    const unpaid = { ...order, totalKc: 1137, paymentStatus: "unpaid" };
+    const transfer = transferInfo(unpaid, { account: "19-2000145399/0800", iban: "CZ6508000000192000145399" }, 379);
+    const mail = customerReplacementEmail(unpaid, { ...ctx, receivedHal: 75800, transfer });
+    expect(mail.text).toMatch(/Zbývá doplatit 379\sKč/);
+    expect(mail.text).toContain("Celou částku znovu neplaťte.");
+    expect(mail.text).toMatch(/Částka: 379\sKč/);
+    expect(mail.text).toContain("Variabilní symbol: 70000042");
+  });
+
+  it("přeplatek: zaplaceno, rozdíl vrátíme", () => {
+    const cheaper = { ...order, totalKc: 379 };
+    const mail = customerReplacementEmail(cheaper, { ...ctx, receivedHal: 75800 });
+    expect(mail.text).toMatch(/Přeplatek 379\sKč vám vrátíme/);
+    expect(mail.text).not.toMatch(/Variabilní symbol|Zbývá doplatit/);
+  });
+
+  it("e-shop: náhradní objednávka spouští jen svůj e-mail", () => {
+    expect(emailsFor({ channel: "eshop", paymentMethodCode: "prevod", paymentStatus: "paid" }, "replacement_created")).toEqual([
+      "customer_replacement",
+    ]);
   });
 });

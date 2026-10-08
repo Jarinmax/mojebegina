@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff } from "@/lib/data/orders";
+import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff, listReplacementOptions } from "@/lib/data/orders";
+import { parseCheckoutAddress } from "@/lib/eshop/invoicing/draft";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
@@ -42,6 +43,9 @@ export default async function OrderDetailPage(
   const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
   const cancelled = order.fulfillmentStatus === "cancelled";
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
+  // náhradní objednávka: jen stornovaná s drženými penězi (před rozhodnutím o vrácení)
+  const replacementOptions = order.moneyAlert?.stage === "contact" ? await listReplacementOptions() : null;
+  const address = parseCheckoutAddress(order.recipientAddress);
 
   return (
     <div>
@@ -67,10 +71,27 @@ export default async function OrderDetailPage(
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
-        <CancelledMoneyBadge money={order.cancelledMoney} />
+        <CancelledMoneyBadge money={order.moneyAlert} />
       </div>
 
-      {order.cancelledMoney && <CancelledMoneyPanel orderId={order.id} money={order.cancelledMoney} today={today} />}
+      {order.moneyAlert && (
+        <CancelledMoneyPanel
+          orderId={order.id}
+          money={order.moneyAlert}
+          today={today}
+          replacement={
+            replacementOptions && order.moneyAlert
+              ? {
+                  token: randomUUID(),
+                  heldHal: order.moneyAlert.heldHal,
+                  customer: { name: order.contactName, email: order.contactEmail, phone: order.contactPhone },
+                  address: { street: address?.street ?? "", city: address?.city ?? "", zip: address?.zip ?? "" },
+                  ...replacementOptions,
+                }
+              : null
+          }
+        />
+      )}
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
         <div>

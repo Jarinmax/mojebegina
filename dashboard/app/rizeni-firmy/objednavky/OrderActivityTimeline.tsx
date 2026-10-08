@@ -9,7 +9,9 @@ function describeEntry(entry: OrderActivityEntry): string {
   const meta = (entry.metadata ?? {}) as Record<string, unknown>;
   switch (entry.kind) {
     case "created":
-      return "založil(a) objednávku";
+      return meta.replacementOfReference
+        ? `vytvořil(a) náhradní objednávku za stornovanou ${String(meta.replacementOfReference)}${meta.ageConfirmedByStaff ? " (zákazník znovu potvrdil věk 18+)" : ""}`
+        : "založil(a) objednávku";
     case "note_added":
       return "upravil(a) poznámku";
     case "fulfillment_status_changed": {
@@ -68,7 +70,11 @@ function describeEntry(entry: OrderActivityEntry): string {
     case "refund_recorded":
       return `zapsal(a) vrácení ${money(meta.amountHal)} zákazníkovi (transakce ${String(meta.txId ?? "—")})`;
     case "payment_transferred_out":
-      return `převedl(a) platbu ${money(meta.amountHal)} na objednávku ${String(meta.toReference ?? "—")} se souhlasem zákazníka`;
+      return meta.replacement
+        ? `vytvořil(a) náhradní objednávku ${String(meta.toReference ?? "—")} a převedl(a) na ni platbu ${money(meta.amountHal)} se souhlasem zákazníka`
+        : `převedl(a) platbu ${money(meta.amountHal)} na objednávku ${String(meta.toReference ?? "—")} se souhlasem zákazníka`;
+    case "overpayment_refund_due":
+      return `⚠ objednávka je přeplacená — přeplatek ${money(meta.amountHal)} je k vrácení zákazníkovi (závazek, zatím nevráceno)`;
     case "payment_transferred_in":
       return `převedl(a) sem platbu ${money(meta.amountHal)} ze stornované objednávky ${String(meta.fromReference ?? "—")} se souhlasem zákazníka`;
     case "responsible_assigned":
@@ -98,6 +104,8 @@ function emailLabel(template: unknown): string {
       return "faktura zákazníkovi";
     case "customer_cancellation":
       return "potvrzení zrušení objednávky zákazníkovi";
+    case "customer_replacement":
+      return "náhradní objednávka zákazníkovi (bez výzvy k úhradě celé částky)";
     default:
       return "potvrzení zákazníkovi";
   }

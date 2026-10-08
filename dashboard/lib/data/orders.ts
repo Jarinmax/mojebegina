@@ -16,16 +16,22 @@ import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
-import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { getCatalogIndex } from "@/lib/eshop/catalogServer";
+import { validateCheckoutInput } from "@/lib/eshop/checkout";
+import { parseOrderToken } from "@/lib/eshop/orderWrite";
+import { shippingMethods } from "@/lib/eshop/shipping";
 import {
   afterOrderCancelled,
-  cancelledMoneyState,
+  createReplacementOrder,
+  type ReplacementResult,
+  moneyAlerts,
   normalizeTxId,
   recordPaymentAfterCancellation,
   recordRefund,
   requestRefund,
   transferPayments,
-  type CancelledMoney,
+  type MoneyAlert,
   type CancellationOutcome,
   type TransferTarget,
 } from "@/lib/eshop/cancellation";
@@ -124,11 +130,12 @@ export type OrderCardData = {
   responsibleUserId: string | null;
   responsibleName: string | null;
   /**
-   * Stornovaná e-shopová objednávka, za kterou Begina drží peníze:
-   * „contact“ = kontaktovat zákazníka, „refund“ = zákazník požaduje vrácení
-   * (lib/eshop/cancellation.ts). null = nic k řešení.
+   * Peníze k vyřešení (lib/eshop/cancellation.ts): stornovaná objednávka
+   * s drženými penězi („contact“ = kontaktovat zákazníka, „refund“ =
+   * zákazník požaduje vrácení) nebo přeplatek k vrácení („overpaid“).
+   * null = nic k řešení.
    */
-  cancelledMoney: CancelledMoney | null;
+  moneyAlert: MoneyAlert | null;
 };
 
 export type OrderCounts = {
@@ -168,9 +175,9 @@ async function buildOrderCards(
         .from(orderItems)
         .where(inArray(orderItems.orderId, orderIds))
     : [];
-  const money = await cancelledMoneyState(
+  const money = await moneyAlerts(
     db,
-    orderRows.filter((o) => o.fulfillmentStatus === "cancelled").map((o) => o.id)
+    orderRows.filter((o) => o.channel === "eshop").map((o) => o.id)
   );
   const itemsByOrder = new Map<string, string[]>();
   for (const item of itemRows) {
@@ -200,7 +207,7 @@ async function buildOrderCards(
       paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null) || isTransferOverdue(o),
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
-      cancelledMoney: money.get(o.id) ?? null,
+      moneyAlert: money.get(o.id) ?? null,
     };
   });
 }
@@ -821,6 +828,117 @@ export async function transferOrderPayment(
     });
   }
   return result;
+}
+
+// --- Náhradní objednávka ze stornované (lib/eshop/cancellation.ts) -----
+
+export type ReplacementProductOption = { sku: string; label: string; priceKc: number; ageRestricted: boolean };
+export type ReplacementShippingOption = { id: string; label: string; priceKc: number; requiresAddress: boolean };
+
+/** Nabídka pro formulář náhradní objednávky: aktivní balení z katalogu a doprava. */
+export async function listReplacementOptions(): Promise<{
+  products: ReplacementProductOption[];
+  shipping: ReplacementShippingOption[];
+}> {
+  await requireOrderContext();
+  const index = await getCatalogIndex();
+  const products = index.catalog.products.flatMap((product) =>
+    product.variants.map((variant) => ({
+      sku: variant.sku,
+      label: `${product.name}${variant.label ? ` — ${variant.label}` : ""}`,
+      priceKc: variant.priceKc,
+      ageRestricted: product.isAgeRestricted,
+    }))
+  );
+  return {
+    products,
+    shipping: shippingMethods.map((m) => ({ id: m.id, label: m.label, priceKc: m.priceKc, requiresAddress: m.requiresAddress })),
+  };
+}
+
+export type ReplacementInput = ConsentInput & {
+  /** token formuláře = id nové objednávky (dvojklik nevytvoří druhou) */
+  token: string;
+  /** JSON [{sku, quantity}] */
+  cart: string;
+  shippingMethodId: string;
+  street: string;
+  city: string;
+  zip: string;
+  /** zákazník znovu potvrdil věk 18+ (povinné, když je v objednávce alkohol) */
+  ageConfirmed: boolean;
+};
+
+/**
+ * Náhradní objednávka: údaje zákazníka z původní objednávky, nové produkty
+ * a doprava, souhlas zákazníka; tatáž kontrola jako v pokladně (ceny,
+ * doprava, adresa, 18+). Platba se převede v téže transakci; zákazník
+ * dostane jen e-mail „Náhradní objednávka“ (bez výzvy k úhradě celé částky).
+ */
+export async function createReplacementFromCancelled(
+  orderId: string,
+  input: ReplacementInput
+): Promise<
+  | ({ ok: true } & ReplacementResult & { email: "sent" | "duplicate" | "failed" | "no-recipient" | "off" })
+  | { ok: false; error: string }
+> {
+  const ctx = await requireOrderContext();
+  const consent = parseConsent(input);
+  if (!consent.ok) return consent;
+  const newOrderId = parseOrderToken(input.token);
+  if (!newOrderId) return { ok: false, error: "Formulář vypršel — obnovte prosím stránku." };
+  const [original] = await db
+    .select({ name: orders.contactName, email: orders.contactEmail, phone: orders.contactPhone })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!original) return { ok: false, error: "Objednávka nebyla nalezena." };
+  const validated = validateCheckoutInput(
+    {
+      cart: input.cart,
+      name: original.name ?? "",
+      email: original.email ?? "",
+      phone: original.phone ?? "",
+      shippingMethodId: input.shippingMethodId,
+      // doplatek (je-li) jen převodem — QR na zbytek; karta by účtovala celou částku
+      paymentMethodId: "prevod",
+      street: input.street,
+      city: input.city,
+      zip: input.zip,
+      note: "",
+      // obchodní podmínky: přijaté u původní objednávky (createReplacementOrder)
+      termsAccepted: true,
+      ageConfirmed: input.ageConfirmed,
+    },
+    await getCatalogIndex()
+  );
+  if (!validated.ok) {
+    return {
+      ok: false,
+      error: /18/.test(validated.error)
+        ? "Objednávka obsahuje alkohol — zákazník musí znovu potvrdit, že je starší 18 let."
+        : validated.error,
+    };
+  }
+  const actor = actorOf(ctx);
+  const created = await createReplacementOrder(db, {
+    fromOrderId: orderId,
+    newOrderId,
+    value: validated.value,
+    consentNote: consent.note,
+    user: actor,
+  });
+  if (!created.ok) return created;
+  if (created.alreadyCreated) return { ...created, email: "duplicate" };
+  const { emails } = await invoiceAndNotifyReplacement(
+    db,
+    created.orderId,
+    await getAppOrigin(),
+    { type: "user", ...actor },
+    { settled: created.settled, fromReference: created.fromReference, receivedHal: created.movedHal }
+  );
+  const email = emails.find((e) => e.template === "customer_replacement")?.status ?? "off";
+  return { ...created, email };
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {
