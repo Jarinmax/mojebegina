@@ -221,11 +221,54 @@ $guard$;`;
   );
 }
 
+/**
+ * Kategorie „Zmrzliny“ pro Production main (rozhodnutí vedení 8. 10. 2026):
+ * obsah docs/eshop-catalog/61_zmrzliny.sql + pojistka — větev main, katalog
+ * po fázi A (kategorie polévky…koktejly), zmrzliny ještě nejsou.
+ */
+export function guardedIceCreamCategorySql(timelineId = PRODUCTION_MAIN.timelineId) {
+  const file = "docs/eshop-catalog/61_zmrzliny.sql";
+  const lines = read(file).split("\n");
+  const firstCode = lines.findIndex((line) => line.trim() !== "" && !line.trim().startsWith("--"));
+  const body = lines
+    .slice(firstCode)
+    .filter((line) => !/^\s*(BEGIN|COMMIT)\s*;\s*$/.test(line))
+    .join("\n")
+    .trim();
+  const guard = `DO $guard$
+DECLARE
+  timeline text := current_setting('neon.timeline_id', true);
+BEGIN
+  IF timeline IS DISTINCT FROM '${timelineId}' THEN
+    RAISE EXCEPTION 'STOP: tohle NENÍ Production větev main (neon.timeline_id = %). Nic se nezměnilo.', coalesce(timeline, 'neznámý');
+  END IF;
+  IF (SELECT count(*) FROM product_categories WHERE slug IN ('polevky', 'sirupy', 'caje', 'ovocne-napoje', 'koktejly')) <> 5 THEN
+    RAISE EXCEPTION 'STOP: katalog není ve stavu po fázi A (chybí některá z 5 kategorií). Nic se nezměnilo.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM product_categories WHERE slug = 'zmrzliny') THEN
+    RAISE EXCEPTION 'STOP: kategorie Zmrzliny už existuje. Nic se nezměnilo.';
+  END IF;
+  RAISE NOTICE 'OK: Production main — přidávám kategorii Zmrzliny (bez produktů).';
+END
+$guard$;`;
+  return (
+    `-- PRODUCTION main — nová kategorie „Zmrzliny“ (viditelná, zatím bez produktů), S POJISTKOU\n` +
+    `-- (VYGENEROVÁNO scripts/eshop-production/build-sql.mjs z ${file}).\n` +
+    `-- Jako první krok kontrola: větev main (neon.timeline_id ${timelineId}), katalog po fázi A,\n` +
+    `-- Zmrzliny ještě nejsou. Jinak „STOP“ a NIC se nezmění. Spouštět CELÉ najednou v Neon SQL Editoru.\n` +
+    `-- Kontrola po: docs/eshop-catalog/62_zmrzliny_after.sql → 1 | Zmrzliny | 60 | ano | 0 | 6 | ano.\n` +
+    `-- Vrácení: docs/eshop-catalog/69_zmrzliny_rollback.sql (skryje, nic nemaže).\n\n` +
+    `BEGIN;\n\n-- ===== POJISTKA: jen Production main, jen jednou =====\n${guard}\n\n` +
+    `-- ===== ${file} =====\n${body}\n\nCOMMIT;\n`
+  );
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019.sql"), migrationsSql());
   writeFileSync(join(ROOT, "docs/eshop-production/19_migrations_rollback.sql"), rollbackSql());
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019_MAIN.sql"), guardedMigrationsSql());
   writeFileSync(join(ROOT, "docs/eshop-production/13_katalog_a_platby_A_MAIN.sql"), guardedPhaseARestSql());
   writeFileSync(join(ROOT, "docs/eshop-production/15_platby_B_MAIN.sql"), guardedPaymentsBSql());
-  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql, 13_katalog_a_platby_A_MAIN.sql, 15_platby_B_MAIN.sql");
+  writeFileSync(join(ROOT, "docs/eshop-production/17_kategorie_zmrzliny_MAIN.sql"), guardedIceCreamCategorySql());
+  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql, 13_katalog_a_platby_A_MAIN.sql, 15_platby_B_MAIN.sql, 17_kategorie_zmrzliny_MAIN.sql");
 }
