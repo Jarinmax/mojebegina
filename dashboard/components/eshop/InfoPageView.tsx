@@ -42,11 +42,21 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
           {page.blocks.map((block, i) => (
             <section key={block.heading ?? i}>
               {block.heading && <h2 className="font-medium text-lg text-begina-primary-900 mb-2">{block.heading}</h2>}
+              {block.subheading && <h3 className="font-medium text-begina-primary-900 mb-1.5">{block.subheading}</h3>}
               {block.paragraphs?.map((text) => (
                 <p key={text} className="mb-2">
                   {linkify(text)}
                 </p>
               ))}
+              {block.lines && (
+                <p className="my-2 pl-3 border-l-2 border-neutral-200 text-neutral-600">
+                  {block.lines.map((line, j) => (
+                    <span key={line} className="block">
+                      {j === 0 ? <strong className="font-medium text-begina-primary-900">{line}</strong> : linkify(line)}
+                    </span>
+                  ))}
+                </p>
+              )}
               {block.items &&
                 (block.itemStyle === "check" ? (
                   <ul className="flex flex-col gap-1.5">
@@ -87,6 +97,11 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                   ))}
                 </ol>
               )}
+              {block.afterParagraphs?.map((text) => (
+                <p key={text} className="mt-2">
+                  {linkify(text)}
+                </p>
+              ))}
             </section>
           ))}
           {page.pendingNote && <p className="text-sm text-neutral-500">{page.pendingNote}</p>}
