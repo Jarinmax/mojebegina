@@ -17,7 +17,10 @@
 //   • přepínač „manual“ nebo „on“,
 //   • IDOKLAD_ESHOP_SEQUENCE_ID = 7277293 (řada „E-shop Begina“),
 //   • IDOKLAD_ESHOP_CLIENT_ID + IDOKLAD_ESHOP_CLIENT_SECRET (Client
-//     Credentials agendy Begina).
+//     Credentials agendy Begina — API klíče z iDokladu, Nastavení →
+//     Aplikace) + IDOKLAD_ESHOP_APPLICATION_ID (ApplicationId aplikace
+//     „MojeBegina Eshop“ z Developer portálu; oficiální SDK 5.4.0 ho
+//     u Client Credentials vyžaduje jako application_id).
 // Zápisová pojistka v idokladHttp.ts navíc ověří bránu znovu před KAŽDÝM
 // zápisem, a vystavení před každým pokusem projde kontrolou iDokladu
 // (preflight.ts) — selhání kterékoli kontroly = faktura se nevystaví.
@@ -44,7 +47,7 @@ export type InvoicingMode = {
 };
 
 export type LiveGate =
-  | { open: true; trigger: "manual" | "on"; clientId: string; clientSecret: string; seriesId: string }
+  | { open: true; trigger: "manual" | "on"; clientId: string; clientSecret: string; applicationId: string; seriesId: string }
   | { open: false; reason: string };
 
 /** Ostré vystavování je v kódu hotové; zapíná se jen bránou níže. */
@@ -58,11 +61,28 @@ export function invoicingSwitch(env: Env = process.env): { value: InvoicingSwitc
   return { value: "off", invalid: raw.slice(0, 20) };
 }
 
-/** Přístupové údaje Client Credentials (stejné pro preflight i vystavení). */
-export function eshopIdokladCredentials(env: Env = process.env): { clientId: string; clientSecret: string } | null {
-  const clientId = env.IDOKLAD_ESHOP_CLIENT_ID?.trim() ?? "";
-  const clientSecret = env.IDOKLAD_ESHOP_CLIENT_SECRET?.trim() ?? "";
-  return clientId && clientSecret ? { clientId, clientSecret } : null;
+export type EshopIdokladCredentials = { clientId: string; clientSecret: string; applicationId: string };
+
+/** Názvy proměnných přihlášení Client Credentials (oficiální SDK: ClientId + ClientSecret + ApplicationId). */
+export const IDOKLAD_CREDENTIAL_VARS = [
+  "IDOKLAD_ESHOP_CLIENT_ID",
+  "IDOKLAD_ESHOP_CLIENT_SECRET",
+  "IDOKLAD_ESHOP_APPLICATION_ID",
+] as const;
+
+/** Které z proměnných přihlášení chybí (jen názvy, nikdy hodnoty). */
+export function missingIdokladCredentials(env: Env = process.env): string[] {
+  return IDOKLAD_CREDENTIAL_VARS.filter((name) => !(env[name]?.trim() ?? ""));
+}
+
+/** Přístupové údaje Client Credentials (stejné pro preflight i vystavení); null = některý chybí. */
+export function eshopIdokladCredentials(env: Env = process.env): EshopIdokladCredentials | null {
+  if (missingIdokladCredentials(env).length > 0) return null;
+  return {
+    clientId: env.IDOKLAD_ESHOP_CLIENT_ID!.trim(),
+    clientSecret: env.IDOKLAD_ESHOP_CLIENT_SECRET!.trim(),
+    applicationId: env.IDOKLAD_ESHOP_APPLICATION_ID!.trim(),
+  };
 }
 
 export function liveInvoicingGate(env: Env = process.env): LiveGate {
@@ -88,7 +108,10 @@ export function liveInvoicingGate(env: Env = process.env): LiveGate {
   }
   const credentials = eshopIdokladCredentials(env);
   if (!credentials) {
-    return { open: false, reason: "Ostré vystavování je zablokované: chybí přístupové údaje k iDokladu." };
+    return {
+      open: false,
+      reason: `Ostré vystavování je zablokované: chybí přístupové údaje k iDokladu (${missingIdokladCredentials(env).join(", ")}).`,
+    };
   }
   return { open: true, trigger: sw.value, ...credentials, seriesId: series.id };
 }

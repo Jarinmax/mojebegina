@@ -18,7 +18,7 @@
 // Nic nezakládá, nemění, nerezervuje ani neodesílá.
 import { CZECH_REPUBLIC_COUNTRY_CODE, IDOKLAD_ENUMS, PAYMENT_OPTION_MATCH, type ItemPricing } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter } from "./idokladHttp";
-import { BEGINA_ICO, ESHOP_SERIES, eshopIdokladCredentials } from "./mode";
+import { BEGINA_ICO, ESHOP_SERIES, eshopIdokladCredentials, missingIdokladCredentials } from "./mode";
 import { ISSUED_INVOICE_DOCUMENT_TYPE, checkEshopSeries, parseSeriesId, type IdokladNumericSequence } from "./numberSeries";
 
 /** Číslo faktury v řadě 9{RR}{NNNN}: 9 + rok (2 číslice) + pořadí (4 číslice). */
@@ -299,7 +299,7 @@ export async function runPreflightFromEnv(
 ): Promise<{ ok: true; result: PreflightResult } | { ok: false; error: string }> {
   const credentials = eshopIdokladCredentials(env);
   if (!credentials) {
-    return { ok: false, error: "Chybí přístupové údaje k iDokladu (IDOKLAD_ESHOP_CLIENT_ID / IDOKLAD_ESHOP_CLIENT_SECRET) — kontrola nic nevolala." };
+    return { ok: false, error: `Chybí přístupové údaje k iDokladu (${missingIdokladCredentials(env).join(", ")}) — kontrola nic nevolala.` };
   }
   const now = options.now ?? new Date();
   const client = new EshopIdokladClient({

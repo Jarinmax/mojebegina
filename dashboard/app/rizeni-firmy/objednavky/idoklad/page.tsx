@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
-import { eshopIdokladCredentials, invoicingMode, invoicingSwitch } from "@/lib/eshop/invoicing/mode";
+import { invoicingMode, invoicingSwitch, missingIdokladCredentials } from "@/lib/eshop/invoicing/mode";
 import IdokladPreflightPanel from "./IdokladPreflightPanel";
 
 // ESHOP 1.0 — „Kontrola připojení iDokladu“ (preflight). Jen Jaroslav
@@ -17,7 +17,7 @@ export default async function IdokladPreflightPage() {
 
   const mode = invoicingMode();
   const sw = invoicingSwitch();
-  const hasCredentials = eshopIdokladCredentials() !== null;
+  const missingCredentials = missingIdokladCredentials();
   const environment = process.env.VERCEL_ENV === "production" ? "Production" : "Preview / vývoj";
 
   return (
@@ -41,7 +41,11 @@ export default async function IdokladPreflightPage() {
           <dt className="text-neutral-500">Režim</dt>
           <dd>{mode.reason}</dd>
           <dt className="text-neutral-500">Přístupové údaje</dt>
-          <dd>{hasCredentials ? "nastavené (IDOKLAD_ESHOP_CLIENT_ID / SECRET)" : "chybí"}</dd>
+          <dd>
+            {missingCredentials.length === 0
+              ? "nastavené (IDOKLAD_ESHOP_CLIENT_ID / SECRET / APPLICATION_ID)"
+              : `chybí: ${missingCredentials.join(", ")}`}
+          </dd>
         </dl>
         <p className="mt-3 text-xs text-neutral-500">
           Kontrola: přihlášení (Client Credentials), agenda Begina (IČO 74337297), neplátce DPH, CZK, Česká republika (CZ),

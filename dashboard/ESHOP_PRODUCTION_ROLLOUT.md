@@ -154,10 +154,17 @@ první nová objednávka 5201).
    `d9ec90f6171c304ed313b2ffbb3ae1e8` = přesně generálka (kopie Production
    + oba soubory MAIN); generálka zároveň ověřuje schéma = kód na větvi.
    Otisky dat The Cup (`bf5cab26…`, `cd856266…`, `cef7751c…`) beze změny.
-10. **Platby — krok B (povinný VS)**: až PO nasazení kódu a jedné
-   testovací objednávce: `20_before.sql` (nejnovější e-shopová objednávka
-   má VS) → `21_migration.sql` → `22_after.sql` → `1 | <e-shop> | 0 | ano | ano`.
-   Vrácení: `29_rollback.sql` (vypne jen povinnost, VS zůstávají).
+10. **Platby — krok B (povinný VS) — ZMĚNA POŘADÍ (rozhodnutí vedení 7. 10.
+   2026): PŘED první e-shopovou objednávkou**, aby pojistka VS platila dřív,
+   než se zapne `ESHOP_PUBLIC` / `ESHOP_ORDER_WRITE`. Kód, který VS přiděluje,
+   je v Production od sloučení PR #9 (testy kódu běží na schématu s touto
+   pojistkou — drizzle 0020). Soubor **`docs/eshop-production/15_platby_B_MAIN.sql`**
+   (celý najednou): obsah `eshop-payments/21_migration.sql` + pojistka — jen
+   `main`, krok A hotový, krok B ještě ne, **žádná e-shopová objednávka**;
+   jinak „STOP“ a nic se nezmění (`productionRehearsal.test.ts`).
+   Kontrola před `eshop-payments/20_before.sql` → `ano | 0 | 0 | 0 | NULL`;
+   po `22_after.sql` → `1 | 0 | 0 | ano | ano`. The Cup se netýká
+   (`channel <> 'eshop'`). Vrácení: `29_rollback.sql` (vypne jen povinnost).
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich
@@ -197,8 +204,9 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 8. Přesměrování z begina.cz / zapnutí indexace — až po rozhodnutí o doméně.
 9. **Faktury v iDokladu (samostatné schválení, až po prvním kontrolovaném
    ostrém testu — `ESHOP_FAKTURACE_NAVRH.md` 2.8):** iDoklad → Nastavení →
-   API → Client ID + Client Secret agendy Begina → Vercel (jen Production)
-   `IDOKLAD_ESHOP_CLIENT_ID`, `IDOKLAD_ESHOP_CLIENT_SECRET`,
+   Aplikace → Client ID + Client Secret (agenda Begina) a Developer portál →
+   aplikace „MojeBegina Eshop“ → Application ID → Vercel (jen Production)
+   `IDOKLAD_ESHOP_CLIENT_ID`, `IDOKLAD_ESHOP_CLIENT_SECRET`, `IDOKLAD_ESHOP_APPLICATION_ID`,
    `IDOKLAD_ESHOP_SEQUENCE_ID=7277293`, `IDOKLAD_INVOICING_ENABLED=on` →
    Redeploy. Kontrola: zaplacená objednávka → v MojeBegina „Vystaveno
    v iDokladu — faktura č. 926xxxx · uhrazeno“, PDF v e-mailu. Vypnutí =
@@ -219,7 +227,8 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 | `ESHOP_PUBLIC` / `ESHOP_ORDER_WRITE` / `ESHOP_EMAIL_LIVE` / `ESHOP_STRIPE_LIVE` | `on` | C6 |
 | `ESHOP_EMAIL_TEST_RECIPIENTS` | **nenastavovat** (v Production se ignoruje) | — |
 | `IDOKLAD_ESHOP_SEQUENCE_ID` | `7277293` (E-shop Begina) | C9 |
-| `IDOKLAD_ESHOP_CLIENT_ID` / `IDOKLAD_ESHOP_CLIENT_SECRET` | Client Credentials agendy Begina (tajné) | C9 |
+| `IDOKLAD_ESHOP_CLIENT_ID` / `IDOKLAD_ESHOP_CLIENT_SECRET` | API klíče uživatele z iDokladu (Nastavení → Aplikace), agenda Begina (tajné) | C9 |
+| `IDOKLAD_ESHOP_APPLICATION_ID` | ApplicationId aplikace „MojeBegina Eshop“ (flow ClientCredentials) z Developer portálu iDokladu | C9 |
 | `IDOKLAD_INVOICING_ENABLED` | `manual` pro první test, `on` až po schválení (chybí / `off` = jen návrh) | C9, poslední |
 
 U každé zaškrtnout **jen Production**. Preview proměnné nechat jen na Preview.

@@ -54,6 +54,7 @@ const BASE = {
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "prod-client",
   IDOKLAD_ESHOP_CLIENT_SECRET: "prod-secret",
+  IDOKLAD_ESHOP_APPLICATION_ID: "prod-app",
 };
 const PREVIEW = { ...BASE, VERCEL_ENV: "preview" };
 // Production: e-maily naostro — Production je pošle jen s ESHOP_EMAIL_LIVE=on
@@ -340,7 +341,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad({ tokenStatus: 401 });
     const result = await orders.issueOrderInvoice(id);
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401\)/) });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401: invalid_client/) });
     expect(route.fake.writes()).toEqual([]);
     expect(route.fake.apiCalls()).toEqual([]);
     expect(await linkState(id)).toMatchObject({ doc_state: "draft", state: "failed", external_id: null, last_error: expect.stringMatching(/neprošla/) });
@@ -378,7 +379,44 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       // jen čtení: kromě žádosti o token nic než GET
       expect(route.fake.calls.filter((c) => c.path !== "TOKEN").every((c) => c.method === "GET")).toBe(true);
       expect(route.fake.writes()).toEqual([]);
+      // token request přesně jako oficiální SDK 5.4.0 (ClientCredentialsTokenRequest)
+      expect(route.fake.calls.filter((c) => c.path === "TOKEN").map((c) => c.body)).toEqual([
+        ["grant_type", "application_id", "client_id", "client_secret", "scope"],
+      ]);
     }
+  });
+
+  it("regrese 8. 10. 2026: bez IDOKLAD_ESHOP_APPLICATION_ID nic nevolá a řekne, co chybí; brána zůstane zavřená", async () => {
+    route.fake = createFakeIdoklad();
+    for (const missing of ["", "   ", undefined]) {
+      const env = { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual", IDOKLAD_ESHOP_APPLICATION_ID: missing };
+      setEnv(env);
+      if (missing === undefined) delete process.env.IDOKLAD_ESHOP_APPLICATION_ID;
+      const outcome = await orders.runEshopIdokladPreflight();
+      expect(outcome).toEqual({ ok: false, error: expect.stringContaining("Chybí přístupové údaje k iDokladu (IDOKLAD_ESHOP_APPLICATION_ID)") });
+      expect(route.fake.calls).toEqual([]);
+      expect(liveInvoicingGate(env)).toEqual({ open: false, reason: expect.stringContaining("IDOKLAD_ESHOP_APPLICATION_ID") });
+      expect(invoicingMode(env)).toMatchObject({ mode: "dry_run", automatic: false });
+    }
+    process.env.IDOKLAD_ESHOP_APPLICATION_ID = BASE.IDOKLAD_ESHOP_APPLICATION_ID;
+  });
+
+  it("identity server bez application_id odmítne (400 invalid_request) — kontrola to ukáže a dál nic nevolá", async () => {
+    const { EshopIdokladClient } = await import("../invoicing/idokladHttp");
+    const { runIdokladPreflight } = await import("../invoicing/preflight");
+    route.fake = createFakeIdoklad();
+    // klient se starým tvarem požadavku (bez application_id) — napodobenina SDK serveru ho odmítne
+    const legacyFetch: typeof fetch = async (input, init) => {
+      const form = new URLSearchParams(String(init?.body ?? ""));
+      if (String(input).includes("identity.idoklad.cz")) form.delete("application_id");
+      return route.fake!.fetchImpl(input, { ...init, body: String(input).includes("identity.idoklad.cz") ? form.toString() : init?.body });
+    };
+    const client = new EshopIdokladClient({ clientId: "id", clientSecret: "secret", applicationId: "app", writesAllowed: false, env: PRODUCTION, fetchImpl: legacyFetch });
+    const result = await runIdokladPreflight(client, { seriesId: "7277293", day: "2026-10-08" });
+    expect(result.ok).toBe(false);
+    expect(result.checks[0]).toMatchObject({ key: "auth", ok: false });
+    expect(result.checks[0].detail).toContain("Přihlášení k iDokladu selhalo (400: invalid_request — iDoklad odmítl tvar požadavku)");
+    expect(route.fake.calls.filter((c) => c.path !== "TOKEN")).toEqual([]);
   });
 
   it("preflight bez přístupových údajů nic nevolá", async () => {

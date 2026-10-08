@@ -58,9 +58,10 @@ const ENV = {
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "preview-client",
   IDOKLAD_ESHOP_CLIENT_SECRET: "preview-secret",
+  IDOKLAD_ESHOP_APPLICATION_ID: "preview-app",
 };
 // Prostředí ostrého provozu — předává se výslovně jen do vystavení.
-const LIVE = { ...ENV, VERCEL_ENV: "production", IDOKLAD_ESHOP_CLIENT_ID: "cid", IDOKLAD_ESHOP_CLIENT_SECRET: "csecret" };
+const LIVE = { ...ENV, VERCEL_ENV: "production", IDOKLAD_ESHOP_CLIENT_ID: "cid", IDOKLAD_ESHOP_CLIENT_SECRET: "csecret", IDOKLAD_ESHOP_APPLICATION_ID: "capp" };
 const ACTOR = { type: "user" as const, userId: "admin-1", name: "Lucie Test" };
 
 describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { timeout: 90_000 }, () => {
@@ -392,6 +393,27 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
 });
 
 describe("pojistka HTTP klienta iDokladu (bez sítě)", () => {
+  it("odmítnuté přihlášení: kontrola ukáže kód chyby z iDokladu, nikdy přístupové údaje", async () => {
+    const { runPreflightFromEnv } = await import("../invoicing/preflight");
+    const env = { VERCEL_ENV: "production", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "tajne-id-123", IDOKLAD_ESHOP_CLIENT_SECRET: "tajny-secret-456", IDOKLAD_ESHOP_APPLICATION_ID: "tajna-app-789" };
+    const reply = (status: number, body: string) => (async () => new Response(body, { status })) as unknown as typeof fetch;
+    const firstCheck = async (fetchImpl: typeof fetch) => {
+      const out = await runPreflightFromEnv(env, { fetchImpl });
+      if (!out.ok) throw new Error(out.error);
+      expect(out.result.ok).toBe(false);
+      return out.result.checks[0];
+    };
+    const invalid = await firstCheck(
+      reply(400, JSON.stringify({ error: "invalid_client", error_description: "client tajne-id-123 / tajny-secret-456 unknown" }))
+    );
+    expect(invalid.ok).toBe(false);
+    expect(invalid.detail).toContain("Přihlášení k iDokladu selhalo (400: invalid_client, client *** / *** unknown — neplatné Client ID nebo Client Secret");
+    expect(invalid.detail).not.toMatch(/tajne-id-123|tajny-secret-456/);
+    // bez JSON těla / s neznámým tvarem kódu jen stav
+    expect((await firstCheck(reply(400, "Bad Request"))).detail).toContain("Přihlášení k iDokladu selhalo (400).");
+    expect((await firstCheck(reply(400, JSON.stringify({ error: "<script>" })))).detail).toContain("selhalo (400).");
+  });
+
   it("zakázané operace se zablokují ještě před odesláním", async () => {
     const { assertEshopIdokladRequest } = await import("../invoicing/idokladHttp");
     const base = "https://api.idoklad.cz/v3";
@@ -426,8 +448,9 @@ describe("pojistka HTTP klienta iDokladu (bez sítě)", () => {
     const client = new EshopIdokladClient({
       clientId: "a",
       clientSecret: "b",
+      applicationId: "c",
       writesAllowed: true,
-      env: { VERCEL_ENV: "preview", IDOKLAD_INVOICING_ENABLED: "on", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "a", IDOKLAD_ESHOP_CLIENT_SECRET: "b" },
+      env: { VERCEL_ENV: "preview", IDOKLAD_INVOICING_ENABLED: "on", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "a", IDOKLAD_ESHOP_CLIENT_SECRET: "b", IDOKLAD_ESHOP_APPLICATION_ID: "c" },
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
     await expect(client.post("/IssuedInvoices", {})).rejects.toThrow(/mimo ostrý provoz/);

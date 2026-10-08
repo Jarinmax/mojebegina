@@ -169,10 +169,63 @@ $guard$;`;
   );
 }
 
+/**
+ * Platby krok B (povinný VS u e-shopové objednávky) pro Production main —
+ * PŘED první e-shopovou objednávkou (rozhodnutí vedení 7. 10. 2026: pojistka
+ * VS musí platit dřív, než se zapne ESHOP_PUBLIC / ESHOP_ORDER_WRITE).
+ * Obsah docs/eshop-payments/21_migration.sql beze změny (bez BEGIN/COMMIT),
+ * na začátku pojistka: větev main, krok A hotový, krok B ještě ne, žádná
+ * e-shopová objednávka. Chyba kdekoli = nic se nezmění.
+ */
+export function guardedPaymentsBSql(timelineId = PRODUCTION_MAIN.timelineId) {
+  const file = "docs/eshop-payments/21_migration.sql";
+  const lines = read(file).split("\n");
+  // úvodní komentář souboru platí pro Preview (pořadí „až po objednávce“) — v Production verzi ho nahrazuje hlavička níže
+  const firstCode = lines.findIndex((line) => line.trim() !== "" && !line.trim().startsWith("--"));
+  const body = lines
+    .slice(firstCode)
+    .filter((line) => !/^\s*(BEGIN|COMMIT)\s*;\s*$/.test(line))
+    .join("\n")
+    .trim();
+  const guard = `DO $guard$
+DECLARE
+  timeline text := current_setting('neon.timeline_id', true);
+BEGIN
+  IF timeline IS DISTINCT FROM '${timelineId}' THEN
+    RAISE EXCEPTION 'STOP: tohle NENÍ Production větev main (neon.timeline_id = %). Nic se nezměnilo.', coalesce(timeline, 'neznámý');
+  END IF;
+  IF to_regclass('public.payments') IS NULL OR to_regclass('public.payment_vs_seq') IS NULL
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'payment_vs') THEN
+    RAISE EXCEPTION 'STOP: chybí platby krok A (nejdřív 13_katalog_a_platby_A_MAIN.sql). Nic se nezměnilo.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_eshop_requires_vs') THEN
+    RAISE EXCEPTION 'STOP: krok B už běžel (pojistka orders_eshop_requires_vs existuje). Nic se nezměnilo.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM orders WHERE channel = 'eshop') THEN
+    RAISE EXCEPTION 'STOP: v Production už je e-shopová objednávka — nečekaný stav, nejdřív ji zkontrolovat. Nic se nezměnilo.';
+  END IF;
+  RAISE NOTICE 'OK: Production main, platby krok A hotový, žádná e-shopová objednávka — zapínám povinný VS.';
+END
+$guard$;`;
+  return (
+    `-- PRODUCTION main — platby krok B: povinný VS u e-shopové objednávky, S POJISTKOU\n` +
+    `-- (VYGENEROVÁNO scripts/eshop-production/build-sql.mjs z ${file}).\n` +
+    `-- Spouští se PŘED první e-shopovou objednávkou. Mění jen e-shopové objednávky (teď 0)\n` +
+    `-- a přidá kontrolu CHECK (channel <> 'eshop' OR payment_vs IS NOT NULL) — import The Cup se netýká.\n` +
+    `-- Jako první krok kontrola: větev main (neon.timeline_id ${timelineId}), krok A hotový,\n` +
+    `-- krok B ještě ne, žádná e-shopová objednávka. Jinak „STOP“ a NIC se nezmění.\n` +
+    `-- Spouštět CELÉ najednou v Neon SQL Editoru. Kontrola po: docs/eshop-payments/22_after.sql\n` +
+    `-- → 1 | 0 | 0 | ano | ano. Vrácení: docs/eshop-payments/29_rollback.sql (nic nemaže).\n\n` +
+    `BEGIN;\n\n-- ===== POJISTKA: jen Production main, jen jednou, před první e-shopovou objednávkou =====\n${guard}\n\n` +
+    `-- ===== ${file} =====\n${body}\n\nCOMMIT;\n`
+  );
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019.sql"), migrationsSql());
   writeFileSync(join(ROOT, "docs/eshop-production/19_migrations_rollback.sql"), rollbackSql());
   writeFileSync(join(ROOT, "docs/eshop-production/11_migrations_0013_0019_MAIN.sql"), guardedMigrationsSql());
   writeFileSync(join(ROOT, "docs/eshop-production/13_katalog_a_platby_A_MAIN.sql"), guardedPhaseARestSql());
-  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql, 13_katalog_a_platby_A_MAIN.sql");
+  writeFileSync(join(ROOT, "docs/eshop-production/15_platby_B_MAIN.sql"), guardedPaymentsBSql());
+  console.log("OK: docs/eshop-production/11_migrations_0013_0019.sql, 11_migrations_0013_0019_MAIN.sql, 19_migrations_rollback.sql, 13_katalog_a_platby_A_MAIN.sql, 15_platby_B_MAIN.sql");
 }
