@@ -13,7 +13,8 @@ import OrderInvoiceDraft from "../OrderInvoiceDraft";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
-import RefundNotice from "../RefundNotice";
+import CancelledMoneyPanel from "../CancelledMoneyPanel";
+import CancelledMoneyBadge from "../CancelledMoneyBadge";
 
 // Security Phase 15 (Objednávky 1.0) — detail objednávky. Autorizace (ADMIN
 // nebo EXECUTIVE) řeší app/rizeni-firmy/layout.tsx nad touto stránkou,
@@ -40,9 +41,7 @@ export default async function OrderDetailPage(
   const staff = await listInternalStaff();
   const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
   const cancelled = order.fulfillmentStatus === "cancelled";
-  // částka k vrácení z posledního označení (lib/eshop/cancellation.ts)
-  const refundEntry = [...activity].reverse().find((a) => a.kind === "refund_required");
-  const refundHal = Number((refundEntry?.metadata as { amountHal?: number } | null)?.amountHal ?? 0);
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
 
   return (
     <div>
@@ -68,17 +67,10 @@ export default async function OrderDetailPage(
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
-        {order.refundRequired && (
-          <span className="text-xs px-2 py-0.5 rounded-full border bg-red-50 text-red-800 border-red-200">Vrátit peníze</span>
-        )}
+        <CancelledMoneyBadge money={order.cancelledMoney} />
       </div>
 
-      {order.refundRequired && (
-        <RefundNotice
-          orderId={order.id}
-          amountText={refundHal > 0 ? (refundHal % 100 === 0 ? formatKc(refundHal / 100) : `${(refundHal / 100).toFixed(2).replace(".", ",")} Kč`) : null}
-        />
-      )}
+      {order.cancelledMoney && <CancelledMoneyPanel orderId={order.id} money={order.cancelledMoney} today={today} />}
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
         <div>
@@ -190,7 +182,7 @@ export default async function OrderDetailPage(
             paymentVs={order.paymentVs}
             token={randomUUID()}
             cancelled={cancelled}
-            today={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date())}
+            today={today}
           />
         ) : (
           <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />

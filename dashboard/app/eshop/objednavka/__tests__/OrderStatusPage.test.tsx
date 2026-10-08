@@ -6,10 +6,17 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { PaymentOrder } from "@/lib/eshop/stripe/payment";
 
 const ID = "48596a19-6622-4e65-b0c5-1840b2e6e149";
-const state = vi.hoisted(() => ({ order: null as PaymentOrder | null }));
+const state = vi.hoisted(() => ({ order: null as PaymentOrder | null, netHal: 0 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/db/client", () => ({ db: {} }));
+// jediný dotaz stránky do DB: stav úhrady (order_payment_balance)
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    select: () => ({
+      from: () => ({ where: () => ({ limit: async () => [{ netHal: state.netHal, requiredHal: (state.order?.totalKc ?? 0) * 100 }] }) }),
+    }),
+  },
+}));
 vi.mock("@/lib/eshop/stripe/payment", async () => {
   const actual = await vi.importActual<typeof import("@/lib/eshop/stripe/payment")>("@/lib/eshop/stripe/payment");
   return { ...actual, loadPaymentOrder: async () => state.order };
@@ -24,7 +31,10 @@ beforeAll(() => {
 afterAll(() => {
   process.env = saved;
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  state.netHal = 0;
+});
 
 function order(overrides: Partial<PaymentOrder>): PaymentOrder {
   return {
@@ -73,11 +83,29 @@ describe("stránka objednávky pro zákazníka", () => {
     expect(screen.queryByText("Zaplatit kartou")).toBeNull();
   });
 
-  it("stornovaná zaplacená: platba přijata, vrácení se domluví (nic automaticky)", async () => {
-    state.order = order({ fulfillmentStatus: "cancelled", paymentStatus: "paid" });
+  it("stornovaná zaplacená (i platba až po stornu): platba přijata, ozveme se — jiný produkt, nebo vrácení", async () => {
+    for (const o of [order({ fulfillmentStatus: "cancelled", paymentStatus: "paid" }), order({ fulfillmentStatus: "cancelled" })]) {
+      state.order = o;
+      state.netHal = 12900;
+      await renderPage();
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Objednávka byla zrušena");
+      expect(document.body.textContent).toContain(
+        "Platbu za objednávku jsme přijali. Ozveme se vám a domluvíme se, jak s ní naložit — například jiný produkt, nebo vrácení peněz."
+      );
+      expect(document.body.textContent).not.toMatch(/automaticky|Zaplaceno — děkujeme|nehraďte/);
+      cleanup();
+    }
+  });
+
+  it("náhradní objednávka s převedenou platbou: výzva i QR jen na doplatek, ne na celou částku", async () => {
+    state.order = order({ totalKc: 379 });
+    state.netHal = 12900; // převedeno 129 Kč ze stornované objednávky
     await renderPage();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Objednávka byla zrušena");
-    expect(document.body.textContent).toContain("Platbu za objednávku jsme přijali. O jejím vrácení se s vámi domluvíme");
-    expect(document.body.textContent).not.toMatch(/automaticky|Zaplaceno — děkujeme/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Objednávka čeká na doplatek");
+    expect(document.body.textContent).toMatch(/Část platby už máme \(129\sKč\)\. Doplaťte prosím 250\sKč/);
+    // platební údaje: částka = doplatek
+    expect(document.body.textContent).toMatch(/Částka\s*250\sKč/);
+    expect(document.body.textContent).not.toMatch(/Částka\s*379/);
+    expect(document.querySelectorAll("svg").length).toBeGreaterThan(1); // QR (na doplatek)
   });
 });

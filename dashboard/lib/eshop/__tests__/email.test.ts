@@ -335,7 +335,7 @@ describe("e-maily — Resend API", () => {
 
 describe("e-maily — potvrzení zrušení objednávky (storno)", () => {
   it("nezaplacená: jasné potvrzení zrušení a „už nehraďte“ — bez platebních údajů", () => {
-    const mail = customerCancellationEmail(ORDER, { ...CTX, refundHal: 0 });
+    const mail = customerCancellationEmail(ORDER, { ...CTX, heldHal: 0 });
     expect(mail.subject).toBe("Objednávka 11348d18 byla zrušena");
     expect(mail.text).toContain("Potvrzujeme, že vaše objednávka 11348d18 byla zrušena.");
     expect(mail.text).toContain("Objednávku už prosím nehraďte.");
@@ -345,15 +345,17 @@ describe("e-maily — potvrzení zrušení objednávky (storno)", () => {
     expect(mail.html).not.toContain("<b>Nováková</b>");
   });
 
-  it("zaplacená: přijatá platba, vrácení se domluví — nic se neslibuje automaticky ani s termínem", () => {
-    const mail = customerCancellationEmail({ ...ORDER, paymentStatus: "paid" }, { ...CTX, refundHal: 123650 });
+  it("zaplacená: přijatá platba, ozveme se — jiný produkt, nebo vrácení; nic automaticky ani s termínem", () => {
+    const mail = customerCancellationEmail({ ...ORDER, paymentStatus: "paid" }, { ...CTX, heldHal: 123650 });
     // částka v českém formátu (mezera tisíců může být nezlomitelná)
-    expect(mail.text).toMatch(/Platbu 1\s236,50 Kč za tuto objednávku jsme přijali\. O jejím vrácení se s vámi domluvíme — ozveme se vám\./);
+    expect(mail.text).toMatch(
+      /Platbu 1\s236,50 Kč za tuto objednávku jsme přijali\. Ozveme se vám a domluvíme se, jak s platbou naložit — například jiný produkt, nebo vrácení peněz\./
+    );
     expect(mail.text).not.toMatch(/nehraďte|automatick|vrátíme|do \d+ (dn|dní)/);
   });
 
   it("testovací režim: [TEST] v předmětu a komu by e-mail šel", () => {
-    const mail = customerCancellationEmail(ORDER, { ...CTX, test: true, withheld: ["jana@example.cz"], refundHal: 0 });
+    const mail = customerCancellationEmail(ORDER, { ...CTX, test: true, withheld: ["jana@example.cz"], heldHal: 0 });
     expect(mail.subject).toBe("[TEST] Objednávka 11348d18 byla zrušena");
     expect(mail.text).toContain("V ostrém provozu by šel na: jana@example.cz.");
   });

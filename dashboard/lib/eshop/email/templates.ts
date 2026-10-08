@@ -327,16 +327,16 @@ function formatHalKc(hal: number): string {
 
 /**
  * Potvrzení zrušení. Nezaplacená objednávka: „už nehraďte“. Zaplacená:
- * vrácení se řeší samostatně — e-mail NESLIBUJE automatické vrácení ani
- * termín, jen že se Begina ozve.
+ * Begina se ozve a domluví se zákazníkem, jak s platbou naložit (jiný
+ * produkt, nebo vrácení) — nic se nerozhoduje ani neslibuje automaticky.
  */
-export function customerCancellationEmail(order: EmailOrder, ctx: Context & { refundHal: number }): RenderedEmail {
+export function customerCancellationEmail(order: EmailOrder, ctx: Context & { heldHal: number }): RenderedEmail {
   const reference = orderReference(order);
-  const held = ctx.refundHal > 0;
+  const held = ctx.heldHal > 0;
   const subject = `${subjectPrefix(ctx)}Objednávka ${reference} byla zrušena`;
   const intro = `Potvrzujeme, že vaše objednávka ${reference} byla zrušena.`;
   const payment = held
-    ? `Platbu ${formatHalKc(ctx.refundHal)} za tuto objednávku jsme přijali. O jejím vrácení se s vámi domluvíme — ozveme se vám.`
+    ? `Platbu ${formatHalKc(ctx.heldHal)} za tuto objednávku jsme přijali. Ozveme se vám a domluvíme se, jak s platbou naložit — například jiný produkt, nebo vrácení peněz.`
     : "Objednávku už prosím nehraďte. Pokud jste platbu mezitím odeslali, odpovězte nám na tento e-mail a domluvíme se.";
   const details: [string, string][] = [
     ["Objednávka", reference],

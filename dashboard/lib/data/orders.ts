@@ -17,7 +17,18 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
-import { afterOrderCancelled, openRefunds, REFUND_RESOLVED, type CancellationOutcome } from "@/lib/eshop/cancellation";
+import {
+  afterOrderCancelled,
+  cancelledMoneyState,
+  normalizeTxId,
+  recordPaymentAfterCancellation,
+  recordRefund,
+  requestRefund,
+  transferPayments,
+  type CancelledMoney,
+  type CancellationOutcome,
+  type TransferTarget,
+} from "@/lib/eshop/cancellation";
 import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
 import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
 import { isInvoiceIssuer } from "./invoiceAuth";
@@ -112,8 +123,12 @@ export type OrderCardData = {
   paymentOverdue: boolean;
   responsibleUserId: string | null;
   responsibleName: string | null;
-  /** Stornovaná objednávka, za kterou Begina drží peníze — vrácení se řeší samostatně (lib/eshop/cancellation.ts). */
-  refundRequired: boolean;
+  /**
+   * Stornovaná e-shopová objednávka, za kterou Begina drží peníze:
+   * „contact“ = kontaktovat zákazníka, „refund“ = zákazník požaduje vrácení
+   * (lib/eshop/cancellation.ts). null = nic k řešení.
+   */
+  cancelledMoney: CancelledMoney | null;
 };
 
 export type OrderCounts = {
@@ -153,7 +168,10 @@ async function buildOrderCards(
         .from(orderItems)
         .where(inArray(orderItems.orderId, orderIds))
     : [];
-  const refunds = await openRefunds(db, orderIds);
+  const money = await cancelledMoneyState(
+    db,
+    orderRows.filter((o) => o.fulfillmentStatus === "cancelled").map((o) => o.id)
+  );
   const itemsByOrder = new Map<string, string[]>();
   for (const item of itemRows) {
     const list = itemsByOrder.get(item.orderId) ?? [];
@@ -182,7 +200,7 @@ async function buildOrderCards(
       paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null) || isTransferOverdue(o),
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
-      refundRequired: o.fulfillmentStatus === "cancelled" && refunds.has(o.id),
+      cancelledMoney: money.get(o.id) ?? null,
     };
   });
 }
@@ -387,7 +405,7 @@ export type StatusChangeResult =
       changed: boolean;
       /** skutečný stav objednávky v DB po uložení */
       status: string;
-      /** jen u storna: vrácení peněz a e-mail zákazníkovi */
+      /** jen u storna: držené peníze a e-mail zákazníkovi */
       cancellation?: CancellationOutcome;
     }
   | { ok: false; error: string };
@@ -469,11 +487,12 @@ export async function updateFulfillmentStatus(
     return conflictResult(now?.fulfillmentStatus ?? from, validated.value, FULFILLMENT_LABELS, "Stav objednávky");
   }
 
-  // Storno: jen po SKUTEČNÉ změně (tento zápis vyhrál) — vrácení peněz
-  // a e-mail zákazníkovi (nejvýš jednou na objednávku).
+  // Storno: jen po SKUTEČNÉ změně (tento zápis vyhrál) — e-mail zákazníkovi
+  // (nejvýš jednou na objednávku). Zaplacená objednávka se NEoznačuje
+  // k vrácení: nejdřív kontaktovat zákazníka (lib/eshop/cancellation.ts).
   const cancellation =
     validated.value === "cancelled"
-      ? await afterOrderCancelled(db, orderId, { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email }, await getAppOrigin())
+      ? await afterOrderCancelled(db, orderId, await getAppOrigin())
       : undefined;
   return { ok: true, changed: true, status: validated.value, ...(cancellation ? { cancellation } : {}) };
 }
@@ -573,8 +592,7 @@ export async function recordOrderPayment(orderId: string, input: RecordPaymentIn
   if (order.fulfillmentStatus === "cancelled") {
     return {
       ok: false,
-      error:
-        "Objednávka je stornovaná — platba se tu nezapisuje a zákazníkovi nic neodejde (ani faktura). Pokud zákazník přesto zaplatil, vraťte mu peníze a zapište to do poznámky.",
+      error: "Objednávka je stornovaná — platbu zapište přes „Zapsat platbu po stornu“ (s ID transakce).",
     };
   }
 
@@ -688,26 +706,121 @@ export async function runEshopIdokladPreflight(): Promise<
   return runPreflightFromEnv();
 }
 
-/**
- * Storno — „Vrácení peněz vyřešeno“: uzavře označení k vrácení
- * (refund_required) záznamem do historie. Peníze vrací člověk mimo
- * MojeBegina (banka / Stripe / hotově); tady se jen potvrdí, že je hotovo.
- */
-export async function resolveRefund(orderId: string, rawNote: string): Promise<OrderResult> {
-  const ctx = await requireOrderContext();
-  const note = rawNote.trim().slice(0, 500);
-  if (!(await openRefunds(db, [orderId])).has(orderId)) {
-    return { ok: false, error: "Objednávka nečeká na vrácení peněz." };
+// --- Peníze stornované objednávky (lib/eshop/cancellation.ts) ---------
+
+export type PostCancelInput = { txId: string; amountKc: string; date: string; method: string; note: string };
+export type ConsentInput = { consent: boolean; note: string };
+
+/** Společná validace formuláře platby / vrácení: ID transakce, částka, datum. */
+function parseMoneyForm(
+  input: PostCancelInput,
+  methods: readonly string[]
+): { ok: true; txId: string; amountHal: number; occurredAt: Date; method: string; note: string | null } | { ok: false; error: string } {
+  const txId = normalizeTxId(input.txId);
+  if (!txId) return { ok: false, error: "Zadejte ID transakce (z výpisu banky, Stripe nebo pokladny)." };
+  const amountHal = parseAmountKcToHal(input.amountKc);
+  if (amountHal === null) return { ok: false, error: "Zadejte částku v Kč (např. 379 nebo 379,50)." };
+  const method = methods.find((m) => m === input.method);
+  if (!method) return { ok: false, error: "Vyberte způsob." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || Number.isNaN(Date.parse(`${input.date}T12:00:00Z`))) {
+    return { ok: false, error: "Zadejte datum." };
   }
-  await db.insert(orderActivity).values({
+  if (input.date > pragueToday(new Date())) return { ok: false, error: "Datum nemůže být v budoucnosti." };
+  // poledne UTC = tentýž den v Praze
+  return { ok: true, txId, amountHal, occurredAt: new Date(`${input.date}T12:00:00Z`), method, note: input.note.trim().slice(0, 500) || null };
+}
+
+/** Souhlas zákazníka: zaškrtnutí + poznámka, jak a kdy souhlasil. */
+function parseConsent(input: ConsentInput): { ok: true; note: string } | { ok: false; error: string } {
+  const note = input.note.trim().slice(0, 500);
+  if (!input.consent || note.length < 3) {
+    return { ok: false, error: "Potvrďte souhlas zákazníka a poznamenejte, jak a kdy souhlasil (např. „e-mail 9. 10.“)." };
+  }
+  return { ok: true, note };
+}
+
+function actorOf(ctx: NonNullable<AuthContext>) {
+  return { userId: ctx.userId, name: ctx.name ?? ctx.email };
+}
+
+/** Platba přijatá po stornu (s ID transakce) — objednávka zůstává Stornovaná. */
+export async function recordOrderPaymentAfterCancellation(
+  orderId: string,
+  input: PostCancelInput
+): Promise<{ ok: true; recorded: boolean } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const form = parseMoneyForm(input, MANUAL_METHODS);
+  if (!form.ok) return form;
+  return recordPaymentAfterCancellation(db, {
     orderId,
-    authorUserId: ctx.userId,
-    authorName: ctx.name,
-    kind: REFUND_RESOLVED,
-    body: note || null,
-    metadata: {},
+    txId: form.txId,
+    method: form.method as (typeof MANUAL_METHODS)[number],
+    amountHal: form.amountHal,
+    occurredAt: form.occurredAt,
+    note: form.note,
+    user: actorOf(ctx),
   });
-  return { ok: true };
+}
+
+/** Zákazník požaduje vrácení peněz (jeho rozhodnutí). */
+export async function requestOrderRefund(
+  orderId: string,
+  input: ConsentInput
+): Promise<{ ok: true; requested: boolean; heldHal: number } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const consent = parseConsent(input);
+  if (!consent.ok) return consent;
+  return requestRefund(db, { orderId, note: consent.note, user: actorOf(ctx) });
+}
+
+const REFUND_METHODS = ["bank_transfer", "cash", "card"] as const;
+
+/** Skutečně vrácené peníze (s ID transakce vrácení). */
+export async function recordOrderRefund(
+  orderId: string,
+  input: PostCancelInput
+): Promise<{ ok: true; recorded: boolean; remainingHal: number } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const form = parseMoneyForm(input, REFUND_METHODS);
+  if (!form.ok) return form;
+  return recordRefund(db, {
+    orderId,
+    txId: form.txId,
+    method: form.method as (typeof REFUND_METHODS)[number],
+    amountHal: form.amountHal,
+    occurredAt: form.occurredAt,
+    note: form.note,
+    user: actorOf(ctx),
+  });
+}
+
+/**
+ * Zákazník souhlasí s jiným produktem → převod platby na jeho e-shopovou
+ * objednávku. Při úplné úhradě cílové objednávky běží běžný postup
+ * (návrh / vystavení faktury podle režimu, „Platbu jsme přijali“).
+ */
+export async function transferOrderPayment(
+  orderId: string,
+  input: ConsentInput & { target: string; allowDifferentCustomer: boolean }
+): Promise<{ ok: true; movedHal: number; settled: boolean; target: TransferTarget } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  const consent = parseConsent(input);
+  if (!consent.ok) return consent;
+  const result = await transferPayments(db, {
+    fromOrderId: orderId,
+    target: input.target,
+    note: consent.note,
+    allowDifferentCustomer: input.allowDifferentCustomer,
+    user: actorOf(ctx),
+  });
+  if (result.ok && result.settled) {
+    await invoiceAndNotifyPaid(db, result.target.id, "payment_marked_paid", await getAppOrigin(), {
+      type: "user",
+      userId: ctx.userId,
+      name: ctx.name ?? ctx.email,
+    });
+  }
+  return result;
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {

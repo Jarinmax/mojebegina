@@ -1,8 +1,10 @@
 // Storno objednávky (zadání majitele 8. 10. 2026) nad skutečnou pokladnou,
 // webhookem Stripe a datovou vrstvou MojeBegina (ovladač Neonu → PGlite).
 // Stav se mění atomicky (souběh, uložení beze změny), e-mail o zrušení
-// odejde jen při skutečné změně a nejvýš jednou, zaplacená objednávka se
-// označí k samostatnému vrácení peněz, platba ani faktura se už nezapíšou.
+// odejde jen při skutečné změně a nejvýš jednou. Peníze za stornovanou
+// objednávku NEZNAMENAJÍ automaticky vrácení: objednávka zůstane
+// Stornovaná, upozorní „kontaktovat zákazníka“ a podle jeho rozhodnutí se
+// platba převede (se souhlasem) nebo vrátí (zápis skutečného vrácení).
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
@@ -189,7 +191,7 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
       ok: true,
       changed: true,
       status: "cancelled",
-      cancellation: { refundHal: 0, email: { template: "customer_cancellation", status: "sent" } },
+      cancellation: { heldHal: 0, email: { template: "customer_cancellation", status: "sent" } },
     });
     expect(await status(id)).toBe("cancelled");
     expect(await activity(id, "fulfillment_status_changed")).toEqual([
@@ -204,9 +206,8 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
     expect(mailOut.text).not.toMatch(/QR|Variabilní symbol|Číslo účtu/);
     expect(mailOut.key).toBe(`eshop-customer_cancellation-${id}`);
     expect(await activity(id, "email_sent")).toContainEqual(expect.objectContaining({ template: "customer_cancellation" }));
-    expect(await activity(id, "refund_required")).toEqual([]);
-    // ve výpisu ani detailu nic k vrácení
-    expect((await orders.getOrderDetail(id))!.order).toMatchObject({ fulfillmentStatus: "cancelled", refundRequired: false });
+    // ve výpisu ani detailu nic k řešení
+    expect((await orders.getOrderDetail(id))!.order).toMatchObject({ fulfillmentStatus: "cancelled", cancelledMoney: null });
   });
 
   it("opakované uložení storna: nic se nezmění, žádný další záznam ani e-mail", async () => {
@@ -257,59 +258,213 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
     expect(await activity(id, "fulfillment_status_changed")).toHaveLength(3);
   });
 
-  it("zaplacená: storno označí k vrácení peněz; e-mail nic automaticky neslibuje; „Vrácení vyřešeno“ označení uzavře", async () => {
+  const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
+  const orderRow = async (id: string) =>
+    (await rows(sql`SELECT fulfillment_status, payment_status, payment_vs FROM orders WHERE id = ${id}`))[0] as {
+      fulfillment_status: string;
+      payment_status: string;
+      payment_vs: string;
+    };
+  const money = async (id: string) => (await orders.getOrderDetail(id))!.order.cancelledMoney;
+  const postCancel = (id: string, txId: string, amountKc = "758") =>
+    orders.recordOrderPaymentAfterCancellation(id, { txId, amountKc, date: today(), method: "bank_transfer", note: "" });
+
+  it("zaplacená a pak stornovaná: NIC se automaticky nevrací — upozornění „kontaktovat zákazníka“, e-mail nabízí domluvu", async () => {
     const id = randomUUID();
     await newOrder(id);
     await payManually(id);
     const result = await orders.updateFulfillmentStatus(id, "cancelled", "new");
-    expect(result).toMatchObject({ ok: true, changed: true, cancellation: { refundHal: 75800, email: { status: "sent" } } });
-    expect(await activity(id, "refund_required")).toEqual([{ amountHal: 75800, reason: "cancelled" }]);
+    expect(result).toMatchObject({ ok: true, changed: true, cancellation: { heldHal: 75800, email: { status: "sent" } } });
+    expect(await activity(id, "refund_requested")).toEqual([]);
+    expect(await money(id)).toEqual({ stage: "contact", heldHal: 75800 });
+    expect((await orders.listOrders()).orders.find((o) => o.id === id)!.cancelledMoney).toEqual({ stage: "contact", heldHal: 75800 });
 
     const [mailOut] = cancellationMails();
-    expect(mailOut.text).toContain("Platbu 758 Kč za tuto objednávku jsme přijali. O jejím vrácení se s vámi domluvíme — ozveme se vám.");
-    expect(mailOut.text).not.toMatch(/nehraďte|automaticky|vrátíme|do \d+ dn/);
-
-    const card = (await orders.listOrders()).orders.find((o) => o.id === id)!;
-    expect(card.refundRequired).toBe(true);
-    // znovu uložit storno = žádné druhé označení
-    await orders.updateFulfillmentStatus(id, "cancelled", "cancelled");
-    expect(await activity(id, "refund_required")).toHaveLength(1);
-
-    expect(await orders.resolveRefund(id, "vráceno převodem")).toEqual({ ok: true });
-    expect((await orders.getOrderDetail(id))!.order.refundRequired).toBe(false);
-    expect(await orders.resolveRefund(id, "")).toEqual({ ok: false, error: "Objednávka nečeká na vrácení peněz." });
+    expect(mailOut.text).toContain(
+      "Platbu 758 Kč za tuto objednávku jsme přijali. Ozveme se vám a domluvíme se, jak s platbou naložit — například jiný produkt, nebo vrácení peněz."
+    );
+    expect(mailOut.text).not.toMatch(/nehraďte|automaticky|vrátíme/);
   });
 
-  it("stornovaná: platba se nezapíše, návrh faktury nevznikne, zákazníkovi nic neodejde", async () => {
+  it("stornovaná: běžná platba se nezapíše, návrh faktury nevznikne, zákazníkovi nic neodejde", async () => {
     const id = randomUUID();
     await newOrder(id);
     await orders.updateFulfillmentStatus(id, "cancelled", "new");
     mail.sent.length = 0;
-    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
     expect(
-      await orders.recordOrderPayment(id, { token: randomUUID(), amountKc: "758", date: today, method: "bank_transfer", note: "" })
-    ).toEqual({ ok: false, error: expect.stringMatching(/^Objednávka je stornovaná/) });
+      await orders.recordOrderPayment(id, { token: randomUUID(), amountKc: "758", date: today(), method: "bank_transfer", note: "" })
+    ).toEqual({ ok: false, error: expect.stringMatching(/Zapsat platbu po stornu/) });
     expect(await orders.prepareOrderInvoiceDraft(id, false)).toEqual({ ok: false, error: expect.stringMatching(/stornovaná/) });
     expect(await rows(sql`SELECT id FROM payments WHERE order_id = ${id}`)).toEqual([]);
     expect(await rows(sql`SELECT id FROM invoices WHERE order_id = ${id}`)).toEqual([]);
     expect(mail.sent).toEqual([]);
+    expect(await money(id)).toBeNull();
   });
 
-  it("platba kartou dorazí až po stornu: bez faktury a bez e-mailu o platbě, jen označení k vrácení", async () => {
+  it("platba po stornu s ID transakce: zapíše se jednou, objednávka zůstává Stornovaná a nezaplacená, bez faktury a e-mailu", async () => {
+    const id = randomUUID();
+    await newOrder(id);
+    await orders.updateFulfillmentStatus(id, "cancelled", "new");
+    mail.sent.length = 0;
+    expect(await postCancel(id, "  ab ")).toEqual({ ok: false, error: expect.stringMatching(/ID transakce/) });
+    expect(await postCancel(id, "BANK-2026-10-09-001")).toEqual({ ok: true, recorded: true });
+    // dvojí odeslání / stejná transakce znovu
+    expect(await postCancel(id, "BANK-2026-10-09-001")).toEqual({ ok: true, recorded: false });
+    expect(await orderRow(id)).toMatchObject({ fulfillment_status: "cancelled", payment_status: "unpaid" });
+    expect(await rows(sql`SELECT external_id, amount_hal::int AS amount FROM payments WHERE order_id = ${id}`)).toEqual([
+      { external_id: "tx:BANK-2026-10-09-001", amount: 75800 },
+    ]);
+    expect(await activity(id, "payment_after_cancellation")).toEqual([
+      expect.objectContaining({ amountHal: 75800, txId: "BANK-2026-10-09-001", method: "bank_transfer" }),
+    ]);
+    expect(await rows(sql`SELECT id FROM invoices WHERE order_id = ${id}`)).toEqual([]);
+    expect(mail.sent).toEqual([]);
+    expect(await money(id)).toEqual({ stage: "contact", heldHal: 75800 });
+
+    // stejná transakce u jiné objednávky = odmítnuto
+    const other = randomUUID();
+    await newOrder(other);
+    await orders.updateFulfillmentStatus(other, "cancelled", "new");
+    expect(await postCancel(other, "BANK-2026-10-09-001")).toEqual({ ok: false, error: expect.stringMatching(/u jiné objednávky/) });
+  });
+
+  it("zákazník chce vrácení: jen s jeho souhlasem → „Vrátit peníze“ → zápis skutečného vrácení (i po částech), bez duplicit", async () => {
+    const id = randomUUID();
+    await newOrder(id);
+    await payManually(id);
+    await orders.updateFulfillmentStatus(id, "cancelled", "new");
+    const refund = (txId: string, amountKc: string) =>
+      orders.recordOrderRefund(id, { txId, amountKc, date: today(), method: "bank_transfer", note: "" });
+
+    // bez rozhodnutí zákazníka vrácení zapsat nejde
+    expect(await refund("VRAT-1", "758")).toEqual({ ok: false, error: expect.stringMatching(/po rozhodnutí zákazníka/) });
+    expect(await orders.requestOrderRefund(id, { consent: false, note: "telefon" })).toEqual({ ok: false, error: expect.stringMatching(/souhlas/) });
+    expect(await orders.requestOrderRefund(id, { consent: true, note: "telefon 9. 10." })).toEqual({ ok: true, requested: true, heldHal: 75800 });
+    expect(await orders.requestOrderRefund(id, { consent: true, note: "znovu" })).toEqual({ ok: true, requested: false, heldHal: 75800 });
+    expect(await money(id)).toEqual({ stage: "refund", heldHal: 75800 });
+
+    expect(await refund("VRAT-1", "800")).toEqual({ ok: false, error: expect.stringMatching(/nejvýš 758/) });
+    expect(await refund("VRAT-1", "500")).toEqual({ ok: true, recorded: true, remainingHal: 25800 });
+    expect(await refund("VRAT-1", "500")).toEqual({ ok: true, recorded: false, remainingHal: 25800 });
+    expect(await money(id)).toEqual({ stage: "refund", heldHal: 25800 });
+    expect(await refund("VRAT-2", "258")).toEqual({ ok: true, recorded: true, remainingHal: 0 });
+    expect(await money(id)).toBeNull();
+
+    const outflows = await rows(sql`
+      SELECT p.external_id, p.amount_hal::int AS amount, p.direction, r.direction AS of_direction
+      FROM payments p LEFT JOIN payments r ON r.id = p.refund_of_payment_id
+      WHERE p.order_id = ${id} AND p.direction = 'outflow' ORDER BY p.amount_hal DESC`);
+    expect(outflows).toEqual([
+      { external_id: "refund:VRAT-1", amount: 50000, direction: "outflow", of_direction: "inflow" },
+      { external_id: "refund:VRAT-2", amount: 25800, direction: "outflow", of_direction: "inflow" },
+    ]);
+    expect(await activity(id, "refund_recorded")).toHaveLength(2);
+    expect(await orderRow(id)).toMatchObject({ fulfillment_status: "cancelled" });
+  });
+
+  it("zákazník souhlasí s jiným produktem: platba se převede celá na jeho objednávku, ta je zaplacená; historie u obou", async () => {
+    const id = randomUUID();
+    await newOrder(id);
+    await orders.updateFulfillmentStatus(id, "cancelled", "new");
+    await postCancel(id, "BANK-TRANSFER-1");
+    const target = randomUUID();
+    await newOrder(target); // zákazník si objednal jiný produkt za stejnou cenu
+    const { payment_vs: targetVs } = await orderRow(target);
+    const transfer = (input: Partial<{ target: string; consent: boolean; note: string; allowDifferentCustomer: boolean }>) =>
+      orders.transferOrderPayment(id, { target: targetVs, consent: true, note: "e-mail 9. 10.", allowDifferentCustomer: false, ...input });
+
+    expect(await transfer({ consent: false })).toEqual({ ok: false, error: expect.stringMatching(/souhlas/) });
+    expect(await transfer({ target: "99999999" })).toEqual({ ok: false, error: expect.stringMatching(/nebyla nalezena/) });
+    const { payment_vs: ownVs } = await orderRow(id);
+    expect(await transfer({ target: ownVs })).toEqual({ ok: false, error: expect.stringMatching(/tutéž objednávku/) });
+    mail.sent.length = 0;
+
+    const result = await transfer({});
+    expect(result).toMatchObject({ ok: true, movedHal: 75800, settled: true, target: { id: target } });
+    // původní platba: převedená (dohledatelná), nová u cílové objednávky
+    const [original] = await rows(sql`SELECT status, superseded_by_payment_id FROM payments WHERE external_id = 'tx:BANK-TRANSFER-1'`);
+    expect(original.status).toBe("superseded");
+    const [moved] = await rows(sql`SELECT id, order_id, external_id, vs, raw->>'originalExternalId' AS orig FROM payments WHERE id = ${original.superseded_by_payment_id}`);
+    expect(moved).toMatchObject({ order_id: target, vs: targetVs, orig: "tx:BANK-TRANSFER-1" });
+    expect(moved.external_id).toMatch(/^transfer:/);
+
+    expect(await orderRow(id)).toMatchObject({ fulfillment_status: "cancelled", payment_status: "unpaid" });
+    expect(await orderRow(target)).toMatchObject({ payment_status: "paid" });
+    expect(await money(id)).toBeNull();
+    expect(await activity(id, "payment_transferred_out")).toEqual([expect.objectContaining({ amountHal: 75800, toOrderId: target, consent: true })]);
+    expect(await activity(target, "payment_transferred_in")).toEqual([expect.objectContaining({ amountHal: 75800, fromOrderId: id })]);
+    // cílová objednávka jde běžnou cestou: „Platbu jsme přijali“ (stornovaná nic)
+    expect(mail.sent.map((m) => m.subject)).toEqual([expect.stringMatching(/^\[TEST\] Platbu za objednávku \d+ jsme přijali$/)]);
+
+    // podruhé převést nejde
+    expect(await transfer({})).toEqual({ ok: false, error: expect.stringMatching(/cílová objednávka už je zaplacená|Není co převést/i) });
+  });
+
+  it("dvojklik na „Převést platbu“: platba se převede jen jednou", async () => {
+    const id = randomUUID();
+    await newOrder(id);
+    await orders.updateFulfillmentStatus(id, "cancelled", "new");
+    await postCancel(id, "BANK-DOUBLE-1");
+    const target = randomUUID();
+    await newOrder(target);
+    const { payment_vs: targetVs } = await orderRow(target);
+    const input = { target: targetVs, consent: true, note: "e-mail", allowDifferentCustomer: false };
+    const results = await Promise.all([orders.transferOrderPayment(id, input), orders.transferOrderPayment(id, input)]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(await rows(sql`SELECT id FROM payments WHERE order_id = ${target} AND direction = 'inflow'`)).toHaveLength(1);
+    expect(await activity(target, "payment_transferred_in")).toHaveLength(1);
+  });
+
+  it("převod na dražší objednávku: jen doplatek (zákaznická stránka i stav); jiný e-mail jen s potvrzením; ne na stornovanou", async () => {
+    const id = randomUUID();
+    await newOrder(id);
+    await orders.updateFulfillmentStatus(id, "cancelled", "new");
+    await postCancel(id, "BANK-TRANSFER-2");
+
+    const cancelledTarget = randomUUID();
+    await newOrder(cancelledTarget);
+    await orders.updateFulfillmentStatus(cancelledTarget, "cancelled", "new");
+    const { payment_vs: cancelledVs } = await orderRow(cancelledTarget);
+    expect(await orders.transferOrderPayment(id, { target: cancelledVs, consent: true, note: "tel.", allowDifferentCustomer: false })).toEqual({
+      ok: false,
+      error: "Cílová objednávka je stornovaná.",
+    });
+
+    const target = randomUUID();
+    await newOrder(target, { cart: JSON.stringify([{ sku: "kulajda", quantity: 3 }]), email: "jiny@example.cz" });
+    const { payment_vs: targetVs } = await orderRow(target);
+    expect(await orders.transferOrderPayment(id, { target: targetVs, consent: true, note: "tel.", allowDifferentCustomer: false })).toEqual({
+      ok: false,
+      error: expect.stringMatching(/jinému e-mailu \(jiny@example.cz\)/),
+    });
+    const result = await orders.transferOrderPayment(id, { target: targetVs, consent: true, note: "tel. 9. 10.", allowDifferentCustomer: true });
+    expect(result).toMatchObject({ ok: true, movedHal: 75800, settled: false });
+    expect(await orderRow(target)).toMatchObject({ payment_status: "unpaid" });
+    const [balance] = await rows(sql`SELECT net_hal::int AS net, required_hal::int AS required FROM order_payment_balance WHERE order_id = ${target}`);
+    expect(balance).toEqual({ net: 75800, required: 113700 });
+  });
+
+  it("platba kartou dorazí až po stornu: zapíše se, objednávka zůstává Stornovaná, bez faktury a e-mailu — kontaktovat zákazníka", async () => {
     const id = randomUUID();
     await newOrder(id, { paymentMethodId: "karta" });
     // karta: potvrzení odchází až po zaplacení → storno nezaplacené objednávky
     await orders.updateFulfillmentStatus(id, "cancelled", "new");
     mail.sent.length = 0;
+    expect(await payByWebhook(id, `evt_${id.slice(0, 8)}`)).toMatchObject({ outcome: "paid-after-cancellation" });
+    // opakovaná událost = žádný druhý záznam
     await payByWebhook(id, `evt_${id.slice(0, 8)}`);
     expect(mail.sent).toEqual([]);
     expect(await rows(sql`SELECT id FROM invoices WHERE order_id = ${id}`)).toEqual([]);
+    expect(await orderRow(id)).toMatchObject({ fulfillment_status: "cancelled", payment_status: "unpaid" });
     const [{ total_kc }] = await rows(sql`SELECT total_kc FROM orders WHERE id = ${id}`);
-    expect(await activity(id, "refund_required")).toEqual([{ amountHal: Number(total_kc) * 100, reason: "paid_after_cancellation" }]);
-    expect((await orders.getOrderDetail(id))!.order.refundRequired).toBe(true);
+    expect(await activity(id, "payment_after_cancellation")).toEqual([
+      expect.objectContaining({ amountHal: Number(total_kc) * 100, provider: "stripe", method: "card" }),
+    ]);
+    expect(await activity(id, "refund_requested")).toEqual([]);
+    expect(await money(id)).toEqual({ stage: "contact", heldHal: Number(total_kc) * 100 });
   });
 
-  it("ruční (B2B) objednávka: storno bez e-mailu; zaplacená se označí k vrácení", async () => {
+  it("ruční (B2B) objednávka: storno bez e-mailu a bez upozornění (platby se u ní neevidují)", async () => {
     const [org] = await rows(sql`
       INSERT INTO organizations (name, ico, registered_address) VALUES ('Kavárna Test', ${String(Date.now()).slice(-8)}, 'Praha')
       RETURNING id`);
@@ -329,7 +484,8 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
     expect(await orders.updatePaymentStatus(id, "paid", "paid")).toEqual({ ok: true, changed: false, status: "paid" });
     mail.sent.length = 0;
     const result = await orders.updateFulfillmentStatus(id, "cancelled");
-    expect(result).toMatchObject({ ok: true, changed: true, cancellation: { refundHal: 90000, email: null } });
+    expect(result).toMatchObject({ ok: true, changed: true, cancellation: { heldHal: 90000, email: null } });
     expect(mail.sent).toEqual([]);
+    expect(await money(id)).toBeNull();
   });
 });

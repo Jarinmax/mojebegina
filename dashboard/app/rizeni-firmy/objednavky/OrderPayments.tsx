@@ -5,7 +5,7 @@
 // platbu“. Stav Zaplaceno se nepřepíná ručně — nastaví se sám, až je
 // uhrazená celá částka (lib/eshop/payments.ts).
 import { useActionState, useState } from "react";
-import { recordPaymentAction, type ActionState } from "./actions";
+import { recordPaymentAction, recordPaymentAfterCancellationAction, type ActionState } from "./actions";
 import type { OrderPaymentSummary } from "@/lib/eshop/payments";
 import { formatCzechDate, formatKc } from "@/lib/format";
 
@@ -26,7 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
   succeeded: "přijato",
   failed: "neúspěšná",
   cancelled: "zrušená",
-  superseded: "nahrazeno záznamem z banky",
+  superseded: "převedeno / nahrazeno jiným záznamem",
   refunded: "vráceno",
 };
 
@@ -55,11 +55,15 @@ export default function OrderPayments({
   token: string;
   /** dnešní datum v Praze (YYYY-MM-DD) */
   today: string;
-  /** stornovaná objednávka — platby se nezapisují */
+  /**
+   * stornovaná objednávka — „Zapsat platbu po stornu“: povinné ID
+   * transakce, objednávka zůstává Stornovaná a nezaplacená
+   * (lib/eshop/cancellation.ts)
+   */
   cancelled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const boundAction = recordPaymentAction.bind(null, orderId);
+  const boundAction = (cancelled ? recordPaymentAfterCancellationAction : recordPaymentAction).bind(null, orderId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
   const [processedState, setProcessedState] = useState(state);
@@ -103,21 +107,31 @@ export default function OrderPayments({
 
       {state && "success" in state && <p className="text-xs text-emerald-700">{state.success}</p>}
 
-      {cancelled ? (
-        <p className="text-xs text-neutral-500">Objednávka je stornovaná — platby se nezapisují.</p>
-      ) : !open ? (
+      {!open ? (
         <div>
           <button
             type="button"
             onClick={() => setOpen(true)}
             className="text-sm font-medium text-begina-primary-900 hover:underline"
           >
-            Zapsat platbu
+            {cancelled ? "Zapsat platbu po stornu" : "Zapsat platbu"}
           </button>
         </div>
       ) : (
         <form action={formAction} className="flex flex-col gap-2 border border-neutral-200 rounded-lg p-3">
           <input type="hidden" name="token" value={token} />
+          {cancelled && (
+            <label className="flex flex-col gap-1 text-xs text-neutral-500">
+              ID transakce (z výpisu banky / pokladny)
+              <input
+                name="txId"
+                required
+                minLength={3}
+                maxLength={100}
+                className="px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+              />
+            </label>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1 text-xs text-neutral-500">
               Částka (Kč)
@@ -125,7 +139,7 @@ export default function OrderPayments({
                 name="amountKc"
                 inputMode="decimal"
                 required
-                defaultValue={amountField(summary.remainingHal > 0 ? summary.remainingHal : summary.requiredHal)}
+                defaultValue={cancelled ? "" : amountField(summary.remainingHal > 0 ? summary.remainingHal : summary.requiredHal)}
                 className="px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
               />
             </label>
@@ -161,7 +175,9 @@ export default function OrderPayments({
             />
           </label>
           <p className="text-xs text-neutral-500">
-            Zaplaceno se nastaví samo, až bude uhrazená celá částka. Pak zákazník dostane e-mail „Platbu jsme přijali“.
+            {cancelled
+              ? "Objednávka zůstane stornovaná a nezaplacená — žádná faktura ani e-mail o platbě. Pak kontaktujte zákazníka."
+              : "Zaplaceno se nastaví samo, až bude uhrazená celá částka. Pak zákazník dostane e-mail „Platbu jsme přijali“."}
           </p>
           {state && "error" in state && <p className="text-xs text-begina-accent-700">{state.error}</p>}
           <div className="flex gap-2">
@@ -170,7 +186,7 @@ export default function OrderPayments({
               disabled={pending}
               className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 disabled:opacity-50"
             >
-              {pending ? "Ukládám…" : "Zapsat platbu"}
+              {pending ? "Ukládám…" : cancelled ? "Zapsat platbu po stornu" : "Zapsat platbu"}
             </button>
             <button
               type="button"

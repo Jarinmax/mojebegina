@@ -16,7 +16,10 @@ import {
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
-  resolveRefund,
+  recordOrderPaymentAfterCancellation,
+  requestOrderRefund,
+  recordOrderRefund,
+  transferOrderPayment,
   type StatusChangeResult,
 } from "@/lib/data/orders";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
@@ -83,7 +86,7 @@ function statusMessage(
     else if (c.email?.status === "duplicate") parts.push("E-mail o zrušení už zákazník dostal dříve.");
     else if (c.email?.status === "failed") parts.push("⚠ E-mail o zrušení se nepodařilo odeslat — kontaktujte zákazníka.");
     else if (c.email?.status === "no-recipient") parts.push("Zákazník nemá e-mail — informujte ho jinak.");
-    if (c.refundHal > 0) parts.push("Objednávka je zaplacená — označená k vrácení peněz (řeší se samostatně).");
+    if (c.heldHal > 0) parts.push("Objednávka je zaplacená — kontaktujte zákazníka (jiný produkt, nebo vrácení peněz).");
   }
   return { success: parts.join(" ") };
 }
@@ -117,18 +120,6 @@ export async function updatePaymentStatusAction(
   );
   revalidateOrder(orderId);
   return statusMessage(result, PAYMENT_LABELS, "Stav platby");
-}
-
-// Storno — „Vrácení peněz vyřešeno“ (lib/eshop/cancellation.ts).
-export async function resolveRefundAction(
-  orderId: string,
-  _prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const result = await resolveRefund(orderId, String(formData.get("note") ?? ""));
-  if (!result.ok) return { error: result.error };
-  revalidateOrder(orderId);
-  return { success: "Vrácení peněz je označené jako vyřešené." };
 }
 
 // ESHOP 1.0 — „Zapsat platbu“ (e-shopové objednávky): Zaplaceno se nastaví
@@ -233,4 +224,82 @@ export async function updateOrderNoteAction(
 
   revalidateOrder(orderId);
   return { success: "Poznámka byla uložena." };
+}
+
+// --- Peníze stornované objednávky (lib/eshop/cancellation.ts) ---------
+
+const kcText = (hal: number) =>
+  `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+
+function moneyFields(formData: FormData) {
+  const field = (key: string) => String(formData.get(key) ?? "");
+  return { txId: field("txId"), amountKc: field("amountKc"), date: field("date"), method: field("method"), note: field("note") };
+}
+
+export async function recordPaymentAfterCancellationAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await recordOrderPaymentAfterCancellation(orderId, moneyFields(formData));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return {
+    success: result.recorded
+      ? "Platba po stornu zapsána. Objednávka zůstává stornovaná — kontaktujte zákazníka."
+      : "Platba s tímto ID transakce už je zapsaná.",
+  };
+}
+
+export async function requestRefundAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await requestOrderRefund(orderId, {
+    consent: formData.get("consent") === "on",
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return { success: `Zákazník požaduje vrácení ${kcText(result.heldHal)} — po vrácení ho zapište.` };
+}
+
+export async function recordRefundAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await recordOrderRefund(orderId, moneyFields(formData));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  if (!result.recorded) return { success: "Vrácení s tímto ID transakce už je zapsané." };
+  return {
+    success:
+      result.remainingHal > 0
+        ? `Vrácení zapsáno. Zbývá vrátit ${kcText(result.remainingHal)}.`
+        : "Vrácení zapsáno — peníze jsou vrácené celé.",
+  };
+}
+
+export async function transferPaymentAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await transferOrderPayment(orderId, {
+    target: String(formData.get("target") ?? ""),
+    consent: formData.get("consent") === "on",
+    note: String(formData.get("note") ?? ""),
+    allowDifferentCustomer: formData.get("differentCustomer") === "on",
+  });
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  revalidateOrder(result.target.id);
+  const ref = result.target.orderNumber ?? result.target.paymentVs ?? result.target.id.slice(0, 8);
+  return {
+    success: `Platba ${kcText(result.movedHal)} převedena na objednávku ${ref} (${result.target.contactName ?? "bez jména"})${
+      result.settled ? " — ta je teď zaplacená." : " — zákazník ji ještě doplatí."
+    }`,
+  };
 }

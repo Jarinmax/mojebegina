@@ -15,8 +15,8 @@
 //     (ostrý provoz, issue.ts)        (jen když PDF ještě neodešlo)
 //   skutečná změna na Stornovaná    → zákazník: „Objednávka … byla zrušena“
 //     (lib/eshop/cancellation.ts)     (nezaplacená: už nehradit; zaplacená:
-//                                     vrácení řešíme samostatně, nic se
-//                                     neslibuje automaticky) — max. jednou
+//                                     ozveme se — jiný produkt, nebo
+//                                     vrácení; nic automaticky) — max. jednou
 //
 // Ostrý provoz fakturace: PDF faktury z iDokladu (option invoicePdf) se
 // přiloží k potvrzení o zaplacení. iDoklad sám zákazníkovi nic neposílá.
@@ -179,7 +179,7 @@ export type SendOrderEmailsOptions = {
   /** PDF vystavené faktury — přiloží se k potvrzení o zaplacení */
   invoicePdf?: InvoicePdf | null;
   /** storno: kolik peněz Begina drží (haléře) — rozhoduje o textu e-mailu */
-  cancellation?: { refundHal: number };
+  cancellation?: { heldHal: number };
 };
 
 /** Ke kterému e-mailu patří PDF faktury (jen zaplacená objednávka). */
@@ -235,7 +235,7 @@ export async function sendOrderEmails(
         if (qr) inlineImages = [qr];
         rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber });
       } else if (template === "customer_cancellation") {
-        rendered = customerCancellationEmail(order, { ...ctx, refundHal: options.cancellation?.refundHal ?? 0 });
+        rendered = customerCancellationEmail(order, { ...ctx, heldHal: options.cancellation?.heldHal ?? 0 });
       } else if (template === "customer_payment_received" || template === "customer_invoice") {
         rendered = customerPaymentReceivedEmail(order, { ...ctx, invoiceNumber, late: template === "customer_invoice" });
       } else {

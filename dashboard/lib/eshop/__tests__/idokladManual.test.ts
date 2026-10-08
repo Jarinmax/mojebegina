@@ -210,7 +210,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
   it("manual: stornovanou objednávku (i zaplacenou) nejde vyfakturovat — iDoklad nedostane nic", async () => {
     const id = await newOrder();
     await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
-    expect(await orders.updateFulfillmentStatus(id, "cancelled")).toMatchObject({ ok: true, changed: true, cancellation: { refundHal: expect.any(Number) } });
+    expect(await orders.updateFulfillmentStatus(id, "cancelled")).toMatchObject({ ok: true, changed: true, cancellation: { heldHal: expect.any(Number) } });
     route.fake = createFakeIdoklad();
     expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: "Objednávka je stornovaná — faktura se nevystaví." });
     expect(route.fake.calls).toEqual([]);
