@@ -5,8 +5,9 @@ import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
 // Informační stránka e-shopu (O nás, O vodě, Doprava, Obchodní podmínky, GDPR).
 // Obsah: lib/eshop/infoPages.ts.
 
-// E-mail, telefon a webové adresy v textu jako odkazy.
-const LINKABLE = /(info@begina\.cz|\+420 774 199 975|www\.[a-z0-9.-]*[a-z0-9]|adr\.coi\.cz)/g;
+// E-mail, telefon a webové adresy v textu jako odkazy (adresa i s cestou,
+// např. „www.begina.cz/gdpr/“ — tečka za koncem věty do odkazu nepatří).
+const LINKABLE = /(info@begina\.cz|\+420 774 199 975|www\.[a-z0-9.-]*[a-z0-9](?:\/[a-z0-9_/-]*[a-z0-9/])?|adr\.coi\.cz)/g;
 
 function linkHref(token: string): string {
   if (token.includes("@")) return `mailto:${token}`;

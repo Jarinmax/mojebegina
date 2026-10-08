@@ -140,6 +140,8 @@ describe("informační stránky", () => {
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(screen.getAllByRole("link", { name: "www.uoou.gov.cz" })).toHaveLength(1);
+    // čl. XIII: celá adresa je odkaz (dnes na begina.cz, po přepnutí domény přesměrování v next.config.ts)
+    expect(screen.getByRole("link", { name: "www.begina.cz/gdpr/" }).getAttribute("href")).toBe("https://www.begina.cz/gdpr/");
     expect(screen.getAllByRole("link", { name: "info@begina.cz" }).length).toBeGreaterThanOrEqual(3);
     expect(existsSync(path.join(APP, INFO_PAGES.privacy.path, "page.tsx"))).toBe(true);
   });
@@ -165,5 +167,29 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(screen.getByText(/Tyto obchodní podmínky jsou platné a účinné od 22\. září 2026\./)).toBeTruthy();
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual(expect.arrayContaining(["mailto:info@begina.cz", "tel:+420774199975", "https://www.coi.cz", "https://adr.coi.cz", "https://www.begina.cz"]));
+  });
+});
+
+describe("odkazy na právní stránky ze starého webu begina.cz", () => {
+  it("/gdpr, /obchodni-podminky, /doprava přesměrují na stránky e-shopu (dočasně) a cíle existují", async () => {
+    const config = (await import("../../next.config")).default;
+    const redirects = await config.redirects!();
+    expect(redirects).toEqual([
+      { source: "/gdpr", destination: INFO_PAGES.privacy.path, permanent: false },
+      { source: "/obchodni-podminky", destination: INFO_PAGES.terms.path, permanent: false },
+      { source: "/doprava", destination: INFO_PAGES.shipping.path, permanent: false },
+    ]);
+    for (const r of redirects) {
+      expect(existsSync(path.join(APP, r.destination, "page.tsx"))).toBe(true);
+      // zdroj nesmí přepsat existující stránku aplikace
+      expect(existsSync(path.join(APP, r.source))).toBe(false);
+    }
+  });
+
+  it("adresa s cestou je celá odkaz, tečka za větou do odkazu nepatří", async () => {
+    const { linkify } = await import("../eshop/InfoPageView");
+    render(<p>{linkify("Aktuální znění je na adrese www.begina.cz/gdpr/. Obchod: www.begina.cz.")}</p>);
+    expect(screen.getByRole("link", { name: "www.begina.cz/gdpr/" }).getAttribute("href")).toBe("https://www.begina.cz/gdpr/");
+    expect(screen.getByRole("link", { name: "www.begina.cz" }).getAttribute("href")).toBe("https://www.begina.cz");
   });
 });
