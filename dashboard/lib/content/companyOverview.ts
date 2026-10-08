@@ -115,6 +115,12 @@ export const companyOverview: CompanyOverviewContent = {
       ],
     },
     {
+      // Doplněno podle zadání majitele 8. 10. 2026: spolumajitelka a investorka.
+      name: "Lucie Königsbergová",
+      role: "Majitelka",
+      areas: ["Investice"],
+    },
+    {
       name: "Jiří Střelec",
       role: "Výkonný ředitel",
       areas: [
