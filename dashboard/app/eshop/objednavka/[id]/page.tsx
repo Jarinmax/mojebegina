@@ -28,15 +28,25 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
   }
 
   const paid = order.paymentStatus === "paid";
+  // Stornovaná objednávka: žádná výzva k platbě, žádné platební údaje ani QR.
+  const cancelled = order.fulfillmentStatus === "cancelled";
   const canPay = isCardPaymentAvailable() && canPayByCard(order).ok;
   const reference = order.orderNumber !== null ? String(order.orderNumber) : order.id.slice(0, 8);
   // Převod: platební údaje + QR (QR jen s IBANem a číslem objednávky = VS).
-  const transfer = transferInfo(order, bankConfig());
+  const transfer = cancelled ? null : transferInfo(order, bankConfig());
   const transferQr = transfer?.spayd ? await qrSvg(transfer.spayd).catch(() => null) : null;
   const overdue = isTransferOverdue(order);
 
   let banner: { icon: typeof CircleCheck; title: string; text: string };
-  if (paid) {
+  if (cancelled) {
+    banner = {
+      icon: CircleAlert,
+      title: "Objednávka byla zrušena",
+      text: paid
+        ? "Platbu za objednávku jsme přijali. O jejím vrácení se s vámi domluvíme — ozveme se vám."
+        : "Objednávku už prosím nehraďte. S dotazy nám napište na info@begina.cz.",
+    };
+  } else if (paid) {
     banner = { icon: CircleCheck, title: "Zaplaceno — děkujeme", text: "Platbu jsme přijali, objednávku připravujeme." };
   } else if (platba === "ok") {
     banner = {
@@ -106,7 +116,7 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
           <PayAgainButton orderId={order.id} label={platba === "ok" ? "Zaplatit kartou" : "Zaplatit znovu kartou"} />
         </div>
       )}
-      {!paid && platba === "ok" && (
+      {!paid && !cancelled && platba === "ok" && (
         <Link href={`/eshop/objednavka/${order.id}?platba=ok`} className="text-sm underline underline-offset-2 mr-4">
           Obnovit stav
         </Link>

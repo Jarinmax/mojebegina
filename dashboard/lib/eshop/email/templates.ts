@@ -316,3 +316,51 @@ ${itemsTable(order)}
     `\n\n${itemsText(order)}\n\nStav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }
+
+// ---------- zákazník: objednávka zrušena (storno v MojeBegina) ----------
+
+/** Haléře → „379 Kč“ / „379,50 Kč“. */
+function formatHalKc(hal: number): string {
+  if (hal % 100 === 0) return formatKc(hal / 100);
+  return `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+}
+
+/**
+ * Potvrzení zrušení. Nezaplacená objednávka: „už nehraďte“. Zaplacená:
+ * vrácení se řeší samostatně — e-mail NESLIBUJE automatické vrácení ani
+ * termín, jen že se Begina ozve.
+ */
+export function customerCancellationEmail(order: EmailOrder, ctx: Context & { refundHal: number }): RenderedEmail {
+  const reference = orderReference(order);
+  const held = ctx.refundHal > 0;
+  const subject = `${subjectPrefix(ctx)}Objednávka ${reference} byla zrušena`;
+  const intro = `Potvrzujeme, že vaše objednávka ${reference} byla zrušena.`;
+  const payment = held
+    ? `Platbu ${formatHalKc(ctx.refundHal)} za tuto objednávku jsme přijali. O jejím vrácení se s vámi domluvíme — ozveme se vám.`
+    : "Objednávku už prosím nehraďte. Pokud jste platbu mezitím odeslali, odpovězte nám na tento e-mail a domluvíme se.";
+  const details: [string, string][] = [
+    ["Objednávka", reference],
+    ["Stav", "Zrušená"],
+    ["Částka objednávky", formatKc(order.totalKc)],
+  ];
+  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
+<p style="margin:0 0 12px;">${escapeHtml(intro)}</p>
+<p style="margin:0 0 16px;font-weight:600;">${escapeHtml(payment)}</p>
+${detailsTable(details)}
+<div style="height:16px"></div>
+${itemsTable(order)}
+<div style="height:16px"></div>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    `${greeting}\n\n${intro}\n\n${payment}\n\n` +
+    details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${itemsText(order)}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+  return { subject, html, text };
+}

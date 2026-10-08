@@ -16,7 +16,10 @@ import {
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
+  resolveRefund,
+  type StatusChangeResult,
 } from "@/lib/data/orders";
+import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
 
 export type ActionState = { error: string } | { success: string } | null;
 
@@ -64,18 +67,41 @@ export async function createOrderAction(
   redirect(`/rizeni-firmy/objednavky/${result.id}`);
 }
 
+/** Výsledek uložení stavu → jednoznačná hláška podle skutečného stavu v DB. */
+function statusMessage(
+  result: StatusChangeResult,
+  labels: Readonly<Record<string, string>>,
+  what: string
+): ActionState {
+  if (!result.ok) return { error: result.error };
+  const label = labels[result.status] ?? result.status;
+  if (!result.changed) return { success: `${what} se nezměnil — je „${label}“.` };
+  const parts = [`Uloženo — ${what.toLowerCase()} je „${label}“.`];
+  const c = result.cancellation;
+  if (c) {
+    if (c.email?.status === "sent") parts.push("Zákazníkovi odešel e-mail o zrušení.");
+    else if (c.email?.status === "duplicate") parts.push("E-mail o zrušení už zákazník dostal dříve.");
+    else if (c.email?.status === "failed") parts.push("⚠ E-mail o zrušení se nepodařilo odeslat — kontaktujte zákazníka.");
+    else if (c.email?.status === "no-recipient") parts.push("Zákazník nemá e-mail — informujte ho jinak.");
+    if (c.refundHal > 0) parts.push("Objednávka je zaplacená — označená k vrácení peněz (řeší se samostatně).");
+  }
+  return { success: parts.join(" ") };
+}
+
 export async function updateFulfillmentStatusAction(
   orderId: string,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const result = await updateFulfillmentStatus(orderId, String(formData.get("status") ?? ""));
-  if (!result.ok) {
-    return { error: result.error };
-  }
-
+  const expected = formData.get("expectedStatus");
+  const result = await updateFulfillmentStatus(
+    orderId,
+    String(formData.get("status") ?? ""),
+    typeof expected === "string" && expected ? expected : undefined
+  );
+  // i při souběhu obnovit stránku — formulář pak ukáže aktuální stav z DB
   revalidateOrder(orderId);
-  return { success: "Stav objednávky byl uložen." };
+  return statusMessage(result, FULFILLMENT_LABELS, "Stav objednávky");
 }
 
 export async function updatePaymentStatusAction(
@@ -83,13 +109,26 @@ export async function updatePaymentStatusAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const result = await updatePaymentStatus(orderId, String(formData.get("status") ?? ""));
-  if (!result.ok) {
-    return { error: result.error };
-  }
-
+  const expected = formData.get("expectedStatus");
+  const result = await updatePaymentStatus(
+    orderId,
+    String(formData.get("status") ?? ""),
+    typeof expected === "string" && expected ? expected : undefined
+  );
   revalidateOrder(orderId);
-  return { success: "Stav platby byl uložen." };
+  return statusMessage(result, PAYMENT_LABELS, "Stav platby");
+}
+
+// Storno — „Vrácení peněz vyřešeno“ (lib/eshop/cancellation.ts).
+export async function resolveRefundAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await resolveRefund(orderId, String(formData.get("note") ?? ""));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return { success: "Vrácení peněz je označené jako vyřešené." };
 }
 
 // ESHOP 1.0 — „Zapsat platbu“ (e-shopové objednávky): Zaplaceno se nastaví

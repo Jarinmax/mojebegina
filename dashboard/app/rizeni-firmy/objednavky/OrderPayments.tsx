@@ -46,6 +46,7 @@ export default function OrderPayments({
   paymentVs,
   token,
   today,
+  cancelled = false,
 }: {
   orderId: string;
   summary: OrderPaymentSummary;
@@ -54,6 +55,8 @@ export default function OrderPayments({
   token: string;
   /** dnešní datum v Praze (YYYY-MM-DD) */
   today: string;
+  /** stornovaná objednávka — platby se nezapisují */
+  cancelled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const boundAction = recordPaymentAction.bind(null, orderId);
@@ -100,7 +103,9 @@ export default function OrderPayments({
 
       {state && "success" in state && <p className="text-xs text-emerald-700">{state.success}</p>}
 
-      {!open ? (
+      {cancelled ? (
+        <p className="text-xs text-neutral-500">Objednávka je stornovaná — platby se nezapisují.</p>
+      ) : !open ? (
         <div>
           <button
             type="button"
