@@ -287,11 +287,16 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     expect(route.fake.calls).toEqual([]);
   });
 
-  it("manual: Lucie Königsbergová (finanční ředitelka, EXECUTIVE) vystaví fakturu a spustí kontrolu iDokladu", async () => {
+  it("manual: Lucie Königsbergová (finanční ředitelka, EXECUTIVE) zvládne celý postup sama — objednávky, platba, faktura, kontrola iDokladu", async () => {
     const id = await newOrder();
-    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
     auth.userId = LUCIE;
     auth.role = "EXECUTIVE";
+    // vidí objednávky a detail (včetně návrhu faktury) a zapíše platbu
+    expect((await orders.listOrders()).orders.map((o) => o.id)).toContain(id);
+    expect(await orders.getOrderDetail(id)).toMatchObject({ order: { id } });
+    expect(await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" })).toMatchObject({ ok: true, settled: true });
+    const [payment] = await rows(sql`SELECT recorded_by_user_id FROM payments WHERE order_id = ${id}`);
+    expect(payment).toEqual({ recorded_by_user_id: LUCIE });
     expect(await orders.getInvoiceIssueAccess()).toMatchObject({ issuer: true, canIssue: true });
     route.fake = createFakeIdoklad();
     expect(await orders.runEshopIdokladPreflight()).toMatchObject({ ok: true });
