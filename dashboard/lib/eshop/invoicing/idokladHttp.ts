@@ -122,6 +122,8 @@ export type IdokladLogEntry = { method: string; path: string; status: number | n
 export type EshopIdokladClientOptions = {
   clientId: string;
   clientSecret: string;
+  /** ApplicationId registrované aplikace z Developer portálu (SDK: application_id) */
+  applicationId: string;
   /** true jen z otevřené brány ostrého provozu (mode.ts) */
   writesAllowed: boolean;
   /** prostředí pro druhou kontrolu brány před každým zápisem (výchozí process.env) */
@@ -138,21 +140,25 @@ type Envelope = { Data?: unknown; IsSuccess?: boolean; Message?: string; StatusC
 export type IdokladListPage<T> = { Items: T[]; TotalItems: number; TotalPages: number };
 
 export class EshopIdokladClient {
-  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret">> & {
+  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret" | "applicationId">> & {
     clientId: string;
     clientSecret: string;
+    applicationId: string;
   };
   private token: { value: string; expiresAt: number } | null = null;
   private count = 0;
   readonly log: IdokladLogEntry[] = [];
 
   constructor(options: EshopIdokladClientOptions) {
-    if (!options.clientId || !options.clientSecret) throw new IdokladApiError("Chybí přístupové údaje k iDokladu.");
+    if (!options.clientId || !options.clientSecret || !options.applicationId) {
+      throw new IdokladApiError("Chybí přístupové údaje k iDokladu.");
+    }
     // Výchozí hodnoty přes ?? (ne „...options“): volající předává i výslovné
     // undefined (např. fetchImpl: deps.fetchImpl) a to nesmí výchozí přepsat.
     this.opts = {
       clientId: options.clientId,
       clientSecret: options.clientSecret,
+      applicationId: options.applicationId,
       writesAllowed: options.writesAllowed,
       fetchImpl: options.fetchImpl ?? fetch,
       now: options.now ?? Date.now,
@@ -183,7 +189,7 @@ export class EshopIdokladClient {
 
   private redact(text: string): string {
     let out = text;
-    for (const secret of [this.opts.clientId, this.opts.clientSecret, this.token?.value]) {
+    for (const secret of [this.opts.clientId, this.opts.clientSecret, this.opts.applicationId, this.token?.value]) {
       if (secret) out = out.split(secret).join("***");
     }
     return out.replace(/\s+/g, " ").slice(0, 300);
@@ -214,12 +220,15 @@ export class EshopIdokladClient {
 
   private async accessToken(): Promise<string> {
     if (this.token && this.token.expiresAt - 60_000 > this.opts.now()) return this.token.value;
-    const body = new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: this.opts.clientId,
-      client_secret: this.opts.clientSecret,
-      scope: IDOKLAD_TOKEN_SCOPE,
-    });
+    // Přesně jako oficiální SDK 5.4.0 (ClientCredentialsTokenRequest): formulář
+    // grant_type, application_id, client_id, client_secret, scope.
+    const body = new URLSearchParams([
+      ["grant_type", "client_credentials"],
+      ["application_id", this.opts.applicationId],
+      ["client_id", this.opts.clientId],
+      ["client_secret", this.opts.clientSecret],
+      ["scope", IDOKLAD_TOKEN_SCOPE],
+    ]);
     const response = await this.send("POST", IDOKLAD_TOKEN_URL, {
       headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
       body: body.toString(),

@@ -204,8 +204,9 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 8. Přesměrování z begina.cz / zapnutí indexace — až po rozhodnutí o doméně.
 9. **Faktury v iDokladu (samostatné schválení, až po prvním kontrolovaném
    ostrém testu — `ESHOP_FAKTURACE_NAVRH.md` 2.8):** iDoklad → Nastavení →
-   API → Client ID + Client Secret agendy Begina → Vercel (jen Production)
-   `IDOKLAD_ESHOP_CLIENT_ID`, `IDOKLAD_ESHOP_CLIENT_SECRET`,
+   Aplikace → Client ID + Client Secret (agenda Begina) a Developer portál →
+   aplikace „MojeBegina Eshop“ → Application ID → Vercel (jen Production)
+   `IDOKLAD_ESHOP_CLIENT_ID`, `IDOKLAD_ESHOP_CLIENT_SECRET`, `IDOKLAD_ESHOP_APPLICATION_ID`,
    `IDOKLAD_ESHOP_SEQUENCE_ID=7277293`, `IDOKLAD_INVOICING_ENABLED=on` →
    Redeploy. Kontrola: zaplacená objednávka → v MojeBegina „Vystaveno
    v iDokladu — faktura č. 926xxxx · uhrazeno“, PDF v e-mailu. Vypnutí =
@@ -226,7 +227,8 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
 | `ESHOP_PUBLIC` / `ESHOP_ORDER_WRITE` / `ESHOP_EMAIL_LIVE` / `ESHOP_STRIPE_LIVE` | `on` | C6 |
 | `ESHOP_EMAIL_TEST_RECIPIENTS` | **nenastavovat** (v Production se ignoruje) | — |
 | `IDOKLAD_ESHOP_SEQUENCE_ID` | `7277293` (E-shop Begina) | C9 |
-| `IDOKLAD_ESHOP_CLIENT_ID` / `IDOKLAD_ESHOP_CLIENT_SECRET` | Client Credentials agendy Begina (tajné) | C9 |
+| `IDOKLAD_ESHOP_CLIENT_ID` / `IDOKLAD_ESHOP_CLIENT_SECRET` | API klíče uživatele z iDokladu (Nastavení → Aplikace), agenda Begina (tajné) | C9 |
+| `IDOKLAD_ESHOP_APPLICATION_ID` | ApplicationId aplikace „MojeBegina Eshop“ (flow ClientCredentials) z Developer portálu iDokladu | C9 |
 | `IDOKLAD_INVOICING_ENABLED` | `manual` pro první test, `on` až po schválení (chybí / `off` = jen návrh) | C9, poslední |
 
 U každé zaškrtnout **jen Production**. Preview proměnné nechat jen na Preview.

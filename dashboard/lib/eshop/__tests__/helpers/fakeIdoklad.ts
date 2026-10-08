@@ -91,9 +91,21 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
 
   async function handle(method: string, url: URL, body: unknown): Promise<Response> {
     if (url.hostname === "identity.idoklad.cz") {
-      calls.push({ method, path: "TOKEN", query: {}, body: null });
+      // jen NÁZVY polí formuláře (v pořadí) — hodnoty přístupových údajů se nikam neukládají
+      const form = new URLSearchParams(typeof body === "string" ? body : "");
+      calls.push({ method, path: "TOKEN", query: {}, body: [...form.keys()] });
       if (options.tokenStatus && options.tokenStatus !== 200) {
         return new Response(JSON.stringify({ error: "invalid_client" }), { status: options.tokenStatus });
+      }
+      // jako identity server iDokladu podle oficiálního SDK 5.4.0: Client Credentials
+      // bez application_id (nebo s chybějícím polem) = 400 invalid_request
+      const required = ["grant_type", "application_id", "client_id", "client_secret", "scope"];
+      if (
+        form.get("grant_type") !== "client_credentials" ||
+        form.get("scope") !== "idoklad_api" ||
+        required.some((key) => !form.get(key))
+      ) {
+        return new Response(JSON.stringify({ error: "invalid_request" }), { status: 400 });
       }
       return new Response(JSON.stringify({ access_token: "tok-fake", expires_in: 3600 }), { status: 200 });
     }

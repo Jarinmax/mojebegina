@@ -262,6 +262,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
     const client = new EshopIdokladClient({
       clientId: gate.clientId,
       clientSecret: gate.clientSecret,
+      applicationId: gate.applicationId,
       writesAllowed: true,
       env,
       fetchImpl: deps.fetchImpl,
@@ -413,6 +414,7 @@ export async function loadIssuedPdf(db: Db, orderId: string, deps: IssueDeps = {
   const client = new EshopIdokladClient({
     clientId: gate.clientId,
     clientSecret: gate.clientSecret,
+    applicationId: gate.applicationId,
     writesAllowed: false, // jen čtení PDF
     env: deps.env ?? process.env,
     fetchImpl: deps.fetchImpl,
