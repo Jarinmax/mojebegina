@@ -19,7 +19,7 @@ import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib
 import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
 import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
 import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
-import { isInvoiceIssuer } from "./invoiceAuth";
+import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "./invoiceAuth";
 import {
   loadOrderPayments,
   parseAmountKcToHal,
@@ -570,7 +570,7 @@ export async function issueOrderInvoice(
   orderId: string
 ): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const ctx = await requireOrderContext();
-  if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Fakturu do iDokladu smí vystavit jen Jaroslav Viner (role ADMIN)." };
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Fakturu do iDokladu smí vystavit jen ${INVOICE_ISSUER_NAMES}.` };
   const mode = invoicingMode();
   if (mode.mode !== "live") return { ok: false, error: mode.reason };
   const result = await issueAndSendInvoice(db, orderId, await getAppOrigin(), {
@@ -601,7 +601,7 @@ export async function runEshopIdokladPreflight(): Promise<
   { ok: true; result: PreflightResult } | { ok: false; error: string }
 > {
   const ctx = await requireOrderContext();
-  if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Kontrolu iDokladu smí spustit jen Jaroslav Viner (role ADMIN)." };
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Kontrolu iDokladu smí spustit jen ${INVOICE_ISSUER_NAMES}.` };
   return runPreflightFromEnv();
 }
 
