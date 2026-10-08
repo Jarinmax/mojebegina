@@ -11,15 +11,10 @@
 // Selhání vystavení platbu ani e-mail nezastaví: zákazník dostane potvrzení
 // bez faktury a MojeBegina ukáže chybu s tlačítkem „Vystavit fakturu“;
 // po úspěšném vystavení pak odejde zvlášť „Faktura k objednávce“.
-//
-// Stornovaná objednávka (platba dorazila až po stornu): žádný návrh ani
-// faktura, žádný e-mail o přijetí platby — jen označení k vrácení peněz
-// (lib/eshop/cancellation.ts).
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { sendOrderEmails, type OrderEmailOutcome, type SendOrderEmailsOptions } from "../email/orderEmails";
-import { isOrderCancelled, markRefundRequired } from "../cancellation";
 import { issueInvoice, issueInvoiceSafe, loadIssuedPdf, type InvoicePdf, type IssueResult } from "./issue";
 import { invoicingMode } from "./mode";
 import { prepareInvoiceDraftSafe, type InvoiceActor } from "./service";
@@ -42,16 +37,6 @@ export async function invoiceAndNotifyPaid(
   deps: AfterPaidDeps = {}
 ): Promise<{ invoice: IssueResult | null; emails: OrderEmailOutcome[] }> {
   const env = deps.env ?? process.env;
-  try {
-    if (await isOrderCancelled(db, orderId)) {
-      await markRefundRequired(db, orderId, actor ?? { type: "system", name: "Platby" }, "paid_after_cancellation");
-      return { invoice: null, emails: [] };
-    }
-  } catch (error) {
-    // Bez jistoty o stavu raději nic nevystavovat ani neposílat.
-    console.error("Po platbě: stav storna se nepodařilo ověřit", orderId, error);
-    return { invoice: null, emails: [] };
-  }
   await prepareInvoiceDraftSafe(db, orderId, actor, env);
   let invoice: IssueResult | null = null;
   let pdf: InvoicePdf | null = null;

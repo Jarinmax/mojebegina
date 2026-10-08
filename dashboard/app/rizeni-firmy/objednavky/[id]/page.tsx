@@ -13,7 +13,6 @@ import OrderInvoiceDraft from "../OrderInvoiceDraft";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
-import RefundNotice from "../RefundNotice";
 
 // Security Phase 15 (Objednávky 1.0) — detail objednávky. Autorizace (ADMIN
 // nebo EXECUTIVE) řeší app/rizeni-firmy/layout.tsx nad touto stránkou,
@@ -39,10 +38,6 @@ export default async function OrderDetailPage(
   const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
   const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
-  const cancelled = order.fulfillmentStatus === "cancelled";
-  // částka k vrácení z posledního označení (lib/eshop/cancellation.ts)
-  const refundEntry = [...activity].reverse().find((a) => a.kind === "refund_required");
-  const refundHal = Number((refundEntry?.metadata as { amountHal?: number } | null)?.amountHal ?? 0);
 
   return (
     <div>
@@ -68,17 +63,7 @@ export default async function OrderDetailPage(
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
-        {order.refundRequired && (
-          <span className="text-xs px-2 py-0.5 rounded-full border bg-red-50 text-red-800 border-red-200">Vrátit peníze</span>
-        )}
       </div>
-
-      {order.refundRequired && (
-        <RefundNotice
-          orderId={order.id}
-          amountText={refundHal > 0 ? (refundHal % 100 === 0 ? formatKc(refundHal / 100) : `${(refundHal / 100).toFixed(2).replace(".", ",")} Kč`) : null}
-        />
-      )}
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
         <div>
@@ -177,11 +162,7 @@ export default async function OrderDetailPage(
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
-        <FulfillmentStatusForm
-          orderId={order.id}
-          currentStatus={order.fulfillmentStatus}
-          emailsCustomer={order.channel === "eshop" && Boolean(order.contactEmail)}
-        />
+        <FulfillmentStatusForm orderId={order.id} currentStatus={order.fulfillmentStatus} />
         {payments ? (
           // E-shop: Zaplaceno se počítá z plateb — místo přepínání „Zapsat platbu“.
           <OrderPayments
@@ -189,7 +170,6 @@ export default async function OrderDetailPage(
             summary={payments}
             paymentVs={order.paymentVs}
             token={randomUUID()}
-            cancelled={cancelled}
             today={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date())}
           />
         ) : (
@@ -212,8 +192,7 @@ export default async function OrderDetailPage(
             paid={order.paymentStatus === "paid"}
             live={invoiceAccess?.mode.mode === "live"}
             trigger={invoiceAccess?.mode.trigger ?? "off"}
-            canIssue={!cancelled && (invoiceAccess?.canIssue ?? false)}
-            cancelled={cancelled}
+            canIssue={invoiceAccess?.canIssue ?? false}
             issuer={invoiceAccess?.issuer ?? false}
           />
         </div>

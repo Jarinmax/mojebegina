@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import { updatePaymentStatusAction, type ActionState } from "./actions";
 import { PAYMENT_LABELS } from "./orderLabels";
-import FormMessage from "./FormMessage";
 import type { PaymentStatus } from "@/lib/data/orderValidation";
 
 const initialState: ActionState = null;
@@ -21,15 +20,12 @@ export default function PaymentStatusForm({
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
   return (
-    // Stejně jako FulfillmentStatusForm: `key` = výběr vždy podle stavu v DB.
     <form action={formAction} className="flex flex-col gap-1">
-      <input type="hidden" name="expectedStatus" value={currentStatus} />
       <label htmlFor="payment-status" className="text-xs text-neutral-500">
         Stav platby
       </label>
       <div className="flex items-center gap-2">
         <select
-          key={currentStatus}
           id="payment-status"
           name="status"
           defaultValue={currentStatus}
@@ -49,7 +45,7 @@ export default function PaymentStatusForm({
           {pending ? "Ukládám…" : "Uložit"}
         </button>
       </div>
-      <FormMessage state={state} />
+      {state && "error" in state && <p className="text-xs text-begina-accent-700">{state.error}</p>}
     </form>
   );
 }

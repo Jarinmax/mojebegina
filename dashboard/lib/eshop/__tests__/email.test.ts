@@ -5,7 +5,6 @@ import { emailConfig, parseEmailList, resolveRecipients } from "../email/config"
 import { emailsFor } from "../email/orderEmails";
 import { resendTransport } from "../email/resend";
 import {
-  customerCancellationEmail,
   customerOrderEmail,
   customerPaymentReceivedEmail,
   internalOrderEmail,
@@ -116,13 +115,6 @@ describe("e-maily — které e-maily spouští která událost", () => {
 
   it("ruční objednávka z MojeBegina: nikdy", () => {
     expect(emailsFor({ ...order("prevod"), channel: "manual" }, "order_created")).toEqual([]);
-    expect(emailsFor({ ...order("prevod"), channel: "manual" }, "order_cancelled")).toEqual([]);
-  });
-
-  it("storno e-shopové objednávky: potvrzení zrušení zákazníkovi (převod i karta, zaplacená i ne)", () => {
-    for (const o of [order("prevod"), order("karta"), order("prevod", "paid")]) {
-      expect(emailsFor(o, "order_cancelled")).toEqual(["customer_cancellation"]);
-    }
   });
 });
 
@@ -330,31 +322,5 @@ describe("e-maily — Resend API", () => {
       ok: false,
       error: "Resend nedostupný: fetch failed",
     });
-  });
-});
-
-describe("e-maily — potvrzení zrušení objednávky (storno)", () => {
-  it("nezaplacená: jasné potvrzení zrušení a „už nehraďte“ — bez platebních údajů", () => {
-    const mail = customerCancellationEmail(ORDER, { ...CTX, refundHal: 0 });
-    expect(mail.subject).toBe("Objednávka 11348d18 byla zrušena");
-    expect(mail.text).toContain("Potvrzujeme, že vaše objednávka 11348d18 byla zrušena.");
-    expect(mail.text).toContain("Objednávku už prosím nehraďte.");
-    expect(mail.text).toContain("Stav: Zrušená");
-    expect(mail.text).not.toMatch(/Variabilní symbol|Číslo účtu|IBAN|Splatnost|QR/);
-    expect(mail.html).toContain("Jana &lt;b&gt;Nováková&lt;/b&gt;");
-    expect(mail.html).not.toContain("<b>Nováková</b>");
-  });
-
-  it("zaplacená: přijatá platba, vrácení se domluví — nic se neslibuje automaticky ani s termínem", () => {
-    const mail = customerCancellationEmail({ ...ORDER, paymentStatus: "paid" }, { ...CTX, refundHal: 123650 });
-    // částka v českém formátu (mezera tisíců může být nezlomitelná)
-    expect(mail.text).toMatch(/Platbu 1\s236,50 Kč za tuto objednávku jsme přijali\. O jejím vrácení se s vámi domluvíme — ozveme se vám\./);
-    expect(mail.text).not.toMatch(/nehraďte|automatick|vrátíme|do \d+ (dn|dní)/);
-  });
-
-  it("testovací režim: [TEST] v předmětu a komu by e-mail šel", () => {
-    const mail = customerCancellationEmail(ORDER, { ...CTX, test: true, withheld: ["jana@example.cz"], refundHal: 0 });
-    expect(mail.subject).toBe("[TEST] Objednávka 11348d18 byla zrušena");
-    expect(mail.text).toContain("V ostrém provozu by šel na: jana@example.cz.");
   });
 });
