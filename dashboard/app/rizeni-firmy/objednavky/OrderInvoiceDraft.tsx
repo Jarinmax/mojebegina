@@ -170,6 +170,7 @@ export default function OrderInvoiceDraft({
   trigger = "off",
   canIssue = false,
   issuer = false,
+  cancelled = false,
 }: {
   orderId: string;
   invoice: OrderInvoiceView | null;
@@ -182,9 +183,24 @@ export default function OrderInvoiceDraft({
   canIssue?: boolean;
   /** oprávněný uživatel (odkaz na kontrolu připojení iDokladu) */
   issuer?: boolean;
+  /** stornovaná objednávka — faktura se nevystavuje ani nepřipravuje */
+  cancelled?: boolean;
 }) {
   const payload = invoice?.link?.payload ?? null;
   const issued = invoice?.docState === "issued";
+
+  if (cancelled) {
+    return (
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-neutral-500">Faktura (iDoklad)</p>
+        <p className="text-sm text-neutral-600">
+          {issued
+            ? `Objednávka je stornovaná. Faktura ${invoice?.invoiceNumber ?? ""} už je vystavená — při vrácení peněz vystavte v iDokladu dobropis.`
+            : "Objednávka je stornovaná — faktura se nevystavuje."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">

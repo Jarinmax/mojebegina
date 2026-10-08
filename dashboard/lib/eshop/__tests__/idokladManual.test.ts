@@ -207,6 +207,15 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     expect(route.idoklad).toEqual([]);
   });
 
+  it("manual: stornovanou objednávku (i zaplacenou) nejde vyfakturovat — iDoklad nedostane nic", async () => {
+    const id = await newOrder();
+    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
+    expect(await orders.updateFulfillmentStatus(id, "cancelled")).toMatchObject({ ok: true, changed: true, cancellation: { refundHal: expect.any(Number) } });
+    route.fake = createFakeIdoklad();
+    expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: "Objednávka je stornovaná — faktura se nevystaví." });
+    expect(route.fake.calls).toEqual([]);
+  });
+
   // ---------------------------------------------------------------- manual
 
   it("manual (Production): po platbě NIC automaticky; tlačítkem tentýž motor → faktura, uhrazeno, PDF e-mailem", async () => {

@@ -7,7 +7,7 @@
 // "kdo objednal".
 import "server-only";
 import { randomUUID } from "crypto";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { orders, orderItems, orderActivity, organizations, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -17,6 +17,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { invoiceAndNotifyPaid, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { afterOrderCancelled, openRefunds, REFUND_RESOLVED, type CancellationOutcome } from "@/lib/eshop/cancellation";
 import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
 import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
 import { isInvoiceIssuer } from "./invoiceAuth";
@@ -43,6 +44,7 @@ import {
   type PaymentStatus,
   type NoteInput,
 } from "./orderValidation";
+import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "./orderLabels";
 import type { AuthContext } from "./types";
 
 export async function requireOrderContext(): Promise<NonNullable<AuthContext>> {
@@ -110,6 +112,8 @@ export type OrderCardData = {
   paymentOverdue: boolean;
   responsibleUserId: string | null;
   responsibleName: string | null;
+  /** Stornovaná objednávka, za kterou Begina drží peníze — vrácení se řeší samostatně (lib/eshop/cancellation.ts). */
+  refundRequired: boolean;
 };
 
 export type OrderCounts = {
@@ -149,6 +153,7 @@ async function buildOrderCards(
         .from(orderItems)
         .where(inArray(orderItems.orderId, orderIds))
     : [];
+  const refunds = await openRefunds(db, orderIds);
   const itemsByOrder = new Map<string, string[]>();
   for (const item of itemRows) {
     const list = itemsByOrder.get(item.orderId) ?? [];
@@ -177,6 +182,7 @@ async function buildOrderCards(
       paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null) || isTransferOverdue(o),
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
+      refundRequired: o.fulfillmentStatus === "cancelled" && refunds.has(o.id),
     };
   });
 }
@@ -374,10 +380,63 @@ export async function createOrder(rawInput: CreateOrderInput): Promise<CreateOrd
   return { ok: true, id };
 }
 
+export type StatusChangeResult =
+  | {
+      ok: true;
+      /** false = uložený stav už byl požadovaný (nic se nezapsalo) */
+      changed: boolean;
+      /** skutečný stav objednávky v DB po uložení */
+      status: string;
+      /** jen u storna: vrácení peněz a e-mail zákazníkovi */
+      cancellation?: CancellationOutcome;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Atomická změna stavu: UPDATE proběhne jen tehdy, když má objednávka v DB
+ * pořád stav `from` (z něj uživatel ve formuláři vycházel) — a záznam do
+ * historie vznikne v tomtéž příkazu jen při skutečné změně. Dva souběžné
+ * zápisy tedy nikdy nezmění stav dvakrát ani nezapíšou dvojí historii.
+ */
+async function changeOrderColumn(
+  orderId: string,
+  column: "fulfillment_status" | "payment_status",
+  from: string,
+  to: string,
+  ctx: NonNullable<AuthContext>
+): Promise<boolean> {
+  const kind = column === "fulfillment_status" ? "fulfillment_status_changed" : "payment_status_changed";
+  const set =
+    column === "fulfillment_status"
+      ? sql`fulfillment_status = ${to}`
+      : sql`payment_status = ${to}, paid_at = ${to === "paid" ? sql`now()` : sql`NULL`}`;
+  const result = await db.execute(sql`
+    WITH upd AS (
+      UPDATE orders SET ${set}
+      WHERE id = ${orderId} AND ${sql.raw(column)} = ${from}
+      RETURNING id
+    )
+    INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
+    SELECT id, 'user', ${ctx.userId}, ${ctx.name}, ${kind}, ${JSON.stringify({ from, to })}::jsonb FROM upd
+    RETURNING id`);
+  return result.rows.length > 0;
+}
+
+/** Proč se uložení neprovedlo, když se stav mezitím změnil (vychází z aktuálního stavu v DB). */
+function conflictResult(current: string, wanted: string, labels: Readonly<Record<string, string>>, what: string): StatusChangeResult {
+  if (current === wanted) return { ok: true, changed: false, status: current };
+  return {
+    ok: false,
+    error: `${what} mezitím změnil někdo jiný na „${labels[current] ?? current}“. Formulář teď ukazuje aktuální stav — zkontrolujte ho a případně uložte znovu.`,
+  };
+}
+
 export async function updateFulfillmentStatus(
   orderId: string,
-  rawStatus: string
-): Promise<OrderResult> {
+  rawStatus: string,
+  /** stav, který formulář ukazoval (ochrana proti souběžné změně); bez něj se vezme aktuální */
+  rawExpected?: string
+): Promise<StatusChangeResult> {
   const ctx = await requireOrderContext();
 
   const validated = validateFulfillmentStatusInput(rawStatus);
@@ -393,25 +452,38 @@ export async function updateFulfillmentStatus(
   if (!current) {
     return { ok: false, error: "Objednávka nebyla nalezena." };
   }
+  const from = rawExpected ?? current.fulfillmentStatus;
+  if (current.fulfillmentStatus !== from) {
+    return conflictResult(current.fulfillmentStatus, validated.value, FULFILLMENT_LABELS, "Stav objednávky");
+  }
+  if (from === validated.value) {
+    return { ok: true, changed: false, status: from };
+  }
 
-  await db.batch([
-    db
-      .update(orders)
-      .set({ fulfillmentStatus: validated.value })
-      .where(eq(orders.id, orderId)),
-    db.insert(orderActivity).values({
-      orderId,
-      authorUserId: ctx.userId,
-      authorName: ctx.name,
-      kind: "fulfillment_status_changed",
-      metadata: { from: current.fulfillmentStatus, to: validated.value },
-    }),
-  ]);
+  if (!(await changeOrderColumn(orderId, "fulfillment_status", from, validated.value, ctx))) {
+    const [now] = await db
+      .select({ fulfillmentStatus: orders.fulfillmentStatus })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+    return conflictResult(now?.fulfillmentStatus ?? from, validated.value, FULFILLMENT_LABELS, "Stav objednávky");
+  }
 
-  return { ok: true };
+  // Storno: jen po SKUTEČNÉ změně (tento zápis vyhrál) — vrácení peněz
+  // a e-mail zákazníkovi (nejvýš jednou na objednávku).
+  const cancellation =
+    validated.value === "cancelled"
+      ? await afterOrderCancelled(db, orderId, { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email }, await getAppOrigin())
+      : undefined;
+  return { ok: true, changed: true, status: validated.value, ...(cancellation ? { cancellation } : {}) };
 }
 
-export async function updatePaymentStatus(orderId: string, rawStatus: string): Promise<OrderResult> {
+export async function updatePaymentStatus(
+  orderId: string,
+  rawStatus: string,
+  /** stav, který formulář ukazoval (ochrana proti souběžné změně); bez něj se vezme aktuální */
+  rawExpected?: string
+): Promise<StatusChangeResult> {
   const ctx = await requireOrderContext();
 
   const validated = validatePaymentStatusInput(rawStatus);
@@ -432,25 +504,23 @@ export async function updatePaymentStatus(orderId: string, rawStatus: string): P
   if (current.channel === "eshop") {
     return { ok: false, error: "U e-shopové objednávky se stav platby nepřepíná — zapište platbu." };
   }
+  const from = rawExpected ?? current.paymentStatus;
+  if (current.paymentStatus !== from) {
+    return conflictResult(current.paymentStatus, validated.value, PAYMENT_LABELS, "Stav platby");
+  }
+  if (from === validated.value) {
+    return { ok: true, changed: false, status: from };
+  }
 
-  await db.batch([
-    db
-      .update(orders)
-      .set({
-        paymentStatus: validated.value,
-        paidAt: validated.value === "paid" ? new Date() : null,
-      })
-      .where(eq(orders.id, orderId)),
-    db.insert(orderActivity).values({
-      orderId,
-      authorUserId: ctx.userId,
-      authorName: ctx.name,
-      kind: "payment_status_changed",
-      metadata: { from: current.paymentStatus, to: validated.value },
-    }),
-  ]);
-
-  return { ok: true };
+  if (!(await changeOrderColumn(orderId, "payment_status", from, validated.value, ctx))) {
+    const [now] = await db
+      .select({ paymentStatus: orders.paymentStatus })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+    return conflictResult(now?.paymentStatus ?? from, validated.value, PAYMENT_LABELS, "Stav platby");
+  }
+  return { ok: true, changed: true, status: validated.value };
 }
 
 export type RecordPaymentInput = {
@@ -494,12 +564,19 @@ export async function recordOrderPayment(orderId: string, input: RecordPaymentIn
   const note = input.note.trim().slice(0, 500) || null;
 
   const [order] = await db
-    .select({ channel: orders.channel, paymentVs: orders.paymentVs })
+    .select({ channel: orders.channel, paymentVs: orders.paymentVs, fulfillmentStatus: orders.fulfillmentStatus })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
   if (!order) return { ok: false, error: "Objednávka nebyla nalezena." };
   if (order.channel !== "eshop") return { ok: false, error: "Platby se zatím zapisují jen u e-shopových objednávek." };
+  if (order.fulfillmentStatus === "cancelled") {
+    return {
+      ok: false,
+      error:
+        "Objednávka je stornovaná — platba se tu nezapisuje a zákazníkovi nic neodejde (ani faktura). Pokud zákazník přesto zaplatil, vraťte mu peníze a zapište to do poznámky.",
+    };
+  }
 
   const result = await recordManualPayment(db, {
     orderId,
@@ -535,6 +612,12 @@ export async function prepareOrderInvoiceDraft(
   regenerate: boolean
 ): Promise<{ ok: true; result: PrepareResult } | { ok: false; error: string }> {
   const ctx = await requireOrderContext();
+  const [order] = await db
+    .select({ fulfillmentStatus: orders.fulfillmentStatus })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (order?.fulfillmentStatus === "cancelled") return { ok: false, error: "Objednávka je stornovaná — faktura se nepřipravuje." };
   const result = await prepareInvoiceDraft(db, orderId, {
     regenerate,
     actor: { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email },
@@ -603,6 +686,28 @@ export async function runEshopIdokladPreflight(): Promise<
   const ctx = await requireOrderContext();
   if (!isInvoiceIssuer(ctx)) return { ok: false, error: "Kontrolu iDokladu smí spustit jen Jaroslav Viner (role ADMIN)." };
   return runPreflightFromEnv();
+}
+
+/**
+ * Storno — „Vrácení peněz vyřešeno“: uzavře označení k vrácení
+ * (refund_required) záznamem do historie. Peníze vrací člověk mimo
+ * MojeBegina (banka / Stripe / hotově); tady se jen potvrdí, že je hotovo.
+ */
+export async function resolveRefund(orderId: string, rawNote: string): Promise<OrderResult> {
+  const ctx = await requireOrderContext();
+  const note = rawNote.trim().slice(0, 500);
+  if (!(await openRefunds(db, [orderId])).has(orderId)) {
+    return { ok: false, error: "Objednávka nečeká na vrácení peněz." };
+  }
+  await db.insert(orderActivity).values({
+    orderId,
+    authorUserId: ctx.userId,
+    authorName: ctx.name,
+    kind: REFUND_RESOLVED,
+    body: note || null,
+    metadata: {},
+  });
+  return { ok: true };
 }
 
 export async function assignResponsible(orderId: string, responsibleUserId: string): Promise<OrderResult> {

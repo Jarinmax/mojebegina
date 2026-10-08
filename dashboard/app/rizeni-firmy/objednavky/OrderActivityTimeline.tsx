@@ -50,22 +50,47 @@ function describeEntry(entry: OrderActivityEntry): string {
       return "⚠ přijal(a) DALŠÍ platbu kartou k už zaplacené objednávce — zkontrolovat a vrátit ve Stripe";
     // ESHOP 1.0 — e-maily k objednávce (lib/eshop/email/orderEmails.ts)
     case "email_sent": {
-      const label = meta.template === "internal_new_order" ? "upozornění pro Beginu" : "potvrzení zákazníkovi";
+      const label = emailLabel(meta.template);
       const to = Array.isArray(meta.to) ? ` (${meta.to.join(", ")})` : "";
       return `odeslal(a) e-mail: ${label}${to}${meta.test ? " — testovací režim" : ""}`;
     }
     case "email_failed": {
-      const label = meta.template === "internal_new_order" ? "upozornění pro Beginu" : "potvrzení zákazníkovi";
+      const label = emailLabel(meta.template);
       return `⚠ nepodařilo se odeslat e-mail: ${label} — ${meta.template === "internal_new_order" ? "objednávka je jen tady" : "kontaktovat zákazníka ručně"}`;
     }
     case "payment_amount_mismatch":
       return "⚠ přijal(a) platbu, jejíž částka nesedí s objednávkou — zkontrolovat (Zaplaceno jen při úhradě celé částky)";
+    // Storno — zaplacená stornovaná objednávka (lib/eshop/cancellation.ts)
+    case "refund_required": {
+      const hal = Number(meta.amountHal ?? 0);
+      const amount = hal % 100 === 0 ? `${(hal / 100).toLocaleString("cs-CZ")} Kč` : `${(hal / 100).toFixed(2).replace(".", ",")} Kč`;
+      return meta.reason === "paid_after_cancellation"
+        ? `⚠ přijal(a) platbu ${amount} až po stornu — označeno k vrácení peněz (řeší se samostatně, bez faktury a bez e-mailu o platbě)`
+        : `⚠ označil(a) objednávku k vrácení peněz ${amount} (řeší se samostatně, nic se nevrací automaticky)`;
+    }
+    case "refund_resolved":
+      return "potvrdil(a), že vrácení peněz je vyřešené";
     case "responsible_assigned":
       return meta.responsibleUserId
         ? `přiřadil(a) odpovědnou osobu: ${String(meta.responsibleName ?? meta.responsibleUserId)}`
         : "odebral(a) odpovědnou osobu";
     default:
       return "";
+  }
+}
+
+function emailLabel(template: unknown): string {
+  switch (template) {
+    case "internal_new_order":
+      return "upozornění pro Beginu";
+    case "customer_payment_received":
+      return "potvrzení o přijetí platby zákazníkovi";
+    case "customer_invoice":
+      return "faktura zákazníkovi";
+    case "customer_cancellation":
+      return "potvrzení zrušení objednávky zákazníkovi";
+    default:
+      return "potvrzení zákazníkovi";
   }
 }
 
@@ -95,7 +120,7 @@ export default function OrderActivityTimeline({ activity }: { activity: OrderAct
               {formatCzechDate(entry.createdAt)}
             </p>
           </div>
-          {entry.kind === "note_added" && entry.body && (
+          {(entry.kind === "note_added" || entry.kind === "refund_resolved") && entry.body && (
             <p className="text-sm text-neutral-600 whitespace-pre-wrap mt-0.5">{entry.body}</p>
           )}
         </div>

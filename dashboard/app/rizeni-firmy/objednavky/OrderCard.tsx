@@ -30,6 +30,9 @@ export default function OrderCard({ order }: { order: OrderCardData }) {
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
+        {order.refundRequired && (
+          <span className="text-xs px-2 py-0.5 rounded-full border bg-red-50 text-red-800 border-red-200">Vrátit peníze</span>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">
