@@ -5,22 +5,29 @@
 // `blocks: null` = text zatím nemáme → stránka existuje, odkaz funguje
 // a zobrazí se „Text připravujeme“ s kontaktem na provozovatele.
 // Právní texty se NEvymýšlejí — dodává je vedení (obchodní podmínky dodány
-// 3. 10. 2026, GDPR zatím chybí).
+// 3. 10. 2026, GDPR 8. 10. 2026).
 import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethods } from "./shipping";
 import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
+import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
 
 /** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
 export type InfoPoint = { text: string; lines?: string[]; items?: string[]; after?: string };
 
 export type InfoBlock = {
   heading?: string;
+  /** podnadpis uvnitř článku (např. „1. Vyřízení objednávky…“) */
+  subheading?: string;
   paragraphs?: string[];
+  /** řádky adresy v rámečku (první tučně), za odstavci */
+  lines?: string[];
   items?: string[];
   /** "check" = odrážky ✔ (jako na begina.cz), jinak tečky */
   itemStyle?: "check";
   points?: InfoPoint[];
+  /** odstavce za odrážkami / adresou */
+  afterParagraphs?: string[];
 };
 
 export type InfoPage = {
@@ -169,8 +176,10 @@ const privacyPage: InfoPage = {
   path: "/eshop/ochrana-osobnich-udaju",
   footerLabel: "GDPR",
   title: "Ochrana osobních údajů (GDPR)",
+  subtitle: `Platné a účinné od ${PRIVACY_EFFECTIVE}`,
   description: "Zásady zpracování osobních údajů v e-shopu Begina.",
-  blocks: null,
+  // Text dodaný vedením 8. 10. 2026: lib/eshop/content/ochranaOsobnichUdaju.ts.
+  blocks: PRIVACY_BLOCKS,
 };
 
 export const INFO_PAGES = {

@@ -35,7 +35,20 @@ const noStoreSources = [
   "/api/auth/:path*",
 ];
 
+// Adresy právních a informačních stránek ze stávajícího webu begina.cz
+// (WordPress). Na ně odkazují dodané texty (např. GDPR čl. XIII
+// „www.begina.cz/gdpr/“) — po přepnutí domény na tuto aplikaci vedou na
+// stránky e-shopu. Dočasné (307), dokud není doména definitivně přepnutá.
+const LEGACY_PAGE_REDIRECTS = [
+  { source: "/gdpr", destination: "/eshop/ochrana-osobnich-udaju", permanent: false },
+  { source: "/obchodni-podminky", destination: "/eshop/obchodni-podminky", permanent: false },
+  { source: "/doprava", destination: "/eshop/doprava", permanent: false },
+];
+
 const nextConfig: NextConfig = {
+  async redirects() {
+    return LEGACY_PAGE_REDIRECTS;
+  },
   async headers() {
     return [
       {
