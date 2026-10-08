@@ -340,7 +340,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad({ tokenStatus: 401 });
     const result = await orders.issueOrderInvoice(id);
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401\)/) });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401: invalid_client/) });
     expect(route.fake.writes()).toEqual([]);
     expect(route.fake.apiCalls()).toEqual([]);
     expect(await linkState(id)).toMatchObject({ doc_state: "draft", state: "failed", external_id: null, last_error: expect.stringMatching(/neprošla/) });

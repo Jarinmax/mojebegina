@@ -30,6 +30,13 @@ export const IDOKLAD_TOKEN_URL = "https://identity.idoklad.cz/server/v2/connect/
 export const IDOKLAD_TOKEN_SCOPE = "idoklad_api";
 
 const API_HOST = "api.idoklad.cz";
+/** Česká nápověda k nejčastějším kódům odmítnutí přihlášení (OAuth 2.0). */
+const TOKEN_ERROR_HINTS: Record<string, string> = {
+  invalid_client: "neplatné Client ID nebo Client Secret (zkontrolujte, zda nejsou prohozené nebo staré)",
+  unauthorized_client: "tento klient nesmí používat přihlášení Client Credentials",
+  invalid_scope: "iDoklad odmítl požadovaný rozsah oprávnění",
+  invalid_request: "iDoklad odmítl tvar požadavku",
+};
 const TOKEN_HOST = "identity.idoklad.cz";
 
 /** Čtecí cesty (bez /v3). `{id}` = kladné celé číslo. */
@@ -218,7 +225,9 @@ export class EshopIdokladClient {
       body: body.toString(),
     });
     const text = await response.text();
-    if (!response.ok) throw new IdokladApiError(`Přihlášení k iDokladu selhalo (${response.status}).`, response.status);
+    if (!response.ok) {
+      throw new IdokladApiError(`Přihlášení k iDokladu selhalo (${response.status}${this.tokenErrorDetail(text)}).`, response.status);
+    }
     let parsed: { access_token?: unknown; expires_in?: unknown } = {};
     try {
       parsed = JSON.parse(text);
@@ -231,6 +240,28 @@ export class EshopIdokladClient {
     const seconds = typeof parsed.expires_in === "number" && parsed.expires_in > 0 ? parsed.expires_in : 3600;
     this.token = { value: parsed.access_token, expiresAt: this.opts.now() + seconds * 1000 };
     return this.token.value;
+  }
+
+  /**
+   * Důvod odmítnutí přihlášení podle OAuth odpovědi iDokladu (`error`,
+   * `error_description`) — jen kód z malých písmen a krátký, začerněný popis,
+   * nikdy hodnoty přístupových údajů.
+   */
+  private tokenErrorDetail(text: string): string {
+    let parsed: { error?: unknown; error_description?: unknown } = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return "";
+    }
+    const code = typeof parsed.error === "string" && /^[a-z_]{1,40}$/.test(parsed.error) ? parsed.error : null;
+    if (!code) return "";
+    const hint = TOKEN_ERROR_HINTS[code];
+    const description =
+      typeof parsed.error_description === "string" && parsed.error_description.trim()
+        ? `, ${this.redact(parsed.error_description.trim()).slice(0, 120)}`
+        : "";
+    return `: ${code}${description}${hint ? ` — ${hint}` : ""}`;
   }
 
   private async call<T>(method: "GET" | "POST" | "PUT", path: string, query?: Record<string, string>, body?: unknown): Promise<T> {
