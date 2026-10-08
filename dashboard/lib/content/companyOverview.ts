@@ -115,10 +115,11 @@ export const companyOverview: CompanyOverviewContent = {
       ],
     },
     {
-      // Doplněno podle zadání majitele 8. 10. 2026: spolumajitelka a investorka.
+      // Doplněno podle zadání majitele 8. 10. 2026: spolumajitelka, investorka
+      // a finanční ředitelka — faktury a platby jsou její doména.
       name: "Lucie Königsbergová",
-      role: "Majitelka",
-      areas: ["Investice"],
+      role: "Majitelka · finanční ředitelka",
+      areas: ["Finance", "Faktury a platby", "Investice"],
     },
     {
       name: "Jiří Střelec",
