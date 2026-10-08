@@ -165,6 +165,12 @@ první nová objednávka 5201).
    Kontrola před `eshop-payments/20_before.sql` → `ano | 0 | 0 | 0 | NULL`;
    po `22_after.sql` → `1 | 0 | 0 | ano | ano`. The Cup se netýká
    (`channel <> 'eshop'`). Vrácení: `29_rollback.sql` (vypne jen povinnost).
+   **HOTOVO 8. 10. 2026** — spustilo vedení na `main` (BEGIN, DO, DO, ALTER,
+   COMMIT bez chyby). Claude ověřil read-only: `22_after.sql` →
+   `1 | 0 | 0 | ano | ano`, `orders_eshop_requires_vs` platná (CHECK,
+   validated), schéma 697 / `87499b1c6d57c7c5dbab0cf044c24263` = generálka,
+   otisky The Cup (`bf5cab26…`, `cd856266…`, `cef7751c…`) beze změny, řada VS
+   nepoužitá (první VS 70000001), platby 0, iDoklad záznamy 0.
 
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich
