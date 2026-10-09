@@ -9,7 +9,7 @@ import { isCeoFocusAllowed } from "@/lib/data/ceoFocusAuth";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
-import ResponsibilityCard from "@/components/company-overview/ResponsibilityCard";
+import ResponsibilitiesSection from "@/components/company-overview/ResponsibilitiesSection";
 import CompanyNotesList from "@/components/company-overview/CompanyNotesList";
 import CompanyStatusSummary from "@/components/company-overview/CompanyStatusSummary";
 import NodeCard from "@/components/company-overview/NodeCard";
@@ -109,16 +109,7 @@ export default async function CompanyOverviewPage() {
         mapNotes={content.mapNotes}
       />
 
-      <div className="mb-6">
-        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
-          Rozdělení odpovědností
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {content.responsibilities.map((owner) => (
-            <ResponsibilityCard key={owner.name} owner={owner} />
-          ))}
-        </div>
-      </div>
+      <ResponsibilitiesSection leadership={content.responsibilities} team={content.teamResponsibilities} />
 
       <div className="mb-6">
         <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Jak Begina funguje</h2>
