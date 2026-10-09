@@ -10,9 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "^4.0.110",
     "@neondatabase/auth": "^0.5.0-beta",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.8.1",
+    "ai": "^7.0.137",
     "drizzle-orm": "^0.45.2",
     "google-auth-library": "^11.0.0",
     "googleapis": "^183.0.0",
@@ -23,7 +25,8 @@
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "stripe": "22.6.2"
+    "stripe": "22.6.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

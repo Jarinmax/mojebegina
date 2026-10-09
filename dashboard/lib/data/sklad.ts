@@ -235,6 +235,7 @@ export type GoodsReceiptSummary = {
   stockLocationId: string;
   documentNumber: string | null;
   status: string;
+  extractionStatus: string;
   createdAt: Date;
 };
 
@@ -248,6 +249,7 @@ export async function listGoodsReceipts(): Promise<GoodsReceiptSummary[]> {
       stockLocationId: goodsReceipts.stockLocationId,
       documentNumber: goodsReceipts.documentNumber,
       status: goodsReceipts.status,
+      extractionStatus: goodsReceipts.extractionStatus,
       createdAt: goodsReceipts.createdAt,
     })
     .from(goodsReceipts)
@@ -264,6 +266,7 @@ export async function getGoodsReceipt(receiptId: string): Promise<GoodsReceiptSu
       stockLocationId: goodsReceipts.stockLocationId,
       documentNumber: goodsReceipts.documentNumber,
       status: goodsReceipts.status,
+      extractionStatus: goodsReceipts.extractionStatus,
       createdAt: goodsReceipts.createdAt,
     })
     .from(goodsReceipts)
@@ -278,6 +281,9 @@ export type GoodsReceiptLineRow = {
   rawDescription: string;
   supplierItemCode: string | null;
   supplierAuxiliaryCode: string | null;
+  rawPackageQuantity: number;
+  rawUnitsPerPackage: number;
+  rawUnit: string;
   normalizedQuantity: number;
   normalizedUnit: string;
   unitPriceWithoutVat: number;
@@ -316,6 +322,9 @@ export async function listGoodsReceiptLines(receiptId: string): Promise<GoodsRec
       rawDescription: goodsReceiptLines.rawDescription,
       supplierItemCode: goodsReceiptLines.supplierItemCode,
       supplierAuxiliaryCode: goodsReceiptLines.supplierAuxiliaryCode,
+      rawPackageQuantity: goodsReceiptLines.rawPackageQuantity,
+      rawUnitsPerPackage: goodsReceiptLines.rawUnitsPerPackage,
+      rawUnit: goodsReceiptLines.rawUnit,
       normalizedQuantity: goodsReceiptLines.normalizedQuantity,
       normalizedUnit: goodsReceiptLines.normalizedUnit,
       unitPriceWithoutVat: goodsReceiptLines.unitPriceWithoutVat,
@@ -409,6 +418,70 @@ export async function addManualGoodsReceiptLine(
   });
 
   return { ok: true, lineId: line.id };
+}
+
+export type UpdateLineResult = { ok: true } | { ok: false; error: string };
+
+// Oprava hodnot existujícího řádku (mobilní tok 1.0, kontrolní obrazovka po
+// AI vytěžení — bod 10 zadání: "kde lze opravit hodnoty"). Stejná validace
+// jako addManualGoodsReceiptLine (validateManualLineInput), jen UPDATE
+// místo INSERTu a beze změny position. Reset vat_confirmed na false při
+// změně částek řeší SÁM DB trigger goods_receipt_lines_reset_vat_confirmed
+// (migrace 0023) — tahle funkce ho nijak neobchází (na rozdíl od
+// reviewGoodsReceiptLineVat, co VAT schvaluje v tomtéž zápisu).
+export async function updateGoodsReceiptLine(
+  receiptId: string,
+  lineId: string,
+  rawInput: ManualLineInput
+): Promise<UpdateLineResult> {
+  requireReviewAccess(await getAuthContext());
+
+  const receipt = await fetchReceiptForMutation(receiptId);
+  if (!receipt) {
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (receipt.status !== "draft") {
+    return { ok: false, error: "Řádky lze upravit jen u návrhu příjemky." };
+  }
+
+  const validated = validateManualLineInput(rawInput);
+  if (!validated.ok) {
+    return validated;
+  }
+  const value = validated.value;
+
+  if (value.stockItemId) {
+    const [item] = await db.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.id, value.stockItemId)).limit(1);
+    if (!item) {
+      return { ok: false, error: "Skladová karta nebyla nalezena." };
+    }
+  }
+
+  const result = await db
+    .update(goodsReceiptLines)
+    .set({
+      rawDescription: value.rawDescription,
+      supplierItemCode: value.supplierItemCode,
+      supplierAuxiliaryCode: value.supplierAuxiliaryCode,
+      rawPackageQuantity: value.rawPackageQuantity,
+      rawUnitsPerPackage: value.rawUnitsPerPackage,
+      rawUnit: value.rawUnit,
+      normalizedQuantity: value.normalizedQuantity,
+      normalizedUnit: value.normalizedUnit,
+      unitPriceWithoutVat: value.unitPriceWithoutVat,
+      totalWithoutVatHal: value.totalWithoutVatHal,
+      vatHal: value.vatHal,
+      totalWithVatHal: value.totalWithVatHal,
+      computedVatRatePercent: value.computedVatRatePercent,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)))
+    .returning({ id: goodsReceiptLines.id });
+
+  if (result.length === 0) {
+    return { ok: false, error: "Řádek nebyl nalezen." };
+  }
+  return { ok: true };
 }
 
 export type DeleteLineResult = { ok: true } | { ok: false; error: string };

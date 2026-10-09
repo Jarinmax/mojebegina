@@ -8,12 +8,16 @@ import {
   buildDocumentPagePathname,
   computeNormalizedQuantity,
   computeVatRatePercent,
+  extractedReceiptSchema,
   isValidDocumentPagePathname,
   isValidIco,
   isValidSha256Hex,
+  normalizeExtractedLine,
   normalizeText,
   parseDecimal,
   parseHaler,
+  sanitizeExtractedDocumentDate,
+  sanitizeExtractedIco,
   validateDocumentPageInput,
   validateManualLineInput,
   validateStockItemInput,
@@ -295,5 +299,156 @@ describe("validateDocumentPageInput — kontrola PŘED zápisem do DB (bod 8 zad
   it("ALLOWED_UPLOAD_MIME_TYPES obsahuje jen image/jpeg a MAX_UPLOAD_BYTES je kladné číslo", () => {
     expect(ALLOWED_UPLOAD_MIME_TYPES).toEqual(["image/jpeg"]);
     expect(MAX_UPLOAD_BYTES).toBeGreaterThan(0);
+  });
+});
+
+// --- AI vytěžení účtenky ---------------------------------------------------
+
+function baseExtractedLine(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    description: "Pivo 12°",
+    supplierItemCode: "123",
+    supplierAuxiliaryCode: null,
+    packageQuantity: 2,
+    unitsPerPackage: 12,
+    unit: "ks",
+    unitPriceWithoutVat: 25,
+    totalWithoutVat: 600,
+    vatAmount: 23, // záměrně nesmyslná hodnota — appka ji nikdy nepoužije
+    totalWithVat: 726,
+    suggestedCategory: "resale_goods",
+    suggestedStockItemName: "Pivo 12°",
+    suggestedCanonicalUnit: "l",
+    ...overrides,
+  };
+}
+
+function baseExtractedReceipt(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    supplierName: "Pivovar Náchod",
+    supplierIco: "74337297",
+    supplierDic: "CZ74337297",
+    documentNumber: "FA2026001",
+    documentDate: "2026-01-15",
+    paymentMethod: "převodem",
+    lines: [baseExtractedLine()],
+    totalWithoutVat: 600,
+    totalVat: 126,
+    totalWithVat: 726,
+    ...overrides,
+  };
+}
+
+describe("extractedReceiptSchema — strukturovaný výstup modelu", () => {
+  it("platný syntetický doklad projde", () => {
+    const result = extractedReceiptSchema.safeParse(baseExtractedReceipt());
+    expect(result.success).toBe(true);
+  });
+
+  it("vícestránkový doklad (víc řádků) je pořád jeden platný objekt", () => {
+    const result = extractedReceiptSchema.safeParse(
+      baseExtractedReceipt({
+        lines: [
+          baseExtractedLine({ description: "Pivo 12° (strana 1)" }),
+          baseExtractedLine({ description: "Limonáda (strana 2)", supplierItemCode: "456" }),
+        ],
+      })
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.lines).toHaveLength(2);
+    }
+  });
+
+  it("odmítne doklad bez řádků (prázdné pole)", () => {
+    const result = extractedReceiptSchema.safeParse(baseExtractedReceipt({ lines: [] }));
+    expect(result.success).toBe(false);
+  });
+
+  it("odmítne neplatnou kategorii návrhu (mimo 4 povolené)", () => {
+    const result = extractedReceiptSchema.safeParse(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ suggestedCategory: "neznama_kategorie" })] })
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("chybějící/neznámé hodnoty jako null projdou (model se nemá nutit hádat)", () => {
+    const result = extractedReceiptSchema.safeParse(
+      baseExtractedReceipt({ supplierName: null, supplierIco: null, supplierDic: null, documentNumber: null, documentDate: null, paymentMethod: null })
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("odmítne záporné částky", () => {
+    const result = extractedReceiptSchema.safeParse(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithoutVat: -10 })] })
+    );
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("normalizeExtractedLine — DPH se VŽDY dopočítá z částek, model se nikdy nevěří (bod 4 zadání)", () => {
+  it("vatAmount z modelu se ZAHODÍ, appka si DPH dopočítá sama z obou celkových částek", () => {
+    const line = baseExtractedLine({ totalWithoutVat: 100, totalWithVat: 121, vatAmount: 999999 });
+    const result = normalizeExtractedLine(line as never);
+    expect(result.vatHal).toBe(2100); // 12100 - 10000, NE 999999 (model)
+    expect(result.totalWithVatHal).toBe(12100);
+    expect(result.totalWithoutVatHal).toBe(10000);
+  });
+
+  it("číslo připomínající kód oddělení (vatAmount='23') se nikdy nepoužije jako sazba DPH", () => {
+    // Přesně reálný nález z Makro faktury, co appka musí odolat i u AI
+    // vytěžení: "23" vypadá jako sazba, ale je to kód oddělení, ne DPH.
+    const line = baseExtractedLine({ totalWithoutVat: 177, totalWithVat: 214.17, vatAmount: 23 });
+    const result = normalizeExtractedLine(line as never);
+    expect(result.computedVatRatePercent).toBeCloseTo(21, 0);
+  });
+
+  it("normalizedQuantity se spočítá stejně jako u ručního zadání (balení × kusů v balení)", () => {
+    const line = baseExtractedLine({ packageQuantity: 2, unitsPerPackage: 12 });
+    const result = normalizeExtractedLine(line as never);
+    expect(result.normalizedQuantity).toBe(24);
+  });
+
+  it("obrana proti nekonzistentním částkám z modelu (s DPH < bez DPH) — vatHal nikdy záporné", () => {
+    const line = baseExtractedLine({ totalWithoutVat: 200, totalWithVat: 100 });
+    const result = normalizeExtractedLine(line as never);
+    expect(result.vatHal).toBeGreaterThanOrEqual(0);
+  });
+
+  it("prázdný dodavatelský/pomocný kód (null) zůstane null, ne prázdný řetězec", () => {
+    const line = baseExtractedLine({ supplierItemCode: null, supplierAuxiliaryCode: null });
+    const result = normalizeExtractedLine(line as never);
+    expect(result.supplierItemCode).toBeNull();
+    expect(result.supplierAuxiliaryCode).toBeNull();
+  });
+});
+
+describe("sanitizeExtractedIco", () => {
+  it("platné IČO projde beze změny", () => {
+    expect(sanitizeExtractedIco("74337297")).toBe("74337297");
+  });
+
+  it("očistí mezery/pomlčky a ověří formát", () => {
+    expect(sanitizeExtractedIco("743 372 97")).toBe("74337297");
+    expect(sanitizeExtractedIco("743-37-297")).toBe("74337297");
+  });
+
+  it("neplatné/poškozené IČO se tiše zahodí (null), appka nespadne", () => {
+    expect(sanitizeExtractedIco("abc")).toBeNull();
+    expect(sanitizeExtractedIco("123")).toBeNull();
+    expect(sanitizeExtractedIco(null)).toBeNull();
+  });
+});
+
+describe("sanitizeExtractedDocumentDate", () => {
+  it("platný formát YYYY-MM-DD projde", () => {
+    expect(sanitizeExtractedDocumentDate("2026-01-15")).toBe("2026-01-15");
+  });
+
+  it("neplatný formát nebo null se zahodí (null), appka si nevymýšlí datum", () => {
+    expect(sanitizeExtractedDocumentDate("15.1.2026")).toBeNull();
+    expect(sanitizeExtractedDocumentDate("not a date")).toBeNull();
+    expect(sanitizeExtractedDocumentDate(null)).toBeNull();
   });
 });

@@ -1,6 +1,8 @@
 // Security Phase 22 (Sklad 1.0 — bezpečný základ) — čistá validace a
 // výpočty, bez "server-only", stejný princip jako dailyCallsValidation.ts:
 // testovatelné bez databáze, kontrola a dotaz se skládají až v sklad.ts.
+import { z } from "zod";
+
 export const STOCK_ITEM_KINDS = ["ingredient", "resale_goods", "operating_supply"] as const;
 export type StockItemKind = (typeof STOCK_ITEM_KINDS)[number];
 
@@ -312,4 +314,116 @@ export function validateDocumentPageInput(
     return { ok: false, error: "Nepodporovaný typ souboru — očekává se JPEG." };
   }
   return { ok: true, value: { pathname, sha256, mimeType } };
+}
+
+// --- AI vytěžení účtenky (needs_review) -----------------------------------
+//
+// Zod schéma pro strukturovaný výstup modelu (lib/data/receiptExtractionModel.ts).
+// Model vrací částky PŘESNĚ jak jsou na dokladu — `vatAmount` je jen
+// kontext/sebekontrola modelu, appka ho při zápisu VŽDY ZAHODÍ a DPH
+// dopočítá sama z obou celkových částek (bod 4 zadání: DPH vždy ověřuj
+// výpočtem, číslo připomínající kód oddělení nesmí být považováno za
+// sazbu — stejná zásada jako u computeVatRatePercent/ručního zadání
+// řádku, viz reálný nález na faktuře Makro výš v souboru). Model NIKDY
+// nevrací stockItemId ani závazné zařazení — `suggested*` pole jsou jen
+// NÁVRH pro položky bez známého mapování (bod 7 zadání: "pouze navrhni
+// skladovou kartu, kategorii a jednotku — člověk musí první přiřazení
+// potvrdit"), appka je nikdy sama nepoužije jako potvrzené mapování
+// (lib/data/skladExtraction.ts je ukládá jen jako extraction_raw návrh
+// pro kontrolní obrazovku, ne přímo jako stock_item_id).
+export const extractedReceiptLineSchema = z.object({
+  description: z.string().min(1),
+  supplierItemCode: z.string().min(1).nullable(),
+  supplierAuxiliaryCode: z.string().min(1).nullable(),
+  packageQuantity: z.number().positive(),
+  unitsPerPackage: z.number().positive(),
+  unit: z.string().min(1),
+  unitPriceWithoutVat: z.number().nonnegative(),
+  totalWithoutVat: z.number().nonnegative(),
+  vatAmount: z.number().nonnegative(),
+  totalWithVat: z.number().nonnegative(),
+  suggestedCategory: z.enum(["stock_material", "resale_goods", "operating_supply", "non_stock_private"]).nullable(),
+  suggestedStockItemName: z.string().min(1).nullable(),
+  suggestedCanonicalUnit: z.string().min(1).nullable(),
+});
+export type ExtractedReceiptLine = z.infer<typeof extractedReceiptLineSchema>;
+
+export const extractedReceiptSchema = z.object({
+  supplierName: z.string().min(1).nullable(),
+  supplierIco: z.string().nullable(),
+  supplierDic: z.string().nullable(),
+  documentNumber: z.string().min(1).nullable(),
+  documentDate: z.string().nullable(),
+  paymentMethod: z.string().min(1).nullable(),
+  lines: z.array(extractedReceiptLineSchema).min(1),
+  totalWithoutVat: z.number().nonnegative(),
+  totalVat: z.number().nonnegative(),
+  totalWithVat: z.number().nonnegative(),
+});
+export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>;
+
+// Haléře se počítají ze VŠUDE stejně (Math.round, ne truncate) — stejná
+// konvence jako parseHaler výš, jen už z čísla, ne z řetězce (model vrací
+// number, ne text).
+function halFromAmount(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+export type NormalizedExtractedLine = {
+  rawDescription: string;
+  supplierItemCode: string | null;
+  supplierAuxiliaryCode: string | null;
+  rawPackageQuantity: number;
+  rawUnitsPerPackage: number;
+  rawUnit: string;
+  normalizedQuantity: number;
+  unitPriceWithoutVat: number;
+  totalWithoutVatHal: number;
+  vatHal: number;
+  totalWithVatHal: number;
+  computedVatRatePercent: number;
+};
+
+// DPH se tu DOPOČÍTÁ z obou celkových částek (totalWithoutVat/totalWithVat
+// z dokladu) — `line.vatAmount` se NEPOUŽÍVÁ, i kdyby ho model spočítal
+// správně. `Math.max(0, …)` je obrana proti modelu, co by si částky
+// prohodil nebo vrátil nekonzistentní čísla — appka si nikdy nespočítá
+// zápornou DPH.
+export function normalizeExtractedLine(line: ExtractedReceiptLine): NormalizedExtractedLine {
+  const totalWithoutVatHal = halFromAmount(line.totalWithoutVat);
+  const totalWithVatHal = Math.max(totalWithoutVatHal, halFromAmount(line.totalWithVat));
+  const vatHal = totalWithVatHal - totalWithoutVatHal;
+  return {
+    rawDescription: line.description.trim(),
+    supplierItemCode: line.supplierItemCode?.trim() || null,
+    supplierAuxiliaryCode: line.supplierAuxiliaryCode?.trim() || null,
+    rawPackageQuantity: line.packageQuantity,
+    rawUnitsPerPackage: line.unitsPerPackage,
+    rawUnit: line.unit.trim(),
+    normalizedQuantity: computeNormalizedQuantity(line.packageQuantity, line.unitsPerPackage),
+    unitPriceWithoutVat: line.unitPriceWithoutVat,
+    totalWithoutVatHal,
+    vatHal,
+    totalWithVatHal,
+    computedVatRatePercent: computeVatRatePercent(totalWithoutVatHal, totalWithVatHal),
+  };
+}
+
+// IČO z modelu může mít mezery/pomlčky nebo být úplně špatně — appka ho
+// jen OČISTÍ na číslice a ověří formát (isValidIco), jinak ho tiše zahodí
+// (null) místo aby kvůli jednomu poškozenému poli spadla celá extrakce.
+// Dodavatel jde dohledat i přes název (viz skladExtraction.ts).
+export function sanitizeExtractedIco(ico: string | null): string | null {
+  if (!ico) {
+    return null;
+  }
+  const digitsOnly = ico.replace(/\D/g, "");
+  return isValidIco(digitsOnly) ? digitsOnly : null;
+}
+
+export function sanitizeExtractedDocumentDate(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
