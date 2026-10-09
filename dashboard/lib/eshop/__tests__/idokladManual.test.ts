@@ -16,6 +16,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const VINER = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c";
+const LUCIE = "f9f93f03-92b0-4724-becd-c0a3576b5275";
 const auth = vi.hoisted(() => ({ userId: "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c", role: "ADMIN" as "ADMIN" | "EXECUTIVE" }));
 vi.mock("@/lib/data/authContext", () => ({
   getAuthContext: async () => ({
@@ -267,13 +268,15 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     expect(mail.sent.filter((m) => /Faktura k objednávce/.test(m.subject))).toHaveLength(1);
   });
 
-  it("manual: tlačítko smí jen oprávněný (Jaroslav Viner, ADMIN) — jiný ADMIN ani EXECUTIVE ne", async () => {
+  it("manual: tlačítko smí jen oprávnění (Viner jako ADMIN, Königsbergová jako EXECUTIVE) — nikdo jiný", async () => {
     const id = await newOrder();
     await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad();
     for (const [userId, role] of [
       ["jiny-admin", "ADMIN"],
+      ["jiny-executive", "EXECUTIVE"],
       [VINER, "EXECUTIVE"],
+      [LUCIE, "ADMIN"],
     ] as const) {
       auth.userId = userId;
       auth.role = role;
@@ -282,6 +285,26 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       expect(await orders.runEshopIdokladPreflight()).toEqual({ ok: false, error: expect.stringMatching(/smí spustit jen/) });
     }
     expect(route.fake.calls).toEqual([]);
+  });
+
+  it("manual: Lucie Königsbergová (finanční ředitelka, EXECUTIVE) zvládne celý postup sama — objednávky, platba, faktura, kontrola iDokladu", async () => {
+    const id = await newOrder();
+    auth.userId = LUCIE;
+    auth.role = "EXECUTIVE";
+    // vidí objednávky a detail (včetně návrhu faktury) a zapíše platbu
+    expect((await orders.listOrders()).orders.map((o) => o.id)).toContain(id);
+    expect(await orders.getOrderDetail(id)).toMatchObject({ order: { id } });
+    expect(await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" })).toMatchObject({ ok: true, settled: true });
+    const [payment] = await rows(sql`SELECT recorded_by_user_id FROM payments WHERE order_id = ${id}`);
+    expect(payment).toEqual({ recorded_by_user_id: LUCIE });
+    expect(await orders.getInvoiceIssueAccess()).toMatchObject({ issuer: true, canIssue: true });
+    route.fake = createFakeIdoklad();
+    expect(await orders.runEshopIdokladPreflight()).toMatchObject({ ok: true });
+    expect(route.fake.writes()).toEqual([]);
+    const next = route.fake.next();
+    expect(await orders.issueOrderInvoice(id)).toEqual({ ok: true, message: `Faktura ${next.number} je vystavená a uhrazená a odeslaná zákazníkovi.` });
+    const [activity] = await rows(sql`SELECT author_user_id FROM order_activity WHERE order_id = ${id} AND kind = 'invoice_issued'`);
+    expect(activity).toEqual({ author_user_id: LUCIE });
   });
 
   // ---------------------------------------------------------------- on

@@ -172,6 +172,17 @@ první nová objednávka 5201).
    otisky The Cup (`bf5cab26…`, `cd856266…`, `cef7751c…`) beze změny, řada VS
    nepoužitá (první VS 70000001), platby 0, iDoklad záznamy 0.
 
+11. **Kategorie „Zmrzliny“ (rozhodnutí vedení 8. 10. 2026):** viditelná hned,
+   zatím bez produktů („Připravujeme — nabídku brzy doplníme.“), v menu
+   „Zmrzliny“, v pruhu ikon až s dodanou ikonou. Nejdřív nasadit kód (bez
+   řádku v DB se nikde neukáže), pak `docs/eshop-production/17_kategorie_zmrzliny_MAIN.sql`
+   (pojistka: jen main, katalog po fázi A, jen jednou). Před
+   `eshop-catalog/60_zmrzliny_before.sql` → `0 | 50 | 5`; po
+   `62_zmrzliny_after.sql` → `1 | Zmrzliny | 60 | ano | 0 | 6 | ano`.
+   Vrácení: `69_zmrzliny_rollback.sql` (skryje). Produkty, texty, fotky
+   a **mražená přeprava** (nový způsob doručení, cena, doplnění VOP) až
+   s podklady od vedení.
+
 Dnešní `main` kód nové sloupce ignoruje — MojeBegina v Production běží dál.
 Migrace MUSÍ proběhnout **před** sloučením kódu (nový kód je čte; bez nich
 by spadly Objednávky — stejně jako 28. 9. na Preview).

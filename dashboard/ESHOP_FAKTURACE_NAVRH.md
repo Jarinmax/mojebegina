@@ -325,7 +325,9 @@ kontrolou, zámkem a idempotencí. **Preview je vždy jen návrh** — i s `manu
 akce i motor to ověřují samy a HTTP klient znovu před každým zápisem).
 
 **Oprávnění** (`lib/data/invoiceAuth.ts`): vystavit fakturu a spustit kontrolu
-iDokladu smí jen Jaroslav Viner s aktivní rolí ADMIN (stejně jako Finance 1.0).
+iDokladu smí jen Jaroslav Viner s aktivní rolí ADMIN a Lucie Königsbergová
+(finanční ředitelka, od 8. 10. 2026) s aktivní rolí EXECUTIVE — konkrétní
+osoba + její role, ne role sama (stejně jako Finance 1.0).
 
 **Kontrola iDokladu — preflight** (`lib/eshop/invoicing/preflight.ts`), jen
 GET + token: přihlášení Client Credentials, agenda IČO 74337297, neplátce DPH,

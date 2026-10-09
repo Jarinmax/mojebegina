@@ -113,7 +113,7 @@ export default async function CompanyOverviewPage() {
         <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
           Rozdělení odpovědností
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {content.responsibilities.map((owner) => (
             <ResponsibilityCard key={owner.name} owner={owner} />
           ))}

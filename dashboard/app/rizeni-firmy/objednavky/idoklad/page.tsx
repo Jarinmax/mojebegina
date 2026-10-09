@@ -5,8 +5,8 @@ import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { invoicingMode, invoicingSwitch, missingIdokladCredentials } from "@/lib/eshop/invoicing/mode";
 import IdokladPreflightPanel from "./IdokladPreflightPanel";
 
-// ESHOP 1.0 — „Kontrola připojení iDokladu“ (preflight). Jen Jaroslav
-// Viner (invoiceAuth.ts). Stejné Client Credentials, jaké použije ostré
+// ESHOP 1.0 — „Kontrola připojení iDokladu“ (preflight). Jen oprávnění
+// vystavovatelé faktur (invoiceAuth.ts). Stejné Client Credentials, jaké použije ostré
 // vystavení, ale jen čtení — nic se nezapisuje do iDokladu ani do DB.
 // Jde spustit i s vypnutou fakturací (před zapnutím na Production).
 export const dynamic = "force-dynamic";
