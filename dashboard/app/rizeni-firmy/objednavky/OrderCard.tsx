@@ -3,6 +3,7 @@ import { formatCzechDate, formatKc } from "@/lib/format";
 import { FulfillmentBadge, PaymentBadge } from "./OrderStatusBadges";
 import type { OrderCardData } from "@/lib/data/orders";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
+import CancelledMoneyBadge from "./CancelledMoneyBadge";
 
 export default function OrderCard({ order }: { order: OrderCardData }) {
   return (
@@ -30,6 +31,7 @@ export default function OrderCard({ order }: { order: OrderCardData }) {
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
+        <CancelledMoneyBadge money={order.moneyAlert} />
       </div>
 
       <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">

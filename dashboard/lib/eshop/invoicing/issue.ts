@@ -208,12 +208,15 @@ async function markFailed(db: Db, orderId: string, linkId: string, message: stri
 async function reallyPaid(db: Db, orderId: string): Promise<string | null> {
   const row = (
     await db.execute(sql`
-      SELECT o.channel, o.payment_status, o.payment_vs, b.balance_state
+      SELECT o.channel, o.payment_status, o.payment_vs, o.fulfillment_status, b.balance_state
       FROM orders o JOIN order_payment_balance b ON b.order_id = o.id
       WHERE o.id = ${orderId}`)
-  ).rows[0] as { channel: string; payment_status: string; payment_vs: string | null; balance_state: string } | undefined;
+  ).rows[0] as
+    | { channel: string; payment_status: string; payment_vs: string | null; fulfillment_status: string; balance_state: string }
+    | undefined;
   if (!row) return "Objednávka nebyla nalezena.";
   if (row.channel !== "eshop") return "Fakturu do iDokladu vystavuje e-shop jen k e-shopovým objednávkám.";
+  if (row.fulfillment_status === "cancelled") return "Objednávka je stornovaná — faktura se nevystaví.";
   if (row.payment_status !== "paid" || !["paid", "overpaid"].includes(row.balance_state)) {
     return "Objednávka není uhrazená celá — faktura se nevystaví.";
   }

@@ -13,6 +13,15 @@
 //                                     nepřišlo potvrzení o zaplacení)
 //   faktura vystavená až později    → zákazník: „Faktura k objednávce“ s PDF
 //     (ostrý provoz, issue.ts)        (jen když PDF ještě neodešlo)
+//   skutečná změna na Stornovaná    → zákazník: „Objednávka … byla zrušena“
+//     (lib/eshop/cancellation.ts)     (nezaplacená: už nehradit; zaplacená:
+//                                     ozveme se — jiný produkt, nebo
+//                                     vrácení; nic automaticky) — max. jednou
+//   náhradní objednávka z MojeBegina → zákazník: „Náhradní objednávka …“ —
+//     (převedená platba)                žádná výzva k úhradě celé částky:
+//                                     zaplaceno / doplatek s QR jen na
+//                                     zbytek / přeplatek vrátíme. Běžné
+//                                     „Přijali jsme objednávku“ NEodchází.
 //
 // Ostrý provoz fakturace: PDF faktury z iDokladu (option invoicePdf) se
 // přiloží k potvrzení o zaplacení. iDoklad sám zákazníkovi nic neposílá.
@@ -38,6 +47,8 @@ import { ESHOP_ACTOR_NAME } from "../orderWrite";
 import { emailConfig, resolveRecipients, type EmailConfig } from "./config";
 import { resendTransport, type EmailTransport } from "./resend";
 import {
+  customerCancellationEmail,
+  customerReplacementEmail,
   customerOrderEmail,
   customerPaymentReceivedEmail,
   internalOrderEmail,
@@ -51,12 +62,20 @@ import type { InvoicePdf } from "../invoicing/issue";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
-export type OrderEmailTrigger = "order_created" | "payment_confirmed" | "payment_marked_paid" | "invoice_issued";
+export type OrderEmailTrigger =
+  | "order_created"
+  | "payment_confirmed"
+  | "payment_marked_paid"
+  | "invoice_issued"
+  | "order_cancelled"
+  | "replacement_created";
 export type OrderEmailTemplate =
   | "customer_confirmation"
   | "internal_new_order"
   | "customer_payment_received"
-  | "customer_invoice";
+  | "customer_invoice"
+  | "customer_cancellation"
+  | "customer_replacement";
 
 const QR_CONTENT_ID = "qr-platba";
 export type OrderEmailOutcome = { template: OrderEmailTemplate; status: "sent" | "duplicate" | "failed" | "no-recipient" };
@@ -83,6 +102,8 @@ export function emailsFor(
   if (trigger === "invoice_issued") {
     return order.paymentStatus === "paid" ? ["customer_invoice"] : [];
   }
+  if (trigger === "order_cancelled") return ["customer_cancellation"];
+  if (trigger === "replacement_created") return ["customer_replacement"];
   // Ručně označeno Zaplaceno. Kartou zaplacená objednávka už potvrzení
   // „je zaplacená“ dostala od webhooku — druhá zpráva by byla navíc.
   if (order.paymentStatus !== "paid") return [];
@@ -166,12 +187,21 @@ export type SendOrderEmailsOptions = {
   bank?: BankConfig;
   /** PDF vystavené faktury — přiloží se k potvrzení o zaplacení */
   invoicePdf?: InvoicePdf | null;
+  /** storno: kolik peněz Begina drží (haléře) — rozhoduje o textu e-mailu */
+  cancellation?: { heldHal: number };
+  /** náhradní objednávka: odkud je platba a kolik jí přišlo (haléře) */
+  replacement?: { fromReference: string; receivedHal: number };
 };
 
 /** Ke kterému e-mailu patří PDF faktury (jen zaplacená objednávka). */
 function carriesInvoice(template: OrderEmailTemplate, paid: boolean): boolean {
   if (!paid) return false;
-  return template === "customer_confirmation" || template === "customer_payment_received" || template === "customer_invoice";
+  return (
+    template === "customer_confirmation" ||
+    template === "customer_payment_received" ||
+    template === "customer_invoice" ||
+    template === "customer_replacement"
+  );
 }
 
 export async function sendOrderEmails(
@@ -220,6 +250,23 @@ export async function sendOrderEmails(
         const qr = await qrImage(transfer?.spayd ?? null);
         if (qr) inlineImages = [qr];
         rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber });
+      } else if (template === "customer_replacement") {
+        // Platební údaje a QR jen na doplatek (zbytek po převedené platbě).
+        const receivedHal = options.replacement?.receivedHal ?? 0;
+        const remainingHal = order.totalKc * 100 - receivedHal;
+        const remaining = remainingHal > 0 ? transferInfo(order, options.bank ?? bankConfig(), remainingHal / 100) : null;
+        const qr = await qrImage(remaining?.spayd ?? null);
+        if (qr) inlineImages = [qr];
+        rendered = customerReplacementEmail(order, {
+          ...ctx,
+          fromReference: options.replacement?.fromReference ?? "",
+          receivedHal,
+          transfer: remaining,
+          qrContentId: qr ? qr.contentId : null,
+          invoiceNumber,
+        });
+      } else if (template === "customer_cancellation") {
+        rendered = customerCancellationEmail(order, { ...ctx, heldHal: options.cancellation?.heldHal ?? 0 });
       } else if (template === "customer_payment_received" || template === "customer_invoice") {
         rendered = customerPaymentReceivedEmail(order, { ...ctx, invoiceNumber, late: template === "customer_invoice" });
       } else {

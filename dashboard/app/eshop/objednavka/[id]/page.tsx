@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleCheck, CircleAlert, Clock } from "lucide-react";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { orderPaymentBalance } from "@/lib/db/schema";
 import { formatKc } from "@/lib/format";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
 import { isCardPaymentAvailable } from "@/lib/eshop/stripe/config";
@@ -28,15 +30,34 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
   }
 
   const paid = order.paymentStatus === "paid";
+  // Stornovaná objednávka: žádná výzva k platbě, žádné platební údaje ani QR.
+  const cancelled = order.fulfillmentStatus === "cancelled";
+  // Kolik už přišlo (i platba převedená ze stornované objednávky) → výzva
+  // k platbě jen na zbytek, ne na celou částku.
+  const [balance] = await db
+    .select({ netHal: orderPaymentBalance.netHal, requiredHal: orderPaymentBalance.requiredHal })
+    .from(orderPaymentBalance)
+    .where(eq(orderPaymentBalance.orderId, order.id))
+    .limit(1);
+  const receivedHal = Math.max(0, Number(balance?.netHal ?? 0));
+  const remainingKc = (order.totalKc * 100 - receivedHal) / 100;
   const canPay = isCardPaymentAvailable() && canPayByCard(order).ok;
   const reference = order.orderNumber !== null ? String(order.orderNumber) : order.id.slice(0, 8);
   // Převod: platební údaje + QR (QR jen s IBANem a číslem objednávky = VS).
-  const transfer = transferInfo(order, bankConfig());
+  const transfer = cancelled ? null : transferInfo(order, bankConfig(), remainingKc);
   const transferQr = transfer?.spayd ? await qrSvg(transfer.spayd).catch(() => null) : null;
   const overdue = isTransferOverdue(order);
 
   let banner: { icon: typeof CircleCheck; title: string; text: string };
-  if (paid) {
+  if (cancelled) {
+    banner = {
+      icon: CircleAlert,
+      title: "Objednávka byla zrušena",
+      text: paid || receivedHal > 0
+        ? "Platbu za objednávku jsme přijali. Ozveme se vám a domluvíme se, jak s ní naložit — například jiný produkt, nebo vrácení peněz."
+        : "Objednávku už prosím nehraďte. S dotazy nám napište na info@begina.cz.",
+    };
+  } else if (paid) {
     banner = { icon: CircleCheck, title: "Zaplaceno — děkujeme", text: "Platbu jsme přijali, objednávku připravujeme." };
   } else if (platba === "ok") {
     banner = {
@@ -55,11 +76,17 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
   } else if (transfer) {
     banner = overdue
       ? { icon: CircleAlert, title: "Platba je po splatnosti", text: "Objednávku jsme přijali, platbu převodem jsme ale zatím neobdrželi." }
-      : {
-          icon: Clock,
-          title: "Objednávka čeká na platbu převodem",
-          text: `Objednávku jsme přijali. Zaplaťte ji prosím do ${formatPragueDate(transfer.dueAt)}.`,
-        };
+      : receivedHal > 0
+        ? {
+            icon: Clock,
+            title: "Objednávka čeká na doplatek",
+            text: `Část platby už máme (${formatKc(receivedHal / 100)}). Doplaťte prosím ${formatKc(transfer.amountKc)} do ${formatPragueDate(transfer.dueAt)}.`,
+          }
+        : {
+            icon: Clock,
+            title: "Objednávka čeká na platbu převodem",
+            text: `Objednávku jsme přijali. Zaplaťte ji prosím do ${formatPragueDate(transfer.dueAt)}.`,
+          };
   } else {
     banner = { icon: Clock, title: "Objednávka čeká na zaplacení", text: "Objednávka je uložená, ale zatím nezaplacená." };
   }
@@ -106,7 +133,7 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
           <PayAgainButton orderId={order.id} label={platba === "ok" ? "Zaplatit kartou" : "Zaplatit znovu kartou"} />
         </div>
       )}
-      {!paid && platba === "ok" && (
+      {!paid && !cancelled && platba === "ok" && (
         <Link href={`/eshop/objednavka/${order.id}?platba=ok`} className="text-sm underline underline-offset-2 mr-4">
           Obnovit stav
         </Link>

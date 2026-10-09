@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { assignResponsibleAction, unassignResponsibleAction, type ActionState } from "./actions";
 import type { InternalStaffOption } from "@/lib/data/orders";
+import FormMessage from "./FormMessage";
 
 const initialState: ActionState = null;
 
@@ -18,7 +19,7 @@ export default function ResponsibleForm({ orderId, responsibleUserId, responsibl
   const [assignState, assignFormAction, assignPending] = useActionState(boundAssign, initialState);
 
   const boundUnassign = unassignResponsibleAction.bind(null, orderId);
-  const [, unassignFormAction, unassignPending] = useActionState(boundUnassign, initialState);
+  const [unassignState, unassignFormAction, unassignPending] = useActionState(boundUnassign, initialState);
 
   return (
     <div>
@@ -39,6 +40,7 @@ export default function ResponsibleForm({ orderId, responsibleUserId, responsibl
       )}
       <form action={assignFormAction} className="flex items-center gap-2">
         <select
+          key={responsibleUserId ?? "none"}
           name="responsibleUserId"
           defaultValue=""
           className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
@@ -60,9 +62,10 @@ export default function ResponsibleForm({ orderId, responsibleUserId, responsibl
           {assignPending ? "Přiřazuji…" : "Přiřadit"}
         </button>
       </form>
-      {assignState && "error" in assignState && (
-        <p className="text-xs text-begina-accent-700 mt-1">{assignState.error}</p>
-      )}
+      <div className="mt-1">
+        <FormMessage state={assignState} />
+        <FormMessage state={unassignState} />
+      </div>
     </div>
   );
 }
