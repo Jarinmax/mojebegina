@@ -352,8 +352,9 @@ export type TransferTarget = {
  * objednávek):
  *   • nový záznam u cílové objednávky: external_id „transfer:<id původní
  *     platby>“ (UNIQUE → podruhé nejde), VS cílové objednávky, datum =
- *     okamžik převodu (od té chvíle peníze patří cílové objednávce — faktura
- *     tak nevznikne s datem před jejím vznikem); původní datum, zdroj a ID
+ *     okamžik převodu, nejdřív však datum původní platby (od té chvíle peníze
+ *     patří cílové objednávce — faktura tak nevznikne s datem před jejím
+ *     vznikem ani před platbou); původní datum, zdroj a ID
  *     transakce zůstávají v raw,
  *   • původní záznam → „superseded“ s odkazem na nový (CHECK
  *     payments_superseded_has_link), dál se nezapočítává,
@@ -389,7 +390,9 @@ function transferStatement(input: {
       INSERT INTO payments (order_id, source, external_id, method, direction, status, amount_hal, vs, occurred_at,
         recorded_by_user_id, note, raw)
       SELECT ${input.targetId}, 'manual', 'transfer:' || src.id, src.method, 'inflow', 'succeeded', src.amount_hal,
-        (SELECT payment_vs FROM orders WHERE id = ${input.targetId}), ${at}::timestamptz, ${input.user.userId},
+        -- okamžik převodu, nikdy dřív než původní platba (ruční platba nese
+        -- jen den = 12:00 UTC; převod téhož dne ráno by jinak byl „dřív“)
+        (SELECT payment_vs FROM orders WHERE id = ${input.targetId}), greatest(${at}::timestamptz, src.occurred_at), ${input.user.userId},
         ${`Převedeno ze stornované objednávky ${input.fromRef} se souhlasem zákazníka`},
         jsonb_build_object('transferredFromOrderId', ${input.fromOrderId}::text, 'originalPaymentId', src.id::text,
           'originalSource', src.source, 'originalExternalId', src.external_id, 'originalVs', src.vs,
