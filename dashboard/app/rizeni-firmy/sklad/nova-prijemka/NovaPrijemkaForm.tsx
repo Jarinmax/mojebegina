@@ -1,19 +1,63 @@
 "use client";
 
-import { useActionState } from "react";
-import { createDraftGoodsReceiptAction, type ActionState } from "../actions";
+import { useActionState, useState } from "react";
+import { createDraftGoodsReceiptAction, createSupplierForReceiptAction, type ActionState } from "../actions";
 import type { SupplierSummary, StockLocationSummary } from "@/lib/data/sklad";
 
 const initialState: ActionState = null;
 
 export default function NovaPrijemkaForm({
-  suppliers,
+  suppliers: initialSuppliers,
   stockLocations,
 }: {
   suppliers: SupplierSummary[];
   stockLocations: StockLocationSummary[];
 }) {
   const [state, formAction, pending] = useActionState(createDraftGoodsReceiptAction, initialState);
+
+  // Dodavatelé se od načtení stránky drží v lokálním stavu (ne jen v
+  // props) — nový dodavatel se po založení přidá sem a rovnou vybere,
+  // BEZ reloadu/redirectu, který by smazal rozepsané údaje v ostatních
+  // polích formuláře (revize mobilního testu).
+  const [suppliers, setSuppliers] = useState<SupplierSummary[]>(initialSuppliers);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierIco, setSupplierIco] = useState("");
+  const [supplierDic, setSupplierDic] = useState("");
+  const [supplierError, setSupplierError] = useState<string | null>(null);
+  const [supplierPending, setSupplierPending] = useState(false);
+
+  async function handleCreateSupplier() {
+    setSupplierPending(true);
+    setSupplierError(null);
+    try {
+      const result = await createSupplierForReceiptAction({
+        name: supplierName,
+        ico: supplierIco,
+        dic: supplierDic,
+      });
+      if (!result.ok) {
+        setSupplierError(result.error);
+        return;
+      }
+      const newSupplier: SupplierSummary = {
+        id: result.supplierId,
+        name: supplierName.trim(),
+        ico: supplierIco.trim() || null,
+        dic: supplierDic.trim() || null,
+      };
+      setSuppliers((prev) => [...prev, newSupplier]);
+      setSelectedSupplierId(newSupplier.id);
+      setShowSupplierForm(false);
+      setSupplierName("");
+      setSupplierIco("");
+      setSupplierDic("");
+    } finally {
+      setSupplierPending(false);
+    }
+  }
 
   return (
     <form
@@ -29,7 +73,8 @@ export default function NovaPrijemkaForm({
           id="supplierId"
           name="supplierId"
           required
-          defaultValue=""
+          value={selectedSupplierId}
+          onChange={(event) => setSelectedSupplierId(event.target.value)}
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
         >
           <option value="" disabled>
@@ -41,10 +86,79 @@ export default function NovaPrijemkaForm({
             </option>
           ))}
         </select>
-        {suppliers.length === 0 && (
+        {suppliers.length === 0 && !showSupplierForm && (
           <p className="text-xs text-begina-accent-700 mt-1">
             Zatím žádný dodavatel není založen.
           </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowSupplierForm((prev) => !prev);
+            setSupplierError(null);
+          }}
+          className="text-xs font-medium text-begina-primary-900 underline mt-2"
+        >
+          {showSupplierForm ? "Zrušit zakládání dodavatele" : "+ Založit dodavatele"}
+        </button>
+
+        {showSupplierForm && (
+          <div className="mt-3 border border-neutral-200 rounded-lg p-3 flex flex-col gap-3 bg-neutral-50">
+            <div>
+              <label htmlFor="newSupplierName" className="text-xs text-neutral-500 mb-1 block">
+                Název *
+              </label>
+              <input
+                id="newSupplierName"
+                type="text"
+                autoComplete="off"
+                value={supplierName}
+                onChange={(event) => setSupplierName(event.target.value)}
+                className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="newSupplierIco" className="text-xs text-neutral-500 mb-1 block">
+                  IČO (nepovinné)
+                </label>
+                <input
+                  id="newSupplierIco"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={supplierIco}
+                  onChange={(event) => setSupplierIco(event.target.value)}
+                  className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="newSupplierDic" className="text-xs text-neutral-500 mb-1 block">
+                  DIČ (nepovinné)
+                </label>
+                <input
+                  id="newSupplierDic"
+                  type="text"
+                  autoComplete="off"
+                  value={supplierDic}
+                  onChange={(event) => setSupplierDic(event.target.value)}
+                  className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
+                />
+              </div>
+            </div>
+
+            {supplierError && <p className="text-sm text-begina-accent-700">{supplierError}</p>}
+
+            <button
+              type="button"
+              disabled={supplierPending}
+              onClick={handleCreateSupplier}
+              className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5 disabled:opacity-50"
+            >
+              {supplierPending ? "Ukládám…" : "Uložit dodavatele"}
+            </button>
+          </div>
         )}
       </div>
 
