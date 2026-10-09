@@ -3,12 +3,18 @@
 // dailyCallsValidation.test.ts.
 import { describe, expect, it } from "vitest";
 import {
+  ALLOWED_UPLOAD_MIME_TYPES,
+  MAX_UPLOAD_BYTES,
+  buildDocumentPagePathname,
   computeNormalizedQuantity,
   computeVatRatePercent,
+  isValidDocumentPagePathname,
   isValidIco,
+  isValidSha256Hex,
   normalizeText,
   parseDecimal,
   parseHaler,
+  validateDocumentPageInput,
   validateManualLineInput,
   validateStockItemInput,
   validateSupplierInput,
@@ -209,5 +215,85 @@ describe("validateVatReviewInput — post-implementační audit, bod A", () => {
   it("odmítne neplatný/chybějící vstup", () => {
     expect(validateVatReviewInput({ totalWithoutVatHal: "", totalWithVatHal: "100,00" }).ok).toBe(false);
     expect(validateVatReviewInput({ totalWithoutVatHal: "100,00", totalWithVatHal: "" }).ok).toBe(false);
+  });
+});
+
+const RECEIPT_ID = "33333333-3333-3333-3333-333333333333";
+const OTHER_RECEIPT_ID = "99999999-9999-9999-9999-999999999999";
+const PAGE_UUID = "11111111-2222-3333-4444-555555555555";
+const SHA256_SAMPLE = "a".repeat(64);
+
+describe("isValidSha256Hex", () => {
+  it("přijme přesně 64 hex znaků malými písmeny", () => {
+    expect(isValidSha256Hex(SHA256_SAMPLE)).toBe(true);
+  });
+
+  it("odmítne velká písmena, jiný počet znaků i nehexová znaky", () => {
+    expect(isValidSha256Hex(SHA256_SAMPLE.toUpperCase())).toBe(false);
+    expect(isValidSha256Hex("a".repeat(63))).toBe(false);
+    expect(isValidSha256Hex("g".repeat(64))).toBe(false);
+  });
+});
+
+describe("buildDocumentPagePathname / isValidDocumentPagePathname", () => {
+  it("vytvoří cestu tvaru sklad/<receiptId>/<uuid>.jpg a ta sama sobě projde validací", () => {
+    const pathname = buildDocumentPagePathname(RECEIPT_ID, PAGE_UUID);
+    expect(pathname).toBe(`sklad/${RECEIPT_ID}/${PAGE_UUID}.jpg`);
+    expect(isValidDocumentPagePathname(RECEIPT_ID, pathname)).toBe(true);
+  });
+
+  it("odmítne cestu patřící jiné příjemce (bod 8 zadání — upload jen do správné příjemky)", () => {
+    const pathname = buildDocumentPagePathname(OTHER_RECEIPT_ID, PAGE_UUID);
+    expect(isValidDocumentPagePathname(RECEIPT_ID, pathname)).toBe(false);
+  });
+
+  it("odmítne jinou příponu nebo chybějící/poškozené id stránky", () => {
+    expect(isValidDocumentPagePathname(RECEIPT_ID, `sklad/${RECEIPT_ID}/${PAGE_UUID}.png`)).toBe(false);
+    expect(isValidDocumentPagePathname(RECEIPT_ID, `sklad/${RECEIPT_ID}/../../etc/passwd.jpg`)).toBe(false);
+    expect(isValidDocumentPagePathname(RECEIPT_ID, `sklad/${RECEIPT_ID}/nejsem-uuid.jpg`)).toBe(false);
+  });
+
+  it("odmítne cestu bez správného prefixu vůbec", () => {
+    expect(isValidDocumentPagePathname(RECEIPT_ID, `jiny-prefix/${PAGE_UUID}.jpg`)).toBe(false);
+  });
+});
+
+describe("validateDocumentPageInput — kontrola PŘED zápisem do DB (bod 8 zadání)", () => {
+  function baseInput(overrides: Partial<{ pathname: string; sha256: string; mimeType: string }> = {}) {
+    return {
+      pathname: buildDocumentPagePathname(RECEIPT_ID, PAGE_UUID),
+      sha256: SHA256_SAMPLE,
+      mimeType: "image/jpeg",
+      ...overrides,
+    };
+  }
+
+  it("platný vstup projde a normalizuje sha256/mimeType na malá písmena", () => {
+    const result = validateDocumentPageInput(RECEIPT_ID, baseInput({ sha256: SHA256_SAMPLE.toUpperCase(), mimeType: "IMAGE/JPEG" }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sha256).toBe(SHA256_SAMPLE);
+      expect(result.value.mimeType).toBe("image/jpeg");
+    }
+  });
+
+  it("odmítne cestu, co nepatří zadané příjemce", () => {
+    const result = validateDocumentPageInput(RECEIPT_ID, baseInput({ pathname: buildDocumentPagePathname(OTHER_RECEIPT_ID, PAGE_UUID) }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("odmítne neplatný sha256", () => {
+    const result = validateDocumentPageInput(RECEIPT_ID, baseInput({ sha256: "neplatny-hash" }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("odmítne nepodporovaný MIME typ (bod 3 zadání: server přijímá jen JPEG z klientské konverze)", () => {
+    const result = validateDocumentPageInput(RECEIPT_ID, baseInput({ mimeType: "image/heic" }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("ALLOWED_UPLOAD_MIME_TYPES obsahuje jen image/jpeg a MAX_UPLOAD_BYTES je kladné číslo", () => {
+    expect(ALLOWED_UPLOAD_MIME_TYPES).toEqual(["image/jpeg"]);
+    expect(MAX_UPLOAD_BYTES).toBeGreaterThan(0);
   });
 });

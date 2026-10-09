@@ -14,9 +14,12 @@
 // nepodařilo claimnout příjemku), proto CTE, ne db.batch.
 import "server-only";
 import { and, eq, ne, sql } from "drizzle-orm";
+import { del } from "@vercel/blob";
 import { db } from "@/lib/db/client";
 import {
   goodsReceiptActivity,
+  goodsReceiptDocumentPages,
+  goodsReceiptDocuments,
   goodsReceiptLines,
   goodsReceipts,
   stockItems,
@@ -33,10 +36,13 @@ import {
 } from "./skladAuth";
 import {
   STOCK_AFFECTING_LINE_KINDS,
+  isValidDocumentPagePathname,
+  validateDocumentPageInput,
   validateManualLineInput,
   validateStockItemInput,
   validateSupplierInput,
   validateVatReviewInput,
+  type DocumentPageInput,
   type LineKind,
   type ManualLineInput,
   type StockItemInput,
@@ -48,10 +54,27 @@ import {
 // Stejná konvence jako admin.ts createCustomerOrganization/updateOrganization:
 // zprávu z chyby ovladače zkontrolovat na název omezení/sloupce, žádné
 // předpokládání konkrétní třídy chyby neon-http driveru.
+//
+// drizzle-orm@0.45 obaluje KAŽDOU chybu z dotazu (query builder i
+// db.execute) do DrizzleQueryError, jehož vlastní .message je jen "Failed
+// query: …" — skutečná hláška ovladače/DB (ta, co obsahuje název omezení
+// nebo text triggeru) žije až v .cause. Proto se musí prolézt celý
+// .cause řetězec, ne jen message na vrchní chybě (ověřeno reálným
+// vyhozením chyby přes zmockovaný transport, ne jen odhadem — viz
+// skladUpload.test.ts).
 function messageIncludes(error: unknown, needle: string): boolean {
-  return String(error instanceof Error ? error.message : error)
-    .toLowerCase()
-    .includes(needle);
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth += 1) {
+    if (current instanceof Error) {
+      if (current.message.toLowerCase().includes(needle)) {
+        return true;
+      }
+      current = (current as Error & { cause?: unknown }).cause;
+    } else {
+      return false;
+    }
+  }
+  return false;
 }
 
 // --- Skladové lokace -----------------------------------------------------
@@ -228,6 +251,24 @@ export async function listGoodsReceipts(): Promise<GoodsReceiptSummary[]> {
     })
     .from(goodsReceipts)
     .orderBy(goodsReceipts.createdAt);
+}
+
+export async function getGoodsReceipt(receiptId: string): Promise<GoodsReceiptSummary | null> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  const [receipt] = await db
+    .select({
+      id: goodsReceipts.id,
+      supplierId: goodsReceipts.supplierId,
+      supplierNameSnapshot: goodsReceipts.supplierNameSnapshot,
+      stockLocationId: goodsReceipts.stockLocationId,
+      documentNumber: goodsReceipts.documentNumber,
+      status: goodsReceipts.status,
+      createdAt: goodsReceipts.createdAt,
+    })
+    .from(goodsReceipts)
+    .where(eq(goodsReceipts.id, receiptId))
+    .limit(1);
+  return receipt ?? null;
 }
 
 export type GoodsReceiptLineRow = {
@@ -649,4 +690,177 @@ export async function voidGoodsReceipt(receiptId: string, reason: string): Promi
     return { ok: false, error: "Příjemku se nepodařilo stornovat — mezitím ji už někdo změnil." };
   }
   return { ok: true };
+}
+
+// --- Foto stran dokladu (mobilní tok 1.0) --------------------------------
+//
+// `uploadPresigned` (@vercel/blob/client) vyžaduje, aby KLIENT dodal
+// pathname dřív, než zavolá naši upload-token route (SDK ho nevydává
+// server) — proto se tu cesta jen OVĚŘUJE (patří skutečně téhle příjemce,
+// bod 8 zadání), nikdy nevymýšlí.
+
+async function cleanupOrphanBlob(pathname: string): Promise<void> {
+  try {
+    await del(pathname);
+  } catch {
+    // Úklid osiřelého souboru (bod 10 zadání) je jen best-effort — chyba se
+    // tiše ignoruje, aby nezamaskovala původní chybu, kterou appka vrací.
+  }
+}
+
+export type AuthorizeUploadResult = { ok: true } | { ok: false; error: string };
+
+// Volá se z getSignedToken uvnitř route pro vydání podepsaného tokenu, PŘED
+// jeho vydáním (bod 8 zadání: upload jen oprávněný uživatel a jen do draft
+// příjemky).
+export async function authorizeGoodsReceiptUpload(receiptId: string, pathname: string): Promise<AuthorizeUploadResult> {
+  requireUploadAccess(await getAuthContext());
+
+  if (!isValidDocumentPagePathname(receiptId, pathname)) {
+    return { ok: false, error: "Neplatná cesta nahrávaného souboru." };
+  }
+
+  const receipt = await fetchReceiptForMutation(receiptId);
+  if (!receipt) {
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (receipt.status !== "draft") {
+    return { ok: false, error: "Fotky lze nahrávat jen k návrhu příjemky." };
+  }
+
+  return { ok: true };
+}
+
+export type RegisterDocumentPageResult = { ok: true; pageId: string } | { ok: false; error: string };
+
+// Zápis PO úspěšném uploadu do Blobu (bod 7 zadání; storage_key = pathname,
+// NIKDY veřejná URL). Idempotentní podle storage_key (bod 10: opakované
+// dokončení po síťovém výpadku prvního volání nesmí vytvořit druhou
+// stránku) a při JAKÉMKOLI selhání zápisu smaže osiřelý Blob (bod 10) — ale
+// jen když cesta prokazatelně patří TÉTO příjemce (isValidDocumentPagePathname),
+// aby appka nikdy nesmazala blob podle cizí/poškozené cesty.
+export async function registerGoodsReceiptDocumentPage(
+  receiptId: string,
+  rawInput: DocumentPageInput
+): Promise<RegisterDocumentPageResult> {
+  const ctx = requireUploadAccess(await getAuthContext());
+
+  const trimmedPathname = rawInput.pathname.trim();
+  const pathnameOwnedByReceipt = isValidDocumentPagePathname(receiptId, trimmedPathname);
+
+  const validated = validateDocumentPageInput(receiptId, rawInput);
+  if (!validated.ok) {
+    if (pathnameOwnedByReceipt) {
+      await cleanupOrphanBlob(trimmedPathname);
+    }
+    return validated;
+  }
+  const { pathname, sha256, mimeType } = validated.value;
+
+  const receipt = await fetchReceiptForMutation(receiptId);
+  if (!receipt) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (receipt.status !== "draft") {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Fotky lze nahrávat jen k návrhu příjemky." };
+  }
+
+  const [existingPage] = await db
+    .select({ id: goodsReceiptDocumentPages.id })
+    .from(goodsReceiptDocumentPages)
+    .where(eq(goodsReceiptDocumentPages.storageKey, pathname))
+    .limit(1);
+  if (existingPage) {
+    // Druhé volání po síťovém výpadku prvního — no-op úspěch, žádný úklid.
+    return { ok: true, pageId: existingPage.id };
+  }
+
+  try {
+    let [document] = await db
+      .select({ id: goodsReceiptDocuments.id })
+      .from(goodsReceiptDocuments)
+      .where(eq(goodsReceiptDocuments.receiptId, receiptId))
+      .orderBy(goodsReceiptDocuments.position)
+      .limit(1);
+    if (!document) {
+      [document] = await db
+        .insert(goodsReceiptDocuments)
+        .values({ receiptId, kind: "invoice", position: 0, uploadedByUserId: ctx.userId })
+        .returning({ id: goodsReceiptDocuments.id });
+    }
+
+    const [{ maxPageNumber }] = await db
+      .select({ maxPageNumber: sql<number>`COALESCE(MAX(${goodsReceiptDocumentPages.pageNumber}), 0)` })
+      .from(goodsReceiptDocumentPages)
+      .where(eq(goodsReceiptDocumentPages.documentId, document.id));
+
+    const [page] = await db
+      .insert(goodsReceiptDocumentPages)
+      .values({
+        documentId: document.id,
+        pageNumber: maxPageNumber + 1,
+        storageKey: pathname,
+        sha256,
+        mimeType,
+      })
+      .returning({ id: goodsReceiptDocumentPages.id });
+
+    return { ok: true, pageId: page.id };
+  } catch (error) {
+    await cleanupOrphanBlob(pathname);
+    if (messageIncludes(error, "už je součástí jiné aktivní")) {
+      return { ok: false, error: "Stejný soubor je už nahraný u jiné aktivní příjemky." };
+    }
+    if (messageIncludes(error, "goods_receipt_document_pages_order_key")) {
+      return { ok: false, error: "Mezitím byla přidána jiná strana dokladu — zkuste to znovu." };
+    }
+    throw error;
+  }
+}
+
+export type DocumentPageSummary = { id: string; pageNumber: number; mimeType: string; createdAt: Date };
+
+// Jen metadata náhledu — storage_key sem NIKDY nepatří (bod 9 zadání,
+// originál se nikdy nezpřístupní přímo).
+export async function listGoodsReceiptDocumentPages(receiptId: string): Promise<DocumentPageSummary[]> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  return db
+    .select({
+      id: goodsReceiptDocumentPages.id,
+      pageNumber: goodsReceiptDocumentPages.pageNumber,
+      mimeType: goodsReceiptDocumentPages.mimeType,
+      createdAt: goodsReceiptDocumentPages.createdAt,
+    })
+    .from(goodsReceiptDocumentPages)
+    .innerJoin(goodsReceiptDocuments, eq(goodsReceiptDocuments.id, goodsReceiptDocumentPages.documentId))
+    .where(eq(goodsReceiptDocuments.receiptId, receiptId))
+    .orderBy(goodsReceiptDocumentPages.pageNumber);
+}
+
+export type DownloadPageResult = { ok: true; pathname: string; mimeType: string } | { ok: false; error: string };
+
+// Vrací storage_key jen volajícímu s requirePricesAndOriginalAccess, a jen
+// server-side route handleru, co stránku streamuje přes Blob `get()` — nikdy
+// přímo na klienta (bod 9 zadání).
+export async function getGoodsReceiptDocumentPageForDownload(
+  receiptId: string,
+  pageId: string
+): Promise<DownloadPageResult> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+
+  const [page] = await db
+    .select({
+      pathname: goodsReceiptDocumentPages.storageKey,
+      mimeType: goodsReceiptDocumentPages.mimeType,
+    })
+    .from(goodsReceiptDocumentPages)
+    .innerJoin(goodsReceiptDocuments, eq(goodsReceiptDocuments.id, goodsReceiptDocumentPages.documentId))
+    .where(and(eq(goodsReceiptDocumentPages.id, pageId), eq(goodsReceiptDocuments.receiptId, receiptId)))
+    .limit(1);
+  if (!page) {
+    return { ok: false, error: "Strana nebyla nalezena." };
+  }
+  return { ok: true, pathname: page.pathname, mimeType: page.mimeType };
 }

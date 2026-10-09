@@ -254,3 +254,62 @@ export function validateStockItemInput(
   }
   return { ok: true, value: { name, canonicalUnit, kind: input.kind as StockItemKind } };
 }
+
+// --- Foto stran dokladu --------------------------------------------------
+
+// Mobilní tok 1.0 — klient VŽDY převede foto na JPEG (HEIC i velké
+// originály) před uploadem (viz lib/sklad/clientUpload.ts), takže server
+// přijímá jen tenhle jeden formát. Žádné OCR/AI zpracování obsahu zde —
+// jen kontrola typu/velikosti/cesty.
+export const ALLOWED_UPLOAD_MIME_TYPES = ["image/jpeg"] as const;
+// 12 MB je bezpečná rezerva nad reálným výstupem klientské konverze
+// (2200 px delší strana, kvalita ~85 % JPEG bývá řádově stovky kB až pár
+// MB) — chrání před neúměrně velkým souborem, ne přesný odhad komprese.
+export const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+
+export function isValidSha256Hex(value: string): boolean {
+  return SHA256_HEX_RE.test(value);
+}
+
+// Cesta v Blobu MUSÍ být tvaru "sklad/<receiptId>/<náhodné-id>.jpg" —
+// vynucuje to i server při vydávání upload tokenu (authorizeGoodsReceiptUpload
+// v sklad.ts), tahle kontrola je druhá, nezávislá pojistka při registraci
+// stránky (revize zadání, bod 8: upload jen do správné příjemky).
+export function buildDocumentPagePathname(receiptId: string, randomId: string): string {
+  return `sklad/${receiptId}/${randomId}.jpg`;
+}
+
+export function isValidDocumentPagePathname(receiptId: string, pathname: string): boolean {
+  const prefix = `sklad/${receiptId}/`;
+  if (!pathname.startsWith(prefix)) {
+    return false;
+  }
+  const rest = pathname.slice(prefix.length);
+  return /^[0-9a-f-]{36}\.jpg$/.test(rest);
+}
+
+export type DocumentPageInput = { pathname: string; sha256: string; mimeType: string };
+export type ValidatedDocumentPage = { pathname: string; sha256: string; mimeType: string };
+
+// Kontrola PŘED zápisem do DB (post-implementační audit, bod 8) — ověřuje
+// formát, ne obsah (obsah fotky appka nikdy neinterpretuje, žádné OCR).
+export function validateDocumentPageInput(
+  receiptId: string,
+  input: DocumentPageInput
+): { ok: true; value: ValidatedDocumentPage } | { ok: false; error: string } {
+  const pathname = input.pathname.trim();
+  if (!isValidDocumentPagePathname(receiptId, pathname)) {
+    return { ok: false, error: "Neplatná cesta nahraného souboru." };
+  }
+  const sha256 = input.sha256.trim().toLowerCase();
+  if (!isValidSha256Hex(sha256)) {
+    return { ok: false, error: "Neplatný otisk (SHA-256) souboru." };
+  }
+  const mimeType = input.mimeType.trim().toLowerCase();
+  if (!ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number])) {
+    return { ok: false, error: "Nepodporovaný typ souboru — očekává se JPEG." };
+  }
+  return { ok: true, value: { pathname, sha256, mimeType } };
+}
