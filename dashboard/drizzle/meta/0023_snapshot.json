@@ -1529,7 +1529,7 @@
         },
         "goods_receipts_confirmed_status_check": {
           "name": "goods_receipts_confirmed_status_check",
-          "value": "(\"goods_receipts\".\"status\" = 'confirmed') = (\"goods_receipts\".\"confirmed_at\" IS NOT NULL)"
+          "value": "\"goods_receipts\".\"status\" <> 'confirmed' OR \"goods_receipts\".\"confirmed_at\" IS NOT NULL"
         },
         "goods_receipts_voided_status_check": {
           "name": "goods_receipts_voided_status_check",

@@ -36,10 +36,12 @@ import {
   validateManualLineInput,
   validateStockItemInput,
   validateSupplierInput,
+  validateVatReviewInput,
   type LineKind,
   type ManualLineInput,
   type StockItemInput,
   type SupplierInput,
+  type VatReviewInput,
 } from "./skladValidation";
 
 // --- Chyby z unikátních DB omezení přeložené na česká hlášení ----------
@@ -241,6 +243,7 @@ export type GoodsReceiptLineRow = {
   vatHal: number;
   totalWithVatHal: number;
   computedVatRatePercent: number;
+  vatConfirmed: boolean;
   lineKind: string;
   stockItemId: string | null;
 };
@@ -278,6 +281,7 @@ export async function listGoodsReceiptLines(receiptId: string): Promise<GoodsRec
       vatHal: goodsReceiptLines.vatHal,
       totalWithVatHal: goodsReceiptLines.totalWithVatHal,
       computedVatRatePercent: goodsReceiptLines.computedVatRatePercent,
+      vatConfirmed: goodsReceiptLines.vatConfirmed,
       lineKind: goodsReceiptLines.lineKind,
       stockItemId: goodsReceiptLines.stockItemId,
     })
@@ -384,6 +388,69 @@ export async function deleteGoodsReceiptLine(receiptId: string, lineId: string):
   return { ok: true };
 }
 
+// --- Revize DPH ----------------------------------------------------------
+
+export type ReviewVatResult = { ok: true } | { ok: false; error: string };
+
+// Post-implementační audit (bod A) — samostatná operace, kterou kontrolor
+// (requireReviewAccess, stejná brána jako addManualGoodsReceiptLine) musí
+// projít u KAŽDÉHO řádku draft příjemky, než ji lze potvrdit (vynuceno v
+// confirmGoodsReceipt níž). Atomicky uloží schválené net/gross částky,
+// dopočítané vatHal/computedVatRatePercent a vatConfirmed=true v jediném
+// UPDATEu. Resetování vatConfirmed zpět na false při JAKÉKOLI JINÉ budoucí
+// změně částek vynucuje DB trigger goods_receipt_lines_reset_vat_confirmed
+// (migrace 0023) — ten ale neumí rozeznat "revize schválila STEJNOU
+// hodnotu znovu" od "appka sloupec nezmínila" jen z NEW/OLD porovnání
+// (fundamentální mez SQL: obě situace vypadají identicky). Řešení: tahle
+// funkce PŘED UPDATEm nastaví per-transakční GUC `sklad.vat_review_in_
+// progress`, v TÉŽE transakci (jeden SQL příkaz přes CTE `MATERIALIZED`,
+// aby se set_config jistě vykonal, i když jeho výsledek UPDATE samotný
+// nepotřebuje) — trigger tenhle flag čte a díky NĚMU (ne díky hodnotě
+// samotné) pozná důvěryhodnou cestu. Ověřeno reálně nad PGlite, ne jen
+// staticky — viz skladVatConfirmedReset.test.ts.
+export async function reviewGoodsReceiptLineVat(
+  receiptId: string,
+  lineId: string,
+  rawInput: VatReviewInput
+): Promise<ReviewVatResult> {
+  requireReviewAccess(await getAuthContext());
+
+  const receipt = await fetchReceiptForMutation(receiptId);
+  if (!receipt) {
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (receipt.status !== "draft") {
+    return { ok: false, error: "Revize DPH je možná jen u návrhu příjemky." };
+  }
+
+  const validated = validateVatReviewInput(rawInput);
+  if (!validated.ok) {
+    return validated;
+  }
+  const value = validated.value;
+
+  const result = await db.execute<{ id: string }>(sql`
+    WITH set_review_flag AS MATERIALIZED (
+      SELECT set_config('sklad.vat_review_in_progress', 'true', true)
+    )
+    UPDATE goods_receipt_lines
+    SET total_without_vat_hal = ${value.totalWithoutVatHal},
+        vat_hal = ${value.vatHal},
+        total_with_vat_hal = ${value.totalWithVatHal},
+        computed_vat_rate_percent = ${value.computedVatRatePercent},
+        vat_confirmed = true,
+        updated_at = now()
+    WHERE id = ${lineId} AND receipt_id = ${receiptId}
+      AND EXISTS (SELECT 1 FROM set_review_flag)
+    RETURNING id
+  `);
+
+  if (result.rows.length === 0) {
+    return { ok: false, error: "Řádek nebyl nalezen." };
+  }
+  return { ok: true };
+}
+
 // --- Atomické potvrzení a skladové pohyby -------------------------------
 
 export type ConfirmReceiptResult = { ok: true } | { ok: false; error: string };
@@ -399,6 +466,14 @@ export type ConfirmReceiptResult = { ok: true } | { ok: false; error: string };
 // a schválený rozsah lineKind). Součty na hlavičce (total_*_hal) se
 // dopočítají ze VŠECH řádků (i non_stock_private) — musí sedět na celý
 // doklad, ne jen na skladovou část.
+//
+// Post-implementační audit (bod A) — rozhodnutí o non_stock_private:
+// vat_confirmed se vyžaduje u VŠECH řádků, i non_stock_private. Důvod:
+// soukromá/nefiremní položka se nezapisuje do skladu, ale její částka
+// ZŮSTÁVÁ součástí hlavičkových součtů výš (ty se počítají ze VŠECH
+// řádků) — nezrevidovaná/špatně dopočítaná sazba DPH na takovém řádku by
+// tedy pokřivila celkové DPH dokladu i bez dopadu na sklad. Revize musí
+// proběhnout u každého řádku, ne jen u skladových.
 export async function confirmGoodsReceipt(receiptId: string): Promise<ConfirmReceiptResult> {
   const ctx = requireConfirmAccess(await getAuthContext());
 
@@ -416,11 +491,21 @@ export async function confirmGoodsReceipt(receiptId: string): Promise<ConfirmRec
       lineKind: goodsReceiptLines.lineKind,
       stockItemId: goodsReceiptLines.stockItemId,
       rawDescription: goodsReceiptLines.rawDescription,
+      vatConfirmed: goodsReceiptLines.vatConfirmed,
     })
     .from(goodsReceiptLines)
     .where(eq(goodsReceiptLines.receiptId, receiptId));
   if (lines.length === 0) {
     return { ok: false, error: "Příjemka nemá žádné řádky." };
+  }
+  const notVatConfirmed = lines.filter((line) => !line.vatConfirmed);
+  if (notVatConfirmed.length > 0) {
+    return {
+      ok: false,
+      error: `Všechny řádky musí mít potvrzenou revizi DPH (chybí u: ${notVatConfirmed
+        .map((line) => line.rawDescription)
+        .join(", ")}).`,
+    };
   }
   const unmapped = lines.filter(
     (line) => STOCK_AFFECTING_LINE_KINDS.has(line.lineKind as LineKind) && !line.stockItemId

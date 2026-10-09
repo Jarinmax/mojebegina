@@ -75,6 +75,38 @@ describe("migrace 0023 — databázové pojistky (revize návrhu)", () => {
     expect(migrationSql).toContain('WHERE "stock_movements"."corrects_movement_id" IS NOT NULL');
   });
 
+  it("post-implementační audit (druhé kolo, bod B): SHA-256 kontrola je serializovaná advisory lockem odvozeným z CELÉHO hashe PŘED kontrolou duplicity, ne jen holý EXISTS", () => {
+    const fnBody = migrationSql.slice(
+      migrationSql.indexOf("CREATE FUNCTION goods_receipt_document_pages_unique_active_sha256()"),
+      migrationSql.indexOf("END $$;", migrationSql.indexOf("CREATE FUNCTION goods_receipt_document_pages_unique_active_sha256()"))
+    );
+    const lockIdx = fnBody.indexOf("pg_advisory_xact_lock(hashtextextended(NEW.sha256, 0))");
+    const existsIdx = fnBody.indexOf("IF EXISTS (");
+    expect(lockIdx).toBeGreaterThan(-1);
+    expect(existsIdx).toBeGreaterThan(-1);
+    expect(lockIdx).toBeLessThan(existsIdx);
+  });
+
+  it("post-implementační audit, bod B: potvrzení příjemky (draft→confirmed) znovu validuje SHA-256 invariant (defense-in-depth)", () => {
+    expect(migrationSql).toContain("CREATE FUNCTION goods_receipts_confirm_sha256_guard()");
+    expect(migrationSql).toContain("CREATE TRIGGER goods_receipts_confirm_sha256_guard");
+    expect(migrationSql).toContain("BEFORE UPDATE OF status ON goods_receipts");
+    expect(migrationSql).toContain("NEW.status = 'confirmed' AND OLD.status IS DISTINCT FROM 'confirmed'");
+  });
+
+  it("post-implementační audit, bod A: vat_confirmed se resetuje na false při změně DPH-relevantních polí, s výjimkou důvěryhodné revizní cesty (GUC flag)", () => {
+    expect(migrationSql).toContain("CREATE FUNCTION goods_receipt_lines_reset_vat_confirmed()");
+    expect(migrationSql).toContain("CREATE TRIGGER goods_receipt_lines_reset_vat_confirmed");
+    expect(migrationSql).toContain("current_setting('sklad.vat_review_in_progress', true)");
+    expect(migrationSql).toContain("NEW.vat_confirmed := false");
+  });
+
+  it("post-implementační audit, bod A (nalezeno nad PGlite): confirmed_status_check je jednosměrná implikace, ne dvousměrná rovnost, aby storno potvrzené příjemky nerozbilo CHECK", () => {
+    expect(migrationSql).toContain(
+      'CONSTRAINT "goods_receipts_confirmed_status_check" CHECK ("goods_receipts"."status" <> \'confirmed\' OR "goods_receipts"."confirmed_at" IS NOT NULL)'
+    );
+  });
+
   it("migrace je v journalu zaregistrovaná jako 0023 (první skladová migrace)", () => {
     const journal = JSON.parse(
       readFileSync(join(__dirname, "../../../drizzle/meta/_journal.json"), "utf-8")

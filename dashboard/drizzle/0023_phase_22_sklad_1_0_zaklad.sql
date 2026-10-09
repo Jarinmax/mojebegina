@@ -92,7 +92,7 @@ CREATE TABLE "goods_receipts" (
 	CONSTRAINT "goods_receipts_confirmed_pair_check" CHECK (("goods_receipts"."confirmed_by_user_id" IS NULL) = ("goods_receipts"."confirmed_at" IS NULL)),
 	CONSTRAINT "goods_receipts_voided_pair_check" CHECK (("goods_receipts"."voided_by_user_id" IS NULL) = ("goods_receipts"."voided_at" IS NULL)),
 	CONSTRAINT "goods_receipts_voided_has_reason" CHECK ("goods_receipts"."voided_at" IS NULL OR "goods_receipts"."void_reason" IS NOT NULL),
-	CONSTRAINT "goods_receipts_confirmed_status_check" CHECK (("goods_receipts"."status" = 'confirmed') = ("goods_receipts"."confirmed_at" IS NOT NULL)),
+	CONSTRAINT "goods_receipts_confirmed_status_check" CHECK ("goods_receipts"."status" <> 'confirmed' OR "goods_receipts"."confirmed_at" IS NOT NULL),
 	CONSTRAINT "goods_receipts_voided_status_check" CHECK (("goods_receipts"."status" = 'voided') = ("goods_receipts"."voided_at" IS NOT NULL))
 );
 --> statement-breakpoint
@@ -232,8 +232,23 @@ GROUP BY m.stock_item_id, m.stock_location_id;
 -- partial unique index (predikát indexu nesmí odkazovat na jinou tabulku)
 -- — proto trigger, ne index. Běží při INSERT i při změně sha256 (UPDATE),
 -- ne při změně čehokoli jiného na stránce.
+--
+-- Post-implementační audit (bod B) — samotný EXISTS/SELECT NESTAČÍ: pod
+-- READ COMMITTED dvě souběžné transakce vkládající stránku se STEJNÝM
+-- hashem do dvou RŮZNÝCH příjemek obě uvidí "žádná duplicita" (každá vidí
+-- jen COMMITNUTÁ data, ne navzájem svůj nekomitnutý INSERT) a obě projdou
+-- — prokázáno (viz skladSha256Concurrency.test.ts, reálný běh nad PGlite
+-- se dvěma souběžnými připojeními). Oprava: transaction-scoped advisory
+-- lock odvozený z CELÉHO SHA-256 (`hashtextextended` konzumuje celý
+-- vstupní text, ne jen prefix) se získá PŘED kontrolou duplicity. Druhá
+-- transakce na STEJNÝ hash čeká (blokuje), dokud první nedokončí
+-- (commit/rollback) — až pak vidí jeho skutečný, pravdivý výsledek. Lock
+-- je per-transakce (`_xact_`), takže se sám uvolní na commit/rollback bez
+-- rizika zapomenutého odemčení.
 CREATE FUNCTION goods_receipt_document_pages_unique_active_sha256() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.sha256, 0));
+
   IF EXISTS (
     SELECT 1
     FROM goods_receipt_document_pages p
@@ -251,3 +266,86 @@ END $$;
 CREATE TRIGGER goods_receipt_document_pages_unique_active_sha256
   BEFORE INSERT OR UPDATE OF sha256 ON goods_receipt_document_pages
   FOR EACH ROW EXECUTE FUNCTION goods_receipt_document_pages_unique_active_sha256();
+--> statement-breakpoint
+
+-- 4. Stejná pojistka ZNOVU, tentokrát při přechodu příjemky do 'confirmed'
+-- (post-implementační audit, bod B: "musí pokrýt i relevantní přechody
+-- stavu příjemky"). Logická analýza: samotné potvrzení NEVKLÁDÁ ani
+-- nemění žádnou stránku, takže pokud trigger výš (na INSERT/UPDATE
+-- stránky) korektně udržuje "nejvýš jeden aktivní vlastník hashe", pouhé
+-- draft→confirmed nemůže tenhle invariant porušit — jen storno (confirmed/
+-- draft→voided) hash UVOLŇUJE, nikdy nic nezabírá. Tahle druhá pojistka je
+-- tedy záměrně DEFENSE-IN-DEPTH (ne oprava další prokázané díry): kryje i
+-- scénář, kdy by stránka v budoucnu vznikla jinou cestou než INSERTem
+-- přes appku (hromadný import, oprava dat), a znovu validuje PŘÍMO před
+-- okamžikem, kdy se příjemka stane "ostrou". Používá STEJNÝ advisory lock
+-- vzor (lock podle hashe, pak kontrola) nad všemi hashi vlastních stránek.
+CREATE FUNCTION goods_receipts_confirm_sha256_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  dup_hash text;
+BEGIN
+  IF NEW.status = 'confirmed' AND OLD.status IS DISTINCT FROM 'confirmed' THEN
+    FOR dup_hash IN
+      SELECT DISTINCT p.sha256
+      FROM goods_receipt_document_pages p
+      JOIN goods_receipt_documents d ON d.id = p.document_id
+      WHERE d.receipt_id = NEW.id
+    LOOP
+      PERFORM pg_advisory_xact_lock(hashtextextended(dup_hash, 0));
+      IF EXISTS (
+        SELECT 1
+        FROM goods_receipt_document_pages p2
+        JOIN goods_receipt_documents d2 ON d2.id = p2.document_id
+        JOIN goods_receipts r2 ON r2.id = d2.receipt_id
+        WHERE p2.sha256 = dup_hash
+          AND r2.id <> NEW.id
+          AND r2.status IN ('draft', 'confirmed')
+      ) THEN
+        RAISE EXCEPTION 'Stejný soubor (sha256 %) je součástí jiné aktivní příjemky — potvrzení zablokováno', dup_hash;
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END $$;
+--> statement-breakpoint
+CREATE TRIGGER goods_receipts_confirm_sha256_guard
+  BEFORE UPDATE OF status ON goods_receipts
+  FOR EACH ROW EXECUTE FUNCTION goods_receipts_confirm_sha256_guard();
+--> statement-breakpoint
+
+-- 5. Post-implementační audit (bod A): vat_confirmed se musí vrátit na
+-- false při JAKÉKOLI budoucí změně částek/údajů ovlivňujících DPH — ne jen
+-- uvnitř reviewGoodsReceiptLineVat (ta explicitně nastavuje true jako
+-- SOUČÁST stejného zápisu), ale i u JAKÉKOLI budoucí editační cesty, která
+-- by (ještě nenapsaná) upravovala tyhle sloupce bez použití revizní
+-- funkce. DB garance místo spoléhání na to, že si to zapamatuje každá
+-- budoucí appková funkce.
+--
+-- DŮLEŽITÉ: porovnání NEW.vat_confirmed vs. OLD.vat_confirmed NESTAČÍ
+-- jako signál "tohle je důvěryhodná revize" — UPDATE sloupce na STEJNOU
+-- hodnotu (opětovné schválení opraveného řádku, který byl true už
+-- předtím) je ze strany triggeru NEROZEZNATELNÉ od "appka ten sloupec
+-- vůbec nezmínila a zdědil se z OLD". Řešení: reviewGoodsReceiptLineVat
+-- explicitně nastaví per-transakční GUC flag TĚSNĚ PŘED UPDATEm, v TÉŽE
+-- transakci/HTTP požadavku (jeden SQL příkaz s WITH … MATERIALIZED, aby
+-- se set_config spustil jistě, i když jeho výsledek nikdo dál nečte) —
+-- trigger tenhle flag čte a jen DÍKY NĚMU rozezná důvěryhodnou cestu od
+-- jakékoli jiné. Ověřeno reálně nad PGlite (ne jen staticky) —
+-- skladVatConfirmedReset.test.ts.
+CREATE FUNCTION goods_receipt_lines_reset_vat_confirmed() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF (NEW.total_without_vat_hal, NEW.vat_hal, NEW.total_with_vat_hal, NEW.computed_vat_rate_percent,
+      NEW.raw_package_quantity, NEW.raw_units_per_package, NEW.unit_price_without_vat)
+     IS DISTINCT FROM
+     (OLD.total_without_vat_hal, OLD.vat_hal, OLD.total_with_vat_hal, OLD.computed_vat_rate_percent,
+      OLD.raw_package_quantity, OLD.raw_units_per_package, OLD.unit_price_without_vat)
+     AND coalesce(current_setting('sklad.vat_review_in_progress', true), 'false') <> 'true'
+  THEN
+    NEW.vat_confirmed := false;
+  END IF;
+  RETURN NEW;
+END $$;
+--> statement-breakpoint
+CREATE TRIGGER goods_receipt_lines_reset_vat_confirmed
+  BEFORE UPDATE ON goods_receipt_lines
+  FOR EACH ROW EXECUTE FUNCTION goods_receipt_lines_reset_vat_confirmed();

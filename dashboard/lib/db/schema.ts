@@ -1227,9 +1227,19 @@ export const goodsReceipts = pgTable(
     ),
     check("goods_receipts_voided_pair_check", sql`(${table.voidedByUserId} IS NULL) = (${table.voidedAt} IS NULL)`),
     check("goods_receipts_voided_has_reason", sql`${table.voidedAt} IS NULL OR ${table.voidReason} IS NOT NULL`),
+    // Post-implementační audit (druhé kolo, empiricky nalezeno nad PGlite,
+    // ne jen staticky) — PŮVODNÍ dvousměrná rovnost "status='confirmed' ⟺
+    // confirmed_at IS NOT NULL" byla chybná: storno POTVRZENÉ příjemky
+    // záměrně nemaže confirmed_at (zůstává historický záznam, KDY byla
+    // potvrzena, před stornem) — status se změní na 'voided', ale
+    // confirmed_at zůstává vyplněné, což dvousměrnou rovnost porušuje a
+    // voidGoodsReceipt by na reálné DB vždy spadl na porušení CHECKu.
+    // Oprava: jednosměrná implikace — potvrzeno VYŽADUJE časové razítko,
+    // ale časové razítko NEVYŽADUJE aktuální stav 'confirmed' (umožňuje mu
+    // přežít přechod do 'voided').
     check(
       "goods_receipts_confirmed_status_check",
-      sql`(${table.status} = 'confirmed') = (${table.confirmedAt} IS NOT NULL)`
+      sql`${table.status} <> 'confirmed' OR ${table.confirmedAt} IS NOT NULL`
     ),
     check("goods_receipts_voided_status_check", sql`(${table.status} = 'voided') = (${table.voidedAt} IS NOT NULL)`),
   ]

@@ -7,6 +7,9 @@
 // — to ověřuje skladMigration.test.ts/skladValidation.test.ts už jinak).
 //
 // Co tenhle test dokazuje na reálných funkcích:
+//   - confirmGoodsReceipt: řádek bez potvrzené revize DPH (vat_confirmed
+//     false) blokuje potvrzení ještě PŘED atomickým příkazem
+//     (post-implementační audit, bod A);
 //   - confirmGoodsReceipt: nemapovaný skladový řádek (chybí stock_item_id)
 //     blokuje potvrzení ještě PŘED atomickým příkazem (žádný pokus o
 //     zápis);
@@ -44,10 +47,13 @@ const LOCATION_ID = "55555555-5555-5555-5555-555555555555";
 // "stock_location_id" FROM goods_receipts (fetchReceiptForMutation).
 let receiptRow: unknown[] | null = ["draft", SUPPLIER_ID, null, LOCATION_ID];
 // Řídí odpověď na SELECT … FROM goods_receipt_lines (jen confirmGoodsReceipt).
-let lineRows: unknown[][] = [["line-1", "stock_material", "item-1", "Testovací řádek"]];
+// Pořadí sloupců: id, line_kind, stock_item_id, raw_description, vat_confirmed.
+let lineRows: unknown[][] = [["line-1", "stock_material", "item-1", "Testovací řádek", true]];
 // Řídí, kolik řádků vrátí HLAVNÍ atomický příkaz (claimed CTE) — 0 =
 // prohraný/souběžný claim, 1 = úspěch.
 let claimedRowCount = 1;
+// Řídí odpověď na UPDATE z reviewGoodsReceiptLineVat (set_review_flag CTE).
+let reviewUpdateRowCount = 1;
 
 vi.mock("@neondatabase/serverless", () => ({
   neon: () => (sqlText: string, params: unknown[]) => {
@@ -69,6 +75,10 @@ vi.mock("@neondatabase/serverless", () => ({
     }
     if (sqlText.includes("WITH claimed AS")) {
       const rows = claimedRowCount > 0 ? [{ id: "activity-row-id" }] : [];
+      return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
+    }
+    if (sqlText.includes("set_review_flag")) {
+      const rows = reviewUpdateRowCount > 0 ? [{ id: "line-1" }] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
     return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
@@ -98,15 +108,26 @@ function findAtomicCall() {
 beforeEach(() => {
   capturedQueries.length = 0;
   receiptRow = ["draft", SUPPLIER_ID, null, LOCATION_ID];
-  lineRows = [["line-1", "stock_material", "item-1", "Testovací řádek"]];
+  lineRows = [["line-1", "stock_material", "item-1", "Testovací řádek", true]];
   claimedRowCount = 1;
+  reviewUpdateRowCount = 1;
   mockGetAuthContext.mockReset();
   mockGetAuthContext.mockResolvedValue(confirmCtx());
 });
 
 describe("confirmGoodsReceipt — atomický gate a skladová filtrace (Security Phase 22)", () => {
+  it("řádek bez potvrzené revize DPH (vat_confirmed=false) blokuje potvrzení PŘED atomickým příkazem", async () => {
+    lineRows = [["line-1", "stock_material", "item-1", "Nerevidovaný řádek", false]];
+    const { confirmGoodsReceipt } = await import("../sklad");
+
+    const result = await confirmGoodsReceipt(RECEIPT_ID);
+
+    expect(result.ok).toBe(false);
+    expect(findAtomicCall()).toBeFalsy();
+  });
+
   it("nemapovaný skladový řádek (chybí stock_item_id) blokuje potvrzení PŘED atomickým příkazem", async () => {
-    lineRows = [["line-1", "stock_material", null, "Nenamapovaná položka"]];
+    lineRows = [["line-1", "stock_material", null, "Nenamapovaná položka", true]];
     const { confirmGoodsReceipt } = await import("../sklad");
 
     const result = await confirmGoodsReceipt(RECEIPT_ID);
@@ -195,5 +216,61 @@ describe("voidGoodsReceipt — povinný důvod a atomická korekce (Security Pha
     );
     expect(atomicCall.sql).toContain("AND EXISTS (SELECT 1 FROM claimed)");
     expect(atomicCall.sql).toMatch(/WHERE id = \$\d+ AND status = 'confirmed'/);
+  });
+});
+
+describe("reviewGoodsReceiptLineVat — GUC flag v témže statementu (post-implementační audit, bod A)", () => {
+  it("příjemka, která není 'draft', je odmítnuta ještě PŘED UPDATEm", async () => {
+    receiptRow = ["confirmed", SUPPLIER_ID, null, LOCATION_ID];
+    const { reviewGoodsReceiptLineVat } = await import("../sklad");
+
+    const result = await reviewGoodsReceiptLineVat(RECEIPT_ID, "line-1", {
+      totalWithoutVatHal: "100,00",
+      totalWithVatHal: "121,00",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(capturedQueries.some((q) => q.sql.includes("set_review_flag"))).toBe(false);
+  });
+
+  it("neplatný vstup (s DPH nižší než bez DPH) je odmítnut ještě PŘED UPDATEm", async () => {
+    const { reviewGoodsReceiptLineVat } = await import("../sklad");
+
+    const result = await reviewGoodsReceiptLineVat(RECEIPT_ID, "line-1", {
+      totalWithoutVatHal: "200,00",
+      totalWithVatHal: "100,00",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(capturedQueries.some((q) => q.sql.includes("set_review_flag"))).toBe(false);
+  });
+
+  it("úspěch: UPDATE nastaví GUC flag v TÉMŽE statementu (MATERIALIZED CTE) před zápisem vat_confirmed=true", async () => {
+    const { reviewGoodsReceiptLineVat } = await import("../sklad");
+
+    const result = await reviewGoodsReceiptLineVat(RECEIPT_ID, "line-1", {
+      totalWithoutVatHal: "177,00",
+      totalWithVatHal: "214,17",
+    });
+
+    expect(result.ok).toBe(true);
+    const call = capturedQueries.find((q) => q.sql.includes("set_review_flag"))!;
+    expect(call).toBeTruthy();
+    expect(call.sql).toContain("AS MATERIALIZED");
+    expect(call.sql).toContain("set_config('sklad.vat_review_in_progress', 'true', true)");
+    expect(call.sql).toContain("vat_confirmed = true");
+    expect(call.sql.indexOf("set_review_flag")).toBeLessThan(call.sql.indexOf("vat_confirmed = true"));
+  });
+
+  it("řádek nenalezen (0 řádků z UPDATEu) → {ok:false}", async () => {
+    reviewUpdateRowCount = 0;
+    const { reviewGoodsReceiptLineVat } = await import("../sklad");
+
+    const result = await reviewGoodsReceiptLineVat(RECEIPT_ID, "line-1", {
+      totalWithoutVatHal: "177,00",
+      totalWithVatHal: "214,17",
+    });
+
+    expect(result.ok).toBe(false);
   });
 });

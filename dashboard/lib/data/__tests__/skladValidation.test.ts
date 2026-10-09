@@ -12,6 +12,7 @@ import {
   validateManualLineInput,
   validateStockItemInput,
   validateSupplierInput,
+  validateVatReviewInput,
   type ManualLineInput,
 } from "../skladValidation";
 
@@ -187,5 +188,26 @@ describe("validateStockItemInput", () => {
   it("odmítne neplatný druh", () => {
     const result = validateStockItemInput({ name: "Pivo 12°", canonicalUnit: "l", kind: "neznamy" });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("validateVatReviewInput — post-implementační audit, bod A", () => {
+  it("platný vstup dopočítá vatHal a sazbu, stejně jako ruční zadání řádku", () => {
+    const result = validateVatReviewInput({ totalWithoutVatHal: "177,00", totalWithVatHal: "214,17" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.vatHal).toBe(21417 - 17700);
+      expect(result.value.computedVatRatePercent).toBeCloseTo(21, 0);
+    }
+  });
+
+  it("odmítne cenu s DPH nižší než cenu bez DPH", () => {
+    const result = validateVatReviewInput({ totalWithoutVatHal: "200,00", totalWithVatHal: "100,00" });
+    expect(result.ok).toBe(false);
+  });
+
+  it("odmítne neplatný/chybějící vstup", () => {
+    expect(validateVatReviewInput({ totalWithoutVatHal: "", totalWithVatHal: "100,00" }).ok).toBe(false);
+    expect(validateVatReviewInput({ totalWithoutVatHal: "100,00", totalWithVatHal: "" }).ok).toBe(false);
   });
 });

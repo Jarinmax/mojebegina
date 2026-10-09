@@ -188,6 +188,35 @@ export function validateManualLineInput(
   };
 }
 
+export type VatReviewInput = { totalWithoutVatHal: string; totalWithVatHal: string };
+export type ValidatedVatReview = { totalWithoutVatHal: number; vatHal: number; totalWithVatHal: number; computedVatRatePercent: number };
+
+// Post-implementační audit (bod A) — kontrolor při revizi DPH potvrzuje
+// (případně opraví) jen obě celkové částky, stejně jako při ručním zadání
+// řádku: `vatHal` a sazba se znovu DOPOČÍTAJÍ, nikdy se nezadávají zvlášť
+// (stejná záruka konzistence jako u validateManualLineInput).
+export function validateVatReviewInput(
+  input: VatReviewInput
+): { ok: true; value: ValidatedVatReview } | { ok: false; error: string } {
+  const totalWithoutVatHal = parseHaler(input.totalWithoutVatHal);
+  if (totalWithoutVatHal === null || totalWithoutVatHal < 0) {
+    return { ok: false, error: "Cena celkem bez DPH musí být nezáporné číslo." };
+  }
+  const totalWithVatHal = parseHaler(input.totalWithVatHal);
+  if (totalWithVatHal === null || totalWithVatHal < totalWithoutVatHal) {
+    return { ok: false, error: "Cena celkem s DPH musí být vyplněná a ne nižší než cena bez DPH." };
+  }
+  return {
+    ok: true,
+    value: {
+      totalWithoutVatHal,
+      vatHal: totalWithVatHal - totalWithoutVatHal,
+      totalWithVatHal,
+      computedVatRatePercent: computeVatRatePercent(totalWithoutVatHal, totalWithVatHal),
+    },
+  };
+}
+
 export type SupplierInput = { name: string; ico: string; dic: string };
 export type ValidatedSupplier = { name: string; nameNormalized: string; ico: string | null; dic: string | null };
 
