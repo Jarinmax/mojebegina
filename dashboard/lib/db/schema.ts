@@ -1265,8 +1265,11 @@ export const goodsReceiptDocuments = pgTable(
 // Jeden dokument může mít víc stran, pořadí jednoznačné přes
 // (document_id, page_number). `sha256` je základ pro duplicitní ochranu
 // (viz trigger na konci migrace 0023, revize návrhu bod 6) — index tady,
-// skutečná "nesmí vzniknout druhý aktivní draft" kontrola běží jako
-// databázová pojistka (trigger), ne jen tady v indexu.
+// skutečná "nesmí vzniknout druhý AKTIVNÍ doklad" kontrola běží jako
+// databázová pojistka (trigger), ne jen tady v indexu. "Aktivní" = draft
+// NEBO confirmed (jen voided je vyloučené) — post-implementační audit,
+// bod 7: duplicita nesmí vzniknout ani vůči už POTVRZENÉ příjemce, ne jen
+// mezi dvěma drafty.
 export const goodsReceiptDocumentPages = pgTable(
   "goods_receipt_document_pages",
   {

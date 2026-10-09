@@ -53,10 +53,10 @@ describe("migrace 0023 — databázové pojistky (revize návrhu)", () => {
     expect(migrationSql).toContain("goods_receipt_lines_total_consistent");
   });
 
-  it("bod 6: stejný SHA-256 nesmí existovat mezi stránkami dvou aktivních (draft) příjemek — DB trigger, ne jen index", () => {
+  it("bod 6/post-audit bod 7: stejný SHA-256 nesmí existovat mezi stránkami dvou aktivních příjemek — draft I confirmed, jen voided vyloučené, DB trigger ne jen index", () => {
     expect(migrationSql).toContain("CREATE FUNCTION goods_receipt_document_pages_unique_active_sha256()");
     expect(migrationSql).toContain("CREATE TRIGGER goods_receipt_document_pages_unique_active_sha256");
-    expect(migrationSql).toContain("r.status = 'draft'");
+    expect(migrationSql).toContain("r.status IN ('draft', 'confirmed')");
   });
 
   it("bod 6: omylem dvojí potvrzení stejného dokladu (supplier_id + document_number) je blokováno na DB úrovni", () => {

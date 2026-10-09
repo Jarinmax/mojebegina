@@ -221,13 +221,17 @@ FROM stock_movements m
 GROUP BY m.stock_item_id, m.stock_location_id;
 --> statement-breakpoint
 
--- 3. Databázová pojistka proti duplicitnímu dokladu (revize návrhu, bod 6):
--- stejný SHA-256 souboru nesmí existovat mezi stránkami dvou RŮZNÝCH
--- aktivních (draft) příjemek najednou. `status` žije na goods_receipts,
--- ne na goods_receipt_document_pages, takže to nejde vyjádřit jako
--- jednoduchý partial unique index (predikát indexu nesmí odkazovat na
--- jinou tabulku) — proto trigger, ne index. Běží při INSERT i při změně
--- sha256 (UPDATE), ne při změně čehokoli jiného na stránce.
+-- 3. Databázová pojistka proti duplicitnímu dokladu (revize návrhu, bod 6;
+-- post-implementační audit, bod 7): stejný SHA-256 souboru nesmí existovat
+-- mezi stránkami dvou RŮZNÝCH aktivních příjemek najednou — AKTIVNÍ =
+-- 'draft' NEBO 'confirmed', jen 'voided' je vyloučené (ne jen draft proti
+-- draftu: nahrání stejného souboru znovu musí být blokované i vůči už
+-- POTVRZENÉ příjemce, jinak by šlo omylem vytvořit duplicitní draft ke
+-- skutečně existujícímu dokladu). `status` žije na goods_receipts, ne na
+-- goods_receipt_document_pages, takže to nejde vyjádřit jako jednoduchý
+-- partial unique index (predikát indexu nesmí odkazovat na jinou tabulku)
+-- — proto trigger, ne index. Běží při INSERT i při změně sha256 (UPDATE),
+-- ne při změně čehokoli jiného na stránce.
 CREATE FUNCTION goods_receipt_document_pages_unique_active_sha256() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF EXISTS (
@@ -237,9 +241,9 @@ BEGIN
     JOIN goods_receipts r ON r.id = d.receipt_id
     WHERE p.sha256 = NEW.sha256
       AND p.id <> NEW.id
-      AND r.status = 'draft'
+      AND r.status IN ('draft', 'confirmed')
   ) THEN
-    RAISE EXCEPTION 'Stejný soubor (sha256 %) už je součástí jiné aktivní (draft) příjemky', NEW.sha256;
+    RAISE EXCEPTION 'Stejný soubor (sha256 %) už je součástí jiné aktivní (nestornované) příjemky', NEW.sha256;
   END IF;
   RETURN NEW;
 END $$;
