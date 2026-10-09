@@ -27,20 +27,34 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
       const { blob, sha256 } = await prepareImageForUpload(file);
       const pathname = buildDocumentPagePathname(receiptId, crypto.randomUUID());
 
-      await uploadPresigned(pathname, blob, {
-        access: "private",
-        handleUploadUrl: `/api/sklad/prijemky/${receiptId}/upload-token`,
-        contentType: "image/jpeg",
-      });
+      try {
+        await uploadPresigned(pathname, blob, {
+          access: "private",
+          handleUploadUrl: `/api/sklad/prijemky/${receiptId}/upload-token`,
+          contentType: "image/jpeg",
+        });
+      } catch {
+        // @vercel/blob umí vyhodit anglické chyby (BlobFileTooLargeError
+        // apod.) — appka je nikdy nezobrazí přímo, jen tuhle srozumitelnou
+        // českou hlášku (bod 7 revize — chyby musí být česky a použitelné).
+        throw new Error("Upload fotky do úložiště selhal. Zkontrolujte internetové připojení a zkuste to znovu.");
+      }
 
+      // keepalive: true — nejmenší bezpečné zmírnění rizika osiřelého Blobu,
+      // když uživatel hned po uploadu zavře prohlížeč/odnaviguje (externí
+      // revize, bod 5): dovolí prohlížeči tenhle požadavek dokončit i po
+      // odchodu ze stránky. NEŘEŠÍ pád prohlížeče/ztrátu napájení přesně v
+      // téhle mezeře — to zůstává zdokumentované omezení Preview (žádná
+      // zpětná úklidová úloha nad Blob storem zatím neběží).
       const response = await fetch(`/api/sklad/prijemky/${receiptId}/stranky`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ pathname, sha256, mimeType: "image/jpeg" }),
+        keepalive: true,
       });
-      const result = (await response.json()) as { pageId?: string; error?: string };
-      if (!response.ok || !result.pageId) {
-        throw new Error(result.error ?? "Uložení strany dokladu selhalo.");
+      const result = (await response.json().catch(() => null)) as { pageId?: string; error?: string } | null;
+      if (!response.ok || !result?.pageId) {
+        throw new Error(result?.error ?? "Uložení strany dokladu selhalo. Zkuste to znovu.");
       }
 
       setPages((prev) => [...prev, { id: result.pageId as string }]);

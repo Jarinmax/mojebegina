@@ -13,8 +13,9 @@
 // závisí. Oba zápisy tady závisí (pohyb/storno nesmí vzniknout, pokud se
 // nepodařilo claimnout příjemku), proto CTE, ne db.batch.
 import "server-only";
+import { createHash } from "node:crypto";
 import { and, eq, ne, sql } from "drizzle-orm";
-import { del } from "@vercel/blob";
+import { del, get } from "@vercel/blob";
 import { db } from "@/lib/db/client";
 import {
   goodsReceiptActivity,
@@ -708,6 +709,40 @@ async function cleanupOrphanBlob(pathname: string): Promise<void> {
   }
 }
 
+async function findDocumentPageIdByStorageKey(pathname: string): Promise<string | null> {
+  const [existingPage] = await db
+    .select({ id: goodsReceiptDocumentPages.id })
+    .from(goodsReceiptDocumentPages)
+    .where(eq(goodsReceiptDocumentPages.storageKey, pathname))
+    .limit(1);
+  return existingPage?.id ?? null;
+}
+
+// Post-implementační audit (externí revize) — `sha256` nesmí být jen
+// nedůvěryhodná hodnota poslaná klientem: appka ji musí ověřit PROTI
+// SKUTEČNÝM bajtům uloženým v Blobu, jinak je celá duplicitní ochrana
+// (DB trigger níž) obelstitelná (klient může nahrát soubor A a nahlásit
+// otisk souboru B). Stahuje celý soubor server-side a hashuje ho — cena je
+// přijatelná (fotky max. ~12 MB, nízký objem, interní nástroj), bezpečnost
+// má přednost před tím, ušetřit jeden GET.
+async function computeActualBlobSha256(pathname: string): Promise<string | null> {
+  const blob = await get(pathname, { access: "private" });
+  if (!blob || blob.statusCode !== 200) {
+    return null;
+  }
+  const hash = createHash("sha256");
+  // getReader(), ne `for await` — TS DOM lib nedeklaruje
+  // ReadableStream[Symbol.asyncIterator] (běhové prostředí ho i tak
+  // podporuje, ale typy ne), getReader() je přenosné a plně typované.
+  const reader = blob.stream.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) hash.update(value);
+  }
+  return hash.digest("hex");
+}
+
 export type AuthorizeUploadResult = { ok: true } | { ok: false; error: string };
 
 // Volá se z getSignedToken uvnitř route pro vydání podepsaného tokenu, PŘED
@@ -767,14 +802,24 @@ export async function registerGoodsReceiptDocumentPage(
     return { ok: false, error: "Fotky lze nahrávat jen k návrhu příjemky." };
   }
 
-  const [existingPage] = await db
-    .select({ id: goodsReceiptDocumentPages.id })
-    .from(goodsReceiptDocumentPages)
-    .where(eq(goodsReceiptDocumentPages.storageKey, pathname))
-    .limit(1);
-  if (existingPage) {
+  const existingPageId = await findDocumentPageIdByStorageKey(pathname);
+  if (existingPageId) {
     // Druhé volání po síťovém výpadku prvního — no-op úspěch, žádný úklid.
-    return { ok: true, pageId: existingPage.id };
+    return { ok: true, pageId: existingPageId };
+  }
+
+  // Server NIKDY nevěří sha256 poslanému klientem — ověří ho proti
+  // skutečně uloženým bajtům. Bez tohohle by šlo nahlásit libovolný otisk
+  // k libovolnému obsahu a obejít tak duplicitní ochranu i smysl SHA-256
+  // jako otisku integrity dokladu.
+  const actualSha256 = await computeActualBlobSha256(pathname);
+  if (!actualSha256) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Soubor nebyl v úložišti nalezen — nahrajte fotku znovu." };
+  }
+  if (actualSha256 !== sha256) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Otisk souboru neodpovídá nahraným datům — nahrajte fotku znovu." };
   }
 
   try {
@@ -802,17 +847,34 @@ export async function registerGoodsReceiptDocumentPage(
         documentId: document.id,
         pageNumber: maxPageNumber + 1,
         storageKey: pathname,
-        sha256,
+        // Ukládá se server-ověřená hodnota (actualSha256), ne vstup od
+        // klienta — i když se v tomhle bodě rovnají, zásadové "nevěř
+        // klientovi" platí i pro to, co se zapisuje do DB.
+        sha256: actualSha256,
         mimeType,
       })
       .returning({ id: goodsReceiptDocumentPages.id });
 
     return { ok: true, pageId: page.id };
   } catch (error) {
-    await cleanupOrphanBlob(pathname);
     if (messageIncludes(error, "už je součástí jiné aktivní")) {
+      // Souběh dvou finalize volání se STEJNOU cestou (např. síťová retry
+      // klienta, co se překryje s původním, ještě neukončeným voláním):
+      // obě SELECTnou "neexistuje", obě se pokusí INSERTnout se stejným
+      // sha256 — vítěz uspěje, poražený spadne na DB triggeru
+      // goods_receipt_document_pages_unique_active_sha256 (migrace 0023),
+      // protože vlastní (vítězův) řádek se stejným hashem už existuje. Než
+      // se to ohlásí jako tvrdá chyba, znovu se zkontroluje storage_key —
+      // pokud vítěz zapsal PŘESNĚ tuhle cestu, je to pořád idempotentní
+      // no-op úspěch, ne duplicita cizího souboru.
+      const winnerPageId = await findDocumentPageIdByStorageKey(pathname);
+      if (winnerPageId) {
+        return { ok: true, pageId: winnerPageId };
+      }
+      await cleanupOrphanBlob(pathname);
       return { ok: false, error: "Stejný soubor je už nahraný u jiné aktivní příjemky." };
     }
+    await cleanupOrphanBlob(pathname);
     if (messageIncludes(error, "goods_receipt_document_pages_order_key")) {
       return { ok: false, error: "Mezitím byla přidána jiná strana dokladu — zkuste to znovu." };
     }

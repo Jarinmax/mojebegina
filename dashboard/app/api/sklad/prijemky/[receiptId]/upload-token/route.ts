@@ -17,6 +17,12 @@ import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 
 const TOKEN_VALID_MS = 5 * 60 * 1000;
 
+// Odlišuje "authorizeGoodsReceiptUpload odmítl" (zpráva je už česká a
+// bezpečná na zobrazení) od čehokoli jiného, co by uvnitř
+// handleUploadPresigned/issueSignedToken mohlo vyhodit anglickou chybu z
+// @vercel/blob SDK — tu appka nikdy nezobrazí přímo (bod 7 revize).
+class UploadAuthorizationError extends Error {}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ receiptId: string }> }) {
   const { receiptId } = await params;
   const body = (await request.json()) as HandleUploadPresignedBody;
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       getSignedToken: async (pathname) => {
         const auth = await authorizeGoodsReceiptUpload(receiptId, pathname);
         if (!auth.ok) {
-          throw new Error(auth.error);
+          throw new UploadAuthorizationError(auth.error);
         }
         const token = await issueSignedToken({
           pathname,
@@ -54,7 +60,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error instanceof ForbiddenError) {
       return NextResponse.json({ error: "Nemáte oprávnění nahrávat fotky k téhle příjemce." }, { status: 403 });
     }
-    const message = error instanceof Error ? error.message : "Vydání tokenu pro upload selhalo.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (error instanceof UploadAuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Vydání tokenu pro upload selhalo. Zkuste to znovu." }, { status: 400 });
   }
 }
