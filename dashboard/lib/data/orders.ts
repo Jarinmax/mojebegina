@@ -21,6 +21,7 @@ import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput } from "@/lib/eshop/checkout";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
 import { shippingMethods } from "@/lib/eshop/shipping";
+import { isOrderable } from "@/lib/eshop/productRules";
 import {
   afterOrderCancelled,
   createReplacementOrder,
@@ -842,7 +843,8 @@ export async function listReplacementOptions(): Promise<{
 }> {
   await requireOrderContext();
   const index = await getCatalogIndex();
-  const products = index.catalog.products.flatMap((product) =>
+  // Neověřené alergeny → produkt nenabízet (server to stejně odmítne v priceCart).
+  const products = index.catalog.products.filter(isOrderable).flatMap((product) =>
     product.variants.map((variant) => ({
       sku: variant.sku,
       label: `${product.name}${variant.label ? ` — ${variant.label}` : ""}`,

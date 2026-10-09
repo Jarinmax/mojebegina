@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
+import { isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { useCatalog } from "./CatalogProvider";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
@@ -35,6 +36,8 @@ export default function CartView() {
   }
 
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
+  // Produkt mohl do košíku přijít dřív, než se zablokoval (neověřené alergeny).
+  const blocked = lines.some((line) => !isOrderable(line.product));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-6 lg:gap-10 items-start">
@@ -56,6 +59,11 @@ export default function CartView() {
                 <p className="font-medium tabular-nums shrink-0">{formatKc(line.lineTotalKc)}</p>
               </div>
               <p className="text-xs text-neutral-500 mt-0.5">{formatKc(line.variant.priceKc)} / ks</p>
+              {!isOrderable(line.product) && (
+                <p className="text-xs text-begina-accent-900 mt-1" role="alert">
+                  {NOT_ORDERABLE_NOTICE} Odeberte ho prosím z košíku.
+                </p>
+              )}
               <div className="mt-2 flex items-center gap-3">
                 <QuantityStepper
                   value={line.quantity}
@@ -82,12 +90,18 @@ export default function CartView() {
           <span className="font-medium tabular-nums">{formatKc(subtotalKc)}</span>
         </div>
         <p className="text-xs text-neutral-500 mt-1">Doprava se vybírá v dalším kroku.</p>
-        <Link
-          href="/eshop/pokladna"
-          className="mt-5 w-full flex items-center justify-center bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg h-11"
-        >
-          Pokračovat k objednávce
-        </Link>
+        {blocked ? (
+          <p className="mt-5 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2">
+            Košík obsahuje produkt, který zatím nelze objednat. Odeberte ho prosím.
+          </p>
+        ) : (
+          <Link
+            href="/eshop/pokladna"
+            className="mt-5 w-full flex items-center justify-center bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg h-11"
+          >
+            Pokračovat k objednávce
+          </Link>
+        )}
         <Link href="/eshop" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
           Pokračovat v nákupu
         </Link>

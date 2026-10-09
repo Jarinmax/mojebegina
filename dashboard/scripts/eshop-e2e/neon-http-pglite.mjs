@@ -26,6 +26,10 @@ const ready = (async () => {
       if (statement.trim()) await pg.exec(statement);
     }
   }
+  // Testovací katalog: alergeny neověřené v seedu (NULL) se označí jako
+  // ověřené „bez alergenů“ ('{}'), aby šly produkty objednat. Jen testovací
+  // data — blokaci NULL hlídá allergenGate.test.ts (vrací NULL zpět).
+  await pg.exec(`UPDATE "products" SET "allergens" = '{}' WHERE "allergens" IS NULL`);
   // Volitelně zapnuté číslování objednávek (skript 06b, např. 900000 jako Preview).
   if (process.env.E2E_ORDER_NUMBER_START) {
     const numbering = readFileSync(join(DRIZZLE_DIR, "../docs/eshop-schema-draft/06b_order_number_cutover_up.sql"), "utf8");

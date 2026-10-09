@@ -8,7 +8,7 @@
 // aby se z něj dal později přímo založit řádek v `orders`/`order_items`.
 
 import type { CatalogIndex } from "./catalogIndex";
-import { lineName } from "./productRules";
+import { isOrderable, lineName } from "./productRules";
 import { getShippingMethod, type ShippingMethod } from "./shipping";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 
@@ -59,6 +59,14 @@ export function priceCart(
     }
     const { product, variant } = found;
     const name = lineName(product, variant);
+    // Neověřené alergeny (null) — jediné místo, které platí pro košík,
+    // pokladnu i náhradní objednávku; obejít to nejde ani podvrženým košíkem.
+    if (!isOrderable(product)) {
+      return {
+        ok: false,
+        error: `Produkt "${product.name}" zatím nelze objednat — ověřujeme u něj alergeny. Odeberte ho prosím z košíku.`,
+      };
+    }
     if (seen.has(variant.sku)) {
       return { ok: false, error: "Košík obsahuje duplicitní položku. Obnovte prosím košík." };
     }

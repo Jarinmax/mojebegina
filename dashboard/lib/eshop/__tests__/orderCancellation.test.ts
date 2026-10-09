@@ -664,6 +664,57 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
     expect(await activity(newId, "created")).toEqual([expect.objectContaining({ ageConfirmedByStaff: true })]);
   });
 
+  it("alergeny — tři stavy: neověřené (NULL) nejdou objednat v pokladně ani jako náhradní objednávka; ověřené (seznam i prázdný) ano", async () => {
+    // stav 1: ověřeno, obsahuje (Granátový Bond); stav 2: ověřeno, žádný (Kulajda, '{}'); stav 3: neověřeno (Lady Carneval)
+    await db.execute(sql`UPDATE products SET allergens = ARRAY['sulphites'] WHERE slug = 'granatovy-bond'`);
+    await db.execute(sql`UPDATE products SET allergens = NULL WHERE slug = 'lady-carneval'`);
+    try {
+      const count = async () => (await rows(sql`SELECT count(*)::int AS n FROM orders`))[0].n;
+      const before = await count();
+
+      // pokladna: podvržený košík s neověřeným produktem — server objednávku nezaloží
+      const blocked = randomUUID();
+      expect(
+        await submitCheckoutAction(null, form(blocked, { cart: JSON.stringify([{ sku: "lady-carneval-500ml", quantity: 1 }]), ageConfirmed: "on" }))
+      ).toEqual({ error: expect.stringMatching(/Lady Carneval.*zatím nelze objednat.*alergeny/) });
+      // ani když je v košíku vedle objednatelného produktu
+      expect(
+        await submitCheckoutAction(
+          null,
+          form(randomUUID(), {
+            cart: JSON.stringify([{ sku: "kulajda", quantity: 1 }, { sku: "lady-carneval-500ml", quantity: 1 }]),
+            ageConfirmed: "on",
+          })
+        )
+      ).toEqual({ error: expect.stringMatching(/alergeny/) });
+      expect(await count()).toBe(before);
+      expect(await rows(sql`SELECT id FROM orders WHERE id = ${blocked}`)).toEqual([]);
+      expect(mail.sent).toEqual([]);
+
+      // ověřené alergeny (seznam i prázdný seznam) jdou objednat
+      await newOrder(randomUUID(), { cart: JSON.stringify([{ sku: "granatovy-bond-500ml", quantity: 1 }]), ageConfirmed: "on" });
+      await newOrder(randomUUID(), { cart: JSON.stringify([{ sku: "kulajda", quantity: 1 }]) });
+      expect(await count()).toBe(before + 2);
+
+      // náhradní objednávka: neověřený produkt nevznikne, platba zůstává u stornované
+      const id = await cancelledPaid("BANK-REPL-ALLERGEN");
+      expect(await replace(id, { lines: [{ sku: "lady-carneval-500ml", quantity: 1 }], ageConfirmed: true })).toEqual({
+        ok: false,
+        error: expect.stringMatching(/Lady Carneval.*alergeny/),
+      });
+      expect(await money(id)).toEqual({ stage: "contact", heldHal: 75800 });
+      expect(await rows(sql`SELECT status FROM payments WHERE external_id = 'tx:BANK-REPL-ALLERGEN'`)).toEqual([{ status: "succeeded" }]);
+      // formulář náhradní objednávky neověřený produkt vůbec nenabízí
+      const options = await orders.listReplacementOptions();
+      expect(options.products.map((p) => p.sku)).not.toContain("lady-carneval-500ml");
+      expect(options.products.map((p) => p.sku)).toEqual(expect.arrayContaining(["kulajda", "granatovy-bond-500ml"]));
+      // s ověřeným produktem náhradní objednávka vznikne
+      expect(await replace(id, { lines: [{ sku: "granatovy-bond-500ml", quantity: 1 }], ageConfirmed: true })).toMatchObject({ ok: true });
+    } finally {
+      await db.execute(sql`UPDATE products SET allergens = '{}' WHERE slug IN ('granatovy-bond', 'lady-carneval')`);
+    }
+  });
+
   it("stornovaná objednávka s vystavenou fakturou: převod ani náhradní objednávka nejdou (jinak dvě faktury za tytéž peníze)", async () => {
     const id = await cancelledPaid("BANK-REPL-INV");
     await db.execute(sql`
