@@ -56,7 +56,13 @@ export type CompanyOverviewContent = {
   mapAreas: MapArea[];
   mainFlow: string[];
   mapNotes: string[];
+  /** první řada: vedení (majitelé a výkonný ředitel) */
   responsibilities: ResponsibilityOwner[];
+  /**
+   * druhá řada: další odpovědnosti v týmu — jen zobrazení, žádná systémová
+   * oprávnění (role a přístupy řeší user_roles / *Auth.ts, ne tento obsah)
+   */
+  teamResponsibilities: ResponsibilityOwner[];
   areas: CompanyAreaSection[];
   aiAutomation: AiAutomationContent;
   documentation: DocumentationContent;
@@ -134,6 +140,13 @@ export const companyOverview: CompanyOverviewContent = {
         "Motivace a vzdělávání lidí",
       ],
     },
+  ],
+
+  // Doplněno podle zadání majitele 9. 10. 2026 — druhá řada pod vedením.
+  // Jen zobrazení odpovědností: tyto osoby tím nedostávají žádná oprávnění.
+  teamResponsibilities: [
+    { name: "Jaroslav Blahout", role: "Obchod, bistro, programování, vývoj", areas: [] },
+    { name: "Josef Göndör", role: "Marketing, strategie", areas: [] },
   ],
 
   areas: [
