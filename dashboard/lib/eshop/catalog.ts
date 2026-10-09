@@ -32,7 +32,7 @@ export type FoodInfo = {
 };
 
 // Kategorie podle stávajícího webu begina.cz.
-export type CategorySlug = "polevky" | "sirupy" | "caje" | "ovocne-napoje" | "koktejly";
+export type CategorySlug = "polevky" | "sirupy" | "caje" | "ovocne-napoje" | "koktejly" | "zmrzliny";
 
 export type DetailSection = { title: string; paragraphs: string[]; bullets: string[] };
 

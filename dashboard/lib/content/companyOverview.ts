@@ -56,7 +56,13 @@ export type CompanyOverviewContent = {
   mapAreas: MapArea[];
   mainFlow: string[];
   mapNotes: string[];
+  /** první řada: vedení (majitelé a výkonný ředitel) */
   responsibilities: ResponsibilityOwner[];
+  /**
+   * druhá řada: další odpovědnosti v týmu — jen zobrazení, žádná systémová
+   * oprávnění (role a přístupy řeší user_roles / *Auth.ts, ne tento obsah)
+   */
+  teamResponsibilities: ResponsibilityOwner[];
   areas: CompanyAreaSection[];
   aiAutomation: AiAutomationContent;
   documentation: DocumentationContent;
@@ -104,7 +110,7 @@ export const companyOverview: CompanyOverviewContent = {
   responsibilities: [
     {
       name: "Jaroslav Viner",
-      role: "Majitel",
+      role: "Majitel, zakladatel, CEO",
       areas: [
         "Vize",
         "Strategie",
@@ -115,8 +121,16 @@ export const companyOverview: CompanyOverviewContent = {
       ],
     },
     {
+      // Doplněno podle zadání majitele 8. 10. 2026: spolumajitelka, investorka
+      // a finanční ředitelka — faktury a platby jsou její doména. Na stejné
+      // úrovni jako Jaroslav (druhá karta, stejná podoba), ne pod COO.
+      name: "Lucie Königsbergová",
+      role: "Spolumajitelka, investorka, finanční ředitelka (CFO)",
+      areas: ["Finance", "Faktury a platby", "Investice"],
+    },
+    {
       name: "Jiří Střelec",
-      role: "Výkonný ředitel",
+      role: "Výkonný ředitel (COO)",
       areas: [
         "Struktura firmy",
         "Systém řízení",
@@ -126,6 +140,13 @@ export const companyOverview: CompanyOverviewContent = {
         "Motivace a vzdělávání lidí",
       ],
     },
+  ],
+
+  // Doplněno podle zadání majitele 9. 10. 2026 — druhá řada pod vedením.
+  // Jen zobrazení odpovědností: tyto osoby tím nedostávají žádná oprávnění.
+  teamResponsibilities: [
+    { name: "Jaroslav Blahout", role: "Obchod, bistro, programování, vývoj", areas: [] },
+    { name: "Josef Göndör", role: "Marketing, strategie", areas: [] },
   ],
 
   areas: [

@@ -316,3 +316,117 @@ ${itemsTable(order)}
     `\n\n${itemsText(order)}\n\nStav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }
+
+// ---------- zákazník: objednávka zrušena (storno v MojeBegina) ----------
+
+/** Haléře → „379 Kč“ / „379,50 Kč“. */
+function formatHalKc(hal: number): string {
+  if (hal % 100 === 0) return formatKc(hal / 100);
+  return `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+}
+
+/**
+ * Potvrzení zrušení. Nezaplacená objednávka: „už nehraďte“. Zaplacená:
+ * Begina se ozve a domluví se zákazníkem, jak s platbou naložit (jiný
+ * produkt, nebo vrácení) — nic se nerozhoduje ani neslibuje automaticky.
+ */
+export function customerCancellationEmail(order: EmailOrder, ctx: Context & { heldHal: number }): RenderedEmail {
+  const reference = orderReference(order);
+  const held = ctx.heldHal > 0;
+  const subject = `${subjectPrefix(ctx)}Objednávka ${reference} byla zrušena`;
+  const intro = `Potvrzujeme, že vaše objednávka ${reference} byla zrušena.`;
+  const payment = held
+    ? `Platbu ${formatHalKc(ctx.heldHal)} za tuto objednávku jsme přijali. Ozveme se vám a domluvíme se, jak s platbou naložit — například jiný produkt, nebo vrácení peněz.`
+    : "Objednávku už prosím nehraďte. Pokud jste platbu mezitím odeslali, odpovězte nám na tento e-mail a domluvíme se.";
+  const details: [string, string][] = [
+    ["Objednávka", reference],
+    ["Stav", "Zrušená"],
+    ["Částka objednávky", formatKc(order.totalKc)],
+  ];
+  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
+<p style="margin:0 0 12px;">${escapeHtml(intro)}</p>
+<p style="margin:0 0 16px;font-weight:600;">${escapeHtml(payment)}</p>
+${detailsTable(details)}
+<div style="height:16px"></div>
+${itemsTable(order)}
+<div style="height:16px"></div>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    `${greeting}\n\n${intro}\n\n${payment}\n\n` +
+    details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${itemsText(order)}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+  return { subject, html, text };
+}
+
+// ---------- zákazník: náhradní objednávka s převedenou platbou ----------
+
+/**
+ * Náhradní objednávka vytvořená v MojeBegina po domluvě se zákazníkem.
+ * NIKDY nevyzývá k úhradě celé částky — peníze už máme: zaplaceno /
+ * doplatek (platební údaje a QR jen na zbytek, VS nové objednávky) /
+ * přeplatek, který vrátíme.
+ */
+export function customerReplacementEmail(
+  order: EmailOrder,
+  ctx: Context & {
+    fromReference: string;
+    receivedHal: number;
+    transfer: TransferInfo | null;
+    qrContentId: string | null;
+    invoiceNumber?: string | null;
+  }
+): RenderedEmail {
+  const reference = orderReference(order);
+  const requiredHal = order.totalKc * 100;
+  const remainingHal = requiredHal - ctx.receivedHal;
+  const subject = `${subjectPrefix(ctx)}Náhradní objednávka ${reference} — použili jsme vaši platbu`;
+  const intro =
+    `Na základě naší domluvy jsme místo zrušené objednávky ${ctx.fromReference} vytvořili náhradní objednávku ${reference}. ` +
+    `Použili jsme na ni vaši platbu ${formatHalKc(ctx.receivedHal)}.`;
+  const state =
+    remainingHal > 0
+      ? `Zbývá doplatit ${formatHalKc(remainingHal)} — platební údaje najdete níže. Celou částku znovu neplaťte.`
+      : remainingHal < 0
+        ? `Objednávka je zaplacená. Přeplatek ${formatHalKc(-remainingHal)} vám vrátíme. Objednávku připravujeme.`
+        : "Objednávka je zaplacená — nic dalšího nehraďte. Objednávku připravujeme.";
+  const invoice = remainingHal <= 0 ? invoiceSentence(ctx.invoiceNumber) : "";
+  const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
+  const details: [string, string][] = [
+    ["Náhradní objednávka", reference],
+    ["Místo zrušené objednávky", ctx.fromReference],
+    ["Cena náhradní objednávky", formatKc(order.totalKc)],
+    ["Použitá platba", formatHalKc(ctx.receivedHal)],
+    ["Doprava", deliveryText(order)],
+  ];
+  const instructions =
+    remainingHal > 0 ? paymentInstructions(order, ctx.transfer, ctx.qrContentId) : { html: "", text: "" };
+  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
+<p style="margin:0 0 12px;">${escapeHtml(intro)}</p>
+<p style="margin:0 0 16px;font-weight:600;">${escapeHtml(state)}${invoice ? ` ${escapeHtml(invoice)}` : ""}</p>
+${itemsTable(order)}
+<div style="height:16px"></div>
+${detailsTable(details)}
+<div style="height:16px"></div>
+${instructions.html}
+<p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    `${greeting}\n\n${intro}\n\n${state}${invoice ? ` ${invoice}` : ""}\n\n${itemsText(order)}\n\n` +
+    details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+  return { subject, html, text };
+}

@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff } from "@/lib/data/orders";
+import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff, listReplacementOptions } from "@/lib/data/orders";
+import { parseCheckoutAddress } from "@/lib/eshop/invoicing/draft";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { FulfillmentBadge, PaymentBadge } from "../OrderStatusBadges";
@@ -13,6 +14,8 @@ import OrderInvoiceDraft from "../OrderInvoiceDraft";
 import ResponsibleForm from "../ResponsibleForm";
 import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
+import CancelledMoneyPanel from "../CancelledMoneyPanel";
+import CancelledMoneyBadge from "../CancelledMoneyBadge";
 
 // Security Phase 15 (Objednávky 1.0) — detail objednávky. Autorizace (ADMIN
 // nebo EXECUTIVE) řeší app/rizeni-firmy/layout.tsx nad touto stránkou,
@@ -38,6 +41,11 @@ export default async function OrderDetailPage(
   const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
   const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
+  const cancelled = order.fulfillmentStatus === "cancelled";
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
+  // náhradní objednávka: jen stornovaná s drženými penězi (před rozhodnutím o vrácení)
+  const replacementOptions = order.moneyAlert?.stage === "contact" ? await listReplacementOptions() : null;
+  const address = parseCheckoutAddress(order.recipientAddress);
 
   return (
     <div>
@@ -63,7 +71,27 @@ export default async function OrderDetailPage(
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
+        <CancelledMoneyBadge money={order.moneyAlert} />
       </div>
+
+      {order.moneyAlert && (
+        <CancelledMoneyPanel
+          orderId={order.id}
+          money={order.moneyAlert}
+          today={today}
+          replacement={
+            replacementOptions && order.moneyAlert
+              ? {
+                  token: randomUUID(),
+                  heldHal: order.moneyAlert.heldHal,
+                  customer: { name: order.contactName, email: order.contactEmail, phone: order.contactPhone },
+                  address: { street: address?.street ?? "", city: address?.city ?? "", zip: address?.zip ?? "" },
+                  ...replacementOptions,
+                }
+              : null
+          }
+        />
+      )}
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
         <div>
@@ -162,7 +190,11 @@ export default async function OrderDetailPage(
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
-        <FulfillmentStatusForm orderId={order.id} currentStatus={order.fulfillmentStatus} />
+        <FulfillmentStatusForm
+          orderId={order.id}
+          currentStatus={order.fulfillmentStatus}
+          emailsCustomer={order.channel === "eshop" && Boolean(order.contactEmail)}
+        />
         {payments ? (
           // E-shop: Zaplaceno se počítá z plateb — místo přepínání „Zapsat platbu“.
           <OrderPayments
@@ -170,7 +202,8 @@ export default async function OrderDetailPage(
             summary={payments}
             paymentVs={order.paymentVs}
             token={randomUUID()}
-            today={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date())}
+            cancelled={cancelled}
+            today={today}
           />
         ) : (
           <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />
@@ -192,7 +225,8 @@ export default async function OrderDetailPage(
             paid={order.paymentStatus === "paid"}
             live={invoiceAccess?.mode.mode === "live"}
             trigger={invoiceAccess?.mode.trigger ?? "off"}
-            canIssue={invoiceAccess?.canIssue ?? false}
+            canIssue={!cancelled && (invoiceAccess?.canIssue ?? false)}
+            cancelled={cancelled}
             issuer={invoiceAccess?.issuer ?? false}
           />
         </div>

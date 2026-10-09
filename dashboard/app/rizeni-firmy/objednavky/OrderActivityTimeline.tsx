@@ -9,7 +9,9 @@ function describeEntry(entry: OrderActivityEntry): string {
   const meta = (entry.metadata ?? {}) as Record<string, unknown>;
   switch (entry.kind) {
     case "created":
-      return "založil(a) objednávku";
+      return meta.replacementOfReference
+        ? `vytvořil(a) náhradní objednávku za stornovanou ${String(meta.replacementOfReference)}${meta.ageConfirmedByStaff ? " (zákazník znovu potvrdil věk 18+)" : ""}`
+        : "založil(a) objednávku";
     case "note_added":
       return "upravil(a) poznámku";
     case "fulfillment_status_changed": {
@@ -50,22 +52,62 @@ function describeEntry(entry: OrderActivityEntry): string {
       return "⚠ přijal(a) DALŠÍ platbu kartou k už zaplacené objednávce — zkontrolovat a vrátit ve Stripe";
     // ESHOP 1.0 — e-maily k objednávce (lib/eshop/email/orderEmails.ts)
     case "email_sent": {
-      const label = meta.template === "internal_new_order" ? "upozornění pro Beginu" : "potvrzení zákazníkovi";
+      const label = emailLabel(meta.template);
       const to = Array.isArray(meta.to) ? ` (${meta.to.join(", ")})` : "";
       return `odeslal(a) e-mail: ${label}${to}${meta.test ? " — testovací režim" : ""}`;
     }
     case "email_failed": {
-      const label = meta.template === "internal_new_order" ? "upozornění pro Beginu" : "potvrzení zákazníkovi";
+      const label = emailLabel(meta.template);
       return `⚠ nepodařilo se odeslat e-mail: ${label} — ${meta.template === "internal_new_order" ? "objednávka je jen tady" : "kontaktovat zákazníka ručně"}`;
     }
     case "payment_amount_mismatch":
       return "⚠ přijal(a) platbu, jejíž částka nesedí s objednávkou — zkontrolovat (Zaplaceno jen při úhradě celé částky)";
+    // Storno — peníze stornované objednávky (lib/eshop/cancellation.ts)
+    case "payment_after_cancellation":
+      return `⚠ přijal(a) platbu ${money(meta.amountHal)} po stornu${meta.method === "card" ? " kartou" : ""} (transakce ${String(meta.txId ?? "—")}) — objednávka zůstává stornovaná, kontaktovat zákazníka`;
+    case "refund_requested":
+      return `zaznamenal(a), že zákazník požaduje vrácení ${money(meta.amountHal)} (souhlas zákazníka)`;
+    case "refund_recorded":
+      return `zapsal(a) vrácení ${money(meta.amountHal)} zákazníkovi (transakce ${String(meta.txId ?? "—")})`;
+    case "payment_transferred_out":
+      return meta.replacement
+        ? `vytvořil(a) náhradní objednávku ${String(meta.toReference ?? "—")} a převedl(a) na ni platbu ${money(meta.amountHal)} se souhlasem zákazníka`
+        : `převedl(a) platbu ${money(meta.amountHal)} na objednávku ${String(meta.toReference ?? "—")} se souhlasem zákazníka`;
+    case "overpayment_refund_due":
+      return `⚠ objednávka je přeplacená — přeplatek ${money(meta.amountHal)} je k vrácení zákazníkovi (závazek, zatím nevráceno)`;
+    case "payment_transferred_in":
+      return `převedl(a) sem platbu ${money(meta.amountHal)} ze stornované objednávky ${String(meta.fromReference ?? "—")} se souhlasem zákazníka`;
     case "responsible_assigned":
       return meta.responsibleUserId
         ? `přiřadil(a) odpovědnou osobu: ${String(meta.responsibleName ?? meta.responsibleUserId)}`
         : "odebral(a) odpovědnou osobu";
     default:
       return "";
+  }
+}
+
+// Záznamy, u kterých se ukáže i text (poznámka / jak zákazník souhlasil).
+const CONSENT_NOTE_KINDS = new Set(["note_added", "refund_requested", "payment_transferred_out", "payment_transferred_in"]);
+
+function money(hal: unknown): string {
+  const value = Number(hal ?? 0);
+  return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(value / 100)} Kč`;
+}
+
+function emailLabel(template: unknown): string {
+  switch (template) {
+    case "internal_new_order":
+      return "upozornění pro Beginu";
+    case "customer_payment_received":
+      return "potvrzení o přijetí platby zákazníkovi";
+    case "customer_invoice":
+      return "faktura zákazníkovi";
+    case "customer_cancellation":
+      return "potvrzení zrušení objednávky zákazníkovi";
+    case "customer_replacement":
+      return "náhradní objednávka zákazníkovi (bez výzvy k úhradě celé částky)";
+    default:
+      return "potvrzení zákazníkovi";
   }
 }
 
@@ -95,7 +137,7 @@ export default function OrderActivityTimeline({ activity }: { activity: OrderAct
               {formatCzechDate(entry.createdAt)}
             </p>
           </div>
-          {entry.kind === "note_added" && entry.body && (
+          {CONSENT_NOTE_KINDS.has(entry.kind) && entry.body && (
             <p className="text-sm text-neutral-600 whitespace-pre-wrap mt-0.5">{entry.body}</p>
           )}
         </div>

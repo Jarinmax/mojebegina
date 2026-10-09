@@ -92,11 +92,58 @@ describe("informační stránky", () => {
     expect(existsSync(path.join(APP, INFO_PAGES.water.path, "page.tsx"))).toBe(true);
   });
 
-  it("GDPR bez dodaného textu: „Text připravujeme“ + kontakt, nic vymyšleného", () => {
-    expect(INFO_PAGES.privacy.blocks).toBeNull();
+  it("GDPR: text dodaný 8. 10. 2026, celý a v pořadí (články I–XIII, odrážky, odstavce za nimi)", () => {
+    const blocks = INFO_PAGES.privacy.blocks!;
+    expect(blocks.filter((b) => b.heading).map((b) => b.heading!.split(".")[0])).toEqual([
+      "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII",
+    ]);
+    // počty odrážek přesně podle dodaného znění: II, III.1, III.3, V, VI, IX
+    expect(blocks.filter((b) => b.items).map((b) => b.items!.length)).toEqual([11, 7, 6, 7, 8, 9]);
     render(<InfoPageView page={INFO_PAGES.privacy} />);
-    expect(screen.getByText("Text připravujeme.")).toBeTruthy();
-    expect(screen.getAllByRole("link", { name: "info@begina.cz" })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: "Ochrana osobních údajů (GDPR)" })).toBeTruthy();
+    expect(screen.getByText("Platné a účinné od 22. září 2026")).toBeTruthy();
+    expect(screen.queryByText("Text připravujeme.")).toBeNull();
+    const text = document.querySelector("article")!.textContent!;
+    const order = [
+      "Správcem osobních údajů je:",
+      "IČO: 74337297",
+      "Kontaktní provozovna a korespondenční adresa:",
+      "dále jen „správce“.",
+      "jméno a příjmení,",
+      "IP adresu, technické údaje o zařízení a údaje získané prostřednictvím cookies.",
+      "Správce nezískává ani neuchovává celé údaje o platební kartě.",
+      "1. Vyřízení objednávky a plnění kupní smlouvy",
+      "vedení zákaznického účtu.",
+      "Právním důvodem je plnění smlouvy nebo provedení opatření před uzavřením smlouvy.",
+      "2. Plnění právních povinností",
+      "3. Ochrana práv a oprávněných zájmů",
+      "Právním důvodem je oprávněný zájem správce.",
+      "4. Marketingová komunikace",
+      "IV. Osobní údaje související s prodejem alkoholu",
+      "zpravidla 5 nebo 10 let podle druhu dokumentu",
+      "až do konečného vyřešení dané záležitosti.",
+      "dopravcům zajišťujícím chlazenou přepravu,",
+      "Osobní údaje neprodáváme ani neposkytujeme třetím osobám",
+      "standardních smluvních doložek.",
+      "Nezbytné cookies",
+      "Analytické a marketingové cookies",
+      "podat stížnost u dozorového úřadu.",
+      "Odvoláním souhlasu není dotčena zákonnost zpracování",
+      "Úřadu pro ochranu osobních údajů",
+      "Pplk. Sochora 27",
+      "XI. Automatizované rozhodování",
+      "XII. Zabezpečení osobních údajů",
+      "Tyto zásady ochrany osobních údajů jsou platné a účinné od 22. září 2026.",
+      "www.begina.cz/gdpr/",
+    ];
+    const positions = order.map((part) => text.indexOf(part));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(screen.getAllByRole("link", { name: "www.uoou.gov.cz" })).toHaveLength(1);
+    // čl. XIII: celá adresa je odkaz (dnes na begina.cz, po přepnutí domény přesměrování v next.config.ts)
+    expect(screen.getByRole("link", { name: "www.begina.cz/gdpr/" }).getAttribute("href")).toBe("https://www.begina.cz/gdpr/");
+    expect(screen.getAllByRole("link", { name: "info@begina.cz" }).length).toBeGreaterThanOrEqual(3);
+    expect(existsSync(path.join(APP, INFO_PAGES.privacy.path, "page.tsx"))).toBe(true);
   });
 });
 
@@ -120,5 +167,29 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(screen.getByText(/Tyto obchodní podmínky jsou platné a účinné od 22\. září 2026\./)).toBeTruthy();
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual(expect.arrayContaining(["mailto:info@begina.cz", "tel:+420774199975", "https://www.coi.cz", "https://adr.coi.cz", "https://www.begina.cz"]));
+  });
+});
+
+describe("odkazy na právní stránky ze starého webu begina.cz", () => {
+  it("/gdpr, /obchodni-podminky, /doprava přesměrují na stránky e-shopu (dočasně) a cíle existují", async () => {
+    const config = (await import("../../next.config")).default;
+    const redirects = await config.redirects!();
+    expect(redirects).toEqual([
+      { source: "/gdpr", destination: INFO_PAGES.privacy.path, permanent: false },
+      { source: "/obchodni-podminky", destination: INFO_PAGES.terms.path, permanent: false },
+      { source: "/doprava", destination: INFO_PAGES.shipping.path, permanent: false },
+    ]);
+    for (const r of redirects) {
+      expect(existsSync(path.join(APP, r.destination, "page.tsx"))).toBe(true);
+      // zdroj nesmí přepsat existující stránku aplikace
+      expect(existsSync(path.join(APP, r.source))).toBe(false);
+    }
+  });
+
+  it("adresa s cestou je celá odkaz, tečka za větou do odkazu nepatří", async () => {
+    const { linkify } = await import("../eshop/InfoPageView");
+    render(<p>{linkify("Aktuální znění je na adrese www.begina.cz/gdpr/. Obchod: www.begina.cz.")}</p>);
+    expect(screen.getByRole("link", { name: "www.begina.cz/gdpr/" }).getAttribute("href")).toBe("https://www.begina.cz/gdpr/");
+    expect(screen.getByRole("link", { name: "www.begina.cz" }).getAttribute("href")).toBe("https://www.begina.cz");
   });
 });

@@ -157,6 +157,7 @@ describe("režim fakturace", () => {
     IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
     IDOKLAD_ESHOP_CLIENT_ID: "cid",
     IDOKLAD_ESHOP_CLIENT_SECRET: "secret",
+    IDOKLAD_ESHOP_APPLICATION_ID: "app",
   };
 
   it("Preview je VŽDY jen návrh — i se všemi přepínači a přístupovými údaji", () => {

@@ -16,6 +16,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const VINER = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c";
+const LUCIE = "f9f93f03-92b0-4724-becd-c0a3576b5275";
 const auth = vi.hoisted(() => ({ userId: "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c", role: "ADMIN" as "ADMIN" | "EXECUTIVE" }));
 vi.mock("@/lib/data/authContext", () => ({
   getAuthContext: async () => ({
@@ -54,6 +55,7 @@ const BASE = {
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "prod-client",
   IDOKLAD_ESHOP_CLIENT_SECRET: "prod-secret",
+  IDOKLAD_ESHOP_APPLICATION_ID: "prod-app",
 };
 const PREVIEW = { ...BASE, VERCEL_ENV: "preview" };
 // Production: e-maily naostro — Production je pošle jen s ESHOP_EMAIL_LIVE=on
@@ -206,6 +208,15 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     expect(route.idoklad).toEqual([]);
   });
 
+  it("manual: stornovanou objednávku (i zaplacenou) nejde vyfakturovat — iDoklad nedostane nic", async () => {
+    const id = await newOrder();
+    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
+    expect(await orders.updateFulfillmentStatus(id, "cancelled")).toMatchObject({ ok: true, changed: true, cancellation: { heldHal: expect.any(Number) } });
+    route.fake = createFakeIdoklad();
+    expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: "Objednávka je stornovaná — faktura se nevystaví." });
+    expect(route.fake.calls).toEqual([]);
+  });
+
   // ---------------------------------------------------------------- manual
 
   it("manual (Production): po platbě NIC automaticky; tlačítkem tentýž motor → faktura, uhrazeno, PDF e-mailem", async () => {
@@ -266,13 +277,15 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     expect(mail.sent.filter((m) => /Faktura k objednávce/.test(m.subject))).toHaveLength(1);
   });
 
-  it("manual: tlačítko smí jen oprávněný (Jaroslav Viner, ADMIN) — jiný ADMIN ani EXECUTIVE ne", async () => {
+  it("manual: tlačítko smí jen oprávnění (Viner jako ADMIN, Königsbergová jako EXECUTIVE) — nikdo jiný", async () => {
     const id = await newOrder();
     await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad();
     for (const [userId, role] of [
       ["jiny-admin", "ADMIN"],
+      ["jiny-executive", "EXECUTIVE"],
       [VINER, "EXECUTIVE"],
+      [LUCIE, "ADMIN"],
     ] as const) {
       auth.userId = userId;
       auth.role = role;
@@ -281,6 +294,26 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       expect(await orders.runEshopIdokladPreflight()).toEqual({ ok: false, error: expect.stringMatching(/smí spustit jen/) });
     }
     expect(route.fake.calls).toEqual([]);
+  });
+
+  it("manual: Lucie Königsbergová (finanční ředitelka, EXECUTIVE) zvládne celý postup sama — objednávky, platba, faktura, kontrola iDokladu", async () => {
+    const id = await newOrder();
+    auth.userId = LUCIE;
+    auth.role = "EXECUTIVE";
+    // vidí objednávky a detail (včetně návrhu faktury) a zapíše platbu
+    expect((await orders.listOrders()).orders.map((o) => o.id)).toContain(id);
+    expect(await orders.getOrderDetail(id)).toMatchObject({ order: { id } });
+    expect(await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" })).toMatchObject({ ok: true, settled: true });
+    const [payment] = await rows(sql`SELECT recorded_by_user_id FROM payments WHERE order_id = ${id}`);
+    expect(payment).toEqual({ recorded_by_user_id: LUCIE });
+    expect(await orders.getInvoiceIssueAccess()).toMatchObject({ issuer: true, canIssue: true });
+    route.fake = createFakeIdoklad();
+    expect(await orders.runEshopIdokladPreflight()).toMatchObject({ ok: true });
+    expect(route.fake.writes()).toEqual([]);
+    const next = route.fake.next();
+    expect(await orders.issueOrderInvoice(id)).toEqual({ ok: true, message: `Faktura ${next.number} je vystavená a uhrazená a odeslaná zákazníkovi.` });
+    const [activity] = await rows(sql`SELECT author_user_id FROM order_activity WHERE order_id = ${id} AND kind = 'invoice_issued'`);
+    expect(activity).toEqual({ author_user_id: LUCIE });
   });
 
   // ---------------------------------------------------------------- on
@@ -340,7 +373,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad({ tokenStatus: 401 });
     const result = await orders.issueOrderInvoice(id);
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401\)/) });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401: invalid_client/) });
     expect(route.fake.writes()).toEqual([]);
     expect(route.fake.apiCalls()).toEqual([]);
     expect(await linkState(id)).toMatchObject({ doc_state: "draft", state: "failed", external_id: null, last_error: expect.stringMatching(/neprošla/) });
@@ -378,7 +411,44 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       // jen čtení: kromě žádosti o token nic než GET
       expect(route.fake.calls.filter((c) => c.path !== "TOKEN").every((c) => c.method === "GET")).toBe(true);
       expect(route.fake.writes()).toEqual([]);
+      // token request přesně jako oficiální SDK 5.4.0 (ClientCredentialsTokenRequest)
+      expect(route.fake.calls.filter((c) => c.path === "TOKEN").map((c) => c.body)).toEqual([
+        ["grant_type", "application_id", "client_id", "client_secret", "scope"],
+      ]);
     }
+  });
+
+  it("regrese 8. 10. 2026: bez IDOKLAD_ESHOP_APPLICATION_ID nic nevolá a řekne, co chybí; brána zůstane zavřená", async () => {
+    route.fake = createFakeIdoklad();
+    for (const missing of ["", "   ", undefined]) {
+      const env = { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual", IDOKLAD_ESHOP_APPLICATION_ID: missing };
+      setEnv(env);
+      if (missing === undefined) delete process.env.IDOKLAD_ESHOP_APPLICATION_ID;
+      const outcome = await orders.runEshopIdokladPreflight();
+      expect(outcome).toEqual({ ok: false, error: expect.stringContaining("Chybí přístupové údaje k iDokladu (IDOKLAD_ESHOP_APPLICATION_ID)") });
+      expect(route.fake.calls).toEqual([]);
+      expect(liveInvoicingGate(env)).toEqual({ open: false, reason: expect.stringContaining("IDOKLAD_ESHOP_APPLICATION_ID") });
+      expect(invoicingMode(env)).toMatchObject({ mode: "dry_run", automatic: false });
+    }
+    process.env.IDOKLAD_ESHOP_APPLICATION_ID = BASE.IDOKLAD_ESHOP_APPLICATION_ID;
+  });
+
+  it("identity server bez application_id odmítne (400 invalid_request) — kontrola to ukáže a dál nic nevolá", async () => {
+    const { EshopIdokladClient } = await import("../invoicing/idokladHttp");
+    const { runIdokladPreflight } = await import("../invoicing/preflight");
+    route.fake = createFakeIdoklad();
+    // klient se starým tvarem požadavku (bez application_id) — napodobenina SDK serveru ho odmítne
+    const legacyFetch: typeof fetch = async (input, init) => {
+      const form = new URLSearchParams(String(init?.body ?? ""));
+      if (String(input).includes("identity.idoklad.cz")) form.delete("application_id");
+      return route.fake!.fetchImpl(input, { ...init, body: String(input).includes("identity.idoklad.cz") ? form.toString() : init?.body });
+    };
+    const client = new EshopIdokladClient({ clientId: "id", clientSecret: "secret", applicationId: "app", writesAllowed: false, env: PRODUCTION, fetchImpl: legacyFetch });
+    const result = await runIdokladPreflight(client, { seriesId: "7277293", day: "2026-10-08" });
+    expect(result.ok).toBe(false);
+    expect(result.checks[0]).toMatchObject({ key: "auth", ok: false });
+    expect(result.checks[0].detail).toContain("Přihlášení k iDokladu selhalo (400: invalid_request — iDoklad odmítl tvar požadavku)");
+    expect(route.fake.calls.filter((c) => c.path !== "TOKEN")).toEqual([]);
   });
 
   it("preflight bez přístupových údajů nic nevolá", async () => {

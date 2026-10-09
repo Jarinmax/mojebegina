@@ -42,7 +42,7 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
 
       {items.length === 0 ? (
         <p className="border border-dashed border-neutral-300 rounded-2xl px-4 py-8 text-sm text-neutral-500 text-center">
-          Nabídku doplníme.
+          Připravujeme — nabídku brzy doplníme.
         </p>
       ) : (
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">

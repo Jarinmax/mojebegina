@@ -30,6 +30,13 @@ export const IDOKLAD_TOKEN_URL = "https://identity.idoklad.cz/server/v2/connect/
 export const IDOKLAD_TOKEN_SCOPE = "idoklad_api";
 
 const API_HOST = "api.idoklad.cz";
+/** Česká nápověda k nejčastějším kódům odmítnutí přihlášení (OAuth 2.0). */
+const TOKEN_ERROR_HINTS: Record<string, string> = {
+  invalid_client: "neplatné Client ID nebo Client Secret (zkontrolujte, zda nejsou prohozené nebo staré)",
+  unauthorized_client: "tento klient nesmí používat přihlášení Client Credentials",
+  invalid_scope: "iDoklad odmítl požadovaný rozsah oprávnění",
+  invalid_request: "iDoklad odmítl tvar požadavku",
+};
 const TOKEN_HOST = "identity.idoklad.cz";
 
 /** Čtecí cesty (bez /v3). `{id}` = kladné celé číslo. */
@@ -115,6 +122,8 @@ export type IdokladLogEntry = { method: string; path: string; status: number | n
 export type EshopIdokladClientOptions = {
   clientId: string;
   clientSecret: string;
+  /** ApplicationId registrované aplikace z Developer portálu (SDK: application_id) */
+  applicationId: string;
   /** true jen z otevřené brány ostrého provozu (mode.ts) */
   writesAllowed: boolean;
   /** prostředí pro druhou kontrolu brány před každým zápisem (výchozí process.env) */
@@ -131,21 +140,25 @@ type Envelope = { Data?: unknown; IsSuccess?: boolean; Message?: string; StatusC
 export type IdokladListPage<T> = { Items: T[]; TotalItems: number; TotalPages: number };
 
 export class EshopIdokladClient {
-  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret">> & {
+  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret" | "applicationId">> & {
     clientId: string;
     clientSecret: string;
+    applicationId: string;
   };
   private token: { value: string; expiresAt: number } | null = null;
   private count = 0;
   readonly log: IdokladLogEntry[] = [];
 
   constructor(options: EshopIdokladClientOptions) {
-    if (!options.clientId || !options.clientSecret) throw new IdokladApiError("Chybí přístupové údaje k iDokladu.");
+    if (!options.clientId || !options.clientSecret || !options.applicationId) {
+      throw new IdokladApiError("Chybí přístupové údaje k iDokladu.");
+    }
     // Výchozí hodnoty přes ?? (ne „...options“): volající předává i výslovné
     // undefined (např. fetchImpl: deps.fetchImpl) a to nesmí výchozí přepsat.
     this.opts = {
       clientId: options.clientId,
       clientSecret: options.clientSecret,
+      applicationId: options.applicationId,
       writesAllowed: options.writesAllowed,
       fetchImpl: options.fetchImpl ?? fetch,
       now: options.now ?? Date.now,
@@ -176,7 +189,7 @@ export class EshopIdokladClient {
 
   private redact(text: string): string {
     let out = text;
-    for (const secret of [this.opts.clientId, this.opts.clientSecret, this.token?.value]) {
+    for (const secret of [this.opts.clientId, this.opts.clientSecret, this.opts.applicationId, this.token?.value]) {
       if (secret) out = out.split(secret).join("***");
     }
     return out.replace(/\s+/g, " ").slice(0, 300);
@@ -207,18 +220,23 @@ export class EshopIdokladClient {
 
   private async accessToken(): Promise<string> {
     if (this.token && this.token.expiresAt - 60_000 > this.opts.now()) return this.token.value;
-    const body = new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: this.opts.clientId,
-      client_secret: this.opts.clientSecret,
-      scope: IDOKLAD_TOKEN_SCOPE,
-    });
+    // Přesně jako oficiální SDK 5.4.0 (ClientCredentialsTokenRequest): formulář
+    // grant_type, application_id, client_id, client_secret, scope.
+    const body = new URLSearchParams([
+      ["grant_type", "client_credentials"],
+      ["application_id", this.opts.applicationId],
+      ["client_id", this.opts.clientId],
+      ["client_secret", this.opts.clientSecret],
+      ["scope", IDOKLAD_TOKEN_SCOPE],
+    ]);
     const response = await this.send("POST", IDOKLAD_TOKEN_URL, {
       headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
       body: body.toString(),
     });
     const text = await response.text();
-    if (!response.ok) throw new IdokladApiError(`Přihlášení k iDokladu selhalo (${response.status}).`, response.status);
+    if (!response.ok) {
+      throw new IdokladApiError(`Přihlášení k iDokladu selhalo (${response.status}${this.tokenErrorDetail(text)}).`, response.status);
+    }
     let parsed: { access_token?: unknown; expires_in?: unknown } = {};
     try {
       parsed = JSON.parse(text);
@@ -231,6 +249,28 @@ export class EshopIdokladClient {
     const seconds = typeof parsed.expires_in === "number" && parsed.expires_in > 0 ? parsed.expires_in : 3600;
     this.token = { value: parsed.access_token, expiresAt: this.opts.now() + seconds * 1000 };
     return this.token.value;
+  }
+
+  /**
+   * Důvod odmítnutí přihlášení podle OAuth odpovědi iDokladu (`error`,
+   * `error_description`) — jen kód z malých písmen a krátký, začerněný popis,
+   * nikdy hodnoty přístupových údajů.
+   */
+  private tokenErrorDetail(text: string): string {
+    let parsed: { error?: unknown; error_description?: unknown } = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return "";
+    }
+    const code = typeof parsed.error === "string" && /^[a-z_]{1,40}$/.test(parsed.error) ? parsed.error : null;
+    if (!code) return "";
+    const hint = TOKEN_ERROR_HINTS[code];
+    const description =
+      typeof parsed.error_description === "string" && parsed.error_description.trim()
+        ? `, ${this.redact(parsed.error_description.trim()).slice(0, 120)}`
+        : "";
+    return `: ${code}${description}${hint ? ` — ${hint}` : ""}`;
   }
 
   private async call<T>(method: "GET" | "POST" | "PUT", path: string, query?: Record<string, string>, body?: unknown): Promise<T> {

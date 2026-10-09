@@ -46,6 +46,20 @@ async function run({ query, params }) {
   };
 }
 
+// PGlite má jediné spojení: souběžné požadavky (dvojklik, dva souběžné
+// zápisy) by si jinak prokládaly příkazy v jedné transakci. Na Neonu je
+// každý HTTP požadavek / batch vlastní transakce — tady se proto požadavky
+// řadí za sebe (každý celý, atomicky).
+let queue = Promise.resolve();
+function exclusive(task) {
+  const result = queue.then(task, task);
+  queue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -53,6 +67,10 @@ globalThis.fetch = async (input, init) => {
     return realFetch(input, init);
   }
   await ready;
+  return exclusive(() => handle(init));
+};
+
+async function handle(init) {
   const body = JSON.parse(init.body);
   try {
     let payload;
@@ -74,7 +92,7 @@ globalThis.fetch = async (input, init) => {
   } catch (error) {
     return new Response(JSON.stringify({ message: error.message, code: error.code }), { status: 400 });
   }
-};
+}
 
 // Volitelně (jen testy): E2E_SQL_PORT=4999 → na 127.0.0.1 poslouchá malý
 // server, který spustí SELECT z těla požadavku v transakci jen pro čtení

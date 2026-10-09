@@ -11,10 +11,15 @@
 // Selhání vystavení platbu ani e-mail nezastaví: zákazník dostane potvrzení
 // bez faktury a MojeBegina ukáže chybu s tlačítkem „Vystavit fakturu“;
 // po úspěšném vystavení pak odejde zvlášť „Faktura k objednávce“.
+//
+// Stornovaná objednávka: žádný návrh ani faktura, žádný e-mail o přijetí
+// platby. Pojistka — stornovaná objednávka se na Zaplaceno nepřepne vůbec
+// (settleOrderPaymentSql); platbu po stornu řeší lib/eshop/cancellation.ts.
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { sendOrderEmails, type OrderEmailOutcome, type SendOrderEmailsOptions } from "../email/orderEmails";
+import { isOrderCancelled } from "../cancellation";
 import { issueInvoice, issueInvoiceSafe, loadIssuedPdf, type InvoicePdf, type IssueResult } from "./issue";
 import { invoicingMode } from "./mode";
 import { prepareInvoiceDraftSafe, type InvoiceActor } from "./service";
@@ -37,6 +42,13 @@ export async function invoiceAndNotifyPaid(
   deps: AfterPaidDeps = {}
 ): Promise<{ invoice: IssueResult | null; emails: OrderEmailOutcome[] }> {
   const env = deps.env ?? process.env;
+  try {
+    if (await isOrderCancelled(db, orderId)) return { invoice: null, emails: [] };
+  } catch (error) {
+    // Bez jistoty o stavu raději nic nevystavovat ani neposílat.
+    console.error("Po platbě: stav storna se nepodařilo ověřit", orderId, error);
+    return { invoice: null, emails: [] };
+  }
   await prepareInvoiceDraftSafe(db, orderId, actor, env);
   let invoice: IssueResult | null = null;
   let pdf: InvoicePdf | null = null;
@@ -78,4 +90,39 @@ export async function issueAndSendInvoice(
   if (!pdf) return result;
   const outcomes = await sendOrderEmails(db, orderId, "invoice_issued", baseUrl, { ...deps.email, invoicePdf: pdf });
   return { ...result, emailed: outcomes.some((o) => o.status === "sent") };
+}
+
+/**
+ * Náhradní objednávka s převedenou platbou (lib/eshop/cancellation.ts):
+ * je-li tím zaplacená, návrh faktury a v automatickém ostrém režimu
+ * vystavení (PDF přiložené k e-mailu) — vše podle skutečného stavu platby,
+ * jedna faktura (motor issue.ts). Pak JEDINÝ e-mail „Náhradní objednávka“
+ * (žádné „Přijali jsme objednávku“ ani „Platbu jsme přijali“). Doplatek
+ * později jde běžnou cestou (invoiceAndNotifyPaid).
+ */
+export async function invoiceAndNotifyReplacement(
+  db: Db,
+  orderId: string,
+  baseUrl: string,
+  actor: InvoiceActor,
+  replacement: { settled: boolean; fromReference: string; receivedHal: number },
+  deps: AfterPaidDeps = {}
+): Promise<{ invoice: IssueResult | null; emails: OrderEmailOutcome[] }> {
+  const env = deps.env ?? process.env;
+  let invoice: IssueResult | null = null;
+  let pdf: InvoicePdf | null = null;
+  if (replacement.settled) {
+    await prepareInvoiceDraftSafe(db, orderId, actor, env);
+    const mode = invoicingMode(env);
+    if (mode.mode === "live" && mode.automatic) {
+      invoice = await issueInvoiceSafe(db, orderId, { env, actor, fetchImpl: deps.fetchImpl });
+      if (invoice.status === "issued") pdf = invoice.pdf;
+    }
+  }
+  const emails = await sendOrderEmails(db, orderId, "replacement_created", baseUrl, {
+    ...deps.email,
+    invoicePdf: pdf,
+    replacement: { fromReference: replacement.fromReference, receivedHal: replacement.receivedHal },
+  });
+  return { invoice, emails };
 }

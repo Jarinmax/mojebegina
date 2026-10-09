@@ -267,7 +267,7 @@ která je otevřená, jen když platí vše zároveň:
 | `VERCEL_ENV` (systémová, na Preview ji nelze nastavit) | `production` |
 | `IDOKLAD_INVOICING_ENABLED` | `on` |
 | `IDOKLAD_ESHOP_SEQUENCE_ID` | přesně `7277293` (jinak zavřeno) |
-| `IDOKLAD_ESHOP_CLIENT_ID` + `IDOKLAD_ESHOP_CLIENT_SECRET` | Client Credentials agendy Begina |
+| `IDOKLAD_ESHOP_CLIENT_ID` + `IDOKLAD_ESHOP_CLIENT_SECRET` + `IDOKLAD_ESHOP_APPLICATION_ID` | Client Credentials agendy Begina: ID a Secret = API klíče uživatele z iDokladu (Nastavení → Aplikace), ApplicationId = aplikace „MojeBegina Eshop“ (flow ClientCredentials) z Developer portálu. Token request přesně podle SDK 5.4.0: `grant_type=client_credentials`, `application_id`, `client_id`, `client_secret`, `scope=idoklad_api` na `identity.idoklad.cz/server/v2/connect/token`. Bez `application_id` iDoklad odmítne (400) — zjištěno 8. 10. 2026. |
 
 Druhá pojistka v HTTP klientovi: zápis (jen `POST /Contacts`,
 `POST /IssuedInvoices`, `PUT /IssuedDocumentPayments/FullyPay/{id}`) projde
@@ -325,7 +325,9 @@ kontrolou, zámkem a idempotencí. **Preview je vždy jen návrh** — i s `manu
 akce i motor to ověřují samy a HTTP klient znovu před každým zápisem).
 
 **Oprávnění** (`lib/data/invoiceAuth.ts`): vystavit fakturu a spustit kontrolu
-iDokladu smí jen Jaroslav Viner s aktivní rolí ADMIN (stejně jako Finance 1.0).
+iDokladu smí jen Jaroslav Viner s aktivní rolí ADMIN a Lucie Königsbergová
+(finanční ředitelka, od 8. 10. 2026) s aktivní rolí EXECUTIVE — konkrétní
+osoba + její role, ne role sama (stejně jako Finance 1.0).
 
 **Kontrola iDokladu — preflight** (`lib/eshop/invoicing/preflight.ts`), jen
 GET + token: přihlášení Client Credentials, agenda IČO 74337297, neplátce DPH,
