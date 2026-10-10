@@ -29,7 +29,19 @@ describe("audit WordPressu před přepnutím domény", () => {
     expect(verdictFor("https://begina.cz/gdpr/")).toEqual({ kind: "redirect", path: "/gdpr/", target: "/ochrana-osobnich-udaju" });
     expect(verdictFor("https://begina.cz/wp-login.php")).toEqual({ kind: "gone", path: "/wp-login.php" });
     expect(verdictFor("https://begina.cz/kontakt/")).toEqual({ kind: "missing", path: "/kontakt/", reason: "→ /kontakt = 404" });
-    expect(verdictFor("https://begina.cz/partnersky-program/")).toMatchObject({ kind: "missing" });
+    expect(verdictFor("https://begina.cz/kontakty/")).toEqual({ kind: "redirect", path: "/kontakty/", target: "/o-nas" });
+    // s katalogem: cílový produkt/kategorie musí v novém e-shopu existovat
+    const known = { products: new Set(["kulajda"]), categories: new Set(["koktejly"]) };
+    expect(verdictFor("https://begina.cz/produkt/kulajda/", known)).toMatchObject({ kind: "redirect", target: "/produkt/kulajda" });
+    expect(verdictFor("https://begina.cz/produkt/dum-u-jezera/", known)).toEqual({
+      kind: "missing",
+      path: "/produkt/dum-u-jezera/",
+      reason: "/produkt/dum-u-jezera není v katalogu",
+    });
+    expect(verdictFor("https://begina.cz/kategorie-produktu/alkoholicke-koktejly/", known)).toMatchObject({
+      kind: "redirect",
+      target: "/kategorie/koktejly",
+    });
     expect(productSlug("/produkt/kulajda/")).toBe("kulajda");
     expect(productSlug("/kategorie/x")).toBeNull();
   });

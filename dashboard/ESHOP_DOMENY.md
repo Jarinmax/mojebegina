@@ -54,19 +54,29 @@ Na Preview (`VERCEL_ENV=preview`) se `ESHOP_CANONICAL_ORIGIN` a
 
 ## Staré adresy z WordPressu (begina.cz)
 
+Audit 10. 10. 2026 (`scripts/begina-cutover/wp-audit.mts`, záznam
+`docs/begina-cutover/audit-2026-10-10.md`): 63 adres ze sitemapy WordPressu.
+
 | Stará | Nová |
 |---|---|
-| `/produkt/<slug>/` | `/produkt/<slug>` (stejný slug; přejmenované v `LEGACY_PRODUCT_SLUGS`) |
-| `/kategorie-produktu/<slug>/…` | `/kategorie/<slug>` (`LEGACY_CATEGORY_SLUGS`) |
+| `/produkt/<slug>/` (25 produktů) | `/produkt/<slug>` — stejné slugy |
+| `/kategorie-produktu/<slug>/` | `/kategorie/<slug>`; `alkoholicke-koktejly` → `koktejly` |
 | `/gdpr/` | `/ochrana-osobnich-udaju` |
 | `/o-nas/`, `/o-vode/`, `/doprava/`, `/obchodni-podminky/`, `/kosik/`, `/pokladna/` | stejná adresa bez lomítka |
-| `/obchod`, `/shop`, `/muj-ucet/…`, `/eshop` | `/` |
-| `/eshop/<stránka e-shopu>` | `/<stránka>` |
-| `/wp-admin`, `/wp-login.php`, `/wp-json`, `/xmlrpc.php`, `/feed`… | 410 |
+| `/alkoholicke-koktejly/` | `/kategorie/koktejly` |
+| `/kontakty/` | `/o-nas` (kontakt i v patičce) |
+| `/obchod/`, `/obchod-s-beginami/`, `/beginy/`, `/napoje/`, `/kategorie/`, `/baleni/…`, `/muj-ucet/…`, `/eshop` | `/` |
+| `/landing-page/` (Begina club, přihlášení k e-mailům), `/partnersky-program/`, `/pro-podniky-gastro/`, `/begina-english/`, `/begina-deutsch/` (dnes prázdné) | `/` |
+| `/ahoj-vsichni/`, `/zkusebni-stranka/`, `/uvod-jarek/`, `/author/…`, `/category/…`, `/wp-admin`, `/wp-login.php`, `/wp-json`, `/xmlrpc.php`, `/feed`… | 410 |
+| **`/produkt/cervankove-nebe/`, `/produkt/dum-u-jezera/`, `/produkt/malinovy-svarak-nealko/`** | **chybí v katalogu** — rozhodnutí vedení (doplnit produkty, nebo přesměrovat) |
 | cokoli jiného | 404 (e-shopová) |
 
-**Před dnem přepnutí:** export URL z WordPressu (sitemapa) → doplnit
-`LEGACY_PRODUCT_SLUGS` / `LEGACY_CATEGORY_SLUGS` a případné další stránky.
+Dnešní web: hlavní adresa je **www.begina.cz** (begina.cz → 301 www),
+**bez HSTS**, server openresty. Nový web obrátí směr (www → begina.cz);
+žádná dřívější HSTS politika v prohlížečích není, takže 1 týden bez
+subdomén je bezpečný začátek. Na webu běží Meta Pixel, cookie lišta
+(CookieYes), Ecomail a WooPayments; Google Analytics ani ověření Search
+Console v HTML nejsou.
 
 ## Postup přepnutí (pořadí je závazné)
 

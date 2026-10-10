@@ -1,7 +1,9 @@
 // Audit současného begina.cz (WordPress/WooCommerce) před přepnutím domény.
 // POUZE ČTE (GET/HEAD veřejných adres) — nic nepřihlašuje, nic nezapisuje.
 //
-//   NODE_USE_ENV_PROXY=1 npx tsx scripts/begina-cutover/wp-audit.mts > audit.md
+//   NODE_USE_ENV_PROXY=1 npx tsx scripts/begina-cutover/wp-audit.mts [katalog.json] > audit.md
+//   katalog.json (volitelně) = {"products":[slugy],"categories":[slugy]} z DB —
+//   pak audit ověří i to, že cílový produkt/kategorie v novém e-shopu existuje
 //   (NODE_USE_ENV_PROXY: fetch v Node jde přes HTTPS_PROXY, je-li nastavená;
 //    bez spojení skript skončí kódem 2 a nic nevyhodnotí)
 //
@@ -19,8 +21,10 @@ import {
   productSlug,
   sitemapsFromRobots,
   verdictFor,
+  type KnownSlugs,
   type UrlVerdict,
 } from "../../lib/site/wpAudit";
+import { readFileSync } from "node:fs";
 
 const ORIGIN = "https://begina.cz";
 const MAX_SITEMAPS = 50;
@@ -83,7 +87,15 @@ while (queue.length && seen.size < MAX_SITEMAPS) {
 }
 
 out(`\n## 2. URL ze sitemapy (${urls.size} adres, ${seen.size} sitemap)\n`);
-const verdicts: UrlVerdict[] = [...urls].sort().map(verdictFor);
+const catalogFile = process.argv[2];
+const known: KnownSlugs | undefined = catalogFile
+  ? (() => {
+      const raw = JSON.parse(readFileSync(catalogFile, "utf8")) as { products: string[]; categories: string[] };
+      return { products: new Set(raw.products), categories: new Set(raw.categories) };
+    })()
+  : undefined;
+out(known ? `(ověřeno proti katalogu: ${known.products.size} produktů, ${known.categories.size} kategorií)\n` : "(bez katalogu — existence produktů a kategorií se neověřuje)\n");
+const verdicts: UrlVerdict[] = [...urls].sort().map((u) => verdictFor(u, known));
 const by = (kind: UrlVerdict["kind"]) => verdicts.filter((v) => v.kind === kind);
 out(`- stejná adresa v novém e-shopu: **${by("same").length}**`);
 out(`- 301 na stránku e-shopu: **${by("redirect").length}**`);

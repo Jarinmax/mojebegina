@@ -16,7 +16,15 @@ ani nespouští.
 | Variabilní symboly: nový systém `7xxxxxxx` (8 číslic), WooCommerce převodem obvykle číslo objednávky (4 číslice) → **párování plateb se nepomíchá** | kód / `ESHOP_PREVOD_QR.md` |
 | Faktury: vlastní řada iDokladu (7277293), na číslech objednávek nezávisí | `ESHOP_FAKTURACE_NAVRH.md` |
 
-**Neznámé:** zda WooCommerce používá doplněk pro souvislá čísla. Bez něj je
+**Audit 10. 10. 2026** (`docs/begina-cutover/audit-2026-10-10.md`): veřejně
+**žádný doplněk pro čísla objednávek** (doplňky: WooCommerce, WooPayments,
+Flexible Shipping, Ecomail, Elementor, CookieYes) → téměř jistě výchozí
+WooCommerce: **číslo objednávky = ID záznamu WordPressu**. Nejvyšší veřejná
+ID: stránka 3552 (3/2026), produkt 3256 (2/2026); objednávka č. 5093
+(9/2026) leží nad nimi → objednávky berou čísla ze stejné řady. Elementor
+při úpravách stránek zakládá revize, které také spotřebují ID.
+
+**Neznámé:** zda WooCommerce používá doplněk pro souvislá čísla (audit ho veřejně nenašel). Bez něj je
 číslo objednávky = ID záznamu WordPressu (sdílené s příspěvky, stránkami,
 obrázky, revizemi) → **příští objednávka po návratu na WooCommerce nedostane
 „max + 1“, ale další volné ID WordPressu**, které může být výrazně výš než

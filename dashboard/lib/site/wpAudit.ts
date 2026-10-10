@@ -23,13 +23,27 @@ export type UrlVerdict =
   | { kind: "gone"; path: string } // 410 (WordPress)
   | { kind: "missing"; path: string; reason: string }; // 404 — potřebuje mapování
 
+/** Slugy v katalogu nového e-shopu (z DB) — bez nich se existence produktu/kategorie neověřuje. */
+export type KnownSlugs = { products: ReadonlySet<string>; categories: ReadonlySet<string> };
+
+/** Cílová stránka produktu/kategorie, která v katalogu není → v provozu 404. */
+function missingInCatalog(path: string, known?: KnownSlugs): string | null {
+  if (!known) return null;
+  const m = /^\/(produkt|kategorie)\/([a-z0-9-]+)$/.exec(path);
+  if (!m) return null;
+  const set = m[1] === "produkt" ? known.products : known.categories;
+  return set.has(m[2]) ? null : `${path} není v katalogu`;
+}
+
 /** Projde rozhodnutí proxy (včetně řetězce přesměrování) pro starou adresu na begina.cz. */
-export function verdictFor(url: string): UrlVerdict {
+export function verdictFor(url: string, known?: KnownSlugs): UrlVerdict {
   let path = new URL(url).pathname;
   const original = path;
   for (let hop = 0; hop < 5; hop++) {
     const decision: RouteDecision = route({ host: "begina.cz", pathname: path, search: "", method: "GET" }, {});
     if (decision.kind === "rewrite" || decision.kind === "pass") {
+      const missing = missingInCatalog(path, known);
+      if (missing) return { kind: "missing", path: original, reason: missing };
       return hop === 0 ? { kind: "same", path: original } : { kind: "redirect", path: original, target: path };
     }
     if (decision.kind === "gone") return { kind: "gone", path: original };
