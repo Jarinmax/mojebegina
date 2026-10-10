@@ -3,7 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronLeft, Snowflake } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
-import { AGE_RESTRICTION_NOTICE, lowestPriceKc } from "@/lib/eshop/productRules";
+import {
+  AGE_RESTRICTION_NOTICE,
+  isOrderable,
+  lowestPriceKc,
+  NOT_ORDERABLE_LABEL,
+  NOT_ORDERABLE_NOTICE,
+} from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
@@ -21,6 +27,7 @@ export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[sl
 }
 
 const MISSING = "Doplníme";
+const ALLERGENS_UNVERIFIED = "Ověřujeme";
 
 function foodInfoRows(product: Product): { label: string; value: string | null }[] {
   const info = product.foodInfo;
@@ -32,7 +39,12 @@ function foodInfoRows(product: Product): { label: string; value: string | null }
     { label: "Složení", value: info.ingredients },
     {
       label: "Alergeny",
-      value: info.allergens === null ? null : info.allergens.length ? info.allergens.join(", ") : "Bez alergenů",
+      value:
+        info.allergens === null
+          ? ALLERGENS_UNVERIFIED
+          : info.allergens.length
+            ? info.allergens.join(", ")
+            : "Neobsahuje žádný z alergenů, které se povinně uvádějí",
     },
     ...(product.isAgeRestricted
       ? [
@@ -97,7 +109,14 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           )}
 
           <div className="mt-6">
-            <AddToCartButton name={product.name} variants={product.variants} />
+            {isOrderable(product) ? (
+              <AddToCartButton name={product.name} variants={product.variants} />
+            ) : (
+              <div className="border border-neutral-200 rounded-xl p-4">
+                <p className="font-medium">{NOT_ORDERABLE_LABEL}</p>
+                <p className="text-sm text-neutral-600 mt-1">{NOT_ORDERABLE_NOTICE}</p>
+              </div>
+            )}
           </div>
 
           <p className="mt-5 text-sm text-neutral-600 flex items-start gap-2">

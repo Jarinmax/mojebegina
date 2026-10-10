@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
-import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
+import { AGE_RESTRICTION_NOTICE, isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
 import { shippingMethods, paymentMethodsFor, getShippingMethod } from "@/lib/eshop/shipping";
@@ -171,6 +171,9 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
   const lines = resolveCartLines(cart, catalog);
   const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted);
+  // Server objednávku s neověřenými alergeny odmítne (priceCart); tady jen
+  // zákazníkovi řekneme proč, ještě před vyplněním formuláře.
+  const blockedLines = lines.filter((line) => !isOrderable(line.product));
 
   if (lines.length === 0) {
     return (
@@ -363,6 +366,12 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           </span>
         </label>
 
+        {blockedLines.length > 0 && (
+          <p className="mt-4 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2" role="alert">
+            {blockedLines.map((line) => line.product.name).join(", ")}: {NOT_ORDERABLE_NOTICE} Upravte prosím košík.
+          </p>
+        )}
+
         {state && "error" in state && (
           <p className="mt-4 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2" role="alert">
             {state.error}
@@ -371,7 +380,7 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || blockedLines.length > 0}
           className="mt-4 w-full bg-begina-primary-900 hover:bg-begina-primary-800 disabled:opacity-60 text-white text-sm font-medium rounded-lg h-11"
         >
           {pending ? "Odesílám…" : "Objednat s povinností platby"}

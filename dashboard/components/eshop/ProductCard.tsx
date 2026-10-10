@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { lowestPriceKc } from "@/lib/eshop/productRules";
+import { isOrderable, lowestPriceKc, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
@@ -24,7 +24,14 @@ export default function ProductCard({ product }: { product: Product }) {
           {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
         </p>
         <div className="w-36">
-          {hasChoice ? (
+          {!isOrderable(product) ? (
+            <span
+              title={NOT_ORDERABLE_NOTICE}
+              className="flex items-center justify-center border border-neutral-200 text-neutral-500 text-sm font-medium rounded-lg px-3 h-9"
+            >
+              {NOT_ORDERABLE_LABEL}
+            </span>
+          ) : hasChoice ? (
             <Link
               href={href}
               className="flex items-center justify-center border border-begina-primary-900 text-sm font-medium rounded-lg px-3 h-9 hover:bg-begina-primary-50"
