@@ -47,6 +47,7 @@ MojeBegina se nemá indexovat nikdy).
 |---|---|---|---|
 | `ESHOP_CANONICAL_ORIGIN` | přesně `https://begina.cz` (jiná hodnota se ignoruje) | **až po** přepnutí DNS a ověření, že begina.cz běží | `moje.begina.cz/eshop/…` → 301 na begina.cz (i staré odkazy na objednávky s parametry, jen GET — rozpracované odeslání pokladny doběhne); odkazy v e-mailech a návrat ze Stripe na begina.cz |
 | `ESHOP_INDEXING` | `on` | po kontrole obsahu na begina.cz | begina.cz smí indexovat vyhledávač (robots.txt, meta, X-Robots-Tag); jinak všude noindex |
+| `ESHOP_MARKETING`, `ESHOP_COOKIEYES_ID`, `ESHOP_META_PIXEL_ID` | viz `docs/begina-cutover/meta-cookieyes-ecomail.md` | spolu s přepnutím DNS | cookie lišta CookieYes + Meta Pixel jen se souhlasem |
 | `NEXT_PUBLIC_ESHOP_URL` | `https://begina.cz` | spolu s `ESHOP_CANONICAL_ORIGIN` | tlačítko „E-shop Begina.cz“ v Řízení firmy (`lib/eshopLink.ts`) |
 
 Na Preview (`VERCEL_ENV=preview`) se `ESHOP_CANONICAL_ORIGIN` a
@@ -68,8 +69,14 @@ Audit 10. 10. 2026 (`scripts/begina-cutover/wp-audit.mts`, záznam
 | `/obchod/`, `/obchod-s-beginami/`, `/beginy/`, `/napoje/`, `/kategorie/`, `/baleni/…`, `/muj-ucet/…`, `/eshop` | `/` |
 | `/landing-page/` (Begina club, přihlášení k e-mailům), `/partnersky-program/`, `/pro-podniky-gastro/`, `/begina-english/`, `/begina-deutsch/` (dnes prázdné) | `/` |
 | `/ahoj-vsichni/`, `/zkusebni-stranka/`, `/uvod-jarek/`, `/author/…`, `/category/…`, `/wp-admin`, `/wp-login.php`, `/wp-json`, `/xmlrpc.php`, `/feed`… | 410 |
-| **`/produkt/cervankove-nebe/`, `/produkt/dum-u-jezera/`, `/produkt/malinovy-svarak-nealko/`** | doplnění připraveno (`docs/eshop-catalog/70–79_ovocne_napoje*`) — produkty vzniknou skryté, zveřejní je až skript 73 po ověření alergenů |
+| **`/produkt/cervankove-nebe/`, `/produkt/dum-u-jezera/`, `/produkt/malinovy-svarak-nealko/`** | dokud jsou skryté: **307 → `/kategorie/ovocne-napoje`** („Připravujeme“; `lib/eshop/legacyProducts.ts`); po zveřejnění (skript 73) stránka produktu na stejné adrese |
 | cokoli jiného | 404 (e-shopová) |
+
+Koncové lomítko (`/produkt/kulajda/`) odstraní už Next.js přesměrováním
+**308** (trvalé, pro vyhledávače jako 301) na tutéž doménu, ještě před
+`proxy.ts`; teprve pak platí tabulka. Na `www.begina.cz` tedy
+`/produkt/x/` → 308 `/produkt/x` → 301 `https://begina.cz/produkt/x`.
+Ověřeno v prohlížeči pro všech 28 produktů (`scripts/eshop-e2e/marketing.mjs`).
 
 Dnešní web: hlavní adresa je **www.begina.cz** (begina.cz → 301 www),
 **bez HSTS**, server openresty. Nový web obrátí směr (www → begina.cz);

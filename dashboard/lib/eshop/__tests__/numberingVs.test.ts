@@ -1,5 +1,8 @@
 // Číslování „číslo objednávky = VS“ (docs/eshop-production/30–39_cislovani_vs*)
-// nad PGlite se všemi migracemi a daty jako v Production 10. 10. 2026:
+// nad PGlite se všemi migracemi a daty jako v Production 10. 10. 2026.
+// Pravidlo pro všechny typy: eshop i manual mají číslo = VS z jedné řady,
+// import nemá ani jedno (případné číslo WooCommerce jen pod 70000000).
+// Data:
 // 2 objednávky The Cup (import), 1 stornovaná e-shopová s VS 70000001,
 // payment_vs_seq = 1, žádná objednávka s číslem. Ověřuje přesně soubory,
 // které by se spouštěly v Neon SQL Editoru.
@@ -51,17 +54,17 @@ describe("číslování = VS (návrh 10. 10. 2026)", DB_TEST, () => {
   }, DB_TEST.timeout);
 
   it("kontrola před = stav Production", async () => {
-    expect(await check(pg, "30_cislovani_vs_before.sql")).toBe("0 | 0 | 2 | 1 | 0 | 0 | 0 | 70000001");
+    expect(await check(pg, "30_cislovani_vs_before.sql")).toBe("0 | 0 | 2 | 1 | 0 | 0 | 0 | 0 | 70000001");
   });
 
   it("zapnutí: testovací objednávka dostane 70000001 (svůj VS), import zůstane bez čísla; další = 70000002", async () => {
     await pg.exec(file("31_cislovani_vs.sql"));
-    expect(await check(pg, "32_cislovani_vs_after.sql")).toBe("1 | 3 | 2 | 0 | 0 | 70000001 | 70000002");
+    expect(await check(pg, "32_cislovani_vs_after.sql")).toBe("1 | 2 | 2 | 0 | 0 | 70000001 | 70000002");
   });
 
-  it("nové objednávky: e-shop číslo = VS, ruční další číslo z téže řady bez VS — žádné číslo dvakrát", async () => {
+  it("nové objednávky: e-shop i ruční číslo = VS z téže řady — žádné číslo dvakrát", async () => {
     expect((await eshopOrder(pg)).rows[0]).toEqual({ n: "70000002", vs: "70000002" });
-    expect((await manualOrder(pg)).rows[0]).toEqual({ n: "70000003", vs: null });
+    expect((await manualOrder(pg)).rows[0]).toEqual({ n: "70000003", vs: "70000003" });
     expect((await eshopOrder(pg)).rows[0]).toEqual({ n: "70000004", vs: "70000004" });
     const { rows } = await pg.query<{ dup: number }>(
       `SELECT count(*)::int AS dup FROM orders a JOIN orders b ON a.id <> b.id
@@ -70,7 +73,7 @@ describe("číslování = VS (návrh 10. 10. 2026)", DB_TEST, () => {
     expect(rows[0].dup).toBe(0);
   });
 
-  it("pojistky: číslo nejde změnit ani vložit jiné než VS / mimo řadu", async () => {
+  it("pojistky: číslo nejde změnit ani vložit jiné než VS; import mimo řadu", async () => {
     await expect(pg.exec(`UPDATE orders SET order_number = 70000099 WHERE payment_vs = '70000001'`)).rejects.toThrow(/neměnný/);
     await expect(
       pg.exec(`INSERT INTO orders (channel, contact_email, subtotal_kc, total_kc, payment_status, payment_vs, order_number)
@@ -79,29 +82,39 @@ describe("číslování = VS (návrh 10. 10. 2026)", DB_TEST, () => {
     await expect(
       pg.exec(`INSERT INTO orders (buyer_organization_id, subtotal_kc, total_kc, payment_status, order_number)
                VALUES ('${ORG}', 1, 1, 'unpaid', 5209)`)
-    ).rejects.toThrow(/orders_number_range/);
+    ).rejects.toThrow(/orders_number_equals_vs/);
+    // import: bez čísla, nebo s původním číslem WooCommerce; nikdy z řady 7xxxxxxx
+    const imp = (cols: string, vals: string) =>
+      pg.exec(`INSERT INTO orders (channel, buyer_organization_id, subtotal_kc, total_kc, payment_status${cols})
+               VALUES ('import', '${ORG}', 1, 1, 'paid'${vals})`);
+    await imp("", "");
+    await imp(", order_number", ", 5208");
+    await expect(imp(", order_number", ", 70000050")).rejects.toThrow(/orders_import_outside_series/);
+    await expect(imp(", payment_vs", ", '70000050'")).rejects.toThrow(/orders_import_outside_series/);
+    const { rows } = await pg.query<{ n: string | null }>(`SELECT order_number::text AS n FROM orders WHERE channel = 'import' ORDER BY order_number NULLS FIRST`);
+    expect(rows.map((r) => r.n)).toEqual([null, null, null, "5208"]);
   });
 
   it("druhé spuštění se zastaví a nic nezmění", async () => {
     await expect(pg.exec(file("31_cislovani_vs.sql"))).rejects.toThrow(/už je zapnuté/);
   });
 
-  it("návrat: nové objednávky bez čísla (VS dál), přidělená čísla zůstanou; znovuzapnutí odmítne", async () => {
+  it("návrat: nové objednávky bez čísla (e-shop dál VS), přidělená čísla zůstanou; znovuzapnutí odmítne", async () => {
     await pg.exec(file("39_cislovani_vs_rollback.sql"));
     expect((await eshopOrder(pg)).rows[0]).toEqual({ n: null, vs: expect.stringMatching(/^7\d{7}$/) });
-    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE order_number IS NOT NULL`);
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE order_number >= 70000000`);
     expect(rows[0].n).toBe(4);
     await expect(pg.exec(file("31_cislovani_vs.sql"))).rejects.toThrow(/už číslo má/);
   });
 
-  it("ruční objednávky vzniklé před zapnutím dostanou další čísla podle data", async () => {
+  it("ruční objednávky vzniklé před zapnutím dostanou VS a číslo z řady podle data", async () => {
     const db = await productionLikeDb();
     await manualOrder(db, "'2026-10-09'");
     await db.exec(file("31_cislovani_vs.sql"));
     const { rows } = await db.query(`SELECT channel, order_number::text AS n, payment_vs AS vs FROM orders WHERE order_number IS NOT NULL ORDER BY order_number`);
     expect(rows).toEqual([
       { channel: "eshop", n: "70000001", vs: "70000001" },
-      { channel: "manual", n: "70000002", vs: null },
+      { channel: "manual", n: "70000002", vs: "70000002" },
     ]);
     expect((await eshopOrder(db)).rows[0]).toEqual({ n: "70000003", vs: "70000003" });
   });
@@ -110,5 +123,57 @@ describe("číslování = VS (návrh 10. 10. 2026)", DB_TEST, () => {
     const db = await productionLikeDb();
     await applyOrderNumbering(db, 900000);
     await expect(db.exec(file("31_cislovani_vs.sql"))).rejects.toThrow(/order_number_seq/);
+  });
+});
+
+// Skutečný kód aplikace (pokladna přes ovladač Neonu, ruční objednávka
+// stejnými hodnotami jako MojeBegina createOrder) nad PGlite se zapnutým
+// číslováním 31 — bez jediné změny v kódu.
+describe("číslování = VS — kód aplikace", { timeout: 60_000 }, () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let db: any;
+
+  beforeAll(async () => {
+    process.env.E2E_ORDER_NUMBERING = "vs";
+    await import("../../../scripts/eshop-e2e/neon-http-pglite.mjs");
+    const { neon } = await import("@neondatabase/serverless");
+    const { drizzle } = await import("drizzle-orm/neon-http");
+    const schema = await import("@/lib/db/schema");
+    db = drizzle(neon("postgresql://u:p@ep-test.neon.tech/neondb"), { schema });
+  }, 60_000);
+
+  it("pokladna vrátí číslo = VS (i při opakovaném odeslání), ruční objednávka další číslo = VS", async () => {
+    const { validateCheckoutInput } = await import("../checkout");
+    const { saveEshopOrder } = await import("../orderWrite");
+    const { catalogIndex } = await import("./helpers/catalogFixture");
+    const { orders, organizations } = await import("@/lib/db/schema");
+    const checkout = validateCheckoutInput(
+      {
+        cart: JSON.stringify([{ sku: "kulajda", quantity: 1 }]),
+        name: "Jana Nováková",
+        email: "jana@example.cz",
+        phone: "+420 777 123 456",
+        shippingMethodId: "osobni-odber",
+        paymentMethodId: "prevod",
+        street: "",
+        city: "",
+        zip: "",
+        note: "",
+        termsAccepted: true,
+        ageConfirmed: false,
+      },
+      catalogIndex
+    );
+    if (!checkout.ok) throw new Error(checkout.error);
+    const id = "5d0c3b8e-6f7a-4b1c-9d2e-1a2b3c4d5e6f";
+    expect(await saveEshopOrder(db, id, checkout.value)).toMatchObject({ ok: true, orderNumber: 70000001, paymentVs: "70000001" });
+    expect(await saveEshopOrder(db, id, checkout.value)).toMatchObject({ orderNumber: 70000001, alreadySaved: true });
+
+    await db.insert(organizations).values({ id: ORG, ico: "11935367", name: "The Cup s.r.o.", registeredAddress: "Praha" });
+    const [manual] = await db
+      .insert(orders)
+      .values({ buyerOrganizationId: ORG, subtotalKc: 500, shippingKc: 0, totalKc: 500, paymentStatus: "unpaid", fulfillmentStatus: "new" })
+      .returning({ orderNumber: orders.orderNumber, paymentVs: orders.paymentVs });
+    expect(manual).toEqual({ orderNumber: 70000002, paymentVs: "70000002" });
   });
 });

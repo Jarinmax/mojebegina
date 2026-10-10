@@ -1,6 +1,8 @@
 # Meta Pixel, CookieYes, Ecomail — co zachovat při přechodu z WordPressu
 
-Stav: **NÁVRH ke schválení.** Zjištěno 10. 10. 2026 jen čtením veřejných
+Stav: **příprava schválena 10. 10. 2026, implementováno za vypnutými
+přepínači** (oddíl „Implementace“ níže). Zapnutí zatím neschváleno.
+Zjištěno 10. 10. 2026 jen čtením veřejných
 stránek www.begina.cz (úvod, `/produkt/kulajda/`, `/kosik/`,
 `/landing-page/`; `/pokladna/` s prázdným košíkem přesměruje na košík).
 Do administrace WordPressu, Meta ani Ecomailu jsem nepřistupoval.
@@ -28,8 +30,8 @@ s nastavením zmiňují — po přidání pixelu musí lišta existovat.
 **Doporučuji:** stejné ID 2509610956071494, načtené **až po souhlasu
 s reklamními cookies**, a rovnou s událostmi e-shopu:
 `PageView`, `ViewContent` (detail produktu), `AddToCart`,
-`InitiateCheckout` (pokladna), `Purchase` (stránka objednávky, jen jednou,
-hodnota v Kč bez osobních údajů). Implementuji v kódu za přepínačem
+`InitiateCheckout` (pokladna), `Purchase` (po odeslání objednávky, jen
+jednou, hodnota v Kč bez osobních údajů). Implementuji v kódu za přepínačem
 (výchozí vypnuto), otestuji na Preview v Meta Events Manager → Test Events.
 
 - Výhoda: stejný pixel = publika a historie zůstanou; Meta konečně uvidí
@@ -55,12 +57,65 @@ na kategorii „reklamní“.
 Nic se nepřenáší. Doplněk Ecomail na WordPressu lze kdykoli vypnout.
 Formulář Begina club (`/landing-page/`) → úvod, jak je nastaveno.
 
+## Implementace (za přepínači, výchozí VYPNUTO)
+
+Kód: `lib/eshop/marketing.ts` (přepínače, nákup ze serveru),
+`lib/eshop/metaPixel.ts` (prohlížeč), `components/eshop/Marketing.tsx`,
+`MetaViewContent.tsx`; události v `AddToCartButton.tsx` a pokladně.
+
+| Proměnná (Vercel) | Hodnota | Účinek |
+|---|---|---|
+| `ESHOP_MARKETING` | `on` | hlavní přepínač; cokoli jiného = nic se nenačte |
+| `ESHOP_COOKIEYES_ID` | `5f3760f1f9ac1d11074e41aade2c6467` (kód webu z CookieYes) | cookie lišta + „Nastavení cookies“ v patičce |
+| `ESHOP_META_PIXEL_ID` | `2509610956071494` | pixel — **jen** s CookieYes a **jen** po souhlasu |
+
+Hodnoty jsou veřejné (stojí v HTML každé stránky webu), nejsou tajné.
+Platí jen pro stránky e-shopu, nikdy pro MojeBegina.
+
+**Souhlas:** dokud zákazník v liště nepovolí kategorii „Reklamní“
+(advertisement), skript Meta se **vůbec nenačte** a nic neodchází. Po
+souhlasu se odešle zobrazení otevřené stránky; události před souhlasem se
+zpětně neposílají. Odvolání souhlasu („Nastavení cookies“) → `consent revoke`
+a žádné další události. Automatické události Meta (kliknutí, změny adresy)
+jsou vypnuté — odchází jen naše.
+
+**Stránka objednávky** (`/objednavka/<id>`): náhodné id v adrese je
+jediný klíč k objednávce → na ní se nenačte CookieYes ani Meta a nic se
+neodešle (jinak by Meta dostala adresu).
+
+**Nákup bez duplicit (tři pojistky):**
+1. server pošle nákup jen u **nově uložené** objednávky (dvojklik
+   a opakované odeslání formuláře = nic);
+2. prohlížeč si odeslaný nákup pamatuje (localStorage) — obnovení stránky
+   nic nepošle;
+3. `eventID = objednavka-<VS>` → Meta deduplikuje i případnou budoucí
+   serverovou událost (Conversions API) se stejným ID.
+
+Nákup se počítá při odeslání objednávky (převod, hotovost i karta — před
+přesměrováním na Stripe), hodnota = celková cena v Kč vč. dopravy;
+bez e-mailu, jména a telefonu. Bez souhlasu se nákup neodešle ani později.
+
+**Ověřeno:** `lib/eshop/__tests__/marketing.test.ts`,
+`components/__tests__/Marketing.test.tsx` a prohlížeč
+`scripts/eshop-e2e/marketing.mjs` (CookieYes i Meta nahrazené
+napodobeninou, nic neodchází ven): zapnuto 46/46, vypnuto 36/36.
+
+**Před zapnutím (Production):**
+1. CookieYes: přidat begina.cz; v liště ověřit kategorii „Reklamní“
+   a vypnout automatické blokování pro Meta (pixel blokujeme sami).
+2. Zapnout nejdřív na Preview, ověřit v Meta Events Manager → Test Events.
+3. Production: proměnné výše → Redeploy (spolu s přepnutím DNS, ne dřív —
+   CookieYes je vázaný na doménu).
+4. Pak vypnout Meta Pixel na WordPressu (jinak by se po návratu měřilo
+   bez souhlasu).
+
 ## Co potřebuji od vás
 
 1. **Meta Business → Events Manager → pixel 2509610956071494:** jen
    potvrdit, že je to jediný pixel (screenshot přehledu stačí).
 2. **CookieYes (app.cookieyes.com):** tarif a jestli jde přidat begina.cz
    (screenshot nastavení webu).
+3. Schválit zapnutí na Preview (proměnné pro Preview) a pak na Production.
 
 ## Vedlejší zjištění pro číslování
 

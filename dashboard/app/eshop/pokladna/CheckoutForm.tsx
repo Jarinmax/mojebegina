@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import ShopLink from "@/components/eshop/ShopLink";
 import { useEshopHref } from "@/components/eshop/EshopBase";
 import { CircleCheck } from "lucide-react";
@@ -12,6 +12,7 @@ import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { trackMeta, trackMetaPurchase } from "@/lib/eshop/metaPixel";
 
 const initialState: CheckoutState = null;
 
@@ -70,20 +71,39 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
   const orderNumber = state && "confirmation" in state ? state.orderNumber : null;
 
   const redirectTo = state && "redirectTo" in state ? state.redirectTo : null;
+  const purchase = state && "purchase" in state ? state.purchase : null;
+
+  // Meta Pixel (jen se souhlasem): zahájení pokladny jednou za návštěvu stránky.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || !hydrated) return;
+    const cartLines = resolveCartLines(cart, catalog);
+    if (cartLines.length === 0) return;
+    checkoutTracked.current = true;
+    trackMeta("InitiateCheckout", {
+      content_type: "product",
+      content_ids: cartLines.map((line) => line.sku),
+      num_items: cartLines.reduce((sum, line) => sum + line.quantity, 0),
+    });
+  }, [hydrated, cart, catalog]);
 
   useEffect(() => {
     if (confirmation) {
+      trackMetaPurchase(purchase);
       clear();
     }
-  }, [confirmation, clear]);
+  }, [confirmation, purchase, clear]);
 
   // Platba kartou: objednávka je uložená, pokračuje se na platební stránku Stripe.
+  // Nákup se odešle před odchodem (s krátkou rezervou, aby ho prohlížeč stihl).
   useEffect(() => {
     if (redirectTo) {
       clear();
-      window.location.assign(redirectTo);
+      const sent = trackMetaPurchase(purchase);
+      const timer = window.setTimeout(() => window.location.assign(redirectTo), sent ? 400 : 0);
+      return () => window.clearTimeout(timer);
     }
-  }, [redirectTo, clear]);
+  }, [redirectTo, purchase, clear]);
 
   if (redirectTo) {
     return <p className="text-sm text-neutral-600">Přesměrovávám na platbu kartou…</p>;

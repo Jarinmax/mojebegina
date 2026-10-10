@@ -7,6 +7,7 @@ import type { Variant } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import QuantityStepper from "./QuantityStepper";
 import { useCart } from "./useCart";
+import { trackMeta } from "@/lib/eshop/metaPixel";
 
 type AddToCartButtonProps = {
   name: string;
@@ -23,7 +24,16 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
   const [added, setAdded] = useState(false);
 
   function handleAdd() {
-    add(sku, compact ? 1 : quantity);
+    const count = compact ? 1 : quantity;
+    add(sku, count);
+    const priceKc = variants.find((variant) => variant.sku === sku)?.priceKc ?? 0;
+    trackMeta("AddToCart", {
+      content_type: "product",
+      content_ids: [sku],
+      content_name: name,
+      contents: [{ id: sku, quantity: count, item_price: priceKc }],
+      value: priceKc * count,
+    });
     setAdded(true);
   }
 

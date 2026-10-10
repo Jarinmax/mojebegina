@@ -1,12 +1,15 @@
 -- PRODUCTION — ZAPNUTÍ ČÍSLOVÁNÍ: číslo objednávky = variabilní symbol.
--- Návrh 10. 10. 2026, NESPOUŠTĚT BEZ SCHVÁLENÍ. Nahrazuje 20–29
--- (START navazující na WooCommerce) — ty pak nespouštět.
+-- Koncepce schválena 10. 10. 2026; SPUŠTĚNÍ ZATÍM NESCHVÁLENO.
+-- Nahrazuje 20–29 (START navazující na WooCommerce) — ty se nespouští.
 --
--- Jedna řada pro všechno: payment_vs_seq (70000001, 70000002, …), nezávislá
--- na WordPressu. E-shopová objednávka má číslo = svůj VS (zákazník vidí
--- jedno číslo). Ruční objednávka z MojeBegina dostane další číslo z téže
--- řady (VS se jí nezapisuje — platí se podle faktury). Import (The Cup)
--- zůstane bez čísla. Kód aplikace se nemění: číslo doplní trigger.
+-- Jedno pravidlo pro všechny objednávky kromě importu:
+--   číslo objednávky = VS = další hodnota řady payment_vs_seq
+--   (70000001, 70000002, …), nezávislé na WordPressu.
+--   eshop (pokladna i náhradní objednávka): VS přidělí aplikace, číslo = VS
+--   manual (MojeBegina): VS i číslo přidělí trigger z téže řady
+--   import (The Cup, historie): bez čísla i VS z řady; případné původní
+--     číslo WooCommerce jen pod 70000000 → nikdy nekoliduje.
+-- Kód aplikace se nemění — číslo doplní trigger.
 --
 -- Celý blok je jedna transakce: jakákoli pojistka nebo chyba → nic se nezmění.
 DO $$
@@ -27,31 +30,38 @@ BEGIN
   IF EXISTS (SELECT 1 FROM orders WHERE channel = 'eshop' AND payment_vs IS NULL) THEN
     RAISE EXCEPTION 'E-shopová objednávka bez VS — zastavuji.';
   END IF;
+  IF EXISTS (SELECT 1 FROM orders WHERE channel = 'import' AND payment_vs IS NOT NULL) THEN
+    RAISE EXCEPTION 'Importovaná objednávka s VS z řady — zastavuji.';
+  END IF;
 
-  -- Nová objednávka (kromě importu): číslo = VS, bez VS další číslo z řady.
+  -- Nová objednávka (kromě importu): bez VS dostane VS z řady; číslo = VS.
   CREATE FUNCTION orders_assign_number() RETURNS trigger LANGUAGE plpgsql AS $f$
   BEGIN
-    IF NEW.channel <> 'import' AND NEW.order_number IS NULL THEN
-      NEW.order_number := coalesce(NEW.payment_vs, '7' || lpad(nextval('payment_vs_seq')::text, 7, '0'))::bigint;
+    IF NEW.channel <> 'import' THEN
+      IF NEW.payment_vs IS NULL THEN
+        NEW.payment_vs := '7' || lpad(nextval('payment_vs_seq')::text, 7, '0');
+      END IF;
+      IF NEW.order_number IS NULL THEN
+        NEW.order_number := NEW.payment_vs::bigint;
+      END IF;
     END IF;
     RETURN NEW;
   END $f$;
   CREATE TRIGGER orders_assign_number BEFORE INSERT ON orders
     FOR EACH ROW EXECUTE FUNCTION orders_assign_number();
 
-  -- Stávající objednávky: e-shop (a cokoli s VS) = svůj VS; ruční bez VS
-  -- další čísla z řady podle data.
-  UPDATE orders SET order_number = payment_vs::bigint
-  WHERE channel <> 'import' AND payment_vs IS NOT NULL;
-  UPDATE orders o SET order_number = n.num
+  -- Stávající objednávky: ruční bez VS dostanou VS z řady (podle data),
+  -- pak všechny kromě importu číslo = VS.
+  UPDATE orders o SET payment_vs = n.vs
   FROM (
-    SELECT id, ('7' || lpad(nextval('payment_vs_seq')::text, 7, '0'))::bigint AS num
-    FROM (SELECT id FROM orders WHERE channel <> 'import' AND order_number IS NULL
+    SELECT id, '7' || lpad(nextval('payment_vs_seq')::text, 7, '0') AS vs
+    FROM (SELECT id FROM orders WHERE channel <> 'import' AND payment_vs IS NULL
           ORDER BY ordered_at, created_at, id) s
   ) n
   WHERE o.id = n.id;
+  UPDATE orders SET order_number = payment_vs::bigint WHERE channel <> 'import';
 
-  -- Přidělené číslo se nemění (jako VS).
+  -- Přidělené číslo se nemění (VS je neměnný už od migrace 0020).
   CREATE FUNCTION orders_order_number_immutable() RETURNS trigger LANGUAGE plpgsql AS $f$
   BEGIN
     IF OLD.order_number IS NOT NULL AND NEW.order_number IS DISTINCT FROM OLD.order_number THEN
@@ -62,10 +72,8 @@ BEGIN
   CREATE TRIGGER orders_order_number_immutable BEFORE UPDATE OF order_number ON orders
     FOR EACH ROW EXECUTE FUNCTION orders_order_number_immutable();
 
-  ALTER TABLE orders ADD CONSTRAINT orders_number_required
-    CHECK (channel = 'import' OR order_number IS NOT NULL);
   ALTER TABLE orders ADD CONSTRAINT orders_number_equals_vs
-    CHECK (payment_vs IS NULL OR order_number = payment_vs::bigint);
-  ALTER TABLE orders ADD CONSTRAINT orders_number_range
-    CHECK (order_number IS NULL OR order_number BETWEEN 70000001 AND 79999999);
+    CHECK (channel = 'import' OR (payment_vs IS NOT NULL AND order_number = payment_vs::bigint));
+  ALTER TABLE orders ADD CONSTRAINT orders_import_outside_series
+    CHECK (channel <> 'import' OR (payment_vs IS NULL AND (order_number IS NULL OR order_number < 70000000)));
 END $$;

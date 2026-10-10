@@ -221,7 +221,11 @@ describe("e-maily k objednávce — pokladna a Stripe nad DB (neon-http → PGli
 
   it("Stripe objednávka PŘED zaplacením: přesměrování na Stripe, žádný e-mail", async () => {
     const result = await submitCheckoutAction(null, form(CARD, { paymentMethodId: "karta", ageConfirmed: "on" }));
-    expect(result).toEqual({ redirectTo: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//) });
+    expect(result).toEqual({
+      redirectTo: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//),
+      // nákup pro Meta Pixel (odešle se jen se souhlasem, jednou — lib/eshop/metaPixel.ts)
+      purchase: expect.objectContaining({ eventId: expect.stringMatching(/^objednavka-7\d{7}$/) }),
+    });
     expect(await orderState(CARD)).toEqual({ payment_status: "unpaid", paid_at: false });
     expect(mail.sent).toHaveLength(0);
     expect(await emailActivity(CARD)).toEqual([]);

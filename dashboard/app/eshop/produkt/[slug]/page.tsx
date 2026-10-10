@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import ShopLink from "@/components/eshop/ShopLink";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Check, ChevronLeft, Snowflake } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
+import { legacyProductFallback } from "@/lib/eshop/legacyProducts";
+import { eshopHref } from "@/lib/eshop/paths";
+import { eshopBase } from "@/lib/eshop/siteServer";
 import {
   AGE_RESTRICTION_NOTICE,
   isOrderable,
@@ -14,6 +17,7 @@ import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
+import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
@@ -82,6 +86,9 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const product = index.getProduct(slug);
   const category = product ? index.findCategory(product.category) : undefined;
   if (!product || !category) {
+    // Stará adresa z WordPressu u produktu, který zatím není vidět → kategorie (307).
+    const fallback = legacyProductFallback(slug, index);
+    if (fallback) redirect(eshopHref(await eshopBase(), fallback));
     notFound();
   }
   const hasChoice = product.variants.length > 1;
@@ -121,6 +128,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             </ul>
           )}
 
+          <MetaViewContent sku={product.variants[0].sku} name={product.name} priceKc={lowestPriceKc(product)} />
           <div className="mt-6">
             {isOrderable(product) ? (
               <AddToCartButton name={product.name} variants={product.variants} />
