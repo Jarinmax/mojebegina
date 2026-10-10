@@ -26,6 +26,8 @@
 import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { get } from "@vercel/blob";
+import { APICallError } from "ai";
+import { GatewayError } from "@ai-sdk/gateway";
 import { db } from "@/lib/db/client";
 import {
   goodsReceiptActivity,
@@ -101,6 +103,43 @@ async function fetchReceiptForExtraction(
     .where(eq(goodsReceipts.id, receiptId))
     .limit(1);
   return receipt ?? null;
+}
+
+const EXTRACTION_ERROR_LOG_FIELD_LIMIT = 500;
+
+function truncateForLog(value: string): string {
+  return value.length > EXTRACTION_ERROR_LOG_FIELD_LIMIT ? `${value.slice(0, EXTRACTION_ERROR_LOG_FIELD_LIMIT)}…` : value;
+}
+
+// Bezpečný popis chyby z AI vytěžení pro server-side log (bod 1 zadání —
+// "Udělej AI vytěžení neviditelné výjimky viditelnou, ale bezpečně"). Loguje
+// JEN name/message/statusCode a bezpečně zkrácený responseBody, nikdy
+// tokeny, bajty fotografie, prompt ani osobní údaje z účtenky — proto se
+// nikdy nesahá na APICallError.url/requestBodyValues/responseHeaders,
+// GatewayResponseError.response ani TypeValidationError.value (ty by mohly
+// obsahovat echo promptu/obrázku nebo částečně vytěžená data z dokladu).
+// Řetězec `cause` se prochází rekurzivně (do hloubky 5, proti cyklu).
+function describeExtractionErrorForLog(error: unknown, depth = 0): unknown {
+  if (depth > 5 || error == null) return undefined;
+  if (!(error instanceof Error)) {
+    return typeof error === "string" ? truncateForLog(error) : typeof error;
+  }
+
+  const info: Record<string, unknown> = { name: error.name, message: truncateForLog(error.message) };
+
+  if (APICallError.isInstance(error)) {
+    if (error.statusCode !== undefined) info.statusCode = error.statusCode;
+    if (error.responseBody) info.responseBody = truncateForLog(error.responseBody);
+  } else if (GatewayError.isInstance(error)) {
+    info.statusCode = error.statusCode;
+    if (error.generationId) info.generationId = error.generationId;
+  }
+
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause !== undefined && cause !== error) {
+    info.cause = describeExtractionErrorForLog(cause, depth + 1);
+  }
+  return info;
 }
 
 async function markExtractionFailed(receiptId: string): Promise<void> {
@@ -230,7 +269,11 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   let extracted;
   try {
     extracted = await extractReceiptData(images);
-  } catch {
+  } catch (error) {
+    console.error(
+      `[sklad] AI vytěžení účtenky selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
+      describeExtractionErrorForLog(error)
+    );
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
   }

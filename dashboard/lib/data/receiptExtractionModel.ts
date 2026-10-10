@@ -12,7 +12,7 @@
 // (BLOB_STORE_ID + OIDC, bez statického BLOB_READ_WRITE_TOKEN) — proto se
 // tu NIKDY nesmí nastavit AI_GATEWAY_API_KEY jako proměnná prostředí.
 import "server-only";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import { extractedReceiptSchema, type ExtractedReceipt } from "./skladValidation";
 
@@ -50,11 +50,16 @@ DŮLEŽITÉ: Číslo vedle ceny, co vypadá jako kód oddělení nebo kategorie 
 
 Pokud nějaký údaj na dokladu není nebo není čitelný, vrať pro něj null (nehádej, nevymýšlej si).`;
 
+// `generateObject` je v nainstalované verzi `ai` zastaralé (@deprecated Use
+// `generateText` with an `output` setting instead — node_modules/ai/dist/
+// index.d.ts), proto `generateText` + `output: Output.object(...)`.
+// Stejně tak `{type:'image', image, mediaType}` je zastaralé ve prospěch
+// `{type:'file', mediaType, data}` (@deprecated poznámka u ImagePart v
+// node_modules/@ai-sdk/provider-utils/dist/index.d.ts).
 export async function extractReceiptData(images: ReceiptImageInput[]): Promise<ExtractedReceipt> {
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: gateway(EXTRACTION_MODEL_ID),
-    schema: extractedReceiptSchema,
-    schemaName: "ExtractedReceipt",
+    output: Output.object({ schema: extractedReceiptSchema, name: "ExtractedReceipt" }),
     providerOptions: {
       gateway: { has: ["vision", "structured-output"] },
     },
@@ -64,13 +69,13 @@ export async function extractReceiptData(images: ReceiptImageInput[]): Promise<E
         content: [
           { type: "text", text: EXTRACTION_PROMPT },
           ...images.map((image) => ({
-            type: "image" as const,
-            image: image.bytes,
+            type: "file" as const,
             mediaType: image.mimeType,
+            data: { type: "data" as const, data: image.bytes },
           })),
         ],
       },
     ],
   });
-  return object;
+  return output;
 }

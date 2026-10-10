@@ -17,6 +17,7 @@
 // — to zůstává zdokumentované omezení (stejné jako u ostatních mock-
 // transport testů v tomhle souboru skladu).
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APICallError } from "ai";
 import type { AuthContext } from "../types";
 
 vi.mock("server-only", () => ({}));
@@ -299,6 +300,57 @@ describe("triggerGoodsReceiptExtraction — idempotence a souběh (bod 12 zadán
     expect(second.ok).toBe(true);
     const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
     expect(lineInserts).toHaveLength(1);
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — bezpečné logování technické chyby AI vytěžení (body 1+5 zadání)", () => {
+  it("technická chyba modelu se bezpečně zaloguje (name/message/statusCode/zkrácený responseBody/cause), NIKDY token/prompt/osobní údaj — klient dostane jen obecnou českou hlášku", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const secretToken = "sk-live-SUPER-SECRET-TOKEN-should-never-be-logged";
+    const personalDataFromReceipt = "Jan Novák, RČ 900101/1234";
+    const longResponseBody = `{"error":"rate_limited"}${"x".repeat(2000)}`;
+    const cause = new Error("ECONNRESET upstream");
+
+    const apiError = new APICallError({
+      message: "Bad Request",
+      url: `https://ai-gateway.vercel.sh/v1/responses?token=${secretToken}`,
+      requestBodyValues: { authorization: `Bearer ${secretToken}`, prompt: personalDataFromReceipt },
+      statusCode: 400,
+      responseBody: longResponseBody,
+      cause,
+    });
+
+    mockExtractReceiptData.mockRejectedValueOnce(apiError);
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    // Klient dostane jen obecnou českou hlášku — žádné interní detaily chyby.
+    expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." });
+
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const [logMessage, logInfo] = consoleErrorSpy.mock.calls[0] as [string, Record<string, unknown>];
+
+    // Zpráva v logu identifikuje příjemku/model, ale ne detail chyby.
+    expect(logMessage).toContain(RECEIPT_ID);
+
+    // Bezpečná pole se zalogovala.
+    expect(logInfo.name).toBe("AI_APICallError");
+    expect(logInfo.message).toBe("Bad Request");
+    expect(logInfo.statusCode).toBe(400);
+    expect(typeof logInfo.responseBody).toBe("string");
+    expect((logInfo.responseBody as string).length).toBeLessThanOrEqual(501); // bezpečně zkrácené, ne celých ~2000 znaků
+    expect(logInfo.cause).toEqual({ name: "Error", message: "ECONNRESET upstream" });
+
+    // Zakázaný obsah (token, prompt, osobní údaj z účtenky) se NIKDY nezaloguje.
+    expect(logInfo).not.toHaveProperty("url");
+    expect(logInfo).not.toHaveProperty("requestBodyValues");
+    expect(logInfo).not.toHaveProperty("responseHeaders");
+    const loggedJson = JSON.stringify([logMessage, logInfo]);
+    expect(loggedJson).not.toContain(secretToken);
+    expect(loggedJson).not.toContain(personalDataFromReceipt);
+    expect(loggedJson).not.toContain("Bearer");
+
+    consoleErrorSpy.mockRestore();
   });
 });
 
