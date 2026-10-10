@@ -1,6 +1,7 @@
 // Security Phase 16 (Obchod/CRM 1.0) — čistá validace, bez "server-only",
 // stejný princip jako orderValidation.ts: testovatelná bez databáze,
 // kontrola a dotaz se skládají až v leads.ts.
+import { pragueDateTimeToUtc } from "./pragueTime";
 
 export const LEAD_STAGES = [
   "new",
@@ -169,7 +170,8 @@ export function validateStageInput(
 export type CallLogInput = {
   note: string;
   nextStage: string;
-  nextFollowUpAt: string;
+  nextFollowUpAtDate: string;
+  nextFollowUpAtTime: string;
   nextStepNote: string;
 };
 
@@ -202,16 +204,23 @@ export function validateCallLogInput(
     nextStage = validated.value;
   }
 
-  const nextFollowUpAtRaw = trimOrNull(input.nextFollowUpAt);
+  // Security Phase 20 (Google Kalendář 1.0) — datum i čas se musí vyplnit
+  // SPOLEČNĚ, jakmile uživatel další kontakt vůbec plánuje (appka z něj
+  // vytváří kalendářovou událost na konkrétní čas, ne jen den). Obě pole
+  // prázdná = pole v tomhle zápisu vůbec neřešeno (zůstává null, beze
+  // změny stávajícího chování "nepovinné").
+  const nextFollowUpAtDateRaw = trimOrNull(input.nextFollowUpAtDate);
+  const nextFollowUpAtTimeRaw = trimOrNull(input.nextFollowUpAtTime);
   let nextFollowUpAt: Date | null = null;
-  if (nextFollowUpAtRaw) {
-    // Stejná konvence jako orderValidation.ts — datum bez času se ukládá
-    // na 12:00 UTC, aby zobrazení bylo nezávislé na časové zóně serveru.
-    const parsed = new Date(`${nextFollowUpAtRaw}T12:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime())) {
-      return { ok: false, error: "Neplatné datum dalšího kontaktu." };
+  if (nextFollowUpAtDateRaw || nextFollowUpAtTimeRaw) {
+    if (!nextFollowUpAtDateRaw || !nextFollowUpAtTimeRaw) {
+      return { ok: false, error: "Vyplňte datum i čas dalšího kontaktu, nebo žádné z nich." };
     }
-    nextFollowUpAt = parsed;
+    const parsed = pragueDateTimeToUtc(nextFollowUpAtDateRaw, nextFollowUpAtTimeRaw);
+    if (!parsed.ok) {
+      return { ok: false, error: parsed.error };
+    }
+    nextFollowUpAt = parsed.value;
   }
 
   const nextStepNote = trimOrNull(input.nextStepNote);

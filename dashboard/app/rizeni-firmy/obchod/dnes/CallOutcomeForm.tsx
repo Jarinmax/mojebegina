@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { logDailyCallOutcomeAction, type ActionState } from "./actions";
+import { useActionState, useEffect, useState } from "react";
+import { logDailyCallOutcomeAction, type LogCallOutcomeActionState } from "./actions";
+import { useDailyCallOutcomeContext } from "./DailyCallOutcomeContext";
 import { CALL_RESULTS } from "@/lib/data/dailyCallsValidation";
 import { CALL_RESULT_LABELS } from "./dailyCallLabels";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
@@ -9,7 +10,7 @@ import { STAGE_LABELS } from "../leadLabels";
 import type { CallResult } from "@/lib/data/dailyCallsValidation";
 import type { LeadStage } from "@/lib/data/leadValidation";
 
-const initialState: ActionState = null;
+const initialState: LogCallOutcomeActionState = { status: "idle" };
 
 // Security Phase 19 (Denní volání 1.0) — zápis výsledku hovoru. Výsledek
 // (CALL_RESULTS) i poznámka jsou povinné (žádná prázdná/"beze změny"
@@ -23,6 +24,18 @@ export default function CallOutcomeForm({ itemId }: { itemId: string }) {
   const [state, formAction, pending] = useActionState(boundAction, initialState);
   const [expanded, setExpanded] = useState(false);
   const [result, setResult] = useState("");
+  const outcomeCtx = useDailyCallOutcomeContext();
+
+  // Security Phase 21 (Denní volání 1.1) — bod 3 schváleného zadání:
+  // potvrzení musí žít MIMO tuhle komponentu (karta i tenhle formulář
+  // samy zmizí ze serverových dat, jakmile revalidace uvidí položku jako
+  // `done`), proto se úspěch jen OZNÁMÍ nahoru přes Context, nevykresluje
+  // se tady lokálně.
+  useEffect(() => {
+    if (state.status === "saved") {
+      outcomeCtx?.notifySaved(state);
+    }
+  }, [state, outcomeCtx]);
 
   if (!expanded) {
     return (
@@ -87,21 +100,30 @@ export default function CallOutcomeForm({ itemId }: { itemId: string }) {
           </select>
         </div>
         <div>
-          <label htmlFor={`nextFollowUpAt-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
+          <label htmlFor={`nextFollowUpAtDate-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
             Další kontakt{result === "call_back_later" ? " (povinné)" : ""}
           </label>
-          <input
-            id={`nextFollowUpAt-${itemId}`}
-            name="nextFollowUpAt"
-            type="date"
-            required={result === "call_back_later"}
-            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-          />
+          <div className="flex gap-2">
+            <input
+              id={`nextFollowUpAtDate-${itemId}`}
+              name="nextFollowUpAtDate"
+              type="date"
+              required={result === "call_back_later"}
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+            <input
+              id={`nextFollowUpAtTime-${itemId}`}
+              name="nextFollowUpAtTime"
+              type="time"
+              required={result === "call_back_later"}
+              aria-label="Čas dalšího kontaktu"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+          </div>
         </div>
       </div>
 
-      {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
-      {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
+      {state.status === "error" && <p className="text-sm text-begina-accent-700">{state.error}</p>}
 
       <div className="flex gap-2">
         <button

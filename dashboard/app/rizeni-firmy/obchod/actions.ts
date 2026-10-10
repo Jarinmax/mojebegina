@@ -16,6 +16,8 @@ import {
   convertLeadToNewOrganization,
   assignCustomerOwner,
   setCustomerAcquiredBy,
+  removeLeadFollowUp,
+  retryLeadCalendarSync,
 } from "@/lib/data/leads";
 import type { CreateCustomerInput } from "@/lib/data/createCustomerValidation";
 
@@ -62,7 +64,8 @@ export async function logCallOutcomeAction(
   const result = await logCallOutcome(leadId, {
     note: String(formData.get("note") ?? ""),
     nextStage: String(formData.get("nextStage") ?? ""),
-    nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
+    nextFollowUpAtDate: String(formData.get("nextFollowUpAtDate") ?? ""),
+    nextFollowUpAtTime: String(formData.get("nextFollowUpAtTime") ?? ""),
     nextStepNote: String(formData.get("nextStepNote") ?? ""),
   });
 
@@ -72,6 +75,36 @@ export async function logCallOutcomeAction(
 
   revalidateCrm(leadId);
   return { success: "Zápis hovoru byl uložen." };
+}
+
+// Security Phase 20 (Google Kalendář 1.0) — samostatná akce, oddělená od
+// logCallOutcomeAction výše. Obecný CRM formulář má next_follow_up_at
+// nezávisle volitelné vedle poznámky/fáze/dalšího kroku — prázdné pole
+// tam znamená "neřešeno", ne "smazat" (viz leadValidation.ts). Explicitní
+// smazání proto potřebuje vlastní tlačítko/akci, jinak by nešlo rozlišit
+// "uživatel pole nevyplnil" od "uživatel chce termín odstranit".
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (id, state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function removeLeadFollowUpAction(leadId: string, _prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await removeLeadFollowUp(leadId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "Naplánovaný kontakt byl odstraněn." };
+}
+
+// Security Phase 20 (Google Kalendář 1.0) — idempotentní "Zkusit znovu"
+// pro lead_calendar_sync ve stavu "failed" (viz retryLeadCalendarSync).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (id, state, formData) vyžaduje useActionState, formulář nemá žádná pole
+export async function retryLeadCalendarSyncAction(leadId: string, _prevState: ActionState, _formData: FormData): Promise<ActionState> {
+  const result = await retryLeadCalendarSync(leadId);
+  if (!result.ok) {
+    return { error: `Synchronizace s Google kalendářem se nezdařila: ${result.error}` };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "Synchronizace s Google kalendářem proběhla úspěšně." };
 }
 
 export async function updateLeadStageAction(

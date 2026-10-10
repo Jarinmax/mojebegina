@@ -13,7 +13,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { leads, leadActivity, organizations, orders, userRoles } from "@/lib/db/schema";
+import { leads, leadActivity, leadCalendarSync, organizations, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
@@ -33,7 +33,43 @@ import {
   type CallLogInput,
   type LeadStage,
 } from "./leadValidation";
+import { reconcileLeadCalendarEvent, upsertPendingLeadCalendarSync } from "./googleCalendar";
 import type { AuthContext } from "./types";
+
+// Security Phase 20 (Google Kalendář 1.0) — AŽ PO úspěšném commitu CRM
+// zápisu výše (ten už je nevratný). Selhání tady nesmí vrátit zpět
+// správně uložený zápis — stejný princip jako dailyCalls.ts:
+// logDailyCallOutcome (try/catch obalující jen best-effort vedlejší
+// účinek, ne hlavní zápis).
+async function reconcileCalendarAfterCommit(leadId: string): Promise<void> {
+  try {
+    await reconcileLeadCalendarEvent(leadId);
+  } catch {
+    // Stav zůstává v lead_calendar_sync (pending/failed) — uživatel uvidí
+    // "synchronizace kalendáře selhala" a může zopakovat.
+  }
+}
+
+// Security Phase 20 (Google Kalendář 1.0) — idempotentní "Zkusit znovu"
+// pro lead_calendar_sync ve stavu "failed". reconcileLeadCalendarEvent
+// je bezpečné zavolat opakovaně (deterministické event id, 409 → patch),
+// takže sem žádná speciální logika navíc nejde — jen ověření přístupu,
+// zavolání a přečtení výsledného stavu pro srozumitelnou chybu uživateli.
+export async function retryLeadCalendarSync(leadId: string): Promise<LeadResult> {
+  await requireCrmContext();
+  await reconcileLeadCalendarEvent(leadId);
+
+  const [row] = await db
+    .select({ syncStatus: leadCalendarSync.syncStatus, lastError: leadCalendarSync.lastError })
+    .from(leadCalendarSync)
+    .where(eq(leadCalendarSync.leadId, leadId))
+    .limit(1);
+
+  if (row?.syncStatus === "failed") {
+    return { ok: false, error: row.lastError ?? "Synchronizace s Google kalendářem se nezdařila." };
+  }
+  return { ok: true };
+}
 
 export async function requireCrmContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -237,6 +273,8 @@ export type LeadActivityEntry = {
   createdAt: Date;
 };
 
+export type LeadCalendarSyncStatus = { status: "pending" | "synced" | "failed"; lastError: string | null };
+
 export type LeadDetail = {
   lead: LeadCardData & {
     address: string | null;
@@ -244,6 +282,7 @@ export type LeadDetail = {
     acquiredByUserId: string | null;
     acquiredByName: string | null;
     convertedOrganizationId: string | null;
+    calendarSync: LeadCalendarSyncStatus | null;
   };
   activity: LeadActivityEntry[];
 };
@@ -259,6 +298,12 @@ export async function getLeadDetail(leadId: string): Promise<LeadDetail | null> 
   const [card] = await buildLeadCards([row]);
   const acquiredBy = row.acquiredByUserId ? await getUserProfile(row.acquiredByUserId) : null;
 
+  const [syncRow] = await db
+    .select({ syncStatus: leadCalendarSync.syncStatus, lastError: leadCalendarSync.lastError })
+    .from(leadCalendarSync)
+    .where(eq(leadCalendarSync.leadId, leadId))
+    .limit(1);
+
   const activityRows = await db.select().from(leadActivity).where(eq(leadActivity.leadId, leadId));
   activityRows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
@@ -270,6 +315,7 @@ export async function getLeadDetail(leadId: string): Promise<LeadDetail | null> 
       acquiredByUserId: row.acquiredByUserId,
       acquiredByName: acquiredBy?.name ?? acquiredBy?.email ?? null,
       convertedOrganizationId: row.convertedOrganizationId,
+      calendarSync: syncRow ? { status: syncRow.syncStatus as "pending" | "synced" | "failed", lastError: syncRow.lastError } : null,
     },
     activity: activityRows.map((r) => ({
       id: r.id,
@@ -356,6 +402,10 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
     updates.nextStepNote = value.nextStepNote;
   }
 
+  // Security Phase 20 (Google Kalendář 1.0) — upsert na 'pending' V TÉŽE
+  // atomické operaci jako zápis výše (tenhle zápis může změnit
+  // nextFollowUpAt i stage, oboje ovlivňuje efektivní kalendářovou
+  // událost) — skutečné volání Googlu proběhne až po commitu, viz níže.
   await db.batch([
     db.update(leads).set(updates).where(eq(leads.id, leadId)),
     db.insert(leadActivity).values({
@@ -370,7 +420,44 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
         from: current.stage,
       },
     }),
+    upsertPendingLeadCalendarSync(leadId),
   ]);
+
+  await reconcileCalendarAfterCommit(leadId);
+
+  return { ok: true };
+}
+
+// Security Phase 20 (Google Kalendář 1.0) — explicitní smazání
+// naplánovaného kontaktu. Oddělené od logCallOutcome výše, protože tam je
+// next_follow_up_at nezávisle VOLITELNÉ pole (prázdné = "neřešeno", ne
+// "smazat") — bez vlastní akce by nešlo rozlišit, že uživatel termín
+// doopravdy chce odstranit, ne jen že ho v tomhle zápisu nevyplnil.
+export async function removeLeadFollowUp(leadId: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const [current] = await db
+    .select({ nextFollowUpAt: leads.nextFollowUpAt })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  await db.batch([
+    db.update(leads).set({ nextFollowUpAt: null, updatedAt: new Date() }).where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "follow_up_removed",
+      metadata: { from: current.nextFollowUpAt },
+    }),
+    upsertPendingLeadCalendarSync(leadId),
+  ]);
+
+  await reconcileCalendarAfterCommit(leadId);
 
   return { ok: true };
 }
@@ -437,7 +524,14 @@ export async function updateLeadStage(leadId: string, rawStage: string): Promise
       kind: "stage_changed",
       metadata: { from: current.stage, to: validated.value },
     }),
+    // Security Phase 20 — změna fáze může leada poslat mimo
+    // ACTIVE_LEAD_STAGES (nebo zpátky do ní) → mění efektivní cílový
+    // termín (effectiveNextFollowUpAt), i když next_follow_up_at samotné
+    // zůstalo stejné. Upsert + reconcile se proto spouští i tady.
+    upsertPendingLeadCalendarSync(leadId),
   ]);
+
+  await reconcileCalendarAfterCommit(leadId);
 
   return { ok: true };
 }
@@ -612,15 +706,24 @@ export async function linkLeadToExistingOrganization(
     metadata: { organizationId, linkedExisting: true },
   });
 
+  // Security Phase 20 — konverze vždy nastaví stage='converted', tedy
+  // mimo ACTIVE_LEAD_STAGES → efektivní cílový termín (reconcileLeadCalendarEvent)
+  // se stává null bez ohledu na next_follow_up_at, existující kalendářová
+  // událost (pokud byla) se musí smazat.
+  const calendarSyncUpsert = upsertPendingLeadCalendarSync(leadId);
+
   if (Object.keys(orgUpdates).length > 0) {
     await db.batch([
       leadUpdate,
       activityInsert,
       db.update(organizations).set(orgUpdates).where(eq(organizations.id, organizationId)),
+      calendarSyncUpsert,
     ]);
   } else {
-    await db.batch([leadUpdate, activityInsert]);
+    await db.batch([leadUpdate, activityInsert, calendarSyncUpsert]);
   }
+
+  await reconcileCalendarAfterCommit(leadId);
 
   return { ok: true };
 }
@@ -668,7 +771,13 @@ export async function convertLeadToNewOrganization(
       kind: "converted",
       metadata: { organizationId: result.organizationId, linkedExisting: false },
     }),
+    // Security Phase 20 — stejný důvod jako u linkLeadToExistingOrganization:
+    // stage='converted' je mimo ACTIVE_LEAD_STAGES, existující kalendářová
+    // událost (pokud byla) se musí smazat.
+    upsertPendingLeadCalendarSync(leadId),
   ]);
+
+  await reconcileCalendarAfterCommit(leadId);
 
   return result;
 }
