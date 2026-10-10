@@ -26,13 +26,20 @@ import { rawExtractedReceiptSchema, type RawExtractedReceipt } from "./skladVali
 // pojistka při skutečném volání — Gateway request sám odmítne, pokud model
 // tyhle schopnosti nemá.
 //
-// Jediné místo v appce, kde je model ID — čte se z proměnné prostředí
+// Primární (levný první pokus) model — čte se z proměnné prostředí
 // AI_GATEWAY_MODEL (fallback na nano, kdyby proměnná chyběla), NIKDY
-// natvrdo na víc místech. Případný přechod na dražší `openai/gpt-5-mini`
-// (po změření přesnosti na první ostré Penny účtence) je jen změna téhle
-// jedné proměnné prostředí ve Vercelu — appka na to žádnou kódovou změnu
-// nepotřebuje.
+// natvrdo na víc místech.
 export const EXTRACTION_MODEL_ID = process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5-nano";
+
+// Záložní (dražší) model pro PŘESNĚ JEDEN automatický druhý pokus, když
+// primární model nad stejnými připravenými výřezy nevrátí ani jeden
+// použitelný řádek (viz triggerGoodsReceiptExtraction v skladExtraction.ts
+// — tam je i celá orchestrace: žádný další fallback, žádné nové
+// preprocessing, stejná bezpečná validace i lidské potvrzení výsledku).
+// Schválené explicitní rozhodnutí, proto napevno (ne přes proměnnou
+// prostředí jako EXTRACTION_MODEL_ID) — jde o jediný definovaný záložní
+// krok, ne o obecně přepínatelný model.
+export const FALLBACK_EXTRACTION_MODEL_ID = "openai/gpt-5-mini";
 
 export type ReceiptImageInput = { mimeType: string; bytes: Buffer };
 
@@ -65,9 +72,13 @@ Pokud nějaký ÚDAJ na dokladu není nebo není čitelný, vrať pro něj null 
 // výstup. skladExtraction.ts výsledek hned po návratu provede přes
 // sanitizeExtractedReceipt (skladValidation.ts), co nečitelné/nesmyslné
 // řádky bezpečně vyřadí.
-export async function extractReceiptData(images: ReceiptImageInput[]): Promise<RawExtractedReceipt> {
+//
+// `modelId` je POVINNÝ a vždy explicitní na volajícím místě (EXTRACTION_MODEL_ID
+// nebo FALLBACK_EXTRACTION_MODEL_ID) — žádný tichý výchozí model tady,
+// ať je ve skladExtraction.ts na první pohled vidět, který pokus zrovna běží.
+export async function extractReceiptData(images: ReceiptImageInput[], modelId: string): Promise<RawExtractedReceipt> {
   const { output } = await generateText({
-    model: gateway(EXTRACTION_MODEL_ID),
+    model: gateway(modelId),
     output: Output.object({ schema: rawExtractedReceiptSchema, name: "ExtractedReceipt" }),
     providerOptions: {
       gateway: { has: ["vision", "structured-output"] },

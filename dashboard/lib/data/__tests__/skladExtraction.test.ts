@@ -170,6 +170,7 @@ const mockExtractReceiptData = vi.fn();
 vi.mock("../receiptExtractionModel", () => ({
   extractReceiptData: (...args: unknown[]) => mockExtractReceiptData(...args),
   EXTRACTION_MODEL_ID: "openai/gpt-5-nano",
+  FALLBACK_EXTRACTION_MODEL_ID: "openai/gpt-5-mini",
 }));
 
 // Příprava obrázku (ořez/normalizace/dělení na výřezy) je čistá obrazová
@@ -412,7 +413,7 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
     expect(lineInserts).toHaveLength(1);
   });
 
-  it("úplně nečitelný doklad (VŠECHNY řádky nepoužitelné) je selhání, ne prázdná needs_review příjemka — retry zůstává možný", async () => {
+  it("úplně nečitelný doklad (VŠECHNY řádky nepoužitelné i po záložním modelu) je selhání, ne prázdná needs_review příjemka — retry zůstává možný", async () => {
     mockExtractReceiptData.mockResolvedValue(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
@@ -421,6 +422,67 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
     // Stejný bezpečný retry jako u chyby modelu: extraction_status → 'failed'.
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
+    // I úplně nečitelný doklad vyzkoušel záložní model — přesně jednou, ne víckrát.
+    expect(mockExtractReceiptData).toHaveBeenCalledTimes(2);
+    expect(mockExtractReceiptData.mock.calls[1][1]).toBe("openai/gpt-5-mini");
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — automatický záložní pokus přes openai/gpt-5-mini (přesně jednou, jen když levný model nevrátí žádný použitelný řádek)", () => {
+  it("primární model (nano) uspěje → záložní model se VŮBEC nevolá", async () => {
+    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted());
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockExtractReceiptData).toHaveBeenCalledTimes(1);
+    expect(mockExtractReceiptData.mock.calls[0][1]).toBe("openai/gpt-5-nano");
+  });
+
+  it("primární model (nano) nevrátí žádný použitelný řádek → přesně jeden automatický pokus přes mini se STEJNÝMI výřezy, uspěje → doklad needs_review s modelem mini", async () => {
+    const bandA = { mimeType: "image/jpeg", bytes: Buffer.from("band-a") };
+    mockPreprocessReceiptPage.mockResolvedValueOnce([bandA]);
+    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ description: "Pivo 12°" })] }));
+
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockExtractReceiptData).toHaveBeenCalledTimes(2);
+    // Oba pokusy dostanou STEJNÉ už připravené výřezy — žádné nové ořezávání/dělení.
+    expect(mockExtractReceiptData.mock.calls[0][0]).toEqual(mockExtractReceiptData.mock.calls[1][0]);
+    expect(mockExtractReceiptData.mock.calls[0][1]).toBe("openai/gpt-5-nano");
+    expect(mockExtractReceiptData.mock.calls[1][1]).toBe("openai/gpt-5-mini");
+    expect(mockPreprocessReceiptPage).toHaveBeenCalledTimes(1); // ne znovu pro záložní pokus
+
+    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
+    expect(lineInserts).toHaveLength(1);
+
+    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'))!;
+    const extractionRawJson = JSON.stringify(receiptUpdate.params);
+    expect(extractionRawJson).toContain("openai/gpt-5-mini"); // extraction_raw.model = skutečně použitý model
+
+    const activityInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
+    expect(JSON.stringify(activityInsert.params)).toContain("záložní pokus");
+  });
+
+  it("výjimka ze záložního modelu (ne jen prázdné řádky) se bezpečně zaloguje a appka to NEZKOUŠÍ potřetí", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+    mockExtractReceiptData.mockRejectedValueOnce(new Error("mini model timeout"));
+
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result.ok).toBe(false);
+    expect(mockExtractReceiptData).toHaveBeenCalledTimes(2); // žádný třetí pokus
+    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+
+    const loggedCalls = consoleErrorSpy.mock.calls.map((call) => JSON.stringify(call));
+    expect(loggedCalls.some((logged) => logged.includes("Záložní") && logged.includes("mini model timeout"))).toBe(true);
+
+    consoleErrorSpy.mockRestore();
   });
 });
 
