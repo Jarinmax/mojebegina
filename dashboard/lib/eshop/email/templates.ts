@@ -7,6 +7,7 @@
 import { formatKc } from "@/lib/format";
 import { getShippingMethod } from "../shipping";
 import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer";
+import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
 
 export type EmailOrder = {
   id: string;
@@ -197,7 +198,7 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
       ? "Děkujeme za objednávku. Begina ji přijala a platbu jsme obdrželi — objednávku připravujeme."
       : "Děkujeme za objednávku. Begina ji přijala a připravíme ji po zaplacení.") +
     (paid && ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
-  const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
+  const statusUrl = eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
   const details: [string, string][] = [
     ["Objednávka", reference],
     ["Doprava", deliveryText(order)],
@@ -289,7 +290,7 @@ export function customerPaymentReceivedEmail(
       ? "Platbu za vaši objednávku jsme přijali."
       : "Děkujeme, platbu za vaši objednávku jsme přijali. Objednávku připravujeme.") +
     (ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
-  const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
+  const statusUrl = eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
   const details: [string, string][] = [
     ["Objednávka", reference],
     ["Přijatá částka", formatKc(order.totalKc)],
@@ -397,7 +398,7 @@ export function customerReplacementEmail(
         ? `Objednávka je zaplacená. Přeplatek ${formatHalKc(-remainingHal)} vám vrátíme. Objednávku připravujeme.`
         : "Objednávka je zaplacená — nic dalšího nehraďte. Objednávku připravujeme.";
   const invoice = remainingHal <= 0 ? invoiceSentence(ctx.invoiceNumber) : "";
-  const statusUrl = `${ctx.baseUrl}/eshop/objednavka/${order.id}`;
+  const statusUrl = eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
   const details: [string, string][] = [
     ["Náhradní objednávka", reference],
     ["Místo zrušené objednávky", ctx.fromReference],

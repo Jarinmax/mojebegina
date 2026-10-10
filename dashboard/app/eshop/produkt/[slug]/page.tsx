@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import ShopLink from "@/components/eshop/ShopLink";
 import { notFound } from "next/navigation";
 import { Check, ChevronLeft, Snowflake } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
@@ -23,7 +23,20 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const product = (await getCatalogIndex()).getProduct(slug);
-  return product ? { title: product.name, description: product.shortDescription ?? undefined } : {};
+  if (!product) return {};
+  const description = product.shortDescription ?? undefined;
+  return {
+    title: product.name,
+    description,
+    alternates: { canonical: `/produkt/${product.slug}` },
+    openGraph: {
+      type: "website",
+      title: product.name,
+      description,
+      url: `/produkt/${product.slug}`,
+      ...(product.image ? { images: [product.image] } : {}),
+    },
+  };
 }
 
 const MISSING = "Doplníme";
@@ -77,13 +90,13 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
-      <Link
-        href={`/eshop/kategorie/${category.slug}`}
+      <ShopLink
+        href={`/kategorie/${category.slug}`}
         className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-6 -ml-1"
       >
         <ChevronLeft className="w-4 h-4" />
         {category.name}
-      </Link>
+      </ShopLink>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-start">
         <div className="md:sticky md:top-20">

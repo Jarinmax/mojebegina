@@ -31,6 +31,7 @@ export type InfoBlock = {
 };
 
 export type InfoPage = {
+  /** Cesta e-shopu bez /eshop („/o-nas“) — odkaz přes ShopLink / eshopHref. */
   path: string;
   footerLabel: string;
   title: string;
@@ -70,7 +71,7 @@ export const filteredWater = [
 // Text stránky O nás z begina.cz (www.begina.cz/o-nas/), dodaný vedením
 // 4. 10. 2026 jako snímky obrazovky; přepsaný doslova v pořadí na stránce.
 const aboutPage: InfoPage = {
-  path: "/eshop/o-nas",
+  path: "/o-nas",
   footerLabel: "O nás",
   title: "O nás",
   description: "Begina — čerstvé polévky, sirupy a nápoje z čisté filtrované vody v praktickém balení.",
@@ -115,7 +116,7 @@ const aboutPage: InfoPage = {
 // Text stránky O vodě z begina.cz (www.begina.cz/o-vode/), dodaný vedením
 // 3. 10. 2026 jako snímek obrazovky; přepsaný doslova (nadpisy jako na webu).
 const waterPage: InfoPage = {
-  path: "/eshop/o-vode",
+  path: "/o-vode",
   footerLabel: "O vodě",
   title: "Voda je základ",
   description: "Proč Begina používá čistou filtrovanou vodu.",
@@ -139,7 +140,7 @@ const waterPage: InfoPage = {
 };
 
 const shippingPage: InfoPage = {
-  path: "/eshop/doprava",
+  path: "/doprava",
   footerLabel: "Doprava",
   title: "Doprava a platba",
   description: "Způsoby doručení a platby v e-shopu Begina.",
@@ -164,7 +165,7 @@ const shippingPage: InfoPage = {
 
 // Text dodaný vedením 3. 10. 2026: lib/eshop/content/obchodniPodminky.ts.
 const termsPage: InfoPage = {
-  path: "/eshop/obchodni-podminky",
+  path: "/obchodni-podminky",
   footerLabel: "Obchodní podmínky",
   title: "Obchodní podmínky e-shopu Begina.cz",
   subtitle: `Platné a účinné od ${TERMS_EFFECTIVE}`,
@@ -173,7 +174,7 @@ const termsPage: InfoPage = {
 };
 
 const privacyPage: InfoPage = {
-  path: "/eshop/ochrana-osobnich-udaju",
+  path: "/ochrana-osobnich-udaju",
   footerLabel: "GDPR",
   title: "Ochrana osobních údajů (GDPR)",
   subtitle: `Platné a účinné od ${PRIVACY_EFFECTIVE}`,

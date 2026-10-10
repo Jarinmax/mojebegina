@@ -14,6 +14,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { recordStripeAttempt } from "../payments";
+import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -94,7 +95,7 @@ export function buildCheckoutSessionParams(order: PaymentOrder, baseUrl: string)
         ];
 
   const metadata = { orderId: order.id, source: STRIPE_SOURCE };
-  const statusUrl = `${baseUrl}/eshop/objednavka/${order.id}`;
+  const statusUrl = eshopAbsoluteUrl(baseUrl, orderStatusPath(order.id));
   return {
     mode: "payment",
     locale: "cs",
