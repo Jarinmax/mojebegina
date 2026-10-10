@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import logoMark from "@/public/logo-begina-mark.png";
 import CartLink from "@/components/eshop/CartLink";
 import CatalogProvider from "@/components/eshop/CatalogProvider";
+import { EshopBaseProvider } from "@/components/eshop/EshopBase";
+import ShopLink from "@/components/eshop/ShopLink";
+import { currentSite, eshopBase } from "@/lib/eshop/siteServer";
+import { indexingEnabled } from "@/lib/site/flags";
+import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
 import EshopFooter from "@/components/eshop/EshopFooter";
 import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
@@ -13,17 +17,22 @@ import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 
-// E-shop 1.0 (náhled) — veřejná část bez přihlášení. Žádná stránka pod
-// /eshop nevolá requireCustomerContext ani nečte session. Dokud jde
-// o náhled, nesmí se indexovat.
-export const metadata: Metadata = {
-  title: {
-    default: "E-shop Begina",
-    template: "%s | E-shop Begina",
-  },
-  description: "Polévky Begina s doručením.",
-  robots: { index: false, follow: false },
-};
+// E-shop — veřejná část bez přihlášení. Žádná stránka pod /eshop nevolá
+// requireCustomerContext ani nečte session. Na begina.cz běží tytéž stránky
+// bez prefixu /eshop (proxy.ts). Indexovat smí vyhledávač jen begina.cz
+// a jen s ESHOP_INDEXING=on; kanonické adresy vždy na https://begina.cz.
+export async function generateMetadata(): Promise<Metadata> {
+  const index = (await currentSite()) === "public" && indexingEnabled();
+  return {
+    metadataBase: new URL(PUBLIC_ORIGIN),
+    title: {
+      default: "E-shop Begina",
+      template: "%s | E-shop Begina",
+    },
+    description: "Polévky Begina s doručením.",
+    robots: index ? { index: true, follow: true } : { index: false, follow: false },
+  };
+}
 
 // Katalog se čte z DB při každém požadavku — build DB nepotřebuje a změna
 // v katalogu se projeví hned.
@@ -46,30 +55,31 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
   // Menu z návrhu úvodní stránky: kategorie z katalogu + O nás, O vodě (jako begina.cz).
   const menu = [
     ...availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)).map((c) => ({
-      href: `/eshop/kategorie/${c.slug}`,
+      href: `/kategorie/${c.slug}`,
       label: c.menuLabel,
     })),
     { href: INFO_PAGES.about.path, label: "O nás" },
     { href: INFO_PAGES.water.path, label: "O vodě" },
   ];
   return (
+    <EshopBaseProvider base={await eshopBase()}>
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
     <div className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner mode={storeMode()} />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Link href="/eshop" className="flex items-center gap-2.5" aria-label="Begina.cz — úvod">
+          <ShopLink href="/" className="flex items-center gap-2.5" aria-label="Begina.cz — úvod">
             <Image src={logoMark} alt="" className="h-9 w-auto" priority />
             <span className="flex flex-col leading-tight">
               <span className="font-serif text-lg tracking-wide uppercase">Begina.cz</span>
               <span className="text-[11px] italic text-neutral-500">Když rozhoduje chuť</span>
             </span>
-          </Link>
+          </ShopLink>
           <nav aria-label="Hlavní menu" className="hidden md:flex items-center gap-6 lg:gap-8 text-[15px]">
             {menu.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:underline underline-offset-4">
+              <ShopLink key={item.href} href={item.href} className="hover:underline underline-offset-4">
                 {item.label}
-              </Link>
+              </ShopLink>
             ))}
           </nav>
           <CartLink />
@@ -79,9 +89,9 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
           <ul className="flex gap-5 overflow-x-auto px-4 py-2 text-sm whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {menu.map((item) => (
               <li key={item.href}>
-                <Link href={item.href} className="inline-block py-1.5">
+                <ShopLink href={item.href} className="inline-block py-1.5">
                   {item.label}
-                </Link>
+                </ShopLink>
               </li>
             ))}
           </ul>
@@ -93,5 +103,6 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
       <EshopFooter />
     </div>
     </CatalogProvider>
+    </EshopBaseProvider>
   );
 }

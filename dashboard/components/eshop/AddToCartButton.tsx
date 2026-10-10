@@ -1,7 +1,7 @@
 "use client";
 
+import ShopLink from "./ShopLink";
 import { useState } from "react";
-import Link from "next/link";
 import { Check } from "lucide-react";
 import type { Variant } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
@@ -86,9 +86,9 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
         <p className="mt-3 text-sm text-begina-primary-800 flex items-center gap-1.5 flex-wrap" role="status">
           <Check className="w-4 h-4" />
           Přidáno do košíku{variants.length > 1 && selected.label ? ` (${selected.label})` : ""}.
-          <Link href="/eshop/kosik" className="font-medium underline underline-offset-2">
+          <ShopLink href="/kosik" className="font-medium underline underline-offset-2">
             Zobrazit košík
-          </Link>
+          </ShopLink>
         </p>
       )}
     </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import Link from "next/link";
+import ShopLink from "@/components/eshop/ShopLink";
+import { useEshopHref } from "@/components/eshop/EshopBase";
 import { CircleCheck } from "lucide-react";
 import { AGE_RESTRICTION_NOTICE, isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
@@ -53,6 +54,7 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
   const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
   const { cart, clear } = useCart();
   const catalog = useCatalog();
+  const href = useEshopHref();
   const hydrated = useHydrated();
   const [state, formAction, pending] = useActionState(submitCheckoutAction, initialState);
   const [values, setValues] = useState<Values>(emptyValues);
@@ -151,16 +153,16 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           </dl>
         </div>
         {savedOrderId && confirmation.payment.id === "prevod" && (
-          <Link
-            href={`/eshop/objednavka/${savedOrderId}`}
+          <ShopLink
+            href={`/objednavka/${savedOrderId}`}
             className="mt-6 flex w-full justify-center bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5"
           >
             Platební údaje a QR kód
-          </Link>
+          </ShopLink>
         )}
-        <Link href="/eshop" className="mt-6 inline-block text-sm font-medium underline underline-offset-2">
+        <ShopLink href="/" className="mt-6 inline-block text-sm font-medium underline underline-offset-2">
           Zpět do e-shopu
-        </Link>
+        </ShopLink>
       </div>
     );
   }
@@ -179,9 +181,9 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
     return (
       <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
         <p className="text-neutral-600 mb-4">V košíku nic není.</p>
-        <Link href="/eshop" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
+        <ShopLink href="/" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
           Prohlédnout nabídku
-        </Link>
+        </ShopLink>
       </div>
     );
   }
@@ -355,11 +357,11 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           />
           <span>
             Souhlasím s{" "}
-            <a href={INFO_PAGES.terms.path} target="_blank" rel="noopener" className="underline underline-offset-2">
+            <a href={href(INFO_PAGES.terms.path)} target="_blank" rel="noopener" className="underline underline-offset-2">
               obchodními podmínkami
             </a>{" "}
             a beru na vědomí{" "}
-            <a href={INFO_PAGES.privacy.path} target="_blank" rel="noopener" className="underline underline-offset-2">
+            <a href={href(INFO_PAGES.privacy.path)} target="_blank" rel="noopener" className="underline underline-offset-2">
               zpracování osobních údajů
             </a>
             .
@@ -385,9 +387,9 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
         >
           {pending ? "Odesílám…" : "Objednat s povinností platby"}
         </button>
-        <Link href="/eshop/kosik" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
+        <ShopLink href="/kosik" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
           Upravit košík
-        </Link>
+        </ShopLink>
       </aside>
     </form>
   );

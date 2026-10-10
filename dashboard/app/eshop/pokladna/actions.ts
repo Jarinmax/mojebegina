@@ -15,6 +15,8 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
+import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
+import { eshopBase } from "@/lib/eshop/siteServer";
 import { isOrderWriteEnabled, parseOrderToken, saveEshopOrder } from "@/lib/eshop/orderWrite";
 import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
@@ -98,7 +100,7 @@ export async function submitCheckoutAction(
     if (result.value.payment.id === CARD_PAYMENT_METHOD && stripe) {
       // Objednávka je uložená i když platbu nejde otevřít (výpadek Stripe) —
       // zákazník ji zaplatí znovu ze stránky objednávky.
-      const fallback = `/eshop/objednavka/${saved.orderId}?platba=chyba`;
+      const fallback = eshopHref(await eshopBase(), `${orderStatusPath(saved.orderId)}?platba=chyba`);
       try {
         const payment = await startCardPayment(
           db,

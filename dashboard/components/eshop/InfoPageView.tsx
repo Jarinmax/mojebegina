@@ -1,4 +1,4 @@
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import type { ReactNode } from "react";
 import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
 
@@ -129,9 +129,9 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
       <p className="mt-8 text-sm text-neutral-500">
         Provozovatel: {OPERATOR.name}, {OPERATOR.address}, IČO {OPERATOR.ico}
       </p>
-      <Link href="/eshop" className="mt-4 inline-block text-sm font-medium underline underline-offset-2">
+      <ShopLink href="/" className="mt-4 inline-block text-sm font-medium underline underline-offset-2">
         Zpět do e-shopu
-      </Link>
+      </ShopLink>
     </article>
   );
 }

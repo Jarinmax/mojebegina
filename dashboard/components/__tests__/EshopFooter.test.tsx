@@ -12,6 +12,8 @@ import { FOOTER_LINKS, INFO_PAGES } from "@/lib/eshop/infoPages";
 afterEach(() => cleanup());
 
 const APP = path.join(__dirname, "../../app");
+// Cesty informačních stránek jsou bez /eshop (lib/eshop/paths.ts); stránky leží v app/eshop.
+const ESHOP_APP = path.join(APP, "eshop");
 
 describe("patička e-shopu", () => {
   it("čtyři klikací odkazy ve správném pořadí a na správné adresy", () => {
@@ -28,7 +30,7 @@ describe("patička e-shopu", () => {
 
   it("každý odkaz má svou stránku (app/…/page.tsx)", () => {
     for (const page of FOOTER_LINKS) {
-      expect(existsSync(path.join(APP, page.path, "page.tsx")), page.path).toBe(true);
+      expect(existsSync(path.join(ESHOP_APP, page.path, "page.tsx")), page.path).toBe(true);
     }
   });
 
@@ -89,7 +91,7 @@ describe("informační stránky", () => {
     const positions = order.map((part) => text.indexOf(part));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(existsSync(path.join(APP, INFO_PAGES.water.path, "page.tsx"))).toBe(true);
+    expect(existsSync(path.join(ESHOP_APP, INFO_PAGES.water.path, "page.tsx"))).toBe(true);
   });
 
   it("GDPR: text dodaný 8. 10. 2026, celý a v pořadí (články I–XIII, odrážky, odstavce za nimi)", () => {
@@ -140,10 +142,10 @@ describe("informační stránky", () => {
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(screen.getAllByRole("link", { name: "www.uoou.gov.cz" })).toHaveLength(1);
-    // čl. XIII: celá adresa je odkaz (dnes na begina.cz, po přepnutí domény přesměrování v next.config.ts)
+    // čl. XIII: celá adresa je odkaz (dnes na begina.cz, po přepnutí domény přesměrování v proxy.ts)
     expect(screen.getByRole("link", { name: "www.begina.cz/gdpr/" }).getAttribute("href")).toBe("https://www.begina.cz/gdpr/");
     expect(screen.getAllByRole("link", { name: "info@begina.cz" }).length).toBeGreaterThanOrEqual(3);
-    expect(existsSync(path.join(APP, INFO_PAGES.privacy.path, "page.tsx"))).toBe(true);
+    expect(existsSync(path.join(ESHOP_APP, INFO_PAGES.privacy.path, "page.tsx"))).toBe(true);
   });
 });
 
@@ -171,19 +173,30 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
 });
 
 describe("odkazy na právní stránky ze starého webu begina.cz", () => {
-  it("/gdpr, /obchodni-podminky, /doprava přesměrují na stránky e-shopu (dočasně) a cíle existují", async () => {
-    const config = (await import("../../next.config")).default;
-    const redirects = await config.redirects!();
-    expect(redirects).toEqual([
-      { source: "/gdpr", destination: INFO_PAGES.privacy.path, permanent: false },
-      { source: "/obchodni-podminky", destination: INFO_PAGES.terms.path, permanent: false },
-      { source: "/doprava", destination: INFO_PAGES.shipping.path, permanent: false },
-    ]);
-    for (const r of redirects) {
-      expect(existsSync(path.join(APP, r.destination, "page.tsx"))).toBe(true);
+  it("/gdpr, /obchodni-podminky, /doprava přesměrují na stránky e-shopu a cíle existují (proxy.ts)", async () => {
+    const { route } = await import("@/lib/site/routing");
+    const cases = [
+      ["/gdpr", INFO_PAGES.privacy.path],
+      ["/obchodni-podminky", INFO_PAGES.terms.path],
+      ["/doprava", INFO_PAGES.shipping.path],
+    ] as const;
+    for (const [source, target] of cases) {
+      // moje.begina.cz: dočasně (307) na /eshop/… — jako dosud v next.config.ts
+      expect(route({ host: "moje.begina.cz", pathname: source, search: "", method: "GET" }, {})).toEqual({
+        kind: "redirect",
+        location: `/eshop${target}`,
+        status: 307,
+      });
+      expect(existsSync(path.join(ESHOP_APP, target, "page.tsx"))).toBe(true);
       // zdroj nesmí přepsat existující stránku aplikace
-      expect(existsSync(path.join(APP, r.source))).toBe(false);
+      expect(existsSync(path.join(APP, source))).toBe(false);
     }
+    // begina.cz: /gdpr → GDPR natrvalo; /obchodni-podminky a /doprava jsou přímo stránky
+    expect(route({ host: "begina.cz", pathname: "/gdpr", search: "", method: "GET" }, {})).toEqual({
+      kind: "redirect",
+      location: `https://begina.cz${INFO_PAGES.privacy.path}`,
+      status: 301,
+    });
   });
 
   it("adresa s cestou je celá odkaz, tečka za větou do odkazu nepatří", async () => {

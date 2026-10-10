@@ -1,4 +1,4 @@
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import Image from "next/image";
 import type { Category } from "@/lib/eshop/types";
 
@@ -13,8 +13,8 @@ export default function CategoryTile({
   tabIndex?: number;
 }) {
   return (
-    <Link
-      href={`/eshop/kategorie/${category.slug}`}
+    <ShopLink
+      href={`/kategorie/${category.slug}`}
       tabIndex={tabIndex}
       draggable={false}
       className="group block relative aspect-[5/8] overflow-hidden shadow-md shadow-neutral-400/50 bg-begina-primary-50"
@@ -33,6 +33,6 @@ export default function CategoryTile({
       <span className="absolute inset-x-0 top-[44%] h-[14%] bg-white/95 flex items-center justify-center text-center text-sm sm:text-base text-begina-primary-900 px-1">
         {category.name}
       </span>
-    </Link>
+    </ShopLink>
   );
 }

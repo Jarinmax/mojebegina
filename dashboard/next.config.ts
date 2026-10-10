@@ -10,9 +10,6 @@ import type { NextConfig } from "next";
 // zásah, než odpovídá "nejmenšímu bezpečnému kroku". Odloženo do
 // samostatného hardeningu (viz PRODUCTION_GO_LIVE_CHECKLIST.md).
 const securityHeaders = [
-  // 2 roky, včetně subdomén. BEZ `preload` — to je nevratný krok vázaný na
-  // finální doménu (moje.begina.cz), ne na *.vercel.app Preview alias.
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -35,26 +32,47 @@ const noStoreSources = [
   "/api/auth/:path*",
 ];
 
-// Adresy právních a informačních stránek ze stávajícího webu begina.cz
-// (WordPress). Na ně odkazují dodané texty (např. GDPR čl. XIII
-// „www.begina.cz/gdpr/“) — po přepnutí domény na tuto aplikaci vedou na
-// stránky e-shopu. Dočasné (307), dokud není doména definitivně přepnutá.
-const LEGACY_PAGE_REDIRECTS = [
-  { source: "/gdpr", destination: "/eshop/ochrana-osobnich-udaju", permanent: false },
-  { source: "/obchodni-podminky", destination: "/eshop/obchodni-podminky", permanent: false },
-  { source: "/doprava", destination: "/eshop/doprava", permanent: false },
-];
+// Domény (proxy.ts, lib/site/hosts.ts): begina.cz a www.begina.cz = veřejný
+// web a e-shop, cokoli jiného = MojeBegina. `has`/`missing` typu host se
+// porovnává s hlavičkou Host (bez portu) celou hodnotou.
+const PUBLIC_HOSTS = "(?:www\\.)?begina\\.cz";
 
+// HSTS
+// - MojeBegina (moje.begina.cz): 2 roky, včetně subdomén — beze změny. BEZ
+//   `preload` — to je nevratný krok vázaný na finální doménu.
+// - begina.cz: zatím 1 týden a BEZ includeSubDomains — hlavní doména by
+//   jinak vynutila HTTPS na všech subdoménách begina.cz (pošta, webmail…).
+//   Prodloužit až po stabilním provozu a kontrole subdomén.
+const HSTS_INTERNAL = { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" };
+const HSTS_PUBLIC = { key: "Strict-Transport-Security", value: "max-age=604800" };
+
+// Stránka objednávky zákazníka: adresa obsahuje náhodné id (jediný „klíč“) —
+// neposílat ji dál v Referer (Stripe, odkazy ven) a neukládat do cache.
+const ORDER_PAGE_HEADERS = [noStoreHeader, { key: "Referrer-Policy", value: "no-referrer" }];
+
+// Stará přesměrování /gdpr, /obchodni-podminky, /doprava jsou v proxy.ts
+// (lib/site/routing.ts) — next.config redirects běží PŘED proxy a na
+// begina.cz by vedla na /eshop/…
 const nextConfig: NextConfig = {
-  async redirects() {
-    return LEGACY_PAGE_REDIRECTS;
-  },
   async headers() {
     return [
       {
         source: "/:path*",
         headers: securityHeaders,
       },
+      {
+        source: "/:path*",
+        missing: [{ type: "host", value: PUBLIC_HOSTS }],
+        headers: [HSTS_INTERNAL],
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: PUBLIC_HOSTS }],
+        headers: [HSTS_PUBLIC],
+      },
+      // /eshop/objednavka/<id> (moje.begina.cz) i /objednavka/<id> (begina.cz)
+      { source: "/eshop/objednavka/:path*", headers: ORDER_PAGE_HEADERS },
+      { source: "/objednavka/:path*", headers: ORDER_PAGE_HEADERS },
       ...noStoreSources.map((source) => ({
         source,
         headers: [noStoreHeader],

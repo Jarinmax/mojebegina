@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
@@ -25,12 +25,12 @@ export default function CartView() {
     return (
       <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
         <p className="text-neutral-600 mb-4">Košík je prázdný.</p>
-        <Link
-          href="/eshop"
+        <ShopLink
+          href="/"
           className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5"
         >
           Prohlédnout nabídku
-        </Link>
+        </ShopLink>
       </div>
     );
   }
@@ -48,12 +48,12 @@ export default function CartView() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Link
-                    href={`/eshop/produkt/${line.product.slug}`}
+                  <ShopLink
+                    href={`/produkt/${line.product.slug}`}
                     className="font-medium hover:underline underline-offset-2"
                   >
                     {line.product.name}
-                  </Link>
+                  </ShopLink>
                   {line.variant.label && <p className="text-xs text-neutral-500">{line.variant.label}</p>}
                 </div>
                 <p className="font-medium tabular-nums shrink-0">{formatKc(line.lineTotalKc)}</p>
@@ -95,16 +95,16 @@ export default function CartView() {
             Košík obsahuje produkt, který zatím nelze objednat. Odeberte ho prosím.
           </p>
         ) : (
-          <Link
-            href="/eshop/pokladna"
+          <ShopLink
+            href="/pokladna"
             className="mt-5 w-full flex items-center justify-center bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg h-11"
           >
             Pokračovat k objednávce
-          </Link>
+          </ShopLink>
         )}
-        <Link href="/eshop" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
+        <ShopLink href="/" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
           Pokračovat v nákupu
-        </Link>
+        </ShopLink>
       </aside>
     </div>
   );

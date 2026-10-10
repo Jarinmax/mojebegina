@@ -1,5 +1,5 @@
+import ShopLink from "./ShopLink";
 import Image from "next/image";
-import Link from "next/link";
 import { stripCategories, type HomeCategory } from "@/lib/eshop/homeNav";
 
 // Pruh kategorií s kreslenými ikonami pod hero (návrh úvodní stránky).
@@ -13,8 +13,8 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
             key={category.slug}
             className={`w-1/3 sm:w-auto sm:flex-1 ${i > 0 ? "sm:border-l sm:border-dashed sm:border-[#D9CFBF]" : ""}`}
           >
-            <Link
-              href={`/eshop/kategorie/${category.slug}`}
+            <ShopLink
+              href={`/kategorie/${category.slug}`}
               className="group flex flex-col items-center gap-2 px-2 text-center"
             >
               <span className="h-20 sm:h-24 lg:h-[clamp(3.5rem,9vh,5.5rem)] flex items-end">
@@ -29,7 +29,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
               <span className="text-sm sm:text-base font-medium text-[#5E6B34] group-hover:underline underline-offset-4">
                 {category.stripLabel}
               </span>
-            </Link>
+            </ShopLink>
           </li>
         ))}
       </ul>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import ShopLink from "@/components/eshop/ShopLink";
 import { notFound } from "next/navigation";
 import { CircleCheck, CircleAlert, Clock } from "lucide-react";
 import { eq } from "drizzle-orm";
@@ -17,7 +17,7 @@ import TransferPayment from "./TransferPayment";
 // ESHOP 1.0 — stav e-shopové objednávky pro zákazníka (návrat ze Stripe).
 // Adresa obsahuje náhodné id objednávky; stránka ukazuje jen položky,
 // částku a stav platby — žádné jméno, adresu ani e-mail.
-export const metadata: Metadata = { title: "Stav objednávky", robots: { index: false } };
+export const metadata: Metadata = { title: "Stav objednávky", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function OrderStatusPage(props: PageProps<"/eshop/objednavka/[id]">) {
@@ -134,13 +134,13 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
         </div>
       )}
       {!paid && !cancelled && platba === "ok" && (
-        <Link href={`/eshop/objednavka/${order.id}?platba=ok`} className="text-sm underline underline-offset-2 mr-4">
+        <ShopLink href={`/objednavka/${order.id}?platba=ok`} className="text-sm underline underline-offset-2 mr-4">
           Obnovit stav
-        </Link>
+        </ShopLink>
       )}
-      <Link href="/eshop" className="text-sm font-medium underline underline-offset-2">
+      <ShopLink href="/" className="text-sm font-medium underline underline-offset-2">
         Zpět do e-shopu
-      </Link>
+      </ShopLink>
     </div>
   );
 }
