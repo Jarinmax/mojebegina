@@ -362,6 +362,51 @@ export const extractedReceiptSchema = z.object({
 });
 export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>;
 
+// --- RAW schéma pro strukturovaný výstup modelu (oprava po prvním ostrém
+// testu: "jediný vadný řádek nesmí shodit celý doklad") ---------------------
+//
+// extractedReceiptSchema/extractedReceiptLineSchema výš je STRIKTNÍ
+// (popis povinný, packageQuantity kladné, …) — vhodné jako tvar PO
+// filtraci, ale nebezpečné přímo jako schéma pro `Output.object` ve
+// receiptExtractionModel.ts: ten validuje CELÝ strukturovaný výstup
+// najednou, takže jediný nečitelný/nulový/nesmyslný řádek (poškozená
+// fotka, doklad rozdělený na výřezy s nejasným švem) by vyhodil chybu za
+// CELÝ doklad, ne jen za ten jeden řádek. RAW schéma proto nechává
+// všechna pole řádku nullable/bez omezení kladnosti — nečitelný řádek
+// model vrátí jako objekt s poli null (ne vynechaný, ne vymyšlený), appka
+// ho po návratu bezpečně vyřadí (viz sanitizeExtractedReceipt níž), místo
+// aby spadla validace celého JSON výstupu.
+export const rawExtractedReceiptLineSchema = z.object({
+  description: z.string().nullable(),
+  supplierItemCode: z.string().nullable(),
+  supplierAuxiliaryCode: z.string().nullable(),
+  packageQuantity: z.number().nullable(),
+  unitsPerPackage: z.number().nullable(),
+  unit: z.string().nullable(),
+  unitPriceWithoutVat: z.number().nullable(),
+  totalWithoutVat: z.number().nullable(),
+  vatAmount: z.number().nullable(),
+  totalWithVat: z.number().nullable(),
+  suggestedCategory: z.string().nullable(),
+  suggestedStockItemName: z.string().nullable(),
+  suggestedCanonicalUnit: z.string().nullable(),
+});
+export type RawExtractedReceiptLine = z.infer<typeof rawExtractedReceiptLineSchema>;
+
+export const rawExtractedReceiptSchema = z.object({
+  supplierName: z.string().nullable(),
+  supplierIco: z.string().nullable(),
+  supplierDic: z.string().nullable(),
+  documentNumber: z.string().nullable(),
+  documentDate: z.string().nullable(),
+  paymentMethod: z.string().nullable(),
+  lines: z.array(rawExtractedReceiptLineSchema),
+  totalWithoutVat: z.number().nullable(),
+  totalVat: z.number().nullable(),
+  totalWithVat: z.number().nullable(),
+});
+export type RawExtractedReceipt = z.infer<typeof rawExtractedReceiptSchema>;
+
 // Haléře se počítají ze VŠUDE stejně (Math.round, ne truncate) — stejná
 // konvence jako parseHaler výš, jen už z čísla, ne z řetězce (model vrací
 // number, ne text).
@@ -426,4 +471,92 @@ export function sanitizeExtractedDocumentDate(value: string | null): string | nu
     return null;
   }
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function sanitizeNullableString(value: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function sanitizeSuggestedCategory(value: string | null): ExtractedReceiptLine["suggestedCategory"] {
+  const allowed: readonly string[] = ["stock_material", "resale_goods", "operating_supply", "non_stock_private"];
+  return value && allowed.includes(value) ? (value as ExtractedReceiptLine["suggestedCategory"]) : null;
+}
+
+function sanitizeNonNegativeAmount(value: number | null): number {
+  return value !== null && value >= 0 ? value : 0;
+}
+
+// Řádek je "použitelný", jen když obsahuje VŠECHNO, co appka dál potřebuje
+// (popis, kladné množství/balení, jednotku, nezáporné částky) — `vatAmount`
+// NENÍ mezi podmínkami: appka ho stejně vždy zahazuje a DPH dopočítá sama
+// (normalizeExtractedLine), takže chybějící/nulový vatAmount není důvod
+// řádek zahodit jako nečitelný.
+function isUsableRawLine(line: RawExtractedReceiptLine): line is RawExtractedReceiptLine & {
+  description: string;
+  packageQuantity: number;
+  unitsPerPackage: number;
+  unit: string;
+  unitPriceWithoutVat: number;
+  totalWithoutVat: number;
+  totalWithVat: number;
+} {
+  return (
+    !!line.description?.trim() &&
+    line.packageQuantity !== null &&
+    line.packageQuantity > 0 &&
+    line.unitsPerPackage !== null &&
+    line.unitsPerPackage > 0 &&
+    !!line.unit?.trim() &&
+    line.unitPriceWithoutVat !== null &&
+    line.unitPriceWithoutVat >= 0 &&
+    line.totalWithoutVat !== null &&
+    line.totalWithoutVat >= 0 &&
+    line.totalWithVat !== null &&
+    line.totalWithVat >= 0
+  );
+}
+
+export type SanitizedExtractedReceipt = { receipt: ExtractedReceipt; droppedLineCount: number };
+
+// Bezpečná filtrace RAW výstupu modelu (oprava po prvním ostrém testu,
+// bod "jediný vadný řádek neshodí celý doklad") — nečitelný/nesmyslný
+// řádek (chybějící popis/jednotka, nekladné packageQuantity/unitsPerPackage,
+// záporná cena) se TIŠE VYNECHÁ, appka si k němu nic nevymýšlí. Když po
+// filtraci nezbyde ANI JEDEN použitelný řádek, volající (skladExtraction.ts)
+// to musí vyhodnotit jako selhání vytěžení (prázdná příjemka by jinak
+// skončila v needs_review bez jediného řádku ke kontrole).
+export function sanitizeExtractedReceipt(raw: RawExtractedReceipt): SanitizedExtractedReceipt {
+  const usableLines = raw.lines.filter(isUsableRawLine);
+  const lines: ExtractedReceiptLine[] = usableLines.map((line) => ({
+    description: line.description.trim(),
+    supplierItemCode: sanitizeNullableString(line.supplierItemCode),
+    supplierAuxiliaryCode: sanitizeNullableString(line.supplierAuxiliaryCode),
+    packageQuantity: line.packageQuantity,
+    unitsPerPackage: line.unitsPerPackage,
+    unit: line.unit.trim(),
+    unitPriceWithoutVat: line.unitPriceWithoutVat,
+    totalWithoutVat: line.totalWithoutVat,
+    vatAmount: sanitizeNonNegativeAmount(line.vatAmount),
+    totalWithVat: line.totalWithVat,
+    suggestedCategory: sanitizeSuggestedCategory(line.suggestedCategory),
+    suggestedStockItemName: sanitizeNullableString(line.suggestedStockItemName),
+    suggestedCanonicalUnit: sanitizeNullableString(line.suggestedCanonicalUnit),
+  }));
+
+  return {
+    receipt: {
+      supplierName: sanitizeNullableString(raw.supplierName),
+      supplierIco: sanitizeNullableString(raw.supplierIco),
+      supplierDic: sanitizeNullableString(raw.supplierDic),
+      documentNumber: sanitizeNullableString(raw.documentNumber),
+      documentDate: sanitizeNullableString(raw.documentDate),
+      paymentMethod: sanitizeNullableString(raw.paymentMethod),
+      lines,
+      totalWithoutVat: sanitizeNonNegativeAmount(raw.totalWithoutVat),
+      totalVat: sanitizeNonNegativeAmount(raw.totalVat),
+      totalWithVat: sanitizeNonNegativeAmount(raw.totalWithVat),
+    },
+    droppedLineCount: raw.lines.length - lines.length,
+  };
 }

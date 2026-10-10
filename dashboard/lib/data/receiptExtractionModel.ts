@@ -14,7 +14,7 @@
 import "server-only";
 import { generateText, Output } from "ai";
 import { gateway } from "@ai-sdk/gateway";
-import { extractedReceiptSchema, type ExtractedReceipt } from "./skladValidation";
+import { rawExtractedReceiptSchema, type RawExtractedReceipt } from "./skladValidation";
 
 // Model pro první Preview test: `openai/gpt-5-nano`, živě ověřený proti
 // katalogu Vercel AI Gateway (ne jen výzkumem z téhle sandboxové sítě, co
@@ -38,6 +38,8 @@ export type ReceiptImageInput = { mimeType: string; bytes: Buffer };
 
 const EXTRACTION_PROMPT = `Jsi asistent pro vytěžení dat z fotek účtenek/faktur z českých velkoobchodů a prodejen (např. Makro, Penny). Přečti VŠECHNY přiložené strany JAKO JEDEN DOKLAD (strany patří k sobě, mohou pokračovat přes stránky).
 
+Dlouhá účtenka může být rozdělená na víc svisle PŘEKRÝVAJÍCÍCH SE výřezů v pořadí shora dolů (strana pokračuje přes víc obrázků kvůli délce). Stejný řádek se kvůli překryvu může objevit na dvou po sobě jdoucích výřezech — takový řádek vrať jen JEDNOU, nikdy duplicitně.
+
 Vrať:
 - dodavatele (název, IČO, DIČ, pokud jsou na dokladu uvedené),
 - číslo dokladu a datum (formát YYYY-MM-DD),
@@ -48,7 +50,7 @@ Vrať:
 
 DŮLEŽITÉ: Číslo vedle ceny, co vypadá jako kód oddělení nebo kategorie (často krátký číselný kód, např. "23", "6"), NENÍ sazba DPH — nikdy si sazbu DPH nevymýšlej ani neurčuj z takového kódu. Stačí přepsat částky přesně tak, jak jsou na dokladu — sazbu si appka dopočítá sama z částek.
 
-Pokud nějaký údaj na dokladu není nebo není čitelný, vrať pro něj null (nehádej, nevymýšlej si).`;
+Pokud nějaký ÚDAJ na dokladu není nebo není čitelný, vrať pro něj null (nehádej, nevymýšlej si). Pokud je nečitelný/nerozluštitelný CELÝ ŘÁDEK (ne jen jedno pole), řádek STEJNĚ VRAŤ s neznámými poli jako null — nevynechávej ho a nevymýšlej si za něj hodnoty, appka takový řádek sama bezpečně rozpozná a vyřadí.`;
 
 // `generateObject` je v nainstalované verzi `ai` zastaralé (@deprecated Use
 // `generateText` with an `output` setting instead — node_modules/ai/dist/
@@ -56,10 +58,17 @@ Pokud nějaký údaj na dokladu není nebo není čitelný, vrať pro něj null 
 // Stejně tak `{type:'image', image, mediaType}` je zastaralé ve prospěch
 // `{type:'file', mediaType, data}` (@deprecated poznámka u ImagePart v
 // node_modules/@ai-sdk/provider-utils/dist/index.d.ts).
-export async function extractReceiptData(images: ReceiptImageInput[]): Promise<ExtractedReceipt> {
+//
+// Vrací RAW (nesanitizovaný) výstup — rawExtractedReceiptSchema je úmyslně
+// shovívavé (nullable pole, žádné omezení kladnosti), aby jediný
+// nečitelný/nulový řádek nevyhodil chybu validace za CELÝ strukturovaný
+// výstup. skladExtraction.ts výsledek hned po návratu provede přes
+// sanitizeExtractedReceipt (skladValidation.ts), co nečitelné/nesmyslné
+// řádky bezpečně vyřadí.
+export async function extractReceiptData(images: ReceiptImageInput[]): Promise<RawExtractedReceipt> {
   const { output } = await generateText({
     model: gateway(EXTRACTION_MODEL_ID),
-    output: Output.object({ schema: extractedReceiptSchema, name: "ExtractedReceipt" }),
+    output: Output.object({ schema: rawExtractedReceiptSchema, name: "ExtractedReceipt" }),
     providerOptions: {
       gateway: { has: ["vision", "structured-output"] },
     },

@@ -46,10 +46,12 @@ import {
   normalizeText,
   sanitizeExtractedDocumentDate,
   sanitizeExtractedIco,
+  sanitizeExtractedReceipt,
   STOCK_ITEM_KINDS,
   type LineKind,
 } from "./skladValidation";
 import { extractReceiptData, EXTRACTION_MODEL_ID, type ReceiptImageInput } from "./receiptExtractionModel";
+import { preprocessReceiptPage } from "./receiptImagePreprocessing";
 
 async function readBlobBytes(pathname: string): Promise<Buffer | null> {
   const blob = await get(pathname, { access: "private" });
@@ -81,7 +83,13 @@ async function fetchReceiptPageImages(receiptId: string): Promise<ReceiptImageIn
   for (const page of pages) {
     const bytes = await readBlobBytes(page.storageKey);
     if (bytes) {
-      images.push({ mimeType: page.mimeType, bytes });
+      // Oprava po prvním ostrém testu: appka pracuje jen s originálními
+      // bajty už uloženými v Blobu (žádné nové focení se nevyžaduje) — před
+      // odesláním modelu se každá strana ořízne/doostří/případně rozdělí
+      // na překrývající se výřezy (receiptImagePreprocessing.ts); výsledek
+      // je jeden nebo víc obrázků v pořadí shora dolů za každou stranu.
+      const processed = await preprocessReceiptPage({ mimeType: page.mimeType, bytes });
+      images.push(...processed);
     }
   }
   return images;
@@ -266,9 +274,9 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu." };
   }
 
-  let extracted;
+  let rawExtracted;
   try {
-    extracted = await extractReceiptData(images);
+    rawExtracted = await extractReceiptData(images);
   } catch (error) {
     console.error(
       `[sklad] AI vytěžení účtenky selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
@@ -276,6 +284,17 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     );
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
+  }
+
+  // Model vrací shovívavé RAW schéma (viz receiptExtractionModel.ts) —
+  // nečitelné/nesmyslné řádky se tu bezpečně vyřadí, aby jediný vadný
+  // řádek neshodil celý doklad. Když nezbyde ani jeden použitelný řádek,
+  // je to stejné selhání jako chyba modelu samotného (prázdná needs_review
+  // příjemka by jen matla kontrolora).
+  const { receipt: extracted, droppedLineCount } = sanitizeExtractedReceipt(rawExtracted);
+  if (extracted.lines.length === 0) {
+    await markExtractionFailed(receiptId);
+    return { ok: false, error: "Z dokladu se nepodařilo přečíst žádný použitelný řádek. Zkuste to znovu nebo doklad vyfoťte ostřeji." };
   }
 
   try {
@@ -299,8 +318,8 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
       const normalized = normalizeExtractedLine(line);
       const mapping = await findKnownMapping(finalSupplierId, normalized.supplierItemCode, normalized.rawDescription);
 
-      // suggestedCategory je už validovaná Zod enumem (extractedReceiptLineSchema)
-      // na jednu ze 4 povolených hodnot nebo null — žádná další kontrola
+      // suggestedCategory je už sanitizovaná (sanitizeExtractedReceipt) na
+      // jednu ze 4 povolených hodnot nebo null — žádná další kontrola
       // formátu tu není potřeba.
       const suggestedCategory = line.suggestedCategory;
       const lineKind: LineKind = mapping?.lineKind ?? (suggestedCategory as LineKind | null) ?? "stock_material";
@@ -361,7 +380,9 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
       authorUserId: ctx.userId,
       authorName: ctx.name,
       kind: "line_added",
-      body: `AI vytěžilo ${extracted.lines.length} řádků (model: ${EXTRACTION_MODEL_ID}) — čeká na kontrolu.`,
+      body: `AI vytěžilo ${extracted.lines.length} řádků (model: ${EXTRACTION_MODEL_ID})${
+        droppedLineCount > 0 ? `, ${droppedLineCount} nečitelných řádků přeskočeno` : ""
+      } — čeká na kontrolu.`,
     });
 
     return { ok: true };

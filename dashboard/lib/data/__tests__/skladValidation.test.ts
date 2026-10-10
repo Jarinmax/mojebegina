@@ -18,6 +18,7 @@ import {
   parseHaler,
   sanitizeExtractedDocumentDate,
   sanitizeExtractedIco,
+  sanitizeExtractedReceipt,
   validateDocumentPageInput,
   validateManualLineInput,
   validateStockItemInput,
@@ -384,6 +385,90 @@ describe("extractedReceiptSchema — strukturovaný výstup modelu", () => {
       baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithoutVat: -10 })] })
     );
     expect(result.success).toBe(false);
+  });
+});
+
+describe("sanitizeExtractedReceipt — nečitelný/nesmyslný řádek z RAW výstupu modelu se bezpečně vyřadí (oprava: jediný vadný řádek nesmí shodit celý doklad)", () => {
+  it("packageQuantity:0 (nečitelný/nesmyslný řádek) se vyřadí, dobrý řádek projde beze změny", () => {
+    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({
+        lines: [baseExtractedLine({ description: "Dobrý řádek" }), baseExtractedLine({ description: "Nečitelný", packageQuantity: 0 })],
+      }) as never
+    );
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].description).toBe("Dobrý řádek");
+    expect(droppedLineCount).toBe(1);
+  });
+
+  it("záporné packageQuantity se vyřadí stejně jako 0", () => {
+    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ packageQuantity: -3 })] }) as never
+    );
+    expect(receipt.lines).toHaveLength(0);
+    expect(droppedLineCount).toBe(1);
+  });
+
+  it("chybějící popis (null) se vyřadí", () => {
+    const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ description: null })] }) as never);
+    expect(receipt.lines).toHaveLength(0);
+  });
+
+  it("chybějící/nulová jednotka (unit: null) se vyřadí", () => {
+    const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unit: null })] }) as never);
+    expect(receipt.lines).toHaveLength(0);
+  });
+
+  it("nekladné unitsPerPackage se vyřadí", () => {
+    const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unitsPerPackage: 0 })] }) as never);
+    expect(receipt.lines).toHaveLength(0);
+  });
+
+  it("záporná cena (totalWithoutVat/totalWithVat/unitPriceWithoutVat) se vyřadí", () => {
+    expect(sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithoutVat: -1 })] }) as never).receipt.lines).toHaveLength(0);
+    expect(sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithVat: -1 })] }) as never).receipt.lines).toHaveLength(0);
+    expect(
+      sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unitPriceWithoutVat: -1 })] }) as never).receipt.lines
+    ).toHaveLength(0);
+  });
+
+  it("chybějící/záporné vatAmount NENÍ důvod řádek vyřadit — appka ho stejně vždy zahazuje a DPH dopočítá sama", () => {
+    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ vatAmount: null })] }) as never
+    );
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].vatAmount).toBe(0); // defaultuje na 0, nikdy nevyhodí celý řádek
+    expect(droppedLineCount).toBe(0);
+  });
+
+  it("neplatná suggestedCategory (mimo 4 povolené) se nahradí null, řádek se nevyřadí", () => {
+    const { receipt } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ suggestedCategory: "neznama_kategorie" })] }) as never
+    );
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].suggestedCategory).toBeNull();
+  });
+
+  it("prázdný řetězec (ne null) u textových polí dokladu se sanitizuje na null, appka si nevymýšlí hodnotu", () => {
+    const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ supplierName: "  ", documentNumber: "" }) as never);
+    expect(receipt.supplierName).toBeNull();
+    expect(receipt.documentNumber).toBeNull();
+  });
+
+  it("chybějící/záporné celkové částky dokladu defaultují na 0, appka si je nevymýšlí ani nespadne", () => {
+    const { receipt } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ totalWithoutVat: null, totalVat: null, totalWithVat: null }) as never
+    );
+    expect(receipt.totalWithoutVat).toBe(0);
+    expect(receipt.totalVat).toBe(0);
+    expect(receipt.totalWithVat).toBe(0);
+  });
+
+  it("úplně prázdný/nečitelný doklad (všechny řádky nepoužitelné) vrátí prázdné pole řádků — volající to musí vyhodnotit jako selhání", () => {
+    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ packageQuantity: null }), baseExtractedLine({ description: null })] }) as never
+    );
+    expect(receipt.lines).toHaveLength(0);
+    expect(droppedLineCount).toBe(2);
   });
 });
 

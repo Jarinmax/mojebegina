@@ -172,6 +172,17 @@ vi.mock("../receiptExtractionModel", () => ({
   EXTRACTION_MODEL_ID: "openai/gpt-5-nano",
 }));
 
+// Příprava obrázku (ořez/normalizace/dělení na výřezy) je čistá obrazová
+// logika beze vztahu k DB/oprávnění/modelu — testuje se zvlášť se
+// skutečnými syntetickými obrázky v receiptImagePreprocessing.test.ts.
+// Tady se mockuje identitou (1 strana → 1 nezměněný "výřez"), aby testy
+// orchestrace zůstaly nezávislé na obrazové knihovně a existující
+// očekávání (1 strana = 1 obrázek poslaný modelu) platila beze změny.
+const mockPreprocessReceiptPage = vi.fn<(image: { mimeType: string; bytes: Buffer }) => Promise<{ mimeType: string; bytes: Buffer }[]>>();
+vi.mock("../receiptImagePreprocessing", () => ({
+  preprocessReceiptPage: (...args: [{ mimeType: string; bytes: Buffer }]) => mockPreprocessReceiptPage(...args),
+}));
+
 const VINER = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c";
 const STRELEC = "fdc7b836-2325-4568-b9b7-5ac579cd8972";
 
@@ -241,6 +252,8 @@ beforeEach(() => {
   });
   mockExtractReceiptData.mockReset();
   mockExtractReceiptData.mockResolvedValue(baseExtracted());
+  mockPreprocessReceiptPage.mockReset();
+  mockPreprocessReceiptPage.mockImplementation(async (image) => [image]);
 });
 
 describe("triggerGoodsReceiptExtraction — oprávnění (bod 2 zadání: server čte strany PO kontrole oprávnění)", () => {
@@ -351,6 +364,81 @@ describe("triggerGoodsReceiptExtraction — bezpečné logování technické chy
     expect(loggedJson).not.toContain("Bearer");
 
     consoleErrorSpy.mockRestore();
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW výstupu modelu se bezpečně vyřadí (oprava: jediný vadný řádek nesmí shodit celý doklad)", () => {
+  it("řádek s packageQuantity:0 (nečitelný/nesmyslný) se tiše vyřadí, dobrý řádek se zapíše — doklad jako celek uspěje", async () => {
+    mockExtractReceiptData.mockResolvedValue(
+      baseExtracted({
+        lines: [
+          baseExtractedLine({ description: "Pivo 12°", packageQuantity: 1 }),
+          baseExtractedLine({ description: "Nečitelný řádek", packageQuantity: 0 }),
+        ],
+      })
+    );
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({ ok: true });
+    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
+    expect(lineInserts).toHaveLength(1); // jen ten použitelný řádek, ne ten s packageQuantity:0
+
+    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'));
+    expect(receiptUpdate).toBeTruthy(); // finální update (extraction_status='needs_review'), ne markExtractionFailed
+
+    const activityInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
+    const activityBody = JSON.stringify(activityInsert.params);
+    expect(activityBody).toContain("1 nečitelných řádků přeskočeno"); // reviewer vidí, že se něco tiše vynechalo
+  });
+
+  it("null/nesmyslné řádky (chybějící popis, nekladné množství, záporná cena) se vyřadí stejně jako packageQuantity:0", async () => {
+    mockExtractReceiptData.mockResolvedValue(
+      baseExtracted({
+        lines: [
+          baseExtractedLine({ description: "Dobrý řádek" }),
+          baseExtractedLine({ description: null }),
+          baseExtractedLine({ description: "Bez množství", packageQuantity: null }),
+          baseExtractedLine({ description: "Záporná cena", totalWithoutVat: -5 }),
+          baseExtractedLine({ description: "Nulové balení", unitsPerPackage: 0 }),
+        ],
+      })
+    );
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({ ok: true });
+    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
+    expect(lineInserts).toHaveLength(1);
+  });
+
+  it("úplně nečitelný doklad (VŠECHNY řádky nepoužitelné) je selhání, ne prázdná needs_review příjemka — retry zůstává možný", async () => {
+    mockExtractReceiptData.mockResolvedValue(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result.ok).toBe(false);
+    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+    // Stejný bezpečný retry jako u chyby modelu: extraction_status → 'failed'.
+    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — příprava obrázku (ořez/dělení dlouhé účtenky) se volá na každou stranu a výsledek jde celý modelu", () => {
+  it("jedna strana rozdělená na víc výřezů (dlouhá účtenka) pošle modelu VŠECHNY výřezy, v pořadí z preprocessReceiptPage", async () => {
+    const bandA = { mimeType: "image/jpeg", bytes: Buffer.from("band-a") };
+    const bandB = { mimeType: "image/jpeg", bytes: Buffer.from("band-b") };
+    mockPreprocessReceiptPage.mockResolvedValueOnce([bandA, bandB]);
+
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result.ok).toBe(true);
+    expect(mockExtractReceiptData).toHaveBeenCalledTimes(1);
+    const images = mockExtractReceiptData.mock.calls[0][0] as Array<{ bytes: Buffer }>;
+    expect(images).toHaveLength(2);
+    expect(images[0].bytes.equals(bandA.bytes)).toBe(true);
+    expect(images[1].bytes.equals(bandB.bytes)).toBe(true);
   });
 });
 
