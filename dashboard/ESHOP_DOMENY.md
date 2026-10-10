@@ -68,7 +68,7 @@ Audit 10. 10. 2026 (`scripts/begina-cutover/wp-audit.mts`, záznam
 | `/obchod/`, `/obchod-s-beginami/`, `/beginy/`, `/napoje/`, `/kategorie/`, `/baleni/…`, `/muj-ucet/…`, `/eshop` | `/` |
 | `/landing-page/` (Begina club, přihlášení k e-mailům), `/partnersky-program/`, `/pro-podniky-gastro/`, `/begina-english/`, `/begina-deutsch/` (dnes prázdné) | `/` |
 | `/ahoj-vsichni/`, `/zkusebni-stranka/`, `/uvod-jarek/`, `/author/…`, `/category/…`, `/wp-admin`, `/wp-login.php`, `/wp-json`, `/xmlrpc.php`, `/feed`… | 410 |
-| **`/produkt/cervankove-nebe/`, `/produkt/dum-u-jezera/`, `/produkt/malinovy-svarak-nealko/`** | **chybí v katalogu** — rozhodnutí vedení (doplnit produkty, nebo přesměrovat) |
+| **`/produkt/cervankove-nebe/`, `/produkt/dum-u-jezera/`, `/produkt/malinovy-svarak-nealko/`** | doplnění připraveno (`docs/eshop-catalog/70–79_ovocne_napoje*`) — produkty vzniknou skryté, zveřejní je až skript 73 po ověření alergenů |
 | cokoli jiného | 404 (e-shopová) |
 
 Dnešní web: hlavní adresa je **www.begina.cz** (begina.cz → 301 www),
@@ -76,7 +76,8 @@ Dnešní web: hlavní adresa je **www.begina.cz** (begina.cz → 301 www),
 žádná dřívější HSTS politika v prohlížečích není, takže 1 týden bez
 subdomén je bezpečný začátek. Na webu běží Meta Pixel, cookie lišta
 (CookieYes), Ecomail a WooPayments; Google Analytics ani ověření Search
-Console v HTML nejsou.
+Console v HTML nejsou. Co z toho zachovat:
+`docs/begina-cutover/meta-cookieyes-ecomail.md`.
 
 ## Postup přepnutí (pořadí je závazné)
 
@@ -85,8 +86,9 @@ Console v HTML nejsou.
 2. D−1: TTL záznamů `begina.cz` (A) a `www` (CNAME) na 300 s; **zapsat
    původní hodnoty** (návrat). MX, SPF, `send`, `resend._domainkey` se
    **nemění**, jmenné servery se nepřesouvají.
-3. Den D: vypnout pokladnu WooCommerce (číslování objednávek — samostatný
-   postup, viz ESHOP_PRODUCTION_ROLLOUT.md C4–C5).
+3. Den D: vypnout pokladnu WooCommerce. Číslování objednávek (vlastní
+   řada 70000001+, `ESHOP_CISLOVANI_PRECHOD.md`) na WooCommerce nezávisí —
+   zapnout kdykoli předem.
 4. DNS: `begina.cz` A a `www` CNAME na hodnoty z Vercelu.
 5. Kontrola (bez přepínačů): `https://begina.cz` a `https://www.begina.cz`
    (certifikát, 301), `/produkt/kulajda`, `/login` = 404,

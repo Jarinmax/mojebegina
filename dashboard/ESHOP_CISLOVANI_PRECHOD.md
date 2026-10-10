@@ -1,63 +1,85 @@
-# Číslování objednávek při přechodu z WooCommerce — návrh
+# Číslování objednávek — vlastní řada 70000001+ (číslo objednávky = VS)
 
-Stav: **NÁVRH, nic se nemění.** START zatím neschválen (rozhodnutí vedení
-10. 10. 2026: nejdřív zjistit skutečné číslování ve WooCommerce).
-Číslovací SQL (`docs/eshop-production/20–29_numbering_*.sql`) se neupravuje
-ani nespouští.
+Stav: **NÁVRH ke schválení, nic se nemění.** Návrh vedení 10. 10. 2026:
+vlastní řada od 70000001, nezávislá na ID WordPressu. Připravené skripty
+`docs/eshop-production/30–39_cislovani_vs*.sql`, test
+`lib/eshop/__tests__/numberingVs.test.ts`. Starší postup 20–29 (START
+navazující na WooCommerce) se po schválení **nespouští**.
 
-## Co víme (ověřeno 10. 10. 2026)
+## Ověřený stav (10. 10. 2026)
 
 | Fakt | Zdroj |
 |---|---|
-| Production: číslování **vypnuté** (`order_number_seq` neexistuje), 3 objednávky bez čísla: 2 import (The Cup), 1 e-shop (stornovaná, VS 70000001) | Neon, jen čtení |
-| UNIQUE index na `orders.order_number` existuje | Neon, jen čtení |
-| WooCommerce byl kolem 26. 9. 2026 u objednávky **č. 5093** | `ESHOP_AUDIT.md` |
-| Nový e-shop (`moje.begina.cz/eshop`) a WooCommerce **přijímají objednávky souběžně** (oba veřejné) — nový zatím bez čísel, jen VS 7xxxxxxx | Production přepínače |
-| Variabilní symboly: nový systém `7xxxxxxx` (8 číslic), WooCommerce převodem obvykle číslo objednávky (4 číslice) → **párování plateb se nepomíchá** | kód / `ESHOP_PREVOD_QR.md` |
-| Faktury: vlastní řada iDokladu (7277293), na číslech objednávek nezávisí | `ESHOP_FAKTURACE_NAVRH.md` |
+| WooCommerce: poslední objednávka **#5208** (8. 10. 2026), předchozí #5207, #5206, #5202; celkem 56 | vedení |
+| Čísla WooCommerce skáčou (5202 → 5206) = ID WordPressu (žádný doplněk pro čísla); šablona Elementoru má ID 5100 | audit webu |
+| Production: `order_number` u všech objednávek prázdné, `order_number_seq` neexistuje | Neon, jen čtení |
+| Production: 2× import The Cup (bez čísla i VS), 1× e-shop **stornovaná, VS 70000001**, nezaplacená | Neon, jen čtení |
+| `payment_vs_seq` = 1 (další VS 70000002), VS je unikátní a neměnný, formát `7xxxxxxx` | Neon + migrace 0020 |
+| Stripe: tabulka plateb prázdná; Stripe páruje platbu podle interního id objednávky, číslo je jen v textu položky | Neon + `lib/eshop/stripe/payment.ts` |
+| iDoklad: e-shopové faktury žádné (2 importované The Cup); faktura nese VS = `payment_vs`, číslo objednávky jako `OrderNumber`; číslo faktury je vlastní řada iDokladu | Neon + `lib/eshop/invoicing` |
 
-**Audit 10. 10. 2026** (`docs/begina-cutover/audit-2026-10-10.md`): veřejně
-**žádný doplněk pro čísla objednávek** (doplňky: WooCommerce, WooPayments,
-Flexible Shipping, Ecomail, Elementor, CookieYes) → téměř jistě výchozí
-WooCommerce: **číslo objednávky = ID záznamu WordPressu**. Nejvyšší veřejná
-ID: stránka 3552 (3/2026), produkt 3256 (2/2026); objednávka č. 5093
-(9/2026) leží nad nimi → objednávky berou čísla ze stejné řady. Elementor
-při úpravách stránek zakládá revize, které také spotřebují ID.
+## Návrh: jedna řada pro číslo objednávky i VS
 
-**Neznámé:** zda WooCommerce používá doplněk pro souvislá čísla (audit ho veřejně nenašel). Bez něj je
-číslo objednávky = ID záznamu WordPressu (sdílené s příspěvky, stránkami,
-obrázky, revizemi) → **příští objednávka po návratu na WooCommerce nedostane
-„max + 1“, ale další volné ID WordPressu**, které může být výrazně výš než
-poslední objednávka. Zjistí `scripts/begina-cutover/wp-audit.mts`
-(doplňky, nejvyšší veřejná ID) + jeden údaj z administrace (níže).
+- **E-shopová objednávka: číslo = její VS** (70000002 má VS 70000002).
+  Zákazník, MojeBegina, banka, Stripe i faktura vidí jedno číslo.
+- **Ruční objednávka v MojeBegina:** další číslo z téže řady, VS se jí
+  nezapisuje (B2B platí podle faktury). Žádné číslo tak nevznikne dvakrát.
+- **Import (The Cup):** bez čísla jako dosud.
+- **Řada nezávisí na WordPressu:** 8 číslic proti 4 číslicím WooCommerce →
+  žádná kolize čísel ani VS v bance, žádná rezerva, návrat na WooCommerce
+  je bez rizika pro číslování.
+- **Kód aplikace se nemění** — číslo doplní trigger v databázi (pokladna
+  číslo po uložení čte z databáze).
 
-## Návrh bezpečné návaznosti
+Proč ne dvě samostatné řady (číslo 70000001+ a VS 70000001+): rozešly by
+se hned první ruční objednávkou (číslo bez VS) → „objednávka č. 70000005
+s VS 70000004“ a stejné číslo by patřilo dvěma různým objednávkám
+(převod platby v MojeBegina hledá podle čísla i VS).
 
-1. **START = nejvyšší z čísel** (a) poslední objednávka WooCommerce,
-   (b) nejvyšší ID záznamu WordPressu (bez doplňku), **+ rezerva na
-   případný návrat**, zaokrouhleno nahoru na stovky. Rezervu navrhnu
-   v číslech, až budou známé (a) a (b).
-   - S doplňkem pro souvislá čísla stačí (a) + rezerva.
-2. **Nové objednávky dostanou čísla zpětně podle data** (skript 21): dnešní
-   e-shopová objednávka (stornovaná) START+1, další podle data. Kontrolní
-   dotaz `20_numbering_before.sql` dnes vrátí `eshop = 1` (dokument čekal 0)
-   — to je v pořádku, jen jiná očekávaná hodnota.
-3. **Návrat na WooCommerce:** číslování **nevypínat** (`29_numbering_rollback.sql`
-   NEspouštět). Vypne se jen nový e-shop (`ESHOP_PUBLIC`, `ESHOP_ORDER_WRITE`)
-   a zapne pokladna WooCommerce. Přidělená čísla zůstanou, ruční objednávky
-   v MojeBegina číslují dál. Kolize hrozí, jen kdyby WooCommerce během
-   návratu došel až ke STARTu — proto rezerva.
-4. **Opětovné přepnutí po návratu:** skript 21 se znovu nespouští (sám to
-   odmítne). Před zapnutím ověřit (jen čtení) `nejvyšší číslo WooCommerce <
-   poslední číslo řady`; kdyby ne, řadu jen **zvýšit** (nový pojistný skript
-   „jen nahoru“ — připravím na pokyn).
-5. **Den přepnutí:** pokladna WooCommerce vypnout → počkat na rozběhnuté
-   platby → odečíst skutečné poslední číslo → spustit 20/21/22.
+### 70000001, nebo 70000002?
 
-## Co je potřeba od vedení
+**Doporučuji: testovací objednávka si nechá 70000001, první nová dostane
+70000002** (automaticky, řada už je na 1).
 
-- **WordPress → WooCommerce → Objednávky:** číslo nejnovější objednávky
-  a zda jsou čísla posledních objednávek souvislá (např. 5091, 5092, 5093)
-  nebo skáčou (5088, 5101, 5117…). Screenshot seznamu stačí.
-- Případně **WordPress → Pluginy:** je aktivní doplněk typu „Sequential
-  Order Numbers“ / „Custom Order Numbers“? (Pokud audit nenajde veřejně.)
+- VS 70000001 už existuje, je neměnný a mohl odejít v e-mailu / QR.
+  Jiné číslo by u ní znamenalo „číslo ≠ VS“ (pojistka by to odmítla).
+- Aby nová objednávka měla 70000001, musel by se VS testovací objednávky
+  přepsat nebo objednávka smazat — zbytečný zásah do historie. Ztráta
+  jednoho čísla nic nestojí.
+- V přehledu bude „č. 70000001, Stornováno“.
+
+## Postup (Neon SQL Editor, Production — až po schválení)
+
+Zapnout lze kdykoli **před** přepnutím DNS (nezávisí na WooCommerce).
+
+1. `30_cislovani_vs_before.sql` → očekáváno `0 | 0 | 2 | 1 | 0 | 0 | 0 | 70000001`
+   (přibylé e-shopové / ruční objednávky jsou v pořádku; `eshop_bez_vs`
+   a `s_cislem` musí být 0).
+2. `31_cislovani_vs.sql` — jedna transakce; při jakékoli odchylce skončí
+   „zastavuji“ a nezmění nic. Pojistky: chybí řada VS, existuje řada Preview,
+   už zapnuto, některá objednávka už číslo má, e-shop bez VS.
+3. `32_cislovani_vs_after.sql` → očekáváno `1 | 3 | 2 | 0 | 0 | 70000001 | 70000002`.
+4. Kontrola v MojeBegina: Objednávky → „č. 70000001“ u stornované.
+   První skutečná objednávka: číslo = VS v e-mailu, na stránce i v QR.
+
+Návrat: `39_cislovani_vs_rollback.sql` — nové objednávky přestanou dostávat
+číslo (VS dál ano), přidělená čísla zůstanou. Řada se nevrací → žádné číslo
+nevznikne dvakrát. (Skript 31 pak znovu nepůjde — přidělená čísla
+existují; znovuzapnutí připravím na pokyn.)
+
+Ověřeno testem nad kopií schématu (PGlite, všechny migrace, data jako
+v Production): kontroly před/po, 70000001 → 70000002, ruční 70000003 bez
+VS, žádné číslo dvakrát, číslo nejde změnit ani vložit jiné než VS / mimo
+70000001–79999999, druhé spuštění odmítne, návrat, ruční objednávky
+z doby před zapnutím, odmítnutí na DB s řadou Preview.
+
+## Rizika
+
+| Riziko | Dopad | Ošetření |
+|---|---|---|
+| Číslo se nevrací — neúspěšné uložení „spotřebuje“ číslo | mezery v řadě | u objednávek nevadí; souvislou řadu mají faktury (iDoklad) |
+| Ruční objednávky berou čísla z téže řady | e-shopová čísla nejdou po jedné | záměr — jedno číslo nikdy dvakrát |
+| Preview má řadu 900001+ (`order_number_seq`) | skript 31 tam nejde (pojistka) | Preview zůstává; případně samostatný skript na pokyn |
+| Trigger mimo Drizzle schéma | generování migrací ho „nevidí“ | stejně jako u VS (0020); hlídá test |
+| Zákazníci zvyklí na „#52xx“ | nové číslo je 8místné | „Číslo objednávky“ = „VS“ všude |
+| Kapacita | 9 999 999 objednávek | dost |
