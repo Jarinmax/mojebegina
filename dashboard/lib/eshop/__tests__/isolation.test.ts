@@ -37,16 +37,15 @@ describe("e-shop je veřejný a izolovaný od MojeBegina", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("e-shop nemá vlastní kontrolu přihlášení a aplikace nemá middleware, který by /eshop zamkl", () => {
+  it("e-shop nemá vlastní kontrolu přihlášení a proxy.ts /eshop nezamyká", () => {
     for (const file of eshopFiles) {
       expect(code(file), file).not.toMatch(/getAuthContext|requireCustomerContext/);
     }
-    expect(["middleware.ts", "proxy.ts"].filter((f) => {
-      try {
-        return statSync(path.join(root, f)).isFile();
-      } catch {
-        return false;
-      }
-    })).toEqual([]);
+    // Starý middleware.ts nesmí existovat (Next 16 = proxy.ts). proxy.ts jen
+    // směruje podle domény — nečte přihlášení ani cookies a nic nezamyká.
+    expect(statSync(path.join(root, "middleware.ts"), { throwIfNoEntry: false })).toBeUndefined();
+    for (const file of ["proxy.ts", "lib/site/routing.ts", "lib/site/hosts.ts", "lib/site/flags.ts"]) {
+      expect(code(file), file).not.toMatch(/getAuthContext|requireCustomerContext|cookies|session|lib\/auth|lib\/data/);
+    }
   });
 });

@@ -18,7 +18,7 @@ const CATEGORIES = ["polevky", "caje", "sirupy", "ovocne-napoje", "koktejly"].ma
 }));
 const TILES: CarouselTile[] = CATEGORIES.map((c) => ({
   key: c.slug,
-  href: `/eshop/kategorie/${c.slug}`,
+  href: `/kategorie/${c.slug}`, // cesta e-shopu bez /eshop (ShopLink doplní základ)
   name: c.name,
   image: c.image,
   kind: "category",
@@ -132,10 +132,10 @@ describe("co ukazuje kolotoč na stránkách", () => {
     const { label, tiles } = waterCarousel(catalog);
     expect(label).toBe("Nápoje");
     expect(tiles.map((t) => [t.name, t.href, t.kind])).toEqual([
-      ["ČERVÁNKOVÉ NEBE", "/eshop/produkt/p-2", "product"],
-      ["Dům u jezera", "/eshop/produkt/p-4", "product"],
-      ["Heřmánkový ledový čaj", "/eshop/produkt/p-3", "product"],
-      ["CERNY CAJ GOLDEN NEPAL", "/eshop/produkt/p-0", "product"],
+      ["ČERVÁNKOVÉ NEBE", "/produkt/p-2", "product"],
+      ["Dům u jezera", "/produkt/p-4", "product"],
+      ["Heřmánkový ledový čaj", "/produkt/p-3", "product"],
+      ["CERNY CAJ GOLDEN NEPAL", "/produkt/p-0", "product"],
     ]);
   });
 

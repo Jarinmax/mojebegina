@@ -218,7 +218,8 @@ by spadly Objednávky — stejně jako 28. 9. na Preview).
    naskenovat bez odeslání, e-mail + interní e-mail bez [TEST]) → ruční
    Zaplaceno → „Platbu jsme přijali“; karta malou částkou → „je zaplacená“
    → vrátit ve Stripe. Claude ověří read-only.
-8. Přesměrování z begina.cz / zapnutí indexace — až po rozhodnutí o doméně.
+8. Přesměrování z begina.cz / zapnutí indexace — varianta A (rozhodnutí
+   10. 10. 2026): postup, přepínače a návrat v `ESHOP_DOMENY.md`.
 9. **Faktury v iDokladu (samostatné schválení, až po prvním kontrolovaném
    ostrém testu — `ESHOP_FAKTURACE_NAVRH.md` 2.8):** iDoklad → Nastavení →
    Aplikace → Client ID + Client Secret (agenda Begina) a Developer portál →

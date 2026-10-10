@@ -2,7 +2,8 @@ import { getCatalog } from "@/lib/eshop/catalogServer";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
-import Link from "next/link";
+import type { Metadata } from "next";
+import ShopLink from "@/components/eshop/ShopLink";
 import { INFO_PAGES, filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 
 // Úvodní stránka podle návrhu „Hero e-shopu Begina.cz“ (2. 10. 2026): hero
@@ -12,6 +13,8 @@ import { INFO_PAGES, filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 export const dynamic = "force-dynamic";
 
 const STRIP_ID = "nabidka";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function EshopPage() {
   const { categories } = await getCatalog();
@@ -32,9 +35,9 @@ export default async function EshopPage() {
                   <li key={item}>✓ {item}</li>
                 ))}
               </ul>
-              <Link href={block.more.href} className="mt-3 inline-block text-sm font-medium underline underline-offset-4">
+              <ShopLink href={block.more.href} className="mt-3 inline-block text-sm font-medium underline underline-offset-4">
                 {block.more.label}
-              </Link>
+              </ShopLink>
             </div>
           ))}
         </section>

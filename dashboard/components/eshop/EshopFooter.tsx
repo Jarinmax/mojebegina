@@ -1,4 +1,4 @@
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import { FOOTER_LINKS, OPERATOR } from "@/lib/eshop/infoPages";
 
 // Patička e-shopu: údaje provozovatele + odkazy na informační stránky
@@ -23,9 +23,9 @@ export default function EshopFooter() {
           <ul className="flex flex-col">
             {FOOTER_LINKS.map((page) => (
               <li key={page.path}>
-                <Link href={page.path} className="block py-3 sm:inline-block sm:py-1.5 hover:underline underline-offset-2">
+                <ShopLink href={page.path} className="block py-3 sm:inline-block sm:py-1.5 hover:underline underline-offset-2">
                   {page.footerLabel}
-                </Link>
+                </ShopLink>
               </li>
             ))}
           </ul>

@@ -1,8 +1,9 @@
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import Image from "next/image";
 
 // Dlaždice produktu v kolotoči (např. vybrané nápoje na stránce O vodě):
-// stejný formát jako dlaždice kategorie, fotka a název pod ní.
+// stejný formát jako dlaždice kategorie, fotka a název pod ní. href = cesta
+// e-shopu bez /eshop (ShopLink doplní základ podle domény).
 export default function ProductTile({
   href,
   name,
@@ -15,7 +16,7 @@ export default function ProductTile({
   sizes: string;
 }) {
   return (
-    <Link
+    <ShopLink
       href={href}
       draggable={false}
       className="group flex flex-col aspect-[5/8] overflow-hidden shadow-md shadow-neutral-400/50 bg-white"
@@ -36,6 +37,6 @@ export default function ProductTile({
       <span className="h-[18%] flex items-center justify-center text-center text-sm sm:text-base text-begina-primary-900 px-2">
         {name}
       </span>
-    </Link>
+    </ShopLink>
   );
 }

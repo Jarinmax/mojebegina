@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import ShopLink from "@/components/eshop/ShopLink";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const category = (await getCatalogIndex()).findCategory(slug);
-  return category ? { title: category.name } : {};
+  return category ? { title: category.name, alternates: { canonical: `/kategorie/${category.slug}` } } : {};
 }
 
 export default async function CategoryPage({ params }: PageProps<"/eshop/kategorie/[slug]">) {
@@ -25,10 +25,10 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
-      <Link href="/eshop" className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-4 -ml-1">
+      <ShopLink href="/" className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-4 -ml-1">
         <ChevronLeft className="w-4 h-4" />
         Všechny kategorie
-      </Link>
+      </ShopLink>
 
       <section className="text-center max-w-3xl mx-auto mb-8">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{category.name}</h1>

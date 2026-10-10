@@ -5,7 +5,11 @@ import { INFO_PAGES } from "@/lib/eshop/infoPages";
 
 const page = INFO_PAGES.privacy;
 
-export const metadata: Metadata = { title: page.title, description: page.description };
+export const metadata: Metadata = {
+  title: page.title,
+  description: page.description,
+  alternates: { canonical: page.path },
+};
 
 export default function Page() {
   return (
