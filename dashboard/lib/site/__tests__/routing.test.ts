@@ -137,7 +137,7 @@ describe("begina.cz — MojeBegina je nedostupná (výchozí zákaz)", () => {
     "/vyber-roli",
     "/upozorneni",
     "/executive",
-    "/partnersky-program",
+    // /partnersky-program je i stará stránka WordPressu → 301 na úvod begina.cz (níže), ne MojeBegina
     "/doporucit",
     "/api/auth/get-session",
     "/api/auth/sign-in/email",
@@ -248,7 +248,39 @@ describe("begina.cz — staré adresy (WordPress, /eshop)", () => {
     expect(get("begina.cz", "/eshop/objednavka/123")).toEqual({ kind: "notFound" });
   });
 
-  it.each(["/wp-admin", "/wp-admin/post.php", "/wp-login.php", "/xmlrpc.php", "/wp-json/wp/v2/users", "/feed", "/comments/feed", "/wp-includes/x.js"])(
+  it.each([
+    ["/alkoholicke-koktejly", "https://begina.cz/kategorie/koktejly"],
+    ["/kategorie-produktu/alkoholicke-koktejly", "https://begina.cz/kategorie/koktejly"],
+    ["/obchod-s-beginami", "https://begina.cz/"],
+    ["/beginy", "https://begina.cz/"],
+    ["/napoje", "https://begina.cz/"],
+    ["/kategorie", "https://begina.cz/"],
+    ["/kontakty", "https://begina.cz/o-nas"],
+    ["/landing-page", "https://begina.cz/"],
+    ["/partnersky-program", "https://begina.cz/"],
+    ["/pro-podniky-gastro", "https://begina.cz/"],
+    ["/begina-english", "https://begina.cz/"],
+    ["/begina-deutsch", "https://begina.cz/"],
+    ["/baleni/3-l-rodinna-zasoba", "https://begina.cz/"],
+  ])("stránka WordPressu %s → 301 %s (audit sitemapy 10. 10. 2026)", (pathname, location) => {
+    expect(get("begina.cz", pathname)).toEqual({ kind: "redirect", location, status: 301 });
+  });
+
+  it.each([
+    "/wp-admin",
+    "/wp-admin/post.php",
+    "/wp-login.php",
+    "/xmlrpc.php",
+    "/wp-json/wp/v2/users",
+    "/feed",
+    "/comments/feed",
+    "/wp-includes/x.js",
+    "/ahoj-vsichni",
+    "/zkusebni-stranka",
+    "/uvod-jarek",
+    "/author/jarek8",
+    "/category/nezarazene",
+  ])(
     "%s → 410",
     (pathname) => {
       expect(get("begina.cz", pathname)).toEqual({ kind: "gone" });

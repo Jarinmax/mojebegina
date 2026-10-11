@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import ShopLink from "@/components/eshop/ShopLink";
 import { useEshopHref } from "@/components/eshop/EshopBase";
 import { CircleCheck } from "lucide-react";
@@ -12,6 +12,7 @@ import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
 
 const initialState: CheckoutState = null;
 
@@ -71,6 +72,20 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
   const redirectTo = state && "redirectTo" in state ? state.redirectTo : null;
 
+  // Meta Pixel (jen se souhlasem): zahájení pokladny jednou za návštěvu stránky.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || !hydrated) return;
+    const cartLines = resolveCartLines(cart, catalog);
+    if (cartLines.length === 0) return;
+    checkoutTracked.current = true;
+    trackMeta("InitiateCheckout", {
+      content_type: "product",
+      content_ids: cartLines.map((line) => line.sku),
+      num_items: cartLines.reduce((sum, line) => sum + line.quantity, 0),
+    });
+  }, [hydrated, cart, catalog]);
+
   useEffect(() => {
     if (confirmation) {
       clear();
@@ -84,6 +99,18 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
       window.location.assign(redirectTo);
     }
   }, [redirectTo, clear]);
+
+  // Meta: souhlas s reklamními cookies a _fbp/_fbc se odešlou s objednávkou;
+  // nákup (Purchase) pak pošle server až po úplném zaplacení.
+  // Hodnoty se doplní těsně před odesláním (souhlas se mohl změnit).
+  function fillMetaSignals(event: React.FormEvent<HTMLFormElement>) {
+    const signals = checkoutMetaSignals({ window, document });
+    const form = event.currentTarget;
+    for (const [name, value] of Object.entries(signals)) {
+      const input = form.elements.namedItem(name);
+      if (input instanceof HTMLInputElement) input.value = value;
+    }
+  }
 
   if (redirectTo) {
     return <p className="text-sm text-neutral-600">Přesměrovávám na platbu kartou…</p>;
@@ -196,9 +223,12 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
   }
 
   return (
-    <form action={formAction} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
+    <form action={formAction} onSubmitCapture={fillMetaSignals} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
       <input type="hidden" name="orderToken" value={orderToken} />
+      <input type="hidden" name="adConsent" defaultValue="0" />
+      <input type="hidden" name="fbp" defaultValue="" />
+      <input type="hidden" name="fbc" defaultValue="" />
       {/* Past na roboty — člověk pole nevidí ani na něj neskočí tabulátorem. */}
       <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
         <label htmlFor="website">Web (nevyplňujte)</label>

@@ -16,6 +16,8 @@ import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
+import Marketing from "@/components/eshop/Marketing";
+import { marketingConfig } from "@/lib/eshop/marketing";
 
 // E-shop — veřejná část bez přihlášení. Žádná stránka pod /eshop nevolá
 // requireCustomerContext ani nečte session. Na begina.cz běží tytéž stránky
@@ -61,6 +63,8 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     { href: INFO_PAGES.about.path, label: "O nás" },
     { href: INFO_PAGES.water.path, label: "O vodě" },
   ];
+  // Cookie lišta a Meta Pixel — jen se zapnutým přepínačem (výchozí vypnuto).
+  const marketing = marketingConfig();
   return (
     <EshopBaseProvider base={await eshopBase()}>
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
@@ -100,7 +104,8 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
 
       <main className="flex-1">{catalog ? children : <CatalogUnavailable />}</main>
 
-      <EshopFooter />
+      <EshopFooter cookieSettings={marketing !== null} />
+      {marketing && <Marketing config={marketing} />}
     </div>
     </CatalogProvider>
     </EshopBaseProvider>

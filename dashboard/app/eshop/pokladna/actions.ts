@@ -23,6 +23,7 @@ import { getStripe } from "@/lib/eshop/stripe/client";
 import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/payment";
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
+import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
 
 export type CheckoutState =
   | { error: string }
@@ -92,7 +93,12 @@ export async function submitCheckoutAction(
 
   const orderId = parseOrderToken(field("orderToken")) ?? randomUUID();
   try {
-    const saved = await saveEshopOrder(db, orderId, result.value);
+    // Souhlas s reklamními cookies v okamžiku objednávky (Meta Purchase až po zaplacení).
+    const metaConsent = metaConsentFromCheckout(
+      { adConsent: field("adConsent"), fbp: field("fbp"), fbc: field("fbc"), userAgent: (await headers()).get("user-agent") },
+      new Date()
+    );
+    const saved = await saveEshopOrder(db, orderId, result.value, { metaConsent });
     if (!saved.ok) {
       return { error: saved.error };
     }

@@ -26,6 +26,11 @@ const ready = (async () => {
       if (statement.trim()) await pg.exec(statement);
     }
   }
+  // Volitelně katalog jako v Production (docs/eshop-catalog, např.
+  // E2E_CATALOG_SQL=31_sirupy.sql,41_polevky.sql,51_caje.sql,61_zmrzliny.sql,71_ovocne_napoje.sql).
+  for (const name of (process.env.E2E_CATALOG_SQL ?? "").split(",").filter(Boolean)) {
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-catalog", name), "utf8"));
+  }
   // Testovací katalog: alergeny neověřené v seedu (NULL) se označí jako
   // ověřené „bez alergenů“ ('{}'), aby šly produkty objednat. Jen testovací
   // data — blokaci NULL hlídá allergenGate.test.ts (vrací NULL zpět).
@@ -34,6 +39,10 @@ const ready = (async () => {
   if (process.env.E2E_ORDER_NUMBER_START) {
     const numbering = readFileSync(join(DRIZZLE_DIR, "../docs/eshop-schema-draft/06b_order_number_cutover_up.sql"), "utf8");
     await pg.exec(numbering.replaceAll("<MAX_WOO_ORDER_NUMBER>", process.env.E2E_ORDER_NUMBER_START));
+  }
+  // Volitelně číslování „číslo objednávky = VS“ (docs/eshop-production/31_cislovani_vs.sql).
+  if (process.env.E2E_ORDER_NUMBERING === "vs") {
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-production/31_cislovani_vs.sql"), "utf8"));
   }
 })();
 
@@ -75,6 +84,7 @@ globalThis.fetch = async (input, init) => {
 };
 
 async function handle(init) {
+  startSqlServer();
   const body = JSON.parse(init.body);
   try {
     let payload;
@@ -101,7 +111,13 @@ async function handle(init) {
 // Volitelně (jen testy): E2E_SQL_PORT=4999 → na 127.0.0.1 poslouchá malý
 // server, který spustí SELECT z těla požadavku v transakci jen pro čtení
 // a vrátí řádky jako JSON — aby šlo z testu ověřit, co aplikace uložila.
-if (process.env.E2E_SQL_PORT) {
+// Spustí se až při prvním dotazu aplikace: `next start` načte tento soubor
+// i v nadřazeném procesu (bez požadavků) a ten by port obsadil vlastní,
+// prázdnou databází.
+let sqlServerStarted = false;
+function startSqlServer() {
+  if (sqlServerStarted || !process.env.E2E_SQL_PORT) return;
+  sqlServerStarted = true;
   createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;

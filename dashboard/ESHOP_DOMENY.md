@@ -47,6 +47,7 @@ MojeBegina se nemá indexovat nikdy).
 |---|---|---|---|
 | `ESHOP_CANONICAL_ORIGIN` | přesně `https://begina.cz` (jiná hodnota se ignoruje) | **až po** přepnutí DNS a ověření, že begina.cz běží | `moje.begina.cz/eshop/…` → 301 na begina.cz (i staré odkazy na objednávky s parametry, jen GET — rozpracované odeslání pokladny doběhne); odkazy v e-mailech a návrat ze Stripe na begina.cz |
 | `ESHOP_INDEXING` | `on` | po kontrole obsahu na begina.cz | begina.cz smí indexovat vyhledávač (robots.txt, meta, X-Robots-Tag); jinak všude noindex |
+| `ESHOP_MARKETING`, `ESHOP_COOKIEYES_ID`, `ESHOP_META_PIXEL_ID`, `ESHOP_META_CAPI_TOKEN` | viz `docs/begina-cutover/meta-cookieyes-ecomail.md` | spolu s přepnutím DNS | cookie lišta CookieYes + Meta Pixel jen se souhlasem; Purchase ze serveru až po zaplacení |
 | `NEXT_PUBLIC_ESHOP_URL` | `https://begina.cz` | spolu s `ESHOP_CANONICAL_ORIGIN` | tlačítko „E-shop Begina.cz“ v Řízení firmy (`lib/eshopLink.ts`) |
 
 Na Preview (`VERCEL_ENV=preview`) se `ESHOP_CANONICAL_ORIGIN` a
@@ -54,19 +55,36 @@ Na Preview (`VERCEL_ENV=preview`) se `ESHOP_CANONICAL_ORIGIN` a
 
 ## Staré adresy z WordPressu (begina.cz)
 
+Audit 10. 10. 2026 (`scripts/begina-cutover/wp-audit.mts`, záznam
+`docs/begina-cutover/audit-2026-10-10.md`): 63 adres ze sitemapy WordPressu.
+
 | Stará | Nová |
 |---|---|
-| `/produkt/<slug>/` | `/produkt/<slug>` (stejný slug; přejmenované v `LEGACY_PRODUCT_SLUGS`) |
-| `/kategorie-produktu/<slug>/…` | `/kategorie/<slug>` (`LEGACY_CATEGORY_SLUGS`) |
+| `/produkt/<slug>/` (25 produktů) | `/produkt/<slug>` — stejné slugy |
+| `/kategorie-produktu/<slug>/` | `/kategorie/<slug>`; `alkoholicke-koktejly` → `koktejly` |
 | `/gdpr/` | `/ochrana-osobnich-udaju` |
 | `/o-nas/`, `/o-vode/`, `/doprava/`, `/obchodni-podminky/`, `/kosik/`, `/pokladna/` | stejná adresa bez lomítka |
-| `/obchod`, `/shop`, `/muj-ucet/…`, `/eshop` | `/` |
-| `/eshop/<stránka e-shopu>` | `/<stránka>` |
-| `/wp-admin`, `/wp-login.php`, `/wp-json`, `/xmlrpc.php`, `/feed`… | 410 |
+| `/alkoholicke-koktejly/` | `/kategorie/koktejly` |
+| `/kontakty/` | `/o-nas` (kontakt i v patičce) |
+| `/obchod/`, `/obchod-s-beginami/`, `/beginy/`, `/napoje/`, `/kategorie/`, `/baleni/…`, `/muj-ucet/…`, `/eshop` | `/` |
+| `/landing-page/` (Begina club, přihlášení k e-mailům), `/partnersky-program/`, `/pro-podniky-gastro/`, `/begina-english/`, `/begina-deutsch/` (dnes prázdné) | `/` |
+| `/ahoj-vsichni/`, `/zkusebni-stranka/`, `/uvod-jarek/`, `/author/…`, `/category/…`, `/wp-admin`, `/wp-login.php`, `/wp-json`, `/xmlrpc.php`, `/feed`… | 410 |
+| **`/produkt/cervankove-nebe/`, `/produkt/dum-u-jezera/`, `/produkt/malinovy-svarak-nealko/`** | dokud jsou skryté: **307 → `/kategorie/ovocne-napoje`** („Připravujeme“; `lib/eshop/legacyProducts.ts`); po zveřejnění (skript 73) stránka produktu na stejné adrese |
 | cokoli jiného | 404 (e-shopová) |
 
-**Před dnem přepnutí:** export URL z WordPressu (sitemapa) → doplnit
-`LEGACY_PRODUCT_SLUGS` / `LEGACY_CATEGORY_SLUGS` a případné další stránky.
+Koncové lomítko (`/produkt/kulajda/`) odstraní už Next.js přesměrováním
+**308** (trvalé, pro vyhledávače jako 301) na tutéž doménu, ještě před
+`proxy.ts`; teprve pak platí tabulka. Na `www.begina.cz` tedy
+`/produkt/x/` → 308 `/produkt/x` → 301 `https://begina.cz/produkt/x`.
+Ověřeno v prohlížeči pro všech 28 produktů (`scripts/eshop-e2e/marketing.mjs`).
+
+Dnešní web: hlavní adresa je **www.begina.cz** (begina.cz → 301 www),
+**bez HSTS**, server openresty. Nový web obrátí směr (www → begina.cz);
+žádná dřívější HSTS politika v prohlížečích není, takže 1 týden bez
+subdomén je bezpečný začátek. Na webu běží Meta Pixel, cookie lišta
+(CookieYes), Ecomail a WooPayments; Google Analytics ani ověření Search
+Console v HTML nejsou. Co z toho zachovat:
+`docs/begina-cutover/meta-cookieyes-ecomail.md`.
 
 ## Postup přepnutí (pořadí je závazné)
 
@@ -75,8 +93,9 @@ Na Preview (`VERCEL_ENV=preview`) se `ESHOP_CANONICAL_ORIGIN` a
 2. D−1: TTL záznamů `begina.cz` (A) a `www` (CNAME) na 300 s; **zapsat
    původní hodnoty** (návrat). MX, SPF, `send`, `resend._domainkey` se
    **nemění**, jmenné servery se nepřesouvají.
-3. Den D: vypnout pokladnu WooCommerce (číslování objednávek — samostatný
-   postup, viz ESHOP_PRODUCTION_ROLLOUT.md C4–C5).
+3. Den D: vypnout pokladnu WooCommerce. Číslování objednávek (vlastní
+   řada 70000001+, `ESHOP_CISLOVANI_PRECHOD.md`) na WooCommerce nezávisí —
+   zapnout kdykoli předem.
 4. DNS: `begina.cz` A a `www` CNAME na hodnoty z Vercelu.
 5. Kontrola (bez přepínačů): `https://begina.cz` a `https://www.begina.cz`
    (certifikát, 301), `/produkt/kulajda`, `/login` = 404,

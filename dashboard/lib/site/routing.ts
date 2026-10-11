@@ -61,17 +61,48 @@ const SEO_FILES = new Set(["/robots.txt", "/sitemap.xml"]);
 // WooCommerce mají tvar /produkt/<slug>/ — stejný jako nový e-shop; tady
 // jen slugy, které se liší (doplní se z exportu WordPressu).
 export const LEGACY_PRODUCT_SLUGS: Readonly<Record<string, string>> = {};
-/** /kategorie-produktu/<slug>/ → /kategorie/<slug>; slugy sirupy, caje… jsou stejné. */
-export const LEGACY_CATEGORY_SLUGS: Readonly<Record<string, string>> = {};
+/**
+ * /kategorie-produktu/<slug>/ → /kategorie/<slug>. Slugy sirupy, caje,
+ * polevky, ovocne-napoje jsou stejné; liší se jen koktejly (audit sitemapy
+ * WordPressu 10. 10. 2026, scripts/begina-cutover/wp-audit.mts).
+ */
+export const LEGACY_CATEGORY_SLUGS: Readonly<Record<string, string>> = {
+  "alkoholicke-koktejly": "koktejly",
+};
+/** Stránky WordPressu (audit sitemapy 10. 10. 2026) → nejbližší stránka nového webu. */
 const LEGACY_PAGES: Readonly<Record<string, string>> = {
   "/gdpr": "/ochrana-osobnich-udaju",
   "/obchod": "/",
   "/shop": "/",
   "/muj-ucet": "/",
   "/eshop": "/",
+  // přehledy produktů → úvod e-shopu (pruh kategorií)
+  "/obchod-s-beginami": "/",
+  "/beginy": "/",
+  "/napoje": "/",
+  "/kategorie": "/",
+  "/alkoholicke-koktejly": "/kategorie/koktejly",
+  // kontakt je v patičce každé stránky a na O nás
+  "/kontakty": "/o-nas",
+  // prázdné nebo zatím nepřenesené stránky → úvod (rozhodnutí o obsahu: ESHOP_DOMENY.md)
+  "/landing-page": "/",
+  "/partnersky-program": "/",
+  "/pro-podniky-gastro": "/",
+  "/begina-english": "/",
+  "/begina-deutsch": "/",
 };
-/** Části WordPressu, které už nikdy nebudou — 410 (vyhledávač je rychle zapomene). */
-const WORDPRESS_GONE = /^\/(?:wp-admin|wp-login\.php|wp-json|wp-includes|wp-cron\.php|xmlrpc\.php|feed|comments\/feed)(?:\/.*)?$/;
+/** Archivy vlastnosti „balení“ WooCommerce (/baleni/3-l-rodinna-zasoba/) → úvod. */
+const LEGACY_PREFIXES: ReadonlyArray<readonly [string, string]> = [
+  ["/baleni/", "/"],
+  ["/muj-ucet/", "/"],
+];
+/**
+ * Části WordPressu, které už nikdy nebudou — 410 (vyhledávač je rychle
+ * zapomene): administrace a API, ukázkový obsah instalace (Ahoj všichni,
+ * Zkušební stránka), testovací stránka, archivy autorů a rubrik.
+ */
+const WORDPRESS_GONE =
+  /^\/(?:wp-admin|wp-login\.php|wp-json|wp-includes|wp-cron\.php|xmlrpc\.php|feed|comments\/feed|ahoj-vsichni|zkusebni-stranka|uvod-jarek|author|category)(?:\/.*)?$/;
 
 /** Dnešní dočasná přesměrování na moje.begina.cz (dřív v next.config.ts) — beze změny. */
 const INTERNAL_LEGACY_PAGES: Readonly<Record<string, string>> = {
@@ -132,7 +163,8 @@ function routePublic(pathname: string, search: string, method: string): RouteDec
     const slug = LEGACY_CATEGORY_SLUGS[category[1]] ?? category[1];
     return { kind: "redirect", location: `${PUBLIC_ORIGIN}/kategorie/${slug}`, status: 301 };
   }
-  if (pathname.startsWith("/muj-ucet/")) return { kind: "redirect", location: `${PUBLIC_ORIGIN}/`, status: 301 };
+  const prefix = LEGACY_PREFIXES.find(([from]) => pathname.startsWith(from));
+  if (prefix) return { kind: "redirect", location: `${PUBLIC_ORIGIN}${prefix[1]}`, status: 301 };
   // Stará adresa s prefixem /eshop (odkaz z moje.begina.cz) → kanonická bez něj.
   const stripped = withoutEshopPrefix(pathname);
   if (stripped !== null && publicEshopPath(stripped)) {
