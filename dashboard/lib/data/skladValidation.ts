@@ -597,6 +597,13 @@ function resolveRawLine(line: RawExtractedReceiptLine): ResolvedRawLine {
 }
 
 export type SanitizedExtractedReceiptDiagnostics = {
+  // rawLineCount/acceptedLineCount (doplněno po reálném nálezu na příjemce
+  // c0b9c518-...): droppedLineCount=0 samo o sobě NEROZLIŠÍ "model vrátil
+  // 0 syrových řádků" od "všechny syrové řádky prošly sanitizací" — oba
+  // případy mají droppedLineCount=0 i všechny ostatní čítače na nule.
+  // rawLineCount=0 tenhle rozdíl v logu jednoznačně ukáže.
+  rawLineCount: number;
+  acceptedLineCount: number;
   missingDescriptionCount: number;
   missingPriceCount: number;
   quantityDefaultedCount: number;
@@ -621,6 +628,8 @@ export type SanitizedExtractedReceipt = {
 export function sanitizeExtractedReceipt(raw: RawExtractedReceipt): SanitizedExtractedReceipt {
   const lines: ExtractedReceiptLine[] = [];
   const diagnostics: SanitizedExtractedReceiptDiagnostics = {
+    rawLineCount: raw.lines.length,
+    acceptedLineCount: 0,
     missingDescriptionCount: 0,
     missingPriceCount: 0,
     quantityDefaultedCount: 0,
@@ -638,6 +647,7 @@ export function sanitizeExtractedReceipt(raw: RawExtractedReceipt): SanitizedExt
     if (resolved.priceDerived) diagnostics.priceDerivedCount += 1;
     lines.push(resolved.line);
   }
+  diagnostics.acceptedLineCount = lines.length;
 
   return {
     receipt: {

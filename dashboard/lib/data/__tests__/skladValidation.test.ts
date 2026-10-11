@@ -559,8 +559,34 @@ describe("sanitizeExtractedReceipt — maloobchodní účtenka: chybějící mno
     );
     expect(receipt.lines).toHaveLength(0);
     expect(droppedLineCount).toBe(2);
+    expect(diagnostics.rawLineCount).toBe(2);
+    expect(diagnostics.acceptedLineCount).toBe(0);
     expect(diagnostics.missingDescriptionCount).toBe(1);
     expect(diagnostics.missingPriceCount).toBe(1);
+  });
+
+  it("reálný nález (příjemka c0b9c518-...): model vrátí ÚPLNĚ PRÁZDNÉ pole 'lines' (strukturování nenašlo žádnou položku) — droppedLineCount i všechny důvodové čítače jsou 0, STEJNĚ jako když všechny syrové řádky v pořádku projdou; rawLineCount=0 je JEDINÉ pole, co ty dva případy v logu rozliší", () => {
+    const { receipt, droppedLineCount, diagnostics } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [] }) as never);
+    expect(receipt.lines).toHaveLength(0);
+    expect(droppedLineCount).toBe(0); // nejednoznačné samo o sobě — viz rawLineCount níž
+    expect(diagnostics.missingDescriptionCount).toBe(0);
+    expect(diagnostics.missingPriceCount).toBe(0);
+    expect(diagnostics.quantityDefaultedCount).toBe(0);
+    expect(diagnostics.priceDerivedCount).toBe(0);
+    expect(diagnostics.rawLineCount).toBe(0); // <- tohle prokazatelně odliší "model nic nevrátil" od "všechno prošlo"
+    expect(diagnostics.acceptedLineCount).toBe(0);
+  });
+
+  it("všechny syrové řádky v pořádku projdou beze změny — acceptedLineCount se rovná rawLineCount (kontrolní protiklad k testu výš)", () => {
+    const { receipt, droppedLineCount, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({
+        lines: [baseExtractedLine({ description: "Rohlík" }), baseExtractedLine({ description: "Mléko" })],
+      }) as never
+    );
+    expect(receipt.lines).toHaveLength(2);
+    expect(droppedLineCount).toBe(0);
+    expect(diagnostics.rawLineCount).toBe(2);
+    expect(diagnostics.acceptedLineCount).toBe(2);
   });
 });
 

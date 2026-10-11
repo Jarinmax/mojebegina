@@ -333,8 +333,15 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   const { receipt: extracted, droppedLineCount, diagnostics: sanitizeDiagnostics } = sanitizeExtractedReceipt(structuredRaw);
   // Bezpečná diagnostika sanitizace — jen POČTY (kolik řádků zahozeno a
   // proč, kolik mělo dopočítané množství/cenu), nikdy OCR text ani název
-  // položky.
-  console.log(`[sklad] Sanitizace řádků (receiptId=${receiptId}): droppedLineCount=${droppedLineCount}`, sanitizeDiagnostics);
+  // položky. rawLineCount/acceptedLineCount v `sanitizeDiagnostics` jsou
+  // záměrně i v hlavní zprávě řádku logu (ne jen ve vnořeném objektu) —
+  // reálný nález: droppedLineCount=0 samo o sobě vypadá STEJNĚ, ať už
+  // strukturování vrátilo 0 syrových řádků, nebo všechny syrové řádky
+  // prošly v pořádku; rawLineCount tenhle rozdíl ukáže na první pohled.
+  console.log(
+    `[sklad] Sanitizace řádků (receiptId=${receiptId}): rawLineCount=${sanitizeDiagnostics.rawLineCount}, acceptedLineCount=${sanitizeDiagnostics.acceptedLineCount}, droppedLineCount=${droppedLineCount}`,
+    sanitizeDiagnostics
+  );
   if (extracted.lines.length === 0) {
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Z dokladu se nepodařilo přečíst žádný použitelný řádek. Zkuste to znovu nebo doklad vyfoťte ostřeji." };
