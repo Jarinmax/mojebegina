@@ -410,7 +410,18 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
         rawUnitsPerPackage: normalized.rawUnitsPerPackage,
         rawUnit: normalized.rawUnit,
         normalizedQuantity: normalized.normalizedQuantity,
-        normalizedUnit: mapping?.canonicalUnit ?? line.suggestedCanonicalUnit?.trim() ?? normalized.rawUnit,
+        // Reálný nález (MAKRO faktura): dřív tu byl i `line.suggestedCanonicalUnit`
+        // jako druhá možnost PŘED rawUnit — u nenamapované položky se tak na
+        // kontrolní obrazovce zobrazovala AI's NEZÁVAZNÝ návrh kanonické
+        // jednotky (pro budoucí skladovou kartu, "jak tuhle položku
+        // skladovat") jako by to byla OVĚŘENÁ jednotka NÁKUPU. Balení (BG,
+        // "1 balení hranolků po 2,5 kg") se tak uživateli ukázalo jako
+        // "1 kg" — appka ukazovala AI odhad namísto skutečně vytištěné
+        // jednotky z dokladu. suggestedCanonicalUnit zůstává dál dostupný
+        // (ExtractionSuggestion → MappingForm), jen se už nepoužije jako
+        // zobrazená jednotka NEPOTVRZENÉHO řádku — dokud je mapování
+        // nepotvrzené, appka ukazuje jen to, co skutečně stálo na dokladu.
+        normalizedUnit: mapping?.canonicalUnit ?? normalized.rawUnit,
         unitPriceWithoutVat: normalized.unitPriceWithoutVat,
         totalWithoutVatHal: normalized.totalWithoutVatHal,
         vatHal: normalized.vatHal,

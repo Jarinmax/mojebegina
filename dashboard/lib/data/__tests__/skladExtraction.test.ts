@@ -724,6 +724,35 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
     expect(extractionRawJson).toContain("operating_supply");
     expect(extractionRawJson).toContain("Pivo 12°");
   });
+
+  it("reálný nález (MAKRO faktura): nenamapovaná položka uloží jednotku Z DOKLADU (rawUnit), NIKDY nezávazný AI návrh kanonické jednotky (suggestedCanonicalUnit) — 'balení' se tak kontrolorovi nezobrazí jako 'kg'", async () => {
+    mappingByCodeRow = null;
+    mappingByDescriptionRow = null;
+    mockExtractStructuredReceipt.mockResolvedValue(
+      baseExtracted({
+        lines: [
+          baseExtractedLine({
+            description: "Hranolky 6x6 2,5kg",
+            supplierItemCode: "456",
+            unit: "BG", // skutečná jednotka z dokladu — 1 BALENÍ (sáček)
+            suggestedCanonicalUnit: "kg", // AI návrh pro BUDOUCÍ skladovou kartu — NENÍ jednotka nákupu
+          }),
+        ],
+      })
+    );
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result.ok).toBe(true);
+
+    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
+    expect(lineInsert.params).toContain("BG"); // normalizedUnit = rawUnit (z dokladu)
+    expect(lineInsert.params).not.toContain("kg"); // NE AI návrh — ten by se tvářil jako ověřená jednotka nákupu
+
+    // AI návrh zůstává dál dostupný pro kontrolní obrazovku (založení NOVÉ
+    // skladové karty), jen se nepoužije jako jednotka TÉHLE položky.
+    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'))!;
+    expect(JSON.stringify(receiptUpdate.params)).toContain("kg");
+  });
 });
 
 describe("triggerGoodsReceiptExtraction — soukromá položka nikdy nedostane skladovou kartu (bod 8 zadání)", () => {
