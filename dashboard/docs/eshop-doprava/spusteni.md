@@ -1,8 +1,17 @@
 # Chlazená přeprava podle hmotnosti — spuštění (stav 11. 10. 2026)
 
-Stav: **připraveno, nic nespuštěno.** Production dál účtuje orientační
-paušál 99 Kč; migrace na Production neproběhla; přepínač nikde nezapnutý.
-Obchodní podmínky a PDF (PR #19) beze změny.
+Stav: Production dál účtuje orientační paušál 99 Kč; migrace na Production
+neproběhla. Obchodní podmínky a PDF (PR #19) beze změny.
+
+**Preview (11. 10. 2026)** — Neon větev `preview/claude/great-bell-ffjwo3-doprava`
+(`br-fragrant-glade-b240pc9f`, `neon.timeline_id` 1d684d3fc82670cfe6342261f58e1415):
+- 40 → `0 | 36 | 36 | 0` (ověřeno čtením),
+- `41_hmotnosti_PREVIEW.sql` (= 41 + pojistka jen na tuto větev) spuštěn v Neon
+  SQL Editoru v 17:54 → „Statement executed successfully“,
+- 42 → `1 | 36 | 0 | 25 | 7 | 4 | 0` (ověřeno čtením; hmotnosti sedí s balením),
+- Production main ověřena čtením: sloupec `weight_g` neexistuje,
+- Vercel: `ESHOP_WEIGHT_SHIPPING=on` jen pro Preview větve
+  `claude/great-bell-ffjwo3-doprava`.
 
 ## Rozhodnutí majitele (11. 10. 2026)
 
