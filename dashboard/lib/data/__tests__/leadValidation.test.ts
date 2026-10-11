@@ -114,7 +114,13 @@ describe("validateCallLogInput — Security Phase 16", () => {
   // "Uložit zápis" bez nového vyplnění dřív tiše vytvořilo prázdný
   // call_logged záznam. Teď se to odmítá už na validaci.
   it("úplně prázdné odeslání je DENY (UX past po vyprázdnění formuláře)", () => {
-    const result = validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", nextStepNote: "" });
+    const result = validateCallLogInput({
+      note: "",
+      nextStage: "",
+      nextFollowUpAtDate: "",
+      nextFollowUpAtTime: "",
+      nextStepNote: "",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toMatch(/prázdný/i);
@@ -123,31 +129,61 @@ describe("validateCallLogInput — Security Phase 16", () => {
 
   it("jen poznámka bez čehokoliv dalšího je povolené", () => {
     expect(
-      validateCallLogInput({ note: "Chce vzorek.", nextStage: "", nextFollowUpAt: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "Chce vzorek.",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
     ).toBe(true);
   });
 
   it("jen posun fáze bez poznámky je povolené", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "sample_offer", nextFollowUpAt: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "sample_offer",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
     ).toBe(true);
   });
 
-  it("jen datum dalšího kontaktu bez čehokoliv dalšího je povolené", () => {
+  it("jen datum a čas dalšího kontaktu bez čehokoliv dalšího je povolené", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "2026-10-05", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "2026-10-05",
+        nextFollowUpAtTime: "10:00",
+        nextStepNote: "",
+      }).ok
     ).toBe(true);
   });
 
   it("jen další krok bez čehokoliv dalšího je povolené", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", nextStepNote: "Zavolat zítra." }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "Zavolat zítra.",
+      }).ok
     ).toBe(true);
   });
 
   it("jen bílé znaky ve všech polích se počítá jako prázdné = DENY", () => {
     expect(
-      validateCallLogInput({ note: "   ", nextStage: "", nextFollowUpAt: "", nextStepNote: "  " }).ok
+      validateCallLogInput({
+        note: "   ",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "  ",
+      }).ok
     ).toBe(false);
   });
 
@@ -155,31 +191,80 @@ describe("validateCallLogInput — Security Phase 16", () => {
     const result = validateCallLogInput({
       note: "Chce vzorek svařáku.",
       nextStage: "sample_offer",
-      nextFollowUpAt: "2026-10-05",
+      nextFollowUpAtDate: "2026-10-05",
+      nextFollowUpAtTime: "10:00",
       nextStepNote: "Poslat vzorek a zavolat.",
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.nextStage).toBe("sample_offer");
-      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T12:00:00.000Z");
+      // 2026-10-05 10:00 Europe/Prague je ještě letní čas (CEST, UTC+2) —
+      // DST končí až 2026-10-25.
+      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T08:00:00.000Z");
     }
   });
 
   it("neplatná příští fáze = DENY", () => {
-    expect(validateCallLogInput({ note: "", nextStage: "won", nextFollowUpAt: "", nextStepNote: "" }).ok).toBe(
-      false
-    );
+    expect(
+      validateCallLogInput({
+        note: "",
+        nextStage: "won",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
+    ).toBe(false);
   });
 
   it("neplatné datum follow-upu = DENY", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "zítra", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "zítra",
+        nextFollowUpAtTime: "10:00",
+        nextStepNote: "",
+      }).ok
     ).toBe(false);
   });
 
   it("příliš dlouhá poznámka = DENY", () => {
     expect(
-      validateCallLogInput({ note: "a".repeat(2001), nextStage: "", nextFollowUpAt: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "a".repeat(2001),
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
+    ).toBe(false);
+  });
+
+  // Security Phase 20 (Google Kalendář 1.0) — datum a čas se musí vyplnit
+  // SPOLEČNĚ, jakmile uživatel další kontakt vůbec plánuje.
+  it("jen datum bez času = DENY (musí jít dohromady)", () => {
+    const result = validateCallLogInput({
+      note: "",
+      nextStage: "",
+      nextFollowUpAtDate: "2026-10-05",
+      nextFollowUpAtTime: "",
+      nextStepNote: "",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/datum i čas/);
+    }
+  });
+
+  it("jen čas bez data = DENY (musí jít dohromady)", () => {
+    expect(
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "10:00",
+        nextStepNote: "",
+      }).ok
     ).toBe(false);
   });
 });

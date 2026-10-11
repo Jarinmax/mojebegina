@@ -10,6 +10,9 @@ import {
   buildLogDailyCallOutcomeQuery,
   swapAdjacent,
   pragueDateString,
+  isPragueSameDay,
+  isRelevantActivityEntry,
+  RELEVANT_ACTIVITY_KINDS,
   MAX_QUEUE_SIZE,
   FOLLOW_UP_COOLDOWN_DAYS,
   type AutoCandidateLeadRow,
@@ -20,7 +23,8 @@ function baseOutcome(overrides: Partial<Parameters<typeof validateDailyCallOutco
     result: "reached_interested",
     note: "Mluvili jsme, pošlu vzorek.",
     stageChange: "",
-    nextFollowUpAt: "",
+    nextFollowUpAtDate: "",
+    nextFollowUpAtTime: "",
     ...overrides,
   };
 }
@@ -62,17 +66,19 @@ describe("validateDailyCallOutcomeInput — Security Phase 19", () => {
     expect(validateDailyCallOutcomeInput(baseOutcome({ stageChange: "nesmysl" })).ok).toBe(false);
   });
 
-  it("výsledek 'call_back_later' BEZ data je DENY", () => {
-    const result = validateDailyCallOutcomeInput(baseOutcome({ result: "call_back_later", nextFollowUpAt: "" }));
+  it("výsledek 'call_back_later' BEZ data a času je DENY", () => {
+    const result = validateDailyCallOutcomeInput(
+      baseOutcome({ result: "call_back_later", nextFollowUpAtDate: "", nextFollowUpAtTime: "" })
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toMatch(/Zavolat později/);
     }
   });
 
-  it("výsledek 'call_back_later' S datem projde", () => {
+  it("výsledek 'call_back_later' S datem i časem projde", () => {
     const result = validateDailyCallOutcomeInput(
-      baseOutcome({ result: "call_back_later", nextFollowUpAt: "2026-10-05" })
+      baseOutcome({ result: "call_back_later", nextFollowUpAtDate: "2026-10-05", nextFollowUpAtTime: "10:00" })
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -80,13 +86,36 @@ describe("validateDailyCallOutcomeInput — Security Phase 19", () => {
     }
   });
 
-  it("jiný výsledek než 'call_back_later' nevyžaduje datum", () => {
-    expect(validateDailyCallOutcomeInput(baseOutcome({ result: "no_answer", nextFollowUpAt: "" })).ok).toBe(true);
+  it("jiný výsledek než 'call_back_later' nevyžaduje datum ani čas", () => {
+    expect(
+      validateDailyCallOutcomeInput(
+        baseOutcome({ result: "no_answer", nextFollowUpAtDate: "", nextFollowUpAtTime: "" })
+      ).ok
+    ).toBe(true);
+  });
+
+  it("Security Phase 20 — jen datum bez času je DENY (musí jít dohromady)", () => {
+    const result = validateDailyCallOutcomeInput(
+      baseOutcome({ result: "no_answer", nextFollowUpAtDate: "2026-10-05", nextFollowUpAtTime: "" })
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/datum i čas/);
+    }
+  });
+
+  it("Security Phase 20 — jen čas bez data je DENY (musí jít dohromady)", () => {
+    const result = validateDailyCallOutcomeInput(
+      baseOutcome({ result: "no_answer", nextFollowUpAtDate: "", nextFollowUpAtTime: "10:00" })
+    );
+    expect(result.ok).toBe(false);
   });
 
   it("neplatné datum je DENY", () => {
     expect(
-      validateDailyCallOutcomeInput(baseOutcome({ result: "call_back_later", nextFollowUpAt: "not-a-date" })).ok
+      validateDailyCallOutcomeInput(
+        baseOutcome({ result: "call_back_later", nextFollowUpAtDate: "not-a-date", nextFollowUpAtTime: "10:00" })
+      ).ok
     ).toBe(false);
   });
 });
@@ -351,10 +380,9 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
     expect(params).toContain(null);
   });
 
-  it("COALESCE pro stage i next_follow_up_at má taky explicitní cast", () => {
+  it("COALESCE pro stage má explicitní cast ('Fázi neměnit' = skutečně neměnit)", () => {
     const { sql } = compile(null, null);
     expect(sql).toMatch(/COALESCE\(\$\d+::text, stage\)/);
-    expect(sql).toMatch(/COALESCE\(\$\d+::timestamptz, next_follow_up_at\)/);
   });
 
   it("stejná struktura platí i s vyplněnou fází a termínem (nejde o větev jen pro null)", () => {
@@ -362,5 +390,176 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
     const jsonbArgs = sql.match(/jsonb_build_object\(([\s\S]*?)\),\s*now\(\)/)![1];
     expect(jsonbArgs).toMatch(/\$\d+::text/);
     expect(jsonbArgs).toMatch(/\$\d+::timestamptz/);
+  });
+});
+
+// Security Phase 20 (Google Kalendář 1.0) — regresní test dokazující, že
+// next_follow_up_at se nastavuje PŘÍMO (::timestamptz), NE přes COALESCE.
+// Bug: "jiný výsledek při vyřizování dříve naplánovaného kontaktu" by s
+// COALESCE znamenalo "ponechat starý termín" místo "smazat ho" — přesně
+// opak toho, co má nastat, když hovor proběhl a žádný nový termín se
+// nenaplánoval. next_follow_up_at je proto v Denním volání VŽDY binární
+// rozhodnutí (nastavit, nebo explicitně smazat), nikdy "neřešeno".
+describe("buildLogDailyCallOutcomeQuery — next_follow_up_at se skutečně maže, ne jen zachová (Security Phase 20)", () => {
+  const dialect = new PgDialect();
+
+  function compile(nextFollowUpAt: Date | null) {
+    const query = buildLogDailyCallOutcomeQuery({
+      itemId: "11111111-1111-1111-1111-111111111111",
+      leadId: "22222222-2222-2222-2222-222222222222",
+      authorUserId: "06240ac4-c050-47ea-998c-6c81389edf9f",
+      authorName: "Jaroslav Blahout",
+      activityId: "33333333-3333-3333-3333-333333333333",
+      note: "Dovoláno, bez zájmu.",
+      stageChange: null,
+      nextFollowUpAt,
+      result: "reached_not_interested",
+    });
+    return dialect.sqlToQuery(query);
+  }
+
+  it("next_follow_up_at = $N::timestamptz PŘÍMO, žádné COALESCE kolem něj", () => {
+    const { sql } = compile(null);
+    expect(sql).toMatch(/next_follow_up_at = \$\d+::timestamptz/);
+    expect(sql).not.toMatch(/COALESCE\([^)]*next_follow_up_at/);
+  });
+
+  it("při nextFollowUpAt=null je skutečná hodnota parametru null (SQL NULL), ne vynechaná", () => {
+    const { params } = compile(null);
+    expect(params).toContain(null);
+  });
+
+  it("při vyplněném nextFollowUpAt se stejná přímá cesta použije i pro nastavení (ne jen pro mazání)", () => {
+    const value = new Date("2026-10-05T10:00:00.000Z");
+    const { sql, params } = compile(value);
+    expect(sql).toMatch(/next_follow_up_at = \$\d+::timestamptz/);
+    expect(params).toContain(value);
+  });
+
+  it("upsert do lead_calendar_sync na 'pending' je součástí TÉŽE atomické operace", () => {
+    const { sql } = compile(null);
+    expect(sql).toMatch(/INSERT INTO lead_calendar_sync/);
+    expect(sql).toMatch(/ON CONFLICT \(lead_id\) DO UPDATE SET sync_status = 'pending'/);
+  });
+});
+
+// Security Phase 21 (Denní volání 1.1) — resulting_activity_id musí vznikat
+// VÝHRADNĚ uvnitř `claimed`, tedy přesně v tom samém UPDATU, co je jediný
+// gate celého příkazu. Žádný test tady neběží proti databázi (stejná
+// konvence jako testy výše — PgDialect().sqlToQuery() funguje čistě na
+// zkompilovaném SQL textu), ale struktura dotazu sama dokazuje, že:
+//   - prohraný/souběžný claim (0 řádků v `claimed`) znemožní jak
+//     resulting_activity_id tak INSERT do lead_activity (oba jsou součástí
+//     stejného UPDATE/gate), takže osiřelá aktivita nemůže vzniknout;
+//   - dvě různá vyřízení (různé itemId/activityId na stejném leadu) si
+//     nikdy nepřepíšou/nespletou vazbu, protože každé volání funkce
+//     sestaví ÚPLNĚ NOVÝ, nezávislý dotaz se svými vlastními parametry.
+describe("buildLogDailyCallOutcomeQuery — resulting_activity_id (Security Phase 21)", () => {
+  const dialect = new PgDialect();
+
+  function compile(itemId: string, leadId: string, activityId: string) {
+    const query = buildLogDailyCallOutcomeQuery({
+      itemId,
+      leadId,
+      authorUserId: "06240ac4-c050-47ea-998c-6c81389edf9f",
+      authorName: "Jaroslav Blahout",
+      activityId,
+      note: "Test",
+      stageChange: null,
+      nextFollowUpAt: null,
+      result: "no_answer",
+    });
+    return dialect.sqlToQuery(query);
+  }
+
+  it("resulting_activity_id se nastavuje PŘÍMO uvnitř claimed CTE, ne mimo něj", () => {
+    const { sql } = compile(
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222",
+      "33333333-3333-3333-3333-333333333333"
+    );
+    const claimedMatch = sql.match(/claimed AS \(([\s\S]*?)\),\s*lead_upd AS/);
+    expect(claimedMatch).not.toBeNull();
+    const claimedSql = claimedMatch![1];
+    expect(claimedSql).toMatch(/resulting_activity_id = \$\d+/);
+    // Jediný gate zůstává WHERE status='pending' — beze změny.
+    expect(claimedSql).toMatch(/WHERE id = \$\d+ AND status = 'pending' AND lead_id = \$\d+/);
+  });
+
+  it("INSERT do lead_activity zůstává gatovaný WHERE EXISTS (SELECT 1 FROM claimed) i po přidání vazby", () => {
+    const { sql } = compile(
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222",
+      "33333333-3333-3333-3333-333333333333"
+    );
+    expect(sql).toMatch(/INSERT INTO lead_activity[\s\S]*WHERE EXISTS \(SELECT 1 FROM claimed\)/);
+  });
+
+  it("stejný activityId je parametrem jak pro resulting_activity_id, tak pro id vkládané aktivity", () => {
+    const activityId = "33333333-3333-3333-3333-333333333333";
+    const { params } = compile("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", activityId);
+    expect(params.filter((p) => p === activityId).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("dvě vyřízení stejného leada (různé itemId/activityId) vytvoří dva nezávislé dotazy bez křížení parametrů", () => {
+    const leadId = "22222222-2222-2222-2222-222222222222";
+    const first = compile("11111111-1111-1111-1111-111111111111", leadId, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    const second = compile("44444444-4444-4444-4444-444444444444", leadId, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    expect(first.params).toContain("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    expect(first.params).not.toContain("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    expect(second.params).toContain("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    expect(second.params).not.toContain("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  });
+});
+
+describe("isRelevantActivityEntry / RELEVANT_ACTIVITY_KINDS (Security Phase 21)", () => {
+  it("call_logged se zapsanou poznámkou je relevantní", () => {
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: "Slíbil zavolat zpět." })).toBe(true);
+  });
+
+  it("created se zapsanou poznámkou (budoucí import) je relevantní", () => {
+    expect(isRelevantActivityEntry({ kind: "created", body: "Poznámka z importu." })).toBe(true);
+  });
+
+  it("administrativní záznamy (stage_changed, owner_assigned, …) NEJSOU relevantní, i kdyby měly body", () => {
+    expect(isRelevantActivityEntry({ kind: "stage_changed", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "owner_assigned", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "acquired_by_set", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "converted", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "company_name_set", body: "cokoliv" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "follow_up_removed", body: "cokoliv" })).toBe(false);
+  });
+
+  it("relevantní druh bez textu (body null/prázdné) se nezobrazí — pouhé 'body IS NOT NULL' nestačí ani naopak", () => {
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: null })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: "" })).toBe(false);
+    expect(isRelevantActivityEntry({ kind: "call_logged", body: "   " })).toBe(false);
+  });
+
+  it("RELEVANT_ACTIVITY_KINDS obsahuje přesně call_logged a created", () => {
+    expect(RELEVANT_ACTIVITY_KINDS).toEqual(["call_logged", "created"]);
+  });
+});
+
+describe("isPragueSameDay (Security Phase 21)", () => {
+  it("stejný kalendářní den v Europe/Prague = true", () => {
+    expect(isPragueSameDay(new Date("2026-10-07T06:00:00.000Z"), new Date("2026-10-07T20:00:00.000Z"))).toBe(true);
+  });
+
+  it("různý kalendářní den = false", () => {
+    // 2026-10-08 je ještě CEST (DST v Česku koncí až 25. 10. 2026), tedy
+    // UTC+2 — 2026-10-07T23:30 UTC = 2026-10-08T01:30 CEST (už jiný den).
+    expect(isPragueSameDay(new Date("2026-10-07T12:00:00.000Z"), new Date("2026-10-07T23:30:00.000Z"))).toBe(false);
+  });
+
+  it("půlnoc Europe/Prague kolem letního času (CEST, UTC+2) se počítá správně", () => {
+    // 2026-06-07 21:59 UTC = 2026-06-07 23:59 CEST; 2026-06-07 22:01 UTC = 2026-06-08 00:01 CEST.
+    expect(isPragueSameDay(new Date("2026-06-07T21:59:00.000Z"), new Date("2026-06-07T22:01:00.000Z"))).toBe(false);
+  });
+
+  it("půlnoc Europe/Prague kolem zimního času (CET, UTC+1) se počítá správně", () => {
+    // 2026-01-07T22:59 UTC = 2026-01-07T23:59 CET; 2026-01-07T23:01 UTC = 2026-01-08T00:01 CET.
+    expect(isPragueSameDay(new Date("2026-01-07T22:59:00.000Z"), new Date("2026-01-07T23:01:00.000Z"))).toBe(false);
   });
 });

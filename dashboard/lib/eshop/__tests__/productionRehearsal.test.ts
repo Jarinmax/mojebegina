@@ -137,7 +137,13 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
           UNION ALL SELECT 'idx', tablename, indexname, '' FROM pg_indexes WHERE schemaname = 'public'
           ORDER BY 1, 2, 3`)
       ).rows;
-    const { pg: reference } = await createMigratedDb();
+    // Ohraničeno na "migrace 0000–0020" (přesně to, co název testu
+    // deklaruje) — po sloučení main do feature/google-calendar-1-0 a
+    // přečíslování kolidující kalendářové migrace na 0021 (Security Phase
+    // 21 post-implementation audit) by `createMigratedDb()` bez parametru
+    // teď aplikovalo i 0021 (google_calendar_connections/lead_calendar_sync),
+    // což je mimo rozsah téhle generálky e-shopového rollout postupu.
+    const { pg: reference } = await createMigratedDb("0020_eshop_1_0_payments_invoicing");
     const key = (r: unknown) => JSON.stringify(r);
     const a = new Set((await schema(pg)).map(key));
     const b = new Set((await schema(reference)).map(key));

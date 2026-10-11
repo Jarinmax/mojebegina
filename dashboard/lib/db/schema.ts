@@ -699,7 +699,8 @@ export const leadActivity = pgTable(
     authorUserId: text("author_user_id").notNull(),
     authorName: text("author_name"),
     // "created" | "stage_changed" | "owner_assigned" | "acquired_by_set" |
-    // "call_logged" | "note_added" | "converted" | "company_name_set"
+    // "call_logged" | "note_added" | "converted" | "company_name_set" |
+    // "follow_up_removed" (Security Phase 20)
     kind: text("kind").notNull(),
     body: text("body"),
     metadata: jsonb("metadata"),
@@ -919,6 +920,19 @@ export const dailyCallQueue = pgTable(
     doneBy: text("done_by"),
     removedAt: timestamp("removed_at", { withTimezone: true }),
     removedBy: text("removed_by"),
+    // Security Phase 21 (Denní volání 1.1 — historie a "Dnes vyřízeno") —
+    // ukazatel na PRÁVĚ TEN lead_activity záznam, který vznikl vyřízením
+    // téhle konkrétní položky fronty. Nullable (staré `done` řádky z doby
+    // před touto změnou ho nemají a zůstávají NULL, bez odhadovaného
+    // zpětného dohledání). Nastavuje se výhradně uvnitř stejného
+    // atomického CTE jako přechod na `done` (viz
+    // dailyCallsValidation.ts:buildLogDailyCallOutcomeQuery) — nikdy
+    // samostatným zápisem. Je to ČISTĚ odkaz (FK), ne kopie textu poznámky
+    // — ta se čte vždy autoritativně z lead_activity. `ON DELETE SET NULL`,
+    // aby případné (dnes nepoužívané) smazání aktivity nikdy nezablokovalo
+    // mazání/retenci — ztráta ukazatele je bezpečná degradace (položka pak
+    // jen nemá dohledatelný detail, ne chyba).
+    resultingActivityId: uuid("resulting_activity_id").references(() => leadActivity.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -953,6 +967,57 @@ export const dailyCallQueue = pgTable(
   ]
 );
 
+// Security Phase 20 (Google Kalendář 1.0) — propojení Blahoutova Google
+// účtu s appkou, schváleno výhradně pro Blahouta samotného (nikdy Viner
+// jménem Blahouta — gate v googleCalendarAuth.ts kontroluje konkrétní
+// userId, ne jen roli, stejný princip jako dailyCallsAuth.ts).
+// `googleCalendarId` je sekundární kalendář "MojeBegina – volání",
+// založený appkou při prvním propojení (scope `calendar.app.created` —
+// appka smí spravovat jen kalendáře, které sama vytvořila, nikdy
+// Blahoutův osobní primární kalendář).
+// `refreshTokenEncrypted` je base64 (IV + ciphertext + auth tag z
+// AES-256-GCM, klíč jen ve Vercel env, nikdy v DB) — text sloupec, ne
+// bytea, kvůli jednoduššímu a spolehlivějšímu zacházení přes
+// @neondatabase/serverless (stejný princip jako jsonb.metadata jinde v
+// schématu — binární data se v týhle appce nikdy neukládají přímo).
+// UNIQUE(userId), ne primární klíč na userId — opětovné propojení po
+// odpojení musí jít přes UPDATE existujícího řádku (ON CONFLICT), ne
+// založení druhého řádku pro stejného uživatele.
+export const googleCalendarConnections = pgTable("google_calendar_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().unique(),
+  googleAccountEmail: text("google_account_email").notNull(),
+  googleCalendarId: text("google_calendar_id").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  grantedScopes: text("granted_scopes").notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+// Security Phase 20 — 1:1 na leads (jeden lead má nejvýš jednu "aktivní"
+// připomínku dalšího kontaktu, tedy nejvýš jednu kalendářovou událost).
+// `syncedNextFollowUpAt`/`googleEventId` odrážejí stav, který NAPOSLEDY
+// úspěšně odpovídal Google kalendáři — "reconcile" mechanismus
+// (googleCalendar.ts:reconcileLeadCalendarEvent) porovnává tohle se
+// skutečným (efektivním) stavem leadu a podle rozdílu rozhoduje
+// create/update/delete/noop. `googleEventId` je DETERMINISTICKY odvozené
+// z leadId (ne přidělené Googlem) — řeší pád mezi vytvořením v Googlu a
+// zápisem sem (viz komentář u buildGoogleEventId v
+// googleCalendarValidation.ts).
+export const leadCalendarSync = pgTable("lead_calendar_sync", {
+  leadId: uuid("lead_id")
+    .primaryKey()
+    .references(() => leads.id),
+  googleEventId: text("google_event_id"),
+  syncedNextFollowUpAt: timestamp("synced_next_follow_up_at", { withTimezone: true }),
+  syncStatus: text("sync_status").notNull().default("pending"), // "pending" | "synced" | "failed"
+  lastError: text("last_error"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+},
+(table) => [
+  check("lead_calendar_sync_status_check", sql`${table.syncStatus} IN ('pending','synced','failed')`),
+]);
+
 // Stejný vzor jako company_node_activity/lead_activity — jeden sdílený
 // timeline pro poznámky i systémové události, authorName jako snapshot.
 export const focusProjectActivity = pgTable(
@@ -974,3 +1039,414 @@ export const focusProjectActivity = pgTable(
   },
   (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
 );
+
+// Security Phase 22 (Sklad 1.0 — bezpečný základ) — schváleno vedením
+// 9.–10. 10. 2026, viz audit "MojeBegina – skladové hospodářství 1.0".
+// Tahle etapa je ČISTĚ datový/účetní základ (lokace, dodavatelé, karty,
+// ruční příjemky, atomické potvrzení/storno) — focení, Vercel Blob a
+// OCR/AI jsou výslovně odloženy na další etapu a nic v tomhle souboru na
+// ně nezávisí (viz lib/data/skladExtraction.ts — jen rozhraní, žádná
+// implementace).
+//
+// "Budoucí receptury, výroba a sklad budou ukazovat NA tyto tabulky, ne
+// naopak" (komentář u productCategories výš) — stock_items je proto NOVÝ,
+// odlišný koncept od products/productVariants (nakoupená surovina/zboží/
+// materiál, ne prodejní katalog), s nepovinnou vazbou tam, kde nakoupená
+// položka skutečně JE prodejní zboží z e-shopu. Žádný duplicitní katalog.
+
+// Skladové lokace — MVP má jednu výchozí (seedovanou v migraci), ale
+// schéma musí bez další migrace unést výrobu/bistro/chladicí sklad/Farmu
+// Hole. `code` je stabilní strojový klíč (ne `name`, který se může
+// přejmenovat), format-checked jako jinde v projektu.
+export const stockLocations = pgTable(
+  "stock_locations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("stock_locations_code_key").on(table.code),
+    check("stock_locations_code_format", sql`${table.code} ~ '^[a-z][a-z0-9_]*$'`),
+  ]
+);
+
+// Dodavatelé — minimální tabulka už v MVP (schváleno explicitně, revize
+// návrhu). IČO je silný identifikátor (unikátní, pokud vyplněné);
+// normalizovaný název je jen fallback dedup klíč, POUZE pokud IČO chybí —
+// stejný vzor jako invoiceCustomers (kind="company", ico/email partial
+// unique indexy) o pár set řádků výš.
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    nameNormalized: text("name_normalized").notNull(),
+    ico: text("ico"),
+    dic: text("dic"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("suppliers_ico_key").on(table.ico).where(sql`${table.ico} IS NOT NULL`),
+    uniqueIndex("suppliers_name_normalized_key").on(table.nameNormalized).where(sql`${table.ico} IS NULL`),
+    check("suppliers_ico_format", sql`${table.ico} IS NULL OR ${table.ico} ~ '^[0-9]{8}$'`),
+  ]
+);
+
+// Skladové karty. `kind` zrcadlí goodsReceiptLines.lineKind MINUS
+// "non_stock_private" (soukromá/nefiremní položka se do skladu nikdy
+// nezapisuje, nemá tedy ani kartu). `linkedProductVariantId` je
+// nepovinná vazba na prodejní katalog (viz komentář výš) — jen tam, kde
+// nakoupené zboží JE k dalšímu prodeji.
+export const STOCK_ITEM_KINDS = ["ingredient", "resale_goods", "operating_supply"] as const;
+
+export const stockItems = pgTable(
+  "stock_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    canonicalUnit: text("canonical_unit").notNull(), // "ks" | "l" | "kg" | "m" | …
+    kind: text("kind").notNull(),
+    linkedProductVariantId: uuid("linked_product_variant_id").references(() => productVariants.id, {
+      onDelete: "set null",
+    }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("stock_items_kind_check", sql`${table.kind} IN ('ingredient','resale_goods','operating_supply')`),
+    check("stock_items_canonical_unit_format", sql`${table.canonicalUnit} ~ '^[a-z][a-z0-9_]*$'`),
+  ]
+);
+
+// Mapování dodavatelské položky → skladová karta, zapamatované z prvního
+// ručního přiřazení (schváleno — "nikdy nic neslučuje sama", jen
+// zrychluje opakovaný výskyt). PRIMÁRNÍ klíč je supplier_id +
+// supplier_item_code (skutečné číslo zboží/EAN/SKU) — normalizovaný popis
+// je jen FALLBACK, použitý výhradně když kód na dokladu chybí (revize
+// návrhu, bod 4). `unitsPerPackage` je konverzní faktor z dokladu (např.
+// "6 kusů v balení" u Makra) — schválený vzor, ne odhad.
+export const supplierItemMappings = pgTable(
+  "supplier_item_mappings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    supplierId: uuid("supplier_id")
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "restrict" }),
+    supplierItemCode: text("supplier_item_code"),
+    descriptionNormalized: text("description_normalized"),
+    stockItemId: uuid("stock_item_id")
+      .notNull()
+      .references(() => stockItems.id, { onDelete: "restrict" }),
+    unitsPerPackage: numeric("units_per_package", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    packageUnitLabel: text("package_unit_label"),
+    lineKind: text("line_kind").notNull(),
+    createdByUserId: text("created_by_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("supplier_item_mappings_by_code_key")
+      .on(table.supplierId, table.supplierItemCode)
+      .where(sql`${table.supplierItemCode} IS NOT NULL`),
+    uniqueIndex("supplier_item_mappings_by_description_key")
+      .on(table.supplierId, table.descriptionNormalized)
+      .where(sql`${table.supplierItemCode} IS NULL AND ${table.descriptionNormalized} IS NOT NULL`),
+    check(
+      "supplier_item_mappings_line_kind_check",
+      sql`${table.lineKind} IN ('stock_material','resale_goods','operating_supply','non_stock_private')`
+    ),
+    check("supplier_item_mappings_units_positive", sql`${table.unitsPerPackage} > 0`),
+    check(
+      "supplier_item_mappings_has_key",
+      sql`${table.supplierItemCode} IS NOT NULL OR ${table.descriptionNormalized} IS NOT NULL`
+    ),
+  ]
+);
+
+// Příjemka — hlavička. `status`: draft → confirmed → voided, nikdy zpět
+// (vynucuje datová vrstva, ne DB). `supplierNameSnapshot` je text PŘESNĚ
+// tak, jak byl na dokladu/zadaný — dodavatel (supplierId) se může později
+// přejmenovat, snapshot ne (revize návrhu, bod 2). `extractionStatus`
+// zůstává pro ruční příjemky (tahle etapa) vždy 'not_applicable' — AI
+// vytěžování přijde až v další etapě (lib/data/skladExtraction.ts).
+export const goodsReceipts = pgTable(
+  "goods_receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    supplierId: uuid("supplier_id")
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "restrict" }),
+    supplierNameSnapshot: text("supplier_name_snapshot").notNull(),
+    stockLocationId: uuid("stock_location_id")
+      .notNull()
+      .references(() => stockLocations.id, { onDelete: "restrict" }),
+    documentNumber: text("document_number"),
+    documentDate: date("document_date", { mode: "string" }),
+    dueDate: date("due_date", { mode: "string" }),
+    paymentMethod: text("payment_method"), // volný text — různí dodavatelé, žádný enum zatím
+    totalWithoutVatHal: bigint("total_without_vat_hal", { mode: "number" }),
+    totalVatHal: bigint("total_vat_hal", { mode: "number" }),
+    totalWithVatHal: bigint("total_with_vat_hal", { mode: "number" }),
+    status: text("status").notNull().default("draft"), // "draft" | "confirmed" | "voided"
+    extractionStatus: text("extraction_status").notNull().default("not_applicable"),
+    extractionRaw: jsonb("extraction_raw"),
+    createdByUserId: text("created_by_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    confirmedByUserId: text("confirmed_by_user_id"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    voidedByUserId: text("voided_by_user_id"),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidReason: text("void_reason"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("goods_receipts_supplier_document_idx").on(table.supplierId, table.documentNumber),
+    // Tvrdá DB pojistka proti omylem dvojímu potvrzení stejného dokladu
+    // (revize návrhu, bod 6: "match na supplier_id + document_number musí
+    // BLOKOVAT, ne jen varovat"). Platí jen mezi POTVRZENÝMI příjemkami —
+    // oprava jde přes storno původní (status → 'voided', mimo predikát
+    // indexu) a potvrzení nové, správné náhrady (bod 6: "aby zůstala
+    // možná a auditovatelná korektní náhrada"), ne přes bypass flag.
+    uniqueIndex("goods_receipts_confirmed_document_once_key")
+      .on(table.supplierId, table.documentNumber)
+      .where(sql`${table.status} = 'confirmed' AND ${table.documentNumber} IS NOT NULL`),
+    check("goods_receipts_status_check", sql`${table.status} IN ('draft','confirmed','voided')`),
+    check(
+      "goods_receipts_extraction_status_check",
+      sql`${table.extractionStatus} IN ('not_applicable','pending','succeeded','failed','needs_review')`
+    ),
+    check(
+      "goods_receipts_confirmed_pair_check",
+      sql`(${table.confirmedByUserId} IS NULL) = (${table.confirmedAt} IS NULL)`
+    ),
+    check("goods_receipts_voided_pair_check", sql`(${table.voidedByUserId} IS NULL) = (${table.voidedAt} IS NULL)`),
+    check("goods_receipts_voided_has_reason", sql`${table.voidedAt} IS NULL OR ${table.voidReason} IS NOT NULL`),
+    // Post-implementační audit (druhé kolo, empiricky nalezeno nad PGlite,
+    // ne jen staticky) — PŮVODNÍ dvousměrná rovnost "status='confirmed' ⟺
+    // confirmed_at IS NOT NULL" byla chybná: storno POTVRZENÉ příjemky
+    // záměrně nemaže confirmed_at (zůstává historický záznam, KDY byla
+    // potvrzena, před stornem) — status se změní na 'voided', ale
+    // confirmed_at zůstává vyplněné, což dvousměrnou rovnost porušuje a
+    // voidGoodsReceipt by na reálné DB vždy spadl na porušení CHECKu.
+    // Oprava: jednosměrná implikace — potvrzeno VYŽADUJE časové razítko,
+    // ale časové razítko NEVYŽADUJE aktuální stav 'confirmed' (umožňuje mu
+    // přežít přechod do 'voided').
+    check(
+      "goods_receipts_confirmed_status_check",
+      sql`${table.status} <> 'confirmed' OR ${table.confirmedAt} IS NOT NULL`
+    ),
+    check("goods_receipts_voided_status_check", sql`(${table.status} = 'voided') = (${table.voidedAt} IS NOT NULL)`),
+  ]
+);
+
+// Jedna příjemka může mít VÍC dokumentů (faktura + samostatný dodací list)
+// — vazba proto vede odtud na goods_receipts, ne naopak (revize návrhu,
+// bod 3). `kind` zahrnuje "invoice_delivery_note" pro dodavatele (Makro),
+// co fakturu a dodací list kombinují do jednoho dokumentu. Tahle etapa
+// (bez uploadu) do téhle tabulky nic nezapisuje — existuje pro příští
+// etapu, beze změny účetní logiky.
+export const goodsReceiptDocuments = pgTable(
+  "goods_receipt_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    receiptId: uuid("receipt_id")
+      .notNull()
+      .references(() => goodsReceipts.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull(), // "invoice" | "receipt" | "delivery_note" | "invoice_delivery_note"
+    position: integer("position").notNull().default(0),
+    uploadedByUserId: text("uploaded_by_user_id").notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("goods_receipt_documents_receipt_idx").on(table.receiptId, table.position),
+    check(
+      "goods_receipt_documents_kind_check",
+      sql`${table.kind} IN ('invoice','receipt','delivery_note','invoice_delivery_note')`
+    ),
+  ]
+);
+
+// Jeden dokument může mít víc stran, pořadí jednoznačné přes
+// (document_id, page_number). `sha256` je základ pro duplicitní ochranu
+// (viz trigger na konci migrace 0023, revize návrhu bod 6) — index tady,
+// skutečná "nesmí vzniknout druhý AKTIVNÍ doklad" kontrola běží jako
+// databázová pojistka (trigger), ne jen tady v indexu. "Aktivní" = draft
+// NEBO confirmed (jen voided je vyloučené) — post-implementační audit,
+// bod 7: duplicita nesmí vzniknout ani vůči už POTVRZENÉ příjemce, ne jen
+// mezi dvěma drafty.
+export const goodsReceiptDocumentPages = pgTable(
+  "goods_receipt_document_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => goodsReceiptDocuments.id, { onDelete: "restrict" }),
+    pageNumber: integer("page_number").notNull(),
+    storageKey: text("storage_key").notNull(),
+    sha256: text("sha256").notNull(),
+    mimeType: text("mime_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("goods_receipt_document_pages_order_key").on(table.documentId, table.pageNumber),
+    index("goods_receipt_document_pages_sha256_idx").on(table.sha256),
+    check("goods_receipt_document_pages_page_number_positive", sql`${table.pageNumber} > 0`),
+  ]
+);
+
+// Řádek příjemky. Rozlišuje skutečné číslo zboží (supplierItemCode) od
+// NEZNÁMÉHO pomocného dodavatelského kódu (supplierAuxiliaryCode, např.
+// Makro 23/6) — ten se nikdy nepoužívá jako DPH ani jako identifikátor
+// (revize návrhu, bod 4). Množství: rawPackageQuantity (kolik balení/MJ
+// bylo na dokladu) × rawUnitsPerPackage (kolik kanonických jednotek je
+// v balení) = normalizedQuantity — obě raw hodnoty se zachovávají pro
+// audit nezávisle na výsledku (revize návrhu, bod 5). Ceny: jednotková
+// cena je numeric (Kč, ne haléře) s dostatečnou přesností pro vážené zboží
+// a dodavatelské jednotkové ceny na víc než 2 desetinná místa; VÝSLEDNÉ
+// částky zůstávají bigint haléře jako jinde v projektu (payments.amountHal).
+// computedVatRatePercent je vždy DOPOČÍTANÁ z částek (cena s DPH / cena
+// bez DPH − 1), nikdy přečtená z nejasného sloupce — viz reálný nález na
+// faktuře Makro, kde sloupec vedle ceny byl kód oddělení, ne sazba DPH.
+export const goodsReceiptLines = pgTable(
+  "goods_receipt_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    receiptId: uuid("receipt_id")
+      .notNull()
+      .references(() => goodsReceipts.id, { onDelete: "restrict" }),
+    position: integer("position").notNull(),
+    rawDescription: text("raw_description").notNull(),
+    supplierItemCode: text("supplier_item_code"),
+    supplierAuxiliaryCode: text("supplier_auxiliary_code"),
+    rawPackageQuantity: numeric("raw_package_quantity", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    rawUnitsPerPackage: numeric("raw_units_per_package", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    rawUnit: text("raw_unit").notNull(),
+    normalizedQuantity: numeric("normalized_quantity", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    normalizedUnit: text("normalized_unit").notNull(),
+    unitPriceWithoutVat: numeric("unit_price_without_vat", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    totalWithoutVatHal: bigint("total_without_vat_hal", { mode: "number" }).notNull(),
+    vatHal: bigint("vat_hal", { mode: "number" }).notNull(),
+    totalWithVatHal: bigint("total_with_vat_hal", { mode: "number" }).notNull(),
+    computedVatRatePercent: numeric("computed_vat_rate_percent", {
+      precision: 6,
+      scale: 3,
+      mode: "number",
+    }).notNull(),
+    vatConfirmed: boolean("vat_confirmed").notNull().default(false),
+    stockItemId: uuid("stock_item_id").references(() => stockItems.id, { onDelete: "restrict" }),
+    lineKind: text("line_kind").notNull(),
+    mappingSource: text("mapping_source"), // "auto" | "manual" | NULL (zatím nenamapováno)
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("goods_receipt_lines_position_key").on(table.receiptId, table.position),
+    index("goods_receipt_lines_stock_item_idx").on(table.stockItemId),
+    check(
+      "goods_receipt_lines_line_kind_check",
+      sql`${table.lineKind} IN ('stock_material','resale_goods','operating_supply','non_stock_private')`
+    ),
+    check(
+      "goods_receipt_lines_mapping_source_check",
+      sql`${table.mappingSource} IS NULL OR ${table.mappingSource} IN ('auto','manual')`
+    ),
+    check(
+      "goods_receipt_lines_total_consistent",
+      sql`${table.totalWithVatHal} = ${table.totalWithoutVatHal} + ${table.vatHal}`
+    ),
+    check("goods_receipt_lines_amounts_nonnegative", sql`${table.totalWithoutVatHal} >= 0 AND ${table.vatHal} >= 0`),
+    check(
+      "goods_receipt_lines_quantities_positive",
+      sql`${table.rawPackageQuantity} > 0 AND ${table.rawUnitsPerPackage} > 0 AND ${table.normalizedQuantity} > 0`
+    ),
+    check(
+      "goods_receipt_lines_non_stock_has_no_item",
+      sql`${table.lineKind} <> 'non_stock_private' OR ${table.stockItemId} IS NULL`
+    ),
+  ]
+);
+
+// Skladový pohyb — append-only ledger, NIKDY update/delete (revize návrhu,
+// bod 7). Storno vytváří NOVÝ pohyb s opačným směrem a correctsMovementId
+// ukazujícím na původní (stejný vzor jako payments.refundOfPaymentId) —
+// databázová pojistka proti dvojímu stornu stejného pohybu je
+// uniqueIndex níž (ne jen status na goods_receipts). Zůstatek se počítá
+// za kombinaci (stock_item_id, stock_location_id) — viz stockItemBalances
+// pohled na konci souboru — nikdy jen globálně za položku (revize návrhu,
+// bod 1).
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    stockItemId: uuid("stock_item_id")
+      .notNull()
+      .references(() => stockItems.id, { onDelete: "restrict" }),
+    stockLocationId: uuid("stock_location_id")
+      .notNull()
+      .references(() => stockLocations.id, { onDelete: "restrict" }),
+    receiptId: uuid("receipt_id").references(() => goodsReceipts.id, { onDelete: "restrict" }),
+    receiptLineId: uuid("receipt_line_id").references(() => goodsReceiptLines.id, { onDelete: "restrict" }),
+    direction: text("direction").notNull(), // "in" | "out"
+    quantity: numeric("quantity", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    recordedByUserId: text("recorded_by_user_id").notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    correctsMovementId: uuid("corrects_movement_id").references((): AnyPgColumn => stockMovements.id, {
+      onDelete: "restrict",
+    }),
+    reason: text("reason"),
+  },
+  (table) => [
+    index("stock_movements_item_location_idx").on(table.stockItemId, table.stockLocationId),
+    index("stock_movements_receipt_idx").on(table.receiptId),
+    uniqueIndex("stock_movements_corrects_once_key")
+      .on(table.correctsMovementId)
+      .where(sql`${table.correctsMovementId} IS NOT NULL`),
+    check("stock_movements_direction_check", sql`${table.direction} IN ('in','out')`),
+    check("stock_movements_quantity_positive", sql`${table.quantity} > 0`),
+    check("stock_movements_correction_has_reason", sql`${table.correctsMovementId} IS NULL OR ${table.reason} IS NOT NULL`),
+    check("stock_movements_not_self_corrected", sql`${table.correctsMovementId} IS DISTINCT FROM ${table.id}`),
+  ]
+);
+
+// Audit log příjemky — stejný vzor jako order_activity/lead_activity.
+export const goodsReceiptActivity = pgTable(
+  "goods_receipt_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    receiptId: uuid("receipt_id")
+      .notNull()
+      .references(() => goodsReceipts.id, { onDelete: "restrict" }),
+    actorType: text("actor_type").notNull().default("user"), // "user" | "system"
+    authorUserId: text("author_user_id"),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(), // "created" | "line_added" | "line_mapped" | "confirmed" | "voided"
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("goods_receipt_activity_receipt_idx").on(table.receiptId, table.createdAt),
+    check("goods_receipt_activity_actor_type_check", sql`${table.actorType} IN ('user','system')`),
+    check(
+      "goods_receipt_activity_user_has_author",
+      sql`${table.actorType} <> 'user' OR ${table.authorUserId} IS NOT NULL`
+    ),
+  ]
+);
+
+// Zůstatek za (stock_item_id, stock_location_id) — POHLED, ne ukládaný
+// sloupec, stejný vzor jako orderPaymentBalance výš. Definice (CREATE
+// VIEW) je ručně připsaná v migraci 0023 za vygenerovanými tabulkami —
+// `.existing()` říká Drizzle Kitu, ať ji nespravuje jako tabulku.
+export const stockItemBalances = pgView("stock_item_balances", {
+  stockItemId: uuid("stock_item_id").notNull(),
+  stockLocationId: uuid("stock_location_id").notNull(),
+  currentQuantity: numeric("current_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
+}).existing();

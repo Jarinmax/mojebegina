@@ -59,7 +59,13 @@ describe("řetězec migrací Drizzle", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual(ESHOP);
+    // Ohraničeno na vlastní (souvislý) blok e-shopu, ne na "všechno od
+    // FIRST_ESHOP_IDX do konce" — po sloučení main (0020) do
+    // feature/google-calendar-1-0 a přečíslování kolidující kalendářové
+    // migrace na 0021 (Security Phase 21 post-implementation audit)
+    // journal pokračuje DÁL za e-shopem, což je tomuto testu (ověřuje jen
+    // e-shopovu vlastní migraci) mimo rozsah.
+    expect(tags.slice(FIRST_ESHOP_IDX, FIRST_ESHOP_IDX + ESHOP.length)).toEqual(ESHOP);
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {
@@ -90,8 +96,14 @@ describe("řetězec migrací Drizzle", () => {
   });
 
   it("e-shop nemění tabulky z main (0013–0020 = stejné jako 0012)", () => {
+    // Ohraničeno na e-shopův vlastní (souvislý) blok, ne "od FIRST_ESHOP_IDX
+    // do konce journalu" — po 0021 (Google Kalendář) a 0022 (Denní volání
+    // 1.1, Security Phase 21 post-implementation audit) daily_call_queue
+    // LEGITIMNĚ dostává nový sloupec `resulting_activity_id`. Tahle
+    // migrace ale NENÍ e-shopová a tenhle test o ní nic netvrdí.
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
-    for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
+    const lastEshopIdx = FIRST_ESHOP_IDX + ESHOP.length - 1;
+    for (let i = FIRST_ESHOP_IDX; i <= lastEshopIdx; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);
     }
   });

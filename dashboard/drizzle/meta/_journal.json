@@ -148,6 +148,27 @@
       "when": 1791237560047,
       "tag": "0020_eshop_1_0_payments_invoicing",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791394287133,
+      "tag": "0021_phase_20_google_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791395036761,
+      "tag": "0022_phase_21_daily_calls_worker_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791546105442,
+      "tag": "0023_phase_22_sklad_1_0_zaklad",
+      "breakpoints": true
     }
   ]
 }
