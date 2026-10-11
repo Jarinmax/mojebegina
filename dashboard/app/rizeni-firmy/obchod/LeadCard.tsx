@@ -5,10 +5,10 @@ import { VENUE_TYPE_LABELS } from "./leadLabels";
 import type { LeadCardData } from "@/lib/data/leads";
 import type { VenueType } from "@/lib/data/leadValidation";
 
-export default function LeadCard({ lead }: { lead: LeadCardData }) {
+export default function LeadCard({ lead, returnTo }: { lead: LeadCardData; returnTo: string }) {
   return (
     <Link
-      href={`/rizeni-firmy/obchod/leady/${lead.id}`}
+      href={`/rizeni-firmy/obchod/leady/${lead.id}?returnTo=${encodeURIComponent(returnTo)}`}
       className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-1">
