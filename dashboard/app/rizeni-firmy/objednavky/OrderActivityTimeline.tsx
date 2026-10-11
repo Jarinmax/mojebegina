@@ -48,6 +48,13 @@ function describeEntry(entry: OrderActivityEntry): string {
     // ESHOP 1.0 — platba kartou (Stripe)
     case "payment_started":
       return "přesměroval(a) zákazníka na platbu kartou (Stripe)";
+    // Meta „Purchase“ po úplném zaplacení (jen se souhlasem zákazníka — lib/eshop/metaPurchase.ts)
+    case "meta_purchase":
+      return meta.status === "sent"
+        ? "odeslal(a) do Meta dokončený nákup (zákazník souhlasil s reklamními cookies)"
+        : meta.status === "failed"
+          ? `⚠ dokončený nákup se do Meta nepodařilo odeslat — ${String(meta.error ?? "neznámá chyba")} (nic dalšího není potřeba)`
+          : "odesílá do Meta dokončený nákup…";
     case "payment_duplicate":
       return "⚠ přijal(a) DALŠÍ platbu kartou k už zaplacené objednávce — zkontrolovat a vrátit ve Stripe";
     // ESHOP 1.0 — e-maily k objednávce (lib/eshop/email/orderEmails.ts)

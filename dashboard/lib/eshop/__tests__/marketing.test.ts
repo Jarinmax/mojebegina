@@ -1,8 +1,9 @@
 // Meta Pixel + CookieYes: přepínače (výchozí vypnuto), žádná událost bez
-// souhlasu s reklamními cookies, nic na stránce objednávky, nákup jednou.
+// souhlasu s reklamními cookies, nic na stránce objednávky. Nákup (Purchase)
+// prohlížeč neposílá vůbec — až server po zaplacení (metaPurchase.test.ts).
 import { describe, expect, it } from "vitest";
-import { cookieYesScriptUrl, isPrivateEshopPath, marketingConfig, purchaseEvent } from "../marketing";
-import { createMetaPixel, META_SCRIPT_URL, readAdConsent, type PixelEnv } from "../metaPixel";
+import { cookieYesScriptUrl, isPrivateEshopPath, marketingConfig } from "../marketing";
+import { checkoutMetaSignals, createMetaPixel, META_SCRIPT_URL, readAdConsent, type PixelEnv } from "../metaPixel";
 
 const CKY = "5f3760f1f9ac1d11074e41aade2c6467";
 const PIXEL = "2509610956071494";
@@ -34,23 +35,9 @@ describe("přepínače", () => {
   });
 });
 
-describe("nákup ze serveru", () => {
-  const cart = { totalKc: 1476, lines: [{ sku: "kulajda", quantity: 2, unitPriceKc: 379 } as never] };
-  it("jen nově uložená objednávka s VS; event_id podle VS (ne podle tajného id objednávky)", () => {
-    expect(purchaseEvent({ paymentVs: "70000002", alreadySaved: false }, cart)).toEqual({
-      eventId: "objednavka-70000002",
-      valueKc: 1476,
-      contents: [{ id: "kulajda", quantity: 2, item_price: 379 }],
-    });
-    expect(purchaseEvent({ paymentVs: "70000002", alreadySaved: true }, cart)).toBeNull();
-    expect(purchaseEvent({ paymentVs: null, alreadySaved: false }, cart)).toBeNull();
-  });
-});
-
 function fakeEnv(path = "/produkt/kulajda", cookie = "") {
   const calls: unknown[][] = [];
   const scripts: string[] = [];
-  const store = new Map<string, string>();
   const env: PixelEnv = {
     window: { location: { pathname: path } },
     document: {
@@ -58,14 +45,11 @@ function fakeEnv(path = "/produkt/kulajda", cookie = "") {
       createElement: () => ({}) as HTMLScriptElement,
       head: { appendChild: (el: { src: string }) => scripts.push(el.src) } as never,
     },
-    storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v) },
   };
   // fbevents.js se nenačte — fronta stubu = co by Meta dostala
   const sent = () => (env.window.fbq?.queue ?? []).map((args) => [...(args as unknown[])]);
-  return { env, calls, scripts, store, sent };
+  return { env, calls, scripts, sent };
 }
-
-const purchase = { eventId: "objednavka-70000002", valueKc: 758, contents: [{ id: "kulajda", quantity: 2, item_price: 379 }] };
 
 describe("Meta Pixel v prohlížeči", () => {
   it("souhlas čte z CookieYes (API, jinak cookie) — jen kategorie advertisement", () => {
@@ -83,7 +67,6 @@ describe("Meta Pixel v prohlížeči", () => {
     const pixel = createMetaPixel(PIXEL, env);
     pixel.pageView("/produkt/kulajda");
     pixel.track("AddToCart", { value: 379 });
-    expect(pixel.trackPurchase(purchase)).toBe(false);
     expect(scripts).toEqual([]);
     expect(env.window.fbq).toBeUndefined();
   });
@@ -106,35 +89,13 @@ describe("Meta Pixel v prohlížeči", () => {
     expect(sent()).toHaveLength(4);
   });
 
-  it("nákup jen jednou: znovu na stránce, po obnovení stránky (localStorage) i u Meta (eventID)", () => {
-    const { env, sent, store } = fakeEnv("/pokladna");
-    const pixel = createMetaPixel(PIXEL, env);
-    pixel.setConsent(true);
-    expect(pixel.trackPurchase(purchase)).toBe(true);
-    expect(pixel.trackPurchase(purchase)).toBe(false);
-    const purchases = sent().filter((args) => args[1] === "Purchase");
-    expect(purchases).toEqual([
-      [
-        "track",
-        "Purchase",
-        {
-          currency: "CZK",
-          value: 758,
-          content_type: "product",
-          content_ids: ["kulajda"],
-          contents: [{ id: "kulajda", quantity: 2, item_price: 379 }],
-          num_items: 2,
-        },
-        { eventID: "objednavka-70000002" },
-      ],
-    ]);
-    // nová stránka (obnovení) se stejným úložištěm
-    const again = fakeEnv("/pokladna");
-    again.env.storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v) };
-    const reloaded = createMetaPixel(PIXEL, again.env);
-    reloaded.setConsent(true);
-    expect(reloaded.trackPurchase(purchase)).toBe(false);
-    expect(again.sent().filter((args) => args[1] === "Purchase")).toEqual([]);
+  it("pokladna: souhlas a _fbp/_fbc jen se souhlasem; prohlížeč nákup neposílá", () => {
+    const { env } = fakeEnv("/pokladna", "_fbp=fb.1.1728561234567.1234567890; _fbc=fb.1.1728561234567.AbC");
+    expect(checkoutMetaSignals(env)).toEqual({ adConsent: "0", fbp: "", fbc: "" });
+    env.document.cookie += "; cookieyes-consent=advertisement:yes";
+    expect(checkoutMetaSignals(env)).toEqual({ adConsent: "1", fbp: "fb.1.1728561234567.1234567890", fbc: "fb.1.1728561234567.AbC" });
+    const pixel = createMetaPixel(PIXEL, env) as unknown as Record<string, unknown>;
+    expect(pixel.trackPurchase).toBeUndefined();
   });
 
   it("odvolání souhlasu: revoke a žádné další události", () => {
@@ -155,7 +116,6 @@ describe("Meta Pixel v prohlížeči", () => {
     pixel.setConsent(true);
     pixel.pageView("/objednavka/0b6f7a52-3c1e-4d7a-9a55-6c2f8f0e4a11");
     pixel.track("ViewContent", {});
-    expect(pixel.trackPurchase(purchase)).toBe(false);
     expect(scripts).toEqual([]);
   });
 });

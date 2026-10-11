@@ -1,12 +1,13 @@
 // Meta Pixel v prohlížeči — jen se souhlasem s reklamními cookies (CookieYes,
 // kategorie „advertisement“). Bez souhlasu se skript Meta vůbec nenačte
 // a nic se neodešle; po odvolání souhlasu se další události neodešlou.
-// Nákup (Purchase) jen jednou: server ho pošle jen u nově uložené objednávky,
-// prohlížeč si ho pamatuje (localStorage) a Meta ho deduplikuje podle eventID.
-import { isPrivateEshopPath, type PurchaseEvent } from "./marketing";
+// Nákup (Purchase) prohlížeč NEposílá — vytvořená objednávka ještě není
+// zaplacená. Dokončený nákup posílá server po úplné úhradě
+// (lib/eshop/metaPurchase.ts); pokladna k objednávce jen uloží souhlas
+// a identifikátory prohlížeče (checkoutMetaSignals níže).
+import { isPrivateEshopPath } from "./marketing";
 
 export const META_SCRIPT_URL = "https://connect.facebook.net/en_US/fbevents.js";
-const PURCHASE_KEY = "begina-meta-purchase:";
 
 type Fbq = ((...args: unknown[]) => void) & {
   callMethod?: (...args: unknown[]) => void;
@@ -27,7 +28,6 @@ type PixelWindow = {
 export type PixelEnv = {
   window: PixelWindow;
   document: Pick<Document, "cookie" | "createElement" | "head">;
-  storage: Pick<Storage, "getItem" | "setItem"> | null;
 };
 
 /** Souhlas s reklamními cookies z CookieYes (API, jinak cookie „cookieyes-consent“). */
@@ -44,11 +44,25 @@ export function readAdConsent(env: Pick<PixelEnv, "window" | "document">): boole
   return value.split(",").includes("advertisement:yes");
 }
 
+function cookie(doc: Pick<Document, "cookie">, name: string): string {
+  const raw = doc.cookie.split(/;\s*/).find((part) => part.startsWith(`${name}=`));
+  return raw ? decodeURIComponent(raw.slice(name.length + 1)) : "";
+}
+
+/**
+ * Pro pokladnu: souhlas s reklamními cookies a identifikátory prohlížeče
+ * od Meta (_fbp, _fbc — vznikají jen po souhlasu, když se pixel načte).
+ * Server je uloží k objednávce a po úplném zaplacení podle nich pošle nákup.
+ */
+export function checkoutMetaSignals(env: Pick<PixelEnv, "window" | "document">): { adConsent: string; fbp: string; fbc: string } {
+  if (!readAdConsent(env)) return { adConsent: "0", fbp: "", fbc: "" };
+  return { adConsent: "1", fbp: cookie(env.document, "_fbp"), fbc: cookie(env.document, "_fbc") };
+}
+
 export type MetaPixel = {
   setConsent(granted: boolean): void;
   pageView(pathname: string): void;
   track(event: string, params: Record<string, unknown>): void;
-  trackPurchase(purchase: PurchaseEvent): boolean;
 };
 
 export function createMetaPixel(pixelId: string, env: PixelEnv): MetaPixel {
@@ -56,7 +70,6 @@ export function createMetaPixel(pixelId: string, env: PixelEnv): MetaPixel {
   let loaded = false;
   let lastPageView: string | null = null;
   let currentPath: string | null = null;
-  const sentPurchases = new Set<string>();
 
   function load() {
     if (loaded) return;
@@ -123,30 +136,6 @@ export function createMetaPixel(pixelId: string, env: PixelEnv): MetaPixel {
       if (!allowed()) return;
       send(event, { currency: "CZK", ...params });
     },
-    trackPurchase(purchase) {
-      if (!allowed() || sentPurchases.has(purchase.eventId)) return false;
-      const key = PURCHASE_KEY + purchase.eventId;
-      try {
-        if (env.storage?.getItem(key)) return false;
-        env.storage?.setItem(key, String(Date.now()));
-      } catch {
-        // úložiště zakázané — zůstává paměť stránky a deduplikace u Meta (eventID)
-      }
-      sentPurchases.add(purchase.eventId);
-      send(
-        "Purchase",
-        {
-          currency: "CZK",
-          value: purchase.valueKc,
-          content_type: "product",
-          content_ids: purchase.contents.map((c) => c.id),
-          contents: purchase.contents,
-          num_items: purchase.contents.reduce((sum, c) => sum + c.quantity, 0),
-        },
-        purchase.eventId
-      );
-      return true;
-    },
   };
 }
 
@@ -160,8 +149,4 @@ export function setActiveMetaPixel(pixel: MetaPixel | null) {
 
 export function trackMeta(event: string, params: Record<string, unknown>) {
   active?.track(event, params);
-}
-
-export function trackMetaPurchase(purchase: PurchaseEvent | null | undefined): boolean {
-  return purchase ? (active?.trackPurchase(purchase) ?? false) : false;
 }

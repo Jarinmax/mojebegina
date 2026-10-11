@@ -5,7 +5,7 @@
 //
 // Spuštění (po `next build`):
 //   PORT=3101 DATABASE_URL=postgresql://u:p@ep-test.neon.tech/neondb \
-//   E2E_ORDER_NUMBERING=vs \
+//   E2E_ORDER_NUMBERING=vs E2E_SQL_PORT=4999 \
 //   E2E_CATALOG_SQL=31_sirupy.sql,41_polevky.sql,51_caje.sql,61_zmrzliny.sql,71_ovocne_napoje.sql \
 //   ESHOP_MARKETING=on ESHOP_COOKIEYES_ID=5f3760f1f9ac1d11074e41aade2c6467 ESHOP_META_PIXEL_ID=2509610956071494 \
 //   NODE_OPTIONS="--import ./scripts/eshop-e2e/neon-http-pglite.mjs" npx next start -p 3101 &
@@ -45,8 +45,10 @@ const FAKE_CKY = `
   window.__ckyLoaded = true;
   document.dispatchEvent(new CustomEvent("cookieyes_banner_load", { detail: {} }));
 `;
-// Napodobenina fbevents.js: zpracuje frontu a zaznamená každé volání.
+// Napodobenina fbevents.js: jako skutečný nastaví cookie _fbp, zpracuje
+// frontu a zaznamená každé volání.
 const FAKE_FBEVENTS = `
+  if (!/_fbp=/.test(document.cookie)) document.cookie = "_fbp=fb.1." + Date.now() + ".424242; path=/";
   window.__meta = window.__meta || [];
   const f = window.fbq;
   f.callMethod = (...args) => window.__meta.push(JSON.parse(JSON.stringify(args)));
@@ -54,6 +56,23 @@ const FAKE_FBEVENTS = `
 `;
 
 const ORIGINAL_UUID = "0b6f7a52-3c1e-4d7a-9a55-6c2f8f0e4a11";
+const SQL_PORT = Number(process.env.E2E_SQL_PORT ?? 4999);
+
+/** SELECT nad testovací DB (jen čtení, neon-http-pglite.mjs s E2E_SQL_PORT). */
+function query(text) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port: SQL_PORT, method: "POST", path: "/" }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => (res.statusCode === 200 ? resolve(JSON.parse(data)) : reject(new Error(data))));
+    });
+    req.on("error", reject);
+    req.end(text);
+  });
+}
+const LAST_ORDER = `SELECT o.id, o.order_number::text AS n, o.payment_vs AS vs, o.payment_status, a.metadata->'metaConsent' AS consent
+  FROM orders o JOIN order_activity a ON a.order_id = o.id AND a.kind = 'created'
+  WHERE o.channel = 'eshop' ORDER BY o.created_at DESC LIMIT 1`;
 const browser = await chromium.launch({
   args: [`--host-resolver-rules=MAP begina.cz 127.0.0.1, MAP moje.begina.cz 127.0.0.1`],
 });
@@ -126,15 +145,25 @@ try {
     await page.getByRole("button", { name: /Odeslat|Objednat/ }).click();
     await page.getByText("Děkujeme za objednávku").waitFor();
     await page.waitForTimeout(800);
-    const purchases = await tracks(page, "Purchase");
-    check(
-      "Purchase jednou, eventID podle VS (objednavka-7xxxxxxx), hodnota v Kč",
-      purchases.length === 1 && /^objednavka-7\d{7}$/.test(purchases[0][3]?.eventID ?? "") && purchases[0][2].currency === "CZK" && purchases[0][2].value > 0,
-      JSON.stringify(purchases)
-    );
+    check("prohlížeč NEposílá Purchase (objednávka ještě není zaplacená)", (await tracks(page, "Purchase")).length === 0);
+    const [order] = await query(LAST_ORDER);
+    const fbp = await page.evaluate(() => /_fbp=([^;]+)/.exec(document.cookie)?.[1] ?? "");
+    check("objednávka nezaplacená, číslo = VS (první na čisté DB = 70000001)", order.payment_status === "unpaid" && order.n === order.vs && order.vs === "70000001", JSON.stringify({ n: order.n, vs: order.vs }));
     const text = await page.locator("main").innerText();
-    const vs = (purchases[0]?.[3]?.eventID ?? "").replace("objednavka-", "");
-    check("číslo objednávky na potvrzení = VS z eventID (první objednávka na čisté DB = 70000001)", vs !== "" && text.includes(vs), vs);
+    check("číslo objednávky na potvrzení", text.includes(order.vs));
+    check(
+      "k objednávce uložen souhlas + _fbp + prohlížeč (pro Purchase po zaplacení)",
+      order.consent?.fbp === fbp && fbp.startsWith("fb.1.") && typeof order.consent?.userAgent === "string" && order.consent.userAgent.length > 0,
+      JSON.stringify(order.consent)
+    );
+    check("souhlas neobsahuje jméno, e-mail ani telefon", !/jana|Testovací|777/i.test(JSON.stringify(order.consent)));
+    // opakované otevření objednávky (odkaz z e-mailu) — dvakrát, se souhlasem
+    for (const round of [1, 2]) {
+      const before = { ...external };
+      await page.goto(pub(`/objednavka/${order.id}`));
+      await page.waitForTimeout(600);
+      check(`stránka objednávky (${round}. otevření): nic do Meta ani CookieYes`, external.cky === before.cky && external.fbevents === before.fbevents && (await meta(page)).length === 0, JSON.stringify(external));
+    }
     check("v událostech Meta není e-mail, jméno ani telefon", !/jana|Testovací|777/.test(JSON.stringify(await meta(page))));
     check("žádný přímý požadavek na facebook.com (jen napodobenina)", external.facebook === 0, JSON.stringify(external));
     await context.close();
@@ -150,6 +179,19 @@ try {
     await second.page.waitForTimeout(300);
     const after = await meta(second.page);
     check("odvolání: consent revoke, žádný AddToCart", after.some((a) => a[0] === "consent" && a[1] === "revoke") && !after.some((a) => a[1] === "AddToCart"), JSON.stringify(after));
+    // objednávka po odvolání souhlasu → žádný záznam souhlasu (Purchase nikdy)
+    await second.page.goto(pub("/pokladna"));
+    await second.page.waitForTimeout(500);
+    check("po odvolání: InitiateCheckout se neposlal", (await meta(second.page)).every((a) => a[1] !== "InitiateCheckout"));
+    await second.page.fill("#name", "Petr Testovací");
+    await second.page.fill("#email", "petr@example.cz");
+    await second.page.fill("#phone", "+420 777 000 111");
+    await second.page.locator('input[name="shippingMethodId"][value="osobni-odber"]').check();
+    await second.page.locator('input[name="termsAccepted"]').check();
+    await second.page.getByRole("button", { name: /Odeslat|Objednat/ }).click();
+    await second.page.getByText("Děkujeme za objednávku").waitFor();
+    const [revoked] = await query(LAST_ORDER);
+    check("objednávka po odvolání souhlasu: bez záznamu souhlasu, číslo = VS 70000002", revoked.consent === null && revoked.n === "70000002" && revoked.vs === "70000002", JSON.stringify(revoked));
     await second.context.close();
 
     // -------------------------------- stránka objednávky: nic, ani se souhlasem

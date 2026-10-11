@@ -30,8 +30,8 @@ s nastavením zmiňují — po přidání pixelu musí lišta existovat.
 **Doporučuji:** stejné ID 2509610956071494, načtené **až po souhlasu
 s reklamními cookies**, a rovnou s událostmi e-shopu:
 `PageView`, `ViewContent` (detail produktu), `AddToCart`,
-`InitiateCheckout` (pokladna), `Purchase` (po odeslání objednávky, jen
-jednou, hodnota v Kč bez osobních údajů). Implementuji v kódu za přepínačem
+`InitiateCheckout` (pokladna), `Purchase` (až po úplném zaplacení, ze
+serveru, jen jednou, hodnota v Kč bez osobních údajů). Implementuji v kódu za přepínačem
 (výchozí vypnuto), otestuji na Preview v Meta Events Manager → Test Events.
 
 - Výhoda: stejný pixel = publika a historie zůstanou; Meta konečně uvidí
@@ -68,6 +68,7 @@ Kód: `lib/eshop/marketing.ts` (přepínače, nákup ze serveru),
 | `ESHOP_MARKETING` | `on` | hlavní přepínač; cokoli jiného = nic se nenačte |
 | `ESHOP_COOKIEYES_ID` | `5f3760f1f9ac1d11074e41aade2c6467` (kód webu z CookieYes) | cookie lišta + „Nastavení cookies“ v patičce |
 | `ESHOP_META_PIXEL_ID` | `2509610956071494` | pixel — **jen** s CookieYes a **jen** po souhlasu |
+| `ESHOP_META_CAPI_TOKEN` | tajný token (jen Vercel) | Purchase ze serveru po úplném zaplacení |
 
 Hodnoty jsou veřejné (stojí v HTML každé stránky webu), nejsou tajné.
 Platí jen pro stránky e-shopu, nikdy pro MojeBegina.
@@ -83,22 +84,43 @@ jsou vypnuté — odchází jen naše.
 jediný klíč k objednávce → na ní se nenačte CookieYes ani Meta a nic se
 neodešle (jinak by Meta dostala adresu).
 
-**Nákup bez duplicit (tři pojistky):**
-1. server pošle nákup jen u **nově uložené** objednávky (dvojklik
-   a opakované odeslání formuláře = nic);
-2. prohlížeč si odeslaný nákup pamatuje (localStorage) — obnovení stránky
-   nic nepošle;
-3. `eventID = objednavka-<VS>` → Meta deduplikuje i případnou budoucí
-   serverovou událost (Conversions API) se stejným ID.
+**Purchase = dokončený nákup** (oprava z auditu 11. 10. 2026 — dřív se
+posílal už při vytvoření objednávky, tedy i za nezaplacený převod a za
+kartu ještě před platbou):
+- prohlížeč Purchase **neposílá** vůbec;
+- pokladna k objednávce uloží jen **udělený** souhlas s reklamními cookies,
+  cookie `_fbp`/`_fbc` (vzniknou jen po souhlasu) a prohlížeč (user agent)
+  — žádné jméno, e-mail, telefon ani IP; bez souhlasu se neuloží nic;
+- **server** (`lib/eshop/metaPurchase.ts`, Meta Conversions API) pošle
+  Purchase **až po úplném zaplacení**: karta (webhook Stripe), převod
+  i hotovost („Zapsat platbu“ v MojeBegina), náhradní objednávka uhrazená
+  převodem ze stornované (souhlas z původní objednávky);
+- nikdy za vytvořenou, částečně zaplacenou ani stornovanou objednávku;
+- **jednou:** pod zámkem objednávky se nejdřív zapíše záznam „meta_purchase“
+  (druhý webhook, souběh, opakování = nic), `event_id = objednavka-<VS>`
+  (Meta deduplikuje), náhradní objednávka se nezapočte, pokud už nákup
+  poslala původní; adresa události = `https://begina.cz/pokladna`
+  (nikdy adresa objednávky s tajným id);
+- výsledek je v historii objednávky v MojeBegina; chyba Meta platbu ani
+  objednávku nezmění a znovu se neposílá;
+- hodnota = celková cena v Kč vč. dopravy.
 
-Nákup se počítá při odeslání objednávky (převod, hotovost i karta — před
-přesměrováním na Stripe), hodnota = celková cena v Kč vč. dopravy;
-bez e-mailu, jména a telefonu. Bez souhlasu se nákup neodešle ani později.
+Přepínač navíc: **`ESHOP_META_CAPI_TOKEN`** (tajný token z Meta Events
+Manager → Nastavení → Conversions API; zadat **jen do Vercelu**, ne do
+chatu). Bez něj se Purchase neposílá vůbec (ostatní události ano).
+Volitelně `ESHOP_META_TEST_EVENT_CODE` (TEST…) pro ověření v Test Events.
+
+Zbývající omezení: souhlas platí k okamžiku objednávky (odvolá-li ho
+zákazník mezi objednávkou a platbou, server to neví); vrácení peněz se do
+Meta neposílá.
 
 **Ověřeno:** `lib/eshop/__tests__/marketing.test.ts`,
 `components/__tests__/Marketing.test.tsx` a prohlížeč
 `scripts/eshop-e2e/marketing.mjs` (CookieYes i Meta nahrazené
-napodobeninou, nic neodchází ven): zapnuto 46/46, vypnuto 36/36.
+napodobeninou, nic neodchází ven; zapnuto 53/53, vypnuto 36/36),
+`lib/eshop/__tests__/metaPurchase.test.ts`
+(server: po zaplacení jednou, souběh, bez souhlasu, storno, chyba Meta,
+náhradní objednávka).
 
 **Před zapnutím (Production):**
 1. CookieYes: přidat begina.cz; v liště ověřit kategorii „Reklamní“

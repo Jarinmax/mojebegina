@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { sql } from "drizzle-orm";
 import type { PGlite } from "@electric-sql/pglite";
 import { applyOrderNumbering, createMigratedDb } from "./helpers/migratedDb";
 
@@ -175,5 +176,26 @@ describe("číslování = VS — kód aplikace", { timeout: 60_000 }, () => {
       .values({ buyerOrganizationId: ORG, subtotalKc: 500, shippingKc: 0, totalKc: 500, paymentStatus: "unpaid", fulfillmentStatus: "new" })
       .returning({ orderNumber: orders.orderNumber, paymentVs: orders.paymentVs });
     expect(manual).toEqual({ orderNumber: 70000002, paymentVs: "70000002" });
+
+    // Náhradní objednávka za stornovanou (skutečný createReplacementOrder):
+    // VS i číslo z téže řady; původní si své číslo i VS ponechá.
+    const { recordManualPayment } = await import("../payments");
+    const { createReplacementOrder } = await import("../cancellation");
+    await recordManualPayment(db, {
+      orderId: id, token: "c0ffee00-0000-4000-8000-000000000001", method: "bank_transfer", amountHal: 37900,
+      occurredAt: new Date(), note: null, vs: "70000001", user: { userId: "admin-1", name: "Lucie Test" },
+    });
+    await db.execute(sql`UPDATE orders SET fulfillment_status = 'cancelled' WHERE id = ${id}`);
+    const replacementId = "5d0c3b8e-6f7a-4b1c-9d2e-1a2b3c4d5e70";
+    const replacement = await createReplacementOrder(db, {
+      fromOrderId: id, newOrderId: replacementId, value: checkout.value, consentNote: "telefonicky",
+      user: { userId: "admin-1", name: "Lucie Test" },
+    });
+    expect(replacement).toMatchObject({ ok: true });
+    const rows = (await db.execute(sql`SELECT id, order_number::text AS n, payment_vs AS vs FROM orders WHERE id IN (${id}, ${replacementId}) ORDER BY order_number`)).rows;
+    expect(rows).toEqual([
+      { id, n: "70000001", vs: "70000001" },
+      { id: replacementId, n: "70000003", vs: "70000003" },
+    ]);
   });
 });

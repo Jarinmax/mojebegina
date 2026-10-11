@@ -47,7 +47,7 @@ MojeBegina se nemá indexovat nikdy).
 |---|---|---|---|
 | `ESHOP_CANONICAL_ORIGIN` | přesně `https://begina.cz` (jiná hodnota se ignoruje) | **až po** přepnutí DNS a ověření, že begina.cz běží | `moje.begina.cz/eshop/…` → 301 na begina.cz (i staré odkazy na objednávky s parametry, jen GET — rozpracované odeslání pokladny doběhne); odkazy v e-mailech a návrat ze Stripe na begina.cz |
 | `ESHOP_INDEXING` | `on` | po kontrole obsahu na begina.cz | begina.cz smí indexovat vyhledávač (robots.txt, meta, X-Robots-Tag); jinak všude noindex |
-| `ESHOP_MARKETING`, `ESHOP_COOKIEYES_ID`, `ESHOP_META_PIXEL_ID` | viz `docs/begina-cutover/meta-cookieyes-ecomail.md` | spolu s přepnutím DNS | cookie lišta CookieYes + Meta Pixel jen se souhlasem |
+| `ESHOP_MARKETING`, `ESHOP_COOKIEYES_ID`, `ESHOP_META_PIXEL_ID`, `ESHOP_META_CAPI_TOKEN` | viz `docs/begina-cutover/meta-cookieyes-ecomail.md` | spolu s přepnutím DNS | cookie lišta CookieYes + Meta Pixel jen se souhlasem; Purchase ze serveru až po zaplacení |
 | `NEXT_PUBLIC_ESHOP_URL` | `https://begina.cz` | spolu s `ESHOP_CANONICAL_ORIGIN` | tlačítko „E-shop Begina.cz“ v Řízení firmy (`lib/eshopLink.ts`) |
 
 Na Preview (`VERCEL_ENV=preview`) se `ESHOP_CANONICAL_ORIGIN` a

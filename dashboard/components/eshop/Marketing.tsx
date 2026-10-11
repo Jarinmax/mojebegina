@@ -11,14 +11,6 @@ const CONSENT_EVENTS = ["cookieyes_consent_update", "cookieyes_banner_load"] as 
 
 let pixel: MetaPixel | null = null;
 
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 export default function Marketing({ config }: { config: MarketingConfig }) {
   const pathname = usePathname();
 
@@ -31,7 +23,7 @@ export default function Marketing({ config }: { config: MarketingConfig }) {
       document.head.appendChild(script);
     }
     if (!config.metaPixelId) return;
-    pixel ??= createMetaPixel(config.metaPixelId, { window, document, storage: storage() });
+    pixel ??= createMetaPixel(config.metaPixelId, { window, document });
     setActiveMetaPixel(pixel);
     const sync = () => pixel?.setConsent(readAdConsent({ window, document }));
     sync();

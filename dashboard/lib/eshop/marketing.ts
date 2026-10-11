@@ -8,9 +8,11 @@
 //   ESHOP_COOKIEYES_ID=<32 hex> kód webu z CookieYes (veřejný, ze skriptu)
 //   ESHOP_META_PIXEL_ID=<číslo> ID pixelu (veřejné); bez CookieYes se pixel
 //                               nikdy nenačte — není jak získat souhlas
+//   ESHOP_META_CAPI_TOKEN       tajný token Conversions API: dokončený nákup
+//                               (Purchase) po úplném zaplacení ze serveru —
+//                               lib/eshop/metaPurchase.ts; bez něj se nákup
+//                               do Meta neposílá vůbec
 // Platí jen pro stránky e-shopu (app/eshop), nikdy pro MojeBegina.
-import type { PricedCart } from "./pricing";
-
 type Env = Record<string, string | undefined>;
 
 export type MarketingConfig = {
@@ -41,24 +43,4 @@ export function cookieYesScriptUrl(cookieYesId: string): string {
  */
 export function isPrivateEshopPath(pathname: string): boolean {
   return /^(?:\/eshop)?\/objednavka(?:\/|$)/.test(pathname);
-}
-
-export type PurchaseEvent = {
-  /** event_id pro Meta — podle VS (veřejné číslo, ne id objednávky); deduplikace */
-  eventId: string;
-  valueKc: number;
-  contents: { id: string; quantity: number; item_price: number }[];
-};
-
-/** Nákup pro Meta: jen nově uložená objednávka s VS (opakované odeslání = null). */
-export function purchaseEvent(
-  saved: { paymentVs: string | null; alreadySaved: boolean },
-  pricedCart: Pick<PricedCart, "lines" | "totalKc">
-): PurchaseEvent | null {
-  if (saved.alreadySaved || !saved.paymentVs || !/^7\d{7}$/.test(saved.paymentVs)) return null;
-  return {
-    eventId: `objednavka-${saved.paymentVs}`,
-    valueKc: pricedCart.totalKc,
-    contents: pricedCart.lines.map((line) => ({ id: line.sku, quantity: line.quantity, item_price: line.unitPriceKc })),
-  };
 }

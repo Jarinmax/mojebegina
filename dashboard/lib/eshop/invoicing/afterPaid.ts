@@ -6,7 +6,9 @@
 //      se tu NIC nevystavuje — faktura čeká na tlačítko v detailu
 //      objednávky (issueAndSendInvoice níže, tentýž motor),
 //   3. e-mail zákazníkovi „Platbu jsme přijali“ (resp. potvrzení
-//      zaplacené objednávky kartou) — s PDF faktury v příloze, pokud je.
+//      zaplacené objednávky kartou) — s PDF faktury v příloze, pokud je,
+//   4. Meta „Purchase“ (dokončený nákup) — jen se souhlasem zákazníka
+//      a zapnutým přepínačem, nejvýš jednou (lib/eshop/metaPurchase.ts).
 //
 // Selhání vystavení platbu ani e-mail nezastaví: zákazník dostane potvrzení
 // bez faktury a MojeBegina ukáže chybu s tlačítkem „Vystavit fakturu“;
@@ -23,6 +25,7 @@ import { isOrderCancelled } from "../cancellation";
 import { issueInvoice, issueInvoiceSafe, loadIssuedPdf, type InvoicePdf, type IssueResult } from "./issue";
 import { invoicingMode } from "./mode";
 import { prepareInvoiceDraftSafe, type InvoiceActor } from "./service";
+import { sendMetaPurchaseSafe } from "../metaPurchase";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
@@ -31,6 +34,8 @@ export type AfterPaidDeps = {
   env?: Env;
   fetchImpl?: typeof fetch;
   email?: Omit<SendOrderEmailsOptions, "invoicePdf">;
+  /** odeslání do Meta Conversions API (testy) */
+  metaFetchImpl?: typeof fetch;
 };
 
 export async function invoiceAndNotifyPaid(
@@ -58,6 +63,7 @@ export async function invoiceAndNotifyPaid(
     if (invoice.status === "issued") pdf = invoice.pdf;
   }
   const emails = await sendOrderEmails(db, orderId, trigger, baseUrl, { ...deps.email, invoicePdf: pdf });
+  await sendMetaPurchaseSafe(db, orderId, { env, fetchImpl: deps.metaFetchImpl });
   return { invoice, emails };
 }
 
@@ -124,5 +130,6 @@ export async function invoiceAndNotifyReplacement(
     invoicePdf: pdf,
     replacement: { fromReference: replacement.fromReference, receivedHal: replacement.receivedHal },
   });
+  if (replacement.settled) await sendMetaPurchaseSafe(db, orderId, { env, fetchImpl: deps.metaFetchImpl });
   return { invoice, emails };
 }

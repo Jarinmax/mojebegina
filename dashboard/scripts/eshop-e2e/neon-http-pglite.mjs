@@ -84,6 +84,7 @@ globalThis.fetch = async (input, init) => {
 };
 
 async function handle(init) {
+  startSqlServer();
   const body = JSON.parse(init.body);
   try {
     let payload;
@@ -110,7 +111,13 @@ async function handle(init) {
 // Volitelně (jen testy): E2E_SQL_PORT=4999 → na 127.0.0.1 poslouchá malý
 // server, který spustí SELECT z těla požadavku v transakci jen pro čtení
 // a vrátí řádky jako JSON — aby šlo z testu ověřit, co aplikace uložila.
-if (process.env.E2E_SQL_PORT) {
+// Spustí se až při prvním dotazu aplikace: `next start` načte tento soubor
+// i v nadřazeném procesu (bez požadavků) a ten by port obsadil vlastní,
+// prázdnou databází.
+let sqlServerStarted = false;
+function startSqlServer() {
+  if (sqlServerStarted || !process.env.E2E_SQL_PORT) return;
+  sqlServerStarted = true;
   createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;

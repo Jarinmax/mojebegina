@@ -23,7 +23,7 @@ import { getStripe } from "@/lib/eshop/stripe/client";
 import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/payment";
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
-import { purchaseEvent, type PurchaseEvent } from "@/lib/eshop/marketing";
+import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
 
 export type CheckoutState =
   | { error: string }
@@ -35,10 +35,8 @@ export type CheckoutState =
       orderNumber: number | null;
       /** potvrzení e-mailem: odešlo / selhalo (objednávka je i tak uložená) / e-maily vypnuté */
       email: "sent" | "failed" | "off";
-      /** nákup pro Meta Pixel — jen nově uložená objednávka (opakované odeslání = null) */
-      purchase: PurchaseEvent | null;
     }
-  | { redirectTo: string; purchase: PurchaseEvent | null }
+  | { redirectTo: string }
   | null;
 
 /** Adresa aplikace pro návrat ze Stripe (Preview/Production má každý svou). */
@@ -90,16 +88,20 @@ export async function submitCheckoutAction(
   }
 
   if (!isOrderWriteEnabled()) {
-    return { confirmation: result.value, savedOrderId: null, orderNumber: null, email: "off", purchase: null };
+    return { confirmation: result.value, savedOrderId: null, orderNumber: null, email: "off" };
   }
 
   const orderId = parseOrderToken(field("orderToken")) ?? randomUUID();
   try {
-    const saved = await saveEshopOrder(db, orderId, result.value);
+    // Souhlas s reklamními cookies v okamžiku objednávky (Meta Purchase až po zaplacení).
+    const metaConsent = metaConsentFromCheckout(
+      { adConsent: field("adConsent"), fbp: field("fbp"), fbc: field("fbc"), userAgent: (await headers()).get("user-agent") },
+      new Date()
+    );
+    const saved = await saveEshopOrder(db, orderId, result.value, { metaConsent });
     if (!saved.ok) {
       return { error: saved.error };
     }
-    const purchase = purchaseEvent(saved, result.value.pricedCart);
     const baseUrl = await currentBaseUrl();
     if (result.value.payment.id === CARD_PAYMENT_METHOD && stripe) {
       // Objednávka je uložená i když platbu nejde otevřít (výpadek Stripe) —
@@ -112,10 +114,10 @@ export async function submitCheckoutAction(
           saved.orderId,
           baseUrl
         );
-        return { redirectTo: payment.ok ? payment.url : fallback, purchase };
+        return { redirectTo: payment.ok ? payment.url : fallback };
       } catch (error) {
         console.error("E-shop: platební stránku Stripe se nepodařilo otevřít", saved.orderId, error);
-        return { redirectTo: fallback, purchase };
+        return { redirectTo: fallback };
       }
     }
     // Jen u nově vzniklé objednávky (dvojí odeslání formuláře = žádný druhý
@@ -123,7 +125,7 @@ export async function submitCheckoutAction(
     const emails = saved.alreadySaved ? [] : await sendOrderEmails(db, saved.orderId, "order_created", baseUrl);
     const customerEmail = emails.find((e) => e.template === "customer_confirmation");
     const email = customerEmail?.status === "sent" ? "sent" : customerEmail ? "failed" : "off";
-    return { confirmation: result.value, savedOrderId: saved.orderId, orderNumber: saved.orderNumber, email, purchase };
+    return { confirmation: result.value, savedOrderId: saved.orderId, orderNumber: saved.orderNumber, email };
   } catch (error) {
     console.error("E-shop: uložení objednávky selhalo", error);
     return { error: "Objednávku se nepodařilo uložit. Zkuste to prosím znovu za chvíli." };
