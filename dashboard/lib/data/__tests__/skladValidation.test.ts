@@ -388,47 +388,132 @@ describe("extractedReceiptSchema — strukturovaný výstup modelu", () => {
   });
 });
 
-describe("sanitizeExtractedReceipt — nečitelný/nesmyslný řádek z RAW výstupu modelu se bezpečně vyřadí (oprava: jediný vadný řádek nesmí shodit celý doklad)", () => {
-  it("packageQuantity:0 (nečitelný/nesmyslný řádek) se vyřadí, dobrý řádek projde beze změny", () => {
-    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
+describe("sanitizeExtractedReceipt — maloobchodní účtenka: chybějící množství/jednotka/rozpis DPH se BEZPEČNĚ DOPOČÍTÁ, řádek se zahodí jen bez popisu nebo bez kladné ceny (oprava po druhém ostrém testu)", () => {
+  it("dřívější problém: packageQuantity:0 (Penny účtenka bez vytištěného množství, ale S cenou s DPH) se už NEVYŘAZUJE — množství defaultuje na 1", () => {
+    const { receipt, droppedLineCount, diagnostics } = sanitizeExtractedReceipt(
       baseExtractedReceipt({
-        lines: [baseExtractedLine({ description: "Dobrý řádek" }), baseExtractedLine({ description: "Nečitelný", packageQuantity: 0 })],
+        lines: [
+          baseExtractedLine({
+            description: "Rohlík",
+            packageQuantity: 0,
+            unitsPerPackage: null,
+            totalWithVat: 3.5,
+            totalWithoutVat: null,
+            unitPriceWithoutVat: null,
+          }),
+        ],
       }) as never
     );
     expect(receipt.lines).toHaveLength(1);
-    expect(receipt.lines[0].description).toBe("Dobrý řádek");
-    expect(droppedLineCount).toBe(1);
+    expect(droppedLineCount).toBe(0);
+    expect(receipt.lines[0].packageQuantity).toBe(1);
+    expect(receipt.lines[0].unitsPerPackage).toBe(1);
+    expect(diagnostics.quantityDefaultedCount).toBe(1);
   });
 
-  it("záporné packageQuantity se vyřadí stejně jako 0", () => {
-    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
-      baseExtractedReceipt({ lines: [baseExtractedLine({ packageQuantity: -3 })] }) as never
+  it("řádek s popisem a totalWithVat, ale BEZ rozpisu DPH (typické pro maloobchod) se nezahodí — totalWithoutVat se bezpečně dopočítá (nikdy nevymyšlená sazba DPH, net=gross dokud to nepotvrdí člověk)", () => {
+    const { receipt, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({
+        lines: [
+          baseExtractedLine({
+            description: "Mléko polotučné",
+            packageQuantity: null,
+            unitsPerPackage: null,
+            unit: null,
+            totalWithVat: 24.9,
+            totalWithoutVat: null,
+            unitPriceWithoutVat: null,
+            vatAmount: null,
+          }),
+        ],
+      }) as never
+    );
+    expect(receipt.lines).toHaveLength(1);
+    const line = receipt.lines[0]!;
+    expect(line.packageQuantity).toBe(1);
+    expect(line.unitsPerPackage).toBe(1);
+    expect(line.unit).toBe("ks");
+    expect(line.totalWithVat).toBe(24.9);
+    expect(line.totalWithoutVat).toBe(24.9); // appka si NEVYMÝŠLÍ sazbu DPH — net=gross, DPH 0 do lidské revize
+    expect(line.unitPriceWithoutVat).toBe(24.9); // dopočítáno z totalWithoutVat / normalizedQuantity (1), ne vymyšlené
+    expect(diagnostics.priceDerivedCount).toBe(1);
+  });
+
+  it("skutečně nesmyslný řádek (žádný popis) se STÁLE zahodí", () => {
+    const { receipt, droppedLineCount, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ description: null })] }) as never
     );
     expect(receipt.lines).toHaveLength(0);
     expect(droppedLineCount).toBe(1);
+    expect(diagnostics.missingDescriptionCount).toBe(1);
   });
 
-  it("chybějící popis (null) se vyřadí", () => {
-    const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ description: null })] }) as never);
+  it("skutečně nesmyslný řádek (popis je, ale ŽÁDNÝ kladný cenový údaj — ani totalWithVat, ani totalWithoutVat, ani jednotková cena) se STÁLE zahodí", () => {
+    const { receipt, droppedLineCount, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({
+        lines: [
+          baseExtractedLine({
+            description: "Nečitelný řádek",
+            totalWithVat: null,
+            totalWithoutVat: null,
+            unitPriceWithoutVat: null,
+          }),
+        ],
+      }) as never
+    );
     expect(receipt.lines).toHaveLength(0);
+    expect(droppedLineCount).toBe(1);
+    expect(diagnostics.missingPriceCount).toBe(1);
   });
 
-  it("chybějící/nulová jednotka (unit: null) se vyřadí", () => {
-    const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unit: null })] }) as never);
+  it("nekladná (0 nebo záporná) cena ve VŠECH třech cenových polích se počítá jako chybějící cena — řádek se zahodí", () => {
+    const { receipt, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({
+        lines: [baseExtractedLine({ totalWithVat: 0, totalWithoutVat: -5, unitPriceWithoutVat: 0 })],
+      }) as never
+    );
     expect(receipt.lines).toHaveLength(0);
+    expect(diagnostics.missingPriceCount).toBe(1);
   });
 
-  it("nekladné unitsPerPackage se vyřadí", () => {
+  it("záporná/nulová hodnota JEN v jednom cenovém poli nevadí, když jiné cenové pole je kladné — appka použije to kladné, nevymýšlí si nic", () => {
+    // totalWithoutVat je záporné (poškozené OCR pole), ale totalWithVat (hlavní
+    // cenový údaj maloobchodní účtenky) je v pořádku — řádek se NEZAHODÍ.
+    const { receipt } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithoutVat: -1, totalWithVat: 121 })] }) as never
+    );
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].totalWithVat).toBe(121);
+    expect(receipt.lines[0].totalWithoutVat).toBe(121); // záporná hodnota se ignorovala, ne použila
+  });
+
+  it("chybějící/nulová jednotka (unit: null) se nezahazuje — defaultuje na 'ks'", () => {
+    const { receipt, diagnostics } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unit: null })] }) as never);
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].unit).toBe("ks");
+    expect(diagnostics.quantityDefaultedCount).toBe(1);
+  });
+
+  it("nekladné (0 nebo záporné) unitsPerPackage se nezahazuje — defaultuje na 1", () => {
     const { receipt } = sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unitsPerPackage: 0 })] }) as never);
-    expect(receipt.lines).toHaveLength(0);
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].unitsPerPackage).toBe(1);
+
+    const { receipt: receiptNegative } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ unitsPerPackage: -5 })] }) as never
+    );
+    expect(receiptNegative.lines).toHaveLength(1);
+    expect(receiptNegative.lines[0].unitsPerPackage).toBe(1);
   });
 
-  it("záporná cena (totalWithoutVat/totalWithVat/unitPriceWithoutVat) se vyřadí", () => {
-    expect(sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithoutVat: -1 })] }) as never).receipt.lines).toHaveLength(0);
-    expect(sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ totalWithVat: -1 })] }) as never).receipt.lines).toHaveLength(0);
-    expect(
-      sanitizeExtractedReceipt(baseExtractedReceipt({ lines: [baseExtractedLine({ unitPriceWithoutVat: -1 })] }) as never).receipt.lines
-    ).toHaveLength(0);
+  it("skutečně vytištěné množství na dokladu se NIKDY nepřepisuje jedničkou — jen chybějící/nekladné se defaultuje", () => {
+    const { receipt, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({ lines: [baseExtractedLine({ packageQuantity: 3, unitsPerPackage: 2 })] }) as never
+    );
+    expect(receipt.lines).toHaveLength(1);
+    expect(receipt.lines[0].packageQuantity).toBe(3);
+    expect(receipt.lines[0].unitsPerPackage).toBe(2);
+    expect(diagnostics.quantityDefaultedCount).toBe(0); // nic se nedefaultovalo, obě hodnoty byly skutečně vytištěné
   });
 
   it("chybějící/záporné vatAmount NENÍ důvod řádek vyřadit — appka ho stejně vždy zahazuje a DPH dopočítá sama", () => {
@@ -463,12 +548,19 @@ describe("sanitizeExtractedReceipt — nečitelný/nesmyslný řádek z RAW výs
     expect(receipt.totalWithVat).toBe(0);
   });
 
-  it("úplně prázdný/nečitelný doklad (všechny řádky nepoužitelné) vrátí prázdné pole řádků — volající to musí vyhodnotit jako selhání", () => {
-    const { receipt, droppedLineCount } = sanitizeExtractedReceipt(
-      baseExtractedReceipt({ lines: [baseExtractedLine({ packageQuantity: null }), baseExtractedLine({ description: null })] }) as never
+  it("úplně prázdný/nečitelný doklad (všechny řádky skutečně nepoužitelné) vrátí prázdné pole řádků — volající to musí vyhodnotit jako selhání", () => {
+    const { receipt, droppedLineCount, diagnostics } = sanitizeExtractedReceipt(
+      baseExtractedReceipt({
+        lines: [
+          baseExtractedLine({ description: null }),
+          baseExtractedLine({ description: "Bez ceny", totalWithVat: null, totalWithoutVat: null, unitPriceWithoutVat: null }),
+        ],
+      }) as never
     );
     expect(receipt.lines).toHaveLength(0);
     expect(droppedLineCount).toBe(2);
+    expect(diagnostics.missingDescriptionCount).toBe(1);
+    expect(diagnostics.missingPriceCount).toBe(1);
   });
 });
 

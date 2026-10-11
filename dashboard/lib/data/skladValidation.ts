@@ -487,62 +487,157 @@ function sanitizeNonNegativeAmount(value: number | null): number {
   return value !== null && value >= 0 ? value : 0;
 }
 
-// Řádek je "použitelný", jen když obsahuje VŠECHNO, co appka dál potřebuje
-// (popis, kladné množství/balení, jednotku, nezáporné částky) — `vatAmount`
-// NENÍ mezi podmínkami: appka ho stejně vždy zahazuje a DPH dopočítá sama
-// (normalizeExtractedLine), takže chybějící/nulový vatAmount není důvod
-// řádek zahodit jako nečitelný.
-function isUsableRawLine(line: RawExtractedReceiptLine): line is RawExtractedReceiptLine & {
-  description: string;
-  packageQuantity: number;
-  unitsPerPackage: number;
-  unit: string;
-  unitPriceWithoutVat: number;
-  totalWithoutVat: number;
-  totalWithVat: number;
-} {
-  return (
-    !!line.description?.trim() &&
-    line.packageQuantity !== null &&
-    line.packageQuantity > 0 &&
-    line.unitsPerPackage !== null &&
-    line.unitsPerPackage > 0 &&
-    !!line.unit?.trim() &&
-    line.unitPriceWithoutVat !== null &&
-    line.unitPriceWithoutVat >= 0 &&
-    line.totalWithoutVat !== null &&
-    line.totalWithoutVat >= 0 &&
-    line.totalWithVat !== null &&
-    line.totalWithVat >= 0
-  );
+// Maloobchodní účtenka (např. Penny) obvykle NEUVÁDÍ rozpis DPH ani
+// jednotkovou cenu bez DPH na řádek — jen název, (někdy) množství a
+// celkovou cenu S DPH. Druhý ostrý test potvrdil, že appka kvůli tomu
+// vyřazovala VŠECHNY řádky (žádný neměl totalWithoutVat/unitPriceWithoutVat),
+// a celý doklad tak skončil jako selhání i když OCR i strukturování
+// proběhly v pořádku. Množství/jednotka proto mají BEZPEČNÉ VÝCHOZÍ
+// hodnoty místo vyřazení — DB i tak vyžaduje kladné množství
+// (goods_receipt_lines_quantities_positive v schema.ts), takže "1" je i
+// jediná platná volba, když účtenka množství vůbec neuvádí.
+const DEFAULT_PACKAGE_QUANTITY = 1;
+const DEFAULT_UNITS_PER_PACKAGE = 1;
+const DEFAULT_UNIT = "ks";
+
+type LineRejectionReason = "missingDescription" | "missingPrice";
+
+type ResolvedRawLine =
+  | { ok: true; line: ExtractedReceiptLine; quantityDefaulted: boolean; priceDerived: boolean }
+  | { ok: false; reason: LineRejectionReason };
+
+// Rozhodne o JEDNOM řádku a případně dopočítá chybějící pole — nikdy přes
+// další (placené) AI volání, vždy jen deterministickým ×/÷ z toho, co
+// appka z téhle RAW odpovědi už má (bod 3 zadání). Řádek se ZAHODÍ jen ve
+// dvou případech (bod 2 zadání):
+//   (a) nemá smysluplný popis (OCR mohl místo řádku vrátit jen
+//       "(nečitelné)" nebo ho vynechat úplně),
+//   (b) nemá ŽÁDNÝ kladný použitelný cenový údaj — ani totalWithVat, ani
+//       totalWithoutVat, ani jednotkovou cenu (× množství).
+// Chybějící/nekladné packageQuantity/unitsPerPackage/unit NIKDY samy o
+// sobě řádek nezahodí — dostanou bezpečnou výchozí hodnotu výš.
+//
+// Cenová rezoluce (priorita, žádná sazba DPH se nikdy nevymýšlí):
+//   1. totalWithVat > 0 je k dispozici → hlavní cenový údaj maloobchodní
+//      účtenky (bod 2 zadání). Když chybí totalWithoutVat, appka si
+//      NEVYMÝŠLÍ sazbu DPH — netWithVat defaultuje na stejnou hodnotu
+//      jako gross (DPH 0 Kč), dokud to na kontrolní obrazovce neopraví
+//      člověk (reviewGoodsReceiptLineVat vždy vyžaduje lidské potvrzení
+//      PŘED confirmGoodsReceipt, viz sklad.ts — provizorní nulová DPH se
+//      tak nikdy nedostane dál bez revize).
+//   2. Jinak totalWithoutVat > 0 → gross defaultuje na net (stejný důvod
+//      jako výš, jen opačný směr: appka zná jen částku bez DPH).
+//   3. Jinak unitPriceWithoutVat > 0 → net i gross = jednotková cena ×
+//      normalizedQuantity (čistá aritmetika, žádný odhad).
+//   4. Jinak žádný použitelný cenový údaj → řádek se zahodí.
+function resolveRawLine(line: RawExtractedReceiptLine): ResolvedRawLine {
+  const description = line.description?.trim();
+  if (!description) {
+    return { ok: false, reason: "missingDescription" };
+  }
+
+  const packageQuantityDefaulted = line.packageQuantity === null || line.packageQuantity <= 0;
+  const packageQuantity = packageQuantityDefaulted ? DEFAULT_PACKAGE_QUANTITY : line.packageQuantity!;
+
+  const unitsPerPackageDefaulted = line.unitsPerPackage === null || line.unitsPerPackage <= 0;
+  const unitsPerPackage = unitsPerPackageDefaulted ? DEFAULT_UNITS_PER_PACKAGE : line.unitsPerPackage!;
+
+  const trimmedUnit = line.unit?.trim();
+  const unitDefaulted = !trimmedUnit;
+  const unit = unitDefaulted ? DEFAULT_UNIT : trimmedUnit;
+
+  const normalizedQuantity = computeNormalizedQuantity(packageQuantity, unitsPerPackage); // vždy > 0 díky defaultům výš
+
+  const hasGross = line.totalWithVat !== null && line.totalWithVat > 0;
+  const hasNet = line.totalWithoutVat !== null && line.totalWithoutVat > 0;
+  const hasUnitPrice = line.unitPriceWithoutVat !== null && line.unitPriceWithoutVat > 0;
+
+  let totalWithVat: number;
+  let totalWithoutVat: number;
+  let priceDerived = false;
+
+  if (hasGross) {
+    totalWithVat = line.totalWithVat!;
+    totalWithoutVat = hasNet ? line.totalWithoutVat! : totalWithVat;
+    priceDerived = !hasNet;
+  } else if (hasNet) {
+    totalWithoutVat = line.totalWithoutVat!;
+    totalWithVat = totalWithoutVat;
+    priceDerived = true;
+  } else if (hasUnitPrice) {
+    totalWithoutVat = line.unitPriceWithoutVat! * normalizedQuantity;
+    totalWithVat = totalWithoutVat;
+    priceDerived = true;
+  } else {
+    return { ok: false, reason: "missingPrice" };
+  }
+
+  const unitPriceWithoutVat = hasUnitPrice ? line.unitPriceWithoutVat! : totalWithoutVat / normalizedQuantity;
+
+  return {
+    ok: true,
+    line: {
+      description,
+      supplierItemCode: sanitizeNullableString(line.supplierItemCode),
+      supplierAuxiliaryCode: sanitizeNullableString(line.supplierAuxiliaryCode),
+      packageQuantity,
+      unitsPerPackage,
+      unit,
+      unitPriceWithoutVat,
+      totalWithoutVat,
+      vatAmount: sanitizeNonNegativeAmount(line.vatAmount),
+      totalWithVat,
+      suggestedCategory: sanitizeSuggestedCategory(line.suggestedCategory),
+      suggestedStockItemName: sanitizeNullableString(line.suggestedStockItemName),
+      suggestedCanonicalUnit: sanitizeNullableString(line.suggestedCanonicalUnit),
+    },
+    quantityDefaulted: packageQuantityDefaulted || unitsPerPackageDefaulted || unitDefaulted,
+    priceDerived,
+  };
 }
 
-export type SanitizedExtractedReceipt = { receipt: ExtractedReceipt; droppedLineCount: number };
+export type SanitizedExtractedReceiptDiagnostics = {
+  missingDescriptionCount: number;
+  missingPriceCount: number;
+  quantityDefaultedCount: number;
+  priceDerivedCount: number;
+};
 
-// Bezpečná filtrace RAW výstupu modelu (oprava po prvním ostrém testu,
-// bod "jediný vadný řádek neshodí celý doklad") — nečitelný/nesmyslný
-// řádek (chybějící popis/jednotka, nekladné packageQuantity/unitsPerPackage,
-// záporná cena) se TIŠE VYNECHÁ, appka si k němu nic nevymýšlí. Když po
-// filtraci nezbyde ANI JEDEN použitelný řádek, volající (skladExtraction.ts)
-// to musí vyhodnotit jako selhání vytěžení (prázdná příjemka by jinak
-// skončila v needs_review bez jediného řádku ke kontrole).
+export type SanitizedExtractedReceipt = {
+  receipt: ExtractedReceipt;
+  droppedLineCount: number;
+  diagnostics: SanitizedExtractedReceiptDiagnostics;
+};
+
+// Bezpečná filtrace/dopočet RAW výstupu modelu (oprava po prvním ostrém
+// testu, bod "jediný vadný řádek neshodí celý doklad"; rozšířeno po
+// druhém testu o maloobchodní výchozí hodnoty — viz resolveRawLine výš).
+// Skutečně nečitelný/nesmyslný řádek (chybějící popis, nebo žádný kladný
+// cenový údaj vůbec) se TIŠE VYNECHÁ. Když po filtraci nezbyde ANI JEDEN
+// použitelný řádek, volající (skladExtraction.ts) to musí vyhodnotit jako
+// selhání vytěžení (prázdná příjemka by jinak skončila v needs_review bez
+// jediného řádku ke kontrole). `diagnostics` je bezpečná pro log — jen
+// POČTY, nikdy OCR text ani název položky.
 export function sanitizeExtractedReceipt(raw: RawExtractedReceipt): SanitizedExtractedReceipt {
-  const usableLines = raw.lines.filter(isUsableRawLine);
-  const lines: ExtractedReceiptLine[] = usableLines.map((line) => ({
-    description: line.description.trim(),
-    supplierItemCode: sanitizeNullableString(line.supplierItemCode),
-    supplierAuxiliaryCode: sanitizeNullableString(line.supplierAuxiliaryCode),
-    packageQuantity: line.packageQuantity,
-    unitsPerPackage: line.unitsPerPackage,
-    unit: line.unit.trim(),
-    unitPriceWithoutVat: line.unitPriceWithoutVat,
-    totalWithoutVat: line.totalWithoutVat,
-    vatAmount: sanitizeNonNegativeAmount(line.vatAmount),
-    totalWithVat: line.totalWithVat,
-    suggestedCategory: sanitizeSuggestedCategory(line.suggestedCategory),
-    suggestedStockItemName: sanitizeNullableString(line.suggestedStockItemName),
-    suggestedCanonicalUnit: sanitizeNullableString(line.suggestedCanonicalUnit),
-  }));
+  const lines: ExtractedReceiptLine[] = [];
+  const diagnostics: SanitizedExtractedReceiptDiagnostics = {
+    missingDescriptionCount: 0,
+    missingPriceCount: 0,
+    quantityDefaultedCount: 0,
+    priceDerivedCount: 0,
+  };
+
+  for (const rawLine of raw.lines) {
+    const resolved = resolveRawLine(rawLine);
+    if (!resolved.ok) {
+      if (resolved.reason === "missingDescription") diagnostics.missingDescriptionCount += 1;
+      else diagnostics.missingPriceCount += 1;
+      continue;
+    }
+    if (resolved.quantityDefaulted) diagnostics.quantityDefaultedCount += 1;
+    if (resolved.priceDerived) diagnostics.priceDerivedCount += 1;
+    lines.push(resolved.line);
+  }
 
   return {
     receipt: {
@@ -558,5 +653,6 @@ export function sanitizeExtractedReceipt(raw: RawExtractedReceipt): SanitizedExt
       totalWithVat: sanitizeNonNegativeAmount(raw.totalWithVat),
     },
     droppedLineCount: raw.lines.length - lines.length,
+    diagnostics,
   };
 }

@@ -478,8 +478,8 @@ describe("triggerGoodsReceiptExtraction — nejvýš dvě modelová volání na 
     expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1);
   });
 
-  it("strukturování vrátí jen nepoužitelné řádky → přesně DVĚ volání celkem, žádný další (placený) pokus", async () => {
-    mockExtractStructuredReceipt.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+  it("strukturování vrátí jen nepoužitelné řádky (bez popisu) → přesně DVĚ volání celkem, žádný další (placený) pokus", async () => {
+    mockExtractStructuredReceipt.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ description: null })] }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(false);
@@ -501,13 +501,20 @@ describe("triggerGoodsReceiptExtraction — OCR text jde do strukturování BEZE
   });
 });
 
-describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW výstupu strukturování se bezpečně vyřadí (oprava: jediný vadný řádek nesmí shodit celý doklad)", () => {
-  it("řádek s packageQuantity:0 (nečitelný/nesmyslný) se tiše vyřadí, dobrý řádek se zapíše — doklad jako celek uspěje", async () => {
+describe("triggerGoodsReceiptExtraction — maloobchodní účtenka: chybějící množství/jednotka/rozpis DPH se dopočítá, jen skutečně nečitelný/nesmyslný řádek se vyřadí (oprava po druhém ostrém testu)", () => {
+  it("dřívější problém end-to-end: packageQuantity:0 (Penny účtenka bez vytištěného množství, s cenou s DPH) se zapíše s množstvím 1, ne vyřadí", async () => {
     mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({
         lines: [
-          baseExtractedLine({ description: "Pivo 12°", packageQuantity: 1 }),
-          baseExtractedLine({ description: "Nečitelný řádek", packageQuantity: 0 }),
+          baseExtractedLine({
+            description: "Rohlík",
+            packageQuantity: 0,
+            unitsPerPackage: null,
+            unit: null,
+            totalWithVat: 3.5,
+            totalWithoutVat: null,
+            unitPriceWithoutVat: null,
+          }),
         ],
       })
     );
@@ -515,8 +522,23 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result).toEqual({ ok: true });
+    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
+    expect(lineInsert).toBeTruthy();
+    expect(lineInsert.params).toContain(1); // rawPackageQuantity defaultovalo na 1, řádek NENÍ vyřazený
+  });
+
+  it("skutečně nečitelný řádek (bez popisu) se tiše vyřadí, dobrý řádek se zapíše — doklad jako celek uspěje", async () => {
+    mockExtractStructuredReceipt.mockResolvedValue(
+      baseExtracted({
+        lines: [baseExtractedLine({ description: "Pivo 12°" }), baseExtractedLine({ description: null })],
+      })
+    );
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({ ok: true });
     const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
-    expect(lineInserts).toHaveLength(1); // jen ten použitelný řádek, ne ten s packageQuantity:0
+    expect(lineInserts).toHaveLength(1); // jen ten použitelný řádek, ne ten bez popisu
 
     const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'));
     expect(receiptUpdate).toBeTruthy(); // finální update (extraction_status='needs_review'), ne markExtractionFailed
@@ -526,15 +548,16 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
     expect(activityBody).toContain("1 nečitelných řádků přeskočeno"); // reviewer vidí, že se něco tiše vynechalo
   });
 
-  it("null/nesmyslné řádky (chybějící popis, nekladné množství, záporná cena) se vyřadí stejně jako packageQuantity:0", async () => {
+  it("dřív nesprávně zahazované řádky (nulové/chybějící množství, chybějící jednotka, jedna záporná cena s jinou platnou) se teď PŘIJMOU — jen skutečně bez popisu NEBO bez jakékoli kladné ceny se zahodí", async () => {
     mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({
         lines: [
           baseExtractedLine({ description: "Dobrý řádek" }),
-          baseExtractedLine({ description: null }),
-          baseExtractedLine({ description: "Bez množství", packageQuantity: null }),
-          baseExtractedLine({ description: "Záporná cena", totalWithoutVat: -5 }),
-          baseExtractedLine({ description: "Nulové balení", unitsPerPackage: 0 }),
+          baseExtractedLine({ description: null }), // skutečně nesmyslný — bez popisu
+          baseExtractedLine({ description: "Bez množství", packageQuantity: null }), // teď OK — defaultuje na 1
+          baseExtractedLine({ description: "Záporná cena bez DPH, ale platná s DPH", totalWithoutVat: -5, totalWithVat: 121 }), // teď OK
+          baseExtractedLine({ description: "Nulové balení", unitsPerPackage: 0 }), // teď OK — defaultuje na 1
+          baseExtractedLine({ description: "Bez ceny vůbec", totalWithVat: null, totalWithoutVat: null, unitPriceWithoutVat: null }), // skutečně nesmyslný — bez ceny
         ],
       })
     );
@@ -543,11 +566,14 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
 
     expect(result).toEqual({ ok: true });
     const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
-    expect(lineInserts).toHaveLength(1);
+    expect(lineInserts).toHaveLength(4); // "Dobrý řádek" + 3 dřív chybně zahazované; 2 skutečně nesmyslné zůstávají vyřazené
+
+    const activityInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
+    expect(JSON.stringify(activityInsert.params)).toContain("2 nečitelných řádků přeskočeno");
   });
 
-  it("úplně nečitelný doklad (VŠECHNY řádky nepoužitelné) je selhání, ne prázdná needs_review příjemka — retry zůstává možný, žádný třetí pokus", async () => {
-    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+  it("úplně nečitelný doklad (VŠECHNY řádky bez popisu) je selhání, ne prázdná needs_review příjemka — retry zůstává možný, žádný třetí pokus", async () => {
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ lines: [baseExtractedLine({ description: null })] }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 

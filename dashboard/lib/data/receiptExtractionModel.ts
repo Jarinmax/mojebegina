@@ -41,6 +41,8 @@ Vrať:
 
 DŮLEŽITÉ: Číslo vedle ceny, co vypadá jako kód oddělení nebo kategorie (často krátký číselný kód, např. "23", "6"), NENÍ sazba DPH — nikdy si sazbu DPH nevymýšlej ani neurčuj z takového kódu. Stačí přepsat částky přesně tak, jak jsou v přepisu — sazbu si appka dopočítá sama z částek.
 
+Maloobchodní účtenka (na rozdíl od velkoobchodní faktury) často NEUVÁDÍ počet balení ani rozpis ceny bez DPH/DPH po řádcích — jen název položky a jednu celkovou částku (obvykle s DPH). To je normální, ne chyba OCR. Když účtenka u položky množství vůbec netiskne (běžné u nákupu jednoho kusu), vrať packageQuantity jako 1 — ale pokud je na dokladu SKUTEČNĚ vytištěné jiné množství (např. "3 ks", "2x", "0,345 kg"), vrať PŘESNĚ tohle vytištěné číslo, nikdy ho nenahrazuj jedničkou. Stejně tak když účtenka neuvádí cenu bez DPH ani samostatnou DPH, vrať pro tahle pole null — nevymýšlej si je, appka si cenu bez DPH i DPH dopočítá sama z toho, co na dokladu skutečně je.
+
 Pokud nějaký ÚDAJ v přepisu není nebo není čitelný, vrať pro něj null (nehádej, nevymýšlej si). Pokud je nečitelný/nerozluštitelný CELÝ ŘÁDEK (ne jen jedno pole, třeba kvůli značce "(nečitelné)"), řádek STEJNĚ VRAŤ s neznámými poli jako null — nevynechávej ho a nevymýšlej si za něj hodnoty, appka takový řádek sama bezpečně rozpozná a vyřadí.`;
 
 // `generateObject` je v nainstalované verzi `ai` zastaralé (@deprecated Use

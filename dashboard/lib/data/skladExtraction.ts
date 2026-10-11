@@ -330,7 +330,11 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
   }
 
-  const { receipt: extracted, droppedLineCount } = sanitizeExtractedReceipt(structuredRaw);
+  const { receipt: extracted, droppedLineCount, diagnostics: sanitizeDiagnostics } = sanitizeExtractedReceipt(structuredRaw);
+  // Bezpečná diagnostika sanitizace — jen POČTY (kolik řádků zahozeno a
+  // proč, kolik mělo dopočítané množství/cenu), nikdy OCR text ani název
+  // položky.
+  console.log(`[sklad] Sanitizace řádků (receiptId=${receiptId}): droppedLineCount=${droppedLineCount}`, sanitizeDiagnostics);
   if (extracted.lines.length === 0) {
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Z dokladu se nepodařilo přečíst žádný použitelný řádek. Zkuste to znovu nebo doklad vyfoťte ostřeji." };
