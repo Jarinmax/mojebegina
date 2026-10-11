@@ -6,15 +6,18 @@
 // 3) cena na serveru (priceCart / validateCheckoutInput): hranice pásem,
 //    součty různých SKU, nad 150 kg a bez hmotnosti → individuální domluva,
 //    osobní odběr zdarma, jen česká PSČ, výchozí paušál beze změny,
-// 4) uložená objednávka přes ovladač Neonu = cena spočtená serverem.
+// 4) zobrazená cena (výpočet pokladny v prohlížeči) = cena serveru,
+// 5) stav Production (bez sloupce, bez přepínače): paušál, weight_g se nečte,
+// 6) uložená objednávka přes ovladač Neonu = zobrazená = spočtená serverem.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import type { PGlite } from "@electric-sql/pglite";
 import { loadCatalog } from "../catalogDb";
 import { createCatalogIndex, type CatalogIndex } from "../catalogIndex";
 import { priceCart } from "../pricing";
+import { resolveCartLines } from "../cart";
 import { validateCheckoutInput, type CheckoutInput } from "../checkout";
 import { getShippingMethod, quoteShipping, shippingMethodsFor, shippingModeFromEnv } from "../shipping";
 import { shippingPageFor, OPERATOR } from "../infoPages";
@@ -97,6 +100,37 @@ describe("SQL balíček hmotností (40 / 41 / 42 / 49)", DB_TEST, () => {
     await other.exec(`UPDATE product_variants SET is_active = false WHERE sku = 'kulajda'`);
     await expect(other.exec(production("41_hmotnosti.sql"))).rejects.toThrow(/chybí nebo nejsou aktivní: kulajda/);
     expect(await check(other, "40_hmotnosti_before.sql")).toBe("0 | 35 | 35 | 0");
+  });
+});
+
+// Verze s pojistkou větve (Neon nastavuje neon.timeline_id; PGlite ho dostane přes set_config).
+describe.each([
+  ["41_hmotnosti_PREVIEW.sql", "1d684d3fc82670cfe6342261f58e1415", "70a96b3677653646e65343cae8e27182"],
+  ["41_hmotnosti_MAIN.sql", "70a96b3677653646e65343cae8e27182", "1d684d3fc82670cfe6342261f58e1415"],
+])("%s — běží jen na své větvi", (file, own, other) => {
+  const onBranch = async (timeline: string | null) => {
+    const { pg } = await productionLikeDb();
+    if (timeline) await pg.query(`SELECT set_config('neon.timeline_id', $1, false)`, [timeline]);
+    return pg;
+  };
+
+  it("jiná nebo neznámá větev → STOP, nic se nezmění", DB_TEST, async () => {
+    for (const timeline of [other, null]) {
+      const pg = await onBranch(timeline);
+      await expect(pg.exec(production(file))).rejects.toThrow(/STOP: tohle NENÍ/);
+      expect(await check(pg, "40_hmotnosti_before.sql")).toBe("0 | 36 | 36 | 0");
+    }
+  });
+
+  it("vlastní větev → 36 hmotností jako 41_hmotnosti.sql; podruhé se zastaví", DB_TEST, async () => {
+    const pg = await onBranch(own);
+    await pg.exec(production(file));
+    expect(await check(pg, "42_hmotnosti_after.sql")).toBe("1 | 36 | 0 | 25 | 7 | 4 | 0");
+    await expect(pg.exec(production(file))).rejects.toThrow(/už existuje/);
+    const reference = await onBranch(null);
+    await reference.exec(production("41_hmotnosti.sql"));
+    const weights = `SELECT sku, weight_g FROM product_variants ORDER BY sku`;
+    expect((await pg.query(weights)).rows).toEqual((await reference.query(weights)).rows);
   });
 });
 
@@ -261,6 +295,117 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
   });
 });
 
+/** Cena, kterou ukáže pokladna v prohlížeči (CheckoutForm: resolveCartLines → quoteShipping). */
+function displayedShipping(index: CatalogIndex, cart: { sku: string; quantity: number }[], method: string) {
+  const lines = resolveCartLines(cart, index);
+  const shipping = shippingMethodsFor("weight").find((m) => m.id === method)!;
+  const quote = quoteShipping(
+    shipping,
+    lines.map((l) => ({ sku: l.sku, name: l.name, quantity: l.quantity, weightGrams: l.variant.weightGrams })),
+    "weight",
+    OPERATOR
+  );
+  const subtotal = lines.reduce((sum, l) => sum + l.lineTotalKc, 0);
+  return quote.available ? { shippingKc: quote.priceKc, totalKc: subtotal + quote.priceKc } : { unavailable: quote.message };
+}
+
+describe("zobrazená cena v pokladně = cena spočtená serverem", DB_TEST, () => {
+  let index: CatalogIndex;
+
+  beforeAll(async () => {
+    const { pg, db } = await productionLikeDb();
+    await pg.exec(production("41_hmotnosti.sql"));
+    index = createCatalogIndex(await loadCatalog(db, { weights: true }));
+  }, DB_TEST.timeout);
+
+  // Košík přesně dané hmotnosti z balení 3 kg (polévka), 0,75 kg (sirup) a 0,5 kg (koktejl).
+  const cartOf = (grams: number) => {
+    for (let syrups = 0; syrups < 4; syrups++)
+      for (let cocktails = 0; cocktails < 6; cocktails++) {
+        const rest = grams - syrups * 750 - cocktails * 500;
+        if (rest >= 0 && rest % 3000 === 0)
+          return [
+            { sku: "kulajda", quantity: rest / 3000 },
+            { sku: "lipovy-sirup-750ml", quantity: syrups },
+            { sku: "kosmopolitan-500ml", quantity: cocktails },
+          ].filter((line) => line.quantity > 0);
+      }
+    throw new Error(`${grams} g nejde složit`);
+  };
+  // každá hranice pásma: poslední možná hmotnost pod ní (−0,25 kg) a přesně na ní; oba způsoby doručení
+  const carts: [string, { sku: string; quantity: number }[]][] = [];
+  for (const kg of [15, 20, 30, 40, 50, 60, 70, 80, 90, 100]) {
+    carts.push([`${kg - 0.25} kg`, cartOf(kg * 1000 - 250)]);
+    carts.push([`${kg} kg`, cartOf(kg * 1000)]);
+  }
+  carts.push(["150 kg", [{ sku: "kulajda", quantity: 50 }]]);
+  carts.push(["150,5 kg", [{ sku: "kulajda", quantity: 50 }, { sku: "granatovy-bond-500ml", quantity: 1 }]]);
+  carts.push(["mix 7 SKU", [
+    { sku: "kulajda", quantity: 2 }, { sku: "lipovy-caj-3l", quantity: 1 }, { sku: "sipkovy-sirup-3l", quantity: 1 },
+    { sku: "zazvorovy-sirup-750ml", quantity: 2 }, { sku: "svarak-deluxe-500ml", quantity: 3 }, { sku: "kosmopolitan-3l", quantity: 1 },
+    { sku: "cerny-caj-golden-nepal-3l", quantity: 1 },
+  ]]);
+
+  it.each(carts)("%s — chlazená přeprava i osobní odběr", (_name, cart) => {
+    for (const method of ["rozvoz", "osobni-odber"]) {
+      const shown = displayedShipping(index, cart, method);
+      const server = priceCart(cart, method, index, { shippingMode: "weight" });
+      if ("unavailable" in shown) {
+        expect(server).toEqual({ ok: false, error: shown.unavailable });
+      } else {
+        expect(server).toMatchObject({ ok: true, value: shown });
+      }
+    }
+  });
+
+  it("hranice pásem dávají ceník WooCommerce", () => {
+    const kc = (cart: { sku: string; quantity: number }[]) => {
+      const r = priceCart(cart, "rozvoz", index, { shippingMode: "weight" });
+      return r.ok ? [r.value.weightGrams, r.value.shippingKc] : r.error;
+    };
+    const byName = Object.fromEntries(carts.map(([n, c]) => [n, kc(c)]));
+    expect(byName).toMatchObject({
+      "14.75 kg": [14_750, 267], "15 kg": [15_000, 379],
+      "19.75 kg": [19_750, 379], "20 kg": [20_000, 491],
+      "29.75 kg": [29_750, 491], "30 kg": [30_000, 604],
+      "39.75 kg": [39_750, 604], "40 kg": [40_000, 716],
+      "49.75 kg": [49_750, 716], "50 kg": [50_000, 828],
+      "59.75 kg": [59_750, 828], "60 kg": [60_000, 940],
+      "69.75 kg": [69_750, 940], "70 kg": [70_000, 1053],
+      "79.75 kg": [79_750, 1053], "80 kg": [80_000, 1165],
+      "89.75 kg": [89_750, 1165], "90 kg": [90_000, 1277],
+      "99.75 kg": [99_750, 1277], "100 kg": [100_000, 1839],
+      "150 kg": [150_000, 1839],
+    });
+    expect(byName["150,5 kg"]).toEqual(expect.stringContaining("nelze objednat automaticky"));
+  });
+});
+
+describe("Production: bez přepínače i bez sloupce weight_g beze změny", DB_TEST, () => {
+  it("katalog nečte weight_g, pokladna účtuje 99 Kč, nad 150 kg dál objednatelné, uložená cena 99 Kč", async () => {
+    const { pg, db } = await productionLikeDb(); // = Production: sloupec weight_g neexistuje
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mode = shippingModeFromEnv({ VERCEL_ENV: "production" }); // přepínač v Production nenastaven
+    expect(mode).toBe("flat");
+    const index = createCatalogIndex(await loadCatalog(db, { weights: mode === "weight" }));
+    // dotaz na hmotnosti se vůbec nespustil (jinak by chybějící sloupec ohlásil varování)
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+    for (const quantity of [1, 51]) {
+      expect(priceCart([{ sku: "kulajda", quantity }], "rozvoz", index, { shippingMode: mode })).toMatchObject({
+        ok: true,
+        value: { shippingKc: 99, weightGrams: null },
+      });
+    }
+    // ani zapnutý přepínač bez migrace nic nerozbije: katalog běží, chlazená přeprava jen nedostupná
+    const weighed = createCatalogIndex(await loadCatalog(db, { weights: true }));
+    expect(priceCart([{ sku: "kulajda", quantity: 1 }], "osobni-odber", weighed, { shippingMode: "weight" }).ok).toBe(true);
+    expect(priceCart([{ sku: "kulajda", quantity: 1 }], "rozvoz", weighed, { shippingMode: "weight" }).ok).toBe(false);
+    const { rows } = await pg.query(`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_name = 'product_variants' AND column_name = 'weight_g'`);
+    expect(rows).toEqual([{ n: 0 }]);
+  });
+});
+
 describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
   it("jen přesně „on“ zapíná ceník podle hmotnosti; výchozí = paušál", () => {
     expect(shippingModeFromEnv({})).toBe("flat");
@@ -334,5 +479,8 @@ describe("uložená objednávka = cena dopravy spočtená serverem", { timeout: 
     );
     const subtotal = checkout.value.pricedCart.subtotalKc;
     expect(rows).toEqual([{ subtotal_kc: subtotal, shipping_kc: 379, total_kc: subtotal + 379, shipping_method_code: "rozvoz" }]);
+    // to, co zákazník viděl v pokladně, je přesně to, co je uložené
+    const shown = displayedShipping(index, [{ sku: "kulajda", quantity: 6 }, { sku: "lipovy-sirup-750ml", quantity: 1 }], "rozvoz");
+    expect(shown).toEqual({ shippingKc: rows[0].shipping_kc, totalKc: rows[0].total_kc });
   });
 });

@@ -100,13 +100,19 @@ nemá — nutné doplnit před jeho zveřejněním.
    chlazená přeprava nedostupná s textem; osobní odběr 0 Kč; PSČ 811 01
    odmítnuto.
 
-### B. Production (až po schválení)
+### B. Production (každý krok jen s výslovným souhlasem)
 
-1. Vyřešit otevřenou otázku dopravy zdarma.
-2. `40` → `41` → `42` na Production (main) — sloupec je přídavný, stávající
-   kód ho nečte, takže nic neovlivní.
-3. Sloučit PR (kód s vypnutým přepínačem = beze změny chování, kromě
-   kontroly českého PSČ).
-4. Zapnout `ESHOP_WEIGHT_SHIPPING=on` pro Production + Redeploy.
+Preview ověřeno ručně 11. 10. 2026: 5× 3 kg = 15 kg → chlazená přeprava
+379 Kč, celkem 2 144 Kč; osobní odběr zdarma.
+
+1. **Sloučit PR #20.** S nenastaveným přepínačem se v Production nic
+   nemění (paušál 99 Kč, `weight_g` se nečte — sloupec nemusí existovat);
+   jediná viditelná změna: doručení jen na česká PSČ. Pořadí vůči DB je
+   volné; test „Production: bez přepínače i bez sloupce“.
+2. Production SQL (Neon SQL Editor, větev `main`): `40_hmotnosti_before.sql`
+   → `0 | 36 | 36 | 0`; `41_hmotnosti_MAIN.sql` (pojistka: jen main);
+   `42_hmotnosti_after.sql` → `1 | 36 | 0 | 25 | 7 | 4 | 0`.
+3. Vyřešit otevřenou otázku dopravy zdarma.
+4. Zapnout `ESHOP_WEIGHT_SHIPPING=on` pro Production + nové nasazení.
 5. Návrat: vypnout přepínač (okamžitě zpět na paušál); sloupec lze
    odstranit `49_hmotnosti_rollback.sql`.
