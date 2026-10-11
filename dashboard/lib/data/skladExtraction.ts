@@ -50,8 +50,9 @@ import {
   STOCK_ITEM_KINDS,
   type LineKind,
 } from "./skladValidation";
-import { extractReceiptData, EXTRACTION_MODEL_ID, FALLBACK_EXTRACTION_MODEL_ID, type ReceiptImageInput } from "./receiptExtractionModel";
-import { preprocessReceiptPage } from "./receiptImagePreprocessing";
+import { extractStructuredReceipt, EXTRACTION_MODEL_ID } from "./receiptExtractionModel";
+import { preprocessReceiptPage, type PagePreprocessingDiagnostics, type ReceiptImageInput } from "./receiptImagePreprocessing";
+import { performReceiptOcr, OCR_MODEL_ID, MIN_OCR_TEXT_LENGTH } from "./receiptOcrModel";
 
 async function readBlobBytes(pathname: string): Promise<Buffer | null> {
   const blob = await get(pathname, { access: "private" });
@@ -68,7 +69,9 @@ async function readBlobBytes(pathname: string): Promise<Buffer | null> {
   return Buffer.concat(chunks);
 }
 
-async function fetchReceiptPageImages(receiptId: string): Promise<ReceiptImageInput[]> {
+async function fetchReceiptPageImages(
+  receiptId: string
+): Promise<{ images: ReceiptImageInput[]; diagnostics: PagePreprocessingDiagnostics[] }> {
   const pages = await db
     .select({
       storageKey: goodsReceiptDocumentPages.storageKey,
@@ -80,19 +83,22 @@ async function fetchReceiptPageImages(receiptId: string): Promise<ReceiptImageIn
     .orderBy(goodsReceiptDocumentPages.pageNumber);
 
   const images: ReceiptImageInput[] = [];
+  const diagnostics: PagePreprocessingDiagnostics[] = [];
   for (const page of pages) {
     const bytes = await readBlobBytes(page.storageKey);
     if (bytes) {
       // Oprava po prvním ostrém testu: appka pracuje jen s originálními
       // bajty už uloženými v Blobu (žádné nové focení se nevyžaduje) — před
-      // odesláním modelu se každá strana ořízne/doostří/případně rozdělí
-      // na překrývající se výřezy (receiptImagePreprocessing.ts); výsledek
-      // je jeden nebo víc obrázků v pořadí shora dolů za každou stranu.
+      // OCR se každá strana ořízne/doostří/případně rozdělí na překrývající
+      // se výřezy (receiptImagePreprocessing.ts); výsledek je jeden nebo
+      // víc obrázků v pořadí shora dolů za každou stranu, plus bezpečná
+      // diagnostika (rozměry/ořez/počet výřezů, nikdy obraz samotný).
       const processed = await preprocessReceiptPage({ mimeType: page.mimeType, bytes });
-      images.push(...processed);
+      images.push(...processed.images);
+      diagnostics.push(processed.diagnostics);
     }
   }
-  return images;
+  return { images, diagnostics };
 }
 
 async function fetchReceiptForExtraction(
@@ -268,58 +274,66 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     };
   }
 
-  const images = await fetchReceiptPageImages(receiptId);
+  const { images, diagnostics: pageDiagnostics } = await fetchReceiptPageImages(receiptId);
   if (images.length === 0) {
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu." };
   }
 
-  let primaryRaw;
+  // Bezpečná diagnostika přípravy obrázku — jen rozměry/ořez/počet výřezů
+  // (nikdy obraz samotný), ať je při ladění přesnosti vidět, jak moc appka
+  // doklad ořízla a rozdělila. Loguje se vždy, i kdyby OCR níž selhalo.
+  console.log(`[sklad] Příprava obrázku (receiptId=${receiptId}):`, pageDiagnostics);
+
+  // FÁZE 1: čisté OCR (receiptOcrModel.ts) — obrázky → prostý text, žádné
+  // strukturování tady. Druhý ostrý test (Preview 61c9755) ukázal, že
+  // posílat obrázky rovnou do strukturovaného schématu (i s nano i s mini)
+  // nestačilo; model specializovaný na OCR dostane jednodušší úkol.
+  let ocrText: string;
   try {
-    primaryRaw = await extractReceiptData(images, EXTRACTION_MODEL_ID);
+    ocrText = await performReceiptOcr(images);
+  } catch (error) {
+    console.error(`[sklad] OCR účtenky selhalo (receiptId=${receiptId}, model=${OCR_MODEL_ID}):`, describeExtractionErrorForLog(error));
+    await markExtractionFailed(receiptId);
+    return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
+  }
+
+  const ocrCharCount = ocrText.trim().length;
+  console.log(`[sklad] OCR diagnostika (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}`);
+
+  // Příliš málo textu → appka selže HNED tady, BEZ dalšího (placeného)
+  // volání strukturovacího modelu — žádný smysl strukturovat prakticky
+  // prázdný přepis.
+  if (ocrCharCount < MIN_OCR_TEXT_LENGTH) {
+    console.error(
+      `[sklad] OCR vrátilo příliš málo textu (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}, min=${MIN_OCR_TEXT_LENGTH}`
+    );
+    await markExtractionFailed(receiptId);
+    return {
+      ok: false,
+      error: "Z fotky dokladu se nepodařilo přečíst dost textu. Zkuste to znovu nebo doklad vyfoťte ostřeji/na kontrastnější pozadí.",
+    };
+  }
+
+  // FÁZE 2: strukturování OCR textu (receiptExtractionModel.ts) — text →
+  // shovívavé RAW schéma → sanitizeExtractedReceipt tu bezpečně vyřadí
+  // nečitelné/nesmyslné řádky, aby jediný vadný řádek neshodil celý doklad.
+  let structuredRaw;
+  try {
+    structuredRaw = await extractStructuredReceipt(ocrText);
   } catch (error) {
     console.error(
-      `[sklad] AI vytěžení účtenky selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
+      `[sklad] Strukturování OCR textu selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
       describeExtractionErrorForLog(error)
     );
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
   }
 
-  // Model vrací shovívavé RAW schéma (viz receiptExtractionModel.ts) —
-  // nečitelné/nesmyslné řádky se tu bezpečně vyřadí, aby jediný vadný
-  // řádek neshodil celý doklad.
-  let { receipt: extracted, droppedLineCount } = sanitizeExtractedReceipt(primaryRaw);
-  let usedModelId = EXTRACTION_MODEL_ID;
-
-  // Levný první pokus (nano) nevrátil ani jeden použitelný řádek — PŘESNĚ
-  // JEDEN automatický druhý pokus přes dražší model, se STEJNÝMI už
-  // připravenými výřezy (žádné nové ořezávání/dělení, žádné nové čtení
-  // Blobu). Výsledek projde stejnou sanitizeExtractedReceipt i stejným
-  // needs_review/lidským potvrzením níž — žádný rozdíl v bezpečnosti mezi
-  // primárním a záložním pokusem. Když záložní pokus selže (výjimka nebo
-  // zase žádný použitelný řádek), appka to NEZKOUŠÍ potřetí.
+  const { receipt: extracted, droppedLineCount } = sanitizeExtractedReceipt(structuredRaw);
   if (extracted.lines.length === 0) {
-    try {
-      const fallbackRaw = await extractReceiptData(images, FALLBACK_EXTRACTION_MODEL_ID);
-      const fallbackSanitized = sanitizeExtractedReceipt(fallbackRaw);
-      extracted = fallbackSanitized.receipt;
-      droppedLineCount = fallbackSanitized.droppedLineCount;
-      usedModelId = FALLBACK_EXTRACTION_MODEL_ID;
-    } catch (error) {
-      console.error(
-        `[sklad] Záložní AI vytěžení selhalo (receiptId=${receiptId}, model=${FALLBACK_EXTRACTION_MODEL_ID}):`,
-        describeExtractionErrorForLog(error)
-      );
-    }
-
-    if (extracted.lines.length === 0) {
-      await markExtractionFailed(receiptId);
-      return {
-        ok: false,
-        error: "Z dokladu se nepodařilo přečíst žádný použitelný řádek ani záložním modelem. Zkuste to znovu nebo doklad vyfoťte ostřeji.",
-      };
-    }
+    await markExtractionFailed(receiptId);
+    return { ok: false, error: "Z dokladu se nepodařilo přečíst žádný použitelný řádek. Zkuste to znovu nebo doklad vyfoťte ostřeji." };
   }
 
   try {
@@ -388,7 +402,8 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
       .set({
         extractionStatus: "needs_review",
         extractionRaw: {
-          model: usedModelId,
+          model: EXTRACTION_MODEL_ID,
+          ocrModel: OCR_MODEL_ID,
           extractedAt: new Date().toISOString(),
           lines: extractionRawLines,
         },
@@ -405,9 +420,9 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
       authorUserId: ctx.userId,
       authorName: ctx.name,
       kind: "line_added",
-      body: `AI vytěžilo ${extracted.lines.length} řádků (model: ${usedModelId}${
-        usedModelId === FALLBACK_EXTRACTION_MODEL_ID ? ", záložní pokus po neúspěchu levnějšího modelu" : ""
-      })${droppedLineCount > 0 ? `, ${droppedLineCount} nečitelných řádků přeskočeno` : ""} — čeká na kontrolu.`,
+      body: `AI vytěžilo ${extracted.lines.length} řádků (OCR: ${OCR_MODEL_ID}, struktura: ${EXTRACTION_MODEL_ID})${
+        droppedLineCount > 0 ? `, ${droppedLineCount} nečitelných řádků přeskočeno` : ""
+      } — čeká na kontrolu.`,
     });
 
     return { ok: true };

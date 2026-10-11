@@ -1,9 +1,9 @@
 // Mobilní tok 1.0 — oprava po prvním ostrém testu: ořez/normalizace/
-// rozdělení fotky účtenky, PŘED odesláním modelu. Testuje se se skutečnými
+// rozdělení fotky účtenky, PŘED OCR. Testuje se se skutečnými
 // syntetickými obrázky (sharp), beze mockování — stejný princip jako
 // skladValidation.test.ts (čistá logika, testovatelná beze mocků). Co
 // tenhle test NEMŮŽE dokázat: jestli konkrétní ořez/rozdělení skutečně
-// zlepší přesnost živého modelu na reálné fotce — to ukáže až ostrý test
+// zlepší přesnost živého OCR na reálné fotce — to ukáže až ostrý test
 // po nasazení (žádné živé volání modelu tady ani jinde v test suitě).
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
@@ -36,37 +36,52 @@ async function makeDarkBackgroundWithLightReceipt(): Promise<Buffer> {
 }
 
 describe("preprocessReceiptPage — ořez světlé účtenky z tmavého pozadí", () => {
-  it("ořízne na oblast světlého obdélníku (+ rezerva) — výsledek je menší než originál, jen jeden výřez (krátký doklad)", async () => {
+  it("ořízne na oblast světlého obdélníku (+ rezerva) — výsledek je menší než originál, jen jeden výřez (krátký doklad); diagnostika hlásí původní rozměry i nalezený ořez", async () => {
     const original = await makeDarkBackgroundWithLightReceipt();
     const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: original });
 
-    expect(result).toHaveLength(1);
+    expect(result.images).toHaveLength(1);
     const originalMeta = await sharp(original).metadata();
-    const resultMeta = await sharp(result[0].bytes).metadata();
+    const resultMeta = await sharp(result.images[0].bytes).metadata();
     expect(resultMeta.width!).toBeLessThan(originalMeta.width!);
     expect(resultMeta.height!).toBeLessThan(originalMeta.height!);
     // Ořez by měl zhruba odpovídat rozměru světlého obdélníku (280×220) + malá rezerva, ne téměř celému snímku.
     expect(resultMeta.width!).toBeLessThan(340);
     expect(resultMeta.height!).toBeLessThan(260);
-    expect(result[0].mimeType).toBe("image/jpeg");
+    expect(result.images[0].mimeType).toBe("image/jpeg");
+
+    // Bezpečná diagnostika: původní rozměry, nalezený ořez, rozměry výřezu.
+    expect(result.diagnostics.originalWidth).toBe(400);
+    expect(result.diagnostics.originalHeight).toBe(300);
+    expect(result.diagnostics.crop).not.toBeNull();
+    expect(result.diagnostics.crop!.width).toBeLessThan(340);
+    expect(result.diagnostics.crop!.height).toBeLessThan(260);
+    expect(result.diagnostics.bandDimensions).toHaveLength(1);
+    expect(result.diagnostics.bandDimensions[0]).toEqual({ width: resultMeta.width, height: resultMeta.height });
   });
 
-  it("jednolitě šedý obrázek (žádná rozpoznatelná hranice pozadí/účtenky) se neořízne — appka ho pošle beze změny rozměru", async () => {
+  it("jednolitě šedý obrázek (žádná rozpoznatelná hranice pozadí/účtenky) se neořízne — appka ho pošle beze změny rozměru, diagnostika hlásí crop:null", async () => {
     const uniform = await sharp({ create: { width: 300, height: 300, channels: 3, background: { r: 128, g: 128, b: 128 } } })
       .jpeg()
       .toBuffer();
     const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: uniform });
-    const resultMeta = await sharp(result[0].bytes).metadata();
+    const resultMeta = await sharp(result.images[0].bytes).metadata();
     expect(resultMeta.width).toBe(300);
     expect(resultMeta.height).toBe(300);
+    expect(result.diagnostics.crop).toBeNull();
+    expect(result.diagnostics.originalWidth).toBe(300);
+    expect(result.diagnostics.originalHeight).toBe(300);
   });
 
-  it("nedekódovatelný vstup (poškozená/neplatná data) appka bezpečně pošle beze změny, nikdy nevyhodí výjimku", async () => {
+  it("nedekódovatelný vstup (poškozená/neplatná data) appka bezpečně pošle beze změny, nikdy nevyhodí výjimku — diagnostika zůstane bezpečně prázdná", async () => {
     const garbage = Buffer.from([1, 2, 3, 4, 5]);
     const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: garbage });
-    expect(result).toHaveLength(1);
-    expect(result[0].bytes.equals(garbage)).toBe(true);
-    expect(result[0].mimeType).toBe("image/jpeg");
+    expect(result.images).toHaveLength(1);
+    expect(result.images[0].bytes.equals(garbage)).toBe(true);
+    expect(result.images[0].mimeType).toBe("image/jpeg");
+    expect(result.diagnostics.originalWidth).toBeNull();
+    expect(result.diagnostics.originalHeight).toBeNull();
+    expect(result.diagnostics.crop).toBeNull();
   });
 });
 
@@ -76,7 +91,8 @@ describe("preprocessReceiptPage — rozdělení dlouhé účtenky na překrývaj
       .jpeg()
       .toBuffer();
     const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: short });
-    expect(result).toHaveLength(1);
+    expect(result.images).toHaveLength(1);
+    expect(result.diagnostics.bandDimensions).toHaveLength(1);
   });
 
   it("vysoký, ale dost ŠIROKÝ obrázek (pod prahovým poměrem stran) se nedělí, i když je nad prahovou výškou", async () => {
@@ -85,10 +101,10 @@ describe("preprocessReceiptPage — rozdělení dlouhé účtenky na překrývaj
       .jpeg()
       .toBuffer();
     const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: wideTall });
-    expect(result).toHaveLength(1);
+    expect(result.images).toHaveLength(1);
   });
 
-  it("dlouhá úzká účtenka (výška >> šířka, nad oběma prahy) se rozdělí na víc výřezů s překryvem, v pořadí shora dolů", async () => {
+  it("dlouhá úzká účtenka (výška >> šířka, nad oběma prahy) se rozdělí na víc výřezů s překryvem, v pořadí shora dolů; diagnostika hlásí rozměry KAŽDÉHO výřezu", async () => {
     const height = 6000;
     const width = 800;
     const tall = await sharp({ create: { width, height, channels: 3, background: { r: 230, g: 230, b: 230 } } })
@@ -96,15 +112,21 @@ describe("preprocessReceiptPage — rozdělení dlouhé účtenky na překrývaj
       .toBuffer();
     const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: tall });
 
-    expect(result.length).toBeGreaterThan(1);
-    const metas = await Promise.all(result.map((r) => sharp(r.bytes).metadata()));
+    expect(result.images.length).toBeGreaterThan(1);
+    const metas = await Promise.all(result.images.map((r) => sharp(r.bytes).metadata()));
     expect(metas.every((m) => m.width === width)).toBe(true);
     expect(metas.every((m) => m.height === SPLIT_BAND_HEIGHT_PX)).toBe(true);
 
     const expectedTops = computeBandTops(height);
-    expect(result).toHaveLength(expectedTops.length);
+    expect(result.images).toHaveLength(expectedTops.length);
     // poslední výřez musí dosáhnout přesně na spodní okraj originálu
     expect(expectedTops[expectedTops.length - 1] + SPLIT_BAND_HEIGHT_PX).toBe(height);
+
+    // Diagnostika hlásí stejný počet a stejné rozměry výřezů jako skutečný výstup.
+    expect(result.diagnostics.bandDimensions).toHaveLength(result.images.length);
+    expect(result.diagnostics.bandDimensions.every((d) => d.width === width && d.height === SPLIT_BAND_HEIGHT_PX)).toBe(true);
+    expect(result.diagnostics.originalWidth).toBe(width);
+    expect(result.diagnostics.originalHeight).toBe(height);
   });
 });
 

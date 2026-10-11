@@ -1,21 +1,26 @@
 // @vitest-environment node
 //
-// Mobilní tok 1.0 — AI vytěžení účtenky (needs_review). Stejná mock
-// technika jako skladAtomicity.test.ts/skladUpload.test.ts (stub
-// "server-only", nahradit @neondatabase/serverless transport špionem).
-// extractReceiptData (lib/data/receiptExtractionModel.ts) je zmockovaná
-// pryč — appka NIKDY nedělá skutečné (natož placené) volání modelu v
-// testech; testuje se orchestrace (oprávnění, idempotence/souběh,
-// dodavatel, mapování, DPH) na reálném kódu.
+// Mobilní tok 1.0 — AI vytěžení účtenky (needs_review), DVOUFÁZOVĚ od
+// třetího kola oprav (po druhém ostrém testu na Preview `61c9755`, kde
+// nano i mini nad OBRÁZKY nevrátily ani jeden použitelný řádek): FÁZE 1
+// čisté OCR (receiptOcrModel.ts, obrázky → prostý text), FÁZE 2
+// strukturování toho textu (receiptExtractionModel.ts, text → schéma).
+// Stejná mock technika jako skladAtomicity.test.ts/skladUpload.test.ts
+// (stub "server-only", nahradit @neondatabase/serverless transport
+// špionem). Obě fáze jsou zmockované pryč — appka NIKDY nedělá skutečné
+// (natož placené) volání modelu v testech; testuje se orchestrace
+// (oprávnění, idempotence/souběh, dodavatel, mapování, DPH, nejvýš dvě
+// modelová volání na pokus) na reálném kódu.
 //
 // Přesné SQL fragmenty v matcherech níž byly ověřené reálným diagnostickým
 // během (console.log skutečného výstupu drizzle-orm/neon-http), ne
 // odhadnuté — stejná metodika jako u předchozích souborů.
 //
-// Co tenhle test NEMŮŽE dokázat: skutečné chování Vercel AI Gateway/OIDC
-// ani živou DB sémantiku unique indexů (suppliers, supplier_item_mappings)
-// — to zůstává zdokumentované omezení (stejné jako u ostatních mock-
-// transport testů v tomhle souboru skladu).
+// Co tenhle test NEMŮŽE dokázat: skutečné chování Vercel AI Gateway/OIDC,
+// skutečnou přesnost OCR na reálné fotce, ani živou DB sémantiku unique
+// indexů (suppliers, supplier_item_mappings) — to zůstává zdokumentované
+// omezení (stejné jako u ostatních mock-transport testů v tomhle souboru
+// skladu).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APICallError } from "ai";
 import type { AuthContext } from "../types";
@@ -166,23 +171,38 @@ vi.mock("../authContext", () => ({ getAuthContext: () => mockGetAuthContext() })
 const mockGet = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock("@vercel/blob", () => ({ get: (...args: unknown[]) => mockGet(...args) }));
 
-const mockExtractReceiptData = vi.fn();
+// FÁZE 2: strukturování OCR textu do schématu.
+const mockExtractStructuredReceipt = vi.fn();
 vi.mock("../receiptExtractionModel", () => ({
-  extractReceiptData: (...args: unknown[]) => mockExtractReceiptData(...args),
+  extractStructuredReceipt: (...args: unknown[]) => mockExtractStructuredReceipt(...args),
   EXTRACTION_MODEL_ID: "openai/gpt-5-nano",
-  FALLBACK_EXTRACTION_MODEL_ID: "openai/gpt-5-mini",
+}));
+
+// FÁZE 1: čisté OCR (obrázky → prostý text).
+const mockPerformReceiptOcr = vi.fn<(images: unknown[]) => Promise<string>>();
+vi.mock("../receiptOcrModel", () => ({
+  performReceiptOcr: (images: unknown[]) => mockPerformReceiptOcr(images),
+  OCR_MODEL_ID: "alibaba/qwen3-vl-instruct",
+  MIN_OCR_TEXT_LENGTH: 30,
 }));
 
 // Příprava obrázku (ořez/normalizace/dělení na výřezy) je čistá obrazová
 // logika beze vztahu k DB/oprávnění/modelu — testuje se zvlášť se
 // skutečnými syntetickými obrázky v receiptImagePreprocessing.test.ts.
-// Tady se mockuje identitou (1 strana → 1 nezměněný "výřez"), aby testy
-// orchestrace zůstaly nezávislé na obrazové knihovně a existující
-// očekávání (1 strana = 1 obrázek poslaný modelu) platila beze změny.
-const mockPreprocessReceiptPage = vi.fn<(image: { mimeType: string; bytes: Buffer }) => Promise<{ mimeType: string; bytes: Buffer }[]>>();
+// Tady se mockuje identitou (1 strana → 1 nezměněný "výřez" + neutrální
+// diagnostika), aby testy orchestrace zůstaly nezávislé na obrazové
+// knihovně a existující očekávání (1 strana = 1 obrázek poslaný OCR)
+// platila beze změny.
+type MockImage = { mimeType: string; bytes: Buffer };
+type MockDiagnostics = { originalWidth: number | null; originalHeight: number | null; crop: unknown; bandDimensions: unknown[] };
+const mockPreprocessReceiptPage = vi.fn<(image: MockImage) => Promise<{ images: MockImage[]; diagnostics: MockDiagnostics }>>();
 vi.mock("../receiptImagePreprocessing", () => ({
-  preprocessReceiptPage: (...args: [{ mimeType: string; bytes: Buffer }]) => mockPreprocessReceiptPage(...args),
+  preprocessReceiptPage: (...args: [MockImage]) => mockPreprocessReceiptPage(...args),
 }));
+
+function neutralDiagnostics(): MockDiagnostics {
+  return { originalWidth: 800, originalHeight: 1200, crop: null, bandDimensions: [{ width: 800, height: 1200 }] };
+}
 
 const VINER = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c";
 const STRELEC = "fdc7b836-2325-4568-b9b7-5ac579cd8972";
@@ -226,6 +246,8 @@ function baseExtracted(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const DEFAULT_OCR_TEXT = "=== VÝŘEZ 1 ===\nPENNY MARKET s.r.o.\nPivo 12° 1 ks 100,00 Kč\nCelkem 121,00 Kč";
+
 beforeEach(() => {
   capturedQueries.length = 0;
   claimSucceeds = true;
@@ -251,10 +273,12 @@ beforeEach(() => {
     if (blobContent === null) return null;
     return { statusCode: 200, stream: makeBlobStream(blobContent) };
   });
-  mockExtractReceiptData.mockReset();
-  mockExtractReceiptData.mockResolvedValue(baseExtracted());
+  mockExtractStructuredReceipt.mockReset();
+  mockExtractStructuredReceipt.mockResolvedValue(baseExtracted());
+  mockPerformReceiptOcr.mockReset();
+  mockPerformReceiptOcr.mockResolvedValue(DEFAULT_OCR_TEXT);
   mockPreprocessReceiptPage.mockReset();
-  mockPreprocessReceiptPage.mockImplementation(async (image) => [image]);
+  mockPreprocessReceiptPage.mockImplementation(async (image) => ({ images: [image], diagnostics: neutralDiagnostics() }));
 });
 
 describe("triggerGoodsReceiptExtraction — oprávnění (bod 2 zadání: server čte strany PO kontrole oprávnění)", () => {
@@ -263,7 +287,8 @@ describe("triggerGoodsReceiptExtraction — oprávnění (bod 2 zadání: server
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     await expect(triggerGoodsReceiptExtraction(RECEIPT_ID)).rejects.toThrow();
     expect(capturedQueries.length).toBe(0);
-    expect(mockExtractReceiptData).not.toHaveBeenCalled();
+    expect(mockPerformReceiptOcr).not.toHaveBeenCalled();
+    expect(mockExtractStructuredReceipt).not.toHaveBeenCalled();
   });
 
   it("Jiří Střelec (bez requireUploadAccess) vyhodí ForbiddenError bez jakéhokoli SQL", async () => {
@@ -283,28 +308,28 @@ describe("triggerGoodsReceiptExtraction — idempotence a souběh (bod 12 zadán
     expect(capturedQueries.some((q) => q.sql.includes("extraction_status = 'pending'"))).toBe(false);
   });
 
-  it("souběžný/opakovaný claim selže (0 řádků, např. už běží nebo už má řádky) → {ok:false}, model se NEVOLÁ", async () => {
+  it("souběžný/opakovaný claim selže (0 řádků, např. už běží nebo už má řádky) → {ok:false}, OCR se NEVOLÁ", async () => {
     claimSucceeds = false;
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(false);
-    expect(mockExtractReceiptData).not.toHaveBeenCalled();
+    expect(mockPerformReceiptOcr).not.toHaveBeenCalled();
     expect(capturedQueries.some((q) => q.sql.startsWith("select \"goods_receipt_document_pages\""))).toBe(false);
   });
 
-  it("žádná nahraná strana → {ok:false}, extraction_status se nastaví na 'failed', model se nevolá", async () => {
+  it("žádná nahraná strana → {ok:false}, extraction_status se nastaví na 'failed', OCR se nevolá", async () => {
     pageRows = [];
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(false);
-    expect(mockExtractReceiptData).not.toHaveBeenCalled();
+    expect(mockPerformReceiptOcr).not.toHaveBeenCalled();
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
   });
 
-  it("retry po selhání modelu: 1. pokus selže (failed, ŽÁDNÝ řádek), 2. pokus uspěje (přesně jeden INSERT řádku)", async () => {
+  it("retry po selhání OCR: 1. pokus selže (failed, ŽÁDNÝ řádek), 2. pokus uspěje (přesně jeden INSERT řádku)", async () => {
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
 
-    mockExtractReceiptData.mockRejectedValueOnce(new Error("model timeout"));
+    mockPerformReceiptOcr.mockRejectedValueOnce(new Error("OCR timeout"));
     const first = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(first.ok).toBe(false);
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
@@ -317,8 +342,8 @@ describe("triggerGoodsReceiptExtraction — idempotence a souběh (bod 12 zadán
   });
 });
 
-describe("triggerGoodsReceiptExtraction — bezpečné logování technické chyby AI vytěžení (body 1+5 zadání)", () => {
-  it("technická chyba modelu se bezpečně zaloguje (name/message/statusCode/zkrácený responseBody/cause), NIKDY token/prompt/osobní údaj — klient dostane jen obecnou českou hlášku", async () => {
+describe("triggerGoodsReceiptExtraction — bezpečné logování technické chyby (body 1+5 zadání)", () => {
+  it("technická chyba OCR (fáze 1) se bezpečně zaloguje (name/message/statusCode/zkrácený responseBody/cause), NIKDY token/prompt/osobní údaj — klient dostane jen obecnou českou hlášku", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const secretToken = "sk-live-SUPER-SECRET-TOKEN-should-never-be-logged";
     const personalDataFromReceipt = "Jan Novák, RČ 900101/1234";
@@ -334,15 +359,17 @@ describe("triggerGoodsReceiptExtraction — bezpečné logování technické chy
       cause,
     });
 
-    mockExtractReceiptData.mockRejectedValueOnce(apiError);
+    mockPerformReceiptOcr.mockRejectedValueOnce(apiError);
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     // Klient dostane jen obecnou českou hlášku — žádné interní detaily chyby.
     expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." });
+    expect(mockExtractStructuredReceipt).not.toHaveBeenCalled(); // fáze 2 se vůbec nespustí
 
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-    const [logMessage, logInfo] = consoleErrorSpy.mock.calls[0] as [string, Record<string, unknown>];
+    const errorCalls = consoleErrorSpy.mock.calls;
+    expect(errorCalls).toHaveLength(1);
+    const [logMessage, logInfo] = errorCalls[0] as [string, Record<string, unknown>];
 
     // Zpráva v logu identifikuje příjemku/model, ale ne detail chyby.
     expect(logMessage).toContain(RECEIPT_ID);
@@ -359,18 +386,124 @@ describe("triggerGoodsReceiptExtraction — bezpečné logování technické chy
     expect(logInfo).not.toHaveProperty("url");
     expect(logInfo).not.toHaveProperty("requestBodyValues");
     expect(logInfo).not.toHaveProperty("responseHeaders");
-    const loggedJson = JSON.stringify([logMessage, logInfo]);
+    const loggedJson = JSON.stringify(errorCalls.map((call) => call));
     expect(loggedJson).not.toContain(secretToken);
     expect(loggedJson).not.toContain(personalDataFromReceipt);
     expect(loggedJson).not.toContain("Bearer");
 
     consoleErrorSpy.mockRestore();
   });
+
+  it("technická chyba strukturování (fáze 2) se bezpečně zaloguje stejně jako chyba OCR", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const apiError = new APICallError({
+      message: "Service Unavailable",
+      url: "https://ai-gateway.vercel.sh/v1/responses",
+      requestBodyValues: { authorization: "Bearer secret-struct-token" },
+      statusCode: 503,
+      responseBody: "upstream down",
+      cause: new Error("ETIMEDOUT"),
+    });
+
+    mockExtractStructuredReceipt.mockRejectedValueOnce(apiError);
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." });
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1); // fáze 1 proběhla v pořádku
+
+    const errorCalls = consoleErrorSpy.mock.calls;
+    const [logMessage, logInfo] = errorCalls[errorCalls.length - 1] as [string, Record<string, unknown>];
+    expect(logMessage).toContain(RECEIPT_ID);
+    expect(logInfo.name).toBe("AI_APICallError");
+    expect(logInfo.statusCode).toBe(503);
+    expect(logInfo).not.toHaveProperty("requestBodyValues");
+    expect(JSON.stringify(errorCalls)).not.toContain("secret-struct-token");
+
+    consoleErrorSpy.mockRestore();
+  });
 });
 
-describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW výstupu modelu se bezpečně vyřadí (oprava: jediný vadný řádek nesmí shodit celý doklad)", () => {
+describe("triggerGoodsReceiptExtraction — OCR vrátí příliš málo textu → selhání BEZ dalšího placeného volání strukturovacího modelu", () => {
+  it("OCR text pod MIN_OCR_TEXT_LENGTH → {ok:false}, extractStructuredReceipt se VŮBEC nezavolá", async () => {
+    mockPerformReceiptOcr.mockResolvedValueOnce("(nečitelné)"); // 11 znaků, pod mockovaným prahem 30
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result.ok).toBe(false);
+    expect(mockExtractStructuredReceipt).not.toHaveBeenCalled();
+    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
+  });
+
+  it("prázdný/jen bílé znaky OCR výstup se počítá jako nedostatečný text", async () => {
+    mockPerformReceiptOcr.mockResolvedValueOnce("   \n\n  ");
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result.ok).toBe(false);
+    expect(mockExtractStructuredReceipt).not.toHaveBeenCalled();
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — nejvýš dvě modelová volání na jeden pokus (OCR + strukturování, nikdy víc)", () => {
+  it("úspěšný průběh: přesně jedno volání OCR a přesně jedno volání strukturování", async () => {
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result).toEqual({ ok: true });
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it("OCR selže (výjimka) → jen JEDNO volání celkem, strukturování se nezkouší", async () => {
+    mockPerformReceiptOcr.mockRejectedValueOnce(new Error("OCR down"));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(0);
+  });
+
+  it("OCR vrátí málo textu → jen JEDNO volání celkem, strukturování se nezkouší (bez dalšího placeného pokusu)", async () => {
+    mockPerformReceiptOcr.mockResolvedValueOnce("x");
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(0);
+  });
+
+  it("strukturování selže (výjimka) → přesně DVĚ volání celkem, žádný třetí pokus", async () => {
+    mockExtractStructuredReceipt.mockRejectedValueOnce(new Error("structuring down"));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it("strukturování vrátí jen nepoužitelné řádky → přesně DVĚ volání celkem, žádný další (placený) pokus", async () => {
+    mockExtractStructuredReceipt.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result.ok).toBe(false);
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — OCR text jde do strukturování BEZE ZMĚNY (spojení/předání textu mezi fázemi)", () => {
+  it("text vrácený OCR (včetně značek '=== VÝŘEZ N ===' z víc výřezů) se strukturovacímu modelu předá přesně a v plném rozsahu", async () => {
+    const multiSectionOcrText = "=== VÝŘEZ 1 ===\nPENNY MARKET\nPivo 12° 1 ks 100,00 Kč\n=== VÝŘEZ 2 ===\nCelkem 121,00 Kč";
+    mockPerformReceiptOcr.mockResolvedValueOnce(multiSectionOcrText);
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result.ok).toBe(true);
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1);
+    expect(mockExtractStructuredReceipt.mock.calls[0][0]).toBe(multiSectionOcrText); // beze změny, beze zkrácení
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW výstupu strukturování se bezpečně vyřadí (oprava: jediný vadný řádek nesmí shodit celý doklad)", () => {
   it("řádek s packageQuantity:0 (nečitelný/nesmyslný) se tiše vyřadí, dobrý řádek se zapíše — doklad jako celek uspěje", async () => {
-    mockExtractReceiptData.mockResolvedValue(
+    mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({
         lines: [
           baseExtractedLine({ description: "Pivo 12°", packageQuantity: 1 }),
@@ -394,7 +527,7 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
   });
 
   it("null/nesmyslné řádky (chybějící popis, nekladné množství, záporná cena) se vyřadí stejně jako packageQuantity:0", async () => {
-    mockExtractReceiptData.mockResolvedValue(
+    mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({
         lines: [
           baseExtractedLine({ description: "Dobrý řádek" }),
@@ -413,8 +546,8 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
     expect(lineInserts).toHaveLength(1);
   });
 
-  it("úplně nečitelný doklad (VŠECHNY řádky nepoužitelné i po záložním modelu) je selhání, ne prázdná needs_review příjemka — retry zůstává možný", async () => {
-    mockExtractReceiptData.mockResolvedValue(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
+  it("úplně nečitelný doklad (VŠECHNY řádky nepoužitelné) je selhání, ne prázdná needs_review příjemka — retry zůstává možný, žádný třetí pokus", async () => {
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
@@ -422,90 +555,33 @@ describe("triggerGoodsReceiptExtraction — nečitelný/nesmyslný řádek z RAW
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
     // Stejný bezpečný retry jako u chyby modelu: extraction_status → 'failed'.
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
-    // I úplně nečitelný doklad vyzkoušel záložní model — přesně jednou, ne víckrát.
-    expect(mockExtractReceiptData).toHaveBeenCalledTimes(2);
-    expect(mockExtractReceiptData.mock.calls[1][1]).toBe("openai/gpt-5-mini");
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1); // žádný další (dražší) pokus
   });
 });
 
-describe("triggerGoodsReceiptExtraction — automatický záložní pokus přes openai/gpt-5-mini (přesně jednou, jen když levný model nevrátí žádný použitelný řádek)", () => {
-  it("primární model (nano) uspěje → záložní model se VŮBEC nevolá", async () => {
-    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted());
-    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
-    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
-
-    expect(result).toEqual({ ok: true });
-    expect(mockExtractReceiptData).toHaveBeenCalledTimes(1);
-    expect(mockExtractReceiptData.mock.calls[0][1]).toBe("openai/gpt-5-nano");
-  });
-
-  it("primární model (nano) nevrátí žádný použitelný řádek → přesně jeden automatický pokus přes mini se STEJNÝMI výřezy, uspěje → doklad needs_review s modelem mini", async () => {
-    const bandA = { mimeType: "image/jpeg", bytes: Buffer.from("band-a") };
-    mockPreprocessReceiptPage.mockResolvedValueOnce([bandA]);
-    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
-    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ description: "Pivo 12°" })] }));
-
-    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
-    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
-
-    expect(result).toEqual({ ok: true });
-    expect(mockExtractReceiptData).toHaveBeenCalledTimes(2);
-    // Oba pokusy dostanou STEJNÉ už připravené výřezy — žádné nové ořezávání/dělení.
-    expect(mockExtractReceiptData.mock.calls[0][0]).toEqual(mockExtractReceiptData.mock.calls[1][0]);
-    expect(mockExtractReceiptData.mock.calls[0][1]).toBe("openai/gpt-5-nano");
-    expect(mockExtractReceiptData.mock.calls[1][1]).toBe("openai/gpt-5-mini");
-    expect(mockPreprocessReceiptPage).toHaveBeenCalledTimes(1); // ne znovu pro záložní pokus
-
-    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
-    expect(lineInserts).toHaveLength(1);
-
-    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'))!;
-    const extractionRawJson = JSON.stringify(receiptUpdate.params);
-    expect(extractionRawJson).toContain("openai/gpt-5-mini"); // extraction_raw.model = skutečně použitý model
-
-    const activityInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
-    expect(JSON.stringify(activityInsert.params)).toContain("záložní pokus");
-  });
-
-  it("výjimka ze záložního modelu (ne jen prázdné řádky) se bezpečně zaloguje a appka to NEZKOUŠÍ potřetí", async () => {
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mockExtractReceiptData.mockResolvedValueOnce(baseExtracted({ lines: [baseExtractedLine({ packageQuantity: 0 })] }));
-    mockExtractReceiptData.mockRejectedValueOnce(new Error("mini model timeout"));
-
-    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
-    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
-
-    expect(result.ok).toBe(false);
-    expect(mockExtractReceiptData).toHaveBeenCalledTimes(2); // žádný třetí pokus
-    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
-
-    const loggedCalls = consoleErrorSpy.mock.calls.map((call) => JSON.stringify(call));
-    expect(loggedCalls.some((logged) => logged.includes("Záložní") && logged.includes("mini model timeout"))).toBe(true);
-
-    consoleErrorSpy.mockRestore();
-  });
-});
-
-describe("triggerGoodsReceiptExtraction — příprava obrázku (ořez/dělení dlouhé účtenky) se volá na každou stranu a výsledek jde celý modelu", () => {
-  it("jedna strana rozdělená na víc výřezů (dlouhá účtenka) pošle modelu VŠECHNY výřezy, v pořadí z preprocessReceiptPage", async () => {
+describe("triggerGoodsReceiptExtraction — příprava obrázku (ořez/dělení dlouhé účtenky) se volá na každou stranu, pořadí výřezů jde celé do OCR", () => {
+  it("jedna strana rozdělená na víc výřezů (dlouhá účtenka) pošle OCR VŠECHNY výřezy, v PŘESNĚ STEJNÉM pořadí z preprocessReceiptPage", async () => {
     const bandA = { mimeType: "image/jpeg", bytes: Buffer.from("band-a") };
     const bandB = { mimeType: "image/jpeg", bytes: Buffer.from("band-b") };
-    mockPreprocessReceiptPage.mockResolvedValueOnce([bandA, bandB]);
+    const bandC = { mimeType: "image/jpeg", bytes: Buffer.from("band-c") };
+    mockPreprocessReceiptPage.mockResolvedValueOnce({ images: [bandA, bandB, bandC], diagnostics: neutralDiagnostics() });
 
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result.ok).toBe(true);
-    expect(mockExtractReceiptData).toHaveBeenCalledTimes(1);
-    const images = mockExtractReceiptData.mock.calls[0][0] as Array<{ bytes: Buffer }>;
-    expect(images).toHaveLength(2);
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    const images = mockPerformReceiptOcr.mock.calls[0][0] as Array<{ bytes: Buffer }>;
+    expect(images).toHaveLength(3);
+    // Pořadí shora dolů (A, B, C) se zachovalo přesně — žádné přeskupení.
     expect(images[0].bytes.equals(bandA.bytes)).toBe(true);
     expect(images[1].bytes.equals(bandB.bytes)).toBe(true);
+    expect(images[2].bytes.equals(bandC.bytes)).toBe(true);
   });
 });
 
 describe("triggerGoodsReceiptExtraction — vícestránkový doklad (bod 2 zadání)", () => {
-  it("čte VŠECHNY nahrané strany a pošle je modelu jako jeden doklad", async () => {
+  it("čte VŠECHNY nahrané strany a pošle je OCR jako jeden doklad, v pořadí stran", async () => {
     pageRows = [
       ["sklad/r1/p1.jpg", "image/jpeg"],
       ["sklad/r1/p2.jpg", "image/jpeg"],
@@ -514,8 +590,8 @@ describe("triggerGoodsReceiptExtraction — vícestránkový doklad (bod 2 zadá
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    expect(mockExtractReceiptData).toHaveBeenCalledTimes(1);
-    const images = mockExtractReceiptData.mock.calls[0][0] as unknown[];
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1);
+    const images = mockPerformReceiptOcr.mock.calls[0][0] as unknown[];
     expect(images).toHaveLength(3);
   });
 });
@@ -523,7 +599,7 @@ describe("triggerGoodsReceiptExtraction — vícestránkový doklad (bod 2 zadá
 describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak normalizovaný název, NIKDY auto-vytvoření duplicity (bod 5 zadání)", () => {
   it("shoda podle IČO má přednost před názvem a aktualizuje supplier_id na příjemce", async () => {
     supplierByIcoRow = ["supplier-matched", "Matched Supplier"];
-    mockExtractReceiptData.mockResolvedValue(baseExtracted({ supplierIco: "74337297", supplierName: "Jiný text na dokladu" }));
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: "74337297", supplierName: "Jiný text na dokladu" }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
@@ -535,7 +611,7 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
   it("bez IČO shody padá na normalizovaný název", async () => {
     supplierByIcoRow = null;
     supplierByNameRow = ["supplier-by-name", "Pivovar Náchod"];
-    mockExtractReceiptData.mockResolvedValue(baseExtracted({ supplierIco: null, supplierName: "Pivovar Náchod" }));
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: null, supplierName: "Pivovar Náchod" }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
@@ -546,7 +622,7 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
   it("žádná shoda (nový/neznámý dodavatel) → supplier_id na příjemce se NEMĚNÍ a NIKDY nevznikne nový řádek v suppliers", async () => {
     supplierByIcoRow = null;
     supplierByNameRow = null;
-    mockExtractReceiptData.mockResolvedValue(baseExtracted({ supplierIco: "99999999", supplierName: "Úplně neznámý dodavatel" }));
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: "99999999", supplierName: "Úplně neznámý dodavatel" }));
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
@@ -557,7 +633,7 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
 
 describe("triggerGoodsReceiptExtraction — DPH se vždy dopočítá, model se nevěří (bod 4 zadání)", () => {
   it("zapsaný řádek má vat_hal dopočítané appkou, NE modelovo vatAmount (999999)", async () => {
-    mockExtractReceiptData.mockResolvedValue(
+    mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({ lines: [baseExtractedLine({ totalWithoutVat: 100, totalWithVat: 121, vatAmount: 999999 })] })
     );
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
@@ -596,7 +672,7 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
   });
 
   it("neznámá položka (žádné mapování) → nenamapováno (stock_item_id NULL, mapping_source NULL), kategorie = AI návrh", async () => {
-    mockExtractReceiptData.mockResolvedValue(
+    mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({ lines: [baseExtractedLine({ supplierItemCode: null, suggestedCategory: "operating_supply" })] })
     );
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
@@ -617,7 +693,7 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
 
 describe("triggerGoodsReceiptExtraction — soukromá položka nikdy nedostane skladovou kartu (bod 8 zadání)", () => {
   it("suggestedCategory='non_stock_private' bez známého mapování → stock_item_id NULL, line_kind='non_stock_private'", async () => {
-    mockExtractReceiptData.mockResolvedValue(
+    mockExtractStructuredReceipt.mockResolvedValue(
       baseExtracted({
         lines: [baseExtractedLine({ description: "Osobní nákup", supplierItemCode: null, suggestedCategory: "non_stock_private" })],
       })

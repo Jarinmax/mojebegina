@@ -1,12 +1,9 @@
-// Mobilní tok 1.0 — příprava fotek účtenky PŘED odesláním modelu (oprava
-// po prvním ostrém testu: "oprav AI vytěžení bez požadavku na nové
-// focení" — appka pracuje jen s originálními bajty už uloženými v
+// Mobilní tok 1.0 — příprava fotek účtenky PŘED OCR (oprava po prvním
+// ostrém testu: appka pracuje jen s originálními bajty už uloženými v
 // privátním Blobu, žádné nové focení se nevyžaduje). Čistá obrazová
 // logika (sharp), bez DB/auth/síťového I/O — testovatelná přímo se
 // syntetickými obrázky, stejný princip jako skladValidation.ts. Volá se
-// z skladExtraction.ts (fetchReceiptPageImages) PŘED extractReceiptData,
-// ne uvnitř receiptExtractionModel.ts (ten zůstává jen "samotné volání
-// modelu" — izolovaný I/O na okraji, viz komentář v tom souboru).
+// z skladExtraction.ts (fetchReceiptPageImages) PŘED receiptOcrModel.ts.
 //
 // Tři kroky, v tomhle pořadí:
 //   1. Ořez světlé účtenky z tmavého pozadí — jas okrajového pruhu snímku
@@ -24,8 +21,13 @@
 // příprava obrázku nesmí shodit celé vytěžení. Stejně tak nejistá/málo
 // průkazná detekce ořezu (žádná hranice, nebo ořez skoro celého snímku)
 // radši nic neořízne, než aby omylem uřízla kus účtenky.
+//
+// Vedle výřezů vrací i BEZPEČNOU diagnostiku (jen rozměry/počty, nikdy
+// obraz ani text) — skladExtraction.ts ji zaloguje, ať jde při ladění
+// přesnosti vidět, jak moc/jestli appka doklad ořízla a rozdělila.
 import sharp from "sharp";
-import type { ReceiptImageInput } from "./receiptExtractionModel";
+
+export type ReceiptImageInput = { mimeType: string; bytes: Buffer };
 
 const BACKGROUND_MARGIN_PX = 6;
 const BRIGHTNESS_MARGIN = 35;
@@ -39,7 +41,17 @@ export const SPLIT_MIN_ASPECT_RATIO = 2.2;
 export const SPLIT_BAND_HEIGHT_PX = 1400;
 export const SPLIT_OVERLAP_PX = 220;
 
-type CropBox = { left: number; top: number; width: number; height: number };
+export type CropBox = { left: number; top: number; width: number; height: number };
+export type PageDimensions = { width: number; height: number };
+
+export type PagePreprocessingDiagnostics = {
+  originalWidth: number | null;
+  originalHeight: number | null;
+  crop: CropBox | null; // null = appka ořez přeskočila (žádná/nejistá hranice)
+  bandDimensions: PageDimensions[]; // v pořadí shora dolů
+};
+
+export type PreprocessedReceiptPage = { images: ReceiptImageInput[]; diagnostics: PagePreprocessingDiagnostics };
 
 // Najde ohraničující obdélník světlé účtenky na zmenšeném šedotónovém
 // náhledu (kvůli rychlosti), výsledek přepočítá zpět na plné rozlišení.
@@ -131,18 +143,6 @@ async function detectReceiptCropBox(bytes: Buffer): Promise<CropBox | null> {
   return { left, top, width: cropWidth, height: cropHeight };
 }
 
-async function cropToReceipt(bytes: Buffer): Promise<Buffer> {
-  try {
-    const box = await detectReceiptCropBox(bytes);
-    if (!box) {
-      return bytes;
-    }
-    return await sharp(bytes, { failOn: "none" }).extract(box).toBuffer();
-  } catch {
-    return bytes;
-  }
-}
-
 async function normalizeAndSharpen(bytes: Buffer): Promise<Buffer> {
   try {
     return await sharp(bytes, { failOn: "none" }).normalize().sharpen().toBuffer();
@@ -189,17 +189,44 @@ async function splitIntoOverlappingBands(bytes: Buffer): Promise<Buffer[]> {
   }
 }
 
+async function readDimensions(bytes: Buffer): Promise<PageDimensions> {
+  try {
+    const meta = await sharp(bytes, { failOn: "none" }).metadata();
+    return { width: meta.width ?? 0, height: meta.height ?? 0 };
+  } catch {
+    return { width: 0, height: 0 };
+  }
+}
+
 // Hlavní vstupní bod volaný z skladExtraction.ts — jedna nahraná strana
 // dokladu na vstupu, jeden nebo víc výřezů (v pořadí shora dolů) na
-// výstupu, se stejným mediaType. Nikdy nevyhodí výjimku (viz komentář
-// na začátku souboru).
-export async function preprocessReceiptPage(image: ReceiptImageInput): Promise<ReceiptImageInput[]> {
+// výstupu, se stejným mediaType, plus bezpečná diagnostika. Nikdy
+// nevyhodí výjimku (viz komentář na začátku souboru).
+export async function preprocessReceiptPage(image: ReceiptImageInput): Promise<PreprocessedReceiptPage> {
+  const diagnostics: PagePreprocessingDiagnostics = {
+    originalWidth: null,
+    originalHeight: null,
+    crop: null,
+    bandDimensions: [],
+  };
+
   try {
-    const cropped = await cropToReceipt(image.bytes);
-    const enhanced = await normalizeAndSharpen(cropped);
-    const bands = await splitIntoOverlappingBands(enhanced);
-    return bands.map((bytes) => ({ mimeType: image.mimeType, bytes }));
+    const originalMeta = await sharp(image.bytes, { failOn: "none" }).metadata();
+    diagnostics.originalWidth = originalMeta.width ?? null;
+    diagnostics.originalHeight = originalMeta.height ?? null;
   } catch {
-    return [{ mimeType: image.mimeType, bytes: image.bytes }];
+    // diagnostika rozměrů je jen pomocná — appka kvůli ní vytěžení nezastaví
+  }
+
+  try {
+    const box = await detectReceiptCropBox(image.bytes);
+    diagnostics.crop = box;
+    const cropped = box ? await sharp(image.bytes, { failOn: "none" }).extract(box).toBuffer() : image.bytes;
+    const enhanced = await normalizeAndSharpen(cropped);
+    const bandBuffers = await splitIntoOverlappingBands(enhanced);
+    diagnostics.bandDimensions = await Promise.all(bandBuffers.map(readDimensions));
+    return { images: bandBuffers.map((bytes) => ({ mimeType: image.mimeType, bytes })), diagnostics };
+  } catch {
+    return { images: [{ mimeType: image.mimeType, bytes: image.bytes }], diagnostics };
   }
 }
