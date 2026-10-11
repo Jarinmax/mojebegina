@@ -955,6 +955,125 @@ export async function registerGoodsReceiptDocumentPage(
   }
 }
 
+export type ReplaceDocumentPageResult = { ok: true; pageId: string } | { ok: false; error: string };
+
+// "Nahrát lepší fotografii" — NAHRADÍ fotku KONKRÉTNÍ existující strany,
+// ne přidá další (reálný nález: rozmazaná fotka zůstávala ve vstupu pro
+// OCR i po přidání další strany, protože appka uměla jen přidávat).
+// Stejná pojistka proti cizímu/neprokázanému Blobu a stejné ověření
+// sha256 proti skutečným bajtům jako registerGoodsReceiptDocumentPage.
+//
+// Povoleno jen dokud vytěžení NEVYTVOŘILO žádné řádky (extraction_status
+// 'not_applicable' nebo 'failed') — jakmile existují vytěžená data ke
+// kontrole ('needs_review'), nahrazení fotky by mohlo tiše rozporovat
+// rozpracovanou/částečně potvrzenou kontrolu bez jasného pravidla, co s
+// ní; appka to proto odmítne, než aby o tom rozhodla sama (zachování
+// lidského potvrzení položek). 'pending' je zamítnuté ze stejného důvodu
+// jako souběh jinde v souboru — extrakce může zrovna čtít tuhle stránku.
+export async function replaceGoodsReceiptDocumentPage(
+  receiptId: string,
+  pageId: string,
+  rawInput: DocumentPageInput
+): Promise<ReplaceDocumentPageResult> {
+  const ctx = requireUploadAccess(await getAuthContext());
+
+  const trimmedPathname = rawInput.pathname.trim();
+  const pathnameOwnedByReceipt = isValidDocumentPagePathname(receiptId, trimmedPathname);
+
+  const validated = validateDocumentPageInput(receiptId, rawInput);
+  if (!validated.ok) {
+    if (pathnameOwnedByReceipt) {
+      await cleanupOrphanBlob(trimmedPathname);
+    }
+    return validated;
+  }
+  const { pathname, sha256, mimeType } = validated.value;
+
+  const [receipt] = await db
+    .select({ status: goodsReceipts.status, extractionStatus: goodsReceipts.extractionStatus })
+    .from(goodsReceipts)
+    .where(eq(goodsReceipts.id, receiptId))
+    .limit(1);
+  if (!receipt) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (receipt.status !== "draft") {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Fotky lze nahrazovat jen u návrhu příjemky." };
+  }
+  if (receipt.extractionStatus !== "not_applicable" && receipt.extractionStatus !== "failed") {
+    await cleanupOrphanBlob(pathname);
+    return {
+      ok: false,
+      error:
+        receipt.extractionStatus === "pending"
+          ? "Fotku nelze nahradit, dokud vytěžení právě běží — zkuste to za chvíli."
+          : "Fotku nelze nahradit, dokud existují vytěžená data ke kontrole. Nejdřív je zkontrolujte na kontrolní obrazovce.",
+    };
+  }
+
+  const [existingPage] = await db
+    .select({ id: goodsReceiptDocumentPages.id, storageKey: goodsReceiptDocumentPages.storageKey })
+    .from(goodsReceiptDocumentPages)
+    .innerJoin(goodsReceiptDocuments, eq(goodsReceiptDocuments.id, goodsReceiptDocumentPages.documentId))
+    .where(and(eq(goodsReceiptDocumentPages.id, pageId), eq(goodsReceiptDocuments.receiptId, receiptId)))
+    .limit(1);
+  if (!existingPage) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Strana nebyla nalezena." };
+  }
+
+  // Idempotence stejná jako u registerGoodsReceiptDocumentPage — opakované
+  // volání (síťový retry klienta) se STEJNOU novou cestou je no-op úspěch,
+  // starý Blob už byl smazán při prvním (úspěšném) volání.
+  if (existingPage.storageKey === pathname) {
+    return { ok: true, pageId: existingPage.id };
+  }
+
+  // Server NIKDY nevěří sha256 poslanému klientem — stejné ověření proti
+  // skutečně uloženým bajtům jako registerGoodsReceiptDocumentPage výš.
+  const actualSha256 = await computeActualBlobSha256(pathname);
+  if (!actualSha256) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Soubor nebyl v úložišti nalezen — nahrajte fotku znovu." };
+  }
+  if (actualSha256 !== sha256) {
+    await cleanupOrphanBlob(pathname);
+    return { ok: false, error: "Otisk souboru neodpovídá nahraným datům — nahrajte fotku znovu." };
+  }
+
+  try {
+    await db
+      .update(goodsReceiptDocumentPages)
+      .set({ storageKey: pathname, sha256: actualSha256, mimeType })
+      .where(eq(goodsReceiptDocumentPages.id, existingPage.id));
+  } catch (error) {
+    await cleanupOrphanBlob(pathname);
+    if (messageIncludes(error, "už je součástí jiné aktivní")) {
+      return { ok: false, error: "Stejný soubor je už nahraný u jiné aktivní příjemky." };
+    }
+    throw error;
+  }
+
+  await db.insert(goodsReceiptActivity).values({
+    receiptId,
+    actorType: "user",
+    authorUserId: ctx.userId,
+    authorName: ctx.name,
+    kind: "page_replaced",
+    body: "Fotka strany dokladu byla nahrazena lepší fotografií.",
+  });
+
+  // Starý Blob už appka nepotřebuje — mazání je stejně best-effort jako
+  // cleanupOrphanBlob výš (chyba se tiše ignoruje, aby nezamaskovala
+  // úspěšné nahrazení; osiřelý starý soubor není bezpečnostní riziko,
+  // jen nevyužité místo v úložišti).
+  await cleanupOrphanBlob(existingPage.storageKey);
+
+  return { ok: true, pageId: existingPage.id };
+}
+
 export type DocumentPageSummary = { id: string; pageNumber: number; mimeType: string; createdAt: Date };
 
 // Jen metadata náhledu — storage_key sem NIKDY nepatří (bod 9 zadání,

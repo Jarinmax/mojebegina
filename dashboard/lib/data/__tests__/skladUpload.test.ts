@@ -68,6 +68,17 @@ let maxPageNumber = 0;
 let insertPageError: Error | null = null;
 // Řídí odpověď na SELECT pro getGoodsReceiptDocumentPageForDownload.
 let downloadPageRow: [string, string] | null = ["sklad/other/path.jpg", "image/jpeg"];
+// Řídí odpověď na SELECT status+extraction_status pro
+// replaceGoodsReceiptDocumentPage — [status, extraction_status], null =
+// příjemka nenalezena.
+let replaceReceiptRow: [string, string] | null = ["draft", "not_applicable"];
+// Řídí odpověď na SELECT existující strany (id+storage_key) pro
+// replaceGoodsReceiptDocumentPage — null = strana nenalezena/nepatří
+// téhle příjemce.
+let replacePageRow: [string, string] | null = ["page-1", "sklad/other/old.jpg"];
+// Když není null, UPDATE goods_receipt_document_pages tuhle chybu vyhodí
+// (simuluje DB trigger goods_receipt_document_pages_unique_active_sha256).
+let updatePageError: Error | null = null;
 
 vi.mock("@neondatabase/serverless", () => ({
   neon: () => (sqlText: string, params: unknown[]) => {
@@ -108,6 +119,18 @@ vi.mock("@neondatabase/serverless", () => ({
     if (sqlText.startsWith('select "goods_receipt_document_pages"."storage_key"')) {
       const rows = downloadPageRow ? [downloadPageRow] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
+    }
+    if (sqlText.startsWith('select "status", "extraction_status" from "goods_receipts"')) {
+      const rows = replaceReceiptRow ? [replaceReceiptRow] : [];
+      return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
+    }
+    if (sqlText.startsWith('select "goods_receipt_document_pages"."id", "goods_receipt_document_pages"."storage_key"')) {
+      const rows = replacePageRow ? [replacePageRow] : [];
+      return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
+    }
+    if (sqlText.startsWith('update "goods_receipt_document_pages"')) {
+      if (updatePageError) return Promise.reject(updatePageError);
+      return Promise.resolve({ rows: [], rowCount: 1, fields: [] });
     }
     return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
   },
@@ -162,6 +185,9 @@ beforeEach(() => {
   maxPageNumber = 0;
   insertPageError = null;
   downloadPageRow = ["sklad/other/path.jpg", "image/jpeg"];
+  replaceReceiptRow = ["draft", "not_applicable"];
+  replacePageRow = ["page-1", "sklad/other/old.jpg"];
+  updatePageError = null;
   mockGetAuthContext.mockReset();
   mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
   mockDel.mockReset();
@@ -496,5 +522,199 @@ describe("listGoodsReceiptDocumentPages / getGoodsReceiptDocumentPageForDownload
     const { getGoodsReceiptDocumentPageForDownload } = await import("../sklad");
     const result = await getGoodsReceiptDocumentPageForDownload(RECEIPT_ID, "page-1");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("replaceGoodsReceiptDocumentPage — \"Nahrát lepší fotografii\" (nahradí, nepřidá další stranu)", () => {
+  it("nepřihlášený uživatel vyhodí UnauthenticatedError, Blob se NEMAŽE (chyba nastane dřív, než appka zná vlastnictví cesty)", async () => {
+    mockGetAuthContext.mockResolvedValue(null);
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    await expect(
+      replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", { pathname: VALID_PATHNAME, sha256: ACTUAL_SHA256, mimeType: "image/jpeg" })
+    ).rejects.toThrow();
+    expect(mockDel).not.toHaveBeenCalled();
+  });
+
+  it("Střelec (bez requireUploadAccess) vyhodí ForbiddenError", async () => {
+    mockGetAuthContext.mockResolvedValue(ctxFor(STRELEC));
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    await expect(
+      replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", { pathname: VALID_PATHNAME, sha256: ACTUAL_SHA256, mimeType: "image/jpeg" })
+    ).rejects.toThrow();
+  });
+
+  it("neplatná (cizí) cesta → {ok:false}, Blob se NEMAŽE (cizí/neprokázaná cesta)", async () => {
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const foreignPathname = `sklad/00000000-0000-0000-0000-000000000000/${PAGE_UUID}.jpg`;
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: foreignPathname,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result.ok).toBe(false);
+    expect(mockDel).not.toHaveBeenCalled();
+  });
+
+  it("neplatné sha256/MIME s jinak vlastní cestou → {ok:false}, nová fotka SE maže", async () => {
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: "neplatny-hash",
+      mimeType: "image/jpeg",
+    });
+    expect(result.ok).toBe(false);
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("příjemka nenalezena → {ok:false}, nová fotka SE maže", async () => {
+    replaceReceiptRow = null;
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: false, error: expect.any(String) });
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("příjemka už není 'draft' → {ok:false}, nová fotka SE maže", async () => {
+    replaceReceiptRow = ["confirmed", "not_applicable"];
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result.ok).toBe(false);
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("vytěžení už vytvořilo řádky (extraction_status 'needs_review') → {ok:false}, nová fotka SE maže (zachování lidského potvrzení)", async () => {
+    replaceReceiptRow = ["draft", "needs_review"];
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("kontrolní obrazovce") });
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("vytěžení právě běží (extraction_status 'pending') → {ok:false}, vlastní hláška, nová fotka SE maže", async () => {
+    replaceReceiptRow = ["draft", "pending"];
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("právě běží") });
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("strana nenalezena (neexistuje nebo nepatří téhle příjemce) → {ok:false}, nová fotka SE maže", async () => {
+    replacePageRow = null;
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: false, error: "Strana nebyla nalezena." });
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("nová cesta == současný storage_key (opakované volání po síťovém výpadku) → idempotentní úspěch, ŽÁDNÝ UPDATE, Blob se NEMAŽE, otisk se NEOVĚŘUJE znovu", async () => {
+    replacePageRow = ["page-1", VALID_PATHNAME];
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: true, pageId: "page-1" });
+    expect(mockDel).not.toHaveBeenCalled();
+    expect(mockGet).not.toHaveBeenCalled();
+    expect(capturedQueries.some((q) => q.sql.startsWith("update"))).toBe(false);
+  });
+
+  describe("ověření sha256 proti skutečným bajtům v Blobu (stejná zásada jako registerGoodsReceiptDocumentPage)", () => {
+    it("otisk neodpovídá skutečnému obsahu Blobu → {ok:false}, nová fotka SE maže, ŽÁDNÝ UPDATE", async () => {
+      const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+      const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+        pathname: VALID_PATHNAME,
+        sha256: "b".repeat(64),
+        mimeType: "image/jpeg",
+      });
+      expect(result.ok).toBe(false);
+      expect(mockGet).toHaveBeenCalledWith(VALID_PATHNAME, { access: "private" });
+      expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+      expect(capturedQueries.some((q) => q.sql.startsWith("update"))).toBe(false);
+    });
+
+    it("soubor na nahlášené cestě v Blobu vůbec neexistuje → {ok:false}, nová fotka SE maže (best-effort)", async () => {
+      blobContent = null;
+      const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+      const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+        pathname: VALID_PATHNAME,
+        sha256: ACTUAL_SHA256,
+        mimeType: "image/jpeg",
+      });
+      expect(result.ok).toBe(false);
+      expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+      expect(capturedQueries.some((q) => q.sql.startsWith("update"))).toBe(false);
+    });
+  });
+
+  it("úspěch: UPDATE uloží SERVER-OVĚŘENOU hodnotu sha256, zaloguje aktivitu 'page_replaced', smaže STAROU fotku (ne novou)", async () => {
+    replacePageRow = ["page-1", "sklad/other/old.jpg"];
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: true, pageId: "page-1" });
+
+    const updateQuery = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipt_document_pages"'))!;
+    expect(updateQuery.params).toEqual([VALID_PATHNAME, ACTUAL_SHA256, "image/jpeg", "page-1"]);
+
+    const activityQuery = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
+    expect(activityQuery.params).toContain("page_replaced");
+
+    // Stará fotka (nahrazovaná) se smaže, NOVĚ nahraná NIKDY.
+    expect(mockDel).toHaveBeenCalledTimes(1);
+    expect(mockDel).toHaveBeenCalledWith("sklad/other/old.jpg");
+    expect(mockDel).not.toHaveBeenCalledWith(VALID_PATHNAME);
+  });
+
+  it("duplicitní SHA-256 (DB trigger, SKUTEČNĚ jiný soubor) → česká hláška, nová fotka SE maže, stará zůstává nedotčená", async () => {
+    updatePageError = new Error(`Stejný soubor (sha256 ${ACTUAL_SHA256}) už je součástí jiné aktivní (nestornované) příjemky`);
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+    const result = await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", {
+      pathname: VALID_PATHNAME,
+      sha256: ACTUAL_SHA256,
+      mimeType: "image/jpeg",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("jiné aktivní příjemky") });
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
+    expect(mockDel).not.toHaveBeenCalledWith("sklad/other/old.jpg");
+  });
+
+  it("neznámá DB chyba z UPDATE se znovu vyhodí (nepolyká se), nová fotka se PŘESTO maže", async () => {
+    updatePageError = new Error("connection reset");
+    const { replaceGoodsReceiptDocumentPage } = await import("../sklad");
+
+    let caught: unknown = null;
+    try {
+      await replaceGoodsReceiptDocumentPage(RECEIPT_ID, "page-1", { pathname: VALID_PATHNAME, sha256: ACTUAL_SHA256, mimeType: "image/jpeg" });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error & { cause?: unknown }).cause).toBe(updatePageError);
+    expect(mockDel).toHaveBeenCalledWith(VALID_PATHNAME);
   });
 });

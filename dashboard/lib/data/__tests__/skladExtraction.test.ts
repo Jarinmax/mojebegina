@@ -364,7 +364,9 @@ describe("triggerGoodsReceiptExtraction — bezpečné logování technické chy
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     // Klient dostane jen obecnou českou hlášku — žádné interní detaily chyby.
-    expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." });
+    // kind:"technical" — jasná technická chyba, appka ji NEPREZENTUJE jako
+    // problém s fotkou (bod 4 zadání).
+    expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" });
     expect(mockExtractStructuredReceipt).not.toHaveBeenCalled(); // fáze 2 se vůbec nespustí
 
     const errorCalls = consoleErrorSpy.mock.calls;
@@ -409,7 +411,7 @@ describe("triggerGoodsReceiptExtraction — bezpečné logování technické chy
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
-    expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." });
+    expect(result).toEqual({ ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" });
     expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1); // fáze 1 proběhla v pořádku
 
     const errorCalls = consoleErrorSpy.mock.calls;
@@ -431,6 +433,9 @@ describe("triggerGoodsReceiptExtraction — OCR vrátí příliš málo textu �
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result.ok).toBe(false);
+    // kind:"unreadable" — appka nezjistila dost textu, ale NETVRDÍ, že fotka
+    // je prokázaně špatná (bod 4 zadání) — jen nabízí výměnu.
+    expect(result).toMatchObject({ kind: "unreadable" });
     expect(mockExtractStructuredReceipt).not.toHaveBeenCalled();
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
@@ -578,6 +583,10 @@ describe("triggerGoodsReceiptExtraction — maloobchodní účtenka: chybějíc�
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result.ok).toBe(false);
+    // kind:"unreadable" — appka nezjistila žádnou použitelnou položku, ale
+    // NETVRDÍ, že fotka je prokázaně špatná (bod 4 zadání) — jen nabízí
+    // výměnu, příčina (fotka/obsah dokladu/omezení modelu) zůstává nejasná.
+    expect(result).toMatchObject({ kind: "unreadable" });
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
     // Stejný bezpečný retry jako u chyby modelu: extraction_status → 'failed'.
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);

@@ -238,7 +238,18 @@ async function findKnownMapping(supplierId: string, supplierItemCode: string | n
   return { stockItemId: mapping.stockItemId, lineKind: mapping.lineKind as LineKind, canonicalUnit: mapping.canonicalUnit };
 }
 
-export type TriggerExtractionResult = { ok: true } | { ok: false; error: string };
+// `kind` rozlišuje DVĚ různé příčiny neúspěchu (po reálném nálezu s
+// rozmazanou fotkou PENNY účtenky, kde appka nulový výsledek strukturování
+// mylně prezentovala jako "vyfoťte ostřeji", ačkoli to nebylo prokázané):
+//   - "technical" — jasná technická chyba (chybí fotka, volání modelu
+//     selhalo, zápis do DB selhal, souběh/claim) — s kvalitou fotky to
+//     nemá co dělat, appka to tak ani neformuluje.
+//   - "unreadable" — appka z dokladu nezískala použitelný text/řádky, ale
+//     PŘÍČINU NEZNÁ JISTĚ (může to být fotka, ale stejně tak obsah dokladu
+//     nebo omezení modelu) — appka proto jen NABÍDNE výměnu fotky, nikdy
+//     netvrdí, že fotka je prokázaně špatná.
+export type TriggerExtractionFailureKind = "technical" | "unreadable";
+export type TriggerExtractionResult = { ok: true } | { ok: false; error: string; kind: TriggerExtractionFailureKind };
 
 // Spustí AI vytěžení nad VŠEMI nahranými stranami draft příjemky (bod 2
 // zadání — server je čte po kontrole oprávnění, appka klientovi NIKDY
@@ -249,10 +260,10 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
 
   const receipt = await fetchReceiptForExtraction(receiptId);
   if (!receipt) {
-    return { ok: false, error: "Příjemka nebyla nalezena." };
+    return { ok: false, error: "Příjemka nebyla nalezena.", kind: "technical" };
   }
   if (receipt.status !== "draft") {
-    return { ok: false, error: "Vytěžit lze jen návrh příjemky." };
+    return { ok: false, error: "Vytěžit lze jen návrh příjemky.", kind: "technical" };
   }
 
   const claim = await db.execute<{ id: string }>(sql`
@@ -271,13 +282,14 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     return {
       ok: false,
       error: "Vytěžení nelze spustit — příjemka už má zadané řádky, nebo vytěžení právě běží.",
+      kind: "technical",
     };
   }
 
   const { images, diagnostics: pageDiagnostics } = await fetchReceiptPageImages(receiptId);
   if (images.length === 0) {
     await markExtractionFailed(receiptId);
-    return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu." };
+    return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu.", kind: "technical" };
   }
 
   // Bezpečná diagnostika přípravy obrázku — jen rozměry/ořez/počet výřezů
@@ -295,7 +307,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   } catch (error) {
     console.error(`[sklad] OCR účtenky selhalo (receiptId=${receiptId}, model=${OCR_MODEL_ID}):`, describeExtractionErrorForLog(error));
     await markExtractionFailed(receiptId);
-    return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
+    return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" };
   }
 
   const ocrCharCount = ocrText.trim().length;
@@ -309,9 +321,14 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
       `[sklad] OCR vrátilo příliš málo textu (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}, min=${MIN_OCR_TEXT_LENGTH}`
     );
     await markExtractionFailed(receiptId);
+    // Nulový/nedostatečný výsledek OCR se NEOZNAČUJE za prokázanou špatnou
+    // kvalitu fotky (bod 4 zadání po reálném nálezu) — appka jen nabídne
+    // výměnu, nikdy netvrdí, že to JE příčina.
     return {
       ok: false,
-      error: "Z fotky dokladu se nepodařilo přečíst dost textu. Zkuste to znovu nebo doklad vyfoťte ostřeji/na kontrastnější pozadí.",
+      error:
+        "Z fotky dokladu se nepodařilo přečíst dost textu. Nejde jistě říct, jestli je příčinou kvalita fotky, nebo něco jiného — zkuste to znovu, nebo nahrajte lepší fotografii.",
+      kind: "unreadable",
     };
   }
 
@@ -327,7 +344,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
       describeExtractionErrorForLog(error)
     );
     await markExtractionFailed(receiptId);
-    return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu." };
+    return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" };
   }
 
   const { receipt: extracted, droppedLineCount, diagnostics: sanitizeDiagnostics } = sanitizeExtractedReceipt(structuredRaw);
@@ -344,7 +361,16 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   );
   if (extracted.lines.length === 0) {
     await markExtractionFailed(receiptId);
-    return { ok: false, error: "Z dokladu se nepodařilo přečíst žádný použitelný řádek. Zkuste to znovu nebo doklad vyfoťte ostřeji." };
+    // Stejná zásada jako výš — appka OCR text přečetla (prošel
+    // MIN_OCR_TEXT_LENGTH), ale strukturování z něj nenašlo žádnou
+    // položku. Příčina může, ale nemusí být kvalita fotky (klidně i jen
+    // omezení modelu) — appka to netvrdí jistě, jen nabízí výměnu.
+    return {
+      ok: false,
+      error:
+        "Z dokladu se nepodařilo rozpoznat žádnou použitelnou položku. Nejde jistě říct, jestli je příčinou kvalita fotky, nebo něco jiného — zkuste to znovu, nebo nahrajte lepší fotografii.",
+      kind: "unreadable",
+    };
   }
 
   try {
@@ -439,7 +465,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     return { ok: true };
   } catch {
     await markExtractionFailed(receiptId);
-    return { ok: false, error: "Zápis vytěžených dat selhal. Zkuste to znovu." };
+    return { ok: false, error: "Zápis vytěžených dat selhal. Zkuste to znovu.", kind: "technical" };
   }
 }
 

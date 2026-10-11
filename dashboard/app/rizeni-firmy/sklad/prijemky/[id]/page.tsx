@@ -49,7 +49,15 @@ export default async function PrijemkaDetailPage({ params }: { params: Promise<{
             Fotky stran dokladu lze přidávat jen k návrhu příjemky.
           </p>
         ) : canUpload ? (
-          <FotoCapture receiptId={id} initialPages={pages.map((p) => ({ id: p.id }))} />
+          <FotoCapture
+            receiptId={id}
+            initialPages={pages.map((p) => ({ id: p.id }))}
+            // "Nahradit fotku" jen dokud vytěžení nevytvořilo žádné řádky
+            // (stejná podmínka jako replaceGoodsReceiptDocumentPage na
+            // serveru — tohle jen skrývá ovládání, co by stejně skončilo
+            // chybou, server je vynucuje nezávisle).
+            canReplace={receipt.extractionStatus === "not_applicable" || receipt.extractionStatus === "failed"}
+          />
         ) : (
           <p className="text-sm text-neutral-500">Nemáte oprávnění nahrávat fotky dokladu.</p>
         )}

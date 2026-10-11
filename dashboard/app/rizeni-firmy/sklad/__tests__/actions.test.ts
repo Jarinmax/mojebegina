@@ -60,22 +60,38 @@ describe("createSupplierForReceiptAction — překlad chyb oprávnění (bod „
 });
 
 describe("triggerGoodsReceiptExtractionAction / confirmGoodsReceiptLineMappingAction — AI vytěžení (mobilní tok)", () => {
-  it("triggerGoodsReceiptExtractionAction: ForbiddenError → česká hláška", async () => {
+  it("triggerGoodsReceiptExtractionAction: ForbiddenError → česká hláška, kind:'technical' (s fotkou to nemá co dělat)", async () => {
     mockTriggerExtraction.mockRejectedValueOnce(new ForbiddenError());
     const { triggerGoodsReceiptExtractionAction } = await import("../actions");
     const result = await triggerGoodsReceiptExtractionAction("r1");
-    expect(result).toEqual({ ok: false, error: "Nemáte oprávnění vytěžit doklad této příjemky." });
+    expect(result).toEqual({ ok: false, error: "Nemáte oprávnění vytěžit doklad této příjemky.", kind: "technical" });
   });
 
-  it("triggerGoodsReceiptExtractionAction: úspěch/chyba z triggerGoodsReceiptExtraction projde beze změny", async () => {
+  it("triggerGoodsReceiptExtractionAction: úspěch/chyba (včetně kind) z triggerGoodsReceiptExtraction projde beze změny", async () => {
     mockTriggerExtraction.mockResolvedValueOnce({ ok: true });
     const { triggerGoodsReceiptExtractionAction } = await import("../actions");
     expect(await triggerGoodsReceiptExtractionAction("r1")).toEqual({ ok: true });
 
-    mockTriggerExtraction.mockResolvedValueOnce({ ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu." });
+    mockTriggerExtraction.mockResolvedValueOnce({
+      ok: false,
+      error: "Nejdřív nahrajte aspoň jednu fotku dokladu.",
+      kind: "technical",
+    });
     expect(await triggerGoodsReceiptExtractionAction("r1")).toEqual({
       ok: false,
       error: "Nejdřív nahrajte aspoň jednu fotku dokladu.",
+      kind: "technical",
+    });
+
+    mockTriggerExtraction.mockResolvedValueOnce({
+      ok: false,
+      error: "Z dokladu se nepodařilo rozpoznat žádnou použitelnou položku.",
+      kind: "unreadable",
+    });
+    expect(await triggerGoodsReceiptExtractionAction("r1")).toEqual({
+      ok: false,
+      error: "Z dokladu se nepodařilo rozpoznat žádnou použitelnou položku.",
+      kind: "unreadable",
     });
   });
 

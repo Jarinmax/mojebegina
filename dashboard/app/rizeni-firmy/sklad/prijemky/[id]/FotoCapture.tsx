@@ -15,13 +15,56 @@ import { buildDocumentPagePathname } from "@/lib/data/skladValidation";
 
 type PageRef = { id: string };
 
-export default function FotoCapture({ receiptId, initialPages }: { receiptId: string; initialPages: PageRef[] }) {
+// Zobrazuje se trvale u focení i zvýrazněně po neúspěšném vytěžení (bod 3
+// zadání) — appka ho NIKDY nenahrazuje tvrzením, že fotka JE špatná (bod 4
+// zadání), jen připomíná, jak doklad vyfotit dobře.
+export const PHOTO_QUALITY_TIP = "Vyfoťte celý doklad v dobrém světle, zaostřete na text a zkontrolujte čitelnost názvů a cen.";
+
+// Upload do Blobu je společný pro přidání i nahrazení strany — liší se jen
+// finalizační volání (POST nová strana / PUT nahrazení existující).
+async function uploadToBlob(receiptId: string, file: File): Promise<{ pathname: string; sha256: string }> {
+  const { blob, sha256 } = await prepareImageForUpload(file);
+  const pathname = buildDocumentPagePathname(receiptId, crypto.randomUUID());
+
+  try {
+    await uploadPresigned(pathname, blob, {
+      access: "private",
+      handleUploadUrl: `/api/sklad/prijemky/${receiptId}/upload-token`,
+      contentType: "image/jpeg",
+    });
+  } catch {
+    // @vercel/blob umí vyhodit anglické chyby (BlobFileTooLargeError
+    // apod.) — appka je nikdy nezobrazí přímo, jen tuhle srozumitelnou
+    // českou hlášku (bod 7 revize — chyby musí být česky a použitelné).
+    throw new Error("Upload fotky do úložiště selhal. Zkontrolujte internetové připojení a zkuste to znovu.");
+  }
+
+  return { pathname, sha256 };
+}
+
+export default function FotoCapture({
+  receiptId,
+  initialPages,
+  canReplace,
+}: {
+  receiptId: string;
+  initialPages: PageRef[];
+  canReplace: boolean;
+}) {
   const [pages, setPages] = useState<PageRef[]>(initialPages);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
   const [previewPageId, setPreviewPageId] = useState<string | null>(null);
+  // null = další vyfocená strana se PŘIDÁ; jinak id strany, jejíž fotka se
+  // NAHRADÍ (bod 2 zadání — uživatel musí umět vyměnit špatnou stránku, ne
+  // jen přidat další a tu špatnou nechat ve vstupu pro OCR).
+  const [replacingPageId, setReplacingPageId] = useState<string | null>(null);
+  // Prohlížeč by jinak po nahrazení dál ukazoval starý obrázek z cache pod
+  // stejnou URL (ta je klíčovaná jen podle page.id, ne podle obsahu) —
+  // bump po každém úspěšném nahrazení vynutí nové stažení náhledu.
+  const [refreshToken, setRefreshToken] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
@@ -29,21 +72,7 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
     setError(null);
     setSavedMessage(null);
     try {
-      const { blob, sha256 } = await prepareImageForUpload(file);
-      const pathname = buildDocumentPagePathname(receiptId, crypto.randomUUID());
-
-      try {
-        await uploadPresigned(pathname, blob, {
-          access: "private",
-          handleUploadUrl: `/api/sklad/prijemky/${receiptId}/upload-token`,
-          contentType: "image/jpeg",
-        });
-      } catch {
-        // @vercel/blob umí vyhodit anglické chyby (BlobFileTooLargeError
-        // apod.) — appka je nikdy nezobrazí přímo, jen tuhle srozumitelnou
-        // českou hlášku (bod 7 revize — chyby musí být česky a použitelné).
-        throw new Error("Upload fotky do úložiště selhal. Zkontrolujte internetové připojení a zkuste to znovu.");
-      }
+      const { pathname, sha256 } = await uploadToBlob(receiptId, file);
 
       // keepalive: true — nejmenší bezpečné zmírnění rizika osiřelého Blobu,
       // když uživatel hned po uploadu zavře prohlížeč/odnaviguje (externí
@@ -77,6 +106,41 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
     }
   }
 
+  // "Nahrát lepší fotografii" — NAHRADÍ fotku KONKRÉTNÍ strany (PUT), ne
+  // přidá další (bod 2 zadání). Žádné AI vytěžení se tu nespouští — appka
+  // jen vymění fotku, kontrolu/čtení spustí uživatel sám tlačítkem "Načíst
+  // údaje z dokladu" (bod 4 zadání).
+  async function handleReplaceFile(pageId: string, file: File) {
+    setBusy(true);
+    setError(null);
+    setSavedMessage(null);
+    try {
+      const { pathname, sha256 } = await uploadToBlob(receiptId, file);
+
+      const response = await fetch(`/api/sklad/prijemky/${receiptId}/stranky/${pageId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pathname, sha256, mimeType: "image/jpeg" }),
+        keepalive: true,
+      });
+      const result = (await response.json().catch(() => null)) as { pageId?: string; error?: string } | null;
+      if (!response.ok || !result?.pageId) {
+        throw new Error(result?.error ?? "Nahrazení fotky selhalo. Zkuste to znovu.");
+      }
+
+      setRefreshToken((v) => v + 1);
+      setSavedMessage("Fotka strany byla nahrazena.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nahrazení fotky selhalo.");
+    } finally {
+      setBusy(false);
+      setReplacingPageId(null);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
+  }
+
   return (
     <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-4">
       <input
@@ -87,7 +151,10 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) {
+          if (!file) return;
+          if (replacingPageId) {
+            void handleReplaceFile(replacingPageId, file);
+          } else {
             setFinished(false);
             void handleFile(file);
           }
@@ -97,11 +164,20 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
       <button
         type="button"
         disabled={busy}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => {
+          setReplacingPageId(null);
+          inputRef.current?.click();
+        }}
         className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5 disabled:opacity-50"
       >
-        {busy ? "Nahrávám…" : pages.length === 0 ? "Vyfotit stranu" : "Přidat další stranu (nepovinné)"}
+        {busy && !replacingPageId
+          ? "Nahrávám…"
+          : pages.length === 0
+            ? "Vyfotit stranu"
+            : "Přidat další stranu (nepovinné)"}
       </button>
+
+      <p className="text-xs text-neutral-500">{PHOTO_QUALITY_TIP}</p>
 
       {savedMessage && !error && <p className="text-sm text-green-700">{savedMessage}</p>}
       {error && <p className="text-sm text-begina-accent-700">{error}</p>}
@@ -109,24 +185,40 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
       {pages.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {pages.map((page, index) => (
-            <button
-              key={page.id}
-              type="button"
-              onClick={() => setPreviewPageId(page.id)}
-              className="block p-0 border-0 bg-transparent cursor-pointer"
-              aria-label={`Zobrazit stranu ${index + 1} přes celou obrazovku`}
-            >
-              {/* Gated privátní náhled přes autorizovanou route — next/image
-                  by ho optimalizoval přes server-side fetch bez jistoty, že
-                  ponese stejnou autentizaci (bod 9 zadání: originál jen přes
-                  gate), proto obyčejný <img>. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/sklad/prijemky/${receiptId}/stranky/${page.id}`}
-                alt={`Strana ${index + 1}`}
-                className="w-full aspect-[3/4] object-cover rounded-lg border border-neutral-200"
-              />
-            </button>
+            <div key={page.id} className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setPreviewPageId(page.id)}
+                className="block p-0 border-0 bg-transparent cursor-pointer"
+                aria-label={`Zobrazit stranu ${index + 1} přes celou obrazovku`}
+              >
+                {/* Gated privátní náhled přes autorizovanou route — next/image
+                    by ho optimalizoval přes server-side fetch bez jistoty, že
+                    ponese stejnou autentizaci (bod 9 zadání: originál jen přes
+                    gate), proto obyčejný <img>. refreshToken v query stringu
+                    jen vynucuje nové stažení po nahrazení fotky — appka ho na
+                    serveru nijak nečte. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/sklad/prijemky/${receiptId}/stranky/${page.id}?v=${refreshToken}`}
+                  alt={`Strana ${index + 1}`}
+                  className="w-full aspect-[3/4] object-cover rounded-lg border border-neutral-200"
+                />
+              </button>
+              {canReplace && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setReplacingPageId(page.id);
+                    inputRef.current?.click();
+                  }}
+                  className="text-xs text-begina-primary-900 underline disabled:opacity-50"
+                >
+                  {busy && replacingPageId === page.id ? "Nahrávám…" : "Nahradit fotku"}
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -152,7 +244,7 @@ export default function FotoCapture({ receiptId, initialPages }: { receiptId: st
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/sklad/prijemky/${receiptId}/stranky/${previewPageId}`}
+            src={`/api/sklad/prijemky/${receiptId}/stranky/${previewPageId}?v=${refreshToken}`}
             alt="Náhled strany přes celou obrazovku"
             className="max-w-full max-h-full object-contain"
           />

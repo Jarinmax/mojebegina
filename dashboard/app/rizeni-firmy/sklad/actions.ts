@@ -12,7 +12,11 @@ import {
   reviewGoodsReceiptLineVat,
   updateGoodsReceiptLine,
 } from "@/lib/data/sklad";
-import { confirmGoodsReceiptLineMapping, triggerGoodsReceiptExtraction } from "@/lib/data/skladExtraction";
+import {
+  confirmGoodsReceiptLineMapping,
+  triggerGoodsReceiptExtraction,
+  type TriggerExtractionFailureKind,
+} from "@/lib/data/skladExtraction";
 import type { ManualLineInput } from "@/lib/data/skladValidation";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 
@@ -93,11 +97,20 @@ export type SimpleActionResult = { ok: true } | { ok: false; error: string };
 // "Načíst údaje z dokladu" — veškerá logika (oprávnění, čtení stránek,
 // volání modelu, mapování, idempotentní zápis) žije v
 // triggerGoodsReceiptExtraction (lib/data/skladExtraction.ts).
-export async function triggerGoodsReceiptExtractionAction(receiptId: string): Promise<SimpleActionResult> {
+//
+// Vlastní návratový typ (ne sdílený SimpleActionResult) — `kind` musí
+// dojít až do UI (bod 4 zadání: odlišit technickou chybu od nečitelných
+// dat), ne se cestou k akci tiše ztratit.
+export type TriggerExtractionActionResult =
+  | { ok: true }
+  | { ok: false; error: string; kind: TriggerExtractionFailureKind };
+
+export async function triggerGoodsReceiptExtractionAction(receiptId: string): Promise<TriggerExtractionActionResult> {
   try {
     return await triggerGoodsReceiptExtraction(receiptId);
   } catch (error) {
-    return translateAuthError(error, "Nemáte oprávnění vytěžit doklad této příjemky.");
+    const translated = translateAuthError(error, "Nemáte oprávnění vytěžit doklad této příjemky.");
+    return { ...translated, kind: "technical" };
   }
 }
 
