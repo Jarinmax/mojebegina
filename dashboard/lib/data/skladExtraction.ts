@@ -53,6 +53,7 @@ import {
 import { extractStructuredReceipt, EXTRACTION_MODEL_ID } from "./receiptExtractionModel";
 import { preprocessReceiptPage, type PagePreprocessingDiagnostics, type ReceiptImageInput } from "./receiptImagePreprocessing";
 import { performReceiptOcr, OCR_MODEL_ID, MIN_OCR_TEXT_LENGTH } from "./receiptOcrModel";
+import { ModelOutputTruncatedError } from "./aiCallDiagnostics";
 
 async function readBlobBytes(pathname: string): Promise<Buffer | null> {
   const blob = await get(pathname, { access: "private" });
@@ -166,6 +167,23 @@ async function markExtractionFailed(receiptId: string): Promise<void> {
     // Zápis "failed" stavu je jen best-effort hláška pro uživatele — chyba
     // se tiše ignoruje, aby nezamaskovala původní chybu z modelu/vytěžení.
   }
+}
+
+// Model dosáhl výstupního limitu uprostřed OCR nebo strukturování
+// (ModelOutputTruncatedError z aiCallDiagnostics.ts) — appka NEPŘIJME
+// částečný výsledek jako dokončené vytěžení a NIKDY sama nezkouší další
+// (placený) pokus, jen to jasně ohlásí jako technickou chybu. kind:
+// "technical", ne "unreadable" — nejde o nejistotu kolem kvality fotky,
+// appka tu VÍ přesně, co se stalo (finishReason "length", zalogováno
+// bezpečně v aiCallDiagnostics.ts), jen to nedokáže sama dokončit.
+async function truncatedExtractionResult(receiptId: string, phase: "ocr" | "structuring"): Promise<TriggerExtractionResult> {
+  console.error(`[sklad] AI model dosáhl výstupního limitu (receiptId=${receiptId}, fáze=${phase}) — čtení nebylo dokončeno, bez dalšího pokusu.`);
+  await markExtractionFailed(receiptId);
+  return {
+    ok: false,
+    error: "Čtení dokladu se nepodařilo dokončit — model dosáhl limitu délky výstupu. Zkuste to znovu.",
+    kind: "technical",
+  };
 }
 
 // --- Dodavatel: IČO → normalizovaný název, NIKDY auto-vytvoření duplicity ---
@@ -303,8 +321,11 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   // nestačilo; model specializovaný na OCR dostane jednodušší úkol.
   let ocrText: string;
   try {
-    ocrText = await performReceiptOcr(images);
+    ocrText = await performReceiptOcr(images, receiptId);
   } catch (error) {
+    if (error instanceof ModelOutputTruncatedError) {
+      return truncatedExtractionResult(receiptId, error.phase);
+    }
     console.error(`[sklad] OCR účtenky selhalo (receiptId=${receiptId}, model=${OCR_MODEL_ID}):`, describeExtractionErrorForLog(error));
     await markExtractionFailed(receiptId);
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" };
@@ -337,8 +358,11 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   // nečitelné/nesmyslné řádky, aby jediný vadný řádek neshodil celý doklad.
   let structuredRaw;
   try {
-    structuredRaw = await extractStructuredReceipt(ocrText);
+    structuredRaw = await extractStructuredReceipt(ocrText, receiptId);
   } catch (error) {
+    if (error instanceof ModelOutputTruncatedError) {
+      return truncatedExtractionResult(receiptId, error.phase);
+    }
     console.error(
       `[sklad] Strukturování OCR textu selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
       describeExtractionErrorForLog(error)

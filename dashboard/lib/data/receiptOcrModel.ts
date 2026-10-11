@@ -14,6 +14,7 @@ import "server-only";
 import { generateText } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import type { ReceiptImageInput } from "./receiptImagePreprocessing";
+import { isTruncatedByOutputLimit, logAiCallOutcome, ModelOutputTruncatedError } from "./aiCallDiagnostics";
 
 // OCR model — čte se z proměnné prostředí AI_GATEWAY_OCR_MODEL (fallback
 // na alibaba/qwen3-vl-instruct), stejný vzor jako EXTRACTION_MODEL_ID v
@@ -41,8 +42,15 @@ Nevracej nic jiného — žádný komentář, žádné shrnutí, žádné markdo
 // Vrací PROSTÝ TEXT (ne strukturovaný objekt) — záměrně žádné `output:
 // Output.object(...)`, OCR fáze jen přepisuje, nerozhoduje o struktuře
 // dokladu (to dělá až extractStructuredReceipt nad výsledným textem).
-export async function performReceiptOcr(images: ReceiptImageInput[]): Promise<string> {
-  const { text } = await generateText({
+//
+// `receiptId` je jen pro bezpečnou diagnostiku (aiCallDiagnostics.ts) —
+// appka ho nikde jinde v tomhle souboru nepoužívá. Když model dosáhne
+// výstupního limitu uprostřed přepisu (finishReason "length"), appka
+// NEPŘIJME částečný text jako dokončené OCR — vyhodí ModelOutputTruncatedError
+// a volající (skladExtraction.ts) na to reaguje jasnou technickou chybou,
+// bez automatického dalšího (placeného) pokusu.
+export async function performReceiptOcr(images: ReceiptImageInput[], receiptId: string): Promise<string> {
+  const result = await generateText({
     model: gateway(OCR_MODEL_ID),
     providerOptions: {
       gateway: { has: ["vision"] },
@@ -61,5 +69,9 @@ export async function performReceiptOcr(images: ReceiptImageInput[]): Promise<st
       },
     ],
   });
-  return text;
+  logAiCallOutcome({ receiptId, phase: "ocr", modelId: OCR_MODEL_ID, finishReason: result.finishReason, usage: result.usage });
+  if (isTruncatedByOutputLimit(result.finishReason)) {
+    throw new ModelOutputTruncatedError("ocr");
+  }
+  return result.text;
 }

@@ -23,6 +23,7 @@
 // skladu).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APICallError } from "ai";
+import { ModelOutputTruncatedError } from "../aiCallDiagnostics";
 import type { AuthContext } from "../types";
 
 vi.mock("server-only", () => ({}));
@@ -179,9 +180,9 @@ vi.mock("../receiptExtractionModel", () => ({
 }));
 
 // FÁZE 1: čisté OCR (obrázky → prostý text).
-const mockPerformReceiptOcr = vi.fn<(images: unknown[]) => Promise<string>>();
+const mockPerformReceiptOcr = vi.fn<(images: unknown[], receiptId: string) => Promise<string>>();
 vi.mock("../receiptOcrModel", () => ({
-  performReceiptOcr: (images: unknown[]) => mockPerformReceiptOcr(images),
+  performReceiptOcr: (images: unknown[], receiptId: string) => mockPerformReceiptOcr(images, receiptId),
   OCR_MODEL_ID: "alibaba/qwen3-vl-instruct",
   MIN_OCR_TEXT_LENGTH: 30,
 }));
@@ -423,6 +424,49 @@ describe("triggerGoodsReceiptExtraction — bezpečné logování technické chy
     expect(JSON.stringify(errorCalls)).not.toContain("secret-struct-token");
 
     consoleErrorSpy.mockRestore();
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — výstupní limit modelu (ModelOutputTruncatedError, hypotéza pro reálný nález 16→8 položek na MAKRO faktuře) — appka NEPŘIJME částečný výsledek, BEZ dalšího (placeného) pokusu", () => {
+  it("OCR fáze useknutá limitem výstupu → {ok:false, kind:'technical'}, jasná hláška o nedokončeném čtení, strukturování se VŮBEC nezavolá, žádný druhý pokus", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPerformReceiptOcr.mockRejectedValueOnce(new ModelOutputTruncatedError("ocr"));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Čtení dokladu se nepodařilo dokončit — model dosáhl limitu délky výstupu. Zkuste to znovu.",
+      kind: "technical",
+    });
+    expect(mockExtractStructuredReceipt).not.toHaveBeenCalled(); // fáze 2 se vůbec nespustí
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1); // žádný automatický druhý (placený) pokus
+    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true); // extraction_status → 'failed', retry zůstává možný ručně
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("strukturovací fáze useknutá limitem výstupu → {ok:false, kind:'technical'}, stejná jasná hláška, OCR fáze už proběhla (nezopakuje se), žádný druhý pokus strukturování", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockExtractStructuredReceipt.mockRejectedValueOnce(new ModelOutputTruncatedError("structuring"));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Čtení dokladu se nepodařilo dokončit — model dosáhl limitu délky výstupu. Zkuste to znovu.",
+      kind: "technical",
+    });
+    expect(mockPerformReceiptOcr).toHaveBeenCalledTimes(1); // fáze 1 proběhla v pořádku, nezopakovala se
+    expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1); // žádný automatický druhý (placený) pokus
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("normální dokončení (žádná z fází nevyhodí ModelOutputTruncatedError) → vytěžení pokračuje a uspěje jako dřív — hlášku o useknutém limitu appka nezobrazí bezdůvodně", async () => {
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result).toEqual({ ok: true });
   });
 });
 

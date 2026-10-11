@@ -18,6 +18,7 @@ import "server-only";
 import { generateText, Output } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import { rawExtractedReceiptSchema, type RawExtractedReceipt } from "./skladValidation";
+import { isTruncatedByOutputLimit, logAiCallOutcome, ModelOutputTruncatedError } from "./aiCallDiagnostics";
 
 // Jediný model pro strukturování — žádný automatický dražší fallback
 // (druhý ostrý test na Preview `61c9755` ukázal, že záložní gpt-5-mini v
@@ -57,8 +58,19 @@ Pokud nějaký ÚDAJ v přepisu není nebo není čitelný, vrať pro něj null 
 // výstup. skladExtraction.ts výsledek hned po návratu provede přes
 // sanitizeExtractedReceipt (skladValidation.ts), co nečitelné/nesmyslné
 // řádky bezpečně vyřadí.
-export async function extractStructuredReceipt(ocrText: string): Promise<RawExtractedReceipt> {
-  const { output } = await generateText({
+// `receiptId` je jen pro bezpečnou diagnostiku (aiCallDiagnostics.ts).
+// `result.finishReason`/`result.usage` se čtou JEŠTĚ PŘED `result.output`
+// — `.output` je getter, co při finishReason jiném než "stop" může sám
+// vyhodit NoOutputGeneratedError (ověřeno v typech node_modules/ai), takže
+// kdyby se čet output první, o finishReason bychom se u zkráceného
+// výstupu vůbec nedozvěděli. Když model dosáhne výstupního limitu
+// uprostřed strukturování (finishReason "length"), appka NEPŘIJME
+// částečný/neúplný výsledek jako dokončené vytěžení — vyhodí
+// ModelOutputTruncatedError a volající (skladExtraction.ts) na to
+// reaguje jasnou technickou chybou, bez automatického dalšího (placeného)
+// pokusu.
+export async function extractStructuredReceipt(ocrText: string, receiptId: string): Promise<RawExtractedReceipt> {
+  const result = await generateText({
     model: gateway(EXTRACTION_MODEL_ID),
     output: Output.object({ schema: rawExtractedReceiptSchema, name: "ExtractedReceipt" }),
     providerOptions: {
@@ -71,5 +83,9 @@ export async function extractStructuredReceipt(ocrText: string): Promise<RawExtr
       },
     ],
   });
-  return output;
+  logAiCallOutcome({ receiptId, phase: "structuring", modelId: EXTRACTION_MODEL_ID, finishReason: result.finishReason, usage: result.usage });
+  if (isTruncatedByOutputLimit(result.finishReason)) {
+    throw new ModelOutputTruncatedError("structuring");
+  }
+  return result.output;
 }
