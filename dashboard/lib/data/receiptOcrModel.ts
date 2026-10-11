@@ -21,7 +21,7 @@ import type { ReceiptImageInput } from "./receiptImagePreprocessing";
 // specializovaný na vision/OCR úlohy (ne obecné strukturování) — ověřeno
 // jako platné ID přímo v nainstalované verzi @ai-sdk/gateway@4.0.110
 // (GatewayModelId typ v node_modules), ne odhadnuté.
-export const OCR_MODEL_ID = process.env.AI_GATEWAY_OCR_MODEL ?? "alibaba/qwen3-vl-instruct";
+export const OCR_MODEL_ID = process.env.AI_GATEWAY_OCR_MODEL?.trim() || "alibaba/qwen3-vl-instruct";
 
 // Pod touhle délkou (po ořezání bílých znaků) appka OCR výsledek považuje
 // za prakticky prázdný/nečitelný — selže hned tady, BEZ dalšího (placeného)

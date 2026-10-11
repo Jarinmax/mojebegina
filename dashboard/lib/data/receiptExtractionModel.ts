@@ -25,7 +25,7 @@ import { rawExtractedReceiptSchema, type RawExtractedReceipt } from "./skladVali
 // místo fallbacku na jiný model appka raději selže jasnou chybou — viz
 // skladExtraction.ts). Čte se z proměnné prostředí AI_GATEWAY_MODEL
 // (fallback na nano, kdyby proměnná chyběla), NIKDY natvrdo na víc místech.
-export const EXTRACTION_MODEL_ID = process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5-nano";
+export const EXTRACTION_MODEL_ID = process.env.AI_GATEWAY_MODEL?.trim() || "openai/gpt-5-nano";
 
 const STRUCTURING_PROMPT = `Jsi asistent pro strukturování OCR přepisu účtenky/faktury z českých velkoobchodů a prodejen (např. Makro, Penny) do strukturovaných dat. Níže dostaneš přepis JEDNOHO dokladu — může být rozdělený na víc výřezů oddělených značkami "=== VÝŘEZ N ===" (doklad může pokračovat přes víc výřezů/stran, patří k sobě).
 
