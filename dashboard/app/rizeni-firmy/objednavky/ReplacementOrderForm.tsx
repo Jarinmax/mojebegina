@@ -9,6 +9,7 @@ import { useActionState, useState } from "react";
 import { createReplacementAction, type ActionState } from "./actions";
 import FormMessage from "./FormMessage";
 import type { ReplacementProductOption, ReplacementShippingOption } from "@/lib/data/orders";
+import { quoteLabel, quoteShipping, type ShippingContact, type ShippingMode } from "@/lib/eshop/shipping";
 
 const initialState: ActionState = null;
 const INPUT = "px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white";
@@ -25,17 +26,28 @@ export type ReplacementFormData = {
   address: { street: string; city: string; zip: string };
   products: ReplacementProductOption[];
   shipping: ReplacementShippingOption[];
+  shippingMode: ShippingMode;
+  shippingContact: ShippingContact;
 };
 
 export default function ReplacementOrderForm({ orderId, data }: { orderId: string; data: ReplacementFormData }) {
   const [state, formAction, pending] = useActionState(createReplacementAction.bind(null, orderId), initialState);
   const [lines, setLines] = useState(() => Array.from({ length: ROWS }, () => ({ sku: "", quantity: 1 })));
-  const [shippingId, setShippingId] = useState(data.shipping[0]?.id ?? "");
+  const [shippingId, setShippingId] = useState<string>(data.shipping[0]?.id ?? "");
 
   const bySku = new Map(data.products.map((p) => [p.sku, p]));
   const shipping = data.shipping.find((s) => s.id === shippingId);
   const itemsKc = lines.reduce((sum, l) => sum + (bySku.get(l.sku)?.priceKc ?? 0) * (l.quantity > 0 ? l.quantity : 0), 0);
-  const totalHal = (itemsKc + (shipping?.priceKc ?? 0)) * 100;
+  // Doprava jen pro zobrazení (server ji spočítá znovu, stejnou funkcí jako pokladna).
+  const quoteLines = lines.flatMap((l) => {
+    const product = bySku.get(l.sku);
+    return product && l.quantity > 0
+      ? [{ sku: l.sku, name: product.label, quantity: l.quantity, weightGrams: product.weightGrams }]
+      : [];
+  });
+  const quotes = new Map(data.shipping.map((s) => [s.id, quoteShipping(s, quoteLines, data.shippingMode, data.shippingContact)]));
+  const quote = shipping ? quotes.get(shipping.id) : undefined;
+  const totalHal = (itemsKc + (quote?.available ? quote.priceKc : 0)) * 100;
   const diffHal = totalHal - data.heldHal;
   const alcohol = lines.some((l) => bySku.get(l.sku)?.ageRestricted);
 
@@ -82,11 +94,14 @@ export default function ReplacementOrderForm({ orderId, data }: { orderId: strin
         <select name="shippingMethodId" value={shippingId} onChange={(e) => setShippingId(e.target.value)} className={INPUT}>
           {data.shipping.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.label} · {s.priceKc > 0 ? `${s.priceKc} Kč` : "zdarma"}
+              {s.label} · {quoteLabel(quotes.get(s.id)!)}
             </option>
           ))}
         </select>
       </label>
+      {quote && !quote.available && (
+        <p className="text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5">{quote.message}</p>
+      )}
       {shipping?.requiresAddress && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input name="street" required defaultValue={data.address.street} placeholder="Ulice a číslo" className={INPUT} />

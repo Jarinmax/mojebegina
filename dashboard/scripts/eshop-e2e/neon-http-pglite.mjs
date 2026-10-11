@@ -31,6 +31,13 @@ const ready = (async () => {
   for (const name of (process.env.E2E_CATALOG_SQL ?? "").split(",").filter(Boolean)) {
     await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-catalog", name), "utf8"));
   }
+  // Volitelně hmotnosti balení jako po docs/eshop-production/41_hmotnosti.sql
+  // (E2E_WEIGHTS=1; vyžaduje katalog z E2E_CATALOG_SQL). Skript přidává sloupec
+  // sám (= drizzle 0021), proto se nejdřív vrátí stav před ním.
+  if (process.env.E2E_WEIGHTS === "1") {
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-production/49_hmotnosti_rollback.sql"), "utf8"));
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-production/41_hmotnosti.sql"), "utf8"));
+  }
   // Testovací katalog: alergeny neověřené v seedu (NULL) se označí jako
   // ověřené „bez alergenů“ ('{}'), aby šly produkty objednat. Jen testovací
   // data — blokaci NULL hlídá allergenGate.test.ts (vrací NULL zpět).

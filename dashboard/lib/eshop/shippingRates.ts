@@ -1,8 +1,14 @@
 // Ceník chlazené přepravy podle hmotnosti objednávky — PŘESNĚ podle
 // WooCommerce begina.cz (Flexible Shipping, zóna „ČR“, způsob „Chlazená
 // přeprava“, instance_id=25; screenshoty nastavení od vedení 11. 10. 2026).
-// Návrh: zatím NENÍ zapojené do pokladny (lib/eshop/shipping.ts má dál
-// orientační paušál) — viz docs/eshop-doprava/navrh-2026-10-11.md.
+// Zapojené přes lib/eshop/shipping.ts (quoteShipping) jen s přepínačem
+// ESHOP_WEIGHT_SHIPPING=on; jinak dál orientační paušál.
+// Postup a otevřené otázky: docs/eshop-doprava/spusteni.md.
+//
+// Rozhodnutí majitele 11. 10. 2026: pásmo 100–150 kg = 1 839 Kč zachovat;
+// nad 150 kg individuální domluva (nic se neúčtuje automaticky).
+// OTEVŘENÁ OTÁZKA: doprava zdarma od určité částky — NEOVĚŘENO, proto tu
+// záměrně žádné takové pravidlo není.
 //
 // Hmotnosti se počítají v gramech (celá čísla, bez chyb zaokrouhlení).
 // WooCommerce má pásma „od–do 14,99 kg“; tady jsou pásma bez mezer:
@@ -30,8 +36,8 @@ export const COLD_SHIPPING_RULES: readonly ColdShippingRule[] = [
   { rule: 8, fromKg: 70, toKg: 79.99, priceKc: 1053 },
   { rule: 9, fromKg: 80, toKg: 89.99, priceKc: 1165 },
   { rule: 10, fromKg: 90, toKg: 99.99, priceKc: 1277 },
-  // Zapsáno ve WooCommerce takto (1 839 Kč). Řada stoupá o ~112 Kč, takže
-  // může jít o překlep 1 389 Kč — NEPŘEPISOVAT bez potvrzení vedení.
+  // Zapsáno ve WooCommerce takto (1 839 Kč); majitel 11. 10. 2026 potvrdil
+  // zachovat (řada by jinak dávala ~1 389 Kč).
   { rule: 11, fromKg: 100, toKg: 150, priceKc: 1839 },
 ];
 

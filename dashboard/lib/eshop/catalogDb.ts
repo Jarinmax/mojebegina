@@ -4,6 +4,11 @@
 // takže stejný kód ověřují integrační testy proti skutečným migracím.
 // Čte jen aktivní kategorie, produkty a balení; produkt bez aktivního
 // balení se nezobrazí (nejde koupit).
+//
+// Hmotnosti balení (sloupec weight_g, migrace 0021) se čtou samostatným
+// dotazem jen s { weights: true } (ESHOP_WEIGHT_SHIPPING=on). Když sloupec
+// ještě neexistuje (migrace neproběhla), katalog funguje dál a hmotnosti
+// jsou null → chlazená přeprava podle hmotnosti se nenabídne.
 
 import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -31,10 +36,35 @@ function parseDetailSections(raw: unknown): DetailSection[] {
   });
 }
 
-export async function loadCatalog<T extends PgQueryResultHKT>(
+/** Postgres „undefined_column“ (i zabalený v DrizzleQueryError.cause). */
+function isMissingColumn(error: unknown): boolean {
+  for (let e = error; e && typeof e === "object"; e = (e as { cause?: unknown }).cause) {
+    if ((e as { code?: unknown }).code === "42703") return true;
+  }
+  return false;
+}
+
+async function loadWeights<T extends PgQueryResultHKT>(
   db: PgDatabase<T, typeof schema> | CatalogDb
+): Promise<Map<string, number | null>> {
+  try {
+    const rows = await db
+      .select({ sku: productVariants.sku, weightG: productVariants.weightG })
+      .from(productVariants)
+      .where(eq(productVariants.isActive, true));
+    return new Map(rows.map((row) => [row.sku, row.weightG]));
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    console.warn("E-shop: sloupec product_variants.weight_g chybí (migrace 0021) — chlazená přeprava podle hmotnosti nedostupná.");
+    return new Map();
+  }
+}
+
+export async function loadCatalog<T extends PgQueryResultHKT>(
+  db: PgDatabase<T, typeof schema> | CatalogDb,
+  options: { weights?: boolean } = {}
 ): Promise<Catalog> {
-  const [categoryRows, productRows, variantRows, imageRows] = await Promise.all([
+  const [categoryRows, productRows, variantRows, imageRows, weights] = await Promise.all([
     db
       .select()
       .from(productCategories)
@@ -45,12 +75,23 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
       .from(products)
       .where(eq(products.isActive, true))
       .orderBy(asc(products.sortOrder), asc(products.slug)),
+    // Výčet sloupců bez weight_g: katalog musí fungovat i před migrací 0021.
     db
-      .select()
+      .select({
+        productId: productVariants.productId,
+        sku: productVariants.sku,
+        label: productVariants.label,
+        shortNote: productVariants.shortNote,
+        packageDescription: productVariants.packageDescription,
+        priceB2cKc: productVariants.priceB2cKc,
+        volumeMl: productVariants.volumeMl,
+        servings: productVariants.servings,
+      })
       .from(productVariants)
       .where(eq(productVariants.isActive, true))
       .orderBy(asc(productVariants.sortOrder), asc(productVariants.sku)),
     db.select().from(productImages).orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
+    options.weights ? loadWeights(db) : Promise.resolve(new Map<string, number | null>()),
   ]);
 
   const categorySlugById = new Map(categoryRows.map((row) => [row.id, row.slug]));
@@ -66,6 +107,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
       priceKc: row.priceB2cKc,
       volumeMl: row.volumeMl,
       servings: row.servings,
+      weightGrams: weights.get(row.sku) ?? null,
     });
     variantsByProduct.set(row.productId, list);
   }

@@ -20,7 +20,14 @@ import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice 
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput } from "@/lib/eshop/checkout";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
-import { shippingMethods } from "@/lib/eshop/shipping";
+import {
+  shippingMethodsFor,
+  shippingModeFromEnv,
+  type ShippingContact,
+  type ShippingMethod,
+  type ShippingMode,
+} from "@/lib/eshop/shipping";
+import { OPERATOR } from "@/lib/eshop/infoPages";
 import { isOrderable } from "@/lib/eshop/productRules";
 import {
   afterOrderCancelled,
@@ -833,13 +840,22 @@ export async function transferOrderPayment(
 
 // --- Náhradní objednávka ze stornované (lib/eshop/cancellation.ts) -----
 
-export type ReplacementProductOption = { sku: string; label: string; priceKc: number; ageRestricted: boolean };
-export type ReplacementShippingOption = { id: string; label: string; priceKc: number; requiresAddress: boolean };
+export type ReplacementProductOption = {
+  sku: string;
+  label: string;
+  priceKc: number;
+  ageRestricted: boolean;
+  /** hmotnost balení (doprava podle hmotnosti), null = neznámá */
+  weightGrams: number | null;
+};
+export type ReplacementShippingOption = ShippingMethod;
 
 /** Nabídka pro formulář náhradní objednávky: aktivní balení z katalogu a doprava. */
 export async function listReplacementOptions(): Promise<{
   products: ReplacementProductOption[];
   shipping: ReplacementShippingOption[];
+  shippingMode: ShippingMode;
+  shippingContact: ShippingContact;
 }> {
   await requireOrderContext();
   const index = await getCatalogIndex();
@@ -850,11 +866,15 @@ export async function listReplacementOptions(): Promise<{
       label: `${product.name}${variant.label ? ` — ${variant.label}` : ""}`,
       priceKc: variant.priceKc,
       ageRestricted: product.isAgeRestricted,
+      weightGrams: variant.weightGrams,
     }))
   );
+  const shippingMode = shippingModeFromEnv();
   return {
     products,
-    shipping: shippingMethods.map((m) => ({ id: m.id, label: m.label, priceKc: m.priceKc, requiresAddress: m.requiresAddress })),
+    shipping: shippingMethodsFor(shippingMode),
+    shippingMode,
+    shippingContact: { email: OPERATOR.email, phone: OPERATOR.phone },
   };
 }
 
@@ -912,7 +932,8 @@ export async function createReplacementFromCancelled(
       termsAccepted: true,
       ageConfirmed: input.ageConfirmed,
     },
-    await getCatalogIndex()
+    await getCatalogIndex(),
+    { shippingMode: shippingModeFromEnv() }
   );
   if (!validated.ok) {
     return {

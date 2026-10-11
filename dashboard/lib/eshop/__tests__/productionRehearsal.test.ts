@@ -127,7 +127,13 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 1 | 0 | ano | ano");
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0020) + pojistka číslování", async () => {
+  it("hmotnosti balení — drizzle 0021 + 36 hmotností (před / skript / po)", async () => {
+    expect(await check(pg, file("eshop-production", "40_hmotnosti_before.sql"))).toBe("0 | 36 | 36 | 0");
+    await run(pg, file("eshop-production", "41_hmotnosti.sql"));
+    expect(await check(pg, file("eshop-production", "42_hmotnosti_after.sql"))).toBe("1 | 36 | 0 | 25 | 7 | 4 | 0");
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0021) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

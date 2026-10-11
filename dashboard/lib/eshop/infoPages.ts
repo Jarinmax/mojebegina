@@ -8,7 +8,8 @@
 // 3. 10. 2026, GDPR 8. 10. 2026).
 import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
-import { shippingMethods } from "./shipping";
+import { shippingMethodsFor, type ShippingMode } from "./shipping";
+import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
 import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
 
@@ -139,29 +140,56 @@ const waterPage: InfoPage = {
   ],
 };
 
-const shippingPage: InfoPage = {
-  path: "/doprava",
-  footerLabel: "Doprava",
-  title: "Doprava a platba",
-  description: "Způsoby doručení a platby v e-shopu Begina.",
-  // Generováno ze stejných dat, ze kterých počítá pokladna (shipping.ts).
-  blocks: [
-    {
-      heading: "Doručení",
-      items: shippingMethods.map(
-        (method) => `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
-      ),
-    },
-    {
-      heading: "Platba",
-      items: [
-        `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
-        "Kartou online — platební karta, Apple Pay nebo Google Pay, zabezpečeně přes Stripe.",
-      ],
-    },
-  ],
-  pendingNote: "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
-};
+const kgText = (kg: number) => kg.toLocaleString("cs-CZ");
+
+/** Stránka Doprava a platba — ze stejných dat, ze kterých počítá pokladna (shipping.ts, shippingRates.ts). */
+export function shippingPageFor(mode: ShippingMode): InfoPage {
+  const methods = shippingMethodsFor(mode);
+  const byWeight = mode === "weight";
+  return {
+    path: "/doprava",
+    footerLabel: "Doprava",
+    title: "Doprava a platba",
+    description: "Způsoby doručení a platby v e-shopu Begina.",
+    blocks: [
+      {
+        heading: "Doručení",
+        items: methods.map((method) =>
+          byWeight && method.id === "rozvoz"
+            ? `${method.label} — ${method.description}`
+            : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
+        ),
+      },
+      ...(byWeight
+        ? [
+            {
+              heading: "Ceník chlazené přepravy",
+              paragraphs: ["Cena podle celkové hmotnosti objednávky:"],
+              items: COLD_SHIPPING_RULES.map(
+                (rule) => `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg — ${formatKc(rule.priceKc)}`
+              ),
+              afterParagraphs: [
+                `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,
+                "Doručujeme jen v České republice.",
+              ],
+            },
+          ]
+        : []),
+      {
+        heading: "Platba",
+        items: [
+          `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
+          "Kartou online — platební karta, Apple Pay nebo Google Pay, zabezpečeně přes Stripe.",
+        ],
+      },
+    ],
+    pendingNote: byWeight
+      ? "Rozvozové dny a lhůty doručení doplníme."
+      : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
+  };
+}
+
+const shippingPage: InfoPage = shippingPageFor("flat");
 
 // Text dodaný vedením 3. 10. 2026: lib/eshop/content/obchodniPodminky.ts.
 const termsPage: InfoPage = {

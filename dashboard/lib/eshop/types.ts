@@ -27,6 +27,8 @@ export type Variant = {
   priceKc: number;
   volumeMl: number | null;
   servings: number | null;
+  /** Hmotnost balení v gramech (doprava podle hmotnosti); null = neznámá nebo nenačtená. */
+  weightGrams: number | null;
 };
 
 export type FoodInfo = {

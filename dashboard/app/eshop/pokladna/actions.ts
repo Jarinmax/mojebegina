@@ -14,6 +14,7 @@ import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
+import { shippingModeFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
 import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
 import { eshopBase } from "@/lib/eshop/siteServer";
@@ -80,7 +81,7 @@ export async function submitCheckoutAction(
       ageConfirmed: formData.get("ageConfirmed") === "on",
     },
     await getCatalogIndex(),
-    { cardPaymentAvailable: stripe !== null }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv() }
   );
 
   if (!result.ok) {

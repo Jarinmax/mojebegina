@@ -7,7 +7,9 @@ import { cache } from "react";
 import { db } from "@/lib/db/client";
 import { loadCatalog } from "./catalogDb";
 import { createCatalogIndex } from "./catalogIndex";
+import { shippingModeFromEnv } from "./shipping";
 
-export const getCatalog = cache(() => loadCatalog(db));
+// Hmotnosti balení jen s dopravou podle hmotnosti (ESHOP_WEIGHT_SHIPPING=on).
+export const getCatalog = cache(() => loadCatalog(db, { weights: shippingModeFromEnv() === "weight" }));
 
 export const getCatalogIndex = cache(async () => createCatalogIndex(await getCatalog()));
