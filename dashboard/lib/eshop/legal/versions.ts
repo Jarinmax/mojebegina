@@ -44,12 +44,12 @@ export function legalPdfFilename(versionId: string): string {
 export type LegalPdf = { versionId: string; filename: string; contentBase64: string; sha256: string };
 
 /**
- * PDF dané verze (null = objednávka z doby před evidencí verzí → aktuální
- * verze). Neznámá verze nebo nesouhlasný otisk = chyba — raději nic než
- * jiné podmínky, než jaké zákazník přijal.
+ * PDF dané verze. Neznámá verze nebo nesouhlasný otisk = chyba — raději nic
+ * než jiné podmínky, než jaké zákazník přijal. Bez verze se PDF nevydává:
+ * u objednávky bez zaznamenané verze se nedosazuje aktuální (orderLegal.ts).
  */
-export async function legalPdf(versionId: string | null | undefined): Promise<LegalPdf> {
-  const version = LEGAL_VERSIONS[versionId ?? CURRENT_LEGAL_VERSION];
+export async function legalPdf(versionId: string): Promise<LegalPdf> {
+  const version = LEGAL_VERSIONS[versionId];
   if (!version) throw new Error(`Neznámá verze obchodních podmínek: ${versionId}`);
   const contentBase64 = await version.load();
   const sha256 = createHash("sha256").update(Buffer.from(contentBase64, "base64")).digest("hex");

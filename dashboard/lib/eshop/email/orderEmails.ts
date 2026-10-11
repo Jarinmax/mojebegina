@@ -56,7 +56,7 @@ import {
   type RenderedEmail,
 } from "./templates";
 import { bankConfig, transferInfo, type BankConfig } from "../bankTransfer";
-import { acceptedLegalPdf } from "../legal/orderLegal";
+import { acceptedLegalDocuments } from "../legal/orderLegal";
 import { qrPng } from "../qr";
 import type { Attachment, InlineImage } from "./resend";
 import type { InvoicePdf } from "../invoicing/issue";
@@ -253,7 +253,9 @@ export async function sendOrderEmails(
       const attachments: Attachment[] = pdf ? [{ filename: pdf.filename, contentBase64: pdf.contentBase64 }] : [];
       // Uzavření smlouvy (potvrzení / náhradní objednávka): obchodní podmínky,
       // poučení a formulář v PDF — verze přijatá u objednávky (trvalý nosič).
-      const legal = carriesLegalDocuments(template) ? await acceptedLegalPdf(db, orderId) : null;
+      // Bez zaznamenané verze se PDF nepřikládá (nedosazuje se aktuální verze).
+      const legalDocs = carriesLegalDocuments(template) ? await acceptedLegalDocuments(db, orderId) : null;
+      const legal = legalDocs?.status === "recorded" ? legalDocs.pdf : null;
       if (legal) attachments.push({ filename: legal.filename, contentBase64: legal.contentBase64 });
       const invoiceNumber = pdf?.invoiceNumber ?? null;
       if (template === "customer_confirmation") {
@@ -312,7 +314,8 @@ export async function sendOrderEmails(
           ...(inlineImages.length ? { qr: true } : {}),
           ...(invoiceNumber ? { invoice: invoiceNumber } : {}),
           ...(legal ? { legal: { version: legal.versionId, sha256: legal.sha256 } } : {}),
-          ...(carriesLegalDocuments(template) && !legal ? { legalMissing: true } : {}),
+          // „nedolozeno“ = objednávka bez zaznamenané verze; „chyba“ = PDF nešlo připravit
+          ...(legalDocs && !legal ? { legal: { status: legalDocs.status === "unrecorded" ? "nedolozeno" : "chyba" } } : {}),
           ...(test ? { test: true, withheld } : {}),
         });
         if (invoiceNumber) {

@@ -96,8 +96,7 @@ describe("verze dokumentů a neměnné PDF", { timeout: 60_000 }, () => {
     expect(pdf.filename).toBe("obchodni-podminky-begina-2026-09-22.pdf");
   });
 
-  it("bez evidované verze (starší objednávka) → aktuální; neznámá verze → chyba, nikdy jiné podmínky", async () => {
-    expect((await legalPdf(null)).versionId).toBe(CURRENT_LEGAL_VERSION);
+  it("neznámá verze → chyba, nikdy jiné podmínky", async () => {
     await expect(legalPdf("1999-01-01")).rejects.toThrow(/Neznámá verze/);
   });
 });
@@ -278,6 +277,39 @@ describe("verze přijatá u objednávky a příloha potvrzení (neon-http → PG
     expect(paid.subject).toMatch(/Platbu za objednávku/);
     expect(paid.attachments ?? []).toEqual([]);
     expect(paid.text).toContain(`Prodávající: ${SELLER.name}`);
+  });
+
+  it("historická objednávka bez zaznamenané verze: aktuální verze se NEdosazuje — bez PDF, v historii „nedoloženo“", async () => {
+    sent.length = 0;
+    const id = await saveOrder();
+    await db.execute(sql`UPDATE order_activity SET metadata = metadata - 'legal' WHERE order_id = ${id} AND kind = 'created'`);
+    const { acceptedLegal, acceptedLegalDocuments } = await import("../legal/orderLegal");
+    expect(await acceptedLegal(db, id)).toBeNull();
+    expect(await acceptedLegalDocuments(db, id)).toEqual({ status: "unrecorded" });
+
+    await sendOrderEmails(db, id, "order_created", "https://moje.begina.cz", { config, transport });
+    const customer = sent.find((m) => m.to.includes("jana@example.cz"))!;
+    expect(customer.attachments ?? []).toEqual([]);
+    expect(customer.text).not.toContain("V příloze posíláme obchodní podmínky");
+    expect(customer.text).toContain(`Prodávající: ${SELLER.name}`); // patička zůstává
+    const [record] = (
+      await db.execute(sql`SELECT metadata FROM order_activity WHERE order_id = ${id} AND kind = 'email_sent' AND metadata->>'template' = 'customer_confirmation'`)
+    ).rows;
+    expect(record.metadata.legal).toEqual({ status: "nedolozeno" });
+    // a u objednávky se nic nedopsalo
+    expect((await created(id)).legal).toBeUndefined();
+  });
+
+  it("náhradní objednávka za historickou bez verze: také nedoloženo, ne aktuální verze", async () => {
+    sent.length = 0;
+    const original = await saveOrder();
+    await db.execute(sql`UPDATE order_activity SET metadata = metadata - 'legal' WHERE order_id = ${original} AND kind = 'created'`);
+    const replacement = await saveOrder();
+    await db.execute(sql`
+      UPDATE order_activity SET metadata = jsonb_build_object('channel', 'eshop', 'replacementOfOrderId', ${original}::text)
+      WHERE order_id = ${replacement} AND kind = 'created'`);
+    const { acceptedLegalDocuments } = await import("../legal/orderLegal");
+    expect(await acceptedLegalDocuments(db, replacement)).toEqual({ status: "unrecorded" });
   });
 
   it("náhradní objednávka dostane verzi přijatou u původní objednávky", async () => {

@@ -16,7 +16,11 @@ async function createdMetadata(db: Db, orderId: string): Promise<Record<string, 
   return rows[0]?.metadata ?? null;
 }
 
-/** Přijatá verze (náhradní objednávka bez vlastní → verze původní objednávky); null = objednávka z doby před evidencí verzí. */
+/**
+ * Přijatá verze (náhradní objednávka bez vlastní → verze původní objednávky).
+ * null = verze NENÍ DOLOŽENÁ (objednávka z doby před evidencí verzí) — nikdy
+ * se nedosazuje aktuální verze jako údaj o tom, co zákazník přijal.
+ */
 export async function acceptedLegal(db: Db, orderId: string): Promise<LegalAcceptance | null> {
   const meta = await createdMetadata(db, orderId);
   const own = (meta?.legal ?? null) as LegalAcceptance | null;
@@ -26,12 +30,22 @@ export async function acceptedLegal(db: Db, orderId: string): Promise<LegalAccep
   return ((await createdMetadata(db, source))?.legal ?? null) as LegalAcceptance | null;
 }
 
-/** PDF přesně té verze, kterou zákazník přijal (nikdy nevyhodí výjimku — null = nepodařilo se). */
-export async function acceptedLegalPdf(db: Db, orderId: string): Promise<LegalPdf | null> {
+export type OrderLegalDocuments =
+  /** PDF přesně té verze, kterou zákazník přijal */
+  | { status: "recorded"; pdf: LegalPdf }
+  /** verze u objednávky není zaznamenaná — PDF se nepřikládá, v historii „nedoloženo“ */
+  | { status: "unrecorded" }
+  /** zaznamenaná verze, ale PDF nejde připravit (neznámá verze, otisk) */
+  | { status: "error" };
+
+/** Dokumenty přijaté u objednávky (nikdy nevyhodí výjimku). */
+export async function acceptedLegalDocuments(db: Db, orderId: string): Promise<OrderLegalDocuments> {
   try {
-    return await legalPdf((await acceptedLegal(db, orderId))?.version);
+    const accepted = await acceptedLegal(db, orderId);
+    if (!accepted) return { status: "unrecorded" };
+    return { status: "recorded", pdf: await legalPdf(accepted.version) };
   } catch (error) {
     console.error("E-shop: PDF obchodních podmínek k objednávce se nepodařilo připravit", orderId, error);
-    return null;
+    return { status: "error" };
   }
 }
