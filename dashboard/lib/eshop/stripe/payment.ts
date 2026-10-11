@@ -3,7 +3,8 @@
 //
 // Spojení platby s objednávkou: client_reference_id + metadata.orderId
 // (i na PaymentIntentu) = id objednávky, metadata.source odliší naše platby
-// od plateb WooCommerce na stejném Stripe účtu.
+// od cizích plateb, kdyby na Stripe účtu běžela i jiná integrace (WooCommerce
+// platí přes WooPayments, tedy samostatný účet).
 //
 // Opakované kliknutí / „Zaplatit znovu“: pokud poslední platební stránka
 // objednávky je ještě otevřená, použije se znovu; souběžné požadavky mají
