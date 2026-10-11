@@ -51,6 +51,8 @@ const ESHOP_PAGES = new Set([
   "/o-nas",
   "/o-vode",
   "/obchodni-podminky",
+  "/obchodni-podminky.pdf",
+  "/odstoupeni-od-smlouvy",
   "/ochrana-osobnich-udaju",
 ]);
 

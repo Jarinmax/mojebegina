@@ -56,6 +56,7 @@ import {
   type RenderedEmail,
 } from "./templates";
 import { bankConfig, transferInfo, type BankConfig } from "../bankTransfer";
+import { acceptedLegalPdf } from "../legal/orderLegal";
 import { qrPng } from "../qr";
 import type { Attachment, InlineImage } from "./resend";
 import type { InvoicePdf } from "../invoicing/issue";
@@ -193,6 +194,11 @@ export type SendOrderEmailsOptions = {
   replacement?: { fromReference: string; receivedHal: number };
 };
 
+/** Ke kterému e-mailu patří PDF obchodních podmínek (+ poučení a formulář). */
+export function carriesLegalDocuments(template: OrderEmailTemplate): boolean {
+  return template === "customer_confirmation" || template === "customer_replacement";
+}
+
 /** Ke kterému e-mailu patří PDF faktury (jen zaplacená objednávka). */
 function carriesInvoice(template: OrderEmailTemplate, paid: boolean): boolean {
   if (!paid) return false;
@@ -245,11 +251,21 @@ export async function sendOrderEmails(
         continue;
       }
       const attachments: Attachment[] = pdf ? [{ filename: pdf.filename, contentBase64: pdf.contentBase64 }] : [];
+      // Uzavření smlouvy (potvrzení / náhradní objednávka): obchodní podmínky,
+      // poučení a formulář v PDF — verze přijatá u objednávky (trvalý nosič).
+      const legal = carriesLegalDocuments(template) ? await acceptedLegalPdf(db, orderId) : null;
+      if (legal) attachments.push({ filename: legal.filename, contentBase64: legal.contentBase64 });
       const invoiceNumber = pdf?.invoiceNumber ?? null;
       if (template === "customer_confirmation") {
         const qr = await qrImage(transfer?.spayd ?? null);
         if (qr) inlineImages = [qr];
-        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber });
+        rendered = customerOrderEmail(order, {
+          ...ctx,
+          transfer,
+          qrContentId: qr ? qr.contentId : null,
+          invoiceNumber,
+          legalVersion: legal?.versionId ?? null,
+        });
       } else if (template === "customer_replacement") {
         // Platební údaje a QR jen na doplatek (zbytek po převedené platbě).
         const receivedHal = options.replacement?.receivedHal ?? 0;
@@ -264,6 +280,7 @@ export async function sendOrderEmails(
           transfer: remaining,
           qrContentId: qr ? qr.contentId : null,
           invoiceNumber,
+          legalVersion: legal?.versionId ?? null,
         });
       } else if (template === "customer_cancellation") {
         rendered = customerCancellationEmail(order, { ...ctx, heldHal: options.cancellation?.heldHal ?? 0 });
@@ -294,6 +311,8 @@ export async function sendOrderEmails(
           to,
           ...(inlineImages.length ? { qr: true } : {}),
           ...(invoiceNumber ? { invoice: invoiceNumber } : {}),
+          ...(legal ? { legal: { version: legal.versionId, sha256: legal.sha256 } } : {}),
+          ...(carriesLegalDocuments(template) && !legal ? { legalMissing: true } : {}),
           ...(test ? { test: true, withheld } : {}),
         });
         if (invoiceNumber) {

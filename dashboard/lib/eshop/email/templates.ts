@@ -8,6 +8,8 @@ import { formatKc } from "@/lib/format";
 import { getShippingMethod } from "../shipping";
 import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer";
 import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
+import { INFO_PAGES } from "../infoPages";
+import { SELLER, SELLER_PREMISES } from "../seller";
 
 export type EmailOrder = {
   id: string;
@@ -121,7 +123,7 @@ function detailsTable(rows: [string, string][]): string {
     .join("")}</table>`;
 }
 
-function layout(ctx: Context, body: string): string {
+function layout(ctx: Context, body: string, footer = ""): string {
   return `<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#F7F7F7;${FONT}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F7F7;padding:24px 12px;"><tr><td align="center">
@@ -129,7 +131,34 @@ function layout(ctx: Context, body: string): string {
 ${testBanner(ctx)}
 <tr><td style="font-size:20px;font-weight:700;letter-spacing:0.5px;color:#000000;padding-bottom:16px;">BEGINA</td></tr>
 ${body}
+${footer}
 </table></td></tr></table></body></html>`;
+}
+
+/**
+ * Patička e-mailů zákazníkovi: úplná identifikace prodávajícího
+ * (lib/eshop/seller.ts) a odkazy na obchodní podmínky a odstoupení.
+ */
+export function sellerFooter(ctx: Pick<Context, "baseUrl">): { html: string; text: string } {
+  const terms = eshopAbsoluteUrl(ctx.baseUrl, INFO_PAGES.terms.path);
+  const withdrawal = eshopAbsoluteUrl(ctx.baseUrl, INFO_PAGES.withdrawal.path);
+  const lines = [
+    `Prodávající: ${SELLER.name}, IČO ${SELLER.ico}, sídlo ${SELLER.address}`,
+    `Provozovna: ${SELLER_PREMISES}`,
+    `E-mail: ${SELLER.email}, telefon: ${SELLER.phone}`,
+  ];
+  const link = (href: string, label: string) =>
+    `<a href="${escapeHtml(href)}" style="color:#404040;text-decoration:underline;">${escapeHtml(label)}</a>`;
+  return {
+    html:
+      `<tr><td style="padding-top:20px;border-top:1px solid #E5E5E5;font-size:12px;line-height:1.5;color:#737373;">` +
+      lines.map((line) => escapeHtml(line)).join("<br>") +
+      `<br>${link(terms, INFO_PAGES.terms.footerLabel)} · ${link(withdrawal, INFO_PAGES.withdrawal.footerLabel)}` +
+      `</td></tr>`,
+    text:
+      `\n--\n${lines.join("\n")}\n` +
+      `${INFO_PAGES.terms.footerLabel}: ${terms}\n${INFO_PAGES.withdrawal.footerLabel}: ${withdrawal}\n`,
+  };
 }
 
 function button(href: string, label: string): string {
@@ -182,7 +211,16 @@ export type CustomerEmailContext = Context & {
   qrContentId: string | null;
   /** číslo faktury v příloze (ostrý provoz, faktura z iDokladu) */
   invoiceNumber?: string | null;
+  /** verze obchodních podmínek v příloze (PDF: podmínky + poučení + formulář); null = bez přílohy */
+  legalVersion?: string | null;
 };
+
+/** Věta o přiloženém PDF obchodních podmínek (jen když je opravdu v příloze). */
+export function legalSentence(legalVersion: string | null | undefined): string {
+  return legalVersion
+    ? `V příloze posíláme obchodní podmínky, poučení o odstoupení od smlouvy a vzorový formulář pro odstoupení (PDF, verze ${legalVersion}) platné pro tuto objednávku.`
+    : "";
+}
 
 /** Věta o přiložené faktuře (PDF posílá MojeBegina, ne iDoklad). */
 function invoiceSentence(invoiceNumber: string | null | undefined): string {
@@ -209,6 +247,8 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
   const instructions = paymentInstructions(order, ctx.transfer, ctx.qrContentId);
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
 
+  const legal = legalSentence(ctx.legalVersion);
+  const footer = sellerFooter(ctx);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
@@ -219,15 +259,18 @@ ${itemsTable(order)}
 ${detailsTable(details)}
 <div style="height:16px"></div>
 ${instructions.html}
+${legal ? `<p style="margin:0 0 16px;font-size:13px;color:#404040;">${escapeHtml(legal)}</p>` : ""}
 <p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
 <p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
-</td></tr>`
+</td></tr>`,
+    footer.html
   );
   const text =
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${instructions.text}${legal ? `${legal}\n\n` : ""}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n` +
+    footer.text;
   return { subject, html, text };
 }
 
@@ -297,6 +340,7 @@ export function customerPaymentReceivedEmail(
     ["Doprava", deliveryText(order)],
   ];
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const footer = sellerFooter(ctx);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
@@ -308,13 +352,15 @@ ${itemsTable(order)}
 <div style="height:16px"></div>
 <p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
 <p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
-</td></tr>`
+</td></tr>`,
+    footer.html
   );
   const text =
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${itemsText(order)}\n\nStav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${itemsText(order)}\n\nStav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n` +
+    footer.text;
   return { subject, html, text };
 }
 
@@ -345,6 +391,7 @@ export function customerCancellationEmail(order: EmailOrder, ctx: Context & { he
     ["Částka objednávky", formatKc(order.totalKc)],
   ];
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const footer = sellerFooter(ctx);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
@@ -356,13 +403,15 @@ ${detailsTable(details)}
 ${itemsTable(order)}
 <div style="height:16px"></div>
 <p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
-</td></tr>`
+</td></tr>`,
+    footer.html
   );
   const text =
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n${payment}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${itemsText(order)}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${itemsText(order)}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n` +
+    footer.text;
   return { subject, html, text };
 }
 
@@ -382,6 +431,7 @@ export function customerReplacementEmail(
     transfer: TransferInfo | null;
     qrContentId: string | null;
     invoiceNumber?: string | null;
+    legalVersion?: string | null;
   }
 ): RenderedEmail {
   const reference = orderReference(order);
@@ -409,6 +459,8 @@ export function customerReplacementEmail(
   const instructions =
     remainingHal > 0 ? paymentInstructions(order, ctx.transfer, ctx.qrContentId) : { html: "", text: "" };
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const legal = legalSentence(ctx.legalVersion);
+  const footer = sellerFooter(ctx);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
@@ -420,14 +472,17 @@ ${itemsTable(order)}
 ${detailsTable(details)}
 <div style="height:16px"></div>
 ${instructions.html}
+${legal ? `<p style="margin:0 0 16px;font-size:13px;color:#404040;">${escapeHtml(legal)}</p>` : ""}
 <p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
 <p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
-</td></tr>`
+</td></tr>`,
+    footer.html
   );
   const text =
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n${state}${invoice ? ` ${invoice}` : ""}\n\n${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${instructions.text}${legal ? `${legal}\n\n` : ""}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n` +
+    footer.text;
   return { subject, html, text };
 }

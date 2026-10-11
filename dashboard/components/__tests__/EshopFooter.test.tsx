@@ -16,7 +16,7 @@ const APP = path.join(__dirname, "../../app");
 const ESHOP_APP = path.join(APP, "eshop");
 
 describe("patička e-shopu", () => {
-  it("čtyři klikací odkazy ve správném pořadí a na správné adresy", () => {
+  it("pět klikacích odkazů ve správném pořadí a na správné adresy (vč. odstoupení od smlouvy)", () => {
     render(<EshopFooter />);
     const nav = screen.getByRole("navigation", { name: "Informace" });
     const links = Array.from(nav.querySelectorAll("a")).map((a) => [a.textContent, a.getAttribute("href")]);
@@ -24,6 +24,7 @@ describe("patička e-shopu", () => {
       ["O nás", "/eshop/o-nas"],
       ["Doprava", "/eshop/doprava"],
       ["Obchodní podmínky", "/eshop/obchodni-podminky"],
+      ["Odstoupení od smlouvy", "/eshop/odstoupeni-od-smlouvy"],
       ["GDPR", "/eshop/ochrana-osobnich-udaju"],
     ]);
   });
@@ -42,6 +43,23 @@ describe("patička e-shopu", () => {
 });
 
 describe("informační stránky", () => {
+  it("Odstoupení od smlouvy: poučení (čl. VII), kam poslat, vzorový formulář a PDF ke stažení", () => {
+    render(<InfoPageView page={INFO_PAGES.withdrawal} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Odstoupení od smlouvy" })).toBeTruthy();
+    const text = document.querySelector("article")!.textContent!;
+    for (const part of [
+      "Spotřebitel má při nákupu prostřednictvím internetového obchodu zpravidla právo odstoupit",
+      "Kam odstoupení poslat",
+      "Vzorový formulář pro odstoupení od smlouvy",
+      "Oznamuji/oznamujeme (*), že tímto odstupuji/odstupujeme (*) od smlouvy o nákupu tohoto zboží:",
+      "(*) Nehodící se škrtněte nebo údaje doplňte.",
+    ]) {
+      expect(text, part).toContain(part);
+    }
+    const pdf = screen.getByRole("link", { name: /PDF/ });
+    expect(pdf.getAttribute("href")).toBe("/eshop/obchodni-podminky.pdf");
+  });
+
   it("Doprava: způsoby doručení a platby z dat pokladny (ceny, splatnost)", () => {
     render(<InfoPageView page={INFO_PAGES.shipping} />);
     expect(screen.getByRole("heading", { level: 1, name: "Doprava a platba" })).toBeTruthy();

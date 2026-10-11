@@ -2,6 +2,7 @@
 // přepsaný doslova (jen rozdělený do článků a bodů). Měnit jen podle nového
 // znění od vedení; datum účinnosti v `TERMS_EFFECTIVE` a v čl. XIII.
 import type { InfoBlock } from "../infoPages";
+import { SELLER, SELLER_IDENTITY_LINES, SELLER_PREMISES } from "../seller";
 
 export const TERMS_EFFECTIVE = "22. září 2026";
 
@@ -12,11 +13,7 @@ export const TERMS_BLOCKS: InfoBlock[] = [
       {
         text: "Tyto obchodní podmínky upravují vzájemná práva a povinnosti mezi prodávajícím:",
         lines: [
-          "Jaroslav Viner",
-          "IČO: 74337297",
-          "sídlo: Mostecká 273/21, 118 00 Praha 1",
-          "e-mail: info@begina.cz",
-          "telefon: +420 774 199 975",
+          ...SELLER_IDENTITY_LINES,
           "dále jen „prodávající“,",
         ],
         after: "a kupujícím při prodeji zboží prostřednictvím internetového obchodu na adrese www.begina.cz.",
@@ -127,7 +124,7 @@ export const TERMS_BLOCKS: InfoBlock[] = [
         items: [
           "prostřednictvím smluvního dopravce,",
           "rozvozem prodávajícího,",
-          "osobním odběrem v provozovně Zahradní Bistro Begina, Vitice 119, 281 06 Vitice, okres Kolín, pokud je tato možnost při objednávce dostupná.",
+          `osobním odběrem v provozovně ${SELLER_PREMISES}, pokud je tato možnost při objednávce dostupná.`,
         ],
       },
       {
@@ -175,7 +172,7 @@ export const TERMS_BLOCKS: InfoBlock[] = [
         text: "Vzhledem k povaze chlazených potravin se výjimka z práva na odstoupení může vztahovat na značnou část výrobků Begina. Rozhodující je povaha konkrétního výrobku, jeho trvanlivost a stav při vrácení.",
       },
       {
-        text: "Pokud se na zboží právo na odstoupení vztahuje, může spotřebitel odstoupení oznámit na e-mailu info@begina.cz nebo písemně na adrese prodávajícího.",
+        text: `Pokud se na zboží právo na odstoupení vztahuje, může spotřebitel odstoupení oznámit na e-mailu ${SELLER.email} nebo písemně na adrese prodávajícího.`,
       },
       { text: "Spotřebitel musí zboží odeslat nebo předat prodávajícímu nejpozději do 14 dnů od odstoupení od smlouvy." },
       { text: "Náklady na vrácení zboží nese spotřebitel, pokud se s prodávajícím nedohodne jinak." },
@@ -221,9 +218,9 @@ export const TERMS_BLOCKS: InfoBlock[] = [
       {
         text: "Reklamaci lze uplatnit:",
         items: [
-          "e-mailem: info@begina.cz",
-          "telefonicky: +420 774 199 975",
-          "písemně nebo osobně: Zahradní Bistro Begina, Vitice 119, 281 06 Vitice, okres Kolín.",
+          `e-mailem: ${SELLER.email}`,
+          `telefonicky: ${SELLER.phone}`,
+          `písemně nebo osobně: ${SELLER_PREMISES}.`,
         ],
       },
       {

@@ -1,4 +1,5 @@
 import ShopLink from "./ShopLink";
+import ShopFileLink from "./ShopFileLink";
 import type { ReactNode } from "react";
 import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
 
@@ -7,7 +8,11 @@ import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
 
 // E-mail, telefon a webové adresy v textu jako odkazy (adresa i s cestou,
 // např. „www.begina.cz/gdpr/“ — tečka za koncem věty do odkazu nepatří).
-const LINKABLE = /(info@begina\.cz|\+420 774 199 975|www\.[a-z0-9.-]*[a-z0-9](?:\/[a-z0-9_/-]*[a-z0-9/])?|adr\.coi\.cz)/g;
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const LINKABLE = new RegExp(
+  `(${escapeRegExp(OPERATOR.email)}|${escapeRegExp(OPERATOR.phone)}|www\\.[a-z0-9.-]*[a-z0-9](?:\\/[a-z0-9_/-]*[a-z0-9/])?|adr\\.coi\\.cz)`,
+  "g"
+);
 
 function linkHref(token: string): string {
   if (token.includes("@")) return `mailto:${token}`;
@@ -106,6 +111,13 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
             </section>
           ))}
           {page.pendingNote && <p className="text-sm text-neutral-500">{page.pendingNote}</p>}
+          {page.downloads?.map((file) => (
+            <p key={file.path}>
+              <ShopFileLink href={file.path} className="underline underline-offset-2 font-medium text-begina-primary-900">
+                {file.label}
+              </ShopFileLink>
+            </p>
+          ))}
         </div>
       ) : (
         <div className="mt-6 border border-neutral-200 rounded-2xl p-5 text-neutral-700">
