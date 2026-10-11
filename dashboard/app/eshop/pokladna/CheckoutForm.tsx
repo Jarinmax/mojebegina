@@ -7,11 +7,17 @@ import { CircleCheck } from "lucide-react";
 import { AGE_RESTRICTION_NOTICE, isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
-import { shippingMethods, paymentMethodsFor, getShippingMethod } from "@/lib/eshop/shipping";
+import {
+  shippingMethodsFor,
+  paymentMethodsFor,
+  quoteLabel,
+  quoteShipping,
+  type ShippingMode,
+} from "@/lib/eshop/shipping";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
-import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
 
 const initialState: CheckoutState = null;
@@ -45,14 +51,21 @@ const emptyValues: Values = {
   city: "",
   zip: "",
   note: "",
-  shippingMethodId: shippingMethods[0].id,
+  shippingMethodId: "osobni-odber",
   paymentMethodId: "prevod",
   termsAccepted: false,
   ageConfirmed: false,
 };
 
-export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPaymentAvailable?: boolean }) {
+export default function CheckoutForm({
+  cardPaymentAvailable = false,
+  shippingMode = "flat",
+}: {
+  cardPaymentAvailable?: boolean;
+  shippingMode?: ShippingMode;
+}) {
   const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
+  const shippingMethods = shippingMethodsFor(shippingMode);
   const { cart, clear } = useCart();
   const catalog = useCatalog();
   const href = useEshopHref();
@@ -215,7 +228,19 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
     );
   }
 
-  const shipping = getShippingMethod(values.shippingMethodId) ?? shippingMethods[0];
+  // Cena dopravy jen pro zobrazení — server ji spočítá znovu (priceCart).
+  const quoteLines = lines.map((line) => ({
+    sku: line.sku,
+    name: line.name,
+    quantity: line.quantity,
+    weightGrams: line.variant.weightGrams,
+  }));
+  const quotes = new Map(
+    shippingMethods.map((method) => [method.id, quoteShipping(method, quoteLines, shippingMode, OPERATOR)])
+  );
+  const shipping = shippingMethods.find((method) => method.id === values.shippingMethodId) ?? shippingMethods[0];
+  const quote = quotes.get(shipping.id)!;
+  const shippingKc = quote.available ? quote.priceKc : 0;
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
@@ -259,30 +284,39 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
         <fieldset>
           <legend className="font-medium mb-3">Doručení</legend>
           <div className="flex flex-col gap-2">
-            {shippingMethods.map((method) => (
-              <label
-                key={method.id}
-                className={`flex items-start gap-3 border rounded-xl p-3.5 cursor-pointer ${
-                  values.shippingMethodId === method.id ? "border-begina-primary-900" : "border-neutral-200"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="shippingMethodId"
-                  value={method.id}
-                  checked={values.shippingMethodId === method.id}
-                  onChange={() => set("shippingMethodId", method.id)}
-                  className="mt-1 accent-begina-primary-900"
-                />
-                <span className="flex-1">
-                  <span className="flex justify-between gap-3 text-sm font-medium">
-                    {method.label}
-                    <span className="tabular-nums whitespace-nowrap">{method.priceKc === 0 ? "Zdarma" : formatKc(method.priceKc)}</span>
+            {shippingMethods.map((method) => {
+              const methodQuote = quotes.get(method.id)!;
+              return (
+                <label
+                  key={method.id}
+                  className={`flex items-start gap-3 border rounded-xl p-3.5 ${
+                    methodQuote.available ? "cursor-pointer" : "cursor-not-allowed"
+                  } ${values.shippingMethodId === method.id ? "border-begina-primary-900" : "border-neutral-200"}`}
+                >
+                  <input
+                    type="radio"
+                    name="shippingMethodId"
+                    value={method.id}
+                    disabled={!methodQuote.available}
+                    checked={values.shippingMethodId === method.id}
+                    onChange={() => set("shippingMethodId", method.id)}
+                    className="mt-1 accent-begina-primary-900"
+                  />
+                  <span className="flex-1">
+                    <span className="flex justify-between gap-3 text-sm font-medium">
+                      {method.label}
+                      <span className="tabular-nums whitespace-nowrap">{quoteLabel(methodQuote)}</span>
+                    </span>
+                    <span className="block text-xs text-neutral-500 mt-0.5">{method.description}</span>
+                    {!methodQuote.available && (
+                      <span className="block text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5 mt-2" role="note">
+                        {methodQuote.message}
+                      </span>
+                    )}
                   </span>
-                  <span className="block text-xs text-neutral-500 mt-0.5">{method.description}</span>
-                </span>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
 
           {shipping.requiresAddress && (
@@ -301,6 +335,7 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
                   <input id="zip" name="zip" autoComplete="postal-code" inputMode="numeric" required value={values.zip} onChange={(e) => set("zip", e.target.value)} className={inputClass} />
                 </div>
               </div>
+              <p className="text-xs text-neutral-500">Doručujeme jen v České republice.</p>
             </div>
           )}
         </fieldset>
@@ -352,11 +387,11 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           ))}
           <li className="py-2 flex justify-between gap-3 text-neutral-600">
             <span>{shipping.label}</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(shipping.priceKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(shippingKc)}</span>
           </li>
           <li className="pt-3 flex justify-between gap-3 font-semibold">
             <span>Celkem</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc + shipping.priceKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc + shippingKc)}</span>
           </li>
         </ul>
 
@@ -412,7 +447,7 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
         <button
           type="submit"
-          disabled={pending || blockedLines.length > 0}
+          disabled={pending || blockedLines.length > 0 || !quote.available}
           className="mt-4 w-full bg-begina-primary-900 hover:bg-begina-primary-800 disabled:opacity-60 text-white text-sm font-medium rounded-lg h-11"
         >
           {pending ? "Odesílám…" : "Objednat s povinností platby"}

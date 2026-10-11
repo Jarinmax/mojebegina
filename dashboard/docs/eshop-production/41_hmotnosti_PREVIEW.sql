@@ -1,0 +1,87 @@
+-- PREVIEW (PR #20) — hmotnosti balení: sloupec product_variants.weight_g + 36 hmotností.
+-- = docs/eshop-production/41_hmotnosti.sql + pojistka: běží JEN na Neon větvi
+--   preview/claude/great-bell-ffjwo3-doprava (br-fragrant-glade-b240pc9f,
+--   neon.timeline_id 1d684d3fc82670cfe6342261f58e1415). Jinde → „STOP“, nic se nezmění.
+-- Jedna transakce: jakákoli pojistka nebo chyba → nic se nezmění.
+-- Kontrola po: 42_hmotnosti_after.sql → 1 | 36 | 0 | 25 | 7 | 4 | 0
+DO $$
+DECLARE
+  updated int;
+  missing text;
+BEGIN
+  -- Pojistka větve: JEN Preview br-fragrant-glade-b240pc9f (PR #20).
+  -- Na Production main (70a96b36…) ani jinde se nic nezmění.
+  IF current_setting('neon.timeline_id', true) IS DISTINCT FROM '1d684d3fc82670cfe6342261f58e1415' THEN
+    RAISE EXCEPTION 'STOP: tohle NENÍ Preview větev preview/claude/great-bell-ffjwo3-doprava (neon.timeline_id = %). Nic se nezměnilo.',
+      coalesce(current_setting('neon.timeline_id', true), 'neznámý');
+  END IF;
+
+  -- Pojistky
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'product_variants' AND column_name = 'weight_g') THEN
+    RAISE EXCEPTION 'Sloupec product_variants.weight_g už existuje (skript už běžel?) — zastavuji.';
+  END IF;
+
+  CREATE TEMP TABLE hmotnosti (sku text PRIMARY KEY, weight_g integer NOT NULL) ON COMMIT DROP;
+  INSERT INTO hmotnosti (sku, weight_g) VALUES
+    -- Čerstvé polévky 3 l
+    ('kulajda', 3000),
+    ('dynova-polevka', 3000),
+    ('gulasova-polevka-z-hlivy-ustricne', 3000),
+    ('rajcatova-polevka', 3000),
+    ('rajcatova-polevka-s-cervenou-repou', 3000),
+    ('spenatova-polevka', 3000),
+    -- Čaje 3 l
+    ('bylinny-caj-saman-3l', 3000),
+    ('cerny-caj-golden-nepal-3l', 3000),
+    ('hermankovy-caj-3l', 3000),
+    ('ibiskovy-caj-3l', 3000),
+    ('jasminovy-zeleny-caj-3l', 3000),
+    ('lipovy-caj-3l', 3000),
+    ('medunkovy-caj-s-levanduli-3l', 3000),
+    ('zazvorovy-caj-3l', 3000),
+    -- Bylinné sirupy 3 l
+    ('bylinny-sirup-saman-3l', 3000),
+    ('hermankovy-sirup-3l', 3000),
+    ('ibiskovy-sirup-3l', 3000),
+    ('lipovy-sirup-3l', 3000),
+    ('medunkovy-sirup-s-levanduli-3l', 3000),
+    ('sipkovy-sirup-3l', 3000),
+    ('zazvorovy-sirup-3l', 3000),
+    -- Bylinné sirupy 750 g
+    ('bylinny-sirup-saman-750ml', 750),
+    ('hermankovy-sirup-750ml', 750),
+    ('ibiskovy-sirup-750ml', 750),
+    ('lipovy-sirup-750ml', 750),
+    ('medunkovy-sirup-s-levanduli-750ml', 750),
+    ('sipkovy-sirup-750ml', 750),
+    ('zazvorovy-sirup-750ml', 750),
+    -- Koktejly 3 l
+    ('svarak-deluxe-3l', 3000),
+    ('lady-carneval-3l', 3000),
+    ('granatovy-bond-3l', 3000),
+    ('kosmopolitan-3l', 3000),
+    -- Koktejly 500 ml
+    ('svarak-deluxe-500ml', 500),
+    ('lady-carneval-500ml', 500),
+    ('granatovy-bond-500ml', 500),
+    ('kosmopolitan-500ml', 500);
+
+  SELECT string_agg(h.sku, ', ' ORDER BY h.sku) INTO missing
+    FROM hmotnosti h LEFT JOIN product_variants v ON v.sku = h.sku AND v.is_active
+   WHERE v.id IS NULL;
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION 'Tato SKU v katalogu chybí nebo nejsou aktivní: % — zastavuji.', missing;
+  END IF;
+
+  -- = drizzle/0021_eshop_1_0_variant_weight.sql
+  ALTER TABLE "product_variants" ADD COLUMN "weight_g" integer;
+  ALTER TABLE "product_variants" ADD CONSTRAINT "product_variants_weight_positive" CHECK ("product_variants"."weight_g" > 0);
+
+  UPDATE product_variants v SET weight_g = h.weight_g, updated_at = now()
+    FROM hmotnosti h WHERE v.sku = h.sku;
+  GET DIAGNOSTICS updated = ROW_COUNT;
+  IF updated <> 36 THEN
+    RAISE EXCEPTION 'Doplněno % hmotností místo 36 — zastavuji.', updated;
+  END IF;
+END $$;

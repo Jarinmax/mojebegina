@@ -814,9 +814,12 @@ export const productVariants = pgTable(
     label: text("label"), // NULL = balení zatím neznámé
     shortNote: text("short_note"),
     packageDescription: text("package_description"),
-    volumeMl: integer("volume_ml"), // doprava na begina.cz se počítá podle objemu
+    volumeMl: integer("volume_ml"),
     servings: integer("servings"),
     priceB2cKc: integer("price_b2c_kc").notNull(), // konečná cena, Begina není plátce DPH
+    // Hmotnost balení v gramech pro cenu chlazené přepravy (lib/eshop/shippingRates.ts).
+    // NULL = neznámá → chlazenou přepravu nejde spočítat a pokladna ji nenabídne.
+    weightG: integer("weight_g"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -828,6 +831,7 @@ export const productVariants = pgTable(
     check("product_variants_volume_positive", sql`${table.volumeMl} > 0`),
     check("product_variants_servings_positive", sql`${table.servings} > 0`),
     check("product_variants_price_nonnegative", sql`${table.priceB2cKc} >= 0`),
+    check("product_variants_weight_positive", sql`${table.weightG} > 0`),
   ]
 );
 

@@ -6,6 +6,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import CancelledMoneyPanel from "../CancelledMoneyPanel";
 import CancelledMoneyBadge from "../CancelledMoneyBadge";
 import { fireEvent } from "@testing-library/react";
+import { shippingMethodsFor } from "@/lib/eshop/shipping";
 
 const REPLACEMENT = {
   token: "0b9d3a52-5d55-4a8a-9d55-6f7c0e3a1b11",
@@ -13,13 +14,13 @@ const REPLACEMENT = {
   customer: { name: "Jana Nováková", email: "jana@example.cz", phone: "+420 777 123 456" },
   address: { street: "", city: "", zip: "" },
   products: [
-    { sku: "kulajda", label: "Kulajda — 1 l", priceKc: 379, ageRestricted: false },
-    { sku: "svarak-deluxe-500ml", label: "Svařák Deluxe — 500 ml", priceKc: 129, ageRestricted: true },
+    { sku: "kulajda", label: "Kulajda — 1 l", priceKc: 379, ageRestricted: false, weightGrams: 3000 },
+    { sku: "svarak-deluxe-500ml", label: "Svařák Deluxe — 500 ml", priceKc: 129, ageRestricted: true, weightGrams: 500 },
+    { sku: "dum-u-jezera-3l", label: "Dům u jezera — 3 l", priceKc: 449, ageRestricted: false, weightGrams: null },
   ],
-  shipping: [
-    { id: "osobni-odber", label: "Osobní vyzvednutí", priceKc: 0, requiresAddress: false },
-    { id: "rozvoz", label: "Chlazená přeprava", priceKc: 99, requiresAddress: true },
-  ],
+  shipping: shippingMethodsFor("flat"),
+  shippingMode: "flat" as const,
+  shippingContact: { email: "info@begina.cz", phone: "+420 774 199 975" },
 };
 
 vi.mock("../actions", () => ({
@@ -71,6 +72,19 @@ describe("peníze stornované objednávky", () => {
     expect(document.querySelector('input[name="street"]')).toBeNull();
     fireEvent.change(screen.getByLabelText("Doprava"), { target: { value: "rozvoz" } });
     expect((document.querySelector('input[name="street"]') as HTMLInputElement).required).toBe(true);
+  });
+
+  it("doprava podle hmotnosti: cena z hmotnosti balení, bez hmotnosti → individuální domluva", () => {
+    const byWeight = { ...REPLACEMENT, shipping: shippingMethodsFor("weight"), shippingMode: "weight" as const };
+    render(<CancelledMoneyPanel orderId={ORDER} money={{ stage: "contact", heldHal: 75800 }} today="2026-10-09" replacement={byWeight} />);
+    fireEvent.change(screen.getByLabelText("Produkt 1"), { target: { value: "kulajda" } });
+    fireEvent.change(screen.getByLabelText("Počet 1"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Doprava"), { target: { value: "rozvoz" } });
+    // 2 × 379 + 267 (6 kg) = 1 025 Kč, drženo 758 Kč
+    expect(document.body.textContent).toMatch(/Cena náhradní objednávky 1\s025\sKč · zákazník doplatí 267\sKč/);
+    fireEvent.change(screen.getByLabelText("Produkt 2"), { target: { value: "dum-u-jezera-3l" } });
+    expect(document.body.textContent).toMatch(/U položky Dům u jezera — 3 l zatím neznáme hmotnost/);
+    expect(document.body.textContent).toContain("Chlazená přeprava · Individuálně");
   });
 
   it("přeplatek: závazek k vrácení a zápis skutečného vrácení", () => {

@@ -112,6 +112,8 @@ export function expectedCatalogAfterSeed(): Catalog {
         priceKc: variant.priceKc,
         volumeMl: deriveVolumeMl(variant.label),
         servings: deriveServings(variant.detail),
+        // hmotnosti doplňuje až docs/eshop-production/41_hmotnosti.sql
+        weightGrams: null,
       })),
       alcoholPercent: product.alcoholPercent,
       isAgeRestricted: row.isAgeRestricted,

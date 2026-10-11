@@ -1,0 +1,2 @@
+ALTER TABLE "product_variants" ADD COLUMN "weight_g" integer;--> statement-breakpoint
+ALTER TABLE "product_variants" ADD CONSTRAINT "product_variants_weight_positive" CHECK ("product_variants"."weight_g" > 0);
