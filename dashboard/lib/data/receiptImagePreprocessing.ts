@@ -7,8 +7,15 @@
 //
 // Tři kroky, v tomhle pořadí:
 //   1. Ořez světlé účtenky z tmavého pozadí — jas okrajového pruhu snímku
-//      se bere jako odhad pozadí, hledá se ohraničující obdélník pixelů
-//      výrazně jasnějších než tenhle odhad.
+//      se bere jako odhad pozadí; hranice dokumentu se hledá PO SLOUPCÍCH
+//      A ŘÁDCÍCH (kolik pixelů dané šířky/výšky přesahuje práh jasu,
+//      relativně k nejlepšímu sloupci/řádku v náhledu — viz
+//      findDocumentBounds níž), ne prostým obalujícím obdélníkem všech
+//      jasných pixelů. Oprava po reálném nálezu: dlouhá úzká účtenka
+//      uprostřed širší fotky + jasný odlesk (lesk na stole, odraz světla)
+//      blízko kraje snímku dřív natáhly ořez přes skoro celou fotografii,
+//      protože jediný jasný pixel u kraje stačil posunout minX/maxX až k
+//      okraji.
 //   2. Normalizace kontrastu (sharp .normalize()) + doostření (.sharpen()).
 //   3. Rozdělení dlouhé (úzké) účtenky na překrývající se vodorovné výřezy
 //      shora dolů — jen když je doklad výrazně vyšší než širší a nad
@@ -35,6 +42,12 @@ const ANALYSIS_MAX_DIMENSION = 240;
 const CROP_PADDING_FRACTION = 0.02;
 const MIN_CROP_AREA_FRACTION = 0.1;
 const MAX_CROP_AREA_FRACTION = 0.98;
+// Sloupec (resp. řádek) se počítá jako součást dokumentu, jen když jeho
+// počet jasných pixelů dosahuje aspoň tenhle podíl NEJLEPŠÍHO sloupce
+// (řádku) v náhledu — relativně k nejlepšímu, ne k celé šířce/výšce
+// náhledu (ta by u úzké účtenky uprostřed širší fotky byla zavádějící,
+// viz komentář u findDocumentBounds níž).
+const MIN_AXIS_FOREGROUND_FRACTION = 0.3;
 
 export const SPLIT_MIN_HEIGHT_PX = 2400;
 export const SPLIT_MIN_ASPECT_RATIO = 2.2;
@@ -52,6 +65,71 @@ export type PagePreprocessingDiagnostics = {
 };
 
 export type PreprocessedReceiptPage = { images: ReceiptImageInput[]; diagnostics: PagePreprocessingDiagnostics };
+
+// Hranice dokumentu v šedotónovém náhledu — PO SLOUPCÍCH A ŘÁDCÍCH, ne
+// prostým obalujícím obdélníkem všech pixelů nad prahem jasu. Sloupec
+// (řádek) patří k dokumentu, jen když jeho počet jasných pixelů dosahuje
+// aspoň MIN_AXIS_FOREGROUND_FRACTION počtu NEJLEPŠÍHO sloupce (řádku) v
+// celém náhledu — ne pevný podíl celé šířky/výšky náhledu, protože u
+// ÚZKÉ účtenky uprostřed ŠIRŠÍ fotky by i legitimní řádek dokladu
+// pokrýval jen malou část celé šířky fotky (zbytek je pozadí po
+// stranách) a takový pevný práh by ho mylně vyřadil. Izolovaný jasný
+// odlesk blízko kraje fotky (lesk na stole, odraz světla) naproti tomu
+// zvýší počet jen v hrstce sloupců/řádků, hluboko pod počtem nejlepšího
+// sloupce/řádku (tím skutečné účtenky) — práh nepřekročí, i když jde o
+// pixel jasně nad prahem jasu. Vrací null, když žádný sloupec/řádek práh
+// nepřekročí (jednolitý/příliš tmavý snímek).
+function findDocumentBounds(
+  data: Uint8Array,
+  width: number,
+  height: number,
+  threshold: number
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  const colCounts = new Int32Array(width);
+  const rowCounts = new Int32Array(height);
+  for (let y = 0; y < height; y += 1) {
+    const rowOffset = y * width;
+    for (let x = 0; x < width; x += 1) {
+      if (data[rowOffset + x] >= threshold) {
+        colCounts[x] += 1;
+        rowCounts[y] += 1;
+      }
+    }
+  }
+
+  let maxColCount = 0;
+  for (let x = 0; x < width; x += 1) {
+    if (colCounts[x] > maxColCount) maxColCount = colCounts[x];
+  }
+  let maxRowCount = 0;
+  for (let y = 0; y < height; y += 1) {
+    if (rowCounts[y] > maxRowCount) maxRowCount = rowCounts[y];
+  }
+  const colThreshold = Math.max(2, Math.round(maxColCount * MIN_AXIS_FOREGROUND_FRACTION));
+  const rowThreshold = Math.max(2, Math.round(maxRowCount * MIN_AXIS_FOREGROUND_FRACTION));
+
+  let minX = width;
+  let maxX = -1;
+  for (let x = 0; x < width; x += 1) {
+    if (colCounts[x] >= colThreshold) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+    }
+  }
+  let minY = height;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    if (rowCounts[y] >= rowThreshold) {
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return null;
+  }
+  return { minX, maxX, minY, maxY };
+}
 
 // Najde ohraničující obdélník světlé účtenky na zmenšeném šedotónovém
 // náhledu (kvůli rychlosti), výsledek přepočítá zpět na plné rozlišení.
@@ -98,23 +176,14 @@ async function detectReceiptCropBox(bytes: Buffer): Promise<CropBox | null> {
   }
   const threshold = backgroundSum / backgroundCount + BRIGHTNESS_MARGIN;
 
-  let minX = width;
-  let maxX = -1;
-  let minY = height;
-  let maxY = -1;
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (data[y * width + x] >= threshold) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-    }
+  const bounds = findDocumentBounds(data, width, height, threshold);
+  if (!bounds) {
+    // Buď nic nepřesáhlo práh (jednolitý/příliš tmavý snímek), nebo jasné
+    // pixely byly jen izolované odlesky bez souvislé plochy — v obou
+    // případech appka radši neořízne (viz findDocumentBounds).
+    return null;
   }
-  if (maxX < minX || maxY < minY) {
-    return null; // nic nepřesáhlo práh — jednolitý/příliš tmavý snímek
-  }
+  const { minX, maxX, minY, maxY } = bounds;
 
   const scaleX = fullWidth / width;
   const scaleY = fullHeight / height;
