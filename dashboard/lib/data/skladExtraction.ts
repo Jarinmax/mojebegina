@@ -40,7 +40,7 @@ import {
   suppliers,
 } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
-import { requireReviewAccess, requireUploadAccess } from "./skladAuth";
+import { requirePricesAndOriginalAccess, requireReviewAccess, requireUploadAccess } from "./skladAuth";
 import {
   normalizeExtractedLine,
   normalizeText,
@@ -48,6 +48,7 @@ import {
   sanitizeExtractedIco,
   sanitizeExtractedReceipt,
   STOCK_ITEM_KINDS,
+  type ExtractedReceiptLine,
   type LineKind,
 } from "./skladValidation";
 import { extractStructuredReceipt, EXTRACTION_MODEL_ID } from "./receiptExtractionModel";
@@ -186,6 +187,36 @@ async function truncatedExtractionResult(receiptId: string, phase: "ocr" | "stru
   };
 }
 
+// --- "Znovu přečíst doklad" (opakované AI vytěžení draft příjemky, co už
+// může mít řádky) -----------------------------------------------------------
+//
+// ZÁSADNĚ odlišné od markExtractionFailed/truncatedExtractionResult výš —
+// tyhle pracují jen s reextraction_status, NIKDY s extraction_status ani
+// goods_receipt_lines. Selhání nového čtení tak nemůže poškodit ani jen
+// signalizovat změnu u už existujících (natož potvrzených) dat — ty
+// zůstávají přesně tak, jak byly před kliknutím na "Znovu přečíst doklad".
+async function markReextractionFailed(receiptId: string): Promise<void> {
+  try {
+    await db
+      .update(goodsReceipts)
+      .set({ reextractionStatus: "failed", updatedAt: new Date() })
+      .where(eq(goodsReceipts.id, receiptId));
+  } catch {
+    // Stejná zásada jako markExtractionFailed — best-effort hláška, chyba
+    // zápisu se tiše ignoruje, aby nezamaskovala původní chybu z modelu.
+  }
+}
+
+async function truncatedReextractionResult(receiptId: string, phase: "ocr" | "structuring"): Promise<TriggerExtractionResult> {
+  console.error(`[sklad] Nové čtení dosáhlo výstupního limitu (receiptId=${receiptId}, fáze=${phase}) — čtení nebylo dokončeno, původní řádky beze změny.`);
+  await markReextractionFailed(receiptId);
+  return {
+    ok: false,
+    error: "Nové čtení dokladu se nepodařilo dokončit — model dosáhl limitu délky výstupu. Původní řádky zůstávají beze změny. Zkuste to znovu.",
+    kind: "technical",
+  };
+}
+
 // --- Dodavatel: IČO → normalizovaný název, NIKDY auto-vytvoření duplicity ---
 //
 // Příjemka má supplier_id už od založení (viz createDraftGoodsReceipt) —
@@ -254,6 +285,93 @@ async function findKnownMapping(supplierId: string, supplierItemCode: string | n
 
   await db.update(supplierItemMappings).set({ lastUsedAt: new Date() }).where(eq(supplierItemMappings.id, mapping.id));
   return { stockItemId: mapping.stockItemId, lineKind: mapping.lineKind as LineKind, canonicalUnit: mapping.canonicalUnit };
+}
+
+// Jeden vytěžený/sanitizovaný řádek doplněný o mapování na skladovou
+// kartu — přesně tvar, který (a) triggerGoodsReceiptExtraction rovnou
+// zapisuje do goods_receipt_lines, a (b) triggerGoodsReceiptReextraction
+// ukládá do reextraction_raw.lines k porovnání PŘED jakýmkoli zápisem.
+// Sdíleno, aby obě cesty počítaly normalizedUnit/mapping STEJNĚ (viz
+// komentář u normalizedUnit níž — reálný nález na MAKRO faktuře).
+export type ResolvedExtractionLine = {
+  position: number;
+  rawDescription: string;
+  supplierItemCode: string | null;
+  supplierAuxiliaryCode: string | null;
+  rawPackageQuantity: number;
+  rawUnitsPerPackage: number;
+  rawUnit: string;
+  normalizedQuantity: number;
+  normalizedUnit: string;
+  unitPriceWithoutVat: number;
+  totalWithoutVatHal: number;
+  vatHal: number;
+  totalWithVatHal: number;
+  computedVatRatePercent: number;
+  stockItemId: string | null;
+  lineKind: LineKind;
+  mappingSource: "auto" | null;
+  suggestion: { category: string; stockItemName: string | null; canonicalUnit: string | null } | null;
+};
+
+// Dohledá mapování a dopočítá normalizedUnit/lineKind pro KAŽDÝ řádek,
+// nezávisle na tom, jestli se hned zapíše do goods_receipt_lines
+// (triggerGoodsReceiptExtraction), nebo jen uloží do reextraction_raw
+// k porovnání (triggerGoodsReceiptReextraction). Volá findKnownMapping
+// sekvenčně (ne Promise.all) — zachovává přesné pořadí řádků i u
+// případných budoucích vedlejších účinků mapování (bump last_used_at).
+async function resolveExtractedLines(supplierId: string, lines: ExtractedReceiptLine[]): Promise<ResolvedExtractionLine[]> {
+  const resolved: ResolvedExtractionLine[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const normalized = normalizeExtractedLine(line);
+    const mapping = await findKnownMapping(supplierId, normalized.supplierItemCode, normalized.rawDescription);
+
+    // suggestedCategory je už sanitizovaná (sanitizeExtractedReceipt) na
+    // jednu ze 4 povolených hodnot nebo null — žádná další kontrola
+    // formátu tu není potřeba.
+    const suggestedCategory = line.suggestedCategory;
+    const lineKind: LineKind = mapping?.lineKind ?? (suggestedCategory as LineKind | null) ?? "stock_material";
+
+    resolved.push({
+      position: index + 1,
+      rawDescription: normalized.rawDescription,
+      supplierItemCode: normalized.supplierItemCode,
+      supplierAuxiliaryCode: normalized.supplierAuxiliaryCode,
+      rawPackageQuantity: normalized.rawPackageQuantity,
+      rawUnitsPerPackage: normalized.rawUnitsPerPackage,
+      rawUnit: normalized.rawUnit,
+      normalizedQuantity: normalized.normalizedQuantity,
+      // Reálný nález (MAKRO faktura): dřív tu byl i `line.suggestedCanonicalUnit`
+      // jako druhá možnost PŘED rawUnit — u nenamapované položky se tak na
+      // kontrolní obrazovce zobrazovala AI's NEZÁVAZNÝ návrh kanonické
+      // jednotky (pro budoucí skladovou kartu, "jak tuhle položku
+      // skladovat") jako by to byla OVĚŘENÁ jednotka NÁKUPU. Balení (BG,
+      // "1 balení hranolků po 2,5 kg") se tak uživateli ukázalo jako
+      // "1 kg" — appka ukazovala AI odhad namísto skutečně vytištěné
+      // jednotky z dokladu. suggestedCanonicalUnit zůstává dál dostupný
+      // (ExtractionSuggestion → MappingForm), jen se už nepoužije jako
+      // zobrazená jednotka NEPOTVRZENÉHO řádku — dokud je mapování
+      // nepotvrzené, appka ukazuje jen to, co skutečně stálo na dokladu.
+      normalizedUnit: mapping?.canonicalUnit ?? normalized.rawUnit,
+      unitPriceWithoutVat: normalized.unitPriceWithoutVat,
+      totalWithoutVatHal: normalized.totalWithoutVatHal,
+      vatHal: normalized.vatHal,
+      totalWithVatHal: normalized.totalWithVatHal,
+      computedVatRatePercent: normalized.computedVatRatePercent,
+      stockItemId: mapping?.stockItemId ?? null,
+      lineKind,
+      mappingSource: mapping ? "auto" : null,
+      suggestion: mapping
+        ? null
+        : {
+            category: suggestedCategory ?? "stock_material",
+            stockItemName: line.suggestedStockItemName,
+            canonicalUnit: line.suggestedCanonicalUnit,
+          },
+    });
+  }
+  return resolved;
 }
 
 // `kind` rozlišuje DVĚ různé příčiny neúspěchu (po reálném nálezu s
@@ -408,65 +526,36 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     }
     const finalSupplierId = resolvedSupplier?.supplierId ?? receipt.supplierId;
 
+    const resolvedLines = await resolveExtractedLines(finalSupplierId, extracted.lines);
     const extractionRawLines: Array<{
       position: number;
       suggestion: { category: string; stockItemName: string | null; canonicalUnit: string | null } | null;
     }> = [];
 
-    for (let index = 0; index < extracted.lines.length; index += 1) {
-      const line = extracted.lines[index];
-      const normalized = normalizeExtractedLine(line);
-      const mapping = await findKnownMapping(finalSupplierId, normalized.supplierItemCode, normalized.rawDescription);
-
-      // suggestedCategory je už sanitizovaná (sanitizeExtractedReceipt) na
-      // jednu ze 4 povolených hodnot nebo null — žádná další kontrola
-      // formátu tu není potřeba.
-      const suggestedCategory = line.suggestedCategory;
-      const lineKind: LineKind = mapping?.lineKind ?? (suggestedCategory as LineKind | null) ?? "stock_material";
-
+    for (const line of resolvedLines) {
       await db.insert(goodsReceiptLines).values({
         receiptId,
-        position: index + 1,
-        rawDescription: normalized.rawDescription,
-        supplierItemCode: normalized.supplierItemCode,
-        supplierAuxiliaryCode: normalized.supplierAuxiliaryCode,
-        rawPackageQuantity: normalized.rawPackageQuantity,
-        rawUnitsPerPackage: normalized.rawUnitsPerPackage,
-        rawUnit: normalized.rawUnit,
-        normalizedQuantity: normalized.normalizedQuantity,
-        // Reálný nález (MAKRO faktura): dřív tu byl i `line.suggestedCanonicalUnit`
-        // jako druhá možnost PŘED rawUnit — u nenamapované položky se tak na
-        // kontrolní obrazovce zobrazovala AI's NEZÁVAZNÝ návrh kanonické
-        // jednotky (pro budoucí skladovou kartu, "jak tuhle položku
-        // skladovat") jako by to byla OVĚŘENÁ jednotka NÁKUPU. Balení (BG,
-        // "1 balení hranolků po 2,5 kg") se tak uživateli ukázalo jako
-        // "1 kg" — appka ukazovala AI odhad namísto skutečně vytištěné
-        // jednotky z dokladu. suggestedCanonicalUnit zůstává dál dostupný
-        // (ExtractionSuggestion → MappingForm), jen se už nepoužije jako
-        // zobrazená jednotka NEPOTVRZENÉHO řádku — dokud je mapování
-        // nepotvrzené, appka ukazuje jen to, co skutečně stálo na dokladu.
-        normalizedUnit: mapping?.canonicalUnit ?? normalized.rawUnit,
-        unitPriceWithoutVat: normalized.unitPriceWithoutVat,
-        totalWithoutVatHal: normalized.totalWithoutVatHal,
-        vatHal: normalized.vatHal,
-        totalWithVatHal: normalized.totalWithVatHal,
-        computedVatRatePercent: normalized.computedVatRatePercent,
+        position: line.position,
+        rawDescription: line.rawDescription,
+        supplierItemCode: line.supplierItemCode,
+        supplierAuxiliaryCode: line.supplierAuxiliaryCode,
+        rawPackageQuantity: line.rawPackageQuantity,
+        rawUnitsPerPackage: line.rawUnitsPerPackage,
+        rawUnit: line.rawUnit,
+        normalizedQuantity: line.normalizedQuantity,
+        normalizedUnit: line.normalizedUnit,
+        unitPriceWithoutVat: line.unitPriceWithoutVat,
+        totalWithoutVatHal: line.totalWithoutVatHal,
+        vatHal: line.vatHal,
+        totalWithVatHal: line.totalWithVatHal,
+        computedVatRatePercent: line.computedVatRatePercent,
         vatConfirmed: false,
-        stockItemId: mapping?.stockItemId ?? null,
-        lineKind,
-        mappingSource: mapping ? "auto" : null,
+        stockItemId: line.stockItemId,
+        lineKind: line.lineKind,
+        mappingSource: line.mappingSource,
       });
 
-      extractionRawLines.push({
-        position: index + 1,
-        suggestion: mapping
-          ? null
-          : {
-              category: suggestedCategory ?? "stock_material",
-              stockItemName: line.suggestedStockItemName,
-              canonicalUnit: line.suggestedCanonicalUnit,
-            },
-      });
+      extractionRawLines.push({ position: line.position, suggestion: line.suggestion });
     }
 
     await db
@@ -607,4 +696,224 @@ export async function confirmGoodsReceiptLineMapping(
   }
 
   return { ok: true };
+}
+
+// --- "Znovu přečíst doklad" ------------------------------------------------
+//
+// Opakované AI vytěžení draft příjemky, co už může mít goods_receipt_lines
+// (z ruční práce i z dřívějšího úspěšného/needs_review vytěžení). Zadání:
+// původní řádky se zachovají, nový výsledek se uloží ODDĚLENĚ (jen do
+// reextraction_raw, NIKDY do goods_receipt_lines/extraction_raw) a čeká na
+// porovnání — teprve explicitní převzetí (acceptGoodsReceiptReextraction,
+// sklad.ts) ho promítne do řádků. Chyba/useknutí v kterékoli fázi nechá
+// reextraction_status='failed' a nesahá na extraction_status ani na
+// existující řádky vůbec (viz markReextractionFailed výš) — proto appka
+// smí znovu vytěžit, i když je extraction_status 'needs_review'/'succeeded'/
+// 'failed', dokud je samotná příjemka draft.
+//
+// Idempotence/souběh: atomický claim na VLASTNÍM sloupci
+// (reextraction_status + reextraction_claimed_at), stejný vzor jako
+// extraction_status/updated_at u triggerGoodsReceiptExtraction výš — ale
+// BEZ "NOT EXISTS (řádky)" podmínky, protože u téhle funkce je existence
+// starých řádků to, co appka explicitně zachovává, ne důvod k zablokování.
+export type ReextractionResult = TriggerExtractionResult;
+
+async function fetchReceiptStatusForReextraction(
+  receiptId: string
+): Promise<{ id: string; status: string; supplierId: string; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null; reextractionStatus: string } | null> {
+  const [receipt] = await db
+    .select({
+      id: goodsReceipts.id,
+      status: goodsReceipts.status,
+      supplierId: goodsReceipts.supplierId,
+      documentNumber: goodsReceipts.documentNumber,
+      documentDate: goodsReceipts.documentDate,
+      paymentMethod: goodsReceipts.paymentMethod,
+      reextractionStatus: goodsReceipts.reextractionStatus,
+    })
+    .from(goodsReceipts)
+    .where(eq(goodsReceipts.id, receiptId))
+    .limit(1);
+  return receipt ?? null;
+}
+
+export async function triggerGoodsReceiptReextraction(receiptId: string): Promise<ReextractionResult> {
+  const ctx = requireUploadAccess(await getAuthContext());
+
+  const receipt = await fetchReceiptStatusForReextraction(receiptId);
+  if (!receipt) {
+    return { ok: false, error: "Příjemka nebyla nalezena.", kind: "technical" };
+  }
+  if (receipt.status !== "draft") {
+    return { ok: false, error: "Znovu přečíst lze jen návrh příjemky — potvrzené a stornované příjemky appka nemění.", kind: "technical" };
+  }
+
+  const claim = await db.execute<{ id: string }>(sql`
+    UPDATE goods_receipts
+    SET reextraction_status = 'pending', reextraction_claimed_at = now(), updated_at = now()
+    WHERE id = ${receiptId}
+      AND status = 'draft'
+      AND (
+        reextraction_status IN ('none', 'failed')
+        OR (reextraction_status = 'pending' AND reextraction_claimed_at < now() - interval '10 minutes')
+      )
+    RETURNING id
+  `);
+  if (claim.rows.length === 0) {
+    const message =
+      receipt.reextractionStatus === "ready"
+        ? "Nový výsledek už čeká na porovnání — nejdřív ho na příjemce zkontrolujte a převezměte nebo zahoďte."
+        : "Nové čtení nelze spustit — právě běží jiný pokus.";
+    return { ok: false, error: message, kind: "technical" };
+  }
+
+  const { images, diagnostics: pageDiagnostics } = await fetchReceiptPageImages(receiptId);
+  if (images.length === 0) {
+    await markReextractionFailed(receiptId);
+    return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu.", kind: "technical" };
+  }
+
+  console.log(`[sklad] Znovu přečíst — příprava obrázku (receiptId=${receiptId}):`, pageDiagnostics);
+
+  let ocrText: string;
+  try {
+    ocrText = await performReceiptOcr(images, receiptId);
+  } catch (error) {
+    if (error instanceof ModelOutputTruncatedError) {
+      return truncatedReextractionResult(receiptId, error.phase);
+    }
+    console.error(`[sklad] Znovu přečíst — OCR účtenky selhalo (receiptId=${receiptId}, model=${OCR_MODEL_ID}):`, describeExtractionErrorForLog(error));
+    await markReextractionFailed(receiptId);
+    return { ok: false, error: "Nové čtení dokladu se nezdařilo. Původní řádky zůstávají beze změny. Zkuste to znovu.", kind: "technical" };
+  }
+
+  const ocrCharCount = ocrText.trim().length;
+  console.log(`[sklad] Znovu přečíst — OCR diagnostika (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}`);
+
+  if (ocrCharCount < MIN_OCR_TEXT_LENGTH) {
+    console.error(`[sklad] Znovu přečíst — OCR vrátilo příliš málo textu (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}, min=${MIN_OCR_TEXT_LENGTH}`);
+    await markReextractionFailed(receiptId);
+    return {
+      ok: false,
+      error:
+        "Z fotky dokladu se nepodařilo přečíst dost textu. Původní řádky zůstávají beze změny. Zkuste to znovu, nebo nahrajte lepší fotografii.",
+      kind: "unreadable",
+    };
+  }
+
+  let structuredRaw;
+  try {
+    structuredRaw = await extractStructuredReceipt(ocrText, receiptId);
+  } catch (error) {
+    if (error instanceof ModelOutputTruncatedError) {
+      return truncatedReextractionResult(receiptId, error.phase);
+    }
+    console.error(
+      `[sklad] Znovu přečíst — strukturování OCR textu selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
+      describeExtractionErrorForLog(error)
+    );
+    await markReextractionFailed(receiptId);
+    return { ok: false, error: "Nové čtení dokladu se nezdařilo. Původní řádky zůstávají beze změny. Zkuste to znovu.", kind: "technical" };
+  }
+
+  const { receipt: extracted, droppedLineCount, diagnostics: sanitizeDiagnostics } = sanitizeExtractedReceipt(structuredRaw);
+  console.log(
+    `[sklad] Znovu přečíst — sanitizace řádků (receiptId=${receiptId}): rawLineCount=${sanitizeDiagnostics.rawLineCount}, acceptedLineCount=${sanitizeDiagnostics.acceptedLineCount}, droppedLineCount=${droppedLineCount}`,
+    sanitizeDiagnostics
+  );
+  if (extracted.lines.length === 0) {
+    await markReextractionFailed(receiptId);
+    return {
+      ok: false,
+      error:
+        "Z dokladu se nepodařilo rozpoznat žádnou použitelnou položku. Původní řádky zůstávají beze změny. Zkuste to znovu, nebo nahrajte lepší fotografii.",
+      kind: "unreadable",
+    };
+  }
+
+  try {
+    // Na rozdíl od triggerGoodsReceiptExtraction výš appka tady dodavatele
+    // JEN DOHLEDÁ (čistě čtecí resolveSupplierId), ale NEZAPISUJE ho do
+    // goods_receipts — dokud uživatel nový výsledek nepřevezme, hlavička
+    // příjemky zůstává beze změny stejně jako řádky.
+    const sanitizedIco = sanitizeExtractedIco(extracted.supplierIco);
+    const resolvedSupplier = await resolveSupplierId(receipt.supplierId, extracted.supplierName, sanitizedIco);
+    const finalSupplierId = resolvedSupplier?.supplierId ?? receipt.supplierId;
+
+    const resolvedLines = await resolveExtractedLines(finalSupplierId, extracted.lines);
+
+    const reextractionRaw: ReextractionRawPayload = {
+      extractedAt: new Date().toISOString(),
+      ocrModel: OCR_MODEL_ID,
+      model: EXTRACTION_MODEL_ID,
+      droppedLineCount,
+      supplierIdCandidate: resolvedSupplier?.supplierId ?? null,
+      supplierNameCandidate: resolvedSupplier?.supplierNameSnapshot ?? null,
+      documentNumber: extracted.documentNumber,
+      documentDate: sanitizeExtractedDocumentDate(extracted.documentDate),
+      paymentMethod: extracted.paymentMethod,
+      totalWithoutVat: extracted.totalWithoutVat,
+      totalVat: extracted.totalVat,
+      totalWithVat: extracted.totalWithVat,
+      lines: resolvedLines,
+    };
+
+    await db
+      .update(goodsReceipts)
+      .set({ reextractionStatus: "ready", reextractionRaw, updatedAt: new Date() })
+      .where(eq(goodsReceipts.id, receiptId));
+
+    await db.insert(goodsReceiptActivity).values({
+      receiptId,
+      actorType: "system",
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "reextraction_ready",
+      body: `Nové čtení doplnilo návrh ${resolvedLines.length} řádků k porovnání (OCR: ${OCR_MODEL_ID}, struktura: ${EXTRACTION_MODEL_ID})${
+        droppedLineCount > 0 ? `, ${droppedLineCount} nečitelných řádků přeskočeno` : ""
+      } — čeká na rozhodnutí. Původní řádky nezměněny.`,
+    });
+
+    return { ok: true };
+  } catch {
+    await markReextractionFailed(receiptId);
+    return { ok: false, error: "Uložení nového výsledku se nezdařilo. Původní řádky zůstávají beze změny. Zkuste to znovu.", kind: "technical" };
+  }
+}
+
+export type ReextractionRawPayload = {
+  extractedAt: string;
+  ocrModel: string;
+  model: string;
+  droppedLineCount: number;
+  supplierIdCandidate: string | null;
+  supplierNameCandidate: string | null;
+  documentNumber: string | null;
+  documentDate: string | null;
+  paymentMethod: string | null;
+  totalWithoutVat: number;
+  totalVat: number;
+  totalWithVat: number;
+  lines: ResolvedExtractionLine[];
+};
+
+export type GoodsReceiptReextractionPreview = {
+  status: "none" | "pending" | "ready" | "failed";
+  raw: ReextractionRawPayload | null;
+};
+
+// Čtení pro porovnávací obrazovku (znovu-precist/page.tsx) — stejná brána
+// jako listGoodsReceiptLines/getGoodsReceipt (requirePricesAndOriginalAccess),
+// aby šlo porovnání ZOBRAZIT každému, kdo smí vidět ceny a originál;
+// PŘEVZETÍ/ZAHOZENÍ (sklad.ts) vyžadují užší requireReviewAccess.
+export async function getGoodsReceiptReextractionPreview(receiptId: string): Promise<GoodsReceiptReextractionPreview | null> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  const [receipt] = await db
+    .select({ reextractionStatus: goodsReceipts.reextractionStatus, reextractionRaw: goodsReceipts.reextractionRaw })
+    .from(goodsReceipts)
+    .where(eq(goodsReceipts.id, receiptId))
+    .limit(1);
+  if (!receipt) return null;
+  const status = receipt.reextractionStatus as GoodsReceiptReextractionPreview["status"];
+  return { status, raw: status === "ready" ? (receipt.reextractionRaw as ReextractionRawPayload) : null };
 }

@@ -15,6 +15,11 @@ const migrationSql = readFileSync(
   "utf-8"
 );
 
+const migration0024Sql = readFileSync(
+  join(__dirname, "../../../drizzle/0024_phase_22_sklad_1_0_znovu_precist.sql"),
+  "utf-8"
+);
+
 describe("migrace 0023 — databázové pojistky (revize návrhu)", () => {
   it("bod 1: skladové lokace existují a MVP má seedovanou výchozí lokaci", () => {
     expect(migrationSql).toContain('CREATE TABLE "stock_locations"');
@@ -113,6 +118,29 @@ describe("migrace 0023 — databázové pojistky (revize návrhu)", () => {
     ) as { entries: Array<{ idx: number; tag: string }> };
     const entry = journal.entries.find((e) => e.tag === "0023_phase_22_sklad_1_0_zaklad");
     expect(entry?.idx).toBe(23);
-    expect(journal.entries[journal.entries.length - 1].idx).toBe(23);
+    // Od "Znovu přečíst doklad" (migrace 0024) už 0023 není poslední skladová
+    // migrace v journalu — jen první. Další skladová migrace musí navazovat
+    // bez mezery (idx 24), ne přeskočit/duplikovat index.
+    const next = journal.entries.find((e) => e.idx === 24);
+    expect(next?.tag).toBe("0024_phase_22_sklad_1_0_znovu_precist");
+  });
+});
+
+describe("migrace 0024 — „Znovu přečíst doklad“ je zcela oddělená od extraction_status", () => {
+  it("nové sloupce nesou vlastní, samostatný stav a nerozšiřují/nenahrazují extraction_status_check", () => {
+    expect(migration0024Sql).toContain('ADD COLUMN "reextraction_status" text DEFAULT \'none\' NOT NULL');
+    expect(migration0024Sql).toContain('ADD COLUMN "reextraction_raw" jsonb');
+    expect(migration0024Sql).toContain('ADD COLUMN "reextraction_claimed_at" timestamp with time zone');
+    expect(migration0024Sql).not.toContain('"goods_receipts_extraction_status_check"');
+  });
+
+  it("reextraction_status má vlastní CHECK se 4 povolenými hodnotami (none/pending/ready/failed)", () => {
+    expect(migration0024Sql).toContain(
+      'CONSTRAINT "goods_receipts_reextraction_status_check" CHECK ("goods_receipts"."reextraction_status" IN (\'none\',\'pending\',\'ready\',\'failed\'))'
+    );
+  });
+
+  it("migrace je PŘIPRAVENÁ, NENASAZENÁ — žádný krok appky ji nesmí sám spustit proti žádné databázi", () => {
+    expect(migration0024Sql).toContain("PŘIPRAVENO, NENASAZENO");
   });
 });

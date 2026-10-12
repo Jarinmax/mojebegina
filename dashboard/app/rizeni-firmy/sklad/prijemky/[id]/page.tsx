@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getGoodsReceipt, listGoodsReceiptDocumentPages } from "@/lib/data/sklad";
+import { getGoodsReceipt, listGoodsReceiptDocumentPages, listGoodsReceiptLines } from "@/lib/data/sklad";
 import { getAuthContext } from "@/lib/data/authContext";
 import { canUploadGoodsReceiptDocument } from "@/lib/data/skladAuth";
 import FotoCapture from "./FotoCapture";
 import NacistUdajeButton from "./NacistUdajeButton";
+import ZnovuPrecistSekce from "./ZnovuPrecistSekce";
 
 const EXTRACTION_STATUS_LABELS: Record<string, string> = {
   pending: "Vytěžování probíhá…",
@@ -26,6 +27,7 @@ export default async function PrijemkaDetailPage({ params }: { params: Promise<{
   // ovládání, co by stejně skončilo 403.
   const ctx = await getAuthContext();
   const canUpload = canUploadGoodsReceiptDocument(ctx);
+  const lines = await listGoodsReceiptLines(id);
 
   return (
     <div>
@@ -87,6 +89,14 @@ export default async function PrijemkaDetailPage({ params }: { params: Promise<{
           <div className="bg-white border border-neutral-200 rounded-xl p-4">
             <p className="text-sm text-neutral-500">{EXTRACTION_STATUS_LABELS.pending}</p>
           </div>
+        )}
+
+        {/* "Znovu přečíst doklad" — nezávislé na extractionStatus výš, jen
+            dokud je co porovnávat (aspoň jeden existující řádek) a
+            příjemka je draft. Zachovává původní řádky beze změny, dokud
+            uživatel nový výsledek výslovně nepřevezme (znovu-precist/). */}
+        {receipt.status === "draft" && canUpload && lines.length > 0 && (
+          <ZnovuPrecistSekce receiptId={id} reextractionStatus={receipt.reextractionStatus} />
         )}
       </div>
     </div>

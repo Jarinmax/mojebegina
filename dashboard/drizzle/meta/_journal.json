@@ -169,6 +169,13 @@
       "when": 1791546105442,
       "tag": "0023_phase_22_sklad_1_0_zaklad",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791834175276,
+      "tag": "0024_phase_22_sklad_1_0_znovu_precist",
+      "breakpoints": true
     }
   ]
 }

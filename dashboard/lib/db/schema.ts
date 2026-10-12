@@ -1196,6 +1196,18 @@ export const goodsReceipts = pgTable(
     status: text("status").notNull().default("draft"), // "draft" | "confirmed" | "voided"
     extractionStatus: text("extraction_status").notNull().default("not_applicable"),
     extractionRaw: jsonb("extraction_raw"),
+    // "Znovu přečíst doklad" (opakované AI vytěžení draft příjemky, co už
+    // může mít řádky) — ZCELA NEZÁVISLÉ na extractionStatus/extractionRaw
+    // výš, aby chyba nebo probíhající nové čtení nikdy nemohlo poškodit
+    // nebo jen signalizovat změnu u už existujících řádků. Nový výsledek
+    // čeká v reextractionRaw ve stavu 'ready' k porovnání — teprve
+    // explicitní převzetí (acceptGoodsReceiptReextraction, sklad.ts)
+    // přepíše goods_receipt_lines a vrátí stav na 'none'. Selhání
+    // (truncatedReextractionResult/markReextractionFailed, skladExtraction.ts)
+    // nechá 'failed' a NEZAPISUJE nic do extractionStatus ani lines.
+    reextractionStatus: text("reextraction_status").notNull().default("none"),
+    reextractionRaw: jsonb("reextraction_raw"),
+    reextractionClaimedAt: timestamp("reextraction_claimed_at", { withTimezone: true }),
     createdByUserId: text("created_by_user_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     confirmedByUserId: text("confirmed_by_user_id"),
@@ -1221,6 +1233,11 @@ export const goodsReceipts = pgTable(
       "goods_receipts_extraction_status_check",
       sql`${table.extractionStatus} IN ('not_applicable','pending','succeeded','failed','needs_review')`
     ),
+    // "Znovu přečíst doklad": 'none' (nic neběží/nečeká) → 'pending'
+    // (claim, AI volání běží) → 'ready' (nový výsledek čeká na porovnání
+    // a explicitní převzetí/zahození) nebo 'failed' (chyba, zpátky na
+    // 'none' smí jen nové spuštění). Nikdy nenahrazuje extractionStatus.
+    check("goods_receipts_reextraction_status_check", sql`${table.reextractionStatus} IN ('none','pending','ready','failed')`),
     check(
       "goods_receipts_confirmed_pair_check",
       sql`(${table.confirmedByUserId} IS NULL) = (${table.confirmedAt} IS NULL)`

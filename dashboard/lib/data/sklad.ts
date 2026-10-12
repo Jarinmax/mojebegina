@@ -50,6 +50,7 @@ import {
   type SupplierInput,
   type VatReviewInput,
 } from "./skladValidation";
+import type { ReextractionRawPayload } from "./skladExtraction";
 
 // --- Chyby z unikátních DB omezení přeložené na česká hlášení ----------
 // Stejná konvence jako admin.ts createCustomerOrganization/updateOrganization:
@@ -236,6 +237,11 @@ export type GoodsReceiptSummary = {
   documentNumber: string | null;
   status: string;
   extractionStatus: string;
+  // "Znovu přečíst doklad" — nezávislý stav vedle extractionStatus (viz
+  // schema.ts komentář u goods_receipts.reextraction_status); UI ho čte,
+  // aby šlo zobrazit tlačítko/odkaz na porovnání nezávisle na tom, jak
+  // dopadlo PŮVODNÍ vytěžení.
+  reextractionStatus: string;
   createdAt: Date;
 };
 
@@ -250,6 +256,7 @@ export async function listGoodsReceipts(): Promise<GoodsReceiptSummary[]> {
       documentNumber: goodsReceipts.documentNumber,
       status: goodsReceipts.status,
       extractionStatus: goodsReceipts.extractionStatus,
+      reextractionStatus: goodsReceipts.reextractionStatus,
       createdAt: goodsReceipts.createdAt,
     })
     .from(goodsReceipts)
@@ -267,6 +274,7 @@ export async function getGoodsReceipt(receiptId: string): Promise<GoodsReceiptSu
       documentNumber: goodsReceipts.documentNumber,
       status: goodsReceipts.status,
       extractionStatus: goodsReceipts.extractionStatus,
+      reextractionStatus: goodsReceipts.reextractionStatus,
       createdAt: goodsReceipts.createdAt,
     })
     .from(goodsReceipts)
@@ -501,6 +509,172 @@ export async function deleteGoodsReceiptLine(receiptId: string, lineId: string):
     .delete(goodsReceiptLines)
     .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)));
   return { ok: true };
+}
+
+// --- "Znovu přečíst doklad" — převzetí / zahození ------------------------
+//
+// Samotné AI čtení (triggerGoodsReceiptReextraction) žije v
+// skladExtraction.ts a zapisuje jen do reextraction_raw/_status — NIKDY do
+// goods_receipt_lines. Obě funkce níž jsou jediná místa, kde se nový
+// výsledek buď promítne do řádků (accept), nebo zahodí beze stopy
+// (discard) — stejná brána (requireReviewAccess) jako addManualGoodsReceiptLine/
+// deleteGoodsReceiptLine/confirmGoodsReceiptLineMapping, protože obě jsou
+// svou povahou revize/rozhodnutí o obsahu řádků, ne spuštění AI volání.
+
+export type DiscardReextractionResult = { ok: true } | { ok: false; error: string };
+
+// Zahodí hotový (nebo neúspěšný) výsledek nového čtení beze stopy —
+// goods_receipt_lines i extraction_status/extraction_raw se tímhle NIKDY
+// nedotknou. Umožňuje uživateli odmítnout porovnání a později zkusit
+// "Znovu přečíst doklad" znovu (claim v triggerGoodsReceiptReextraction
+// stejně přijímá i stav 'failed', ale 'ready' bez explicitního
+// rozhodnutí by jinak navždy blokoval další pokus).
+export async function discardGoodsReceiptReextraction(receiptId: string): Promise<DiscardReextractionResult> {
+  requireReviewAccess(await getAuthContext());
+
+  const result = await db.execute<{ id: string }>(sql`
+    UPDATE goods_receipts
+    SET reextraction_status = 'none', reextraction_raw = NULL, reextraction_claimed_at = NULL, updated_at = now()
+    WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status IN ('ready', 'failed')
+    RETURNING id
+  `);
+  if (result.rows.length === 0) {
+    return { ok: false, error: "Nic k zahození — žádný výsledek nového čtení nečeká." };
+  }
+  return { ok: true };
+}
+
+export type AcceptReextractionResult = { ok: true } | { ok: false; error: string };
+
+// Převezme výsledek nového čtení — JEDINÉ místo, kde "Znovu přečíst
+// doklad" smí nahradit původní řádky, a jen po tomhle výslovném kroku
+// uživatele (zadání: "nahraď až po výslovném převzetí"). Jeden atomický
+// SQL příkaz s řetězenými CTE (stejný vzor jako confirmGoodsReceipt výš):
+// `claimed` je jediný gate (status='draft' AND reextraction_status='ready'),
+// všechny závislé zápisy běží jen `WHERE EXISTS (SELECT 1 FROM claimed)`.
+//
+// DŮLEŽITÁ sekvence delete→insert: PostgreSQL nezaručuje pořadí mezi
+// sesterskými datově-měnícími CTE, pokud na sebe NEODKAZUJÍ jménem (jen
+// společný "predecessor" nestačí) — bez vynucené závislosti by INSERT
+// nových řádků mohl běžet dřív, než DELETE starých skutečně odstraní
+// stejné (receipt_id, position), a narazit na unique index. `inserted`
+// proto čte `(SELECT count(*) FROM deleted)` jako hlídku, co ho nutí
+// čekat na `deleted` doopravdy (ne jen na `claimed`) — ověřeno reálně nad
+// PGlite, ne jen staticky (viz skladReextractionPglite.test.ts).
+export async function acceptGoodsReceiptReextraction(receiptId: string): Promise<AcceptReextractionResult> {
+  const ctx = requireReviewAccess(await getAuthContext());
+
+  const [receipt] = await db
+    .select({
+      id: goodsReceipts.id,
+      status: goodsReceipts.status,
+      reextractionStatus: goodsReceipts.reextractionStatus,
+      reextractionRaw: goodsReceipts.reextractionRaw,
+    })
+    .from(goodsReceipts)
+    .where(eq(goodsReceipts.id, receiptId))
+    .limit(1);
+  if (!receipt) {
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (receipt.status !== "draft") {
+    return { ok: false, error: "Potvrzené a stornované příjemky appka nemění — nový výsledek nelze převzít." };
+  }
+  if (receipt.reextractionStatus !== "ready" || !receipt.reextractionRaw) {
+    return { ok: false, error: "Žádný výsledek nového čtení nečeká na převzetí." };
+  }
+
+  const raw = receipt.reextractionRaw as ReextractionRawPayload;
+  if (!Array.isArray(raw.lines) || raw.lines.length === 0) {
+    return { ok: false, error: "Nový výsledek nemá žádné řádky — nelze převzít." };
+  }
+
+  // Tvar PŘESNĚ odpovídá sloupcům goods_receipt_lines (snake_case) — appka
+  // je sama vygenerovala v triggerGoodsReceiptReextraction, nejde o vstup
+  // od uživatele, proto žádná další validace formátu, jen tvarová kontrola
+  // výš (Array.isArray).
+  const linesJson = JSON.stringify(
+    raw.lines.map((line) => ({
+      position: line.position,
+      raw_description: line.rawDescription,
+      supplier_item_code: line.supplierItemCode,
+      supplier_auxiliary_code: line.supplierAuxiliaryCode,
+      raw_package_quantity: line.rawPackageQuantity,
+      raw_units_per_package: line.rawUnitsPerPackage,
+      raw_unit: line.rawUnit,
+      normalized_quantity: line.normalizedQuantity,
+      normalized_unit: line.normalizedUnit,
+      unit_price_without_vat: line.unitPriceWithoutVat,
+      total_without_vat_hal: line.totalWithoutVatHal,
+      vat_hal: line.vatHal,
+      total_with_vat_hal: line.totalWithVatHal,
+      computed_vat_rate_percent: line.computedVatRatePercent,
+      stock_item_id: line.stockItemId,
+      line_kind: line.lineKind,
+      mapping_source: line.mappingSource,
+    }))
+  );
+
+  try {
+    const result = await db.execute<{ id: string }>(sql`
+      WITH claimed AS (
+        UPDATE goods_receipts
+        SET extraction_status = 'needs_review',
+            reextraction_status = 'none',
+            reextraction_raw = NULL,
+            reextraction_claimed_at = NULL,
+            supplier_id = COALESCE(${raw.supplierIdCandidate}::uuid, supplier_id),
+            supplier_name_snapshot = COALESCE(${raw.supplierNameCandidate}, supplier_name_snapshot),
+            document_number = COALESCE(document_number, ${raw.documentNumber}),
+            document_date = COALESCE(document_date, ${raw.documentDate}::date),
+            payment_method = COALESCE(payment_method, ${raw.paymentMethod}),
+            updated_at = now()
+        WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status = 'ready'
+        RETURNING id
+      ),
+      deleted AS (
+        DELETE FROM goods_receipt_lines
+        WHERE receipt_id = ${receiptId} AND EXISTS (SELECT 1 FROM claimed)
+        RETURNING id
+      ),
+      new_lines AS (
+        SELECT * FROM jsonb_to_recordset(${linesJson}::jsonb) AS t(
+          position int, raw_description text, supplier_item_code text, supplier_auxiliary_code text,
+          raw_package_quantity numeric, raw_units_per_package numeric, raw_unit text,
+          normalized_quantity numeric, normalized_unit text, unit_price_without_vat numeric,
+          total_without_vat_hal bigint, vat_hal bigint, total_with_vat_hal bigint,
+          computed_vat_rate_percent numeric, stock_item_id uuid, line_kind text, mapping_source text
+        )
+      ),
+      inserted AS (
+        INSERT INTO goods_receipt_lines (
+          receipt_id, position, raw_description, supplier_item_code, supplier_auxiliary_code,
+          raw_package_quantity, raw_units_per_package, raw_unit, normalized_quantity, normalized_unit,
+          unit_price_without_vat, total_without_vat_hal, vat_hal, total_with_vat_hal,
+          computed_vat_rate_percent, vat_confirmed, stock_item_id, line_kind, mapping_source
+        )
+        SELECT ${receiptId}, nl.position, nl.raw_description, nl.supplier_item_code, nl.supplier_auxiliary_code,
+               nl.raw_package_quantity, nl.raw_units_per_package, nl.raw_unit, nl.normalized_quantity, nl.normalized_unit,
+               nl.unit_price_without_vat, nl.total_without_vat_hal, nl.vat_hal, nl.total_with_vat_hal,
+               nl.computed_vat_rate_percent, false, nl.stock_item_id, nl.line_kind, nl.mapping_source
+        FROM new_lines nl, (SELECT count(*) AS n FROM deleted) AS delete_guard
+        WHERE EXISTS (SELECT 1 FROM claimed)
+        RETURNING id
+      )
+      INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, body)
+      SELECT ${receiptId}, 'user', ${ctx.userId}, ${ctx.name}, 'lines_replaced_by_reextraction',
+             'Převzat výsledek nového čtení — ' || (SELECT count(*) FROM deleted) || ' původních řádků nahrazeno ' || (SELECT count(*) FROM inserted) || ' novými.'
+      WHERE EXISTS (SELECT 1 FROM claimed)
+      RETURNING id
+    `);
+
+    if (result.rows.length === 0) {
+      return { ok: false, error: "Nový výsledek se nepodařilo převzít — mezitím se stav příjemky změnil." };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Převzetí nového výsledku selhalo. Původní řádky zůstávají beze změny. Zkuste to znovu." };
+  }
 }
 
 // --- Revize DPH ----------------------------------------------------------

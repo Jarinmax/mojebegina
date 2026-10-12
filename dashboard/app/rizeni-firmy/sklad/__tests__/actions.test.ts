@@ -11,19 +11,25 @@ import { describe, expect, it, vi } from "vitest";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 
 const mockCreateSupplier = vi.fn();
+const mockAcceptReextraction = vi.fn();
+const mockDiscardReextraction = vi.fn();
 vi.mock("@/lib/data/sklad", () => ({
+  acceptGoodsReceiptReextraction: (...args: unknown[]) => mockAcceptReextraction(...args),
   createDraftGoodsReceipt: vi.fn(),
   createStockItem: vi.fn(),
   createSupplier: (...args: unknown[]) => mockCreateSupplier(...args),
+  discardGoodsReceiptReextraction: (...args: unknown[]) => mockDiscardReextraction(...args),
   reviewGoodsReceiptLineVat: vi.fn(),
   updateGoodsReceiptLine: vi.fn(),
 }));
 
 const mockTriggerExtraction = vi.fn();
+const mockTriggerReextraction = vi.fn();
 const mockConfirmMapping = vi.fn();
 vi.mock("@/lib/data/skladExtraction", () => ({
   confirmGoodsReceiptLineMapping: (...args: unknown[]) => mockConfirmMapping(...args),
   triggerGoodsReceiptExtraction: (...args: unknown[]) => mockTriggerExtraction(...args),
+  triggerGoodsReceiptReextraction: (...args: unknown[]) => mockTriggerReextraction(...args),
 }));
 
 describe("createSupplierForReceiptAction — překlad chyb oprávnění (bod „+ Založit dodavatele“)", () => {
@@ -112,5 +118,46 @@ describe("triggerGoodsReceiptExtractionAction / confirmGoodsReceiptLineMappingAc
     await expect(
       confirmGoodsReceiptLineMappingAction("r1", "line-1", { stockItemId: null, lineKind: "non_stock_private", rememberMapping: false })
     ).rejects.toThrow("connection reset");
+  });
+});
+
+describe("\"Znovu přečíst doklad\" akce — překlad chyb oprávnění a passthrough", () => {
+  it("triggerGoodsReceiptReextractionAction: ForbiddenError → vlastní česká hláška (odlišená od prvního vytěžení), kind:'technical'", async () => {
+    mockTriggerReextraction.mockRejectedValueOnce(new ForbiddenError());
+    const { triggerGoodsReceiptReextractionAction } = await import("../actions");
+    const result = await triggerGoodsReceiptReextractionAction("r1");
+    expect(result).toEqual({ ok: false, error: "Nemáte oprávnění znovu přečíst doklad této příjemky.", kind: "technical" });
+  });
+
+  it("triggerGoodsReceiptReextractionAction: úspěch/chyba z triggerGoodsReceiptReextraction projde beze změny", async () => {
+    mockTriggerReextraction.mockResolvedValueOnce({ ok: true });
+    const { triggerGoodsReceiptReextractionAction } = await import("../actions");
+    expect(await triggerGoodsReceiptReextractionAction("r1")).toEqual({ ok: true });
+  });
+
+  it("acceptGoodsReceiptReextractionAction: ForbiddenError → česká hláška", async () => {
+    mockAcceptReextraction.mockRejectedValueOnce(new ForbiddenError());
+    const { acceptGoodsReceiptReextractionAction } = await import("../actions");
+    const result = await acceptGoodsReceiptReextractionAction("r1");
+    expect(result).toEqual({ ok: false, error: "Nemáte oprávnění převzít nový výsledek u téhle příjemky." });
+  });
+
+  it("acceptGoodsReceiptReextractionAction: úspěch/chyba z acceptGoodsReceiptReextraction projde beze změny", async () => {
+    mockAcceptReextraction.mockResolvedValueOnce({ ok: false, error: "Žádný výsledek nového čtení nečeká na převzetí." });
+    const { acceptGoodsReceiptReextractionAction } = await import("../actions");
+    expect(await acceptGoodsReceiptReextractionAction("r1")).toEqual({ ok: false, error: "Žádný výsledek nového čtení nečeká na převzetí." });
+  });
+
+  it("discardGoodsReceiptReextractionAction: UnauthenticatedError → česká hláška", async () => {
+    mockDiscardReextraction.mockRejectedValueOnce(new UnauthenticatedError());
+    const { discardGoodsReceiptReextractionAction } = await import("../actions");
+    const result = await discardGoodsReceiptReextractionAction("r1");
+    expect(result).toEqual({ ok: false, error: "Nepřihlášeno." });
+  });
+
+  it("discardGoodsReceiptReextractionAction: neznámá chyba se znovu vyhodí, nepolyká se", async () => {
+    mockDiscardReextraction.mockRejectedValueOnce(new Error("connection reset"));
+    const { discardGoodsReceiptReextractionAction } = await import("../actions");
+    await expect(discardGoodsReceiptReextractionAction("r1")).rejects.toThrow("connection reset");
   });
 });

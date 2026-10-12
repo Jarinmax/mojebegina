@@ -6,15 +6,18 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
+  acceptGoodsReceiptReextraction,
   createDraftGoodsReceipt,
   createStockItem,
   createSupplier,
+  discardGoodsReceiptReextraction,
   reviewGoodsReceiptLineVat,
   updateGoodsReceiptLine,
 } from "@/lib/data/sklad";
 import {
   confirmGoodsReceiptLineMapping,
   triggerGoodsReceiptExtraction,
+  triggerGoodsReceiptReextraction,
   type TriggerExtractionFailureKind,
 } from "@/lib/data/skladExtraction";
 import type { ManualLineInput } from "@/lib/data/skladValidation";
@@ -111,6 +114,33 @@ export async function triggerGoodsReceiptExtractionAction(receiptId: string): Pr
   } catch (error) {
     const translated = translateAuthError(error, "Nemáte oprávnění vytěžit doklad této příjemky.");
     return { ...translated, kind: "technical" };
+  }
+}
+
+// --- "Znovu přečíst doklad" ------------------------------------------------
+
+export async function triggerGoodsReceiptReextractionAction(receiptId: string): Promise<TriggerExtractionActionResult> {
+  try {
+    return await triggerGoodsReceiptReextraction(receiptId);
+  } catch (error) {
+    const translated = translateAuthError(error, "Nemáte oprávnění znovu přečíst doklad této příjemky.");
+    return { ...translated, kind: "technical" };
+  }
+}
+
+export async function acceptGoodsReceiptReextractionAction(receiptId: string): Promise<SimpleActionResult> {
+  try {
+    return await acceptGoodsReceiptReextraction(receiptId);
+  } catch (error) {
+    return translateAuthError(error, "Nemáte oprávnění převzít nový výsledek u téhle příjemky.");
+  }
+}
+
+export async function discardGoodsReceiptReextractionAction(receiptId: string): Promise<SimpleActionResult> {
+  try {
+    return await discardGoodsReceiptReextraction(receiptId);
+  } catch (error) {
+    return translateAuthError(error, "Nemáte oprávnění zahodit nový výsledek u téhle příjemky.");
   }
 }
 
