@@ -40,6 +40,7 @@ import {
   suppliers,
 } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
+import { buildGoodsReceiptAdvisoryLockQuery } from "./sklad";
 import { requirePricesAndOriginalAccess, requireReviewAccess, requireUploadAccess } from "./skladAuth";
 import {
   normalizeExtractedLine,
@@ -674,10 +675,21 @@ export async function confirmGoodsReceiptLineMapping(
     return { ok: false, error: "Řádek nebyl nalezen." };
   }
 
-  await db
-    .update(goodsReceiptLines)
-    .set({ stockItemId: input.stockItemId, lineKind, mappingSource: "manual", updatedAt: new Date() })
-    .where(eq(goodsReceiptLines.id, lineId));
+  // Zámek (buildGoodsReceiptAdvisoryLockQuery, sklad.ts): tenhle UPDATE měnÍ
+  // goods_receipt_lines téhle příjemky, takže patří do stejné sdílené
+  // vzájemné výluky jako acceptGoodsReceiptReextraction a ostatní přímé
+  // zápisy do řádků — jinak by ruční potvrzení mapování mohlo zasáhnout
+  // mezi snímek (linesSnapshot) a porovnání/přepis při převzetí nového
+  // čtení. Zapamatování mapování (supplierItemMappings) níž se NEzamyká —
+  // netýká se téhle příjemky ani jejích řádků, je to jen obecná
+  // dodavatelská tabulka pro budoucí doklady.
+  await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db
+      .update(goodsReceiptLines)
+      .set({ stockItemId: input.stockItemId, lineKind, mappingSource: "manual", updatedAt: new Date() })
+      .where(eq(goodsReceiptLines.id, lineId)),
+  ]);
 
   if (input.rememberMapping && input.stockItemId) {
     const descriptionNormalized = line.supplierItemCode ? null : normalizeText(line.rawDescription);
@@ -763,18 +775,37 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
   // finální zápis 'ready' níž) jako gate `reextraction_claimed_at = ${claimedAt}`
   // — ochrana proti opožděnému výsledku staršího pokusu (viz komentář u
   // markReextractionFailed výš).
+  // Zámek (buildGoodsReceiptAdvisoryLockQuery, sklad.ts): claim níž zapisuje
+  // do goods_receipts téhle příjemky a snímek řádků hned za ním je základ,
+  // se kterým acceptGoodsReceiptReextraction (taky pod stejným zámkem)
+  // porovná aktuální stav při převzetí. I když je claim sám o sobě bezpečný
+  // proti souběžnému claimu (stejný řádek, EvalPlanQual), oba patří do
+  // stejné sdílené vzájemné výluky jako KAŽDÝ zápis, co může změnit
+  // příjemku nebo její řádky — jedno db.batch tak udrží claim i snímek
+  // jako jednu konzistentní dvojici bez ohledu na to, co by se k zámku
+  // v budoucnu ještě přidalo. Finální zápis 'ready' (níž, za OCR/AI)
+  // zámek NEpotřebuje — gatuje ho claimedAt token na stejném řádku,
+  // stejná EvalPlanQual ochrana jako u confirmGoodsReceipt/voidGoodsReceipt.
   const claimedAt = new Date();
-  const claim = await db.execute<{ id: string }>(sql`
-    UPDATE goods_receipts
-    SET reextraction_status = 'pending', reextraction_claimed_at = ${claimedAt}, updated_at = now()
-    WHERE id = ${receiptId}
-      AND status = 'draft'
-      AND (
-        reextraction_status IN ('none', 'failed')
-        OR (reextraction_status = 'pending' AND reextraction_claimed_at < now() - interval '10 minutes')
-      )
-    RETURNING id
-  `);
+  const [, claim, linesSnapshotRow] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.execute<{ id: string }>(sql`
+      UPDATE goods_receipts
+      SET reextraction_status = 'pending', reextraction_claimed_at = ${claimedAt}, updated_at = now()
+      WHERE id = ${receiptId}
+        AND status = 'draft'
+        AND (
+          reextraction_status IN ('none', 'failed')
+          OR (reextraction_status = 'pending' AND reextraction_claimed_at < now() - interval '10 minutes')
+        )
+      RETURNING id
+    `),
+    db.execute<{ count: string; max_updated_at: string | null }>(sql`
+      SELECT count(*) AS count, max(updated_at)::text AS max_updated_at
+      FROM goods_receipt_lines
+      WHERE receipt_id = ${receiptId}
+    `),
+  ]);
   if (claim.rows.length === 0) {
     const message =
       receipt.reextractionStatus === "ready"
@@ -792,11 +823,8 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
   // Postgresu na obou stranách porovnání (tady i v accept), ne JS Date
   // round-trip — stejný důvod jako u claimedAt výš, jen o úroveň opatrnější
   // (dvě different DB připojení/dotazy v čase, ne jeden sdílený JS objekt).
-  const linesSnapshotRow = await db.execute<{ count: string; max_updated_at: string | null }>(sql`
-    SELECT count(*) AS count, max(updated_at)::text AS max_updated_at
-    FROM goods_receipt_lines
-    WHERE receipt_id = ${receiptId}
-  `);
+  // Dotaz samotný běžel výš, ve stejném db.batch jako claim (viz komentář
+  // u zámku výš) — tady se jen zpracuje jeho výsledek.
   const linesSnapshot = {
     count: Number(linesSnapshotRow.rows[0]?.count ?? 0),
     maxUpdatedAtText: linesSnapshotRow.rows[0]?.max_updated_at ?? null,

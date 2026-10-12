@@ -12,6 +12,22 @@
 // nebo přes jediný sql příkaz s podmíněnými CTE, pokud na sobě kroky
 // závisí. Oba zápisy tady závisí (pohyb/storno nesmí vzniknout, pokud se
 // nepodařilo claimnout příjemku), proto CTE, ne db.batch.
+//
+// Zápisy do goods_receipt_lines (addManualGoodsReceiptLine,
+// updateGoodsReceiptLine, deleteGoodsReceiptLine, reviewGoodsReceiptLineVat,
+// acceptGoodsReceiptReextraction, discardGoodsReceiptReextraction) navíc
+// používají db.batch JINAK — ne pro nezávislé kroky, ale pro advisory
+// lock (buildGoodsReceiptAdvisoryLockQuery) jako SAMOSTATNÝ příkaz PŘED
+// vlastním zápisem, v TÉŽE transakci. Ověřeno přímo ve zdroji
+// nainstalovaného @neondatabase/serverless (ne jen z dokumentace):
+// db.batch() posílá pole dotazů jako JEDEN HTTP požadavek s tělem
+// {queries:[...]}, co Neonův HTTP SQL endpoint provede jako JEDNU SQL
+// transakci (BEGIN…COMMIT, hlavičky Neon-Batch-Isolation-Level/
+// Read-Only/Deferrable existují jen pro tenhle tvar požadavku) — PostgreSQL
+// pod READ COMMITTED dá i uvnitř jedné transakce KAŽDÉMU příkazu vlastní,
+// čerstvý snímek dat, takže zápis PO zámku vidí i to, co se commitlo,
+// zatímco se na zámek čekalo. Důvod viz komentář u
+// buildGoodsReceiptAdvisoryLockQuery.
 import "server-only";
 import { createHash } from "node:crypto";
 import { and, eq, ne, sql } from "drizzle-orm";
@@ -77,6 +93,46 @@ function messageIncludes(error: unknown, needle: string): boolean {
     }
   }
   return false;
+}
+
+// --- Souběh mezi "Znovu přečíst doklad" a ručními zápisy do řádků --------
+//
+// acceptGoodsReceiptReextraction (níž) rozhoduje o zápisu podle snímku
+// (count, max(updated_at)) z goods_receipt_lines, zachyceného PŘI SPUŠTĚNÍ
+// čtení (triggerGoodsReceiptReextraction, skladExtraction.ts). To je
+// bezpečné proti úpravám, co se COMMITNOU PŘED začátkem jeho vlastního SQL
+// příkazu — PostgreSQL ale pod READ COMMITTED bere snímek dat JEDNOU, na
+// začátku příkazu, a nemění ho ani uvnitř téhož příkazu (ani po čekání na
+// zámek) — takže úprava, co se commitne PŘESNĚ BĚHEM běhu accept vlastního
+// příkazu (ne před ním), by jeho guard subquery nemusela vidět.
+//
+// Řešení: advisory lock JAKO SAMOSTATNÝ příkaz PŘED hlavním zápisem, v
+// JEDNÉ db.batch() transakci (ověřeno přímo ve zdrojích nainstalovaného
+// adaptéru — viz komentář u buildAdvisoryLockedWrite níž) — teprve PO
+// úspěšném získání zámku dostane hlavní příkaz VLASTNÍ, čerstvý snímek
+// (PostgreSQL dává každému příkazu v transakci vlastní snímek pod READ
+// COMMITTED, i uvnitř db.batch). Aby tohle mělo smysl, MUSÍ stejný zámek
+// (stejný klíč = receiptId) brát i KAŽDÁ zápisová cesta, co může změnit
+// goods_receipt_lines pro tutéž příjemku — jinak by zamykala jen jedna
+// strana a druhá by ji klidně obešla. Zamčeno proto u: accept/discard
+// (sklad.ts), triggerGoodsReceiptReextraction (claim + snímek, dřív než
+// začne drahé AI volání), a všech ručních zápisů do řádků
+// (addManualGoodsReceiptLine, updateGoodsReceiptLine, deleteGoodsReceiptLine,
+// reviewGoodsReceiptLineVat tady, confirmGoodsReceiptLineMapping ve
+// skladExtraction.ts). Finální zápis triggerGoodsReceiptReextraction (po AI
+// volání) zámek NEPOTŘEBUJE — je to prosté UPDATE goods_receipts gatované
+// vlastním tokenem (reextractionClaimedAt) na STEJNÉM řádku, co se
+// aktualizuje — tenhle případ (dvě UPDATE na STEJNÝ řádek) PostgreSQL řeší
+// sám nativním zamykáním řádku + přehodnocením WHERE po čekání
+// (EvalPlanQual), bez nutnosti advisory locku — ten je potřeba jen tam, kde
+// se o zápisu do JEDNÉ tabulky rozhoduje podle čtení JINÉ tabulky
+// (goods_receipt_lines), kde tahle automatika PostgreSQL neplatí.
+//
+// hashtextextended(receiptId, 0) konzumuje celý vstupní text (stejný vzor
+// jako SHA-256 pojistka v migraci 0023), zámek je xact-scoped (sám se
+// uvolní na commit/rollback, žádné riziko zapomenutého odemčení).
+export function buildGoodsReceiptAdvisoryLockQuery(receiptId: string) {
+  return db.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${receiptId}, 0))`);
 }
 
 // --- Skladové lokace -----------------------------------------------------
@@ -392,29 +448,36 @@ export async function addManualGoodsReceiptLine(
     .where(eq(goodsReceiptLines.receiptId, receiptId));
   const position = existingPositions.reduce((max, row) => Math.max(max, row.position), 0) + 1;
 
-  const [line] = await db
-    .insert(goodsReceiptLines)
-    .values({
-      receiptId,
-      position,
-      rawDescription: value.rawDescription,
-      supplierItemCode: value.supplierItemCode,
-      supplierAuxiliaryCode: value.supplierAuxiliaryCode,
-      rawPackageQuantity: value.rawPackageQuantity,
-      rawUnitsPerPackage: value.rawUnitsPerPackage,
-      rawUnit: value.rawUnit,
-      normalizedQuantity: value.normalizedQuantity,
-      normalizedUnit: value.normalizedUnit,
-      unitPriceWithoutVat: value.unitPriceWithoutVat,
-      totalWithoutVatHal: value.totalWithoutVatHal,
-      vatHal: value.vatHal,
-      totalWithVatHal: value.totalWithVatHal,
-      computedVatRatePercent: value.computedVatRatePercent,
-      stockItemId: value.stockItemId,
-      lineKind: value.lineKind,
-      mappingSource: value.stockItemId ? "manual" : null,
-    })
-    .returning({ id: goodsReceiptLines.id });
+  // Zámek PŘED vlastním zápisem (viz komentář u buildGoodsReceiptAdvisoryLockQuery)
+  // — chrání acceptGoodsReceiptReextraction (ne tenhle insert samotný) proti
+  // tomu, aby jeho snímek goods_receipt_lines byl zachycený zrovna uprostřed
+  // téhle operace.
+  const [, [line]] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db
+      .insert(goodsReceiptLines)
+      .values({
+        receiptId,
+        position,
+        rawDescription: value.rawDescription,
+        supplierItemCode: value.supplierItemCode,
+        supplierAuxiliaryCode: value.supplierAuxiliaryCode,
+        rawPackageQuantity: value.rawPackageQuantity,
+        rawUnitsPerPackage: value.rawUnitsPerPackage,
+        rawUnit: value.rawUnit,
+        normalizedQuantity: value.normalizedQuantity,
+        normalizedUnit: value.normalizedUnit,
+        unitPriceWithoutVat: value.unitPriceWithoutVat,
+        totalWithoutVatHal: value.totalWithoutVatHal,
+        vatHal: value.vatHal,
+        totalWithVatHal: value.totalWithVatHal,
+        computedVatRatePercent: value.computedVatRatePercent,
+        stockItemId: value.stockItemId,
+        lineKind: value.lineKind,
+        mappingSource: value.stockItemId ? "manual" : null,
+      })
+      .returning({ id: goodsReceiptLines.id }),
+  ]);
 
   await db.insert(goodsReceiptActivity).values({
     receiptId,
@@ -465,26 +528,30 @@ export async function updateGoodsReceiptLine(
     }
   }
 
-  const result = await db
-    .update(goodsReceiptLines)
-    .set({
-      rawDescription: value.rawDescription,
-      supplierItemCode: value.supplierItemCode,
-      supplierAuxiliaryCode: value.supplierAuxiliaryCode,
-      rawPackageQuantity: value.rawPackageQuantity,
-      rawUnitsPerPackage: value.rawUnitsPerPackage,
-      rawUnit: value.rawUnit,
-      normalizedQuantity: value.normalizedQuantity,
-      normalizedUnit: value.normalizedUnit,
-      unitPriceWithoutVat: value.unitPriceWithoutVat,
-      totalWithoutVatHal: value.totalWithoutVatHal,
-      vatHal: value.vatHal,
-      totalWithVatHal: value.totalWithVatHal,
-      computedVatRatePercent: value.computedVatRatePercent,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)))
-    .returning({ id: goodsReceiptLines.id });
+  // Zámek PŘED vlastním zápisem — viz komentář u buildGoodsReceiptAdvisoryLockQuery.
+  const [, result] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db
+      .update(goodsReceiptLines)
+      .set({
+        rawDescription: value.rawDescription,
+        supplierItemCode: value.supplierItemCode,
+        supplierAuxiliaryCode: value.supplierAuxiliaryCode,
+        rawPackageQuantity: value.rawPackageQuantity,
+        rawUnitsPerPackage: value.rawUnitsPerPackage,
+        rawUnit: value.rawUnit,
+        normalizedQuantity: value.normalizedQuantity,
+        normalizedUnit: value.normalizedUnit,
+        unitPriceWithoutVat: value.unitPriceWithoutVat,
+        totalWithoutVatHal: value.totalWithoutVatHal,
+        vatHal: value.vatHal,
+        totalWithVatHal: value.totalWithVatHal,
+        computedVatRatePercent: value.computedVatRatePercent,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)))
+      .returning({ id: goodsReceiptLines.id }),
+  ]);
 
   if (result.length === 0) {
     return { ok: false, error: "Řádek nebyl nalezen." };
@@ -505,9 +572,11 @@ export async function deleteGoodsReceiptLine(receiptId: string, lineId: string):
     return { ok: false, error: "Řádky lze mazat jen z návrhu příjemky." };
   }
 
-  await db
-    .delete(goodsReceiptLines)
-    .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)));
+  // Zámek PŘED vlastním zápisem — viz komentář u buildGoodsReceiptAdvisoryLockQuery.
+  await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.delete(goodsReceiptLines).where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId))),
+  ]);
   return { ok: true };
 }
 
@@ -532,12 +601,15 @@ export type DiscardReextractionResult = { ok: true } | { ok: false; error: strin
 export async function discardGoodsReceiptReextraction(receiptId: string): Promise<DiscardReextractionResult> {
   requireReviewAccess(await getAuthContext());
 
-  const result = await db.execute<{ id: string }>(sql`
-    UPDATE goods_receipts
-    SET reextraction_status = 'none', reextraction_raw = NULL, reextraction_claimed_at = NULL, updated_at = now()
-    WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status IN ('ready', 'failed')
-    RETURNING id
-  `);
+  const [, result] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.execute<{ id: string }>(sql`
+      UPDATE goods_receipts
+      SET reextraction_status = 'none', reextraction_raw = NULL, reextraction_claimed_at = NULL, updated_at = now()
+      WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status IN ('ready', 'failed')
+      RETURNING id
+    `),
+  ]);
   if (result.rows.length === 0) {
     return { ok: false, error: "Nic k zahození — žádný výsledek nového čtení nečeká." };
   }
@@ -638,59 +710,66 @@ export async function acceptGoodsReceiptReextraction(receiptId: string): Promise
   );
 
   try {
-    const result = await db.execute<{ id: string }>(sql`
-      WITH claimed AS (
-        UPDATE goods_receipts
-        SET extraction_status = 'needs_review',
-            reextraction_status = 'none',
-            reextraction_raw = NULL,
-            reextraction_claimed_at = NULL,
-            supplier_id = COALESCE(${raw.supplierIdCandidate}::uuid, supplier_id),
-            supplier_name_snapshot = COALESCE(${raw.supplierNameCandidate}, supplier_name_snapshot),
-            document_number = COALESCE(document_number, ${raw.documentNumber}),
-            document_date = COALESCE(document_date, ${raw.documentDate}::date),
-            payment_method = COALESCE(payment_method, ${raw.paymentMethod}),
-            updated_at = now()
-        WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status = 'ready'
-          AND (SELECT count(*) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}) = ${linesSnapshot.count}
-          AND (SELECT max(updated_at)::text FROM goods_receipt_lines WHERE receipt_id = ${receiptId}) IS NOT DISTINCT FROM ${linesSnapshot.maxUpdatedAtText}
-        RETURNING id
-      ),
-      deleted AS (
-        DELETE FROM goods_receipt_lines
-        WHERE receipt_id = ${receiptId} AND EXISTS (SELECT 1 FROM claimed)
-        RETURNING id
-      ),
-      new_lines AS (
-        SELECT * FROM jsonb_to_recordset(${linesJson}::jsonb) AS t(
-          position int, raw_description text, supplier_item_code text, supplier_auxiliary_code text,
-          raw_package_quantity numeric, raw_units_per_package numeric, raw_unit text,
-          normalized_quantity numeric, normalized_unit text, unit_price_without_vat numeric,
-          total_without_vat_hal bigint, vat_hal bigint, total_with_vat_hal bigint,
-          computed_vat_rate_percent numeric, stock_item_id uuid, line_kind text, mapping_source text
+    // Advisory lock JAKO SAMOSTATNÝ příkaz PŘED hlavním zápisem, v JEDNÉ
+    // db.batch() transakci (viz komentář u buildGoodsReceiptAdvisoryLockQuery
+    // nahoře) — hlavní příkaz pak dostane VLASTNÍ, čerstvý snímek
+    // goods_receipt_lines, i kdyby se zrovna čekalo na souběžný ruční zápis.
+    const [, result] = await db.batch([
+      buildGoodsReceiptAdvisoryLockQuery(receiptId),
+      db.execute<{ id: string }>(sql`
+        WITH claimed AS (
+          UPDATE goods_receipts
+          SET extraction_status = 'needs_review',
+              reextraction_status = 'none',
+              reextraction_raw = NULL,
+              reextraction_claimed_at = NULL,
+              supplier_id = COALESCE(${raw.supplierIdCandidate}::uuid, supplier_id),
+              supplier_name_snapshot = COALESCE(${raw.supplierNameCandidate}, supplier_name_snapshot),
+              document_number = COALESCE(document_number, ${raw.documentNumber}),
+              document_date = COALESCE(document_date, ${raw.documentDate}::date),
+              payment_method = COALESCE(payment_method, ${raw.paymentMethod}),
+              updated_at = now()
+          WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status = 'ready'
+            AND (SELECT count(*) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}) = ${linesSnapshot.count}
+            AND (SELECT max(updated_at)::text FROM goods_receipt_lines WHERE receipt_id = ${receiptId}) IS NOT DISTINCT FROM ${linesSnapshot.maxUpdatedAtText}
+          RETURNING id
+        ),
+        deleted AS (
+          DELETE FROM goods_receipt_lines
+          WHERE receipt_id = ${receiptId} AND EXISTS (SELECT 1 FROM claimed)
+          RETURNING id
+        ),
+        new_lines AS (
+          SELECT * FROM jsonb_to_recordset(${linesJson}::jsonb) AS t(
+            position int, raw_description text, supplier_item_code text, supplier_auxiliary_code text,
+            raw_package_quantity numeric, raw_units_per_package numeric, raw_unit text,
+            normalized_quantity numeric, normalized_unit text, unit_price_without_vat numeric,
+            total_without_vat_hal bigint, vat_hal bigint, total_with_vat_hal bigint,
+            computed_vat_rate_percent numeric, stock_item_id uuid, line_kind text, mapping_source text
+          )
+        ),
+        inserted AS (
+          INSERT INTO goods_receipt_lines (
+            receipt_id, position, raw_description, supplier_item_code, supplier_auxiliary_code,
+            raw_package_quantity, raw_units_per_package, raw_unit, normalized_quantity, normalized_unit,
+            unit_price_without_vat, total_without_vat_hal, vat_hal, total_with_vat_hal,
+            computed_vat_rate_percent, vat_confirmed, stock_item_id, line_kind, mapping_source
+          )
+          SELECT ${receiptId}, nl.position, nl.raw_description, nl.supplier_item_code, nl.supplier_auxiliary_code,
+                 nl.raw_package_quantity, nl.raw_units_per_package, nl.raw_unit, nl.normalized_quantity, nl.normalized_unit,
+                 nl.unit_price_without_vat, nl.total_without_vat_hal, nl.vat_hal, nl.total_with_vat_hal,
+                 nl.computed_vat_rate_percent, false, nl.stock_item_id, nl.line_kind, nl.mapping_source
+          FROM new_lines nl, (SELECT count(*) AS n FROM deleted) AS delete_guard
+          WHERE EXISTS (SELECT 1 FROM claimed)
+          RETURNING id
         )
-      ),
-      inserted AS (
-        INSERT INTO goods_receipt_lines (
-          receipt_id, position, raw_description, supplier_item_code, supplier_auxiliary_code,
-          raw_package_quantity, raw_units_per_package, raw_unit, normalized_quantity, normalized_unit,
-          unit_price_without_vat, total_without_vat_hal, vat_hal, total_with_vat_hal,
-          computed_vat_rate_percent, vat_confirmed, stock_item_id, line_kind, mapping_source
-        )
-        SELECT ${receiptId}, nl.position, nl.raw_description, nl.supplier_item_code, nl.supplier_auxiliary_code,
-               nl.raw_package_quantity, nl.raw_units_per_package, nl.raw_unit, nl.normalized_quantity, nl.normalized_unit,
-               nl.unit_price_without_vat, nl.total_without_vat_hal, nl.vat_hal, nl.total_with_vat_hal,
-               nl.computed_vat_rate_percent, false, nl.stock_item_id, nl.line_kind, nl.mapping_source
-        FROM new_lines nl, (SELECT count(*) AS n FROM deleted) AS delete_guard
+        INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, body)
+        SELECT ${receiptId}, 'user', ${ctx.userId}, ${ctx.name}, 'lines_replaced_by_reextraction',
+               'Převzat výsledek nového čtení — ' || (SELECT count(*) FROM deleted) || ' původních řádků nahrazeno ' || (SELECT count(*) FROM inserted) || ' novými.'
         WHERE EXISTS (SELECT 1 FROM claimed)
         RETURNING id
-      )
-      INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, body)
-      SELECT ${receiptId}, 'user', ${ctx.userId}, ${ctx.name}, 'lines_replaced_by_reextraction',
-             'Převzat výsledek nového čtení — ' || (SELECT count(*) FROM deleted) || ' původních řádků nahrazeno ' || (SELECT count(*) FROM inserted) || ' novými.'
-      WHERE EXISTS (SELECT 1 FROM claimed)
-      RETURNING id
-    `);
+      `),
+    ]);
 
     if (result.rows.length === 0) {
       return { ok: false, error: "Nový výsledek se nepodařilo převzít — mezitím se stav příjemky změnil." };
@@ -742,21 +821,28 @@ export async function reviewGoodsReceiptLineVat(
   }
   const value = validated.value;
 
-  const result = await db.execute<{ id: string }>(sql`
-    WITH set_review_flag AS MATERIALIZED (
-      SELECT set_config('sklad.vat_review_in_progress', 'true', true)
-    )
-    UPDATE goods_receipt_lines
-    SET total_without_vat_hal = ${value.totalWithoutVatHal},
-        vat_hal = ${value.vatHal},
-        total_with_vat_hal = ${value.totalWithVatHal},
-        computed_vat_rate_percent = ${value.computedVatRatePercent},
-        vat_confirmed = true,
-        updated_at = now()
-    WHERE id = ${lineId} AND receipt_id = ${receiptId}
-      AND EXISTS (SELECT 1 FROM set_review_flag)
-    RETURNING id
-  `);
+  // Zámek PŘED vlastním zápisem — viz komentář u buildGoodsReceiptAdvisoryLockQuery.
+  // set_config(..., true) zůstává "local to transaction" beze změny — obě
+  // dřívější CTE (set_review_flag) i UPDATE jsou pořád JEDEN příkaz, jen
+  // druhá položka stejné db.batch() transakce jako zámek.
+  const [, result] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.execute<{ id: string }>(sql`
+      WITH set_review_flag AS MATERIALIZED (
+        SELECT set_config('sklad.vat_review_in_progress', 'true', true)
+      )
+      UPDATE goods_receipt_lines
+      SET total_without_vat_hal = ${value.totalWithoutVatHal},
+          vat_hal = ${value.vatHal},
+          total_with_vat_hal = ${value.totalWithVatHal},
+          computed_vat_rate_percent = ${value.computedVatRatePercent},
+          vat_confirmed = true,
+          updated_at = now()
+      WHERE id = ${lineId} AND receipt_id = ${receiptId}
+        AND EXISTS (SELECT 1 FROM set_review_flag)
+      RETURNING id
+    `),
+  ]);
 
   if (result.rows.length === 0) {
     return { ok: false, error: "Řádek nebyl nalezen." };

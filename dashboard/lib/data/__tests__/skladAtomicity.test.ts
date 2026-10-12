@@ -56,8 +56,9 @@ let claimedRowCount = 1;
 let reviewUpdateRowCount = 1;
 
 vi.mock("@neondatabase/serverless", () => ({
-  neon: () => (sqlText: string, params: unknown[]) => {
-    capturedQueries.push({ sql: sqlText, params });
+  neon: () => {
+    const client = (sqlText: string, params: unknown[]) => {
+      capturedQueries.push({ sql: sqlText, params });
 
     if (sqlText.includes('"id", "status", "supplier_id", "document_number", "stock_location_id"')) {
       if (!receiptRow) {
@@ -81,7 +82,16 @@ vi.mock("@neondatabase/serverless", () => ({
       const rows = reviewUpdateRowCount > 0 ? [{ id: "line-1" }] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
-    return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
+      return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
+    };
+    // db.batch() → NeonHttpSession.batch() volá this.client.transaction(…) —
+    // builtQueries je v tomhle bodě už pole PROMISŮ (stejný mock client()
+    // výš se zavolal jednotlivě pro KAŽDÝ dotaz dávky ještě PŘED tímhle
+    // voláním), takže mock jen čeká, až se všechny vyřeší, ve stejném
+    // pořadí (stejná konvence jako skutečný @neondatabase/serverless —
+    // viz komentář u buildGoodsReceiptAdvisoryLockQuery, sklad.ts).
+    client.transaction = (queries: unknown[]) => Promise.all(queries);
+    return client;
   },
 }));
 

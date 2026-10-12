@@ -51,8 +51,9 @@ function makeBlobStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
 }
 
 vi.mock("@neondatabase/serverless", () => ({
-  neon: () => (sqlText: string, params: unknown[]) => {
-    capturedQueries.push({ sql: sqlText, params });
+  neon: () => {
+    const client = (sqlText: string, params: unknown[]) => {
+      capturedQueries.push({ sql: sqlText, params });
 
     // getGoodsReceiptReextractionPreview
     if (sqlText.startsWith('select "reextraction_status", "reextraction_raw"')) {
@@ -120,7 +121,16 @@ vi.mock("@neondatabase/serverless", () => ({
       return Promise.resolve({ rows: [["activity-1"]], rowCount: 1, fields: [] });
     }
 
-    return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
+      return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
+    };
+    // db.batch() → NeonHttpSession.batch() volá this.client.transaction(…) —
+    // builtQueries je v tomhle bodě už pole PROMISŮ (stejný mock client()
+    // výš se zavolal jednotlivě pro KAŽDÝ dotaz dávky ještě PŘED tímhle
+    // voláním), takže mock jen čeká, až se všechny vyřeší, ve stejném
+    // pořadí (stejná konvence jako skutečný @neondatabase/serverless —
+    // viz komentář u buildGoodsReceiptAdvisoryLockQuery, sklad.ts).
+    client.transaction = (queries: unknown[]) => Promise.all(queries);
+    return client;
   },
 }));
 
