@@ -466,3 +466,59 @@ describe("triggerGoodsReceiptReextraction — ochrana proti opožděnému výsle
     expect(ready.rows).toHaveLength(1);
   }, DB_TEST.timeout);
 });
+
+describe("goods_receipt_lines_bump_updated_at — reálný nález (kontrola před nasazením)", () => {
+  it("BEZ triggeru by prostý UPDATE, co nenastaví updated_at explicitně, nechal count+max(updated_at) snímek beze změny (reprodukce díry — ověřeno PŘED přidáním triggeru)", async () => {
+    // Tenhle test dokazuje PŮVODNÍ nález: appková konvence (každá funkce si
+    // sama nastaví updated_at) NENÍ nic, co by DB sama vynucovala. Proto
+    // simulujeme zápis, co na to zapomene, PŘÍMO přes trigger vypnutý —
+    // stejná technika jako u SHA-256 triggeru výš (ALTER TABLE ... DISABLE
+    // TRIGGER), aby šlo znovu vytvořit přesně ten stav, co appková
+    // konvence sama o sobě nikdy nezaručovala.
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 3);
+    const before = await captureLinesSnapshot(pg, receiptId);
+
+    await pg.query(`ALTER TABLE goods_receipt_lines DISABLE TRIGGER goods_receipt_lines_bump_updated_at`);
+    const lineId = (await pg.query<{ id: string }>(`SELECT id FROM goods_receipt_lines WHERE receipt_id = $1 AND position = 1`, [receiptId])).rows[0].id;
+    // Záměrně BEZ "updated_at = now()" — simuluje zápis, co na to zapomněl.
+    await pg.query(`UPDATE goods_receipt_lines SET raw_description = 'Ručně upraveno (bez updated_at)' WHERE id = $1`, [lineId]);
+    await pg.query(`ALTER TABLE goods_receipt_lines ENABLE TRIGGER goods_receipt_lines_bump_updated_at`);
+
+    const after = await captureLinesSnapshot(pg, receiptId);
+    // Reprodukovaná díra: snímek vypadá STEJNĚ, i když se řádek 1 (NE ten s
+    // nejnovějším updated_at) ve skutečnosti změnil.
+    expect(after).toEqual(before);
+  }, DB_TEST.timeout);
+
+  it("SE zapnutým triggerem (normální stav appky): STEJNÝ zápis bez explicitního updated_at se teď detekuje — count/max(updated_at) snímek se změní", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 3);
+    const before = await captureLinesSnapshot(pg, receiptId);
+
+    const lineId = (await pg.query<{ id: string }>(`SELECT id FROM goods_receipt_lines WHERE receipt_id = $1 AND position = 1`, [receiptId])).rows[0].id;
+    // Stejný zápis jako výš — tentokrát BEZ vypnutí triggeru (normální stav).
+    await pg.query(`UPDATE goods_receipt_lines SET raw_description = 'Ručně upraveno' WHERE id = $1`, [lineId]);
+
+    const after = await captureLinesSnapshot(pg, receiptId);
+    expect(after).not.toEqual(before);
+    expect(after.count).toBe(before.count); // počet stejný, jen obsah/čas se liší
+    expect(after.maxUpdatedAtText).not.toBe(before.maxUpdatedAtText);
+
+    const line = (await pg.query<{ raw_description: string }>(`SELECT raw_description FROM goods_receipt_lines WHERE id = $1`, [lineId])).rows[0];
+    expect(line.raw_description).toBe("Ručně upraveno"); // obsahová změna se skutečně uložila
+  }, DB_TEST.timeout);
+
+  it("trigger nastaví updated_at na 'teď', i kdyby appka poslala explicitní (třeba starou) hodnotu — appková updatedAt je teď jen neškodně nadbytečná", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 1);
+    const lineId = (await pg.query<{ id: string }>(`SELECT id FROM goods_receipt_lines WHERE receipt_id = $1`, [receiptId])).rows[0].id;
+
+    const before = (await pg.query<{ now: string }>(`SELECT now()::text AS now`)).rows[0].now;
+    await pg.query(`UPDATE goods_receipt_lines SET raw_description = 'X', updated_at = '2000-01-01T00:00:00Z' WHERE id = $1`, [lineId]);
+    const row = (await pg.query<{ updated_at: string }>(`SELECT updated_at::text FROM goods_receipt_lines WHERE id = $1`, [lineId])).rows[0];
+
+    expect(row.updated_at).not.toBe("2000-01-01 00:00:00+00");
+    expect(new Date(row.updated_at).getTime()).toBeGreaterThanOrEqual(new Date(before).getTime());
+  }, DB_TEST.timeout);
+});

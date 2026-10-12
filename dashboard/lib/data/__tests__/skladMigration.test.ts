@@ -143,4 +143,11 @@ describe("migrace 0024 — „Znovu přečíst doklad“ je zcela oddělená od 
   it("migrace je PŘIPRAVENÁ, NENASAZENÁ — žádný krok appky ji nesmí sám spustit proti žádné databázi", () => {
     expect(migration0024Sql).toContain("PŘIPRAVENO, NENASAZENO");
   });
+
+  it("kontrola před nasazením: updated_at na goods_receipt_lines je DATABÁZOVĚ vynucený triggerem, ne jen aplikační konvencí", () => {
+    expect(migration0024Sql).toContain("CREATE FUNCTION goods_receipt_lines_bump_updated_at()");
+    expect(migration0024Sql).toContain("NEW.updated_at := now();");
+    expect(migration0024Sql).toContain("CREATE TRIGGER goods_receipt_lines_bump_updated_at");
+    expect(migration0024Sql).toContain("BEFORE UPDATE ON goods_receipt_lines");
+  });
 });
