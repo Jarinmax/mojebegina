@@ -589,6 +589,28 @@ export async function acceptGoodsReceiptReextraction(receiptId: string): Promise
     return { ok: false, error: "Nový výsledek nemá žádné řádky — nelze převzít." };
   }
 
+  // Ochrana ručních úprav provedených BĚHEM nového čtení (zadání): appka
+  // nikdy nepřevezme výsledek, pokud se existující řádky od spuštění
+  // nového čtení JAKKOLI změnily (ruční oprava, smazání, přidání). Tenhle
+  // precheck je jen pro SROZUMITELNOU hlášku — skutečnou ochranu dává
+  // STEJNÁ podmínka přímo v atomickém zápisu níž (TOCTOU-bezpečné: i kdyby
+  // se něco změnilo mezi tímhle selectem a zápisem, atomický zápis to
+  // stejně odmítne, jen s obecnější hláškou).
+  const linesSnapshot = raw.linesSnapshot;
+  const current = await db.execute<{ count: string; max_updated_at: string | null }>(sql`
+    SELECT count(*) AS count, max(updated_at)::text AS max_updated_at
+    FROM goods_receipt_lines
+    WHERE receipt_id = ${receiptId}
+  `);
+  const currentCount = Number(current.rows[0]?.count ?? 0);
+  const currentMaxUpdatedAt = current.rows[0]?.max_updated_at ?? null;
+  if (currentCount !== linesSnapshot.count || currentMaxUpdatedAt !== linesSnapshot.maxUpdatedAtText) {
+    return {
+      ok: false,
+      error: "Řádky se od spuštění nového čtení ručně změnily — nový výsledek by tyhle změny přepsal. Zkontrolujte aktuální řádky, případně spusťte nové čtení znovu.",
+    };
+  }
+
   // Tvar PŘESNĚ odpovídá sloupcům goods_receipt_lines (snake_case) — appka
   // je sama vygenerovala v triggerGoodsReceiptReextraction, nejde o vstup
   // od uživatele, proto žádná další validace formátu, jen tvarová kontrola
@@ -630,6 +652,8 @@ export async function acceptGoodsReceiptReextraction(receiptId: string): Promise
             payment_method = COALESCE(payment_method, ${raw.paymentMethod}),
             updated_at = now()
         WHERE id = ${receiptId} AND status = 'draft' AND reextraction_status = 'ready'
+          AND (SELECT count(*) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}) = ${linesSnapshot.count}
+          AND (SELECT max(updated_at)::text FROM goods_receipt_lines WHERE receipt_id = ${receiptId}) IS NOT DISTINCT FROM ${linesSnapshot.maxUpdatedAtText}
         RETURNING id
       ),
       deleted AS (

@@ -31,6 +31,15 @@ let reextractionRaw: unknown = null;
 let acceptClaimSucceeds = true;
 let discardClaimSucceeds = true;
 let triggerClaimSucceeds = true;
+let triggerFinalWriteSucceeds = true;
+// Simuluje AKTUÁLNÍ (živý) stav goods_receipt_lines — čte ho jak nový
+// claim na začátku triggerGoodsReceiptReextraction (uloží si snímek), tak
+// precheck na začátku acceptGoodsReceiptReextraction (porovná s uloženým
+// snímkem). Výchozí hodnoty odpovídají SAMPLE_RAW_LINE/sampleReextractionRaw
+// níž, aby „beze změny“ byl výchozí stav a testy manuální úpravy ho
+// explicitně rozladily.
+let liveLinesCount = 1;
+let liveLinesMaxUpdatedAtText: string | null = "2026-10-11T11:00:00.000Z";
 
 function makeBlobStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -60,6 +69,16 @@ vi.mock("@neondatabase/serverless", () => ({
       const rows = acceptClaimSucceeds ? [[RECEIPT_ID]] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
+    // acceptGoodsReceiptReextraction (precheck) / triggerGoodsReceiptReextraction
+    // (snímek při claimu) — db.execute() vrací OBJEKTOVÉ řádky (ne pole),
+    // stejně jako skutečný neon-http ovladač v ne-array módu.
+    if (sqlText.includes("max(updated_at)")) {
+      return Promise.resolve({
+        rows: [{ count: String(liveLinesCount), max_updated_at: liveLinesMaxUpdatedAtText }],
+        rowCount: 1,
+        fields: [],
+      });
+    }
     // discardGoodsReceiptReextraction
     if (sqlText.includes("UPDATE goods_receipts") && sqlText.includes("reextraction_status = 'none'")) {
       const rows = discardClaimSucceeds ? [[RECEIPT_ID]] : [];
@@ -87,8 +106,14 @@ vi.mock("@neondatabase/serverless", () => ({
     if (sqlText.startsWith('select "supplier_item_mappings"."id"')) {
       return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
     }
-    // final ready update / markReextractionFailed
-    if (sqlText.startsWith('update "goods_receipts" set "reextraction_status"')) {
+    // final "ready" write — gatované reextraction_claimed_at, .returning("id")
+    if (sqlText.startsWith('update "goods_receipts" set "reextraction_status" = $1, "reextraction_raw"')) {
+      const rows = triggerFinalWriteSucceeds ? [{ id: RECEIPT_ID }] : [];
+      return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
+    }
+    // markReextractionFailed — také gatované reextraction_claimed_at, beze
+    // čtení výsledku (appka ho bere jako best-effort, nekontroluje rows).
+    if (sqlText.startsWith('update "goods_receipts" set "reextraction_status" = $1, "updated_at"')) {
       return Promise.resolve({ rows: [], rowCount: 1, fields: [] });
     }
     if (sqlText.startsWith('insert into "goods_receipt_activity"')) {
@@ -169,6 +194,7 @@ function sampleReextractionRaw(overrides: Record<string, unknown> = {}) {
     totalVat: 2.1,
     totalWithVat: 12.1,
     lines: [SAMPLE_RAW_LINE],
+    linesSnapshot: { count: 1, maxUpdatedAtText: "2026-10-11T11:00:00.000Z" },
     ...overrides,
   };
 }
@@ -200,6 +226,9 @@ beforeEach(() => {
   acceptClaimSucceeds = true;
   discardClaimSucceeds = true;
   triggerClaimSucceeds = true;
+  triggerFinalWriteSucceeds = true;
+  liveLinesCount = 1;
+  liveLinesMaxUpdatedAtText = "2026-10-11T11:00:00.000Z";
   mockGetAuthContext.mockReset();
   mockGet.mockReset();
   mockExtractStructuredReceipt.mockReset();
@@ -228,11 +257,16 @@ describe("triggerGoodsReceiptReextraction — spouští se NEZÁVISLE na existuj
     const result = await triggerGoodsReceiptReextraction(RECEIPT_ID);
     expect(result).toEqual({ ok: true });
 
-    // Žádný dotaz nesmí kontrolovat existenci goods_receipt_lines — to je
-    // přesně ten rozdíl oproti triggerGoodsReceiptExtraction výš v souboru.
-    expect(capturedQueries.some((q) => q.sql.includes("goods_receipt_lines"))).toBe(false);
+    // Appka SMÍ číst goods_receipt_lines (snímek pro ochranu ručních úprav
+    // — viz accept testy níž), ale ŽÁDNÝ dotaz nesmí blokovat na JEJICH
+    // EXISTENCI/POČTU — to je přesně ten rozdíl oproti
+    // triggerGoodsReceiptExtraction výš v souboru (ten vyžaduje "NOT
+    // EXISTS (řádky)" jako podmínku claimu).
+    expect(capturedQueries.some((q) => q.sql.includes("NOT EXISTS") && q.sql.includes("goods_receipt_lines"))).toBe(false);
+    const linesSnapshotQuery = capturedQueries.find((q) => q.sql.includes("max(updated_at)"));
+    expect(linesSnapshotQuery).toBeDefined();
     // Úspěch zapisuje jen reextraction_status/_raw, NIKDY extraction_status.
-    const finalUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "reextraction_status"'));
+    const finalUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "reextraction_status" = $1, "reextraction_raw"'));
     expect(finalUpdate).toBeDefined();
     expect(finalUpdate!.sql).not.toContain("\"extraction_status\"");
   });
@@ -302,6 +336,69 @@ describe("triggerGoodsReceiptReextraction — spouští se NEZÁVISLE na existuj
     expect((result as { kind: string }).kind).toBe("unreadable");
     expect((result as { error: string }).error).toContain("Původní řádky zůstávají beze změny");
   });
+
+  it("ochrana proti opožděnému výsledku staršího pokusu: finální zápis je gatovaný reextraction_claimed_at a appka NEOZNAČÍ supersednutý pokus za úspěch", async () => {
+    mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
+    mockGet.mockResolvedValue({ statusCode: 200, stream: makeBlobStream(new Uint8Array([1, 2, 3])) });
+    mockPerformReceiptOcr.mockResolvedValue("=== VÝŘEZ 1 ===\nPivo 12° 1 ks 100,00 Kč dostatečně dlouhý text");
+    mockExtractStructuredReceipt.mockResolvedValue({
+      supplierName: "Test",
+      supplierIco: null,
+      supplierDic: null,
+      documentNumber: null,
+      documentDate: null,
+      paymentMethod: null,
+      lines: [extractedReceiptLine()],
+      totalWithoutVat: 10,
+      totalVat: 2.1,
+      totalWithVat: 12.1,
+    });
+    // Simuluje: mezitím co TENHLE pokus čekal na model, začal/doběhl
+    // novější pokus a přepsal reextraction_claimed_at — finální zápis
+    // tohohle (starého) pokusu proto gate nesplní.
+    triggerFinalWriteSucceeds = false;
+
+    const { triggerGoodsReceiptReextraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptReextraction(RECEIPT_ID);
+    expect(result).toEqual({
+      ok: false,
+      error: "Tenhle pokus o nové čtení byl mezitím nahrazen novějším. Zkontrolujte aktuální stav příjemky.",
+      kind: "technical",
+    });
+    // Supersednutý pokus nesmí zalogovat aktivitu — ta by lhala o tom, co
+    // je skutečně uložené (novější pokus má své vlastní, jiné řádky).
+    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))).toBe(false);
+  });
+
+  it("claim UPDATE zapisuje reextraction_claimed_at jako parametr z JS (ne SQL now()), aby šel stejný token znovu použít jako gate", async () => {
+    mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
+    mockGet.mockResolvedValue({ statusCode: 200, stream: makeBlobStream(new Uint8Array([1, 2, 3])) });
+    mockPerformReceiptOcr.mockResolvedValue("=== VÝŘEZ 1 ===\nPivo 12° 1 ks 100,00 Kč dostatečně dlouhý text");
+    mockExtractStructuredReceipt.mockResolvedValue({
+      supplierName: "Test",
+      supplierIco: null,
+      supplierDic: null,
+      documentNumber: null,
+      documentDate: null,
+      paymentMethod: null,
+      lines: [extractedReceiptLine()],
+      totalWithoutVat: 10,
+      totalVat: 2.1,
+      totalWithVat: 12.1,
+    });
+
+    const { triggerGoodsReceiptReextraction } = await import("../skladExtraction");
+    await triggerGoodsReceiptReextraction(RECEIPT_ID);
+
+    const claimQuery = capturedQueries.find((q) => q.sql.includes("reextraction_status = 'pending'"));
+    expect(claimQuery).toBeDefined();
+    expect(claimQuery!.sql).not.toContain("reextraction_claimed_at = now()");
+    expect(claimQuery!.params.some((p) => p instanceof Date)).toBe(true);
+
+    const finalWrite = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "reextraction_status" = $1, "reextraction_raw"'));
+    expect(finalWrite).toBeDefined();
+    expect(finalWrite!.sql).toContain('"reextraction_claimed_at" = $');
+  });
 });
 
 describe("acceptGoodsReceiptReextraction — jediné místo, kde se řádky nahradí", () => {
@@ -361,6 +458,57 @@ describe("acceptGoodsReceiptReextraction — jediné místo, kde se řádky nahr
     const { acceptGoodsReceiptReextraction } = await import("../sklad");
     const result = await acceptGoodsReceiptReextraction(RECEIPT_ID);
     expect(result).toEqual({ ok: false, error: "Nový výsledek se nepodařilo převzít — mezitím se stav příjemky změnil." });
+  });
+
+  it("příjemka 'voided' → odmítne se beze zápisu, appka stornované příjemky nemění (ne jen 'confirmed')", async () => {
+    receiptStatus = "voided";
+    reextractionStatus = "ready";
+    reextractionRaw = sampleReextractionRaw();
+    mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
+    const { acceptGoodsReceiptReextraction } = await import("../sklad");
+    const result = await acceptGoodsReceiptReextraction(RECEIPT_ID);
+    expect(result).toEqual({ ok: false, error: "Potvrzené a stornované příjemky appka nemění — nový výsledek nelze převzít." });
+    expect(capturedQueries.some((q) => q.sql.includes("WITH claimed AS"))).toBe(false);
+  });
+
+  it("ochrana ručních úprav provedených BĚHEM nového čtení: počet řádků se mezitím změnil → převzetí se odmítne, atomický zápis se vůbec nepokusí", async () => {
+    reextractionStatus = "ready";
+    reextractionRaw = sampleReextractionRaw(); // snapshot: count=1, maxUpdatedAtText="2026-10-11T11:00:00.000Z"
+    liveLinesCount = 2; // mezitím přibyl ruční řádek
+    mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
+    const { acceptGoodsReceiptReextraction } = await import("../sklad");
+    const result = await acceptGoodsReceiptReextraction(RECEIPT_ID);
+    expect(result).toEqual({
+      ok: false,
+      error:
+        "Řádky se od spuštění nového čtení ručně změnily — nový výsledek by tyhle změny přepsal. Zkontrolujte aktuální řádky, případně spusťte nové čtení znovu.",
+    });
+    expect(capturedQueries.some((q) => q.sql.includes("WITH claimed AS"))).toBe(false);
+  });
+
+  it("ochrana ručních úprav: stejný POČET, ale novější max(updated_at) (oprava existujícího řádku) → taky se odmítne", async () => {
+    reextractionStatus = "ready";
+    reextractionRaw = sampleReextractionRaw();
+    liveLinesCount = 1;
+    liveLinesMaxUpdatedAtText = "2026-10-11T23:59:59.000Z"; // řádek byl mezitím ručně upraven
+    mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
+    const { acceptGoodsReceiptReextraction } = await import("../sklad");
+    const result = await acceptGoodsReceiptReextraction(RECEIPT_ID);
+    expect(result.ok).toBe(false);
+    expect((result as { error: string }).error).toContain("ručně změnily");
+  });
+
+  it("atomický zápis má VLASTNÍ (TOCTOU-bezpečnou) kontrolu snímku řádků přímo v gatu, ne jen v precheck selectu", async () => {
+    reextractionStatus = "ready";
+    reextractionRaw = sampleReextractionRaw();
+    mockGetAuthContext.mockResolvedValue(ctxFor(VINER));
+    const { acceptGoodsReceiptReextraction } = await import("../sklad");
+    await acceptGoodsReceiptReextraction(RECEIPT_ID);
+
+    const cte = capturedQueries.find((q) => q.sql.includes("WITH claimed AS"));
+    expect(cte).toBeDefined();
+    expect(cte!.sql).toContain("(SELECT count(*) FROM goods_receipt_lines WHERE receipt_id = $");
+    expect(cte!.sql).toContain("IS NOT DISTINCT FROM $");
   });
 });
 

@@ -46,12 +46,25 @@ async function setupDraftReceiptWithLines(pg: Awaited<ReturnType<typeof freshDb>
   return { receiptId, supplierId };
 }
 
-// Exact mirror of acceptGoodsReceiptReextraction's SQL in sklad.ts.
+async function captureLinesSnapshot(pg: Awaited<ReturnType<typeof freshDb>>, receiptId: string) {
+  const row = (
+    await pg.query<{ count: string; max_updated_at: string | null }>(
+      `SELECT count(*) AS count, max(updated_at)::text AS max_updated_at FROM goods_receipt_lines WHERE receipt_id = $1`,
+      [receiptId]
+    )
+  ).rows[0];
+  return { count: Number(row.count), maxUpdatedAtText: row.max_updated_at };
+}
+
+// Exact mirror of acceptGoodsReceiptReextraction's SQL in sklad.ts — including
+// the lines-snapshot guard (ochrana ručních úprav provedených BĚHEM nového
+// čtení, zadání) directly inside the `claimed` CTE's WHERE.
 async function acceptReextraction(
   pg: Awaited<ReturnType<typeof freshDb>>,
   receiptId: string,
   linesJson: string,
-  candidates: { supplierId: string | null; supplierName: string | null; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null }
+  candidates: { supplierId: string | null; supplierName: string | null; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null },
+  linesSnapshot: { count: number; maxUpdatedAtText: string | null }
 ) {
   return pg.query<{ id: string }>(
     `WITH claimed AS (
@@ -67,6 +80,8 @@ async function acceptReextraction(
             payment_method = COALESCE(payment_method, $6),
             updated_at = now()
         WHERE id = $1 AND status = 'draft' AND reextraction_status = 'ready'
+          AND (SELECT count(*) FROM goods_receipt_lines WHERE receipt_id = $1) = $8
+          AND (SELECT max(updated_at)::text FROM goods_receipt_lines WHERE receipt_id = $1) IS NOT DISTINCT FROM $9
         RETURNING id
       ),
       deleted AS (
@@ -103,7 +118,17 @@ async function acceptReextraction(
              'Převzat výsledek nového čtení — ' || (SELECT count(*) FROM deleted) || ' původních řádků nahrazeno ' || (SELECT count(*) FROM inserted) || ' novými.'
       WHERE EXISTS (SELECT 1 FROM claimed)
       RETURNING id`,
-    [receiptId, candidates.supplierId, candidates.supplierName, candidates.documentNumber, candidates.documentDate, candidates.paymentMethod, linesJson]
+    [
+      receiptId,
+      candidates.supplierId,
+      candidates.supplierName,
+      candidates.documentNumber,
+      candidates.documentDate,
+      candidates.paymentMethod,
+      linesJson,
+      linesSnapshot.count,
+      linesSnapshot.maxUpdatedAtText,
+    ]
   );
 }
 
@@ -135,15 +160,16 @@ describe("acceptGoodsReceiptReextraction — reálná Postgres sémantika pro DE
   it("staré řádky (pozice 1,2) i nové řádky (pozice 1,2) se STEJNÝMI pozicemi — bez unique violation, výsledek jsou JEN nové řádky", async () => {
     const pg = await freshDb();
     const { receiptId } = await setupDraftReceiptWithLines(pg, 2);
+    const linesSnapshot = await captureLinesSnapshot(pg, receiptId);
     await pg.query(`UPDATE goods_receipts SET reextraction_status = 'ready' WHERE id = $1`, [receiptId]);
 
-    const result = await acceptReextraction(pg, receiptId, newLinesJson(2), {
-      supplierId: null,
-      supplierName: null,
-      documentNumber: null,
-      documentDate: null,
-      paymentMethod: null,
-    });
+    const result = await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(2),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      linesSnapshot
+    );
     expect(result.rows).toHaveLength(1); // activity insert RETURNING id
 
     const lines = (
@@ -172,15 +198,16 @@ describe("acceptGoodsReceiptReextraction — reálná Postgres sémantika pro DE
   it("méně nových řádků (1) než starých (3, stejné pozice 1) — staré 2,3 zmizí, zbyde jen nová 1", async () => {
     const pg = await freshDb();
     const { receiptId } = await setupDraftReceiptWithLines(pg, 3);
+    const linesSnapshot = await captureLinesSnapshot(pg, receiptId);
     await pg.query(`UPDATE goods_receipts SET reextraction_status = 'ready' WHERE id = $1`, [receiptId]);
 
-    await acceptReextraction(pg, receiptId, newLinesJson(1), {
-      supplierId: null,
-      supplierName: null,
-      documentNumber: null,
-      documentDate: null,
-      paymentMethod: null,
-    });
+    await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(1),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      linesSnapshot
+    );
 
     const lines = (await pg.query<{ position: number }>(`SELECT position FROM goods_receipt_lines WHERE receipt_id = $1`, [receiptId])).rows;
     expect(lines).toEqual([{ position: 1 }]);
@@ -189,15 +216,16 @@ describe("acceptGoodsReceiptReextraction — reálná Postgres sémantika pro DE
   it("příjemka NENÍ 'ready' (jen 'pending') → claim neprojde, PŮVODNÍ řádky zůstávají úplně beze změny", async () => {
     const pg = await freshDb();
     const { receiptId } = await setupDraftReceiptWithLines(pg, 2);
+    const linesSnapshot = await captureLinesSnapshot(pg, receiptId);
     await pg.query(`UPDATE goods_receipts SET reextraction_status = 'pending' WHERE id = $1`, [receiptId]);
 
-    const result = await acceptReextraction(pg, receiptId, newLinesJson(2), {
-      supplierId: null,
-      supplierName: null,
-      documentNumber: null,
-      documentDate: null,
-      paymentMethod: null,
-    });
+    const result = await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(2),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      linesSnapshot
+    );
     expect(result.rows).toHaveLength(0);
 
     const lines = (
@@ -215,6 +243,7 @@ describe("acceptGoodsReceiptReextraction — reálná Postgres sémantika pro DE
   it("potvrzená příjemka ('confirmed') → appka ji nikdy nezmění, i kdyby reextraction_status byl 'ready'", async () => {
     const pg = await freshDb();
     const { receiptId } = await setupDraftReceiptWithLines(pg, 1);
+    const linesSnapshot = await captureLinesSnapshot(pg, receiptId);
     await pg.query(
       `UPDATE goods_receipts SET reextraction_status = 'ready', status = 'confirmed', confirmed_by_user_id = 'tester', confirmed_at = now(),
          total_without_vat_hal = 10000, total_vat_hal = 2100, total_with_vat_hal = 12100
@@ -222,33 +251,110 @@ describe("acceptGoodsReceiptReextraction — reálná Postgres sémantika pro DE
       [receiptId]
     );
 
-    const result = await acceptReextraction(pg, receiptId, newLinesJson(1), {
-      supplierId: null,
-      supplierName: null,
-      documentNumber: null,
-      documentDate: null,
-      paymentMethod: null,
-    });
+    const result = await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(1),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      linesSnapshot
+    );
     expect(result.rows).toHaveLength(0);
 
     const line = (await pg.query<{ raw_description: string }>(`SELECT raw_description FROM goods_receipt_lines WHERE receipt_id = $1`, [receiptId])).rows[0];
     expect(line.raw_description).toBe("Původní řádek 1");
   }, DB_TEST.timeout);
 
+  it("stornovaná příjemka ('voided') → appka ji nikdy nezmění, i kdyby reextraction_status byl 'ready' (ne jen 'confirmed')", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 1);
+    const linesSnapshot = await captureLinesSnapshot(pg, receiptId);
+    await pg.query(
+      `UPDATE goods_receipts SET reextraction_status = 'ready', status = 'voided', voided_by_user_id = 'tester', voided_at = now(), void_reason = 'test'
+       WHERE id = $1`,
+      [receiptId]
+    );
+
+    const result = await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(1),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      linesSnapshot
+    );
+    expect(result.rows).toHaveLength(0);
+
+    const line = (await pg.query<{ raw_description: string }>(`SELECT raw_description FROM goods_receipt_lines WHERE receipt_id = $1`, [receiptId])).rows[0];
+    expect(line.raw_description).toBe("Původní řádek 1");
+  }, DB_TEST.timeout);
+
+  it("ochrana ručních úprav BĚHEM nového čtení: řádek byl mezitím ručně upraven (jiný updated_at) → claim neprojde, upravený řádek zůstává beze změny appkou", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 2);
+    // Snímek se bere PŘED spuštěním nového čtení — simulujeme ruční úpravu
+    // existujícího řádku PO snímku (appka tak o ní při čtení nemohla vědět).
+    const staleSnapshot = await captureLinesSnapshot(pg, receiptId);
+    await pg.query(`UPDATE goods_receipts SET reextraction_status = 'ready' WHERE id = $1`, [receiptId]);
+    await pg.query(
+      `UPDATE goods_receipt_lines SET raw_description = 'Ručně opravený popis', updated_at = now() WHERE receipt_id = $1 AND position = 1`,
+      [receiptId]
+    );
+
+    const result = await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(2),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      staleSnapshot
+    );
+    expect(result.rows).toHaveLength(0);
+
+    const lines = (
+      await pg.query<{ position: number; raw_description: string }>(
+        `SELECT position, raw_description FROM goods_receipt_lines WHERE receipt_id = $1 ORDER BY position`,
+        [receiptId]
+      )
+    ).rows;
+    expect(lines).toEqual([
+      { position: 1, raw_description: "Ručně opravený popis" }, // ruční oprava zachována
+      { position: 2, raw_description: "Původní řádek 2" },
+    ]);
+  }, DB_TEST.timeout);
+
+  it("ochrana ručních úprav BĚHEM nového čtení: řádek byl mezitím ručně SMAZÁN (jiný počet) → claim neprojde", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 2);
+    const staleSnapshot = await captureLinesSnapshot(pg, receiptId);
+    await pg.query(`UPDATE goods_receipts SET reextraction_status = 'ready' WHERE id = $1`, [receiptId]);
+    await pg.query(`DELETE FROM goods_receipt_lines WHERE receipt_id = $1 AND position = 2`, [receiptId]);
+
+    const result = await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(2),
+      { supplierId: null, supplierName: null, documentNumber: null, documentDate: null, paymentMethod: null },
+      staleSnapshot
+    );
+    expect(result.rows).toHaveLength(0);
+
+    const lines = (await pg.query<{ position: number }>(`SELECT position FROM goods_receipt_lines WHERE receipt_id = $1`, [receiptId])).rows;
+    expect(lines).toEqual([{ position: 1 }]); // jen zbylý ruční stav, appka nic nepřepsala
+  }, DB_TEST.timeout);
+
   it("kandidát dodavatele/hlavičky se promítne jen při přijetí, a jen tam, kde byla hlavička prázdná", async () => {
     const pg = await freshDb();
     const { receiptId } = await setupDraftReceiptWithLines(pg, 1);
+    const linesSnapshot = await captureLinesSnapshot(pg, receiptId);
     const newSupplierId = randomUUID();
     await pg.query(`INSERT INTO suppliers (id, name, name_normalized) VALUES ($1, 'Nový dodavatel', 'novy dodavatel')`, [newSupplierId]);
     await pg.query(`UPDATE goods_receipts SET reextraction_status = 'ready' WHERE id = $1`, [receiptId]);
 
-    await acceptReextraction(pg, receiptId, newLinesJson(1), {
-      supplierId: newSupplierId,
-      supplierName: "Nový dodavatel",
-      documentNumber: "FV-123",
-      documentDate: "2026-10-11",
-      paymentMethod: "hotově",
-    });
+    await acceptReextraction(
+      pg,
+      receiptId,
+      newLinesJson(1),
+      { supplierId: newSupplierId, supplierName: "Nový dodavatel", documentNumber: "FV-123", documentDate: "2026-10-11", paymentMethod: "hotově" },
+      linesSnapshot
+    );
 
     const receipt = (
       await pg.query<{ supplier_id: string; supplier_name_snapshot: string; document_number: string; payment_method: string }>(
@@ -285,5 +391,78 @@ describe("discardGoodsReceiptReextraction — reálná Postgres sémantika", () 
 
     const lineCount = (await pg.query<{ count: string }>(`SELECT count(*) FROM goods_receipt_lines WHERE receipt_id = $1`, [receiptId])).rows[0].count;
     expect(Number(lineCount)).toBe(2);
+  }, DB_TEST.timeout);
+});
+
+describe("triggerGoodsReceiptReextraction — ochrana proti opožděnému výsledku staršího pokusu (reálná Postgres sémantika)", () => {
+  // Exact mirror of triggerGoodsReceiptReextraction's claim UPDATE in
+  // skladExtraction.ts — `claimedAt` je JS Date, stejný objekt se znovu
+  // použije jako gate v claimAttemptReady níž (nikdy se nečte zpátky z DB).
+  async function claimAttempt(pg: Awaited<ReturnType<typeof freshDb>>, receiptId: string, claimedAt: Date) {
+    return pg.query<{ id: string }>(
+      `UPDATE goods_receipts
+       SET reextraction_status = 'pending', reextraction_claimed_at = $1, updated_at = now()
+       WHERE id = $2
+         AND status = 'draft'
+         AND (
+           reextraction_status IN ('none', 'failed')
+           OR (reextraction_status = 'pending' AND reextraction_claimed_at < now() - interval '10 minutes')
+         )
+       RETURNING id`,
+      [claimedAt, receiptId]
+    );
+  }
+
+  // Exact mirror of the final "ready" write in triggerGoodsReceiptReextraction.
+  async function claimAttemptReady(pg: Awaited<ReturnType<typeof freshDb>>, receiptId: string, claimedAt: Date, rawJson: string) {
+    return pg.query<{ id: string }>(
+      `UPDATE goods_receipts
+       SET reextraction_status = 'ready', reextraction_raw = $1::jsonb, updated_at = now()
+       WHERE id = $2 AND reextraction_claimed_at = $3
+       RETURNING id`,
+      [rawJson, receiptId, claimedAt]
+    );
+  }
+
+  it("starší (opožděný) pokus dokončí AŽ PO novějším — jeho zápis gate nesplní a NEPŘEPÍŠE novější výsledek", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 0);
+
+    // Pokus #1 claimne jako první.
+    const claimedAt1 = new Date();
+    const claim1 = await claimAttempt(pg, receiptId, claimedAt1);
+    expect(claim1.rows).toHaveLength(1);
+
+    // Mezitím (simulace: pokus #1 je neobvykle pomalý — třeba kvůli
+    // retry na gateway úrovni) je claim #1 už starší než 10 minut, takže
+    // appka povolí NOVÝ pokus #2 — posune claimed_at dopředu.
+    await pg.query(`UPDATE goods_receipts SET reextraction_claimed_at = reextraction_claimed_at - interval '11 minutes' WHERE id = $1`, [receiptId]);
+    const claimedAt2 = new Date();
+    const claim2 = await claimAttempt(pg, receiptId, claimedAt2);
+    expect(claim2.rows).toHaveLength(1); // staleness okno dovolilo reclaim
+
+    // Pokus #2 (novější) doběhne první a úspěšně zapíše svůj výsledek.
+    const readyFromAttempt2 = await claimAttemptReady(pg, receiptId, claimedAt2, JSON.stringify({ attempt: 2, lines: [] }));
+    expect(readyFromAttempt2.rows).toHaveLength(1);
+
+    // Až TEĎ (opožděně) doběhne PŮVODNÍ pokus #1 a zkusí zapsat SVŮJ
+    // (starý) výsledek — gate (reextraction_claimed_at = claimedAt1) už
+    // nesedí, protože claimAttempt #2 ho přepsal na claimedAt2.
+    const readyFromAttempt1 = await claimAttemptReady(pg, receiptId, claimedAt1, JSON.stringify({ attempt: 1, lines: ["STALE"] }));
+    expect(readyFromAttempt1.rows).toHaveLength(0); // tiše se nepropsalo
+
+    // Výsledný stav v DB musí být POŘÁD od pokusu #2, ne přepsaný pokusem #1.
+    const receipt = (await pg.query<{ reextraction_raw: { attempt: number } }>(`SELECT reextraction_raw FROM goods_receipts WHERE id = $1`, [receiptId])).rows[0];
+    expect(receipt.reextraction_raw.attempt).toBe(2);
+  }, DB_TEST.timeout);
+
+  it("stejný (jediný) pokus zapíše svůj výsledek normálně — gate claimedAt=claimedAt projde", async () => {
+    const pg = await freshDb();
+    const { receiptId } = await setupDraftReceiptWithLines(pg, 0);
+
+    const claimedAt = new Date();
+    await claimAttempt(pg, receiptId, claimedAt);
+    const ready = await claimAttemptReady(pg, receiptId, claimedAt, JSON.stringify({ attempt: 1, lines: [] }));
+    expect(ready.rows).toHaveLength(1);
   }, DB_TEST.timeout);
 });

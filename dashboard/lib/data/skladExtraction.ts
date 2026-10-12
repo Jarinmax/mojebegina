@@ -195,21 +195,31 @@ async function truncatedExtractionResult(receiptId: string, phase: "ocr" | "stru
 // goods_receipt_lines. Selhání nového čtení tak nemůže poškodit ani jen
 // signalizovat změnu u už existujících (natož potvrzených) dat — ty
 // zůstávají přesně tak, jak byly před kliknutím na "Znovu přečíst doklad".
-async function markReextractionFailed(receiptId: string): Promise<void> {
+// `claimedAt` je PŘESNĚ ten JS Date, co TENHLE konkrétní pokus zapsal do
+// reextraction_claimed_at při claimu (triggerGoodsReceiptReextraction níž)
+// — nikdy znovu nečtený z DB, takže žádné riziko ztráty přesnosti při
+// zpětném round-tripu. UPDATE je gatovaný `reextraction_claimed_at = ${claimedAt}`:
+// pokud mezitím (např. kvůli neobvykle pomalému AI volání přes 10minutové
+// okno stardosti) začal NOVĚJŠÍ pokus, ten už dávno přepsal
+// reextraction_claimed_at na svou vlastní hodnotu — tenhle (opožděný,
+// „starý“) zápis pak gate nesplní a TIŠE SE NEPROVEDE, místo aby
+// novějšímu pokusu přepsal/smazal jeho výsledek (ověřeno reálně nad
+// PGlite — skladReextractionPglite.test.ts).
+async function markReextractionFailed(receiptId: string, claimedAt: Date): Promise<void> {
   try {
     await db
       .update(goodsReceipts)
       .set({ reextractionStatus: "failed", updatedAt: new Date() })
-      .where(eq(goodsReceipts.id, receiptId));
+      .where(and(eq(goodsReceipts.id, receiptId), eq(goodsReceipts.reextractionClaimedAt, claimedAt)));
   } catch {
     // Stejná zásada jako markExtractionFailed — best-effort hláška, chyba
     // zápisu se tiše ignoruje, aby nezamaskovala původní chybu z modelu.
   }
 }
 
-async function truncatedReextractionResult(receiptId: string, phase: "ocr" | "structuring"): Promise<TriggerExtractionResult> {
+async function truncatedReextractionResult(receiptId: string, phase: "ocr" | "structuring", claimedAt: Date): Promise<TriggerExtractionResult> {
   console.error(`[sklad] Nové čtení dosáhlo výstupního limitu (receiptId=${receiptId}, fáze=${phase}) — čtení nebylo dokončeno, původní řádky beze změny.`);
-  await markReextractionFailed(receiptId);
+  await markReextractionFailed(receiptId, claimedAt);
   return {
     ok: false,
     error: "Nové čtení dokladu se nepodařilo dokončit — model dosáhl limitu délky výstupu. Původní řádky zůstávají beze změny. Zkuste to znovu.",
@@ -748,9 +758,15 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
     return { ok: false, error: "Znovu přečíst lze jen návrh příjemky — potvrzené a stornované příjemky appka nemění.", kind: "technical" };
   }
 
+  // `claimedAt` je vygenerovaný TADY v JS (ne SQL now()) a stejný objekt se
+  // posílá do KAŽDÉHO dalšího zápisu téhle funkce (claim, markReextractionFailed,
+  // finální zápis 'ready' níž) jako gate `reextraction_claimed_at = ${claimedAt}`
+  // — ochrana proti opožděnému výsledku staršího pokusu (viz komentář u
+  // markReextractionFailed výš).
+  const claimedAt = new Date();
   const claim = await db.execute<{ id: string }>(sql`
     UPDATE goods_receipts
-    SET reextraction_status = 'pending', reextraction_claimed_at = now(), updated_at = now()
+    SET reextraction_status = 'pending', reextraction_claimed_at = ${claimedAt}, updated_at = now()
     WHERE id = ${receiptId}
       AND status = 'draft'
       AND (
@@ -767,9 +783,28 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
     return { ok: false, error: message, kind: "technical" };
   }
 
+  // Snímek existujících řádků PŘESNĚ v okamžiku claimu (bod zadání: ochrana
+  // ručních úprav provedených BĚHEM nového čtení) — acceptGoodsReceiptReextraction
+  // (sklad.ts) ho při převzetí porovná s AKTUÁLNÍM stavem řádků a převzetí
+  // odmítne, pokud se mezitím cokoli změnilo (přidání/úprava/smazání
+  // řádku) — appka tak nikdy nepřepíše ruční zásah mezi spuštěním nového
+  // čtení a jeho převzetím. `maxUpdatedAtText` je `::text` cast přímo z
+  // Postgresu na obou stranách porovnání (tady i v accept), ne JS Date
+  // round-trip — stejný důvod jako u claimedAt výš, jen o úroveň opatrnější
+  // (dvě different DB připojení/dotazy v čase, ne jeden sdílený JS objekt).
+  const linesSnapshotRow = await db.execute<{ count: string; max_updated_at: string | null }>(sql`
+    SELECT count(*) AS count, max(updated_at)::text AS max_updated_at
+    FROM goods_receipt_lines
+    WHERE receipt_id = ${receiptId}
+  `);
+  const linesSnapshot = {
+    count: Number(linesSnapshotRow.rows[0]?.count ?? 0),
+    maxUpdatedAtText: linesSnapshotRow.rows[0]?.max_updated_at ?? null,
+  };
+
   const { images, diagnostics: pageDiagnostics } = await fetchReceiptPageImages(receiptId);
   if (images.length === 0) {
-    await markReextractionFailed(receiptId);
+    await markReextractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu.", kind: "technical" };
   }
 
@@ -780,10 +815,10 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
     ocrText = await performReceiptOcr(images, receiptId);
   } catch (error) {
     if (error instanceof ModelOutputTruncatedError) {
-      return truncatedReextractionResult(receiptId, error.phase);
+      return truncatedReextractionResult(receiptId, error.phase, claimedAt);
     }
     console.error(`[sklad] Znovu přečíst — OCR účtenky selhalo (receiptId=${receiptId}, model=${OCR_MODEL_ID}):`, describeExtractionErrorForLog(error));
-    await markReextractionFailed(receiptId);
+    await markReextractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Nové čtení dokladu se nezdařilo. Původní řádky zůstávají beze změny. Zkuste to znovu.", kind: "technical" };
   }
 
@@ -792,7 +827,7 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
 
   if (ocrCharCount < MIN_OCR_TEXT_LENGTH) {
     console.error(`[sklad] Znovu přečíst — OCR vrátilo příliš málo textu (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}, min=${MIN_OCR_TEXT_LENGTH}`);
-    await markReextractionFailed(receiptId);
+    await markReextractionFailed(receiptId, claimedAt);
     return {
       ok: false,
       error:
@@ -806,13 +841,13 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
     structuredRaw = await extractStructuredReceipt(ocrText, receiptId);
   } catch (error) {
     if (error instanceof ModelOutputTruncatedError) {
-      return truncatedReextractionResult(receiptId, error.phase);
+      return truncatedReextractionResult(receiptId, error.phase, claimedAt);
     }
     console.error(
       `[sklad] Znovu přečíst — strukturování OCR textu selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
       describeExtractionErrorForLog(error)
     );
-    await markReextractionFailed(receiptId);
+    await markReextractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Nové čtení dokladu se nezdařilo. Původní řádky zůstávají beze změny. Zkuste to znovu.", kind: "technical" };
   }
 
@@ -822,7 +857,7 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
     sanitizeDiagnostics
   );
   if (extracted.lines.length === 0) {
-    await markReextractionFailed(receiptId);
+    await markReextractionFailed(receiptId, claimedAt);
     return {
       ok: false,
       error:
@@ -856,12 +891,29 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
       totalVat: extracted.totalVat,
       totalWithVat: extracted.totalWithVat,
       lines: resolvedLines,
+      linesSnapshot,
     };
 
-    await db
+    // Gatováno `reextraction_claimed_at = ${claimedAt}` — ochrana proti
+    // opožděnému výsledku staršího pokusu (viz komentář u
+    // markReextractionFailed). Pokud mezitím začal novější pokus (nebo
+    // uživatel mezitím 'ready' z JINÉHO běhu zahodil/převzal), tenhle
+    // zápis gate nesplní a affectedRows bude 0 — appka to pozná a
+    // NEOZNAČÍ to falešně za úspěch ani nezaloguje zavádějící aktivitu.
+    const readyWrite = await db
       .update(goodsReceipts)
       .set({ reextractionStatus: "ready", reextractionRaw, updatedAt: new Date() })
-      .where(eq(goodsReceipts.id, receiptId));
+      .where(and(eq(goodsReceipts.id, receiptId), eq(goodsReceipts.reextractionClaimedAt, claimedAt)))
+      .returning({ id: goodsReceipts.id });
+
+    if (readyWrite.length === 0) {
+      console.error(`[sklad] Znovu přečíst — pokus byl mezitím nahrazen novějším (receiptId=${receiptId}), výsledek se zahazuje beze zápisu.`);
+      return {
+        ok: false,
+        error: "Tenhle pokus o nové čtení byl mezitím nahrazen novějším. Zkontrolujte aktuální stav příjemky.",
+        kind: "technical",
+      };
+    }
 
     await db.insert(goodsReceiptActivity).values({
       receiptId,
@@ -876,10 +928,17 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
 
     return { ok: true };
   } catch {
-    await markReextractionFailed(receiptId);
+    await markReextractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Uložení nového výsledku se nezdařilo. Původní řádky zůstávají beze změny. Zkuste to znovu.", kind: "technical" };
   }
 }
+
+// Snímek existujících řádků PŘESNĚ v okamžiku, kdy nové čtení začalo —
+// acceptGoodsReceiptReextraction (sklad.ts) ho porovná s AKTUÁLNÍM stavem
+// a převzetí odmítne, pokud se mezitím cokoli (ruční úprava/smazání/
+// přidání řádku) změnilo. `maxUpdatedAtText` je `::text` cast z Postgresu,
+// NIKDY JS Date — appka ho jen porovnává jako text, nikdy neparsuje.
+export type ReextractionLinesSnapshot = { count: number; maxUpdatedAtText: string | null };
 
 export type ReextractionRawPayload = {
   extractedAt: string;
@@ -895,6 +954,7 @@ export type ReextractionRawPayload = {
   totalVat: number;
   totalWithVat: number;
   lines: ResolvedExtractionLine[];
+  linesSnapshot: ReextractionLinesSnapshot;
 };
 
 export type GoodsReceiptReextractionPreview = {
