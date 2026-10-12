@@ -37,24 +37,6 @@ Pojistky v kódu: mimo Production se použije **jen testovací klíč**
 (`sk_test_`/`rk_test_`); Production bez `ESHOP_STRIPE_LIVE=on` kartu
 nenabídne a webhook vrací 404; webhook bez platného podpisu nic nezpracuje.
 
-### Stav proměnných (12. 10. 2026) a jak se překrývají
-
-| Proměnná | Rozsah |
-|---|---|
-| `STRIPE_WEBHOOK_SECRET` | Preview, větev `claude/great-bell-ffjwo3-stripe` |
-| `STRIPE_SECRET_KEY` | Preview (všechny větve) |
-
-Vercel: proměnná omezená na větev má u té větve přednost před obecnou
-Preview proměnnou stejného jména; ostatní větve dostanou obecnou. Změna
-platí až od dalšího nasazení. Ostatní Preview větve nemají
-`STRIPE_WEBHOOK_SECRET`, takže kartu nenabídnou vůbec.
-
-**Kontrola bez odkrytí klíče:** pokladna na Preview této větve nabídne
-„Platba kartou“ **jen tehdy**, když je klíč `sk_test_`/`rk_test_` a
-`STRIPE_WEBHOOK_SECRET` začíná `whsec_` (`lib/eshop/stripe/config.ts`).
-Ostrý klíč `sk_live_` na Preview = karta se nenabídne. Správnost podpisu
-webhooku ukáže až první událost (Stripe → webhook → odpověď 200).
-
 ## Scénáře (testovací karty Stripe; platnost libovolné budoucí datum, CVC libovolné)
 
 | # | Scénář | Postup | Očekávání |
