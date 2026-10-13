@@ -10,8 +10,8 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 import { runAsAgent } from "../context";
-import { SCOPE_WRITE, WRITE_LIMIT_PER_HOUR } from "../config";
-import { hasScope } from "../oauthCore";
+import { WRITE_LIMIT_PER_HOUR, type AgentConfig } from "../config";
+import { canWrite } from "../oauthCore";
 import type { AgentSession } from "../oauthStore";
 import { ArgError, idempotencyKey } from "./args";
 import { claimWrite, finishWrite, logCall, writesInLastHour, type AuditBase } from "./audit";
@@ -36,7 +36,10 @@ async function runTool(
     if (error instanceof ForbiddenError || error instanceof UnauthenticatedError) {
       return { status: "denied", outcome: { ok: false, error: DENIED_MESSAGE } };
     }
-    console.error("MCP nástroj selhal", tool.definition.name, error);
+    // Jen typ chyby, ne její text: hláška Drizzle obsahuje parametry dotazu
+    // (text poznámky, jména) — do logů Vercelu obsah CRM nepatří.
+    const code = (error as { cause?: { code?: unknown } })?.cause?.code;
+    console.error("MCP nástroj selhal", tool.definition.name, error instanceof Error ? error.name : typeof error, code ?? "");
     return { status: "error", outcome: { ok: false, error: FAILED_MESSAGE } };
   }
 }
@@ -48,17 +51,20 @@ function toResult(outcome: ToolOutcome): CallToolResult {
 export async function callAgentTool(
   db: Db,
   session: AgentSession,
-  issuer: string,
+  config: AgentConfig,
   name: string,
   args: Record<string, unknown>
 ): Promise<CallToolResult | null> {
+  const issuer = config.issuer;
   const tool = AGENT_TOOLS.find((t) => t.definition.name === name);
   if (!tool) return null;
 
   const base: AuditBase = { grantId: session.grantId, userId: session.ctx.userId, tool: name, isWrite: tool.write, args };
 
-  if (tool.write && !hasScope(session.scope, SCOPE_WRITE)) {
-    const message = "Zápisy nejsou pro tohle propojení povolené (souhlas byl udělen jen pro čtení). Pro zápisy je potřeba konektor v ChatGPT znovu připojit a zápisy povolit.";
+  if (tool.write && !canWrite(config, session.scope)) {
+    const message = config.writeEnabled
+      ? "Zápisy nejsou pro tohle propojení povolené (souhlas byl udělen jen pro čtení). Pro zápisy je potřeba konektor v ChatGPT znovu připojit a zápisy povolit."
+      : "Zápisy jsou v MojeBegina pro asistenta zatím vypnuté — asistent může jen číst.";
     await logCall(db, base, { status: "denied", error: "scope" });
     return toolError(message);
   }
@@ -106,11 +112,10 @@ export async function callAgentTool(
   return toResult(outcome);
 }
 
-export function agentMcpServer(db: Db, session: AgentSession, issuer: string): McpServer {
+export function agentMcpServer(db: Db, session: AgentSession, config: AgentConfig): McpServer {
   return {
     instructions: SERVER_INSTRUCTIONS,
-    listTools: () =>
-      AGENT_TOOLS.filter((t) => !t.write || hasScope(session.scope, SCOPE_WRITE)).map((t) => t.definition),
-    callTool: (name, args) => callAgentTool(db, session, issuer, name, args),
+    listTools: () => AGENT_TOOLS.filter((t) => !t.write || canWrite(config, session.scope)).map((t) => t.definition),
+    callTool: (name, args) => callAgentTool(db, session, config, name, args),
   };
 }

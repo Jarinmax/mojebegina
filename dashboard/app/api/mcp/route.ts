@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     return jsonNoStore({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, 400);
   }
 
-  const server = agentMcpServer(db, session, config.issuer);
+  const server = agentMcpServer(db, session, config);
 
   // Dávka (protokol 2025-03-26) i jednotlivá zpráva; zprávy dávky se
   // zpracují postupně (zápisy se tak nepředbíhají).

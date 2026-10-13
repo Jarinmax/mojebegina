@@ -90,3 +90,29 @@ describe("argumenty nástrojů", () => {
     }
   });
 });
+
+describe("audit — argumenty bez obsahu CRM", async () => {
+  const { auditArgs } = await import("../mcp/audit");
+  it("id, true/false a řídicí hodnoty zůstanou; text jen jako délka; klíč a neznámé typy pryč", () => {
+    expect(
+      auditArgs({
+        lead_id: "00000000-0000-4000-8000-0000000000c1",
+        text: "Poznámka s telefonem 777 111 222",
+        query: "Petra Malá",
+        priority: "high",
+        follow_up_date: "2026-10-20",
+        only_mine: true,
+        idempotency_key: "key-12345678",
+        nested: { token: "mba_x" },
+      })
+    ).toEqual({
+      lead_id: "00000000-0000-4000-8000-0000000000c1",
+      text: "[32 znaků]",
+      query: "[10 znaků]",
+      priority: "high",
+      follow_up_date: "2026-10-20",
+      only_mine: true,
+      nested: "[object]",
+    });
+  });
+});

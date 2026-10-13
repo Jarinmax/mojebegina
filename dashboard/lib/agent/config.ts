@@ -18,7 +18,12 @@
 // MCP_ALLOWED_USER_IDS
 //   Neon Auth userId oddělená čárkou — kdo smí asistentovi přístup vůbec
 //   udělit (pilot: jen Jaroslav Viner; kolegové se přidají sem). Kromě toho
-//   musí mít účet roli ADMIN nebo EXECUTIVE (lib/agent/agentAuth.ts).
+//   musí mít účet roli ADMIN nebo EXECUTIVE (lib/agent/oauthCore.ts, AGENT_ROLES).
+//
+// MCP_ALLOW_WRITE=on   (nepovinné, VÝCHOZÍ = VYPNUTO → asistent jen čte)
+//   Teprve s ním může uživatel na souhlasové stránce povolit zápisy. Bez něj
+//   se zápis nedá udělit vůbec, a i dřív udělený zápisový souhlas se chová
+//   jako jen pro čtení (zápisové nástroje se nenabízejí ani nevykonají).
 type Env = Record<string, string | undefined>;
 
 export const SCOPE_READ = "mojebegina.read";
@@ -38,6 +43,7 @@ export type AgentConfig = {
   clientSecret: string;
   redirectUris: string[];
   allowedUserIds: Set<string>;
+  writeEnabled: boolean;
 };
 
 function list(raw: string | undefined): string[] {
@@ -71,7 +77,14 @@ export function agentConfig(env: Env = process.env): AgentConfig | null {
   if (redirectUris.length === 0 || allowedUserIds.length === 0) return null;
   if (!redirectUris.every((uri) => uri.startsWith("https://"))) return null;
 
-  return { issuer, clientId, clientSecret, redirectUris, allowedUserIds: new Set(allowedUserIds) };
+  return {
+    issuer,
+    clientId,
+    clientSecret,
+    redirectUris,
+    allowedUserIds: new Set(allowedUserIds),
+    writeEnabled: env.MCP_ALLOW_WRITE?.trim() === "on",
+  };
 }
 
 export function mcpResourceUrl(config: AgentConfig): string {

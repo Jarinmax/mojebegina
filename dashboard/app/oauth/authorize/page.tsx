@@ -101,7 +101,9 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
         <div className="flex flex-col gap-2 text-sm text-begina-primary-900">
           <p className="text-xs text-neutral-500">Asistent bude moct</p>
           <p>✓ číst leady, zákazníky a úkoly v Živé mapě firmy</p>
-          {check.value.write ? (
+          {!config.writeEnabled ? (
+            <p className="text-neutral-500">Zápisy jsou zatím vypnuté — asistent bude jen číst.</p>
+          ) : check.value.write ? (
             <label className="flex items-start gap-2">
               <input type="checkbox" name="write" defaultChecked className="mt-1" />
               <span>zapisovat poznámky k leadům a zákazníkům, nastavovat další krok u leadu a zakládat a komentovat úkoly v Živé mapě firmy</span>

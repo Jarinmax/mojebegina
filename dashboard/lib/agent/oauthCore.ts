@@ -65,6 +65,11 @@ export function hasScope(scope: string, wanted: (typeof SUPPORTED_SCOPES)[number
   return scope.split(/\s+/).includes(wanted);
 }
 
+/** Zápis jen se souhlasem k zápisu A zároveň zapnutým MCP_ALLOW_WRITE na serveru. */
+export function canWrite(config: AgentConfig, scope: string): boolean {
+  return config.writeEnabled && hasScope(scope, SCOPE_WRITE);
+}
+
 // --- Klient (statický, z env) -------------------------------------------
 
 /** client_secret_basic (hlavička) nebo client_secret_post (tělo formuláře). */

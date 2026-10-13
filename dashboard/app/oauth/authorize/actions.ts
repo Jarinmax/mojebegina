@@ -47,7 +47,7 @@ export async function decideAuthorizationAction(formData: FormData): Promise<voi
     userId: ctx.userId,
     systemRole: role,
     clientId: check.value.clientId,
-    write: check.value.write && formData.get("write") === "on",
+    write: config.writeEnabled && check.value.write && formData.get("write") === "on",
     redirectUri,
     codeChallenge: check.value.codeChallenge,
   });

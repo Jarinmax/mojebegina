@@ -23,14 +23,34 @@ export type AuditBase = {
   args: Record<string, unknown>;
 };
 
-const MAX_ARGS_JSON = 4000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Krátké řídicí hodnoty bez obsahu CRM — v auditu zůstanou celé. */
+const PLAIN_KEYS = new Set(["priority", "follow_up_date", "only_mine"]);
+const MAX_KEYS = 20;
 
-/** Argumenty do auditu (bez idempotency_key, oříznuté) — jen pro dohledání, ne pro opakování. */
-function auditArgs(args: Record<string, unknown>): Record<string, unknown> {
-  const rest = { ...args };
-  delete rest.idempotency_key;
-  const json = JSON.stringify(rest);
-  return json.length <= MAX_ARGS_JSON ? rest : { truncated: json.slice(0, MAX_ARGS_JSON) };
+/**
+ * Argumenty do auditu BEZ obsahu: id (UUID), true/false a pár řídicích
+ * hodnot zůstanou, každý jiný text (poznámka, hledané jméno, název úkolu,
+ * cokoli neznámého, co by model poslal navíc) se nahradí jen délkou.
+ * Audit tak říká KDO, KDY, CO a NAD ČÍM — obsah CRM se do něj nekopíruje
+ * a žádný token ani tajemství se do něj nemůže dostat ani omylem.
+ */
+export function auditArgs(args: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(args).slice(0, MAX_KEYS)) {
+    if (key === "idempotency_key") continue;
+    const value = args[key];
+    if (typeof value === "boolean" || value === null) {
+      result[key] = value;
+    } else if (typeof value === "string" && (UUID_RE.test(value) || (PLAIN_KEYS.has(key) && value.length <= 20))) {
+      result[key] = value;
+    } else if (typeof value === "string") {
+      result[key] = `[${value.length} znaků]`;
+    } else {
+      result[key] = `[${Array.isArray(value) ? "pole" : typeof value}]`;
+    }
+  }
+  return result;
 }
 
 /** Otisk argumentů (bez klíče) — stejný klíč s JINÝMI argumenty je chyba, ne opakování. */

@@ -61,6 +61,12 @@ describe("agentConfig — výchozí stav vypnuto", () => {
     expect(agentConfig({ ...ENV, ...override })).toBeNull();
   });
 
+  it("zápisy výchozí vypnuté; zapne je jen MCP_ALLOW_WRITE=on", () => {
+    expect(config.writeEnabled).toBe(false);
+    expect(agentConfig({ ...ENV, MCP_ALLOW_WRITE: "on" })?.writeEnabled).toBe(true);
+    expect(agentConfig({ ...ENV, MCP_ALLOW_WRITE: "true" })?.writeEnabled).toBe(false);
+  });
+
   it("úplná konfigurace; localhost smí http", () => {
     expect(config.redirectUris).toEqual([REDIRECT, "https://chatgpt.com/connector_platform_oauth_redirect"]);
     expect(config.allowedUserIds.has("user-jaroslav")).toBe(true);

@@ -8,8 +8,8 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { ROLE_LABELS } from "@/lib/data/roles";
 import type { SystemRole } from "@/lib/data/types";
 import { formatCzechDate } from "@/lib/format";
-import { SCOPE_WRITE, agentConfig } from "@/lib/agent/config";
-import { hasScope } from "@/lib/agent/oauthCore";
+import { agentConfig } from "@/lib/agent/config";
+import { canWrite } from "@/lib/agent/oauthCore";
 import { listActiveGrants, listRecentAudit } from "@/lib/agent/oauthStore";
 import { revokeAgentGrantAction } from "./actions";
 
@@ -23,7 +23,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function AgentAccessPage() {
-  if (!agentConfig()) notFound();
+  const config = agentConfig();
+  if (!config) notFound();
   const ctx = await getAuthContext();
   if (!ctx) redirect("/login");
 
@@ -51,7 +52,7 @@ export default async function AgentAccessPage() {
               <div className="text-sm">
                 <p className="text-begina-primary-900">
                   {ROLE_LABELS[grant.systemRole as SystemRole] ?? grant.systemRole} ·{" "}
-                  {hasScope(grant.scope, SCOPE_WRITE) ? "čtení i zápis" : "jen čtení"}
+                  {canWrite(config, grant.scope) ? "čtení i zápis" : "jen čtení"}
                 </p>
                 <p className="text-xs text-neutral-500">
                   povoleno {formatCzechDate(grant.createdAt)}
