@@ -155,6 +155,13 @@
       "when": 1791722734816,
       "tag": "0021_eshop_1_0_variant_weight",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791929032651,
+      "tag": "0022_gpt_mcp_pilot",
+      "breakpoints": true
     }
   ]
 }

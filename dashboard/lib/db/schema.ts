@@ -978,3 +978,110 @@ export const focusProjectActivity = pgTable(
   },
   (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
 );
+
+// GPT/MCP pilot (migrace 0022) — poznámky u ZÁKAZNÍKA (organizace po
+// konverzi leadu). Do teď existovala historie jen u leadu (lead_activity);
+// po konverzi neměl zákazník kam poznámku zapsat. Stejný vzor jako
+// lead_activity/company_node_activity: jeden chronologický timeline,
+// authorName jako snapshot v okamžiku zápisu, nic se nemaže.
+export const organizationActivity = pgTable(
+  "organization_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(), // "note_added"
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("organization_activity_org_id_idx").on(table.organizationId, table.createdAt)]
+);
+
+// GPT/MCP pilot (migrace 0022) — přístup asistenta (ChatGPT konektor) za
+// KONKRÉTNÍHO uživatele. Jeden řádek = jeden udělený souhlas (OAuth
+// "grant"): kdo ho dal, v jaké roli a s jakým rozsahem (scope). Asistent
+// nikdy nemá vlastní identitu — každý zápis jde pod userId toho, kdo
+// souhlas udělil, a jen s oprávněními jeho účtu. Odvolání = revoked_at
+// (okamžitě zneplatní všechny tokeny grantu, viz lib/agent/oauthStore.ts).
+export const agentGrants = pgTable(
+  "agent_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    systemRole: text("system_role").notNull(), // role, ve které uživatel souhlas udělil
+    clientId: text("client_id").notNull(),
+    scope: text("scope").notNull(), // mezerou oddělené: "mojebegina.read mojebegina.write"
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+  },
+  (table) => [index("agent_grants_user_id_idx").on(table.userId)]
+);
+
+// Autorizační kódy, access a refresh tokeny grantu. Ukládá se JEN SHA-256
+// otisk (token_hash), nikdy samotný token — únik tabulky nedá útočníkovi
+// použitelný token. Kód a refresh token jsou jednorázové (used_at, atomický
+// claim přes podmíněný UPDATE); opakované použití už použitého kódu/refresh
+// tokenu odvolá celý grant (ochrana proti odcizenému tokenu).
+export const agentTokens = pgTable(
+  "agent_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => agentGrants.id),
+    kind: text("kind").notNull(), // "code" | "access" | "refresh"
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    redirectUri: text("redirect_uri"), // jen kód
+    codeChallenge: text("code_challenge"), // jen kód (PKCE S256)
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("agent_tokens_grant_id_idx").on(table.grantId),
+    check("agent_tokens_kind_check", sql`${table.kind} IN ('code','access','refresh')`),
+    check(
+      "agent_tokens_code_fields_check",
+      sql`${table.kind} <> 'code' OR (${table.redirectUri} IS NOT NULL AND ${table.codeChallenge} IS NOT NULL)`
+    ),
+  ]
+);
+
+// Auditní stopa KAŽDÉHO volání nástroje asistentem (úspěšného, chybného
+// i zamítnutého) — nezávisle na lead_activity apod., pro bezpečnostní
+// přehled "co asistent kdy za koho dělal". Zápisové nástroje nesou
+// povinný idempotency_key: partial unique index níže z něj dělá atomický
+// "claim" — stejný klíč podruhé už nic nezapíše, jen vrátí uložený
+// výsledek (result).
+export const agentAuditLog = pgTable(
+  "agent_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => agentGrants.id),
+    userId: text("user_id").notNull(),
+    tool: text("tool").notNull(),
+    isWrite: boolean("is_write").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    argsHash: text("args_hash"),
+    args: jsonb("args"),
+    status: text("status").notNull(), // "pending" | "ok" | "error" | "denied"
+    result: jsonb("result"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("agent_audit_log_grant_created_idx").on(table.grantId, table.createdAt),
+    uniqueIndex("agent_audit_log_idempotency_idx")
+      .on(table.userId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+    check("agent_audit_log_status_check", sql`${table.status} IN ('pending','ok','error','denied')`),
+  ]
+);
