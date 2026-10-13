@@ -69,8 +69,52 @@ Očekáváno: `order_number = payment_vs`; zaplacená objednávka má právě
 **1** úspěšnou platbu, **1** změnu stavu a bilanci `paid`; žádné číslo
 ani VS dvakrát; Production `main` beze změny.
 
+## Výsledky 12.–13. 10. 2026 (Neon `br-dry-sound-b22l69uy`)
+
+| # | Výsledek |
+|---|---|
+| 1 | 70000002 zaplaceno (4242), 1 platba, 1 změna stavu, webhook 200 |
+| 2–6 | 70000004: zamítnutá karta, 3DS Fail, zpět → „Platba nebyla dokončena“, Zaplatit znovu (tatáž otevřená platební stránka) + 3DS Complete → zaplaceno, 1 platba |
+| 8 | 6× Resend události 1 → vždy 200, nic nového v DB |
+| 9 | 70000003 převod (první odeslání s tehdy výchozím převodem), číslo = VS |
+
+Zjištění: e-maily na větvi nenastavené (bez záznamu `email_sent`);
+výchozí platba byla převod → od 13. 10. je výchozí karta, je-li dostupná
+(`defaultPaymentMethodId`; bez karty beze změny).
+
+## E-mail po zaplacení kartou
+
+Po přepnutí na Zaplaceno (webhook `paid`) odejde potvrzení zákazníkovi +
+interní upozornění, každá šablona **jednou** (záznam `email_sent`, Resend
+`Idempotency-Key`); `already-paid` e-mail neposílá. Na Preview jen na
+`ESHOP_EMAIL_TEST_RECIPIENTS` (`[TEST]` v předmětu), viz `ESHOP_EMAILY.md`.
+Potřebné proměnné pro tuto větev: `RESEND_API_KEY`, `ESHOP_EMAIL_FROM`,
+`ESHOP_EMAIL_TEST_RECIPIENTS` (+ volitelně `ESHOP_EMAIL_INTERNAL_TO`).
+
+Kontrola: objednávka kartou (4242) → 2 záznamy `email_sent` → Resend
+události 2× → stále 2 záznamy, žádný nový e-mail ve schránce.
+
+## Dvojklik
+
+Pokladna: tlačítko je po odeslání zakázané („Odesílám…“) a formulář nese
+`orderToken` = id objednávky → druhé odeslání téhož formuláře vrátí tutéž
+objednávku (`alreadySaved`). Zaplatit znovu: otevřená platební stránka se
+použije znovu, nová má idempotency key. Kontrola: rychlý dvojklik
+„Objednat“ → v DB jedna nová objednávka, jedna platba `pending`.
+
+## Rotace Protection Bypass tokenu (po testech)
+
+1. Vercel → Settings → Deployment Protection → Protection Bypass for
+   Automation → vytvořit nový / Regenerate. Starý token přestane platit.
+2. Hned Stripe (testovací režim) → Workbench → Webhooks → „Begina Preview
+   Stripe“ → Edit destination → v adrese nahradit hodnotu
+   `x-vercel-protection-bypass=` novým tokenem → Save.
+3. Ověření: událost z testu → Resend → 200. Mezitím doručené události
+   (401) Stripe sám opakuje až 3 dny, nic se neztratí.
+4. Starou adresu otevřít v anonymním okně → přihlášení Vercelu = neplatí.
+5. Token nikam nevkládat ani nefotit; po ukončení testů lze webhook smazat.
+
 ## Po testu
 
-- Vygenerovat znovu Protection Bypass token (stará adresa webhooku zneplatní).
 - Webhook v sandboxu lze smazat; testovací data zůstanou jen v Preview DB.
 - Ostrý provoz až po schválení účtu Stripe (stav Enabled) — samostatný postup.

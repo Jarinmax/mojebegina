@@ -10,6 +10,7 @@ import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
   paymentMethodsFor,
+  defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
   type ShippingMode,
@@ -71,7 +72,10 @@ export default function CheckoutForm({
   const href = useEshopHref();
   const hydrated = useHydrated();
   const [state, formAction, pending] = useActionState(submitCheckoutAction, initialState);
-  const [values, setValues] = useState<Values>(emptyValues);
+  const [values, setValues] = useState<Values>(() => ({
+    ...emptyValues,
+    paymentMethodId: defaultPaymentMethodId(cardPaymentAvailable),
+  }));
   // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
   // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
   const [orderToken] = useState(() =>
