@@ -81,6 +81,8 @@ Pojistky zápisů:
 | HTTP: discovery, 401 + `WWW-Authenticate`, token endpoint, nástroje, `begina.cz` → 404 | **ověřeno lokálně** (`next start` nad testovací DB v paměti) |
 | Produkční SQL `docs/gpt-mcp` (migrace, pojistka Preview větve, návrat) | **ověřeno lokálně** nad PGlite se všemi migracemi; nad Neonem **nespuštěno** |
 | Stav Production DB | **ověřeno read-only** 13. 10. 2026: `main` = schéma kódu do 0021, žádná tabulka pilotu, kalendáře ani skladu |
+| Build a nasazení Preview na Vercelu (commit `2269c55`) | **ověřeno** stavem z GitHubu: Ready, adresa `mojebegina-git-claude-upbeat-goodall-pj64t5-jarin-max.vercel.app`; proměnné `MCP_*` nenastavené → nové adresy 404 |
+| Propojení Preview deploymentu s Neon větví | **NEOVĚŘENO** — viz krok 0 níže |
 | Přihlášení přes Neon Auth na souhlasové stránce (`/login?next=…` → `/oauth/authorize`) | **NEOVĚŘENO** — v testech je Neon Auth nahrazený; ověří se až na Preview v prohlížeči |
 | Skutečné připojení ChatGPT (Developer Mode, callback URL, volání nástrojů z chatu) | **NEOVĚŘENO** — konektor nezapnutý |
 | Dosažitelnost Preview pro servery ChatGPT při zapnuté Vercel Deployment Protection | **NEOVĚŘENO** — viz krok 2 níže |
@@ -117,24 +119,63 @@ Stav větví (jen čtení, jejich větve se neměnily):
   dají čekat v `lib/data/leads.ts` a `LeadActivityTimeline.tsx` (kalendář přidává
   druh `follow_up_removed`, pilot `note_added` a `next_step_set`, které se nekryjí).
 
-**Doporučené pořadí (bez změn jejich větví):**
+**Proč to nejde sloučit „jak je“:** větve tvoří jeden zásobník
+(`google-calendar-1-0` ⊂ `daily-calls-1-1-worker-history` ⊂ `sklad-1-0` ⊂
+`rescue/sklad-reread-2026-10-12`) a jejich 0021–0024 se kryjí s `main` 0021
+(`variant_weight`, na Production už spuštěná). Migrace skladu navíc obsahují
+**ručně psané SQL** (výchozí sklad přes `INSERT`, pohled, triggery v `DO $$`).
+Znovu vygenerovat je přes `drizzle-kit generate` (jak to udělal kalendář
+v `e8099a1`) by je tiše ztratilo. Přečíslovat se musí **přejmenováním**.
 
-1. Tento PR zůstane Draft. Pilot se ověřuje na vlastním Preview a do `main`
-   zatím nejde.
-2. Sklad a kalendář se do `main` sloučí v pořadí, které už mají
-   (kalendář → historie Denního volání → sklad → znovu přečíst). Při tom je
-   přečíslují nad `main` 0021 (vlastní práce jejich PR).
-3. Teprve potom se tento PR aktualizuje z `main`: smazat `0022_gpt_mcp_pilot.sql`
-   a jeho snapshot, vrátit `_journal.json` a `schema.ts` na `main` + 4 tabulky
-   pilotu, spustit `drizzle-kit generate --name gpt_mcp_pilot` (dostane
-   další volné číslo) a doplnit volání kalendáře do `setLeadNextStep`. Pak
-   `migrationChain` a generálka (`productionRehearsal`).
-4. SQL v `docs/gpt-mcp/` na číslu migrace nezávisí. Na Preview DB pilotu ho lze
-   spustit kdykoli, i před krokem 2.
+**Ověřeno lokálně na zkoušku** (dočasná kopie, nic nepushnuto, jejich větve
+beze změny, 14. 10. 2026): `main` + `rescue/sklad-reread-2026-10-12`:
+- konflikty jen ve 3 souborech metadat (`_journal.json`, `0021_snapshot.json`,
+  `migrationChain.test.ts`); `schema.ts` i kód se sloučily samy,
+- přejmenování 0021–0024 → 0022–0025: SQL **bajtově shodné**; snapshoty =
+  jejich + sloupec `weight_g` z `main` 0021, `prevId` navázané na `main` 0021,
+- `drizzle-kit generate` → „No schema changes“ (snapshoty sedí na schéma),
+- testy skladu nad PGlite projdou po posunutí čísel v nich (3 soubory),
+- zbývá mechanicky: test skladu hlídá pořadí 23 (→ 24) a generálka
+  produkčního postupu (`productionRehearsal`) potřebuje produkční krok pro
+  kalendář a sklad.
+- **Kalendář ani sklad nemají produkční SQL** (nic jako `docs/gpt-mcp`).
+  Production dnes nemá žádnou jejich tabulku (ověřeno read-only).
 
-Pilot je jedna aditivní migrace, takže přečíslování je nejlevnější na jeho
-straně. Opačné pořadí (pilot do `main` první) by přečíslování přesunulo na
-sklad a kalendář.
+**Koordinovaný postup (jejich větve se nemění):**
+
+*A. Domluva s vlastníkem skladu (před začátkem)*
+1. Pushnout finální stav skladu. Podle předchozí session zůstaly na
+   `feature/sklad-1-0` nepushnuté lokální commity a `rescue/…` je jen záloha.
+   Integrace musí vyjít z finálního tipu, ne ze zálohy.
+2. Zmrazit migrace na kalendáři, Denním volání a skladu, dokud integrace neskončí.
+
+*B. Nová integrační větev z `main`* (např. `integrace/kalendar-sklad`, samostatný PR)
+1. `git merge` finálního tipu skladu (obsahuje i kalendář a Denní volání).
+2. Konflikt metadat: ponechat `main` 0000–0021 beze změny a jejich migrace
+   **přejmenovat** na 0022 kalendář → 0023 Denní volání → 0024 sklad →
+   0025 znovu přečíst. Ke snapshotům doplnit `weight_g` z `main` 0021, navázat
+   `prevId` a `_journal.json` doplnit o `idx` a rostoucí `when`. SQL se nemění.
+3. Ověřit: `drizzle-kit generate` hlásí „No schema changes“; SQL je bajtově
+   shodné s jejich větví; projdou `migrationChain`, testy skladu a celá sada.
+4. Připravit produkční SQL pro kalendář a sklad (kontrola před / migrace
+   s pojistkou Production / kontrola po / návrat) a krok v generálce.
+5. PR integrační větve → `main`. Jejich PR se pak uzavřou jako nahrazené
+   (větve zůstanou jako historie). Rozhodnutí patří vlastníkovi skladu.
+
+*C. Teprve potom tento PR (#21)*
+1. Sloučit `main` do této větve. Smazat `0022_gpt_mcp_pilot` (SQL, snapshot,
+   záznam v journalu) a spustit `drizzle-kit generate --name gpt_mcp_pilot`
+   → **0026**. Tady je nové vygenerování bezpečné, protože SQL pilotu je čistě
+   generované. Ověřit, že se shoduje s tělem `docs/gpt-mcp/11_migration.sql`.
+2. `setLeadNextStep`: doplnit `upsertPendingLeadCalendarSync` do `db.batch`
+   a `reconcileCalendarAfterCommit` po commitu. Vyřešit konflikty v
+   `leads.ts` a `LeadActivityTimeline.tsx`.
+3. Doplnit krok pilotu do `migrationChain` a do generálky za sklad.
+
+*Databáze:* pořadí spuštění na Production na číslech nezávisí (žádná tabulka
+migrací, objekty se nekryjí, obě pořadí ověřena). Preview DB pilotu lze
+migrovat skriptem `docs/gpt-mcp/11_migration_PREVIEW.sql` kdykoli, i před
+fází B.
 
 ### 2. Tokenová autentizace vs. běžné přihlášení a ostatní části aplikace
 
@@ -196,6 +237,28 @@ konektor v ChatGPT se nemění.
 - **Nikdy ne** Production `main`: `br-odd-surf-b2by4tja`, timeline
   `70a96b3677653646e65343cae8e27182`, endpoint `ep-orange-lake-b2zctiy8`.
   Preview skript ji odmítne sám.
+
+### Krok 0: potvrdit propojení Neon větve s Preview deploymentem (jen čtení)
+
+Nestačí, že větev existuje. Deployment
+`mojebegina-git-claude-upbeat-goodall-pj64t5-jarin-max.vercel.app` (commit
+v PR #21, stav Ready) musí opravdu číst právě z ní. Aplikace bere DB
+z `PGHOST`/`DATABASE_URL`, které integrace Vercel ↔ Neon nastavuje pro každou
+Preview větev zvlášť (viz `lib/auth/server.ts`).
+
+1. **Vercel** › projekt `mojebegina` › Settings › Environment Variables ›
+   filtr *Preview* + větev `claude/upbeat-goodall-pj64t5` → hodnota **`PGHOST`**
+   (jen název serveru `ep-…`, případně s `-pooler`). `DATABASE_URL` a heslo
+   nekopírovat.
+2. **Neon Console** › Branches › `preview/claude/upbeat-goodall-pj64t5` →
+   její **`br-…` id** a endpoint (Computes) **`ep-…`**.
+3. Shoda: `ep-…` z Vercelu (bez `-pooler`) = endpoint té větve ≠ Production
+   `ep-orange-lake-b2zctiy8`. Pak `00_kde_jsem.sql` na téže větvi ukáže
+   stejný `endpoint_id` a `je_production = ne`.
+
+Pokud `PGHOST` Preview ukazuje na `ep-orange-lake-b2zctiy8` (Production)
+nebo větev neexistuje, **nic nespouštět**. Znamenalo by to, že Preview
+této větve sdílí Production DB nebo nemá vlastní větev.
 
 ### SQL (Neon SQL Editor, vybraná Preview větev, v tomto pořadí)
 
