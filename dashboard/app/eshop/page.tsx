@@ -20,7 +20,8 @@ export default async function EshopPage() {
   const { categories } = await getCatalog();
   return (
     <>
-      <HomeHero ctaHref={`#${STRIP_ID}`} />
+      {/* Tlačítko „Vybrat si“ dočasně skryté (14. 10. 2026) — vrátí se s odkazem na jinou stránku. */}
+      <HomeHero />
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
       <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
