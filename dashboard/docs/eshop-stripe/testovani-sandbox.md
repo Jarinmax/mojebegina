@@ -91,6 +91,11 @@ interní upozornění, každá šablona **jednou** (záznam `email_sent`, Resend
 Potřebné proměnné pro tuto větev: `RESEND_API_KEY`, `ESHOP_EMAIL_FROM`,
 `ESHOP_EMAIL_TEST_RECIPIENTS` (+ volitelně `ESHOP_EMAIL_INTERNAL_TO`).
 
+Stav 14. 10. 2026: všechny čtyři (`RESEND_API_KEY`, `ESHOP_EMAIL_FROM`,
+`ESHOP_EMAIL_INTERNAL_TO`, `ESHOP_EMAIL_TEST_RECIPIENTS`) přepnuty z Preview
+větve `claude/great-bell-ffjwo3` na `claude/great-bell-ffjwo3-stripe`
+(hodnoty beze změny; Production má vlastní). Po testu lze vrátit.
+
 Kontrola: objednávka kartou (4242) → 2 záznamy `email_sent` → Resend
 události 2× → stále 2 záznamy, žádný nový e-mail ve schránce.
 
