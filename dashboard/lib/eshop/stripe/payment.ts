@@ -62,6 +62,20 @@ export function canPayByCard(order: PaymentOrder): { ok: true } | { ok: false; e
   return { ok: true };
 }
 
+export type PendingOrderState = { state: "payable" | "paid" | "closed"; orderNumber: number | null };
+
+/**
+ * Rozpracovaná objednávka z prohlížeče zákazníka (lib/eshop/pendingOrder.ts):
+ * „payable“ = nabídnout „Zaplatit objednávku“, jinak se odkaz zapomene.
+ * Neexistující / cizí / převodem placená / zrušená = „closed“.
+ */
+export function pendingOrderState(order: PaymentOrder | null, cardAvailable: boolean): PendingOrderState {
+  if (!order || order.channel !== "eshop") return { state: "closed", orderNumber: null };
+  if (order.paymentStatus === "paid") return { state: "paid", orderNumber: order.orderNumber };
+  const payable = cardAvailable && canPayByCard(order).ok;
+  return { state: payable ? "payable" : "closed", orderNumber: order.orderNumber };
+}
+
 /** Parametry platební stránky — položky, doprava, částka v haléřích (CZK má ve Stripe 2 desetinná místa). */
 export function buildCheckoutSessionParams(order: PaymentOrder, baseUrl: string): Stripe.Checkout.SessionCreateParams {
   const lines: Stripe.Checkout.SessionCreateParams.LineItem[] = order.items.map((item) => ({

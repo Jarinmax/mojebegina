@@ -221,7 +221,12 @@ describe("e-maily k objednávce — pokladna a Stripe nad DB (neon-http → PGli
 
   it("Stripe objednávka PŘED zaplacením: přesměrování na Stripe, žádný e-mail", async () => {
     const result = await submitCheckoutAction(null, form(CARD, { paymentMethodId: "karta", ageConfirmed: "on" }));
-    expect(result).toEqual({ redirectTo: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//) });
+    // id a číslo objednávky jdou s přesměrováním — prohlížeč si je zapamatuje před vyprázdněním košíku
+    expect(result).toEqual({
+      redirectTo: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//),
+      orderId: CARD,
+      orderNumber: expect.toSatisfy((n: unknown) => n === null || typeof n === "number"),
+    });
     expect(await orderState(CARD)).toEqual({ payment_status: "unpaid", paid_at: false });
     expect(mail.sent).toHaveLength(0);
     expect(await emailActivity(CARD)).toEqual([]);

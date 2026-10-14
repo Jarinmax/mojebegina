@@ -107,6 +107,26 @@ objednávku (`alreadySaved`). Zaplatit znovu: otevřená platební stránka se
 použije znovu, nová má idempotency key. Kontrola: rychlý dvojklik
 „Objednat“ → v DB jedna nová objednávka, jedna platba `pending`.
 
+## Návrat ze Stripe bez nové objednávky (od 14. 10. 2026)
+
+Případ 70000005: zákazník se ze Stripe vrátí a objedná znovu → v MojeBegina
+zůstane nezaplacená objednávka. Oprava:
+
+- Pokladna po uložení objednávky dostane její id a číslo, prohlížeč si je
+  uloží (`localStorage`, `lib/eshop/pendingOrder.ts`) a **teprve pak**
+  vyprázdní košík a otevře Stripe (i při výpadku Stripe → stránka objednávky).
+- Košík a pokladna (i po Zpět, obnovení stránky, nové návštěvě) ukážou
+  „Objednávka č. … je uložená, ale zatím nezaplacená“ + **Zaplatit objednávku**
+  (tatáž objednávka, číslo i VS; otevřená platební stránka se použije znovu).
+  Stav vždy ověří server (`pendingOrderStatusAction`); zaplacená / zrušená
+  se zapomene (i na stránce objednávky).
+- Ochrany beze změny: `orderToken`, zablokované tlačítko, idempotency key,
+  UNIQUE plateb, `already-paid`, e-maily jednou.
+
+Test v prohlížeči (napodobenina Stripe, testovací DB):
+`scripts/eshop-e2e/pending-order.mjs` — 19/19 OK (dvojklik, Zpět, obnovení,
+košík, Zaplatit objednávku 2× → tatáž stránka, zrušení, webhook 2×, zapomenutí).
+
 ## Rotace Protection Bypass tokenu (po testech)
 
 1. Vercel → Settings → Deployment Protection → Protection Bypass for
