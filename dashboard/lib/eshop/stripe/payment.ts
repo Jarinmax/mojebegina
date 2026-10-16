@@ -3,7 +3,8 @@
 //
 // Spojení platby s objednávkou: client_reference_id + metadata.orderId
 // (i na PaymentIntentu) = id objednávky, metadata.source odliší naše platby
-// od plateb WooCommerce na stejném Stripe účtu.
+// od cizích plateb, kdyby na Stripe účtu běžela i jiná integrace (WooCommerce
+// platí přes WooPayments, tedy samostatný účet).
 //
 // Opakované kliknutí / „Zaplatit znovu“: pokud poslední platební stránka
 // objednávky je ještě otevřená, použije se znovu; souběžné požadavky mají
@@ -59,6 +60,20 @@ export function canPayByCard(order: PaymentOrder): { ok: true } | { ok: false; e
     return { ok: false, error: "Objednávka byla zrušena." };
   }
   return { ok: true };
+}
+
+export type PendingOrderState = { state: "payable" | "paid" | "closed"; orderNumber: number | null };
+
+/**
+ * Rozpracovaná objednávka z prohlížeče zákazníka (lib/eshop/pendingOrder.ts):
+ * „payable“ = nabídnout „Zaplatit objednávku“, jinak se odkaz zapomene.
+ * Neexistující / cizí / převodem placená / zrušená = „closed“.
+ */
+export function pendingOrderState(order: PaymentOrder | null, cardAvailable: boolean): PendingOrderState {
+  if (!order || order.channel !== "eshop") return { state: "closed", orderNumber: null };
+  if (order.paymentStatus === "paid") return { state: "paid", orderNumber: order.orderNumber };
+  const payable = cardAvailable && canPayByCard(order).ok;
+  return { state: payable ? "payable" : "closed", orderNumber: order.orderNumber };
 }
 
 /** Parametry platební stránky — položky, doprava, částka v haléřích (CZK má ve Stripe 2 desetinná místa). */

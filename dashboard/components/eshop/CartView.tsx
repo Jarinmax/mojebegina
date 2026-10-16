@@ -9,6 +9,7 @@ import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import QuantityStepper from "./QuantityStepper";
 import { useCart, useHydrated } from "./useCart";
+import PendingOrderNotice from "./PendingOrderNotice";
 
 export default function CartView() {
   const { cart, setQuantity } = useCart();
@@ -23,6 +24,8 @@ export default function CartView() {
 
   if (lines.length === 0) {
     return (
+      <>
+      <PendingOrderNotice />
       <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
         <p className="text-neutral-600 mb-4">Košík je prázdný.</p>
         <ShopLink
@@ -32,6 +35,7 @@ export default function CartView() {
           Prohlédnout nabídku
         </ShopLink>
       </div>
+      </>
     );
   }
 
@@ -40,6 +44,8 @@ export default function CartView() {
   const blocked = lines.some((line) => !isOrderable(line.product));
 
   return (
+    <>
+    <PendingOrderNotice />
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-6 lg:gap-10 items-start">
       <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
         {lines.map((line) => (
@@ -107,5 +113,6 @@ export default function CartView() {
         </ShopLink>
       </aside>
     </div>
+    </>
   );
 }

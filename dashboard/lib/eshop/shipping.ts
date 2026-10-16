@@ -125,24 +125,28 @@ export type PaymentMethod = {
 
 // Platba kartou (Stripe) je dostupná, jen když to povolí server
 // (lib/eshop/stripe/config.ts → isCardPaymentAvailable) — výchozí stav je
-// nedostupná.
+// nedostupná. Dostupná karta je první a předvybraná, převod zůstává jako
+// druhá možnost; bez karty je převod jediná (a výchozí) volba.
 export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
-  return [
-    {
-      id: "prevod",
-      label: "Bankovní převod — platba předem",
-      description: "Po objednávce pošleme platební údaje a QR kód.",
-      available: true,
-    },
-    {
-      id: "karta",
-      label: "Kartou online",
-      description: cardAvailable
-        ? "Platební karta, Apple Pay nebo Google Pay — zabezpečeně přes Stripe."
-        : "Platební brána zatím není napojená.",
-      available: cardAvailable,
-    },
-  ];
+  const transfer: PaymentMethod = {
+    id: "prevod",
+    label: "Bankovní převod — platba předem",
+    description: "Po objednávce pošleme platební údaje a QR kód.",
+    available: true,
+  };
+  const card: PaymentMethod = {
+    id: "karta",
+    label: "Kartou online",
+    description: cardAvailable
+      ? "Platební karta, Apple Pay nebo Google Pay — zabezpečeně přes Stripe."
+      : "Platební brána zatím není napojená.",
+    available: cardAvailable,
+  };
+  return cardAvailable ? [card, transfer] : [transfer, card];
+}
+
+export function defaultPaymentMethodId(cardAvailable: boolean): PaymentMethod["id"] {
+  return cardAvailable ? "karta" : "prevod";
 }
 
 export const paymentMethods: PaymentMethod[] = paymentMethodsFor(false);
