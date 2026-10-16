@@ -133,7 +133,14 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("eshop-production", "42_hmotnosti_after.sql"))).toBe("1 | 36 | 0 | 25 | 7 | 4 | 0");
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0021) + pojistka číslování", async () => {
+  it("GPT/MCP pilot — drizzle 0022 (před / migrace / po), opakované spuštění se zastaví", async () => {
+    expect(await check(pg, file("gpt-mcp", "10_before.sql"))).toBe("0");
+    await run(pg, file("gpt-mcp", "11_migration.sql"));
+    expect(await check(pg, file("gpt-mcp", "12_after.sql"))).toBe("4 | 4 | 0 | 0");
+    await expect(run(pg, file("gpt-mcp", "11_migration.sql"))).rejects.toThrow(/už existuje/);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0022) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

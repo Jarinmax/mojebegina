@@ -6,6 +6,7 @@ import { listOrders } from "@/lib/data/orders";
 import { getCockpitCounts } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isCeoFocusAllowed } from "@/lib/data/ceoFocusAuth";
+import { agentConfig } from "@/lib/agent/config";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
@@ -51,6 +52,9 @@ export default async function CompanyOverviewPage() {
   // — tohle je jen podmíněné zobrazení odkazu.
   const ctx = await getAuthContext();
   const showCeoFocus = isCeoFocusAllowed(ctx);
+  // GPT/MCP pilot — odkaz jen tomu, kdo smí asistenta připojit (allowlist).
+  const agent = agentConfig();
+  const showAgentLink = Boolean(agent && ctx && agent.allowedUserIds.has(ctx.userId));
 
   return (
     <div>
@@ -70,6 +74,15 @@ export default async function CompanyOverviewPage() {
         </div>
         <CrmCockpitTiles counts={crmCounts} />
       </div>
+
+      {showAgentLink && (
+        <div className="mb-6 flex items-center justify-between bg-white border border-neutral-200 rounded-xl p-4">
+          <p className="text-sm text-begina-primary-900">Asistent ChatGPT</p>
+          <Link href="/rizeni-firmy/asistent" className="text-sm font-medium text-begina-primary-900 hover:underline">
+            Propojení a historie →
+          </Link>
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
