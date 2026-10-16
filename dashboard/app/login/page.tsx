@@ -14,7 +14,8 @@ import LoginForm from "./LoginForm";
 export const dynamic = "force-dynamic";
 
 // GPT/MCP pilot — ?next= vrátí po přihlášení zpět na souhlasovou stránku
-// asistenta (/oauth/authorize). Povolená je jen ona (safeNextPath), jinak "/".
+// asistenta (/oauth/authorize) nebo na diagnostiku DB pro Preview
+// (/diagnostika-db). Povolené jsou jen ony (safeNextPath), jinak "/".
 export default async function LoginPage(props: PageProps<"/login">) {
   const searchParams = await props.searchParams;
   const next = safeNextPath(typeof searchParams?.next === "string" ? searchParams.next : null);

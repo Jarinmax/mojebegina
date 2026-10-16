@@ -171,7 +171,7 @@ describe("ověření klienta", () => {
   });
 });
 
-describe("návrat po přihlášení (?next=) — jen souhlasová stránka", () => {
+describe("návrat po přihlášení (?next=) — jen souhlasová stránka a diagnostika DB", () => {
   it.each([
     ["/oauth/authorize?client_id=x&state=1", "/oauth/authorize?client_id=x&state=1"],
     ["/oauth/authorize", "/oauth/authorize"],
@@ -182,6 +182,12 @@ describe("návrat po přihlášení (?next=) — jen souhlasová stránka", () =
     ["/admin", "/"],
     ["/oauth/authorizeX", "/"],
     ["/oauth/authorize?x=1\\@evil", "/"],
+    ["/diagnostika-db", "/diagnostika-db"],
+    ["/diagnostika-db?x=1", "/"],
+    ["/diagnostika-dbX", "/"],
+    ["/diagnostika-db/../admin", "/"],
+    ["//diagnostika-db", "/"],
+    ["/admin/diagnostika-db", "/"],
   ])("%s → %s", (raw, expected) => {
     expect(safeNextPath(raw)).toBe(expected);
   });

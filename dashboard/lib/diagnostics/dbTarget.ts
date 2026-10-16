@@ -1,7 +1,7 @@
 // GPT/MCP pilot — diagnostika „kam se Preview deployment skutečně připojuje“.
 // Čisté funkce bez I/O (testy v __tests__/dbTarget.test.ts). Z adres se
 // vrací VÝHRADNĚ hostname — nikdy uživatel, heslo, databáze ani parametry.
-// Stránka: app/admin/diagnostika-db (jen ADMIN, jen VERCEL_ENV=preview).
+// Stránka: app/diagnostika-db (jen ADMIN, jen VERCEL_ENV=preview).
 
 /** Production `main` (ověřeno read-only 13. 10. 2026, viz docs/gpt-mcp/00_kde_jsem.sql). */
 export const PRODUCTION_DB = {
@@ -18,9 +18,22 @@ export const PILOT_PREVIEW_DB = {
 
 type Env = Record<string, string | undefined>;
 
+/**
+ * Adresa stránky. Záměrně MIMO /admin: layout /admin pošle nepřihlášeného
+ * na /login bez návratové adresy (layout cestu nezná) a po přihlášení by
+ * skončil na "/" → /admin (Organizace). Stránka si přihlášení hlídá sama
+ * a na /login předá ?next= (povolené v safeNextPath).
+ */
+export const DB_DIAGNOSTICS_PATH = "/diagnostika-db";
+
+/** Diagnostika existuje jen na Preview (jinde 404 ještě před přihlášením). */
+export function isPreviewDeployment(env: Env): boolean {
+  return env.VERCEL_ENV === "preview";
+}
+
 /** Diagnostika existuje jen na Preview a jen pro aktivní roli ADMIN. */
 export function dbDiagnosticsAllowed(env: Env, systemRole: string | null | undefined): boolean {
-  return env.VERCEL_ENV === "preview" && systemRole === "ADMIN";
+  return isPreviewDeployment(env) && systemRole === "ADMIN";
 }
 
 /** Hostname z connection stringu; cokoli jiného (uživatel, heslo, db, query) zahodí. */

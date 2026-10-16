@@ -3,6 +3,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { SCOPE_READ, SCOPE_WRITE, SUPPORTED_SCOPES, type AgentConfig } from "./config";
 import type { SystemRole } from "@/lib/data/types";
+import { DB_DIAGNOSTICS_PATH } from "@/lib/diagnostics/dbTarget";
 
 // --- Tokeny -------------------------------------------------------------
 
@@ -239,11 +240,13 @@ export function queryFromParams(params: Record<string, string | string[] | undef
 
 /**
  * Kam se po přihlášení vrátit (?next= na /login). Povolená je JEN
- * souhlasová stránka asistenta — cokoli jiného (cizí doména, "//evil",
+ * souhlasová stránka asistenta (i s parametry) a diagnostika DB pro
+ * Preview (přesně, bez parametrů) — cokoli jiného (cizí doména, "//evil",
  * "/\\evil", jiná cesta) = "/" (žádný open redirect).
  */
 export function safeNextPath(raw: string | null | undefined): string {
   if (!raw) return "/";
+  if (raw === DB_DIAGNOSTICS_PATH) return raw;
   if (raw !== AUTHORIZE_PATH && !raw.startsWith(`${AUTHORIZE_PATH}?`)) return "/";
   if (/[\\\s]/.test(raw)) return "/";
   return raw;
