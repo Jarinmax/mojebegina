@@ -12,6 +12,8 @@ import { shippingMethodsFor, type ShippingMode } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
 import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
+import { SELLER } from "./seller";
+import { WITHDRAWAL_PAGE_BLOCKS } from "./legal/withdrawal";
 
 /** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
 export type InfoPoint = { text: string; lines?: string[]; items?: string[]; after?: string };
@@ -43,17 +45,15 @@ export type InfoPage = {
   blocks: InfoBlock[] | null;
   /** Upozornění, že část textu ještě chybí (stránka už ale obsah má). */
   pendingNote?: string;
+  /** Soubory ke stažení pod textem (cesta e-shopu, např. PDF obchodních podmínek). */
+  downloads?: { path: string; label: string }[];
 };
 
-/** Údaje provozovatele (převzaté ze stávající patičky begina.cz). */
-export const OPERATOR = {
-  name: "Jaroslav Viner",
-  phone: "+420 774 199 975",
-  phoneHref: "tel:+420774199975",
-  email: "info@begina.cz",
-  address: "Mostecká 273/21, 118 00 Praha 1",
-  ico: "74337297",
-} as const;
+/** PDF balíček aktuální verze (obchodní podmínky + poučení + formulář) — app/eshop/obchodni-podminky.pdf. */
+export const LEGAL_PDF_PATH = "/obchodni-podminky.pdf";
+
+/** Údaje provozovatele = prodávající (lib/eshop/seller.ts — jediný zdroj). */
+export const OPERATOR = SELLER;
 
 // Texty z begina.cz (doslova) pro úvodní stránku e-shopu.
 export const whyBegina = [
@@ -199,6 +199,18 @@ const termsPage: InfoPage = {
   subtitle: `Platné a účinné od ${TERMS_EFFECTIVE}`,
   description: "Obchodní podmínky e-shopu Begina.cz.",
   blocks: TERMS_BLOCKS,
+  downloads: [{ path: LEGAL_PDF_PATH, label: "Obchodní podmínky, poučení a formulář (PDF)" }],
+};
+
+// Poučení = čl. VII obchodních podmínek + vzorový formulář (lib/eshop/legal/withdrawal.ts).
+const withdrawalPage: InfoPage = {
+  path: "/odstoupeni-od-smlouvy",
+  footerLabel: "Odstoupení od smlouvy",
+  title: "Odstoupení od smlouvy",
+  subtitle: "Poučení o odstoupení od kupní smlouvy a vzorový formulář",
+  description: "Poučení o odstoupení od kupní smlouvy a vzorový formulář pro odstoupení — e-shop Begina.cz.",
+  blocks: WITHDRAWAL_PAGE_BLOCKS,
+  downloads: [{ path: LEGAL_PDF_PATH, label: "Obchodní podmínky, poučení a formulář (PDF)" }],
 };
 
 const privacyPage: InfoPage = {
@@ -216,8 +228,9 @@ export const INFO_PAGES = {
   water: waterPage,
   shipping: shippingPage,
   terms: termsPage,
+  withdrawal: withdrawalPage,
   privacy: privacyPage,
 } as const;
 
 /** Pořadí odkazů v patičce. */
-export const FOOTER_LINKS: InfoPage[] = [aboutPage, shippingPage, termsPage, privacyPage];
+export const FOOTER_LINKS: InfoPage[] = [aboutPage, shippingPage, termsPage, withdrawalPage, privacyPage];

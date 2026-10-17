@@ -3,6 +3,7 @@
 // a odrážek). Měnit jen podle nového znění od vedení; datum účinnosti
 // v `PRIVACY_EFFECTIVE` a v čl. XIII.
 import type { InfoBlock } from "../infoPages";
+import { SELLER, SELLER_IDENTITY_LINES, SELLER_PREMISES } from "../seller";
 
 export const PRIVACY_EFFECTIVE = "22. září 2026";
 
@@ -10,17 +11,11 @@ export const PRIVACY_BLOCKS: InfoBlock[] = [
   {
     heading: "I. Správce osobních údajů",
     paragraphs: ["Správcem osobních údajů je:"],
-    lines: [
-      "Jaroslav Viner",
-      "IČO: 74337297",
-      "sídlo: Mostecká 273/21, 118 00 Praha 1",
-      "e-mail: info@begina.cz",
-      "telefon: +420 774 199 975",
-    ],
+    lines: [...SELLER_IDENTITY_LINES],
   },
   {
     paragraphs: ["Kontaktní provozovna a korespondenční adresa:"],
-    lines: ["Zahradní Bistro Begina", "Vitice 119", "281 06 Vitice, okres Kolín"],
+    lines: [SELLER.premises.name, SELLER.premises.street, SELLER.premises.city],
     afterParagraphs: [
       "dále jen „správce“.",
       "Správce provozuje internetový obchod na adrese www.begina.cz.",
@@ -88,7 +83,7 @@ export const PRIVACY_BLOCKS: InfoBlock[] = [
     subheading: "4. Marketingová komunikace",
     paragraphs: [
       "Pokud zákazník udělí souhlas se zasíláním obchodních sdělení, můžeme jeho e-mailovou adresu používat k zasílání novinek, nabídek a informací o výrobcích Begina.",
-      "Zákazník může souhlas kdykoliv odvolat prostřednictvím odkazu v obchodním sdělení nebo zasláním žádosti na e-mail info@begina.cz.",
+      `Zákazník může souhlas kdykoliv odvolat prostřednictvím odkazu v obchodním sdělení nebo zasláním žádosti na e-mail ${SELLER.email}.`,
       "Stávajícím zákazníkům mohou být v souladu s právními předpisy zasílány nabídky obdobných výrobků také na základě oprávněného zájmu. Zákazník může takové zasílání kdykoliv bezplatně odmítnout.",
     ],
   },
@@ -173,7 +168,7 @@ export const PRIVACY_BLOCKS: InfoBlock[] = [
     ],
     afterParagraphs: [
       "Odvoláním souhlasu není dotčena zákonnost zpracování provedeného před jeho odvoláním.",
-      "Žádost lze zaslat na e-mail info@begina.cz nebo písemně na adresu Zahradní Bistro Begina, Vitice 119, 281 06 Vitice, okres Kolín.",
+      `Žádost lze zaslat na e-mail ${SELLER.email} nebo písemně na adresu ${SELLER_PREMISES}.`,
       "Správce může před vyřízením žádosti požádat o přiměřené ověření totožnosti žadatele, aby osobní údaje nebyly zpřístupněny neoprávněné osobě.",
     ],
   },
