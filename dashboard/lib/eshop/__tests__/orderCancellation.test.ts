@@ -41,6 +41,8 @@ vi.mock("@/lib/eshop/email/resend", () => ({
   },
 }));
 
+// vrácení peněz dělá člověk ve Stripe — aplikace ho přes Stripe nikdy nespouští
+const stripeRefunds = vi.hoisted(() => ({ calls: 0 }));
 vi.mock("@/lib/eshop/stripe/client", async () => {
   const { default: RealStripe } = await vi.importActual<typeof import("stripe")>("stripe");
   const webhooks = new RealStripe("sk_test_begina").webhooks;
@@ -48,6 +50,12 @@ vi.mock("@/lib/eshop/stripe/client", async () => {
   return {
     getStripe: () => ({
       webhooks,
+      refunds: {
+        create: async () => {
+          stripeRefunds.calls += 1;
+          throw new Error("Vrácení přes Stripe API se z aplikace nevolá.");
+        },
+      },
       checkout: {
         sessions: {
           create: async () => {
@@ -467,6 +475,47 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
     ]);
     expect(await activity(id, "refund_requested")).toEqual([]);
     expect(await money(id)).toEqual({ stage: "contact", heldHal: Number(total_kc) * 100 });
+  });
+
+  it("zaplacená kartou, stornovaná, vrácená ve Stripe (případ 70000002): příjem zůstává, vrácení s ID re_… jednou, štítek „Vráceno“", async () => {
+    const id = randomUUID();
+    await newOrder(id, { paymentMethodId: "karta" });
+    expect(await payByWebhook(id, `evt_${id.slice(0, 8)}`)).toMatchObject({ outcome: "paid" });
+    await orders.updateFulfillmentStatus(id, "cancelled", "new");
+    const [{ total_kc }] = await rows(sql`SELECT total_kc FROM orders WHERE id = ${id}`);
+    const held = Number(total_kc) * 100;
+    const card = async () => (await orders.listOrders()).orders.find((o) => o.id === id)!;
+    expect(await card()).toMatchObject({ paymentStatus: "paid", paymentRefunded: false, moneyAlert: { stage: "contact", heldHal: held } });
+
+    expect(await orders.requestOrderRefund(id, { consent: true, note: "Testovací objednávka, vráceno ve Stripe 17. 10." })).toMatchObject({
+      ok: true,
+      requested: true,
+    });
+    const refund = (txId: string) =>
+      orders.recordOrderRefund(id, { txId, amountKc: String(total_kc), date: today(), method: "card", note: "" });
+    expect(await refund("re_3URZWK6S7EZO051t0test")).toEqual({ ok: true, recorded: true, remainingHal: 0 });
+    // opakované odeslání téhož vrácení = nic; jiné ID už nemá co vrátit
+    expect(await refund("re_3URZWK6S7EZO051t0test")).toEqual({ ok: true, recorded: false, remainingHal: 0 });
+    expect(await refund("re_jine")).toEqual({ ok: false, error: expect.stringMatching(/nic nevracíme/) });
+
+    // původní příjem beze změny + jeden odchozí záznam navázaný na něj
+    expect(
+      await rows(sql`
+        SELECT p.source, p.direction, p.status, p.method, p.amount_hal::int AS amount, p.external_id, r.source AS of_source
+        FROM payments p LEFT JOIN payments r ON r.id = p.refund_of_payment_id
+        WHERE p.order_id = ${id} AND p.status = 'succeeded' ORDER BY p.direction`)
+    ).toEqual([
+      { source: "stripe", direction: "inflow", status: "succeeded", method: "card", amount: held, external_id: `cs_evt_${id.slice(0, 8)}`, of_source: null },
+      { source: "manual", direction: "outflow", status: "succeeded", method: "card", amount: held, external_id: "refund:re_3URZWK6S7EZO051t0test", of_source: "stripe" },
+    ]);
+    expect(await activity(id, "refund_recorded")).toEqual([expect.objectContaining({ txId: "re_3URZWK6S7EZO051t0test", method: "card" })]);
+
+    // výsledný stav: nic nedržíme, platby „Vráceno“, štítek „Vráceno“ (ve výpisu i v detailu)
+    const detail = (await orders.getOrderDetail(id))!;
+    expect(detail.payments).toMatchObject({ balanceState: "refunded", receivedHal: held, refundedHal: held, netHal: 0 });
+    expect(detail.order).toMatchObject({ paymentRefunded: true, moneyAlert: null, fulfillmentStatus: "cancelled" });
+    expect(await card()).toMatchObject({ paymentRefunded: true, moneyAlert: null });
+    expect(stripeRefunds.calls).toBe(0);
   });
 
   // ---------------------------------------------------------------- náhradní objednávka

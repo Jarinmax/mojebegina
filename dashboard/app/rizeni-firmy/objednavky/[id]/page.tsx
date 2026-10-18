@@ -70,7 +70,7 @@ export default async function OrderDetailPage(
 
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <FulfillmentBadge status={order.fulfillmentStatus} />
-        <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
+        <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} refunded={order.paymentRefunded} />
         <CancelledMoneyBadge money={order.moneyAlert} />
       </div>
 

@@ -11,7 +11,15 @@ export function FulfillmentBadge({ status }: { status: FulfillmentStatus }) {
   );
 }
 
-export function PaymentBadge({ status, overdue }: { status: PaymentStatus; overdue?: boolean }) {
+/** refunded = e-shop: peníze vrácené celé (order_payment_balance 'refunded') — přednost před stavem objednávky. */
+export function PaymentBadge({ status, overdue, refunded }: { status: PaymentStatus; overdue?: boolean; refunded?: boolean }) {
+  if (refunded) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium border rounded-full px-2 py-0.5 bg-neutral-100 text-neutral-700 border-neutral-200">
+        Vráceno
+      </span>
+    );
+  }
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs font-medium border rounded-full px-2 py-0.5 ${
