@@ -320,7 +320,19 @@ describe("pilotní doména gpt-pilot.begina.cz — celý OAuth tok přes proxy.t
 
     const list = await rpc(tokens.access_token, 3, "tools/list");
     const names = ((list.json as { result: { tools: Array<{ name: string }> } }).result.tools).map((t) => t.name).sort();
-    expect(names).toEqual(["get_company_task", "get_customer", "get_lead", "list_company_tasks", "my_overview", "search_crm"]);
+    expect(names).toEqual([
+      "get_company_task",
+      "get_customer",
+      "get_daily_call_report",
+      "get_executive_overview",
+      "get_lead",
+      "get_salesperson_activity",
+      "list_company_tasks",
+      "list_leads",
+      "my_overview",
+      "search_crm",
+      "search_mojebegina",
+    ]);
 
     const search = await rpc(tokens.access_token, 4, "tools/call", { name: "search_crm", arguments: { query: "Lípy" } });
     const searchResult = (search.json as { result: { isError?: boolean; content: Array<{ text: string }> } }).result;

@@ -204,9 +204,21 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
     it("tools/list: bez zápisového souhlasu jen čtecí nástroje", async () => {
       const readOnly = await connect(false);
       const names = mcp.agentMcpServer(db, readOnly.session, config).listTools().map((t) => t.name);
-      expect(names).toEqual(["search_crm", "get_lead", "get_customer", "my_overview", "list_company_tasks", "get_company_task"]);
+      expect(names).toEqual([
+        "search_mojebegina",
+        "get_executive_overview",
+        "list_leads",
+        "get_lead",
+        "get_salesperson_activity",
+        "get_daily_call_report",
+        "search_crm",
+        "get_customer",
+        "my_overview",
+        "list_company_tasks",
+        "get_company_task",
+      ]);
       const full = await connect(true);
-      expect(mcp.agentMcpServer(db, full.session, config).listTools()).toHaveLength(11);
+      expect(mcp.agentMcpServer(db, full.session, config).listTools()).toHaveLength(16);
     });
 
     it("hledání a detail leadu", async () => {

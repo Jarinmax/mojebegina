@@ -37,6 +37,9 @@ export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Nejvýš tolik zápisů za hodinu na jeden udělený souhlas (pojistka proti zacyklenému asistentovi). */
 export const WRITE_LIMIT_PER_HOUR = 60;
 
+/** Nejvýš tolik čtecích volání za hodinu na jeden souhlas — běžná práce se vejde, hromadné vytěžení databáze ne. */
+export const READ_LIMIT_PER_HOUR = 600;
+
 export type AgentConfig = {
   issuer: string;
   clientId: string;

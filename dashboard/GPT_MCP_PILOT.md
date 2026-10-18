@@ -46,8 +46,13 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 
 | Nástroj | Typ | Co dělá |
 |---|---|---|
-| `search_crm` | čtení | hledá leady i zákazníky (název, kontakt, telefon, e-mail, město, IČO) |
-| `get_lead` | čtení | detail leadu + historie |
+| `search_mojebegina` | čtení | jedno hledání: leady, zákazníci, objednávky (číslo, VS, kontakt), produkty, témata mapy, CEO projekty |
+| `get_executive_overview` | čtení | manažerský přehled jen ze souhrnů (i rok / víc let / celá historie) + kvalita dat (`dataQuality`) |
+| `list_leads` | čtení | leady s filtry (obchodník, fáze, data) a předvolbami (po termínu, na dnes, bez dalšího kroku, neobvolané, nově přidělené, ukončené…), stránkování |
+| `get_lead` | čtení | detail leadu + ÚPLNÁ historie po stránkách |
+| `get_salesperson_activity` | čtení | zaznamenané hovory obchodníka za den/období (max. 31 dní): unikátní leady, první kontakt, neúplné zápisy |
+| `get_daily_call_report` | čtení | denní fronta: plán vs. zaznamenané hovory, nesoulady, hovory mimo frontu |
+| `search_crm` | čtení | starší hledání jen v CRM — ponecháno jako kompatibilní alias |
 | `get_customer` | čtení | detail zákazníka: obrat, objednávky, poznámky |
 | `my_overview` | čtení | počty z kokpitu, moje leady k ozvání (po termínu / do 7 dní), moje úkoly v mapě |
 | `list_company_tasks` | čtení | Živá mapa firmy jako seznam (celá nebo jen moje) |
@@ -66,7 +71,12 @@ Pojistky zápisů:
 
 - **Idempotence:** každý zápis nese `idempotency_key`. Když ChatGPT zopakuje stejné
   volání (třeba po výpadku spojení), nic se nezapíše podruhé.
-- **Limit:** nejvýš 60 zápisů za hodinu na jeden souhlas.
+- **Limit:** nejvýš 60 zápisů a 600 čtení za hodinu na jeden souhlas;
+  stránky max. 50 záznamů, jednotlivé hovory max. 31 dní, seznamy max. 92 dní,
+  manažerské souhrny bez omezení období (jen čísla).
+- **Hlavička `source`** v každém čtecím výstupu: Preview/Production, Neon větev,
+  čas dotazu, období, čerstvost čtené domény, `complete`/`truncated`/`nextCursor`
+  a varování (zastaralá kopie, nedostupná data).
 - **Audit:** každé volání (i zamítnuté) jde do `agent_audit_log`. Přehled za
   posledních 7 dní je v MojeBegina › Řízení firmy › Asistent ChatGPT
   (`/rizeni-firmy/asistent`). Tam jde přístup i jedním tlačítkem odvolat.
@@ -334,6 +344,35 @@ Názvy položek se v ChatGPT občas mění. Řiďte se tím, co aplikace ukáže
 
 Zápisy až později: nastavit `MCP_ALLOW_WRITE=on`, nasadit, odpojit a znovu
 připojit konektor a na souhlasové stránce zápisy zaškrtnout.
+
+## Production přes čtecí roli (varianta B, zatím NESPUŠTĚNO)
+
+Skripty: `docs/gpt-mcp/30_production_readonly_role.sql` (role `lucy_readonly`),
+`39_production_readonly_role_rollback.sql` (úplný návrat), `scram-verifier.mjs`
+(heslo + SCRAM otisk; do SQL jde jen otisk).
+
+Ověřeno nad PGlite i proti **skutečnému PostgreSQL 16** (`productionRole.postgres.test.ts`,
+spouští se ručně s `LUCY_ROLE_TEST_PG=…`; Neon běží na PostgreSQL 18):
+
+- přihlášení heslem přes SCRAM otisk funguje, špatné heslo ne;
+- SELECT jen na vyjmenované tabulky, u `payments` a `invoice_provider_links`
+  jen vyjmenované sloupce (bez `raw`, `external_id`, payloadů, odkazů);
+- INSERT/UPDATE/DELETE/TRUNCATE/DDL/COPY/GRANT/sekvence nejdou ani po vypnutí
+  `transaction_read_only` — **tvrdou ochranou jsou granty**;
+- role si `default_transaction_read_only` může vypnout i TRVALE
+  (`ALTER ROLE … SET`) — proto to není bezpečnostní hranice, jen pojistka proti omylu;
+- zbytkové riziko: přes výchozí právo PUBLIC `TEMP` a `lo_create` může role
+  (s uniklým heslem a úmyslem) založit dočasnou tabulku ve své relaci nebo
+  velký objekt; obchodní data tím nezmění. Zavřít jde `REVOKE TEMPORARY ON
+  DATABASE neondb FROM PUBLIC` (rozhodnutí — týká se všech rolí) a úplně
+  připojením přes **Neon read replica** (fyzicky read-only compute);
+- návrat roli smaže včetně čehokoli, co by založila.
+
+Zjištění z Neonu (Preview kopie, jen čtení): existuje role `Claude readonly`
+(čtecí přístup Neon MCP) se SELECT na všechny tabulky `public` i `neon_auth`
+(včetně `session`, `account`, `jwks`) a výchozími právy na nové tabulky.
+`PUBLIC` do `neon_auth` přístup nemá. Doporučení: zvážit odebrání `neon_auth`
+roli `Claude readonly`.
 
 ## Ochrana dat (GDPR)
 

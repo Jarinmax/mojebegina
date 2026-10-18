@@ -25,7 +25,25 @@ export type AuditBase = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Krátké řídicí hodnoty bez obsahu CRM — v auditu zůstanou celé. */
-const PLAIN_KEYS = new Set(["priority", "follow_up_date", "only_mine"]);
+const PLAIN_KEYS = new Set([
+  "priority",
+  "follow_up_date",
+  "only_mine",
+  // čtecí filtry: data, předvolby a výčty (ne jména, ne hledaný text)
+  "date",
+  "date_from",
+  "date_to",
+  "preset",
+  "stage",
+  "period",
+  "created_from",
+  "created_to",
+  "last_contact_from",
+  "last_contact_to",
+  "next_contact_from",
+  "next_contact_to",
+  "sort",
+]);
 const MAX_KEYS = 20;
 
 /**
@@ -40,7 +58,7 @@ export function auditArgs(args: Record<string, unknown>): Record<string, unknown
   for (const key of Object.keys(args).slice(0, MAX_KEYS)) {
     if (key === "idempotency_key") continue;
     const value = args[key];
-    if (typeof value === "boolean" || value === null) {
+    if (typeof value === "boolean" || value === null || (typeof value === "number" && Number.isFinite(value))) {
       result[key] = value;
     } else if (typeof value === "string" && (UUID_RE.test(value) || (PLAIN_KEYS.has(key) && value.length <= 20))) {
       result[key] = value;
@@ -61,11 +79,14 @@ export function argsHash(args: Record<string, unknown>): string {
   return createHash("sha256").update(stable).digest("hex");
 }
 
-/** Čtení, zamítnutí a chyby před claimem: jeden hotový řádek. */
+/**
+ * Čtení, zamítnutí a chyby před claimem: jeden hotový řádek. `summary` jsou
+ * jen počty (kolik řádků se vrátilo, zda oříznuto) — nikdy obsah dat.
+ */
 export async function logCall(
   db: Db,
   base: AuditBase,
-  outcome: { status: Exclude<AuditStatus, "pending">; error?: string | null },
+  outcome: { status: Exclude<AuditStatus, "pending">; error?: string | null; summary?: Record<string, number | boolean> | null },
   now: Date = new Date()
 ): Promise<void> {
   await db.insert(agentAuditLog).values({
@@ -75,10 +96,26 @@ export async function logCall(
     isWrite: base.isWrite,
     args: auditArgs(base.args),
     status: outcome.status,
+    result: outcome.summary ?? null,
     error: outcome.error ?? null,
     createdAt: now,
     finishedAt: now,
   });
+}
+
+/** Čtecí volání za poslední hodinu (pojistka proti postupnému „vytěžení“ celé databáze). */
+export async function readsInLastHour(db: Db, grantId: string, now: Date = new Date()): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(agentAuditLog)
+    .where(
+      and(
+        eq(agentAuditLog.grantId, grantId),
+        eq(agentAuditLog.isWrite, false),
+        gt(agentAuditLog.createdAt, new Date(now.getTime() - 60 * 60 * 1000))
+      )
+    );
+  return Number(row?.n ?? 0);
 }
 
 /** Zápisy, které prošly až ke claimu (mají klíč) — zamítnutá volání se do limitu nepočítají. */

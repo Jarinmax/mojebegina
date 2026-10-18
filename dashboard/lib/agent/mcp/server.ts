@@ -10,11 +10,11 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 import { runAsAgent } from "../context";
-import { WRITE_LIMIT_PER_HOUR, type AgentConfig } from "../config";
+import { READ_LIMIT_PER_HOUR, WRITE_LIMIT_PER_HOUR, type AgentConfig } from "../config";
 import { canWrite } from "../oauthCore";
 import type { AgentSession } from "../oauthStore";
 import { ArgError, idempotencyKey } from "./args";
-import { claimWrite, finishWrite, logCall, writesInLastHour, type AuditBase } from "./audit";
+import { claimWrite, finishWrite, logCall, readsInLastHour, writesInLastHour, type AuditBase } from "./audit";
 import { toolError, toolSuccess, type CallToolResult, type McpServer } from "./protocol";
 import { AGENT_TOOLS, SERVER_INSTRUCTIONS, type AgentTool, type ToolOutcome } from "./tools";
 
@@ -79,8 +79,16 @@ export async function callAgentTool(
   }
 
   if (!tool.write) {
+    if ((await readsInLastHour(db, session.grantId)) >= READ_LIMIT_PER_HOUR) {
+      await logCall(db, base, { status: "denied", error: "read_rate_limit" });
+      return toolError(`Překročen limit ${READ_LIMIT_PER_HOUR} dotazů za hodinu. Zkuste to později nebo dotaz zužte.`);
+    }
     const { status, outcome } = await runTool(tool, parsed, session, issuer);
-    await logCall(db, base, { status, error: outcome.ok ? null : outcome.error });
+    await logCall(db, base, {
+      status,
+      error: outcome.ok ? null : outcome.error,
+      summary: outcome.ok ? (outcome.summary ?? null) : null,
+    });
     return toResult(outcome);
   }
 

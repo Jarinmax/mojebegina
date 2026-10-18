@@ -57,3 +57,22 @@ export function idempotencyKey(args: Record<string, unknown>): string {
   }
   return value;
 }
+
+export function optionalEnumArray<T extends string>(
+  args: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[]
+): T[] | null {
+  const value = args[key];
+  if (value === undefined || value === null) return null;
+  const list = typeof value === "string" ? [value] : value;
+  if (!Array.isArray(list) || list.length === 0 || list.length > allowed.length) {
+    throw new ArgError(`Argument ${key} musí být seznam hodnot z: ${allowed.join(", ")}.`);
+  }
+  for (const item of list) {
+    if (typeof item !== "string" || !allowed.includes(item as T)) {
+      throw new ArgError(`Argument ${key} musí být seznam hodnot z: ${allowed.join(", ")}.`);
+    }
+  }
+  return [...new Set(list as T[])];
+}
