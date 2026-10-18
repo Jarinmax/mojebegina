@@ -9,6 +9,7 @@ import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { startCardPayment } from "@/lib/eshop/stripe/payment";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
+import { isAgentRequest } from "@/lib/site/hosts";
 
 export type PayAgainState = { error: string } | { redirectTo: string } | null;
 
@@ -19,6 +20,10 @@ export async function payAgainAction(_prev: PayAgainState, formData: FormData): 
     return { error: "Platba kartou teď není dostupná." };
   }
   const h = await headers();
+  // Pilotní doména asistenta: samostatná pojistka vedle 404 v proxy.ts.
+  if (isAgentRequest(h.get("host"), h.get("x-forwarded-host"))) {
+    return { error: "Platba kartou teď není dostupná." };
+  }
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   try {

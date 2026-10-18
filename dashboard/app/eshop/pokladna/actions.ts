@@ -25,6 +25,7 @@ import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/paymen
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
+import { isAgentRequest } from "@/lib/site/hosts";
 
 export type CheckoutState =
   | { error: string }
@@ -56,6 +57,13 @@ export async function submitCheckoutAction(
   // i bez stránky — nic nezpracovat.
   if (!isEshopPublic()) {
     return { error: "E-shop zatím není spuštěný." };
+  }
+  // Pilotní doména asistenta (gpt-pilot.begina.cz): e-shop tam nemá co
+  // dělat. Proxy ho blokuje 404 už na vstupu; tohle je samostatná pojistka
+  // pro případ, že by se serverová akce zavolala jinou cestou.
+  const requestHeaders = await headers();
+  if (isAgentRequest(requestHeaders.get("host"), requestHeaders.get("x-forwarded-host"))) {
+    return { error: "Objednávku se nepodařilo odeslat." };
   }
   const field = (key: string) => String(formData.get(key) ?? "");
 
