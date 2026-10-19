@@ -22,6 +22,9 @@ import CancelledMoneyBadge from "../CancelledMoneyBadge";
 // getOrderDetail/listInternalStaff si ji navíc ověřují samy, stejný princip
 // jako getNodeDetail.
 export const dynamic = "force-dynamic";
+// Serverové akce stránky volají iDoklad (kontrola / vystavení faktury):
+// až ~20 čtení po 20 s — výchozí limit funkce by je mohl utnout uprostřed.
+export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
