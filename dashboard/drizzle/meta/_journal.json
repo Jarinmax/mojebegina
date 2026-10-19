@@ -162,6 +162,13 @@
       "when": 1791929032651,
       "tag": "0022_gpt_mcp_pilot",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792432943817,
+      "tag": "0023_customer_card_preview",
+      "breakpoints": true
     }
   ]
 }

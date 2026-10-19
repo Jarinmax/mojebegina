@@ -1085,3 +1085,42 @@ export const agentAuditLog = pgTable(
     check("agent_audit_log_status_check", sql`${table.status} IN ('pending','ok','error','denied')`),
   ]
 );
+
+// --- Úzká oprávnění konkrétních uživatelů (migrace 0023) -----------------
+//
+// Oprávnění NEZÁVISLÉ na roli: uděluje se konkrétnímu user_id (nikdy podle
+// jména či e-mailu) a jde odebrat (revoked_at). Aktivní = revoked_at IS NULL;
+// nejvýš jedno aktivní udělení na uživatele a oprávnění. Dnes jediné:
+// customer_card_preview — náhled zákaznické karty očima zákazníka.
+export const userPermissions = pgTable("user_permissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  permission: text("permission").notNull(),
+  grantedByUserId: text("granted_by_user_id").notNull(),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+  reason: text("reason"),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedByUserId: text("revoked_by_user_id"),
+}, (table) => [
+  uniqueIndex("user_permissions_one_active")
+    .on(table.userId, table.permission)
+    .where(sql`${table.revokedAt} IS NULL`),
+  check("user_permissions_permission_check", sql`${table.permission} IN ('customer_card_preview')`),
+  check(
+    "user_permissions_revoked_by",
+    sql`(${table.revokedAt} IS NULL) = (${table.revokedByUserId} IS NULL)`
+  ),
+]);
+
+// Trvalý audit otevření náhledu zákaznické karty: JEN kdo, kdy a kterou
+// organizaci — žádná zákaznická data. Samostatná tabulka: zápis nemění
+// zákazníka, objednávky ani jeho historii a zákazník ho nikde nevidí.
+export const customerCardPreviewLog = pgTable("customer_card_preview_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  viewerUserId: text("viewer_user_id").notNull(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("customer_card_preview_log_org_idx").on(table.organizationId, table.openedAt),
+  index("customer_card_preview_log_viewer_idx").on(table.viewerUserId, table.openedAt),
+]);

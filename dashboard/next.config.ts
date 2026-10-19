@@ -73,9 +73,9 @@ const nextConfig: NextConfig = {
       // /eshop/objednavka/<id> (moje.begina.cz) i /objednavka/<id> (begina.cz)
       { source: "/eshop/objednavka/:path*", headers: ORDER_PAGE_HEADERS },
       { source: "/objednavka/:path*", headers: ORDER_PAGE_HEADERS },
-      // Administrátorský náhled zákaznické karty: nikdy do cache ani do vyhledávačů.
+      // Náhled zákaznické karty: nikdy do cache ani do vyhledávačů.
       {
-        source: "/admin/organizace/:id/nahled",
+        source: "/nahled-zakaznika/:path*",
         headers: [noStoreHeader, { key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
       ...noStoreSources.map((source) => ({

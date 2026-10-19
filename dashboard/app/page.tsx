@@ -47,8 +47,8 @@ export default async function Page() {
     getCustomerOrders(ctx, organizationId),
   ]);
 
-  // Obsah karty je sdílený s administrátorským náhledem
-  // (app/admin/organizace/[id]/nahled) — viz components/customer-portal.
+  // Obsah karty je sdílený s interním náhledem
+  // (app/nahled-zakaznika/[id]) — viz components/customer-portal.
   return (
     <CustomerPortalShell activeHref="/">
       <CustomerHomeView account={customerAccount} orders={customerOrders} showRoleSwitch={ctx.grantedRoles.length > 1} />

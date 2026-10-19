@@ -9,8 +9,16 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { invoices, orderItems, organizationMemberships, organizations, orders, userProfiles } from "@/lib/db/schema";
-import { requireAdmin } from "./adminAuth";
+import {
+  customerCardPreviewLog,
+  invoices,
+  orderItems,
+  organizationMemberships,
+  organizations,
+  orders,
+  userProfiles,
+} from "@/lib/db/schema";
+import { requireCustomerCardPreview } from "./customerCardPreviewAuth";
 import { getAuthContext } from "./authContext";
 import { assertOrgAccess } from "./organizations";
 import type { AuthContext } from "./types";
@@ -75,7 +83,7 @@ function deriveInitials(name: string | null): string {
 type CustomerContact = { name: string | null; email: string | null };
 
 // Bez kontroly přístupu — volají ji JEN hlídané vstupy níže
-// (getCustomerAccount pro zákazníka, getCustomerPortalPreviewForAdmin).
+// (getCustomerAccount pro zákazníka, getCustomerPortalPreview).
 async function loadCustomerAccount(organizationId: string, contact: CustomerContact): Promise<CustomerAccount | null> {
   const [org] = await db
     .select({
@@ -182,7 +190,7 @@ async function loadCustomerOrders(organizationId: string): Promise<Order[]> {
   return result;
 }
 
-// --- Administrátorský náhled zákaznické karty -------------------------
+// --- Náhled zákaznické karty („očima zákazníka“) ------------------------
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -195,14 +203,17 @@ export type CustomerPortalPreview = {
 };
 
 /**
- * Data zákaznické karty vybrané organizace pro ADMINa — STEJNÉ funkce
- * načítání jako pro zákazníka (loadCustomerAccount / loadCustomerOrders),
- * jen jiná brána: nejdřív ADMIN z ověřené session, teprve potom čtení.
- * Žádná impersonace: session zůstává ADMIN, nic se nezapisuje, cookie se
- * nemění. Id z URL samo o sobě nic neotevře.
+ * Data zákaznické karty vybrané organizace pro držitele oprávnění
+ * customer_card_preview — STEJNÉ funkce načítání jako pro zákazníka
+ * (loadCustomerAccount / loadCustomerOrders), jen jiná brána: nejdřív
+ * oprávnění z ověřené session, teprve potom čtení. Žádná impersonace:
+ * session zůstává, cookie se nemění, data zákazníka se nemění.
+ *
+ * Každé otevření se trvale zapíše do customer_card_preview_log (jen kdo,
+ * kdy, která organizace). Když se zápis nepodaří, náhled se neotevře.
  */
-export async function getCustomerPortalPreviewForAdmin(organizationId: string): Promise<CustomerPortalPreview | null> {
-  const ctx = requireAdmin(await getAuthContext());
+export async function getCustomerPortalPreview(organizationId: string): Promise<CustomerPortalPreview | null> {
+  const ctx = await requireCustomerCardPreview();
   if (!UUID_RE.test(organizationId)) return null;
 
   const [contact] = await db
@@ -218,11 +229,7 @@ export async function getCustomerPortalPreviewForAdmin(organizationId: string): 
   if (!account) return null;
   const orders = await loadCustomerOrders(organizationId);
 
-  // Bezpečnostní stopa: aplikace nemá obecný auditní log (jen agent_audit_log
-  // pro ChatGPT), proto zatím jen strukturovaný záznam do logů Vercelu.
-  console.info(
-    JSON.stringify({ event: "admin_customer_preview", adminUserId: ctx.userId, organizationId, at: new Date().toISOString() })
-  );
+  await db.insert(customerCardPreviewLog).values({ viewerUserId: ctx.userId, organizationId });
   return { organizationId, account, orders, previewContact };
 }
 

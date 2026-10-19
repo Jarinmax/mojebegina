@@ -40,8 +40,8 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
 ];
 const FIRST_ESHOP_IDX = 13;
-/** Po e-shopu: GPT/MCP pilot (přístup asistenta + poznámky u zákazníka). */
-const AFTER_ESHOP = ["0022_gpt_mcp_pilot"];
+/** Po e-shopu: GPT/MCP pilot (přístup asistenta + poznámky u zákazníka), náhled zákaznické karty. */
+const AFTER_ESHOP = ["0022_gpt_mcp_pilot", "0023_customer_card_preview"];
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
   "public.focus_projects": 11,

@@ -1,6 +1,6 @@
 // Sdílený rám zákaznické karty (pozadí, sloupec, spodní navigace). Používá
 // ho skutečný zákaznický pohled (app/page.tsx, /objednavky, /profil)
-// i administrátorský náhled (app/admin/organizace/[id]/nahled) — obě
+// i interní náhled (app/nahled-zakaznika/[id]) — obě
 // místa tak vždy ukazují totéž rozložení.
 import DecorativeMark from "@/components/DecorativeMark";
 import BottomNav from "@/components/BottomNav";

@@ -5,6 +5,7 @@ import { listStaffOptions } from "@/lib/data/leads";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import CustomerOwnerForm from "./CustomerOwnerForm";
 import CustomerNoteForm from "./CustomerNoteForm";
+import CustomerPreviewButton from "@/components/customer-portal/CustomerPreviewButton";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export default async function CustomerDetailPage(
           <h1 className="text-lg font-medium text-begina-primary-900">{customer.name}</h1>
           <p className="text-xs text-neutral-500 mt-0.5">IČO {customer.ico}</p>
         </div>
+        <CustomerPreviewButton organizationId={customer.id} origin="crm" />
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-4">

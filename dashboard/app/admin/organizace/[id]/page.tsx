@@ -6,6 +6,7 @@ import OrganizationMembersTable from "@/components/organization/OrganizationMemb
 import OrganizationEditForm from "./OrganizationEditForm";
 import AddMemberForm from "./AddMemberForm";
 import MemberActions from "./MemberActions";
+import CustomerPreviewButton from "@/components/customer-portal/CustomerPreviewButton";
 
 export const dynamic = "force-dynamic";
 
@@ -50,12 +51,7 @@ export default async function AdminOrganizationDetailPage(
             Založeno {formatCzechDate(org.createdAt)}
           </p>
         </div>
-        <Link
-          href={`/admin/organizace/${org.id}/nahled`}
-          className="text-sm font-medium rounded-lg px-3 py-2 border border-begina-primary-700 text-begina-primary-900"
-        >
-          Náhled očima zákazníka
-        </Link>
+        <CustomerPreviewButton organizationId={org.id} origin="admin" />
       </div>
 
       <OrganizationEditForm

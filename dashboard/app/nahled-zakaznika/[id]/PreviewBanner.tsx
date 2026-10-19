@@ -1,6 +1,7 @@
-// Trvale viditelný pruh administrátorského náhledu. Jediné aktivní prvky
+// Trvale viditelný pruh náhledu zákaznické karty. Jediné aktivní prvky
 // náhledu jsou tady: přepínání pohledů náhledu a návrat do administrace.
 import Link from "next/link";
+import { previewBackHref, previewHref, type PreviewOrigin } from "@/lib/customerPreviewLinks";
 
 export type PreviewView = "prehled" | "objednavky" | "profil";
 
@@ -10,15 +11,17 @@ const VIEWS: Array<{ id: PreviewView; label: string }> = [
   { id: "profil", label: "Profil" },
 ];
 
-export default function AdminPreviewBanner({
+export default function PreviewBanner({
   organizationId,
   organizationName,
   view,
+  origin,
   contact,
 }: {
   organizationId: string;
   organizationName: string;
   view: PreviewView;
+  origin: PreviewOrigin;
   contact: { name: string | null; email: string } | null;
 }) {
   return (
@@ -29,7 +32,7 @@ export default function AdminPreviewBanner({
         </p>
         <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-950">Pouze pro čtení</span>
         <Link
-          href={`/admin/organizace/${organizationId}`}
+          href={previewBackHref(origin, organizationId)}
           className="ml-auto rounded-lg bg-begina-primary-900 px-3 py-1.5 text-sm font-medium text-begina-primary-50"
         >
           Zpět do administrace
@@ -44,7 +47,7 @@ export default function AdminPreviewBanner({
         {VIEWS.map((v) => (
           <Link
             key={v.id}
-            href={`/admin/organizace/${organizationId}/nahled?zobrazeni=${v.id}`}
+            href={previewHref(organizationId, origin, v.id)}
             aria-current={v.id === view ? "page" : undefined}
             className={`rounded-md px-2.5 py-1 text-xs font-medium ${
               v.id === view ? "bg-amber-900 text-amber-50" : "bg-white text-amber-950 border border-amber-300"
