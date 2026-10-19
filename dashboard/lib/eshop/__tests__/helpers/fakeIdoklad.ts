@@ -88,6 +88,7 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     DocumentNumber: i.DocumentNumber,
     VariableSymbol: i.VariableSymbol,
     PartnerId: i.PartnerId,
+    DateOfIssue: (i.body.DateOfIssue as string | undefined) ?? null,
     PaymentStatus: i.PaymentStatus,
     Prices: i.Prices,
   });
@@ -168,7 +169,10 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
       response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
     } else if (method === "GET" && path === "/IssuedInvoices") {
       const vs = filterValue(query, "VariableSymbol");
-      response = page(invoices.filter((i) => i.VariableSymbol === vs).map(invoiceView));
+      const partner = filterValue(query, "PartnerId");
+      response = page(
+        invoices.filter((i) => (partner !== null ? String(i.PartnerId) === partner : i.VariableSymbol === vs)).map(invoiceView)
+      );
     } else if (method === "GET" && /^\/IssuedInvoices\/\d+$/.test(path)) {
       const i = invoices.find((x) => x.Id === Number(path.split("/")[2]));
       response = i ? ok(invoiceView(i)) : fail(404, "Not found");

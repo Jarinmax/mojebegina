@@ -28,7 +28,29 @@ MojeBegina přes existující integraci iDokladu (první skutečná faktura).
 - před vystavením hledání faktury s VS 5215 v iDokladu (Lucie ji nevystavila),
 - jedna faktura na objednávku, zámek proti souběhu, uložené ID z iDokladu,
 - víc kontaktů se stejným IČO = stop bez zápisu,
+- **faktura této firmě vystavená v den úhrady nebo později v JAKÉKOLI řadě a s jakýmkoli
+  VS** (např. ruční faktura Lucie ve výchozí řadě) = stop bez zápisu,
 - import 5215 jen jednou (unikátní `external_woocommerce_id`, pojistka ve skriptu).
+
+## Kolize migrace 0022 s PR #21 (ChatGPT pilot)
+
+PR #21 (Draft) má vlastní `0022_gpt_mcp_pilot` a `0023_customer_card_preview`;
+v Production ani jedna neběžela (ověřeno read-only 19. 10.: tabulky `agent_*`,
+`organization_activity`, `customer_card_preview_log` neexistují). Tento PR jde do
+`main` první, takže **0022 = firmy na faktuře**. PR #21 se při sloučení s `main`
+přečísluje na 0023/0024 a znovu vygeneruje snapshoty (`drizzle-kit generate`) — jeho
+produkční SQL skripty jsou samostatné, na čísle souboru nezávisí. Do větve PR #21
+tento PR nesahá.
+
+## Zákaznická karta bez duplicity
+
+- Food Fest Crew v MojeBegina zatím není (0 firem s IČO 08911088, 0 importů).
+- Firma vznikne **jen převodem leadu** (krok 3) — IČO je v `organizations` unikátní,
+  druhý převod nebo ruční založení se stejným IČO selže.
+- Převod založí i účet pro tom.herout@seznam.cz **bez hesla a bez pozvánky**
+  (stávající chování „Převést na zákazníka“).
+- Skript 62 se zastaví, pokud firma s IČO není právě jedna, nebo pokud 5215 už existuje.
+- Fakturační zákazník (invoice_customers) = firma podle IČO, jeden na IČO.
 
 ## Postup (pořadí je závazné, každý krok jen se souhlasem)
 
@@ -40,9 +62,11 @@ MojeBegina přes existující integraci iDokladu (první skutečná faktura).
    kontakt Tomáš Herout / tom.herout@seznam.cz. Lead zůstane, propojí se s firmou.
 4. **Neon main:** `61_food_fest_5215_before.sql` → čekáno `1 | 1 | ano | 0 | 0`,
    pak `62_food_fest_5215.sql`, pak `63_food_fest_5215_after.sql` → `1 | CZ08911088 | 12647 | 1 | paid | 0`.
-5. **Detail objednávky** (Objednávky → „Objednávka z WooCommerce č. 5215“): zkontrolovat
+5. **Ověřit v iDokladu (Lucie / ty):** Faktury vydané → hledat „Food Fest“ a „5215“ —
+   žádná faktura z 19. 10. nebo později (integrace to před vystavením zkontroluje také).
+6. **Detail objednávky** (Objednávky → „Objednávka z WooCommerce č. 5215“): zkontrolovat
    návrh faktury (odběratel, IČO, DIČ, položky, VS 5215) → **jednou** „Vystavit fakturu v iDokladu“.
-6. Kontrola v iDokladu (řada E-shop Begina, uhrazeno, žádný e-mail z iDokladu) a e-mail Tomášovi.
+7. Kontrola v iDokladu (řada E-shop Begina, uhrazeno, žádný e-mail z iDokladu) a e-mail Tomášovi.
 
 Návrat importu (jen dokud není vystavená faktura): `69_food_fest_5215_rollback.sql`.
 Na Preview se do iDokladu nikdy nic neodesílá — tam jde ověřit jen návrh faktury.

@@ -65,6 +65,7 @@ type IdokladInvoice = {
   Id: number;
   DocumentNumber?: string | null;
   VariableSymbol?: string | null;
+  DateOfIssue?: string | null;
   PaymentStatus?: number | string | null;
   Prices?: { TotalWithVat?: number | null; TotalVat?: number | null; TotalPaid?: number | null } | null;
 };
@@ -100,6 +101,25 @@ function assertOurInvoice(invoice: IdokladInvoice, vs: string) {
   if (!invoice.DocumentNumber || !ESHOP_NUMBER_RE.test(invoice.DocumentNumber)) {
     throw new IssueStop(
       `Faktura s VS ${vs} v iDokladu existuje, ale její číslo ${invoice.DocumentNumber ?? "—"} není z řady E-shop Begina — nutná ruční kontrola.`
+    );
+  }
+}
+
+/**
+ * Firma: v iDokladu nesmí být jiná faktura této firmě vystavená v den úhrady
+ * nebo později — v JAKÉKOLI řadě a s jakýmkoli VS (např. ruční faktura Lucie
+ * k téže objednávce ve výchozí řadě). Když je, stop k ruční kontrole.
+ */
+async function assertNoRecentCompanyInvoice(client: EshopIdokladClient, partnerId: number, fromDay: string) {
+  const page = await client.list<IdokladInvoice>("/IssuedInvoices", eqFilter("PartnerId", String(partnerId)), 100);
+  if (page.TotalItems > page.Items.length) {
+    throw new IssueStop(`Firma má v iDokladu víc než ${page.Items.length} faktur — nejde ověřit, že už fakturu nemá. Nutná ruční kontrola.`);
+  }
+  const recent = page.Items.filter((i) => (i.DateOfIssue ?? "").slice(0, 10) >= fromDay);
+  if (recent.length > 0) {
+    throw new IssueStop(
+      `Firma už má v iDokladu fakturu vystavenou ${fromDay} nebo později (${recent.map((i) => i.DocumentNumber ?? i.Id).join(", ")}) — ` +
+        "zkontrolovat, zda není k téže objednávce. Nic se nevystavilo."
     );
   }
 }
@@ -316,6 +336,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
       const paymentOptionId = resolved.paymentOptionIds[method];
       if (!paymentOptionId) throw new IssueStop(`Neznámý způsob úhrady „${method || "—"}“ — není jak ho zapsat do iDokladu.`);
       const partnerId = await resolveContact(db, client, draft, claimed.customer_id, resolved.countryId);
+      if (draft.customer.kind === "company") await assertNoRecentCompanyInvoice(client, partnerId, day);
       const body = invoicePostBody(
         draft,
         {
