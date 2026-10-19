@@ -40,6 +40,8 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
 ];
 const FIRST_ESHOP_IDX = 13;
+/** Po e-shopu: GPT/MCP pilot (přístup asistenta + poznámky u zákazníka), náhled zákaznické karty. */
+const AFTER_ESHOP = ["0022_gpt_mcp_pilot", "0023_customer_card_preview"];
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
   "public.focus_projects": 11,
@@ -56,11 +58,11 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0021 hned za nimi", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0021 hned za nimi, pak GPT/MCP pilot", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual(ESHOP);
+    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP]);
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {

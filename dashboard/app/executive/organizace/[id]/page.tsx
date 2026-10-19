@@ -4,6 +4,7 @@ import { getOrganizationDetail } from "@/lib/data/admin";
 import { formatCzechDate } from "@/lib/format";
 import OrganizationSummaryView from "@/components/organization/OrganizationSummaryView";
 import OrganizationMembersTable from "@/components/organization/OrganizationMembersTable";
+import CustomerPreviewButton from "@/components/customer-portal/CustomerPreviewButton";
 
 // Security Phase 7 (Executive 1.0) — read-only obdoba
 // app/admin/organizace/[id]/page.tsx. Žádný OrganizationEditForm,
@@ -37,11 +38,14 @@ export default async function ExecutiveOrganizationDetailPage(
         ← Organizace
       </Link>
 
-      <div className="mt-3 mb-5">
-        <h1 className="text-lg font-medium text-begina-primary-900">{org.name}</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          Založeno {formatCzechDate(org.createdAt)}
-        </p>
+      <div className="mt-3 mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-medium text-begina-primary-900">{org.name}</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            Založeno {formatCzechDate(org.createdAt)}
+          </p>
+        </div>
+        <CustomerPreviewButton organizationId={org.id} origin="executive" />
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-5">
