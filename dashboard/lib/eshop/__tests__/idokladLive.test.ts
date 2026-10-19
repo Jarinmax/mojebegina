@@ -14,6 +14,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { EmailMessage } from "../email/resend";
 import { createFakeIdoklad } from "./helpers/fakeIdoklad";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({
@@ -389,6 +391,155 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(fake.writes().filter((w) => w === "POST /Contacts")).toEqual([]);
     expect(fake.invoices.map((i) => i.PartnerId)).toEqual([777, 777]);
     expect(fake.calls.filter((c) => c.path === "/Contacts/777")).toHaveLength(1); // 2. objednávka: podle vazby
+  });
+
+  // ------------------------------------------------- firma: WooCommerce #5215 (pilot Food Fest Crew)
+
+  const script = (name: string) =>
+    readFileSync(path.join(__dirname, "../../../docs/eshop-production", name), "utf8").replace(/--[^\n]*\n/g, "\n");
+
+  it("WooCommerce #5215 Food Fest Crew: import skriptem → firemní faktura (IČO, DIČ, sídlo), kontakt podle IČO, VS 5215, jednou", async () => {
+    // firma z převodu leadu Tomáše Herouta (Obchod → Převést na zákazníka)
+    await rows(sql`INSERT INTO organizations (ico, name, registered_address)
+      VALUES ('08911088', 'Food Fest Crew s.r.o.', 'Pasohlávky 251, 691 22 Pasohlávky')`);
+    const line = async (name: string) => Object.values((await rows(sql.raw(script(name))))[0]).map(String).join(" | ");
+    expect(await line("61_food_fest_5215_before.sql")).toBe("1 | 0 | ano | 0 | 0"); // lead tu není (test)
+    await rows(sql.raw(script("62_food_fest_5215.sql")));
+    // druhé spuštění nic nezdvojí
+    await expect(rows(sql.raw(script("62_food_fest_5215.sql")))).rejects.toThrow(/už v MojeBegina je/);
+    expect(await line("63_food_fest_5215_after.sql")).toBe("1 | CZ08911088 | 12647 | 1 | paid | 0");
+    const [{ id }] = await rows(sql`SELECT id FROM orders WHERE external_woocommerce_id = '5215'`);
+
+    // detail v MojeBegina: platby i faktura se vedou (import z WooCommerce)
+    const detail = (await orders.getOrderDetail(id))!;
+    expect(detail.order).toMatchObject({ invoiceable: true, externalWooCommerceId: "5215", paymentStatus: "paid" });
+    expect(detail.payments).toMatchObject({ balanceState: "paid", netHal: 1264700 });
+    // ruční přepnutí „Zaplaceno“ nejde (počítá se z plateb)
+    expect(await orders.updatePaymentStatus(id, "unpaid")).toMatchObject({ ok: false });
+
+    // kontakt firmy už v iDokladu je (z dřívější ruční faktury 20260184) — jiný e-mail, stejné IČO
+    const fake = createFakeIdoklad({
+      contacts: [{ Id: 4242, Email: "info@foodfest.example", CompanyName: "Food Fest Crew s.r.o.", IdentificationNumber: "08911088" }],
+    });
+    const next = fake.next();
+    const result = await afterPaid.issueAndSendInvoice(db, id, "https://moje.begina.cz", ACTOR, { env: LIVE, fetchImpl: fake.fetchImpl });
+    expect(result).toMatchObject({ status: "issued", invoiceNumber: next.number, adopted: false, emailed: true });
+    expect(fake.writes()).toEqual(["POST /IssuedInvoices", `PUT /IssuedDocumentPayments/FullyPay/${next.id}`]); // žádný nový kontakt
+    expect(fake.calls.find((c) => c.path === "/Contacts")!.query.filter).toBe("IdentificationNumber~eq~08911088");
+    expect(fake.calls.find((c) => c.path === "/IssuedInvoices" && c.method === "GET")!.query.filter).toBe("VariableSymbol~eq~5215");
+    const post = fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
+    expect(post).toMatchObject({
+      PartnerId: 4242,
+      NumericSequenceId: 7277293,
+      VariableSymbol: "5215",
+      OrderNumber: "5215",
+      PaymentOptionId: 2, // Credit card
+      CurrencyId: 1,
+      DateOfIssue: "2026-10-19T12:00:00.000",
+      DateOfTaxing: "2026-10-19T12:00:00.000",
+      Description: "Objednávka 5215 (begina.cz)",
+    });
+    expect(post.Items).toEqual([
+      { Name: "Dýňová polévka", Code: null, Amount: 30, Unit: "ks", UnitPrice: 379, PriceType: 1, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
+      { Name: "Doprava: Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 1277, PriceType: 1, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
+    ]);
+    expect(fake.invoices[0].Prices.TotalPaid).toBe(12647);
+
+    // faktura u objednávky, zákazník = firma podle IČO navázaná na organizaci
+    expect(await rows(sql`
+      SELECT i.origin, i.payment_vs, i.invoice_number, c.kind, c.ico, c.name, c.organization_id IS NOT NULL AS org
+      FROM invoices i JOIN invoice_customers c ON c.id = i.customer_id WHERE i.order_id = ${id}`)).toEqual([
+      { origin: "import", payment_vs: "5215", invoice_number: next.number, kind: "company", ico: "08911088", name: "Food Fest Crew s.r.o.", org: true },
+    ]);
+    expect(await rows(sql`SELECT external_id FROM invoice_customer_refs r JOIN invoice_customers c ON c.id = r.customer_id WHERE c.ico = '08911088'`)).toEqual([
+      { external_id: "4242" },
+    ]);
+
+    // zákazník dostane jen „Faktura k objednávce 5215“ s PDF, bez odkazu na stav objednávky v novém e-shopu
+    expect(mail.sent).toHaveLength(1);
+    expect(mail.sent[0].subject).toBe("[TEST] Faktura k objednávce 5215");
+    expect(mail.sent[0].text).toContain(`V příloze posíláme fakturu č. ${next.number}.`);
+    expect(mail.sent[0].text).not.toContain("Stav objednávky");
+    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String) }]);
+
+    // druhé kliknutí: nic nového v iDokladu ani v e-mailu
+    mail.sent.length = 0;
+    const again = await afterPaid.issueAndSendInvoice(db, id, "https://moje.begina.cz", ACTOR, { env: LIVE, fetchImpl: fake.fetchImpl });
+    expect(again).toMatchObject({ status: "already_issued", invoiceNumber: next.number });
+    expect(fake.invoices).toHaveLength(1);
+    expect(mail.sent).toEqual([]);
+    // vystavenou fakturu návrat importu nesmaže
+    await expect(rows(sql.raw(script("69_food_fest_5215_rollback.sql")))).rejects.toThrow(/faktura v iDokladu/);
+  });
+
+  it("dva kontakty se stejným IČO v iDokladu → stop bez zápisu (nutná ruční kontrola)", async () => {
+    const [{ id: org }] = await rows(sql`SELECT id FROM organizations WHERE ico = '08911088'`);
+    const [{ id }] = await rows(sql`
+      INSERT INTO orders (channel, external_woocommerce_id, buyer_organization_id, contact_name, contact_email,
+        subtotal_kc, shipping_kc, total_kc, payment_status, paid_at)
+      VALUES ('import', '5301', ${org}, 'Tomáš Herout', 'tom.herout@seznam.cz', 379, 0, 379, 'paid', now())
+      RETURNING id`);
+    await rows(sql`INSERT INTO order_items (order_id, name, quantity, unit_price_kc, line_total_kc) VALUES (${id}, 'Kulajda', 1, 379, 379)`);
+    await rows(sql`INSERT INTO payments (order_id, source, external_id, method, direction, status, amount_hal, vs, occurred_at, recorded_by_user_id)
+      VALUES (${id}, 'manual', 'woocommerce:5301', 'card', 'inflow', 'succeeded', 37900, '5301', now(), 'import:woocommerce')`);
+    // vazbu na kontakt z faktury 5215 zrušit, ať se hledá podle IČO
+    await rows(sql`DELETE FROM invoice_customer_refs WHERE customer_id IN (SELECT id FROM invoice_customers WHERE ico = '08911088')`);
+    const fake = createFakeIdoklad({
+      contacts: [
+        { Id: 5001, Email: null, CompanyName: "Food Fest Crew s.r.o.", IdentificationNumber: "08911088" },
+        { Id: 5002, Email: null, CompanyName: "Food Fest Crew", IdentificationNumber: "08911088" },
+      ],
+    });
+    const result = await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl });
+    expect(result).toMatchObject({ status: "failed", error: expect.stringMatching(/víc kontaktů s IČO 08911088/) });
+    expect(fake.writes()).toEqual([]);
+  });
+
+  it("firma bez kontaktu v iDokladu: nový kontakt s IČO, DIČ, sídlem a kontaktní osobou; starší importy bez čísla z WooCommerce fakturu nedostanou", async () => {
+    const { contactPostBody } = await import("../invoicing/idoklad");
+    const { buildInvoiceDraft } = await import("../invoicing/draft");
+    const { draft, problems } = buildInvoiceDraft(
+      {
+        id: randomUUID(),
+        channel: "import",
+        externalWooCommerceId: "5300",
+        company: { name: "Food Fest Crew s.r.o.", ico: "08911088", dic: "CZ08911088", registeredAddress: "Pasohlávky 251, 691 22 Pasohlávky" },
+        orderNumber: null,
+        paymentVs: null,
+        contactName: "Tomáš Herout",
+        contactEmail: "Tom.Herout@seznam.cz",
+        contactPhone: "+420723141743",
+        recipientAddress: "251, 691 22 Pasohlávky",
+        shippingMethodLabel: null,
+        subtotalKc: 379,
+        discountKc: 0,
+        shippingKc: 0,
+        totalKc: 379,
+        paidAt: null,
+      },
+      [{ name: "Dýňová polévka", quantity: 1, unitPriceKc: 379, lineTotalKc: 379, sku: null }],
+      [{ id: "p1", source: "manual", externalId: "woocommerce:5300", method: "card", direction: "inflow", status: "succeeded", amountHal: 37900, occurredAt: new Date("2026-10-20T08:00:00Z") }],
+      { numberSeriesId: "7277293", live: true }
+    );
+    expect(problems.filter((p) => p.severity === "error")).toEqual([]);
+    expect(draft).toMatchObject({ vs: "5300", orderReference: "5300" });
+    expect(contactPostBody(draft, { countryId: 2 })).toEqual({
+      CompanyName: "Food Fest Crew s.r.o.",
+      Firstname: "Tomáš",
+      Surname: "Herout",
+      IdentificationNumber: "08911088",
+      VatIdentificationNumber: "CZ08911088",
+      Email: "tom.herout@seznam.cz",
+      Phone: "+420723141743",
+      Street: "Pasohlávky 251",
+      City: "Pasohlávky",
+      PostalCode: "69122",
+      CountryId: 2,
+    });
+    // starší import bez čísla z WooCommerce (The Cup) fakturu nedostane
+    const { isInvoiceableOrder } = await import("../invoicing/draft");
+    expect(isInvoiceableOrder({ channel: "import", externalWooCommerceId: null })).toBe(false);
+    expect(isInvoiceableOrder({ channel: "manual", externalWooCommerceId: "5215" })).toBe(false);
   });
 });
 

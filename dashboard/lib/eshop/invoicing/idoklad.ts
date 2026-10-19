@@ -106,15 +106,25 @@ export type IdokladRequests = {
 
 export type ContactResolved = { countryId: number };
 
+/** Číslo objednávky na faktuře; starší uložené návrhy (bez orderReference) = číslo objednávky. */
+function orderReference(draft: InvoiceDraft): string | null {
+  if (draft.orderReference !== undefined) return draft.orderReference;
+  return draft.orderNumber !== null ? String(draft.orderNumber) : null;
+}
+
 export function contactPostBody(draft: InvoiceDraft, resolved: ContactResolved): Record<string, unknown> {
-  const { firstname, surname } = splitName(draft.customer.name);
-  const address = draft.customer.address;
+  const customer = draft.customer;
+  const company = customer.kind === "company";
+  // osoba: jméno = celé jméno; firma: jméno a příjmení kontaktní osoby
+  const { firstname, surname } = splitName(company ? customer.contactPerson : customer.name);
+  const address = customer.address;
   return {
-    CompanyName: (draft.customer.name ?? draft.customer.email ?? "").slice(0, 200), // u osoby celé jméno
+    CompanyName: (customer.name ?? customer.email ?? "").slice(0, 200), // firma: název, osoba: celé jméno
     Firstname: firstname,
     Surname: surname,
-    Email: draft.customer.email,
-    Phone: draft.customer.phone,
+    ...(company ? { IdentificationNumber: customer.ico, VatIdentificationNumber: customer.dic } : {}),
+    Email: customer.email,
+    Phone: customer.phone,
     Street: address?.street ?? null,
     City: address?.city ?? null,
     PostalCode: address?.zip ?? null,
@@ -174,7 +184,7 @@ export function invoicePostBody(
     DateOfMaturity: date,
     CurrencyId: resolved.currencyId,
     PaymentOptionId: resolved.paymentOptionId,
-    OrderNumber: draft.orderNumber !== null ? String(draft.orderNumber) : null,
+    OrderNumber: orderReference(draft),
     Description: draft.note,
     DiscountPercentage: 0,
     IsEet: false,
@@ -186,7 +196,10 @@ export function invoicePostBody(
 /** Náhled pro MojeBegina: co se do iDokladu pošle (ID z číselníků doplní ostré vystavení). */
 export function idokladRequests(draft: InvoiceDraft): IdokladRequests {
   return {
-    contactLookup: { by: "email", value: draft.customer.email },
+    contactLookup:
+      draft.customer.kind === "company" && draft.customer.ico
+        ? { by: "ico", value: draft.customer.ico }
+        : { by: "email", value: draft.customer.email },
     contact: { ...contactPostBody(draft, { countryId: 0 }), CountryId: null },
     duplicateCheck: { collection: "IssuedInvoices", filter: draft.vs ? `VariableSymbol~eq~${draft.vs}` : null },
     invoice: {
@@ -199,7 +212,7 @@ export function idokladRequests(draft: InvoiceDraft): IdokladRequests {
       DateOfMaturity: draft.dueDate,
       CurrencyId: null, // CZK — z číselníku Currencies
       PaymentOptionId: null, // podle způsobu úhrady — z číselníku PaymentOptions
-      OrderNumber: draft.orderNumber !== null ? String(draft.orderNumber) : null,
+      OrderNumber: orderReference(draft),
       Description: draft.note,
       IsEet: false,
       Items: items(draft, null).map((item) => ({

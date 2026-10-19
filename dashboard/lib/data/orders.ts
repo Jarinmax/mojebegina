@@ -44,6 +44,7 @@ import {
   type TransferTarget,
 } from "@/lib/eshop/cancellation";
 import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
+import { isInvoiceableOrder } from "@/lib/eshop/invoicing/draft";
 import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "./invoiceAuth";
 import {
@@ -280,6 +281,10 @@ export type OrderDetail = {
     transferDueAt: Date | null;
     /** Platební identifikátor (VS 7xxxxxxx) e-shopové objednávky; null u ostatních. */
     paymentVs: string | null;
+    /** Číslo objednávky ve WooCommerce (import z begina.cz); null u ostatních. */
+    externalWooCommerceId: string | null;
+    /** Platby a faktura se vedou v MojeBegina (e-shop, import z WooCommerce). */
+    invoiceable: boolean;
   };
   items: OrderItemData[];
   activity: OrderActivityEntry[];
@@ -298,6 +303,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
   }
 
   const [card] = await buildOrderCards([row]);
+  const invoiceable = isInvoiceableOrder(row);
 
   const enteredBy = row.enteredByUserId ? await getUserProfile(row.enteredByUserId) : null;
 
@@ -336,10 +342,12 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       transferDueAt:
         row.channel === "eshop" && row.paymentMethodCode === TRANSFER_PAYMENT_METHOD ? transferDueAt(row.orderedAt) : null,
       paymentVs: row.paymentVs,
+      externalWooCommerceId: row.externalWooCommerceId,
+      invoiceable,
     },
     items,
-    payments: row.channel === "eshop" ? await loadOrderPayments(db, orderId) : null,
-    invoice: row.channel === "eshop" ? await loadOrderInvoice(db, orderId) : null,
+    payments: invoiceable ? await loadOrderPayments(db, orderId) : null,
+    invoice: invoiceable ? await loadOrderInvoice(db, orderId) : null,
     activity: activityRows.map((r) => ({
       id: r.id,
       kind: r.kind,
@@ -526,7 +534,7 @@ export async function updatePaymentStatus(
   }
 
   const [current] = await db
-    .select({ paymentStatus: orders.paymentStatus, channel: orders.channel })
+    .select({ paymentStatus: orders.paymentStatus, channel: orders.channel, externalWooCommerceId: orders.externalWooCommerceId })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
@@ -535,7 +543,7 @@ export async function updatePaymentStatus(
   }
   // ESHOP 1.0 — u e-shopové objednávky se stav nepřepíná: „Zaplaceno“
   // se počítá z plateb (recordOrderPayment / Stripe, lib/eshop/payments.ts).
-  if (current.channel === "eshop") {
+  if (isInvoiceableOrder(current)) {
     return { ok: false, error: "U e-shopové objednávky se stav platby nepřepíná — zapište platbu." };
   }
   const from = rawExpected ?? current.paymentStatus;

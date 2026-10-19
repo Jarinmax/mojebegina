@@ -74,7 +74,11 @@ export const organizations = pgTable("organizations", {
   ownerUserId: text("owner_user_id"),
   acquiredByUserId: text("acquired_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  // DIČ firmy (faktura; migrace 0022). NULL = neuvedeno / neplátce.
+  dic: text("dic"),
+}, (table) => [
+  check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
+]);
 
 // Řeší "1 login ≠ 1 zákazník": jeden User (spravovaný Neon Auth) může mít
 // členství u víc organizací, jedna organizace může mít víc uživatelů.
@@ -184,6 +188,8 @@ export const orders = pgTable("orders", {
   paymentVs: text("payment_vs"),
 }, (table) => [
   uniqueIndex("orders_order_number_key").on(table.orderNumber),
+  // jedna objednávka z WooCommerce = nejvýš jeden záznam (migrace 0022)
+  uniqueIndex("orders_external_woocommerce_id_key").on(table.externalWooCommerceId),
   unique("orders_payment_vs_key").on(table.paymentVs),
   check("orders_payment_vs_format", sql`${table.paymentVs} IS NULL OR ${table.paymentVs} ~ '^7[0-9]{7}$'`),
   check("orders_eshop_requires_vs", sql`${table.channel} <> 'eshop' OR ${table.paymentVs} IS NOT NULL`),

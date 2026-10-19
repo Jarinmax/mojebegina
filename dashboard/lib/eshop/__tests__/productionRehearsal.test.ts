@@ -133,7 +133,15 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("eshop-production", "42_hmotnosti_after.sql"))).toBe("1 | 36 | 0 | 25 | 7 | 4 | 0");
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0021) + pojistka číslování", async () => {
+  it("firmy na faktuře — drizzle 0022 (DIČ + unikátní číslo z WooCommerce), druhé spuštění se zastaví", async () => {
+    await run(pg, file("eshop-production", "60_firmy_migrace_0022.sql"));
+    await expect(run(pg, file("eshop-production", "60_firmy_migrace_0022.sql"))).rejects.toThrow(/už existuje/);
+    // The Cup (starší import bez čísla z WooCommerce) beze změny
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE external_woocommerce_id IS NULL`);
+    expect(rows[0].n).toBeGreaterThan(0);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0022) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
