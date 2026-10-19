@@ -34,7 +34,19 @@ export default function OrderCard({ order }: OrderCardProps) {
       </div>
 
       <p className="text-sm text-neutral-600 mb-2">{order.products}</p>
-      <p className="text-sm font-medium text-begina-primary-900 mb-3">
+      {order.shipping ? (
+        <p className="text-xs text-neutral-500">
+          Doprava{order.shipping.label ? ` (${order.shipping.label})` : ""}: {formatKc(order.shipping.priceKc)}
+        </p>
+      ) : null}
+      {order.paymentMethod ? <p className="text-xs text-neutral-500">Platba: {order.paymentMethod}</p> : null}
+      {order.invoiceNumber === null && order.status !== "Stornováno" && !order.orderNumber.startsWith("Faktura") ? (
+        <p className="text-xs text-neutral-500">Faktura: zatím nevystavena</p>
+      ) : order.invoiceNumber && !order.orderNumber.startsWith("Faktura") ? (
+        <p className="text-xs text-neutral-500">Faktura č. {order.invoiceNumber}</p>
+      ) : null}
+      {order.customerNote ? <p className="text-xs text-neutral-500 italic mt-1">Vaše poznámka: „{order.customerNote}“</p> : null}
+      <p className="text-sm font-medium text-begina-primary-900 mb-3 mt-2">
         {formatKc(order.totalKc)}
       </p>
 

@@ -12,6 +12,6 @@ function formatMonthKey(date: Date): string {
 export function getCurrentMonthlyPurchase(customerOrders: Order[]): number {
   const monthKey = formatMonthKey(new Date());
   return customerOrders
-    .filter((order) => order.monthKey === monthKey)
-    .reduce((sum, order) => sum + order.totalKc, 0);
+    .filter((order) => order.monthKey === monthKey && order.status === "Uhrazeno")
+    .reduce((sum, order) => sum + (order.goodsKc ?? order.totalKc), 0);
 }

@@ -60,6 +60,15 @@ export type Order = {
   products: string;
   totalKc: number;
   status: OrderStatus;
+  /** Hodnota zboží bez dopravy (partnerský program); chybí-li, = totalKc. */
+  goodsKc?: number;
+  /** Doprava, pokud ji objednávka má. */
+  shipping?: { label: string | null; priceKc: number } | null;
+  /** Číslo vystavené faktury; null = zatím nevystavena. */
+  invoiceNumber?: string | null;
+  paymentMethod?: string | null;
+  /** Poznámka, kterou k objednávce napsal sám zákazník. */
+  customerNote?: string | null;
 };
 
 type RawOrder = {

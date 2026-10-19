@@ -238,6 +238,12 @@ describe("náhled zákaznické karty s oprávněním customer_card_preview", { t
       expect(data!.orders).toEqual(asCustomer.orders);
       expect(data!.previewContact).toEqual({ name: "Petr Novák", email: "petr@dkap.cz" });
     }
+    // úplná historie (zaplacené, čekající i stornované) — stejně pro zákazníka i náhled
+    expect(asCustomer.orders.map((o) => [o.orderNumber, o.status, o.totalKc])).toEqual([
+      ["Objednávka z 16. 10. 2026", "Stornováno", 379],
+      ["Objednávka z 15. 10. 2026", "Čeká na platbu", 2473],
+      ["Faktura č. 20260777", "Uhrazeno", 1516],
+    ]);
   });
 
   it("vykreslení: stejný rám, komponenty a pořadí jako skutečná karta (přehled, objednávky, profil)", async () => {
@@ -252,6 +258,11 @@ describe("náhled zákaznické karty s oprávněním customer_card_preview", { t
     // jediný rozdíl: „Odhlásit se“ je v náhledu neaktivní kopie
     expect(shell(previewProfile).replace(' disabled=""', "")).toBe(shell(customerProfile));
     expect(shell(previewProfile)).toMatch(/<button type="button" disabled=""[^>]*>Odhlásit se<\/button>/);
+    for (const text of ["DKAP s.r.o.", "Petr Novák", "Faktura č. 20260777", "Chlazená přeprava"]) {
+      expect(previewHome + previewOrders + previewProfile).toContain(text);
+    }
+    // „Objednat znovu“ nabízí poslední NEstornovanou objednávku (ne stornovaný Lipový sirup)
+    expect(previewHome).toMatch(/Objednat znovu<\/p><p class="[^"]*">6× Kulajda<\/p>/);
   });
 
   it("pruh: text, „Pouze pro čtení“, „Zpět do administrace“ podle původu; karta inert, bez formulářů a aktivních prvků", async () => {

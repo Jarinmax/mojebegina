@@ -7,7 +7,7 @@
 // ani jiné hodnoty poslané klientem.
 import "server-only";
 import { redirect } from "next/navigation";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   customerCardPreviewLog,
@@ -140,6 +140,24 @@ function formatMonthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${month}`;
 }
 
+// Úplná historie objednávek organizace: zaplacené i čekající na platbu
+// a stornované, s položkami, dopravou, způsobem platby, poznámkou zákazníka
+// a číslem VYSTAVENÉ faktury (návrh faktury zákazník nevidí). Jen
+// objednávky s buyer_organization_id = tato organizace — cizí objednávky
+// (i se stejným e-mailem) se sem nikdy nedostanou.
+const PAYMENT_STATUS_LABELS: Record<string, Order["status"]> = {
+  paid: "Uhrazeno",
+  unpaid: "Čeká na platbu",
+  invoiced: "Fakturováno",
+};
+
+function orderTitle(row: { invoiceNumber: string | null; wooNumber: string | null; orderNumber: number | null; date: string }): string {
+  if (row.invoiceNumber) return `Faktura č. ${row.invoiceNumber}`;
+  if (row.wooNumber) return `Objednávka č. ${row.wooNumber}`;
+  if (row.orderNumber) return `Objednávka č. ${row.orderNumber}`;
+  return `Objednávka z ${row.date}`;
+}
+
 export async function getCustomerOrders(
   ctx: NonNullAuthContext,
   organizationId: string
@@ -150,18 +168,26 @@ export async function getCustomerOrders(
 
 // Bez kontroly přístupu — viz loadCustomerAccount.
 async function loadCustomerOrders(organizationId: string): Promise<Order[]> {
-  // Dashboard zatím zobrazuje jen uhrazené objednávky — Order["status"]
-  // (typ sdílený s mock/customer.ts a OrderCard.tsx) zná jen "Uhrazeno".
   const orderRows = await db
     .select({
       id: orders.id,
       orderedAt: orders.orderedAt,
       totalKc: orders.totalKc,
-      invoiceNumber: invoices.invoiceNumber,
+      shippingKc: orders.shippingKc,
+      shippingLabel: orders.shippingMethodLabel,
+      paymentLabel: orders.paymentMethodLabel,
+      paymentStatus: orders.paymentStatus,
+      fulfillmentStatus: orders.fulfillmentStatus,
+      customerNote: orders.customerNote,
+      orderNumber: orders.orderNumber,
+      wooNumber: orders.externalWooCommerceId,
+      invoiceNumber: sql<string | null>`(
+        SELECT i.invoice_number FROM ${invoices} i
+        WHERE i.order_id = "orders"."id" AND i.document_type = 'invoice' AND i.doc_state = 'issued'
+        ORDER BY i.issued_at DESC NULLS LAST LIMIT 1)`,
     })
     .from(orders)
-    .leftJoin(invoices, eq(invoices.orderId, orders.id))
-    .where(and(eq(orders.buyerOrganizationId, organizationId), eq(orders.paymentStatus, "paid")))
+    .where(eq(orders.buyerOrganizationId, organizationId))
     .orderBy(desc(orders.orderedAt));
 
   const result: Order[] = [];
@@ -175,15 +201,21 @@ async function loadCustomerOrders(organizationId: string): Promise<Order[]> {
       .from(orderItems)
       .where(eq(orderItems.orderId, row.id));
 
+    const date = formatCzechDate(row.orderedAt);
     result.push({
       id: row.id,
-      orderNumber: `Faktura č. ${row.invoiceNumber ?? row.id}`,
-      date: formatCzechDate(row.orderedAt),
+      orderNumber: orderTitle({ ...row, date }),
+      date,
       monthKey: formatMonthKey(row.orderedAt),
       items,
       products: items.map((item) => `${item.quantity}× ${item.name}`).join(", "),
       totalKc: row.totalKc,
-      status: "Uhrazeno",
+      goodsKc: row.totalKc - row.shippingKc,
+      status: row.fulfillmentStatus === "cancelled" ? "Stornováno" : (PAYMENT_STATUS_LABELS[row.paymentStatus] ?? "Čeká na platbu"),
+      shipping: row.shippingKc > 0 || row.shippingLabel ? { label: row.shippingLabel, priceKc: row.shippingKc } : null,
+      invoiceNumber: row.invoiceNumber,
+      paymentMethod: row.paymentLabel,
+      customerNote: row.customerNote,
     });
   }
 
