@@ -40,7 +40,8 @@ export const contactDisplayName = customerAccount.contactLastName
 
 // --- Objednávky (skutečné uhrazené faktury) -------------------------
 
-export type OrderStatus = "Uhrazeno";
+// "Uhrazeno" = plně zaplaceno; ostatní stavy jen z DB (lib/data/dashboard.ts).
+export type OrderStatus = "Uhrazeno" | "Čeká na platbu" | "Fakturováno" | "Stornováno";
 
 export type OrderItem = {
   name: string;

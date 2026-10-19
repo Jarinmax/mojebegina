@@ -9,7 +9,8 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { invoices, orderItems, organizationMemberships, organizations, orders } from "@/lib/db/schema";
+import { invoices, orderItems, organizationMemberships, organizations, orders, userProfiles } from "@/lib/db/schema";
+import { requireAdmin } from "./adminAuth";
 import { getAuthContext } from "./authContext";
 import { assertOrgAccess } from "./organizations";
 import type { AuthContext } from "./types";
@@ -71,12 +72,11 @@ function deriveInitials(name: string | null): string {
   return (first + last).toUpperCase();
 }
 
-export async function getCustomerAccount(
-  ctx: NonNullAuthContext,
-  organizationId: string
-): Promise<CustomerAccount> {
-  await assertOrgAccess(ctx, organizationId, "read");
+type CustomerContact = { name: string | null; email: string | null };
 
+// Bez kontroly přístupu — volají ji JEN hlídané vstupy níže
+// (getCustomerAccount pro zákazníka, getCustomerPortalPreviewForAdmin).
+async function loadCustomerAccount(organizationId: string, contact: CustomerContact): Promise<CustomerAccount | null> {
   const [org] = await db
     .select({
       name: organizations.name,
@@ -87,28 +87,35 @@ export async function getCustomerAccount(
     .from(organizations)
     .where(eq(organizations.id, organizationId))
     .limit(1);
+  if (!org) return null;
 
-  if (!org) {
-    throw new Error("Organizace nenalezena");
-  }
-
-  // Kontaktní jméno/e-mail pochází výhradně z ověřené session (ctx), ne
-  // z DB — viz lib/data/types.ts. Neon Auth má jen jedno pole "name", ne
-  // rozdělené jméno/příjmení, takže příjmení se odsud nikdy neodvozuje
-  // (žádné vymýšlení) — zůstává vždy null, dokud appka nezíská skutečný,
-  // samostatný údaj o příjmení.
+  // Kontaktní jméno/e-mail: u zákazníka z ověřené session (ctx), v admin
+  // náhledu z profilu zákaznického účtu organizace. Neon Auth má jen jedno
+  // pole "name", takže příjmení se nikdy neodvozuje (zůstává null).
   return {
     companyName: org.name,
     ico: org.ico,
     registeredAddress: org.registeredAddress,
-    contactFirstName: ctx.name ?? "Zákazník",
+    contactFirstName: contact.name ?? "Zákazník",
     contactLastName: null,
-    initials: deriveInitials(ctx.name),
+    initials: deriveInitials(contact.name),
     memberId: null, // schéma zatím nemá pole na členské číslo
     status: org.status,
-    email: ctx.email,
+    email: contact.email,
     phone: null, // schéma zatím nemá pole na telefon zákazníka
   };
+}
+
+export async function getCustomerAccount(
+  ctx: NonNullAuthContext,
+  organizationId: string
+): Promise<CustomerAccount> {
+  await assertOrgAccess(ctx, organizationId, "read");
+  const account = await loadCustomerAccount(organizationId, { name: ctx.name, email: ctx.email });
+  if (!account) {
+    throw new Error("Organizace nenalezena");
+  }
+  return account;
 }
 
 // --- Objednávky -----------------------------------------------------
@@ -130,7 +137,11 @@ export async function getCustomerOrders(
   organizationId: string
 ): Promise<Order[]> {
   await assertOrgAccess(ctx, organizationId, "read");
+  return loadCustomerOrders(organizationId);
+}
 
+// Bez kontroly přístupu — viz loadCustomerAccount.
+async function loadCustomerOrders(organizationId: string): Promise<Order[]> {
   // Dashboard zatím zobrazuje jen uhrazené objednávky — Order["status"]
   // (typ sdílený s mock/customer.ts a OrderCard.tsx) zná jen "Uhrazeno".
   const orderRows = await db
@@ -171,14 +182,51 @@ export async function getCustomerOrders(
   return result;
 }
 
-// --- Partnerský program: měsíční obrat ------------------------------
+// --- Administrátorský náhled zákaznické karty -------------------------
 
-// Stejné pravidlo jako dřív v mock/customer.ts: počítá se jen uhrazená
-// hodnota zboží za AKTUÁLNÍ kalendářní měsíc (podle hodin serveru), ne
-// napevno zapsaný měsíc.
-export function getCurrentMonthlyPurchase(customerOrders: Order[]): number {
-  const monthKey = formatMonthKey(new Date());
-  return customerOrders
-    .filter((order) => order.monthKey === monthKey)
-    .reduce((sum, order) => sum + order.totalKc, 0);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type CustomerPortalPreview = {
+  organizationId: string;
+  account: CustomerAccount;
+  orders: Order[];
+  /** zákaznický účet, jehož jménem karta mluví (první člen); null = organizace zatím bez účtu */
+  previewContact: { name: string | null; email: string } | null;
+};
+
+/**
+ * Data zákaznické karty vybrané organizace pro ADMINa — STEJNÉ funkce
+ * načítání jako pro zákazníka (loadCustomerAccount / loadCustomerOrders),
+ * jen jiná brána: nejdřív ADMIN z ověřené session, teprve potom čtení.
+ * Žádná impersonace: session zůstává ADMIN, nic se nezapisuje, cookie se
+ * nemění. Id z URL samo o sobě nic neotevře.
+ */
+export async function getCustomerPortalPreviewForAdmin(organizationId: string): Promise<CustomerPortalPreview | null> {
+  const ctx = requireAdmin(await getAuthContext());
+  if (!UUID_RE.test(organizationId)) return null;
+
+  const [contact] = await db
+    .select({ name: userProfiles.name, email: userProfiles.email })
+    .from(organizationMemberships)
+    .leftJoin(userProfiles, eq(userProfiles.userId, organizationMemberships.userId))
+    .where(eq(organizationMemberships.organizationId, organizationId))
+    .orderBy(asc(organizationMemberships.createdAt))
+    .limit(1);
+  const previewContact = contact?.email ? { name: contact.name, email: contact.email } : null;
+
+  const account = await loadCustomerAccount(organizationId, { name: previewContact?.name ?? null, email: previewContact?.email ?? null });
+  if (!account) return null;
+  const orders = await loadCustomerOrders(organizationId);
+
+  // Bezpečnostní stopa: aplikace nemá obecný auditní log (jen agent_audit_log
+  // pro ChatGPT), proto zatím jen strukturovaný záznam do logů Vercelu.
+  console.info(
+    JSON.stringify({ event: "admin_customer_preview", adminUserId: ctx.userId, organizationId, at: new Date().toISOString() })
+  );
+  return { organizationId, account, orders, previewContact };
 }
+
+// --- Partnerský program: měsíční obrat ------------------------------
+// Čistá funkce (bez DB) v customerOrderMath.ts — používá ji i sdílená
+// prezentační komponenta karty.
+export { getCurrentMonthlyPurchase } from "./customerOrderMath";

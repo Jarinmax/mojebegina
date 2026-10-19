@@ -43,11 +43,19 @@ export default async function AdminOrganizationDetailPage(
         </div>
       )}
 
-      <div className="mt-3 mb-5">
-        <h1 className="text-lg font-medium text-begina-primary-900">{org.name}</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          Založeno {formatCzechDate(org.createdAt)}
-        </p>
+      <div className="mt-3 mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-medium text-begina-primary-900">{org.name}</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            Založeno {formatCzechDate(org.createdAt)}
+          </p>
+        </div>
+        <Link
+          href={`/admin/organizace/${org.id}/nahled`}
+          className="text-sm font-medium rounded-lg px-3 py-2 border border-begina-primary-700 text-begina-primary-900"
+        >
+          Náhled očima zákazníka
+        </Link>
       </div>
 
       <OrganizationEditForm
