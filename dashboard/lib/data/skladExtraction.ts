@@ -48,7 +48,9 @@ import {
   sanitizeExtractedDocumentDate,
   sanitizeExtractedIco,
   sanitizeExtractedReceipt,
-  STOCK_ITEM_KINDS,
+  isLineKind,
+  lineKindMismatchError,
+  unitMismatchError,
   type ExtractedReceiptLine,
   type LineKind,
 } from "./skladValidation";
@@ -642,22 +644,31 @@ export async function confirmGoodsReceiptLineMapping(
     return { ok: false, error: "Mapování lze upravit jen u návrhu příjemky." };
   }
 
-  const lineKindCandidates = [...STOCK_ITEM_KINDS, "non_stock_private"] as const;
-  if (!lineKindCandidates.includes(input.lineKind as (typeof lineKindCandidates)[number])) {
+  if (!isLineKind(input.lineKind)) {
     return { ok: false, error: "Vyberte druh položky." };
   }
-  const lineKind = input.lineKind as LineKind;
+  const lineKind = input.lineKind;
   if (lineKind === "non_stock_private" && input.stockItemId) {
     return { ok: false, error: "Soukromá/nefiremní položka se nesmí napojit na skladovou kartu." };
   }
   if (lineKind !== "non_stock_private" && !input.stockItemId) {
     return { ok: false, error: "Vyberte nebo založte skladovou kartu." };
   }
+  let canonicalUnit: string | null = null;
   if (input.stockItemId) {
-    const [item] = await db.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.id, input.stockItemId)).limit(1);
+    const [item] = await db
+      .select({ kind: stockItems.kind, canonicalUnit: stockItems.canonicalUnit })
+      .from(stockItems)
+      .where(eq(stockItems.id, input.stockItemId))
+      .limit(1);
     if (!item) {
       return { ok: false, error: "Skladová karta nebyla nalezena." };
     }
+    const kindError = lineKindMismatchError(lineKind, item.kind);
+    if (kindError) {
+      return { ok: false, error: kindError };
+    }
+    canonicalUnit = item.canonicalUnit;
   }
 
   const [line] = await db
@@ -667,6 +678,7 @@ export async function confirmGoodsReceiptLineMapping(
       rawDescription: goodsReceiptLines.rawDescription,
       rawUnitsPerPackage: goodsReceiptLines.rawUnitsPerPackage,
       rawUnit: goodsReceiptLines.rawUnit,
+      normalizedUnit: goodsReceiptLines.normalizedUnit,
     })
     .from(goodsReceiptLines)
     .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)))
@@ -674,6 +686,10 @@ export async function confirmGoodsReceiptLineMapping(
   if (!line) {
     return { ok: false, error: "Řádek nebyl nalezen." };
   }
+  // Jednotka, která se od jednotky karty liší jen velikostí písmen ("KG"),
+  // se sjednotí; skutečný rozdíl ("BG" × "kg") zůstane a potvrzení příjemky
+  // ho zablokuje, dokud člověk množství nepřepočte (unitMismatchError).
+  const normalizedUnit = canonicalUnit && !unitMismatchError(line.normalizedUnit, canonicalUnit) ? canonicalUnit : line.normalizedUnit;
 
   // Zámek (buildGoodsReceiptAdvisoryLockQuery, sklad.ts): tenhle UPDATE měnÍ
   // goods_receipt_lines téhle příjemky, takže patří do stejné sdílené
@@ -687,7 +703,7 @@ export async function confirmGoodsReceiptLineMapping(
     buildGoodsReceiptAdvisoryLockQuery(receiptId),
     db
       .update(goodsReceiptLines)
-      .set({ stockItemId: input.stockItemId, lineKind, mappingSource: "manual", updatedAt: new Date() })
+      .set({ stockItemId: input.stockItemId, lineKind, normalizedUnit, mappingSource: "manual", updatedAt: new Date() })
       .where(eq(goodsReceiptLines.id, lineId)),
   ]);
 

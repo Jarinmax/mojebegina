@@ -3,19 +3,40 @@
 // testovatelné bez databáze, kontrola a dotaz se skládají až v sklad.ts.
 import { z } from "zod";
 
-export const STOCK_ITEM_KINDS = ["ingredient", "resale_goods", "operating_supply"] as const;
+// Jeden slovník druhů pro skladovou kartu i řádek příjemky (dřív karta
+// "ingredient" a řádek "stock_material" — surovinu tak nešlo namapovat).
+// Řádek má navíc "non_stock_private", ten se do skladu nikdy nezapisuje.
+export const STOCK_ITEM_KINDS = ["stock_material", "resale_goods", "operating_supply"] as const;
 export type StockItemKind = (typeof STOCK_ITEM_KINDS)[number];
 
-export const LINE_KINDS = ["stock_material", "resale_goods", "operating_supply", "non_stock_private"] as const;
+export const LINE_KINDS = [...STOCK_ITEM_KINDS, "non_stock_private"] as const;
 export type LineKind = (typeof LINE_KINDS)[number];
 
-// Řádky, co se promítají do skladu — "non_stock_private" se do skladu
-// nikdy nezapisuje (schváleno v původním zadání).
-export const STOCK_AFFECTING_LINE_KINDS: ReadonlySet<LineKind> = new Set([
-  "stock_material",
-  "resale_goods",
-  "operating_supply",
-]);
+export const STOCK_AFFECTING_LINE_KINDS: ReadonlySet<LineKind> = new Set<LineKind>(STOCK_ITEM_KINDS);
+
+export const LINE_KIND_LABELS: Record<LineKind, string> = {
+  stock_material: "Skladová surovina",
+  resale_goods: "Zboží k prodeji",
+  operating_supply: "Provozní spotřeba",
+  non_stock_private: "Soukromý nákup",
+};
+
+export function isLineKind(value: string): value is LineKind {
+  return (LINE_KINDS as readonly string[]).includes(value);
+}
+
+/** Řádek napojený na skladovou kartu musí mít stejný druh jako karta. */
+export function lineKindMismatchError(lineKind: LineKind, stockItemKind: string): string | null {
+  if (lineKind === stockItemKind) return null;
+  const itemLabel = isLineKind(stockItemKind) ? LINE_KIND_LABELS[stockItemKind] : stockItemKind;
+  return `Druh řádku (${LINE_KIND_LABELS[lineKind]}) neodpovídá druhu skladové karty (${itemLabel}).`;
+}
+
+/** Normalizovaná jednotka řádku se musí shodovat s jednotkou skladové karty (pohyb se vede v jednotce karty). */
+export function unitMismatchError(normalizedUnit: string, canonicalUnit: string): string | null {
+  if (normalizedUnit.trim().toLowerCase() === canonicalUnit) return null;
+  return `Jednotka řádku „${normalizedUnit}“ neodpovídá jednotce skladové karty „${canonicalUnit}“ — přepočtěte množství na jednotku karty.`;
+}
 
 const CODE_FORMAT_RE = /^[a-z][a-z0-9_]*$/;
 const ICO_FORMAT_RE = /^[0-9]{8}$/;
@@ -137,7 +158,7 @@ export function validateManualLineInput(
   if (!rawUnit) {
     return { ok: false, error: "Původní nákupní jednotka je povinná." };
   }
-  const normalizedUnit = input.normalizedUnit.trim();
+  const normalizedUnit = input.normalizedUnit.trim().toLowerCase();
   if (!normalizedUnit) {
     return { ok: false, error: "Kanonická jednotka je povinná." };
   }
@@ -156,7 +177,7 @@ export function validateManualLineInput(
   }
 
   const lineKind = input.lineKind.trim();
-  if (!LINE_KINDS.includes(lineKind as LineKind)) {
+  if (!isLineKind(lineKind)) {
     return { ok: false, error: "Vyberte druh položky." };
   }
 
@@ -342,7 +363,7 @@ export const extractedReceiptLineSchema = z.object({
   totalWithoutVat: z.number().nonnegative(),
   vatAmount: z.number().nonnegative(),
   totalWithVat: z.number().nonnegative(),
-  suggestedCategory: z.enum(["stock_material", "resale_goods", "operating_supply", "non_stock_private"]).nullable(),
+  suggestedCategory: z.enum(LINE_KINDS).nullable(),
   suggestedStockItemName: z.string().min(1).nullable(),
   suggestedCanonicalUnit: z.string().min(1).nullable(),
 });
@@ -479,8 +500,7 @@ function sanitizeNullableString(value: string | null): string | null {
 }
 
 function sanitizeSuggestedCategory(value: string | null): ExtractedReceiptLine["suggestedCategory"] {
-  const allowed: readonly string[] = ["stock_material", "resale_goods", "operating_supply", "non_stock_private"];
-  return value && allowed.includes(value) ? (value as ExtractedReceiptLine["suggestedCategory"]) : null;
+  return value && isLineKind(value) ? value : null;
 }
 
 function sanitizeNonNegativeAmount(value: number | null): number {

@@ -655,3 +655,28 @@ describe("sanitizeExtractedDocumentDate", () => {
     expect(sanitizeExtractedDocumentDate(null)).toBeNull();
   });
 });
+
+describe("jeden slovník druhů pro kartu i řádek", () => {
+  it("druhy karty = druhy řádku bez soukromého nákupu; surovina je stock_material", async () => {
+    const { STOCK_ITEM_KINDS, LINE_KINDS, STOCK_AFFECTING_LINE_KINDS } = await import("../skladValidation");
+    expect([...STOCK_ITEM_KINDS]).toEqual(["stock_material", "resale_goods", "operating_supply"]);
+    expect([...LINE_KINDS]).toEqual([...STOCK_ITEM_KINDS, "non_stock_private"]);
+    expect([...STOCK_AFFECTING_LINE_KINDS].sort()).toEqual([...STOCK_ITEM_KINDS].sort());
+  });
+
+  it("karta druhu stock_material jde založit, starý druh ingredient už ne", async () => {
+    const { validateStockItemInput } = await import("../skladValidation");
+    expect(validateStockItemInput({ name: "Cukr", canonicalUnit: "kg", kind: "stock_material" }).ok).toBe(true);
+    expect(validateStockItemInput({ name: "Cukr", canonicalUnit: "kg", kind: "ingredient" }).ok).toBe(false);
+  });
+
+  it("lineKindMismatchError / unitMismatchError", async () => {
+    const { lineKindMismatchError, unitMismatchError } = await import("../skladValidation");
+    expect(lineKindMismatchError("stock_material", "stock_material")).toBeNull();
+    expect(lineKindMismatchError("resale_goods", "operating_supply")).toBe(
+      "Druh řádku (Zboží k prodeji) neodpovídá druhu skladové karty (Provozní spotřeba)."
+    );
+    expect(unitMismatchError("KG", "kg")).toBeNull();
+    expect(unitMismatchError("BG", "kg")).toMatch(/„BG“ neodpovídá jednotce skladové karty „kg“/);
+  });
+});

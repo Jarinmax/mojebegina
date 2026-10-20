@@ -1042,12 +1042,12 @@ export const suppliers = pgTable(
   ]
 );
 
-// Skladové karty. `kind` zrcadlí goodsReceiptLines.lineKind MINUS
+// Skladové karty. `kind` = PŘESNĚ stejné hodnoty jako goodsReceiptLines.lineKind MINUS
 // "non_stock_private" (soukromá/nefiremní položka se do skladu nikdy
 // nezapisuje, nemá tedy ani kartu). `linkedProductVariantId` je
 // nepovinná vazba na prodejní katalog (viz komentář výš) — jen tam, kde
 // nakoupené zboží JE k dalšímu prodeji.
-export const STOCK_ITEM_KINDS = ["ingredient", "resale_goods", "operating_supply"] as const;
+export const STOCK_ITEM_KINDS = ["stock_material", "resale_goods", "operating_supply"] as const;
 
 export const stockItems = pgTable(
   "stock_items",
@@ -1064,7 +1064,7 @@ export const stockItems = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    check("stock_items_kind_check", sql`${table.kind} IN ('ingredient','resale_goods','operating_supply')`),
+    check("stock_items_kind_check", sql`${table.kind} IN ('stock_material','resale_goods','operating_supply')`),
     check("stock_items_canonical_unit_format", sql`${table.canonicalUnit} ~ '^[a-z][a-z0-9_]*$'`),
   ]
 );

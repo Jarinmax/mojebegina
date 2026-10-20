@@ -15,14 +15,10 @@ import {
 } from "../../../actions";
 import type { GoodsReceiptLineRow, StockItemSummary } from "@/lib/data/sklad";
 import type { ExtractionSuggestion } from "@/lib/data/skladExtraction";
+import { LINE_KINDS, LINE_KIND_LABELS, unitMismatchError } from "@/lib/data/skladValidation";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  stock_material: "Skladová surovina",
-  resale_goods: "Zboží k prodeji",
-  operating_supply: "Provozní spotřeba",
-  non_stock_private: "Soukromý nákup",
-};
-const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS);
+const CATEGORY_LABELS: Record<string, string> = LINE_KIND_LABELS;
+const CATEGORY_OPTIONS: readonly string[] = LINE_KINDS;
 
 function halToKc(hal: number): string {
   return (hal / 100).toFixed(2);
@@ -89,8 +85,10 @@ function LineReviewCard({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const stockItemName = stockItems.find((item) => item.id === line.stockItemId)?.name ?? null;
+  const stockItem = stockItems.find((item) => item.id === line.stockItemId) ?? null;
+  const stockItemName = stockItem?.name ?? null;
   const isMapped = Boolean(line.stockItemId) || line.lineKind === "non_stock_private";
+  const unitWarning = stockItem ? unitMismatchError(line.normalizedUnit, stockItem.canonicalUnit) : null;
 
   async function handleUpdate(formData: FormData) {
     setPending(true);
@@ -150,6 +148,12 @@ function LineReviewCard({
           {editing ? "Zrušit" : "Upravit"}
         </button>
       </div>
+
+      {unitWarning && (
+        <p className="mt-2 text-xs font-medium text-red-800 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+          ⚠ {unitWarning} (Upravit → Kusů v balení a Kanonická jednotka.)
+        </p>
+      )}
 
       {editing && (
         <form
@@ -350,11 +354,13 @@ function MappingForm({
           <div className="flex flex-wrap items-center gap-1.5">
             <select value={stockItemId} onChange={(e) => setStockItemId(e.target.value)} className="text-xs px-1.5 py-1 border border-neutral-200 rounded">
               <option value="">Vyberte skladovou kartu…</option>
-              {stockItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              {stockItems
+                .filter((item) => item.kind === category)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} ({item.canonicalUnit})
+                  </option>
+                ))}
             </select>
             <button type="button" onClick={() => setCreatingNew(true)} className="text-xs text-begina-primary-900 underline">
               + nová karta

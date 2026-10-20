@@ -105,7 +105,7 @@ CREATE TABLE "stock_items" (
 	"is_active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "stock_items_kind_check" CHECK ("stock_items"."kind" IN ('ingredient','resale_goods','operating_supply')),
+	CONSTRAINT "stock_items_kind_check" CHECK ("stock_items"."kind" IN ('stock_material','resale_goods','operating_supply')),
 	CONSTRAINT "stock_items_canonical_unit_format" CHECK ("stock_items"."canonical_unit" ~ '^[a-z][a-z0-9_]*$')
 );
 --> statement-breakpoint

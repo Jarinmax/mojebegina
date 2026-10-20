@@ -54,6 +54,8 @@ import {
 import {
   STOCK_AFFECTING_LINE_KINDS,
   isValidDocumentPagePathname,
+  lineKindMismatchError,
+  unitMismatchError,
   validateDocumentPageInput,
   validateManualLineInput,
   validateStockItemInput,
@@ -405,6 +407,19 @@ export async function listGoodsReceiptLines(receiptId: string): Promise<GoodsRec
     .orderBy(goodsReceiptLines.position);
 }
 
+/** Karta existuje, má stejný druh jako řádek a stejnou jednotku — jinak česká chyba. */
+export async function checkLineAgainstStockItem(stockItemId: string, lineKind: LineKind, normalizedUnit: string): Promise<string | null> {
+  const [item] = await db
+    .select({ kind: stockItems.kind, canonicalUnit: stockItems.canonicalUnit })
+    .from(stockItems)
+    .where(eq(stockItems.id, stockItemId))
+    .limit(1);
+  if (!item) {
+    return "Skladová karta nebyla nalezena.";
+  }
+  return lineKindMismatchError(lineKind, item.kind) ?? unitMismatchError(normalizedUnit, item.canonicalUnit);
+}
+
 export type AddManualLineResult = { ok: true; lineId: string } | { ok: false; error: string };
 
 // Ruční zadání řádku — jen do DRAFT příjemky (revize návrhu, bod 5: obě
@@ -432,13 +447,9 @@ export async function addManualGoodsReceiptLine(
   const value = validated.value;
 
   if (value.stockItemId) {
-    const [item] = await db
-      .select({ id: stockItems.id })
-      .from(stockItems)
-      .where(eq(stockItems.id, value.stockItemId))
-      .limit(1);
-    if (!item) {
-      return { ok: false, error: "Skladová karta nebyla nalezena." };
+    const itemError = await checkLineAgainstStockItem(value.stockItemId, value.lineKind, value.normalizedUnit);
+    if (itemError) {
+      return { ok: false, error: itemError };
     }
   }
 
@@ -521,10 +532,20 @@ export async function updateGoodsReceiptLine(
   }
   const value = validated.value;
 
-  if (value.stockItemId) {
-    const [item] = await db.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.id, value.stockItemId)).limit(1);
-    if (!item) {
-      return { ok: false, error: "Skladová karta nebyla nalezena." };
+  // Druh a karta se tu nemění (to dělá potvrzení mapování) — jednotka se
+  // ale kontroluje proti kartě, na kterou je řádek právě napojený.
+  const [current] = await db
+    .select({ stockItemId: goodsReceiptLines.stockItemId, lineKind: goodsReceiptLines.lineKind })
+    .from(goodsReceiptLines)
+    .where(and(eq(goodsReceiptLines.id, lineId), eq(goodsReceiptLines.receiptId, receiptId)))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Řádek nebyl nalezen." };
+  }
+  if (current.stockItemId) {
+    const itemError = await checkLineAgainstStockItem(current.stockItemId, current.lineKind as LineKind, value.normalizedUnit);
+    if (itemError) {
+      return { ok: false, error: itemError };
     }
   }
 

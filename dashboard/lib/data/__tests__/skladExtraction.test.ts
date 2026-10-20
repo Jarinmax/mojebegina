@@ -53,11 +53,13 @@ let mappingByDescriptionRow: [string, string, string, string] | null = null;
 let insertedLineCounter = 0;
 // --- confirmGoodsReceiptLineMapping ----------------------------------------
 let stockItemExists = true;
-let lineRowForConfirm: [string, string | null, string, number, string] | null = [
+let stockItemKind = "resale_goods";
+let lineRowForConfirm: [string, string | null, string, number, string, string] | null = [
   "line-1",
   "123",
   "Pivo 12°",
   12,
+  "ks",
   "ks",
 ];
 let existingMappingForConfirmRow: [string] | null = null;
@@ -141,15 +143,15 @@ vi.mock("@neondatabase/serverless", () => ({
       if (!receiptStatus) return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
       return Promise.resolve({ rows: [[RECEIPT_ID, receiptStatus, SUPPLIER_ID]], rowCount: 1, fields: [] });
     }
-    if (sqlText.startsWith('select "id" from "stock_items"')) {
-      const rows = stockItemExists ? [["item-1"]] : [];
+    if (sqlText.startsWith('select "kind", "canonical_unit" from "stock_items"')) {
+      const rows = stockItemExists ? [[stockItemKind, "ks"]] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
     if (sqlText.startsWith('select "id", "supplier_item_code", "raw_description"')) {
       const rows = lineRowForConfirm ? [lineRowForConfirm] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
-    if (sqlText.startsWith('update "goods_receipt_lines" set "stock_item_id"')) {
+    if (sqlText.startsWith('update "goods_receipt_lines" set')) {
       return Promise.resolve({ rows: [], rowCount: 1, fields: [] });
     }
     if (sqlText.startsWith('select "id" from "supplier_item_mappings"')) {
@@ -274,7 +276,8 @@ beforeEach(() => {
   mappingByDescriptionRow = null;
   insertedLineCounter = 0;
   stockItemExists = true;
-  lineRowForConfirm = ["line-1", "123", "Pivo 12°", 12, "ks"];
+  stockItemKind = "resale_goods";
+  lineRowForConfirm = ["line-1", "123", "Pivo 12°", 12, "ks", "ks"];
   existingMappingForConfirmRow = null;
 
   mockGetAuthContext.mockReset();
@@ -873,6 +876,32 @@ describe("confirmGoodsReceiptLineMapping — oprávnění, validace a zapamatov�
     expect(result.ok).toBe(false);
   });
 
+  it("druh řádku ≠ druh skladové karty → {ok:false}, nic se nezapíše (jeden slovník druhů karta = řádek)", async () => {
+    stockItemKind = "stock_material";
+    const { confirmGoodsReceiptLineMapping } = await import("../skladExtraction");
+    const result = await confirmGoodsReceiptLineMapping(RECEIPT_ID, "line-1", {
+      stockItemId: "item-1",
+      lineKind: "resale_goods",
+      rememberMapping: true,
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: "Druh řádku (Zboží k prodeji) neodpovídá druhu skladové karty (Skladová surovina).",
+    });
+    expect(capturedQueries.some((q) => /^(update|insert)/.test(q.sql))).toBe(false);
+  });
+
+  it("surovina (stock_material) jde namapovat na kartu suroviny — dřív karta „ingredient“ × řádek „stock_material“ nešla nikdy", async () => {
+    stockItemKind = "stock_material";
+    const { confirmGoodsReceiptLineMapping } = await import("../skladExtraction");
+    const result = await confirmGoodsReceiptLineMapping(RECEIPT_ID, "line-1", {
+      stockItemId: "item-1",
+      lineKind: "stock_material",
+      rememberMapping: false,
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
   it("potvrzení nastaví mapping_source='manual' (i pro AI návrh, jakmile ho člověk potvrdí)", async () => {
     const { confirmGoodsReceiptLineMapping } = await import("../skladExtraction");
     const result = await confirmGoodsReceiptLineMapping(RECEIPT_ID, "line-1", {
@@ -881,7 +910,7 @@ describe("confirmGoodsReceiptLineMapping — oprávnění, validace a zapamatov�
       rememberMapping: false,
     });
     expect(result.ok).toBe(true);
-    const lineUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipt_lines" set "stock_item_id"'))!;
+    const lineUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipt_lines" set'))!;
     expect(lineUpdate.params).toContain("manual");
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "supplier_item_mappings"'))).toBe(false);
   });

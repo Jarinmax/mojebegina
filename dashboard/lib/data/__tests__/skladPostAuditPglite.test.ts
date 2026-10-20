@@ -268,3 +268,13 @@ describe("SHA-256 duplicitní ochrana — reálná Postgres sémantika (post-aud
     for (const row of statuses) expect(row.status).toBe("draft");
   }, DB_TEST.timeout);
 });
+
+describe("jeden slovník druhů — skladová karta i řádek příjemky (reálná DB)", () => {
+  it("karta druhu stock_material projde CHECKem, starý druh ingredient ne", async () => {
+    const pg = await freshDb();
+    await pg.query(`INSERT INTO stock_items (name, canonical_unit, kind) VALUES ('Cukr', 'kg', 'stock_material')`);
+    await expect(pg.query(`INSERT INTO stock_items (name, canonical_unit, kind) VALUES ('Sůl', 'kg', 'ingredient')`)).rejects.toThrow(
+      /stock_items_kind_check/
+    );
+  }, DB_TEST.timeout);
+});

@@ -4452,7 +4452,7 @@
       "checkConstraints": {
         "stock_items_kind_check": {
           "name": "stock_items_kind_check",
-          "value": "\"stock_items\".\"kind\" IN ('ingredient','resale_goods','operating_supply')"
+          "value": "\"stock_items\".\"kind\" IN ('stock_material','resale_goods','operating_supply')"
         },
         "stock_items_canonical_unit_format": {
           "name": "stock_items_canonical_unit_format",
