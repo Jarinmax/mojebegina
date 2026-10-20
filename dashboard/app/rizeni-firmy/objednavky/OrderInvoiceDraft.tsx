@@ -287,7 +287,21 @@ export default function OrderInvoiceDraft({
             <dd className="text-begina-primary-900">
               {payload.draft.paymentMethod ? METHOD_LABELS[payload.draft.paymentMethod] ?? payload.draft.paymentMethod : "—"} ·
               uhrazeno {formatHal(payload.draft.paidHal)}
+              {payload.draft.paidDate && <> · {czDate(payload.draft.paidDate)}</>}
             </dd>
+            {payload.draft.delivery && (payload.draft.delivery.address || payload.draft.delivery.method) && (
+              <>
+                <dt className="text-neutral-500">Doručení</dt>
+                <dd className="text-begina-primary-900">
+                  {payload.draft.delivery.address
+                    ? [payload.draft.delivery.name, payload.draft.delivery.address].filter(Boolean).join(", ")
+                    : payload.draft.delivery.method}
+                  {payload.draft.delivery.address && payload.draft.delivery.method && (
+                    <span className="block text-xs text-neutral-500">{payload.draft.delivery.method}</span>
+                  )}
+                </dd>
+              </>
+            )}
             <dt className="text-neutral-500">DPH</dt>
             <dd className="text-begina-primary-900">neplátce DPH — ceny bez rozpisu DPH</dd>
             <dt className="text-neutral-500">Číselná řada</dt>

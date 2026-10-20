@@ -5,8 +5,10 @@
 // uložení a pojistka proti dvojí faktuře v service.ts.
 //
 // Begina je neplátce DPH (rozhodnutí vedení 5. 10. 2026) — ceny jsou
-// konečné, bez rozpisu DPH. Datum vystavení = DUZP = splatnost = den, kdy
-// byla objednávka uhrazená celá (faktura vzniká až po zaplacení).
+// konečné, bez rozpisu DPH. Od 20. 10. 2026: datum vystavení = DUZP =
+// splatnost = den, kdy se faktura skutečně vystavuje; datum úhrady = den,
+// kdy byla objednávka uhrazená celá (faktura vzniká až po zaplacení).
+// Dřív (faktura 9260001) bylo datum vystavení = den úhrady.
 
 export type ProblemSeverity =
   /** chyba v datech — návrh nesedí, opravit před vystavením */
@@ -32,6 +34,8 @@ export type DraftOrder = {
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  /** příjemce zásilky (doručovací adresa) — může se lišit od odběratele */
+  recipientName?: string | null;
   recipientAddress: string | null;
   shippingMethodLabel: string | null;
   subtotalKc: number;
@@ -86,14 +90,21 @@ export type InvoiceDraft = {
     /** firma: kontaktní osoba z objednávky */
     contactPerson: string | null;
   };
+  /**
+   * Doručení (zvlášť od fakturační adresy odběratele): příjemce, doručovací
+   * adresa a způsob dopravy. Na faktuře jako „Dodací adresa“ v textu za položkami.
+   */
+  delivery?: { name: string | null; address: string | null; method: string | null };
   lines: DraftLine[];
   totalKc: number;
   currency: "CZK";
   vatMode: "non_payer";
-  /** YYYY-MM-DD (Praha) — den úplné úhrady */
+  /** YYYY-MM-DD (Praha) — den vystavení faktury (starší návrhy: den úplné úhrady) */
   issueDate: string | null;
   taxableDate: string | null;
   dueDate: string | null;
+  /** YYYY-MM-DD (Praha) — den úplné úhrady (datum úhrady v iDokladu); starší návrhy bez něj */
+  paidDate?: string | null;
   /** způsob úhrady podle platby, která objednávku doplatila */
   paymentMethod: string | null;
   paidHal: number;
@@ -110,6 +121,8 @@ export type DraftConfig = {
   numberSeriesProblem?: InvoiceProblem | null;
   /** ostrý režim: řadu a číselníky ověřuje až vystavení (issue.ts) proti iDokladu */
   live?: boolean;
+  /** okamžik sestavení návrhu = den vystavení (výchozí teď) */
+  now?: Date;
 };
 
 const PRAGUE_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" });
@@ -170,8 +183,9 @@ export function buildInvoiceDraft(
     totalKc: item.lineTotalKc,
   }));
   if (order.shippingKc > 0) {
-    const label = order.shippingMethodLabel ?? "Doprava";
-    lines.push({ kind: "shipping", name: `Doprava: ${label}`, sku: null, quantity: 1, unitPriceKc: order.shippingKc, totalKc: order.shippingKc });
+    // položka = název dopravy (např. „Chlazená přeprava“), bez předpony
+    const label = order.shippingMethodLabel?.trim() || "Doprava";
+    lines.push({ kind: "shipping", name: label, sku: null, quantity: 1, unitPriceKc: order.shippingKc, totalKc: order.shippingKc });
   }
   if (order.discountKc > 0) {
     lines.push({ kind: "discount", name: "Sleva", sku: null, quantity: 1, unitPriceKc: -order.discountKc, totalKc: -order.discountKc });
@@ -191,8 +205,9 @@ export function buildInvoiceDraft(
   }
   const lastInflow = [...inflows].sort((a, b) => (a.occurredAt?.getTime() ?? 0) - (b.occurredAt?.getTime() ?? 0)).at(-1);
   const paidOn = lastInflow?.occurredAt ?? order.paidAt;
-  const issueDate = paidOn ? PRAGUE_DATE.format(paidOn) : null;
-  if (!issueDate) add("no_payment_date", "error", "Chybí datum úhrady — není podle čeho určit datum vystavení.");
+  const paidDate = paidOn ? PRAGUE_DATE.format(paidOn) : null;
+  if (!paidDate) add("no_payment_date", "error", "Chybí datum úhrady — není podle čeho vyplnit úhradu faktury.");
+  const issueDate = PRAGUE_DATE.format(config.now ?? new Date());
 
   const vs = invoiceVsFor(order);
   if (!vs) add("no_vs", "error", "Objednávka nemá variabilní symbol (payment_vs, u importu číslo objednávky z WooCommerce).");
@@ -256,6 +271,11 @@ export function buildInvoiceDraft(
         dic: company?.dic ?? null,
         contactPerson: company ? contactName : null,
       },
+      delivery: {
+        name: order.recipientName?.trim() || null,
+        address: order.recipientAddress?.trim() || null,
+        method: order.shippingMethodLabel?.trim() || null,
+      },
       lines,
       totalKc: order.totalKc,
       currency: "CZK",
@@ -263,6 +283,7 @@ export function buildInvoiceDraft(
       issueDate,
       taxableDate: issueDate,
       dueDate: issueDate,
+      paidDate,
       paymentMethod: lastInflow?.method ?? null,
       paidHal,
       payments: inflows.map((p) => ({

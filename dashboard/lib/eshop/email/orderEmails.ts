@@ -44,7 +44,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { ESHOP_ACTOR_NAME } from "../orderWrite";
-import { emailConfig, resolveRecipients, type EmailConfig } from "./config";
+import { emailConfig, invoiceCopyRecipients, resolveRecipients, type EmailConfig } from "./config";
 import { resendTransport, type EmailTransport } from "./resend";
 import {
   customerCancellationEmail,
@@ -288,8 +288,10 @@ export async function sendOrderEmails(
           ? customerReply.to[0]
           : config.replyTo;
 
+      // e-mail s fakturou: skrytá kopie Begině (ESHOP_EMAIL_INVOICE_COPY_TO)
+      const bcc = invoiceNumber ? invoiceCopyRecipients(config, to) : [];
       const result = await transport(
-        { from: config.from, to, replyTo, ...rendered, inlineImages, attachments },
+        { from: config.from, to, ...(bcc.length ? { bcc } : {}), replyTo, ...rendered, inlineImages, attachments },
         `eshop-${template}-${orderId}`
       );
       if (result.ok) {
@@ -298,6 +300,7 @@ export async function sendOrderEmails(
           provider: "resend",
           messageId: result.id,
           to,
+          ...(bcc.length ? { bcc } : {}),
           ...(inlineImages.length ? { qr: true } : {}),
           ...(invoiceNumber ? { invoice: invoiceNumber } : {}),
           ...(test ? { test: true, withheld } : {}),

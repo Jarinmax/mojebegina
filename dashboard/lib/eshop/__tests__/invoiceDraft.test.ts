@@ -3,7 +3,7 @@
 // a napojení na platby ověřuje transferPayment.test.ts.
 import { describe, expect, it } from "vitest";
 import { blockingProblems, buildInvoiceDraft, parseCheckoutAddress, type DraftOrder, type DraftPayment } from "../invoicing/draft";
-import { idokladRequests } from "../invoicing/idoklad";
+import { INVOICE_PAID_TEXT, idokladRequests, invoicePostBody } from "../invoicing/idoklad";
 import { LIVE_INVOICING_IMPLEMENTED, invoiceNumberSeriesId, invoicingMode, liveInvoicingGate } from "../invoicing/mode";
 
 const ORDER: DraftOrder = {
@@ -14,6 +14,7 @@ const ORDER: DraftOrder = {
   contactName: "Jana Nováková",
   contactEmail: " Jana@Example.cz ",
   contactPhone: "+420 777 123 456",
+  recipientName: "Jana Nováková",
   recipientAddress: "Prvního pluku 14, 186 00 Praha",
   shippingMethodLabel: "Chlazená přeprava",
   subtotalKc: 758,
@@ -34,7 +35,9 @@ const pay = (over: Partial<DraftPayment> = {}): DraftPayment => ({
   occurredAt: new Date("2026-10-05T22:30:00Z"), // 6. 10. 0:30 v Praze
   ...over,
 });
-const CONFIG = { numberSeriesId: null };
+// faktura se vystavuje den po úhradě (7. 10. 2026 v 11:00 Praha)
+const NOW = new Date("2026-10-07T09:00:00Z");
+const CONFIG = { numberSeriesId: null, now: NOW };
 
 describe("návrh faktury — sestavení", () => {
   it("zákazník, položky + doprava, celkem, VS, data v pražském čase, vazba na platby", () => {
@@ -51,9 +54,12 @@ describe("návrh faktury — sestavení", () => {
       },
       totalKc: 857,
       vatMode: "non_payer",
-      issueDate: "2026-10-06",
-      taxableDate: "2026-10-06",
-      dueDate: "2026-10-06",
+      // vystavení / DUZP / splatnost = den vystavení; úhrada = den úplné úhrady (Praha)
+      issueDate: "2026-10-07",
+      taxableDate: "2026-10-07",
+      dueDate: "2026-10-07",
+      paidDate: "2026-10-06",
+      delivery: { name: "Jana Nováková", address: "Prvního pluku 14, 186 00 Praha", method: "Chlazená přeprava" },
       paymentMethod: "bank_transfer",
       paidHal: 85700,
       numberSeriesId: null,
@@ -61,7 +67,7 @@ describe("návrh faktury — sestavení", () => {
     });
     expect(draft.lines).toEqual([
       { kind: "item", name: "Kulajda", sku: "kulajda", quantity: 2, unitPriceKc: 379, totalKc: 758 },
-      { kind: "shipping", name: "Doprava: Chlazená přeprava", sku: null, quantity: 1, unitPriceKc: 99, totalKc: 99 },
+      { kind: "shipping", name: "Chlazená přeprava", sku: null, quantity: 1, unitPriceKc: 99, totalKc: 99 },
     ]);
     // v režimu návrhu nic neblokuje; chybějící číselná řada blokuje jen ostré vystavení
     expect(blockingProblems(problems, "dry_run")).toEqual([]);
@@ -129,7 +135,7 @@ describe("návrh faktury — sestavení", () => {
 
 describe("návrh faktury — data pro iDoklad (nic se neodesílá)", () => {
   it("kontakt podle e-mailu, pojistka podle VS, faktura s položkami a daty", () => {
-    const { draft } = buildInvoiceDraft(ORDER, ITEMS, [pay()], { numberSeriesId: "12345" });
+    const { draft } = buildInvoiceDraft(ORDER, ITEMS, [pay()], { numberSeriesId: "12345", now: NOW });
     const req = idokladRequests(draft);
     expect(req.contactLookup).toEqual({ by: "email", value: "jana@example.cz" });
     expect(req.contact).toMatchObject({ CompanyName: "Jana Nováková", Firstname: "Jana", Surname: "Nováková", PostalCode: "18600" });
@@ -137,16 +143,75 @@ describe("návrh faktury — data pro iDoklad (nic se neodesílá)", () => {
     expect(req.invoice).toMatchObject({
       NumericSequenceId: "12345",
       VariableSymbol: "70000001",
-      DateOfIssue: "2026-10-06",
-      DateOfTaxing: "2026-10-06",
-      DateOfMaturity: "2026-10-06",
+      DateOfIssue: "2026-10-07",
+      DateOfTaxing: "2026-10-07",
+      DateOfMaturity: "2026-10-07",
+      DateOfPayment: "2026-10-06",
       OrderNumber: "900008",
       IsEet: false,
+      ItemsTextSuffix: "Faktura je již uhrazena – neplaťte.\nDodací adresa: Jana Nováková, Prvního pluku 14, 186 00 Praha",
     });
     expect(req.invoice.Items).toEqual([
       { Name: "Kulajda", Code: "kulajda", Amount: 2, Unit: "ks", UnitPrice: 379 },
-      { Name: "Doprava: Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 99 },
+      { Name: "Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 99 },
     ]);
+  });
+});
+
+describe("faktura pro iDoklad — data, text „uhrazeno“, fakturační a dodací adresa", () => {
+  const RESOLVED = { partnerId: 4242, numericSequenceId: 7277293, documentSerialNumber: 2, currencyId: 1, paymentOptionId: 2, pricing: { priceType: 1, vatRateType: 2 } };
+
+  it("WooCommerce 5215: odběratel = sídlo firmy, dodací adresa zvlášť, položka „Chlazená přeprava“, vystavení dnes, úhrada 19. 10.", () => {
+    const order: DraftOrder = {
+      ...ORDER,
+      channel: "import",
+      orderNumber: null,
+      paymentVs: null,
+      externalWooCommerceId: "5215",
+      company: { name: "Food Fest Crew s.r.o.", ico: "08911088", dic: "CZ08911088", registeredAddress: "Pasohlávky 251, 691 22 Pasohlávky" },
+      contactName: "Tomáš Herout",
+      contactEmail: "tom.herout@seznam.cz",
+      recipientName: "Tomáš Herout",
+      recipientAddress: "251, 691 22 Pasohlávky",
+      shippingMethodLabel: "Chlazená přeprava",
+      subtotalKc: 11370,
+      shippingKc: 1277,
+      totalKc: 12647,
+    };
+    const items = [{ name: "Dýňová polévka", quantity: 30, unitPriceKc: 379, lineTotalKc: 11370, sku: null }];
+    const paid = pay({ method: "card", amountHal: 1264700, occurredAt: new Date("2026-10-19T04:23:00Z") });
+    const { draft, problems } = buildInvoiceDraft(order, items, [paid], { numberSeriesId: "7277293", now: new Date("2026-10-21T08:00:00Z") });
+    expect(problems.filter((p) => p.severity === "error")).toEqual([]);
+    // fakturační adresa = sídlo firmy; doručovací adresa = příjemce zásilky
+    expect(draft.customer.address).toEqual({ street: "Pasohlávky 251", zip: "69122", city: "Pasohlávky", country: "CZ" });
+    expect(draft.delivery).toEqual({ name: "Tomáš Herout", address: "251, 691 22 Pasohlávky", method: "Chlazená přeprava" });
+
+    const body = invoicePostBody(draft, RESOLVED, { ItemsTextPrefix: "Fakturujeme Vám:", ItemsTextSuffix: "Děkujeme za objednávku." });
+    expect(body).toMatchObject({
+      DateOfIssue: "2026-10-21T12:00:00.000",
+      DateOfTaxing: "2026-10-21T12:00:00.000",
+      DateOfMaturity: "2026-10-21T12:00:00.000",
+      ItemsTextPrefix: "Fakturujeme Vám:",
+      ItemsTextSuffix: `${INVOICE_PAID_TEXT}\nDodací adresa: Tomáš Herout, 251, 691 22 Pasohlávky\nDěkujeme za objednávku.`,
+    });
+    expect(INVOICE_PAID_TEXT).toBe("Faktura je již uhrazena – neplaťte.");
+    expect((body.Items as { Name: string }[]).map((i) => i.Name)).toEqual(["Dýňová polévka", "Chlazená přeprava"]);
+    expect(draft.paidDate).toBe("2026-10-19");
+  });
+
+  it("osobní odběr: místo dodací adresy způsob převzetí; doprava zdarma = žádná položka dopravy", () => {
+    const pickup = { ...ORDER, recipientAddress: null, shippingMethodLabel: "Osobní odběr Praha", shippingKc: 0, totalKc: 758 };
+    const { draft } = buildInvoiceDraft(pickup, ITEMS, [pay({ amountHal: 75800 })], CONFIG);
+    expect(draft.lines.map((l) => l.kind)).toEqual(["item"]);
+    expect(invoicePostBody(draft, RESOLVED).ItemsTextSuffix).toBe(`${INVOICE_PAID_TEXT}\nDoručení: Osobní odběr Praha`);
+  });
+
+  it("starší uložený návrh (bez dne úhrady a doručení): vystavení = uložené datum, jen text „uhrazeno“", () => {
+    const { draft } = buildInvoiceDraft(ORDER, ITEMS, [pay()], CONFIG);
+    const legacy = { ...draft, issueDate: "2026-10-06", taxableDate: "2026-10-06", dueDate: "2026-10-06", paidDate: undefined, delivery: undefined };
+    const body = invoicePostBody(legacy, RESOLVED);
+    expect(body).toMatchObject({ DateOfIssue: "2026-10-06T12:00:00.000", ItemsTextSuffix: INVOICE_PAID_TEXT });
+    expect(idokladRequests(legacy).invoice).toMatchObject({ DateOfPayment: "2026-10-06" });
   });
 });
 
