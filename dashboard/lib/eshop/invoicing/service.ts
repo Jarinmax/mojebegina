@@ -15,8 +15,8 @@
 import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
-import { invoiceProviderLinks, invoices, orderItems, orders, payments } from "@/lib/db/schema";
-import { buildInvoiceDraft, type InvoiceDraft, type InvoiceProblem } from "./draft";
+import { invoiceProviderLinks, invoices, orderItems, orders, organizations, payments } from "@/lib/db/schema";
+import { buildInvoiceDraft, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft, type InvoiceProblem } from "./draft";
 import { IDOKLAD_ISSUE_STEPS, IDOKLAD_PROVIDER, idokladRequests, type IdokladRequests } from "./idoklad";
 import { invoiceNumberSeries, invoicingMode } from "./mode";
 
@@ -42,12 +42,14 @@ export type PrepareResult =
   | { status: "exists" | "skipped"; reason: string };
 
 async function loadInputs(db: Db, orderId: string) {
-  const [order] = await db
+  const [row] = await db
     .select({
       id: orders.id,
       channel: orders.channel,
       orderNumber: orders.orderNumber,
       paymentVs: orders.paymentVs,
+      externalWooCommerceId: orders.externalWooCommerceId,
+      buyerOrganizationId: orders.buyerOrganizationId,
       paymentStatus: orders.paymentStatus,
       contactName: orders.contactName,
       contactEmail: orders.contactEmail,
@@ -63,7 +65,22 @@ async function loadInputs(db: Db, orderId: string) {
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
-  if (!order) return null;
+  if (!row) return null;
+  // firma odběratele (fakturační údaje = sídlo, IČO, DIČ)
+  const [company] = row.buyerOrganizationId
+    ? await db
+        .select({
+          id: organizations.id,
+          name: organizations.name,
+          ico: organizations.ico,
+          dic: organizations.dic,
+          registeredAddress: organizations.registeredAddress,
+        })
+        .from(organizations)
+        .where(eq(organizations.id, row.buyerOrganizationId))
+        .limit(1)
+    : [];
+  const order = { ...row, company: company ?? null };
   const items = await db
     .select({
       name: orderItems.name,
@@ -89,6 +106,32 @@ async function loadInputs(db: Db, orderId: string) {
     .from(payments)
     .where(and(eq(payments.orderId, orderId), eq(payments.matchStatus, "matched")));
   return { order, items, payments: paymentRows.map((p) => ({ ...p, amountHal: Number(p.amountHal) })) };
+}
+
+/**
+ * Fakturační zákazník: firma podle IČO (vazba na organizaci), osoba podle
+ * e-mailu. null = není podle čeho párovat.
+ */
+function customerUpsertSql(draft: InvoiceDraft, organizationId: string | null) {
+  const c = draft.customer;
+  if (c.kind === "company" && c.ico) {
+    return sql`
+      INSERT INTO invoice_customers (kind, ico, email_normalized, name, organization_id)
+      VALUES ('company', ${c.ico}, ${c.email}, ${c.name ?? c.ico}, ${organizationId}::uuid)
+      ON CONFLICT (ico) WHERE kind = 'company' AND ico IS NOT NULL
+      DO UPDATE SET name = EXCLUDED.name, organization_id = COALESCE(invoice_customers.organization_id, EXCLUDED.organization_id),
+        updated_at = now()
+      RETURNING id`;
+  }
+  if (c.kind === "person" && c.email) {
+    return sql`
+      INSERT INTO invoice_customers (kind, email_normalized, name)
+      VALUES ('person', ${c.email}, ${c.name ?? c.email})
+      ON CONFLICT (email_normalized) WHERE kind = 'person'
+      DO UPDATE SET name = EXCLUDED.name, updated_at = now()
+      RETURNING id`;
+  }
+  return null;
 }
 
 export function activitySql(orderId: string, actor: InvoiceActor, kind: string, meta: Record<string, unknown>) {
@@ -152,7 +195,11 @@ export async function prepareInvoiceDraft(
   const inputs = await loadInputs(db, orderId);
   if (!inputs) return { status: "skipped", reason: "Objednávka nebyla nalezena." };
   const { order } = inputs;
-  if (order.channel !== "eshop") return { status: "skipped", reason: "Návrh faktury se tvoří jen k e-shopovým objednávkám." };
+  if (!isInvoiceableOrder(order)) {
+    return { status: "skipped", reason: "Návrh faktury se tvoří jen k e-shopovým objednávkám a objednávkám importovaným z WooCommerce." };
+  }
+  const vs = invoiceVsFor(order);
+  const origin = order.channel === "eshop" ? "eshop" : "import";
   if (order.paymentStatus !== "paid") return { status: "skipped", reason: "Návrh faktury vznikne až po úplném zaplacení." };
 
   const { mode, series, draft, problems, payload } = buildDraftPayload(inputs, env);
@@ -160,23 +207,16 @@ export async function prepareInvoiceDraft(
   const linkState = mode.mode === "live" ? "pending" : "dry_run";
   const email = draft.customer.email;
 
-  // Zákazník (osoba podle e-mailu) + faktura + vazba v jednom příkazu.
-  const customerId = email ? sql`(SELECT id FROM cust)` : sql`NULL::uuid`;
-  const customerCte = email
-    ? sql`cust AS (
-        INSERT INTO invoice_customers (kind, email_normalized, name)
-        VALUES ('person', ${email}, ${draft.customer.name ?? email})
-        ON CONFLICT (email_normalized) WHERE kind = 'person'
-        DO UPDATE SET name = EXCLUDED.name, updated_at = now()
-        RETURNING id
-      ),`
-    : sql``;
+  // Zákazník (osoba podle e-mailu, firma podle IČO) + faktura + vazba v jednom příkazu.
+  const upsert = customerUpsertSql(draft, order.company?.id ?? null);
+  const customerId = upsert ? sql`(SELECT id FROM cust)` : sql`NULL::uuid`;
+  const customerCte = upsert ? sql`cust AS (${upsert}),` : sql``;
   const created = (
     await db.execute(sql`
       WITH ${customerCte}
       inv AS (
         INSERT INTO invoices (order_id, origin, document_type, doc_state, total_kc, payment_vs, customer_id)
-        SELECT ${orderId}, 'eshop', 'invoice', 'draft', ${order.totalKc}, ${order.paymentVs}, ${customerId}
+        SELECT ${orderId}, ${origin}, 'invoice', 'draft', ${order.totalKc}, ${vs}, ${customerId}
         ON CONFLICT (order_id) WHERE document_type = 'invoice' AND doc_state <> 'void' DO NOTHING
         RETURNING id
       )
@@ -196,20 +236,11 @@ export async function prepareInvoiceDraft(
   // Přegenerovat jde jen návrh, ne vystavenou fakturu — a ne ve chvíli, kdy
   // vystavení právě běží (next_attempt_at v budoucnosti) nebo kdy faktura
   // v iDokladu už vznikla (external_id), jen se ještě nedokončila.
-  const customer = email
-    ? ((
-        await db.execute(sql`
-          INSERT INTO invoice_customers (kind, email_normalized, name)
-          VALUES ('person', ${email}, ${draft.customer.name ?? email})
-          ON CONFLICT (email_normalized) WHERE kind = 'person'
-          DO UPDATE SET name = EXCLUDED.name, updated_at = now()
-          RETURNING id`)
-      ).rows[0] as { id: string })
-    : null;
+  const customer = upsert ? ((await db.execute(upsert)).rows[0] as { id: string }) : null;
   const updated = (
     await db.execute(sql`
       WITH inv AS (
-        UPDATE invoices SET total_kc = ${order.totalKc}, payment_vs = ${order.paymentVs},
+        UPDATE invoices SET total_kc = ${order.totalKc}, payment_vs = ${vs},
           customer_id = ${customer?.id ?? null}::uuid, updated_at = now()
         WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'draft'
         RETURNING id

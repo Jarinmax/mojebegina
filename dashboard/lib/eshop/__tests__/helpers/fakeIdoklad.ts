@@ -31,6 +31,8 @@ export type FakeIdokladOptions = {
   paymentOptions?: { Id: number; Name: string; Code: string; IsDefault: boolean }[];
   /** přepsání odpovědi DocumentNumbers (např. špatný formát) */
   nextNumber?: { DocumentNumber: string; DocumentSerialNumber: number; NumericSequenceId: number } | null;
+  /** další kontakty v adresáři (např. firma z dřívější ruční faktury) */
+  contacts?: { Id: number; Email: string | null; CompanyName: string; IdentificationNumber: string | null }[];
 };
 
 /** Číselníky skutečné agendy Begina (read-only kontrola 7. 10. 2026). */
@@ -60,6 +62,7 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
   const failOnce = { ...(options.failOnce ?? {}) };
   const contacts: { Id: number; Email: string | null; CompanyName: string; IdentificationNumber: string | null }[] = [
     { Id: 501, Email: "odberatel@b2b.cz", CompanyName: "B2B s.r.o.", IdentificationNumber: "12345678" },
+    ...(options.contacts ?? []),
   ];
   const invoices: Invoice[] = [];
   const sequences = options.sequences ?? [
@@ -85,6 +88,9 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     DocumentNumber: i.DocumentNumber,
     VariableSymbol: i.VariableSymbol,
     PartnerId: i.PartnerId,
+    DateOfIssue: (i.body.DateOfIssue as string | undefined) ?? null,
+    OrderNumber: (i.body.OrderNumber as string | undefined) ?? null,
+    Description: (i.body.Description as string | undefined) ?? null,
     PaymentStatus: i.PaymentStatus,
     Prices: i.Prices,
   });
@@ -138,15 +144,20 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
         Custom: null,
       });
     } else if (method === "GET" && path === "/Contacts") {
+      const ico = filterValue(query, "IdentificationNumber");
       const email = filterValue(query, "Email");
-      response = page(contacts.filter((c) => (c.Email ?? "").toLowerCase() === (email ?? "").toLowerCase()));
+      response = page(
+        ico !== null
+          ? contacts.filter((c) => c.IdentificationNumber === ico)
+          : contacts.filter((c) => (c.Email ?? "").toLowerCase() === (email ?? "").toLowerCase())
+      );
     } else if (method === "GET" && /^\/Contacts\/\d+$/.test(path)) {
       const c = contacts.find((x) => x.Id === Number(path.split("/")[2]));
       response = c ? ok(c) : fail(404, "Not found");
     } else if (method === "POST" && path === "/Contacts") {
-      const b = body as { Email: string; CompanyName: string; CountryId: number };
+      const b = body as { Email: string; CompanyName: string; CountryId: number; IdentificationNumber?: string | null };
       if (!b.CompanyName || !b.CountryId) return fail(400, "CompanyName a CountryId jsou povinné");
-      const c = { Id: shared.contactId++, Email: b.Email, CompanyName: b.CompanyName, IdentificationNumber: null };
+      const c = { Id: shared.contactId++, Email: b.Email, CompanyName: b.CompanyName, IdentificationNumber: b.IdentificationNumber ?? null };
       contacts.push(c);
       response = ok(c, 200);
     } else if (method === "GET" && path === "/Currencies") {
@@ -160,7 +171,10 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
       response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
     } else if (method === "GET" && path === "/IssuedInvoices") {
       const vs = filterValue(query, "VariableSymbol");
-      response = page(invoices.filter((i) => i.VariableSymbol === vs).map(invoiceView));
+      const partner = filterValue(query, "PartnerId");
+      response = page(
+        invoices.filter((i) => (partner !== null ? String(i.PartnerId) === partner : i.VariableSymbol === vs)).map(invoiceView)
+      );
     } else if (method === "GET" && /^\/IssuedInvoices\/\d+$/.test(path)) {
       const i = invoices.find((x) => x.Id === Number(path.split("/")[2]));
       response = i ? ok(invoiceView(i)) : fail(404, "Not found");

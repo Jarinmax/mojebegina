@@ -38,6 +38,7 @@ const ESHOP = [
   "0019_eshop_1_0_orders_guest",
   "0020_eshop_1_0_payments_invoicing",
   "0021_eshop_1_0_variant_weight",
+  "0022_eshop_1_0_company_invoicing",
 ];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
@@ -56,7 +57,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0021 hned za nimi", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0022 hned za nimi", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
@@ -90,7 +91,7 @@ describe("řetězec migrací Drizzle", () => {
     }
   });
 
-  it("e-shop nemění tabulky z main (0013–0021 = stejné jako 0012)", () => {
+  it("e-shop nemění tabulky z main (0013–0022 = stejné jako 0012)", () => {
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
     for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);

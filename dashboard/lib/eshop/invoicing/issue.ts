@@ -16,7 +16,8 @@
 //      převod / karta / hotově (ne dobírka), řada 7277293 „E-shop Begina“
 //      (vydané faktury, ne výchozí), další číslo, typ ceny. Neprojde-li
 //      kterákoli, faktura se nevystaví (žádné varování k přeskočení),
-//   4. VS faktury = payment_vs objednávky (7xxxxxxx),
+//   4. VS faktury = payment_vs objednávky (7xxxxxxx); u objednávky importované
+//      z WooCommerce číslo objednávky ve WooCommerce (draft.invoiceVsFor),
 //   5. před vytvořením hledání faktury s tímto VS v iDokladu — když
 //      existuje, jen se připojí (nic nového nevznikne); víc faktur = stop,
 //   6. idempotence: vystavuje vždy jen jeden proces (zámek na vazbě
@@ -35,7 +36,7 @@ import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
-import { blockingProblems, type InvoiceDraft } from "./draft";
+import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
 import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter } from "./idokladHttp";
 import { liveInvoicingGate } from "./mode";
@@ -64,6 +65,9 @@ type IdokladInvoice = {
   Id: number;
   DocumentNumber?: string | null;
   VariableSymbol?: string | null;
+  DateOfIssue?: string | null;
+  OrderNumber?: string | null;
+  Description?: string | null;
   PaymentStatus?: number | string | null;
   Prices?: { TotalWithVat?: number | null; TotalVat?: number | null; TotalPaid?: number | null } | null;
 };
@@ -103,6 +107,69 @@ function assertOurInvoice(invoice: IdokladInvoice, vs: string) {
   }
 }
 
+/** Nejvýš tolik stran (po 100) faktur jedné firmy projde kontrola duplicit. */
+const COMPANY_INVOICE_PAGES = 5;
+
+/**
+ * Firma: skutečná duplicita mimo MojeBegina (např. ruční faktura Lucie
+ * k téže objednávce ve výchozí řadě). Projdou se faktury této firmě
+ * vystavené v den úhrady nebo později (jakákoli řada):
+ *   • vystavené MojeBegina (ID uložené u jiné objednávky) → v pořádku,
+ *     patří jiným objednávkám (další objednávky firmy se neblokují),
+ *   • cizí faktura odkazující na tuto objednávku (VS, číslo objednávky,
+ *     číslo v popisu) → STOP — duplicita,
+ *   • cizí faktura se stejnou částkou → STOP — nejasné, ruční kontrola,
+ *   • ostatní cizí faktury (jiná částka, jiný odkaz) → jiné objednávky.
+ * STOP platí jen pro toto vystavení; po kontrole se dá vystavit znovu.
+ */
+async function assertNoForeignDuplicate(
+  db: Db,
+  client: EshopIdokladClient,
+  partnerId: number,
+  check: { fromDay: string; vs: string; orderReference: string | null; totalKc: number }
+) {
+  const all: IdokladInvoice[] = [];
+  for (let page = 1; page <= COMPANY_INVOICE_PAGES; page += 1) {
+    const result = await client.list<IdokladInvoice>("/IssuedInvoices", eqFilter("PartnerId", String(partnerId)), 100, page);
+    all.push(...result.Items);
+    if (page >= result.TotalPages || result.Items.length === 0) break;
+    if (page === COMPANY_INVOICE_PAGES) {
+      throw new IssueStop(`Firma má v iDokladu víc než ${COMPANY_INVOICE_PAGES * 100} faktur — duplicitu nejde ověřit, nutná ruční kontrola.`);
+    }
+  }
+  const recent = all.filter((i) => (i.DateOfIssue ?? "").slice(0, 10) >= check.fromDay);
+  if (recent.length === 0) return;
+  const ids = recent.map((i) => String(i.Id));
+  const ours = new Set(
+    (
+      (
+        await db.execute(sql`
+          SELECT external_id FROM invoice_provider_links
+          WHERE provider = ${IDOKLAD_PROVIDER} AND external_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`)
+      ).rows as { external_id: string }[]
+    ).map((r) => r.external_id)
+  );
+  const ref = check.orderReference;
+  const refRe = ref ? new RegExp(`(^|\\D)${ref}(\\D|$)`) : null;
+  for (const invoice of recent) {
+    if (ours.has(String(invoice.Id))) continue;
+    const label = invoice.DocumentNumber ?? String(invoice.Id);
+    const refersToOrder =
+      invoice.VariableSymbol === check.vs ||
+      (ref !== null && (invoice.OrderNumber ?? "").trim() === ref) ||
+      (refRe !== null && refRe.test(invoice.Description ?? ""));
+    if (refersToOrder) {
+      throw new IssueStop(`V iDokladu už je faktura ${label} k této objednávce (${ref ?? check.vs}) — mimo MojeBegina. Nic se nevystavilo.`);
+    }
+    if (sameAmount(invoice.Prices?.TotalWithVat, check.totalKc)) {
+      throw new IssueStop(
+        `V iDokladu je faktura ${label} této firmě ze dne ${(invoice.DateOfIssue ?? "").slice(0, 10)} se stejnou částkou ${check.totalKc} Kč, ` +
+          "vystavená mimo MojeBegina — zkontrolovat, zda není k této objednávce. Nic se nevystavilo."
+      );
+    }
+  }
+}
+
 async function resolveContact(
   db: Db,
   client: EshopIdokladClient,
@@ -125,12 +192,27 @@ async function resolveContact(
       }
     }
   }
-  // 2. hledání (firma podle IČO — dnes pokladna firmy nesbírá; jinak e-mail)
-  const email = draft.customer.email;
-  if (!email) throw new IssueStop("Zákazník nemá e-mail — kontakt v iDokladu nejde dohledat.");
-  const found = await client.list<{ Id: number; Email?: string | null }>("/Contacts", eqFilter("Email", email), 20);
-  const same = found.Items.filter((c) => (c.Email ?? "").trim().toLowerCase() === email).sort((a, b) => a.Id - b.Id);
-  let partnerId = same[0]?.Id ?? null;
+  // 2. hledání: firma podle IČO (víc kontaktů se stejným IČO = stop), osoba podle e-mailu
+  let partnerId: number | null = null;
+  const ico = draft.customer.kind === "company" ? draft.customer.ico : null;
+  if (ico) {
+    const found = await client.list<{ Id: number; IdentificationNumber?: string | null }>(
+      "/Contacts",
+      eqFilter("IdentificationNumber", ico),
+      20
+    );
+    const same = found.Items.filter((c) => (c.IdentificationNumber ?? "").replace(/\s/g, "") === ico);
+    if (same.length > 1) {
+      throw new IssueStop(`V iDokladu je víc kontaktů s IČO ${ico} (${same.map((c) => c.Id).join(", ")}) — nutná ruční kontrola, nic se nevystavilo.`);
+    }
+    partnerId = same[0]?.Id ?? null;
+  } else {
+    const email = draft.customer.email;
+    if (!email) throw new IssueStop("Zákazník nemá e-mail — kontakt v iDokladu nejde dohledat.");
+    const found = await client.list<{ Id: number; Email?: string | null }>("/Contacts", eqFilter("Email", email), 20);
+    const same = found.Items.filter((c) => (c.Email ?? "").trim().toLowerCase() === email).sort((a, b) => a.Id - b.Id);
+    partnerId = same[0]?.Id ?? null;
+  }
   // 3. založení
   if (!partnerId) {
     // země CZ z kontroly iDokladu (preflight.ts)
@@ -208,19 +290,29 @@ async function markFailed(db: Db, orderId: string, linkId: string, message: stri
 async function reallyPaid(db: Db, orderId: string): Promise<string | null> {
   const row = (
     await db.execute(sql`
-      SELECT o.channel, o.payment_status, o.payment_vs, o.fulfillment_status, b.balance_state
+      SELECT o.channel, o.payment_status, o.payment_vs, o.external_woocommerce_id, o.fulfillment_status, b.balance_state
       FROM orders o JOIN order_payment_balance b ON b.order_id = o.id
       WHERE o.id = ${orderId}`)
   ).rows[0] as
-    | { channel: string; payment_status: string; payment_vs: string | null; fulfillment_status: string; balance_state: string }
+    | {
+        channel: string;
+        payment_status: string;
+        payment_vs: string | null;
+        external_woocommerce_id: string | null;
+        fulfillment_status: string;
+        balance_state: string;
+      }
     | undefined;
   if (!row) return "Objednávka nebyla nalezena.";
-  if (row.channel !== "eshop") return "Fakturu do iDokladu vystavuje e-shop jen k e-shopovým objednávkám.";
+  const order = { channel: row.channel, paymentVs: row.payment_vs, externalWooCommerceId: row.external_woocommerce_id };
+  if (!isInvoiceableOrder(order)) {
+    return "Fakturu do iDokladu vystavuje MojeBegina jen k e-shopovým objednávkám a objednávkám importovaným z WooCommerce.";
+  }
   if (row.fulfillment_status === "cancelled") return "Objednávka je stornovaná — faktura se nevystaví.";
   if (row.payment_status !== "paid" || !["paid", "overpaid"].includes(row.balance_state)) {
     return "Objednávka není uhrazená celá — faktura se nevystaví.";
   }
-  if (!row.payment_vs || !/^7\d{7}$/.test(row.payment_vs)) return "Objednávka nemá platný VS 7xxxxxxx.";
+  if (!invoiceVsFor(order)) return "Objednávka nemá platný VS (7xxxxxxx, u importu číslo objednávky z WooCommerce).";
   return null;
 }
 
@@ -290,6 +382,14 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
       const paymentOptionId = resolved.paymentOptionIds[method];
       if (!paymentOptionId) throw new IssueStop(`Neznámý způsob úhrady „${method || "—"}“ — není jak ho zapsat do iDokladu.`);
       const partnerId = await resolveContact(db, client, draft, claimed.customer_id, resolved.countryId);
+      if (draft.customer.kind === "company") {
+        await assertNoForeignDuplicate(db, client, partnerId, {
+          fromDay: day,
+          vs,
+          orderReference: draft.orderReference ?? null,
+          totalKc: draft.totalKc,
+        });
+      }
       const body = invoicePostBody(
         draft,
         {

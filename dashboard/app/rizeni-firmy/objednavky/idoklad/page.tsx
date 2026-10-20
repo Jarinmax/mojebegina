@@ -10,6 +10,9 @@ import IdokladPreflightPanel from "./IdokladPreflightPanel";
 // vystavení, ale jen čtení — nic se nezapisuje do iDokladu ani do DB.
 // Jde spustit i s vypnutou fakturací (před zapnutím na Production).
 export const dynamic = "force-dynamic";
+// Serverové akce stránky volají iDoklad (kontrola / vystavení faktury):
+// až ~20 čtení po 20 s — výchozí limit funkce by je mohl utnout uprostřed.
+export const maxDuration = 60;
 
 export default async function IdokladPreflightPage() {
   const ctx = await getAuthContext();

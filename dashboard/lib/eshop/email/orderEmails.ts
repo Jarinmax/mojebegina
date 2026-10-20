@@ -87,10 +87,15 @@ type OrderForEmail = EmailOrder & { channel: string };
 
 /** Které e-maily daná událost spouští (čistá funkce). */
 export function emailsFor(
-  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus">,
+  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus" | "externalWooCommerceId">,
   trigger: OrderEmailTrigger,
   alreadySentTemplates: ReadonlySet<string> = new Set()
 ): OrderEmailTemplate[] {
+  // Objednávka importovaná z WooCommerce: jen „Faktura k objednávce“ (PDF
+  // z MojeBegina); potvrzení a stavové e-maily poslal zákazníkovi WooCommerce.
+  if (order.channel === "import" && order.externalWooCommerceId) {
+    return trigger === "invoice_issued" && order.paymentStatus === "paid" ? ["customer_invoice"] : [];
+  }
   if (order.channel !== "eshop") return [];
   const card = order.paymentMethodCode === "karta";
   if (trigger === "order_created") {
@@ -118,6 +123,7 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
       channel: orders.channel,
       orderNumber: orders.orderNumber,
       paymentVs: orders.paymentVs,
+      externalWooCommerceId: orders.externalWooCommerceId,
       contactName: orders.contactName,
       contactEmail: orders.contactEmail,
       recipientAddress: orders.recipientAddress,

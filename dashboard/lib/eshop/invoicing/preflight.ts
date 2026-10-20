@@ -17,7 +17,7 @@
 //   GET /IssuedInvoices/Default                      šablona faktury (typ ceny, účet)
 // Nic nezakládá, nemění, nerezervuje ani neodesílá.
 import { CZECH_REPUBLIC_COUNTRY_CODE, IDOKLAD_ENUMS, PAYMENT_OPTION_MATCH, type ItemPricing } from "./idoklad";
-import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter } from "./idokladHttp";
+import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, type IdokladLogEntry } from "./idokladHttp";
 import { BEGINA_ICO, ESHOP_SERIES, eshopIdokladCredentials, missingIdokladCredentials } from "./mode";
 import { ISSUED_INVOICE_DOCUMENT_TYPE, checkEshopSeries, parseSeriesId, type IdokladNumericSequence } from "./numberSeries";
 
@@ -59,6 +59,8 @@ export type PreflightResult = {
   /** hodnoty pro vystavení — jen při ok */
   resolved: PreflightResolved | null;
   requestCount: number;
+  /** průběh požadavků (metoda, cesta, HTTP stav / null = bez odpovědi, ms) — bez tokenu a údajů */
+  requests: IdokladLogEntry[];
 };
 
 const LABELS: Record<PreflightCheckKey, string> = {
@@ -119,12 +121,16 @@ export async function runIdokladPreflight(
       (key) => results.get(key) ?? { key, label: LABELS[key], ok: false, detail: "Neověřeno — předchozí kontrola selhala." }
     );
     const ok = checks.every((c) => c.ok) && resolved !== null;
+    const requests = [...client.log];
+    // do runtime logů Vercelu: jen metoda, cesta, stav a čas (nic tajného)
+    if (!ok) console.warn("iDoklad preflight neprošel", JSON.stringify(requests));
     return {
       ok,
       checkedAt: (options.now ?? new Date()).toISOString(),
       checks,
       resolved: ok ? resolved : null,
       requestCount: client.requestCount,
+      requests,
     };
   };
 

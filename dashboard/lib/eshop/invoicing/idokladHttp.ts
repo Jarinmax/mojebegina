@@ -29,6 +29,14 @@ export const IDOKLAD_API_BASE = "https://api.idoklad.cz/v3";
 export const IDOKLAD_TOKEN_URL = "https://identity.idoklad.cz/server/v2/connect/token";
 export const IDOKLAD_TOKEN_SCOPE = "idoklad_api";
 
+/**
+ * Limit na jeden požadavek. 19. 10. 2026 v Production první čtení
+ * (/Account/CurrentAgenda) nedostalo odpověď do 10 s, i když token prošel —
+ * proto 20 s a u čtení jeden opakovaný pokus (send).
+ */
+export const IDOKLAD_TIMEOUT_MS = 20_000;
+const RETRY_STATUSES = new Set([502, 503, 504]);
+
 const API_HOST = "api.idoklad.cz";
 /** Česká nápověda k nejčastějším kódům odmítnutí přihlášení (OAuth 2.0). */
 const TOKEN_ERROR_HINTS: Record<string, string> = {
@@ -163,7 +171,7 @@ export class EshopIdokladClient {
       fetchImpl: options.fetchImpl ?? fetch,
       now: options.now ?? Date.now,
       requestBudget: options.requestBudget ?? 40,
-      timeoutMs: options.timeoutMs ?? 10_000,
+      timeoutMs: options.timeoutMs ?? IDOKLAD_TIMEOUT_MS,
       env: options.env ?? process.env,
     };
   }
@@ -198,23 +206,31 @@ export class EshopIdokladClient {
   private async send(method: string, url: string, init: RequestInit): Promise<Response> {
     // pojistka dřív než cokoli jiného — i před rozpočtem a tokenem
     assertEshopIdokladRequest(method, url, this.writesAllowed);
-    if (this.count >= this.opts.requestBudget) throw new IdokladApiError("Vyčerpán limit požadavků na iDoklad.");
-    this.count += 1;
-    const started = this.opts.now();
-    const path = new URL(url).pathname;
-    try {
-      const response = await this.opts.fetchImpl(url, {
-        ...init,
-        method,
-        redirect: "error",
-        cache: "no-store",
-        signal: AbortSignal.timeout(this.opts.timeoutMs),
-      });
-      this.log.push({ method, path, status: response.status, ms: this.opts.now() - started });
-      return response;
-    } catch (error) {
-      this.log.push({ method, path, status: null, ms: this.opts.now() - started });
-      throw new IdokladApiError(`iDoklad nedostupný: ${this.redact(error instanceof Error ? error.message : String(error))}`);
+    // Čtení a žádost o token nic nemění → jeden opakovaný pokus při výpadku
+    // (timeout, síť, 502/503/504). Zápis se NIKDY neopakuje automaticky:
+    // nejasný výsledek řeší další vystavení dohledáním faktury podle VS.
+    const retryable = method === "GET" || url === IDOKLAD_TOKEN_URL;
+    for (let attempt = 1; ; attempt += 1) {
+      if (this.count >= this.opts.requestBudget) throw new IdokladApiError("Vyčerpán limit požadavků na iDoklad.");
+      this.count += 1;
+      const started = this.opts.now();
+      const path = new URL(url).pathname;
+      try {
+        const response = await this.opts.fetchImpl(url, {
+          ...init,
+          method,
+          redirect: "error",
+          cache: "no-store",
+          signal: AbortSignal.timeout(this.opts.timeoutMs),
+        });
+        this.log.push({ method, path, status: response.status, ms: this.opts.now() - started });
+        if (retryable && attempt < 2 && RETRY_STATUSES.has(response.status)) continue;
+        return response;
+      } catch (error) {
+        this.log.push({ method, path, status: null, ms: this.opts.now() - started });
+        if (retryable && attempt < 2) continue;
+        throw new IdokladApiError(`iDoklad nedostupný: ${this.redact(error instanceof Error ? error.message : String(error))}`);
+      }
     }
   }
 
@@ -308,8 +324,8 @@ export class EshopIdokladClient {
     return this.call<T>("GET", path, query);
   }
 
-  async list<T>(path: string, filter?: string, pageSize = 100): Promise<IdokladListPage<T>> {
-    const query: Record<string, string> = { page: "1", pageSize: String(pageSize) };
+  async list<T>(path: string, filter?: string, pageSize = 100, page = 1): Promise<IdokladListPage<T>> {
+    const query: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (filter) query.filter = filter;
     const data = await this.call<Partial<IdokladListPage<T>>>("GET", path, query);
     if (!data || !Array.isArray(data.Items)) throw new IdokladApiError(`iDoklad GET ${path}: chybí Items`);
