@@ -23,7 +23,7 @@
 //
 // Client ID, Client Secret ani token se nikdy nelogují ani neukládají.
 // Přesměrování se nesledují (redirect: "error").
-import { liveInvoicingGate } from "./mode";
+import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
 
 export const IDOKLAD_API_BASE = "https://api.idoklad.cz/v3";
 export const IDOKLAD_TOKEN_URL = "https://identity.idoklad.cz/server/v2/connect/token";
@@ -122,6 +122,18 @@ export function assertEshopIdokladRequest(method: string, rawUrl: string, writes
   }
   if (url.search !== "" && !(m === "PUT" && /^\?dateOfPayment=[0-9:+ .-]+$/.test(decodeURIComponent(url.search)))) {
     throw new IdokladBlockedError("zápis nesmí mít parametry v adrese");
+  }
+}
+
+/**
+ * Faktura z MojeBegina smí vzniknout JEN v řadě E-shop Begina (7277293).
+ * Ruční řada Lucie (výchozí řada agendy, čísla 2026xxxx) je pro MojeBegina
+ * zakázaná — poslední pojistka přímo před odesláním, nezávislá na nastavení.
+ */
+export function assertEshopSeriesBody(body: unknown): void {
+  const sequenceId = (body as { NumericSequenceId?: unknown } | null)?.NumericSequenceId;
+  if (String(sequenceId) !== ESHOP_SERIES.id) {
+    throw new IdokladBlockedError(`faktura mimo řadu ${ESHOP_SERIES.id} „${ESHOP_SERIES.name}“ (NumericSequenceId ${String(sequenceId ?? "—")})`);
   }
 }
 
@@ -295,6 +307,7 @@ export class EshopIdokladClient {
     // Pojistka se ověří i tady (před získáním tokenu), aby blokovaný zápis
     // na Preview neposlal na identity server ani žádost o token.
     assertEshopIdokladRequest(method, url.toString(), this.writesAllowed);
+    if (method === "POST" && path === "/IssuedInvoices") assertEshopSeriesBody(body);
     const token = await this.accessToken();
     const response = await this.send(method, url.toString(), {
       headers: {

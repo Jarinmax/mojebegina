@@ -39,7 +39,7 @@ import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
 import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, vsSearchFromDay } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
-import { liveInvoicingGate } from "./mode";
+import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
 
@@ -64,6 +64,7 @@ class IssueStop extends Error {}
 type IdokladInvoice = {
   Id: number;
   DocumentNumber?: string | null;
+  NumericSequenceId?: number | null;
   VariableSymbol?: string | null;
   DateOfIssue?: string | null;
   OrderNumber?: string | null;
@@ -116,6 +117,11 @@ async function findByVs(client: EshopIdokladClient, vs: string, day: string): Pr
 function assertOurInvoice(invoice: IdokladInvoice, vs: string) {
   if (invoice.VariableSymbol !== vs) {
     throw new IssueStop(`Faktura ${invoice.Id} v iDokladu má jiný VS (${invoice.VariableSymbol ?? "—"}) — nutná ruční kontrola.`);
+  }
+  if (invoice.NumericSequenceId != null && String(invoice.NumericSequenceId) !== ESHOP_SERIES.id) {
+    throw new IssueStop(
+      `Faktura ${invoice.DocumentNumber ?? invoice.Id} v iDokladu není z řady E-shop Begina (${ESHOP_SERIES.id}), ale z řady ${invoice.NumericSequenceId} — nutná ruční kontrola.`
+    );
   }
   if (!invoice.DocumentNumber || !ESHOP_NUMBER_RE.test(invoice.DocumentNumber)) {
     throw new IssueStop(

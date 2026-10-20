@@ -93,6 +93,7 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
   const invoiceView = (i: Invoice) => ({
     Id: i.Id,
     DocumentNumber: i.DocumentNumber,
+    NumericSequenceId: i.NumericSequenceId,
     VariableSymbol: i.VariableSymbol,
     PartnerId: i.PartnerId,
     DateOfIssue: (i.body.DateOfIssue as string | undefined) ?? null,
@@ -186,15 +187,19 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
         );
       }
       const partner = filterValue(query, "PartnerId");
+      const sequence = filterValue(query, "NumericSequenceId");
+      const number = filterValue(query, "DocumentNumber");
       const since = /^DateOfIssue~gte~(\d{4}-\d{2}-\d{2})$/.exec(query.filter ?? "")?.[1] ?? null;
       const all = invoices
         .filter((i) => (partner === null || String(i.PartnerId) === partner))
+        .filter((i) => sequence === null || String(i.NumericSequenceId) === sequence)
+        .filter((i) => number === null || i.DocumentNumber === number)
         .filter((i) => since === null || String(i.body.DateOfIssue ?? "").slice(0, 10) >= since)
         .map(invoiceView);
       const size = Number(query.pageSize ?? 100);
-      const number = Number(query.page ?? 1);
+      const pageNo = Number(query.page ?? 1);
       response = ok({
-        Items: all.slice((number - 1) * size, number * size),
+        Items: all.slice((pageNo - 1) * size, pageNo * size),
         TotalItems: all.length,
         TotalPages: Math.max(1, Math.ceil(all.length / size)),
       });
