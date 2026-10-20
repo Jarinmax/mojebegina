@@ -51,6 +51,7 @@ let supplierByNameRow: [string, string] | null = null;
 let mappingByCodeRow: [string, string, string, string] | null = null; // id, stock_item_id, line_kind, canonical_unit
 let mappingByDescriptionRow: [string, string, string, string] | null = null;
 let insertedLineCounter = 0;
+let finalWriteSucceeds = true;
 // --- confirmGoodsReceiptLineMapping ----------------------------------------
 let stockItemExists = true;
 let stockItemKind = "resale_goods";
@@ -63,6 +64,21 @@ let lineRowForConfirm: [string, string | null, string, number, string, string] |
   "ks",
 ];
 let existingMappingForConfirmRow: [string] | null = null;
+
+// Atomický zápis vytěženého návrhu = jediný příkaz; řádky jsou v něm jako
+// JSON (jsonb_to_recordset), hlavička a historie jako další parametry.
+function extractionWrites(): CapturedQuery[] {
+  return capturedQueries.filter((q) => q.sql.includes("jsonb_to_recordset") && q.sql.includes("INSERT INTO goods_receipt_lines"));
+}
+function extractionWrite(): CapturedQuery {
+  const writes = extractionWrites();
+  expect(writes).toHaveLength(1);
+  return writes[0];
+}
+function writtenLines(): Array<Record<string, unknown>> {
+  const json = extractionWrite().params.find((p) => typeof p === "string" && p.startsWith("[")) as string;
+  return JSON.parse(json);
+}
 
 function makeBlobStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -88,7 +104,7 @@ vi.mock("@neondatabase/serverless", () => ({
       });
     }
     // claim UPDATE (raw sql template, keeps original casing)
-    if (sqlText.includes("UPDATE goods_receipts") && sqlText.includes("extraction_status = 'pending'")) {
+    if (sqlText.includes("UPDATE goods_receipts") && sqlText.includes("extraction_status = 'pending'") && !sqlText.includes("jsonb_to_recordset")) {
       const rows = claimSucceeds ? [[RECEIPT_ID]] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
@@ -121,10 +137,11 @@ vi.mock("@neondatabase/serverless", () => ({
     if (sqlText.startsWith('update "supplier_item_mappings" set "last_used_at"')) {
       return Promise.resolve({ rows: [], rowCount: 1, fields: [] });
     }
-    // insert extracted lines
-    if (sqlText.startsWith('insert into "goods_receipt_lines"')) {
+    // atomický zápis vytěženého návrhu (hlavička + všechny řádky + historie jedním příkazem)
+    if (sqlText.includes("jsonb_to_recordset") && sqlText.includes("INSERT INTO goods_receipt_lines")) {
       insertedLineCounter += 1;
-      return Promise.resolve({ rows: [[`line-${insertedLineCounter}`]], rowCount: 1, fields: [] });
+      const rows = finalWriteSucceeds ? [["activity-1"]] : [];
+      return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
     // final goods_receipts update (extraction_status/extraction_raw/…)
     if (sqlText.startsWith('update "goods_receipts" set "document_number"')) {
@@ -275,6 +292,7 @@ beforeEach(() => {
   mappingByCodeRow = null;
   mappingByDescriptionRow = null;
   insertedLineCounter = 0;
+  finalWriteSucceeds = true;
   stockItemExists = true;
   stockItemKind = "resale_goods";
   lineRowForConfirm = ["line-1", "123", "Pivo 12°", 12, "ks", "ks"];
@@ -346,13 +364,13 @@ describe("triggerGoodsReceiptExtraction — idempotence a souběh (bod 12 zadán
     mockPerformReceiptOcr.mockRejectedValueOnce(new Error("OCR timeout"));
     const first = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(first.ok).toBe(false);
-    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+    expect(extractionWrites()).toHaveLength(0);
 
     capturedQueries.length = 0;
     const second = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(second.ok).toBe(true);
-    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
-    expect(lineInserts).toHaveLength(1);
+    expect(extractionWrites()).toHaveLength(1);
+    expect(writtenLines()).toHaveLength(1);
   });
 });
 
@@ -494,7 +512,7 @@ describe("triggerGoodsReceiptExtraction — OCR vrátí příliš málo textu �
     // je prokázaně špatná (bod 4 zadání) — jen nabízí výměnu.
     expect(result).toMatchObject({ kind: "unreadable" });
     expect(mockExtractStructuredReceipt).not.toHaveBeenCalled();
-    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+    expect(extractionWrites()).toHaveLength(0);
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
   });
 
@@ -584,9 +602,7 @@ describe("triggerGoodsReceiptExtraction — maloobchodní účtenka: chybějíc�
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result).toEqual({ ok: true });
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
-    expect(lineInsert).toBeTruthy();
-    expect(lineInsert.params).toContain(1); // rawPackageQuantity defaultovalo na 1, řádek NENÍ vyřazený
+    expect(writtenLines()[0].raw_package_quantity).toBe(1); // rawPackageQuantity defaultovalo na 1, řádek NENÍ vyřazený
   });
 
   it("skutečně nečitelný řádek (bez popisu) se tiše vyřadí, dobrý řádek se zapíše — doklad jako celek uspěje", async () => {
@@ -599,14 +615,11 @@ describe("triggerGoodsReceiptExtraction — maloobchodní účtenka: chybějíc�
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result).toEqual({ ok: true });
-    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
-    expect(lineInserts).toHaveLength(1); // jen ten použitelný řádek, ne ten bez popisu
+    expect(writtenLines()).toHaveLength(1); // jen ten použitelný řádek, ne ten bez popisu
+    expect(extractionWrite().sql).toContain("extraction_status = 'needs_review'"); // finální zápis, ne markExtractionFailed
+    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(false);
 
-    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'));
-    expect(receiptUpdate).toBeTruthy(); // finální update (extraction_status='needs_review'), ne markExtractionFailed
-
-    const activityInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
-    const activityBody = JSON.stringify(activityInsert.params);
+    const activityBody = JSON.stringify(extractionWrite().params);
     expect(activityBody).toContain("1 nečitelných řádků přeskočeno"); // reviewer vidí, že se něco tiše vynechalo
   });
 
@@ -627,11 +640,8 @@ describe("triggerGoodsReceiptExtraction — maloobchodní účtenka: chybějíc�
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
 
     expect(result).toEqual({ ok: true });
-    const lineInserts = capturedQueries.filter((q) => q.sql.startsWith('insert into "goods_receipt_lines"'));
-    expect(lineInserts).toHaveLength(4); // "Dobrý řádek" + 3 dřív chybně zahazované; 2 skutečně nesmyslné zůstávají vyřazené
-
-    const activityInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_activity"'))!;
-    expect(JSON.stringify(activityInsert.params)).toContain("2 nečitelných řádků přeskočeno");
+    expect(writtenLines()).toHaveLength(4); // "Dobrý řádek" + 3 dřív chybně zahazované; 2 skutečně nesmyslné zůstávají vyřazené
+    expect(JSON.stringify(extractionWrite().params)).toContain("2 nečitelných řádků přeskočeno");
   });
 
   it("úplně nečitelný doklad (VŠECHNY řádky bez popisu) je selhání, ne prázdná needs_review příjemka — retry zůstává možný, žádný třetí pokus", async () => {
@@ -644,7 +654,7 @@ describe("triggerGoodsReceiptExtraction — maloobchodní účtenka: chybějíc�
     // NETVRDÍ, že fotka je prokázaně špatná (bod 4 zadání) — jen nabízí
     // výměnu, příčina (fotka/obsah dokladu/omezení modelu) zůstává nejasná.
     expect(result).toMatchObject({ kind: "unreadable" });
-    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+    expect(extractionWrites()).toHaveLength(0);
     // Stejný bezpečný retry jako u chyby modelu: extraction_status → 'failed'.
     expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(true);
     expect(mockExtractStructuredReceipt).toHaveBeenCalledTimes(1); // žádný další (dražší) pokus
@@ -695,9 +705,9 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    const supplierUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "supplier_id"'));
-    expect(supplierUpdate).toBeTruthy();
-    expect(supplierUpdate!.params).toContain("supplier-matched");
+    // Oprava dodavatele je součástí atomického zápisu návrhu (supplier_id + snapshot jména).
+    expect(extractionWrite().params).toContain("supplier-matched");
+    expect(extractionWrite().params).toContain("Matched Supplier");
   });
 
   it("bez IČO shody padá na normalizovaný název", async () => {
@@ -707,8 +717,7 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    const supplierUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "supplier_id"'));
-    expect(supplierUpdate!.params).toContain("supplier-by-name");
+    expect(extractionWrite().params).toContain("supplier-by-name");
   });
 
   it("žádná shoda (nový/neznámý dodavatel) → supplier_id na příjemce se NEMĚNÍ a NIKDY nevznikne nový řádek v suppliers", async () => {
@@ -718,8 +727,61 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "supplier_id"'))).toBe(false);
+    expect(extractionWrite().params).toContain(SUPPLIER_ID); // supplier_id zůstává původní
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "suppliers"'))).toBe(false);
+  });
+});
+
+describe("triggerGoodsReceiptExtraction — atomický zápis návrhu (blokující bod 5)", () => {
+  it("hlavička, všechny řádky a historie jdou jedním příkazem za zámkem příjemky, jen pro claim TOHOTO pokusu", async () => {
+    mockExtractStructuredReceipt.mockResolvedValue(
+      baseExtracted({ lines: [baseExtractedLine({ description: "A" }), baseExtractedLine({ description: "B" }), baseExtractedLine({ description: "C" })] })
+    );
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    expect(await triggerGoodsReceiptExtraction(RECEIPT_ID)).toEqual({ ok: true });
+
+    const write = extractionWrite();
+    expect(writtenLines().map((l) => l.raw_description)).toEqual(["A", "B", "C"]);
+    expect(write.sql).toMatch(/WITH claimed AS \(\s*UPDATE goods_receipts/);
+    expect(write.sql).toContain("AND extraction_status = 'pending'");
+    expect(write.sql).toContain("AND updated_at = ");
+    expect(write.sql).toContain("INSERT INTO goods_receipt_activity");
+    // zámek je první příkaz téže dávky (transakce) těsně před zápisem
+    const lockIdx = capturedQueries.findIndex((q) => q.sql.includes("pg_advisory_xact_lock"));
+    expect(lockIdx).toBe(capturedQueries.indexOf(write) - 1);
+    // žádné samostatné INSERTy řádků ani UPDATE hlavičky mimo ten příkaz
+    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))).toBe(false);
+    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'))).toBe(false);
+  });
+
+  it("claim mezitím převzal jiný pokus → nic se nezapíše, cizí stav se nepřepíše na 'failed'", async () => {
+    finalWriteSucceeds = false;
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result).toMatchObject({ ok: false, kind: "technical" });
+    expect(capturedQueries.some((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))).toBe(false);
+  });
+
+  it("celková částka dokladu se uloží k pozdějšímu porovnání (0 = neznámá → NULL, nikdy 0 Kč)", async () => {
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ totalWithVat: 1234.5 }));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(extractionWrite().sql).toContain("document_total_with_vat_hal = COALESCE(document_total_with_vat_hal,");
+    expect(extractionWrite().params).toContain(123450);
+
+    capturedQueries.length = 0;
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ totalWithVat: 0 }));
+    await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(extractionWrite().params).not.toContain(0);
+  });
+
+  it("selhání před zápisem označí 'failed' jen pro claim tohoto pokusu (updated_at z claimu)", async () => {
+    mockPerformReceiptOcr.mockRejectedValueOnce(new Error("OCR down"));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    const failed = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "extraction_status"'))!;
+    expect(failed.sql).toContain('"goods_receipts"."extraction_status" = $');
+    expect(failed.sql).toContain('"goods_receipts"."updated_at" = $');
   });
 });
 
@@ -731,9 +793,8 @@ describe("triggerGoodsReceiptExtraction — DPH se vždy dopočítá, model se n
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
-    expect(lineInsert.params).toContain(2100); // 12100 - 10000, nikdy 999999 * 100
-    expect(lineInsert.params).not.toContain(99999900);
+    expect(writtenLines()[0].vat_hal).toBe(2100); // 12100 - 10000, nikdy 999999 * 100
+    expect(JSON.stringify(writtenLines())).not.toContain("99999900");
   });
 });
 
@@ -743,9 +804,7 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
-    expect(lineInsert.params).toContain("item-known");
-    expect(lineInsert.params).toContain("auto");
+    expect(writtenLines()[0]).toMatchObject({ stock_item_id: "item-known", mapping_source: "auto" });
     expect(capturedQueries.some((q) => q.sql.startsWith('update "supplier_item_mappings" set "last_used_at"'))).toBe(true);
   });
 
@@ -755,12 +814,11 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID); // line má supplierItemCode="123"
     expect(result.ok).toBe(true);
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
     // kód "123" nemá známé mapování (mappingByCodeRow=null) a POPIS se jako
     // fallback nepoužije, protože kód byl vyplněný — položka zůstane
     // nenamapovaná (mapping_source NULL), i když "mappingByDescriptionRow"
     // existuje.
-    expect(lineInsert.params).not.toContain("item-by-desc");
+    expect(writtenLines()[0].stock_item_id).toBeNull();
   });
 
   it("neznámá položka (žádné mapování) → nenamapováno (stock_item_id NULL, mapping_source NULL), kategorie = AI návrh", async () => {
@@ -770,14 +828,10 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
-    expect(lineInsert.params).toContain(null); // stock_item_id mezi parametry je null
-    expect(lineInsert.params).toContain("operating_supply");
-    expect(lineInsert.params).not.toContain("auto");
+    expect(writtenLines()[0]).toMatchObject({ stock_item_id: null, line_kind: "operating_supply", mapping_source: null });
     // Návrh (kategorie/karta/jednotka) se uloží do extraction_raw pro
     // kontrolní obrazovku, ne přímo jako potvrzené mapování (bod 7 zadání).
-    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'))!;
-    const extractionRawJson = JSON.stringify(receiptUpdate.params);
+    const extractionRawJson = JSON.stringify(extractionWrite().params);
     expect(extractionRawJson).toContain("operating_supply");
     expect(extractionRawJson).toContain("Pivo 12°");
   });
@@ -801,14 +855,12 @@ describe("triggerGoodsReceiptExtraction — mapování položek (body 6+7 zadán
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
 
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
-    expect(lineInsert.params).toContain("BG"); // normalizedUnit = rawUnit (z dokladu)
-    expect(lineInsert.params).not.toContain("kg"); // NE AI návrh — ten by se tvářil jako ověřená jednotka nákupu
+    expect(writtenLines()[0]).toMatchObject({ raw_unit: "BG", normalized_unit: "BG" }); // normalizedUnit = rawUnit (z dokladu)
+    expect(JSON.stringify(writtenLines())).not.toContain('"kg"'); // NE AI návrh — ten by se tvářil jako ověřená jednotka nákupu
 
     // AI návrh zůstává dál dostupný pro kontrolní obrazovku (založení NOVÉ
     // skladové karty), jen se nepoužije jako jednotka TÉHLE položky.
-    const receiptUpdate = capturedQueries.find((q) => q.sql.startsWith('update "goods_receipts" set "document_number"'))!;
-    expect(JSON.stringify(receiptUpdate.params)).toContain("kg");
+    expect(JSON.stringify(extractionWrite().params)).toContain("kg");
   });
 });
 
@@ -822,9 +874,7 @@ describe("triggerGoodsReceiptExtraction — soukromá položka nikdy nedostane s
     const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
     const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
     expect(result.ok).toBe(true);
-    const lineInsert = capturedQueries.find((q) => q.sql.startsWith('insert into "goods_receipt_lines"'))!;
-    expect(lineInsert.params).toContain("non_stock_private");
-    expect(lineInsert.params).toContain(null);
+    expect(writtenLines()[0]).toMatchObject({ line_kind: "non_stock_private", stock_item_id: null });
   });
 });
 

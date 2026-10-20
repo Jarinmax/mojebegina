@@ -161,12 +161,17 @@ function describeExtractionErrorForLog(error: unknown, depth = 0): unknown {
   return info;
 }
 
-async function markExtractionFailed(receiptId: string): Promise<void> {
+// `claimedAt` = hodnota updated_at, kterou do příjemky zapsal claim TOHOTO
+// pokusu (stejný vzor jako reextraction_claimed_at níž) — opožděný pokus,
+// jehož claim mezitím převzal novější, tak nepřepíše cizí výsledek na 'failed'.
+async function markExtractionFailed(receiptId: string, claimedAt: Date): Promise<void> {
   try {
     await db
       .update(goodsReceipts)
       .set({ extractionStatus: "failed", updatedAt: new Date() })
-      .where(eq(goodsReceipts.id, receiptId));
+      .where(
+        and(eq(goodsReceipts.id, receiptId), eq(goodsReceipts.extractionStatus, "pending"), eq(goodsReceipts.updatedAt, claimedAt))
+      );
   } catch {
     // Zápis "failed" stavu je jen best-effort hláška pro uživatele — chyba
     // se tiše ignoruje, aby nezamaskovala původní chybu z modelu/vytěžení.
@@ -180,9 +185,9 @@ async function markExtractionFailed(receiptId: string): Promise<void> {
 // "technical", ne "unreadable" — nejde o nejistotu kolem kvality fotky,
 // appka tu VÍ přesně, co se stalo (finishReason "length", zalogováno
 // bezpečně v aiCallDiagnostics.ts), jen to nedokáže sama dokončit.
-async function truncatedExtractionResult(receiptId: string, phase: "ocr" | "structuring"): Promise<TriggerExtractionResult> {
+async function truncatedExtractionResult(receiptId: string, phase: "ocr" | "structuring", claimedAt: Date): Promise<TriggerExtractionResult> {
   console.error(`[sklad] AI model dosáhl výstupního limitu (receiptId=${receiptId}, fáze=${phase}) — čtení nebylo dokončeno, bez dalšího pokusu.`);
-  await markExtractionFailed(receiptId);
+  await markExtractionFailed(receiptId, claimedAt);
   return {
     ok: false,
     error: "Čtení dokladu se nepodařilo dokončit — model dosáhl limitu délky výstupu. Zkuste to znovu.",
@@ -415,9 +420,10 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     return { ok: false, error: "Vytěžit lze jen návrh příjemky.", kind: "technical" };
   }
 
+  const claimedAt = new Date();
   const claim = await db.execute<{ id: string }>(sql`
     UPDATE goods_receipts
-    SET extraction_status = 'pending', updated_at = now()
+    SET extraction_status = 'pending', updated_at = ${claimedAt}
     WHERE id = ${receiptId}
       AND status = 'draft'
       AND (
@@ -437,7 +443,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
 
   const { images, diagnostics: pageDiagnostics } = await fetchReceiptPageImages(receiptId);
   if (images.length === 0) {
-    await markExtractionFailed(receiptId);
+    await markExtractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Nejdřív nahrajte aspoň jednu fotku dokladu.", kind: "technical" };
   }
 
@@ -455,10 +461,10 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     ocrText = await performReceiptOcr(images, receiptId);
   } catch (error) {
     if (error instanceof ModelOutputTruncatedError) {
-      return truncatedExtractionResult(receiptId, error.phase);
+      return truncatedExtractionResult(receiptId, error.phase, claimedAt);
     }
     console.error(`[sklad] OCR účtenky selhalo (receiptId=${receiptId}, model=${OCR_MODEL_ID}):`, describeExtractionErrorForLog(error));
-    await markExtractionFailed(receiptId);
+    await markExtractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" };
   }
 
@@ -472,7 +478,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     console.error(
       `[sklad] OCR vrátilo příliš málo textu (receiptId=${receiptId}): ocrCharCount=${ocrCharCount}, min=${MIN_OCR_TEXT_LENGTH}`
     );
-    await markExtractionFailed(receiptId);
+    await markExtractionFailed(receiptId, claimedAt);
     // Nulový/nedostatečný výsledek OCR se NEOZNAČUJE za prokázanou špatnou
     // kvalitu fotky (bod 4 zadání po reálném nálezu) — appka jen nabídne
     // výměnu, nikdy netvrdí, že to JE příčina.
@@ -492,13 +498,13 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     structuredRaw = await extractStructuredReceipt(ocrText, receiptId);
   } catch (error) {
     if (error instanceof ModelOutputTruncatedError) {
-      return truncatedExtractionResult(receiptId, error.phase);
+      return truncatedExtractionResult(receiptId, error.phase, claimedAt);
     }
     console.error(
       `[sklad] Strukturování OCR textu selhalo (receiptId=${receiptId}, model=${EXTRACTION_MODEL_ID}):`,
       describeExtractionErrorForLog(error)
     );
-    await markExtractionFailed(receiptId);
+    await markExtractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Vytěžení dokladu se nezdařilo. Zkuste to znovu.", kind: "technical" };
   }
 
@@ -515,7 +521,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     sanitizeDiagnostics
   );
   if (extracted.lines.length === 0) {
-    await markExtractionFailed(receiptId);
+    await markExtractionFailed(receiptId, claimedAt);
     // Stejná zásada jako výš — appka OCR text přečetla (prošel
     // MIN_OCR_TEXT_LENGTH), ale strukturování z něj nenašlo žádnou
     // položku. Příčina může, ale nemusí být kvalita fotky (klidně i jen
@@ -528,82 +534,117 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
     };
   }
 
+  let written: { rows: unknown[] };
   try {
     const sanitizedIco = sanitizeExtractedIco(extracted.supplierIco);
     const resolvedSupplier = await resolveSupplierId(receipt.supplierId, extracted.supplierName, sanitizedIco);
-    if (resolvedSupplier) {
-      await db
-        .update(goodsReceipts)
-        .set({ supplierId: resolvedSupplier.supplierId, supplierNameSnapshot: resolvedSupplier.supplierNameSnapshot })
-        .where(eq(goodsReceipts.id, receiptId));
-    }
     const finalSupplierId = resolvedSupplier?.supplierId ?? receipt.supplierId;
 
     const resolvedLines = await resolveExtractedLines(finalSupplierId, extracted.lines);
-    const extractionRawLines: Array<{
-      position: number;
-      suggestion: { category: string; stockItemName: string | null; canonicalUnit: string | null } | null;
-    }> = [];
+    const extractionRaw = {
+      model: EXTRACTION_MODEL_ID,
+      ocrModel: OCR_MODEL_ID,
+      extractedAt: new Date().toISOString(),
+      lines: resolvedLines.map((line) => ({ position: line.position, suggestion: line.suggestion })),
+    };
+    const activityBody = `AI vytěžilo ${extracted.lines.length} řádků (OCR: ${OCR_MODEL_ID}, struktura: ${EXTRACTION_MODEL_ID})${
+      droppedLineCount > 0 ? `, ${droppedLineCount} nečitelných řádků přeskočeno` : ""
+    } — čeká na kontrolu.`;
 
-    for (const line of resolvedLines) {
-      await db.insert(goodsReceiptLines).values({
-        receiptId,
-        position: line.position,
-        rawDescription: line.rawDescription,
-        supplierItemCode: line.supplierItemCode,
-        supplierAuxiliaryCode: line.supplierAuxiliaryCode,
-        rawPackageQuantity: line.rawPackageQuantity,
-        rawUnitsPerPackage: line.rawUnitsPerPackage,
-        rawUnit: line.rawUnit,
-        normalizedQuantity: line.normalizedQuantity,
-        normalizedUnit: line.normalizedUnit,
-        unitPriceWithoutVat: line.unitPriceWithoutVat,
-        totalWithoutVatHal: line.totalWithoutVatHal,
-        vatHal: line.vatHal,
-        totalWithVatHal: line.totalWithVatHal,
-        computedVatRatePercent: line.computedVatRatePercent,
-        vatConfirmed: false,
-        stockItemId: line.stockItemId,
-        lineKind: line.lineKind,
-        mappingSource: line.mappingSource,
-      });
-
-      extractionRawLines.push({ position: line.position, suggestion: line.suggestion });
-    }
-
-    await db
-      .update(goodsReceipts)
-      .set({
-        extractionStatus: "needs_review",
-        extractionRaw: {
-          model: EXTRACTION_MODEL_ID,
-          ocrModel: OCR_MODEL_ID,
-          extractedAt: new Date().toISOString(),
-          lines: extractionRawLines,
-        },
-        documentNumber: receipt.documentNumber ?? extracted.documentNumber,
-        documentDate: receipt.documentDate ?? sanitizeExtractedDocumentDate(extracted.documentDate),
-        paymentMethod: receipt.paymentMethod ?? extracted.paymentMethod,
-        updatedAt: new Date(),
-      })
-      .where(eq(goodsReceipts.id, receiptId));
-
-    await db.insert(goodsReceiptActivity).values({
-      receiptId,
-      actorType: "system",
-      authorUserId: ctx.userId,
-      authorName: ctx.name,
-      kind: "line_added",
-      body: `AI vytěžilo ${extracted.lines.length} řádků (OCR: ${OCR_MODEL_ID}, struktura: ${EXTRACTION_MODEL_ID})${
-        droppedLineCount > 0 ? `, ${droppedLineCount} nečitelných řádků přeskočeno` : ""
-      } — čeká na kontrolu.`,
-    });
-
-    return { ok: true };
-  } catch {
-    await markExtractionFailed(receiptId);
+    // Zápis vytěženého návrhu je JEDEN příkaz pod zámkem příjemky: hlavička
+    // (needs_review, opravený dodavatel, číslo/datum/celková částka dokladu,
+    // kde je člověk nevyplnil), VŠECHNY řádky a záznam do historie — buď
+    // všechno, nebo nic. `claimed` platí jen pro TENTO pokus (stále
+    // 'pending' se stejným updated_at jako při claimu a bez řádků); řádky a
+    // historie se zapíší jen s ním. Dřív se řádky vkládaly po jednom a pád
+    // uprostřed nechal polovinu dokladu.
+    [, written] = await db.batch([
+      buildGoodsReceiptAdvisoryLockQuery(receiptId),
+      db.execute<{ id: string }>(sql`
+        WITH claimed AS (
+          UPDATE goods_receipts
+          SET extraction_status = 'needs_review',
+              extraction_raw = ${JSON.stringify(extractionRaw)}::jsonb,
+              supplier_id = ${finalSupplierId},
+              supplier_name_snapshot = COALESCE(${resolvedSupplier?.supplierNameSnapshot ?? null}, supplier_name_snapshot),
+              document_number = COALESCE(document_number, ${extracted.documentNumber}),
+              document_date = COALESCE(document_date, ${sanitizeExtractedDocumentDate(extracted.documentDate)}::date),
+              payment_method = COALESCE(payment_method, ${extracted.paymentMethod}),
+              document_total_with_vat_hal = COALESCE(document_total_with_vat_hal, ${documentTotalHal(extracted.totalWithVat)}::bigint),
+              updated_at = now()
+          WHERE id = ${receiptId}
+            AND status = 'draft'
+            AND extraction_status = 'pending'
+            AND updated_at = ${claimedAt}
+            AND NOT EXISTS (SELECT 1 FROM goods_receipt_lines WHERE receipt_id = ${receiptId})
+          RETURNING id
+        ),
+        inserted AS (
+          INSERT INTO goods_receipt_lines (
+            receipt_id, position, raw_description, supplier_item_code, supplier_auxiliary_code,
+            raw_package_quantity, raw_units_per_package, raw_unit, normalized_quantity, normalized_unit,
+            unit_price_without_vat, total_without_vat_hal, vat_hal, total_with_vat_hal, computed_vat_rate_percent,
+            vat_confirmed, stock_item_id, line_kind, mapping_source
+          )
+          SELECT c.id, l.position, l.raw_description, l.supplier_item_code, l.supplier_auxiliary_code,
+                 l.raw_package_quantity, l.raw_units_per_package, l.raw_unit, l.normalized_quantity, l.normalized_unit,
+                 l.unit_price_without_vat, l.total_without_vat_hal, l.vat_hal, l.total_with_vat_hal, l.computed_vat_rate_percent,
+                 false, l.stock_item_id, l.line_kind, l.mapping_source
+          FROM claimed c
+          CROSS JOIN jsonb_to_recordset(${JSON.stringify(resolvedLines.map(lineRecord))}::jsonb) AS l(
+            position integer, raw_description text, supplier_item_code text, supplier_auxiliary_code text,
+            raw_package_quantity numeric, raw_units_per_package numeric, raw_unit text, normalized_quantity numeric, normalized_unit text,
+            unit_price_without_vat numeric, total_without_vat_hal bigint, vat_hal bigint, total_with_vat_hal bigint,
+            computed_vat_rate_percent numeric, stock_item_id uuid, line_kind text, mapping_source text
+          )
+          RETURNING id
+        )
+        INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, body, metadata)
+        SELECT c.id, 'system', ${ctx.userId}, ${ctx.name}, 'line_added', ${activityBody},
+               jsonb_build_object('lines', (SELECT count(*) FROM inserted))
+        FROM claimed c
+        RETURNING id
+      `),
+    ]);
+  } catch (error) {
+    console.error(`[sklad] Zápis vytěžených dat selhal (receiptId=${receiptId}):`, describeExtractionErrorForLog(error));
+    await markExtractionFailed(receiptId, claimedAt);
     return { ok: false, error: "Zápis vytěžených dat selhal. Zkuste to znovu.", kind: "technical" };
   }
+  if (written.rows.length === 0) {
+    // Claim mezitím převzal jiný (novější) pokus, nebo příjemka už není
+    // návrh — nic se nezapsalo a cizí stav se nepřepisuje.
+    return { ok: false, error: "Vytěžení mezitím doběhlo jinde nebo se příjemka změnila — obnovte stránku.", kind: "technical" };
+  }
+  return { ok: true };
+}
+
+/** Celková částka dokladu s DPH v haléřích; 0 / chybějící = neznámá (null), nikdy 0 Kč. */
+function documentTotalHal(totalWithVat: number): number | null {
+  return totalWithVat > 0 ? Math.round(totalWithVat * 100) : null;
+}
+
+/** Řádek pro jsonb_to_recordset — klíče = názvy sloupců goods_receipt_lines. */
+function lineRecord(line: ResolvedExtractionLine) {
+  return {
+    position: line.position,
+    raw_description: line.rawDescription,
+    supplier_item_code: line.supplierItemCode,
+    supplier_auxiliary_code: line.supplierAuxiliaryCode,
+    raw_package_quantity: line.rawPackageQuantity,
+    raw_units_per_package: line.rawUnitsPerPackage,
+    raw_unit: line.rawUnit,
+    normalized_quantity: line.normalizedQuantity,
+    normalized_unit: line.normalizedUnit,
+    unit_price_without_vat: line.unitPriceWithoutVat,
+    total_without_vat_hal: line.totalWithoutVatHal,
+    vat_hal: line.vatHal,
+    total_with_vat_hal: line.totalWithVatHal,
+    computed_vat_rate_percent: line.computedVatRatePercent,
+    stock_item_id: line.stockItemId,
+    line_kind: line.lineKind,
+    mapping_source: line.mappingSource,
+  };
 }
 
 export type ExtractionSuggestion = { position: number; suggestion: { category: string; stockItemName: string | null; canonicalUnit: string | null } | null };

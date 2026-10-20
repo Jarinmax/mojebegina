@@ -1138,6 +1138,10 @@ export const goodsReceipts = pgTable(
     totalWithoutVatHal: bigint("total_without_vat_hal", { mode: "number" }),
     totalVatHal: bigint("total_vat_hal", { mode: "number" }),
     totalWithVatHal: bigint("total_with_vat_hal", { mode: "number" }),
+    // Celková částka s DPH, jak stojí NA DOKLADU (z vytěžení nebo ručně) —
+    // nezávislá na součtu řádků výš; potvrzení je porovná a nesoulad musí
+    // výslovně odsouhlasit člověk. NULL = na dokladu nenalezena.
+    documentTotalWithVatHal: bigint("document_total_with_vat_hal", { mode: "number" }),
     status: text("status").notNull().default("draft"), // "draft" | "confirmed" | "voided"
     extractionStatus: text("extraction_status").notNull().default("not_applicable"),
     extractionRaw: jsonb("extraction_raw"),
@@ -1174,6 +1178,10 @@ export const goodsReceipts = pgTable(
       .on(table.supplierId, table.documentNumber)
       .where(sql`${table.status} = 'confirmed' AND ${table.documentNumber} IS NOT NULL`),
     check("goods_receipts_status_check", sql`${table.status} IN ('draft','confirmed','voided')`),
+    check(
+      "goods_receipts_document_total_nonnegative",
+      sql`${table.documentTotalWithVatHal} IS NULL OR ${table.documentTotalWithVatHal} >= 0`
+    ),
     check(
       "goods_receipts_extraction_status_check",
       sql`${table.extractionStatus} IN ('not_applicable','pending','succeeded','failed','needs_review')`

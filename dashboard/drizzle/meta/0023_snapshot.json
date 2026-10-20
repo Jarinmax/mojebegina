@@ -1340,6 +1340,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "document_total_with_vat_hal": {
+          "name": "document_total_with_vat_hal",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -1491,6 +1497,10 @@
         "goods_receipts_status_check": {
           "name": "goods_receipts_status_check",
           "value": "\"goods_receipts\".\"status\" IN ('draft','confirmed','voided')"
+        },
+        "goods_receipts_document_total_nonnegative": {
+          "name": "goods_receipts_document_total_nonnegative",
+          "value": "\"goods_receipts\".\"document_total_with_vat_hal\" IS NULL OR \"goods_receipts\".\"document_total_with_vat_hal\" >= 0"
         },
         "goods_receipts_extraction_status_check": {
           "name": "goods_receipts_extraction_status_check",
