@@ -111,3 +111,15 @@ describe("performReceiptOcr — detekce useknutého výstupu (ModelOutputTruncat
     consoleLogSpy.mockRestore();
   });
 });
+
+describe("performReceiptOcr — limity volání (blokující bod 8)", () => {
+  it("bez automatického opakování, s horním limitem výstupu a časovým limitem", async () => {
+    mockGenerateText.mockResolvedValueOnce({ text: "x", output: { lines: [] }, finishReason: "stop", usage: {} });
+    const { performReceiptOcr } = await import("../receiptOcrModel");
+    await performReceiptOcr(SOME_IMAGE, RECEIPT_ID);
+    const { AI_CALL_TIMEOUT_MS, OCR_MAX_OUTPUT_TOKENS } = await import("../aiCallDiagnostics");
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxRetries: 0, maxOutputTokens: OCR_MAX_OUTPUT_TOKENS, timeout: { totalMs: AI_CALL_TIMEOUT_MS } })
+    );
+  });
+});

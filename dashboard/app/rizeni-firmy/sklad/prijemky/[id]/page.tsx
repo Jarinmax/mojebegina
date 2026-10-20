@@ -9,6 +9,11 @@ import NacistUdajeButton from "./NacistUdajeButton";
 import StornoForm from "./StornoForm";
 import ZnovuPrecistSekce from "./ZnovuPrecistSekce";
 
+// Serverové akce „Načíst údaje z dokladu“ a „Znovu přečíst doklad“ běží
+// v rámci téhle stránky: dvě AI volání (každé nejvýš 110 s, viz
+// AI_CALL_TIMEOUT_MS) + příprava obrázků a zápis.
+export const maxDuration = 300;
+
 const EXTRACTION_STATUS_LABELS: Record<string, string> = {
   pending: "Vytěžování probíhá…",
   failed: "Předchozí pokus o vytěžení se nezdařil.",

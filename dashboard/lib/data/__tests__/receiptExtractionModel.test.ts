@@ -123,3 +123,15 @@ describe("extractStructuredReceipt — detekce useknutého výstupu (ModelOutput
     expect(loggedJson).toContain("length");
   });
 });
+
+describe("extractStructuredReceipt — limity volání (blokující bod 8)", () => {
+  it("bez automatického opakování, s horním limitem výstupu a časovým limitem", async () => {
+    mockGenerateText.mockResolvedValueOnce({ text: "x", output: { lines: [] }, finishReason: "stop", usage: {} });
+    const { extractStructuredReceipt } = await import("../receiptExtractionModel");
+    await extractStructuredReceipt("OCR text", RECEIPT_ID);
+    const { AI_CALL_TIMEOUT_MS, STRUCTURING_MAX_OUTPUT_TOKENS } = await import("../aiCallDiagnostics");
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxRetries: 0, maxOutputTokens: STRUCTURING_MAX_OUTPUT_TOKENS, timeout: { totalMs: AI_CALL_TIMEOUT_MS } })
+    );
+  });
+});

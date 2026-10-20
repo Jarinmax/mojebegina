@@ -58,3 +58,18 @@ export class ModelOutputTruncatedError extends Error {
     this.phase = phase;
   }
 }
+
+// --- Limity AI volání (blokující bod 8) -----------------------------------
+//
+// maxRetries: 0 — SDK jinak opakuje neúspěšné volání 2× (až trojnásobná cena
+// i doba); opakování je vždy vědomé nové kliknutí člověka. maxOutputTokens
+// shora omezí cenu jednoho volání (strukturovací model navíc „přemýšlí“ —
+// i to se počítá do výstupu). Useknutí limitem appka pozná (finishReason
+// "length") a ohlásí. timeout: obě volání dohromady i s přípravou obrázků
+// a zápisem se musí vejít do maxDuration = 300 s stránky a route, které
+// vytěžení spouštějí — jinak by funkce skončila dřív, než stihne označit
+// pokus jako neúspěšný.
+export const AI_CALL_MAX_RETRIES = 0;
+export const OCR_MAX_OUTPUT_TOKENS = 8_000;
+export const STRUCTURING_MAX_OUTPUT_TOKENS = 16_000;
+export const AI_CALL_TIMEOUT_MS = 110_000;

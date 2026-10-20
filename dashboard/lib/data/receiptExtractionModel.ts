@@ -18,7 +18,14 @@ import "server-only";
 import { generateText, Output } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import { rawExtractedReceiptSchema, type RawExtractedReceipt } from "./skladValidation";
-import { isTruncatedByOutputLimit, logAiCallOutcome, ModelOutputTruncatedError } from "./aiCallDiagnostics";
+import {
+  AI_CALL_MAX_RETRIES,
+  AI_CALL_TIMEOUT_MS,
+  STRUCTURING_MAX_OUTPUT_TOKENS,
+  isTruncatedByOutputLimit,
+  logAiCallOutcome,
+  ModelOutputTruncatedError,
+} from "./aiCallDiagnostics";
 
 // Jediný model pro strukturování — žádný automatický dražší fallback
 // (druhý ostrý test na Preview `61c9755` ukázal, že záložní gpt-5-mini v
@@ -72,6 +79,9 @@ Pokud nějaký ÚDAJ v přepisu není nebo není čitelný, vrať pro něj null 
 export async function extractStructuredReceipt(ocrText: string, receiptId: string): Promise<RawExtractedReceipt> {
   const result = await generateText({
     model: gateway(EXTRACTION_MODEL_ID),
+    maxRetries: AI_CALL_MAX_RETRIES,
+    maxOutputTokens: STRUCTURING_MAX_OUTPUT_TOKENS,
+    timeout: { totalMs: AI_CALL_TIMEOUT_MS },
     output: Output.object({ schema: rawExtractedReceiptSchema, name: "ExtractedReceipt" }),
     providerOptions: {
       gateway: { has: ["structured-output"] },

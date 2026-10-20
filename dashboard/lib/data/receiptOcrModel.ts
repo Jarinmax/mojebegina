@@ -14,7 +14,14 @@ import "server-only";
 import { generateText } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import type { ReceiptImageInput } from "./receiptImagePreprocessing";
-import { isTruncatedByOutputLimit, logAiCallOutcome, ModelOutputTruncatedError } from "./aiCallDiagnostics";
+import {
+  AI_CALL_MAX_RETRIES,
+  AI_CALL_TIMEOUT_MS,
+  OCR_MAX_OUTPUT_TOKENS,
+  isTruncatedByOutputLimit,
+  logAiCallOutcome,
+  ModelOutputTruncatedError,
+} from "./aiCallDiagnostics";
 
 // OCR model — čte se z proměnné prostředí AI_GATEWAY_OCR_MODEL (fallback
 // na alibaba/qwen3-vl-instruct), stejný vzor jako EXTRACTION_MODEL_ID v
@@ -52,6 +59,9 @@ Nevracej nic jiného — žádný komentář, žádné shrnutí, žádné markdo
 export async function performReceiptOcr(images: ReceiptImageInput[], receiptId: string): Promise<string> {
   const result = await generateText({
     model: gateway(OCR_MODEL_ID),
+    maxRetries: AI_CALL_MAX_RETRIES,
+    maxOutputTokens: OCR_MAX_OUTPUT_TOKENS,
+    timeout: { totalMs: AI_CALL_TIMEOUT_MS },
     providerOptions: {
       gateway: { has: ["vision"] },
     },
