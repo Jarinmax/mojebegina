@@ -444,16 +444,59 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
   const script = (name: string) =>
     readFileSync(path.join(__dirname, "../../../docs/eshop-production", name), "utf8").replace(/--[^\n]*\n/g, "\n");
 
-  it("WooCommerce #5215 Food Fest Crew: import skriptem → firemní faktura (IČO, DIČ, sídlo), kontakt podle IČO, VS 5215, jednou", async () => {
-    // firma z převodu leadu Tomáše Herouta (Obchod → Převést na zákazníka)
-    await rows(sql`INSERT INTO organizations (ico, name, registered_address)
-      VALUES ('08911088', 'Food Fest Crew s.r.o.', 'Pasohlávky 251, 691 22 Pasohlávky')`);
-    const line = async (name: string) => Object.values((await rows(sql.raw(script(name))))[0]).map(String).join(" | ");
-    expect(await line("61_food_fest_5215_before.sql")).toBe("1 | 0 | ano | 0 | 0"); // lead tu není (test)
-    await rows(sql.raw(script("62_food_fest_5215.sql")));
+  const line = async (name: string) => Object.values((await rows(sql.raw(script(name))))[0]).map(String).join(" | ");
+  const LEAD = "cb5b6742-8031-40c9-9ac3-7456a946f061";
+  const BEFORE_65 = "1 | 1 | 0 | ano | 0 | 0";
+  const AFTER_65 = "1 | CZ08911088 | ano | 1 | 0 | 1 | 12647 | 1 | paid | 0";
+
+  it("skript 65: z leadu Tomáše Herouta firma Food Fest Crew + objednávka 5215 najednou, jednou, s návratem", async () => {
+    // lead jako v Production (čteno 19. 10. 2026): fáze „new“, bez firmy a IČO
+    await rows(sql`INSERT INTO leads (id, contact_name, contact_phone, contact_email, city, venue_type, source, stage, owner_user_id, acquired_by_user_id)
+      VALUES (${LEAD}, 'Tomáš Herout', '+420 723 141 743', 'tom.herout@seznam.cz', 'Přísnotice', 'bistro', 'existing_database', 'new', 'owner-1', 'acq-1')`);
+    expect(await line("64_food_fest_crew_a_5215_before.sql")).toBe(BEFORE_65);
+
+    // duplicitní lead se stejným e-mailem → stop, nic se nezapíše
+    await rows(sql`INSERT INTO leads (contact_email, source) VALUES ('Tom.Herout@seznam.cz', 'eshop')`);
+    await expect(rows(sql.raw(script("65_food_fest_crew_a_5215_MAIN.sql")))).rejects.toThrow(/právě 1 lead/);
+    await rows(sql`DELETE FROM leads WHERE id <> ${LEAD} AND lower(contact_email) = 'tom.herout@seznam.cz'`);
+    expect(await line("64_food_fest_crew_a_5215_before.sql")).toBe(BEFORE_65);
+
+    await rows(sql.raw(script("65_food_fest_crew_a_5215_MAIN.sql")));
     // druhé spuštění nic nezdvojí
-    await expect(rows(sql.raw(script("62_food_fest_5215.sql")))).rejects.toThrow(/už v MojeBegina je/);
-    expect(await line("63_food_fest_5215_after.sql")).toBe("1 | CZ08911088 | 12647 | 1 | paid | 0");
+    await expect(rows(sql.raw(script("65_food_fest_crew_a_5215_MAIN.sql")))).rejects.toThrow(/Firma s IČO 08911088 už v MojeBegina je/);
+    expect(await line("68_food_fest_crew_a_5215_after.sql")).toBe(AFTER_65);
+
+    // firma jako z „Převést na zákazníka“ (obchodník z leadu), lead zůstává a je propojený
+    expect(await rows(sql`SELECT name, registered_address, status, owner_user_id, acquired_by_user_id FROM organizations WHERE ico = '08911088'`)).toEqual([
+      { name: "Food Fest Crew s.r.o.", registered_address: "Pasohlávky 251, 691 22 Pasohlávky", status: "Zákazník Begina", owner_user_id: "owner-1", acquired_by_user_id: "acq-1" },
+    ]);
+    expect(await rows(sql`SELECT a.kind, a.author_name, a.metadata->>'previousStage' AS prev, l.stage,
+        a.metadata->>'organizationId' = l.converted_organization_id::text AS linked
+      FROM lead_activity a JOIN leads l ON l.id = a.lead_id WHERE l.id = ${LEAD}`)).toEqual([
+      { kind: "converted", author_name: "Import WooCommerce (skript 65)", prev: "new", stage: "converted", linked: true },
+    ]);
+
+    // k firmě přibyla jiná objednávka → návrat se zastaví celý (ani 5215 se nesmaže)
+    const [{ id: org }] = await rows(sql`SELECT id FROM organizations WHERE ico = '08911088'`);
+    const [{ id: other }] = await rows(sql`INSERT INTO orders (channel, buyer_organization_id, contact_name, subtotal_kc, discount_kc, total_kc, payment_status)
+      VALUES ('manual', ${org}, 'Tomáš Herout', 379, 0, 379, 'unpaid') RETURNING id`);
+    await expect(rows(sql.raw(script("69_food_fest_5215_rollback.sql")))).rejects.toThrow(/přibyly další záznamy/);
+    expect(await line("68_food_fest_crew_a_5215_after.sql")).toBe(AFTER_65);
+    await rows(sql`DELETE FROM orders WHERE id = ${other}`);
+
+    // návrat (bez faktury): objednávka, firma i převod zmizí, lead je zpět ve fázi „new“
+    await rows(sql.raw(script("69_food_fest_5215_rollback.sql")));
+    expect(await line("64_food_fest_crew_a_5215_before.sql")).toBe(BEFORE_65);
+    expect(await rows(sql`SELECT stage, converted_organization_id FROM leads WHERE id = ${LEAD}`)).toEqual([{ stage: "new", converted_organization_id: null }]);
+    expect(await rows(sql`SELECT count(*)::int AS n FROM lead_activity WHERE lead_id = ${LEAD}`)).toEqual([{ n: 0 }]);
+
+    // znovu načisto — stav pro vystavení faktury níže
+    await rows(sql.raw(script("65_food_fest_crew_a_5215_MAIN.sql")));
+    expect(await line("68_food_fest_crew_a_5215_after.sql")).toBe(AFTER_65);
+  });
+
+  it("WooCommerce #5215 Food Fest Crew: po skriptu 65 → firemní faktura (IČO, DIČ, sídlo), kontakt podle IČO, VS 5215, jednou", async () => {
+    expect(await line("68_food_fest_crew_a_5215_after.sql")).toBe(AFTER_65);
     const [{ id }] = await rows(sql`SELECT id FROM orders WHERE external_woocommerce_id = '5215'`);
 
     // detail v MojeBegina: platby i faktura se vedou (import z WooCommerce)

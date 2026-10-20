@@ -59,30 +59,41 @@ se po této 0022 aplikují bez konfliktu (ověřeno nad PGlite 20. 10.).
 
 ## Zákaznická karta bez duplicity
 
-- Food Fest Crew v MojeBegina zatím není (0 firem s IČO 08911088, 0 importů).
-- Firma vznikne **jen převodem leadu** (krok 3) — IČO je v `organizations` unikátní,
-  druhý převod nebo ruční založení se stejným IČO selže.
-- Převod založí i účet pro tom.herout@seznam.cz **bez hesla a bez pozvánky**
-  (stávající chování „Převést na zákazníka“).
-- Skript 62 se zastaví, pokud firma s IČO není právě jedna, nebo pokud 5215 už existuje.
-- Fakturační zákazník (invoice_customers) = firma podle IČO, jeden na IČO.
+Rozhodnutí 20. 10. 2026: firma **nevznikne ručním převodem leadu v aplikaci**, ale
+skriptem `65_food_fest_crew_a_5215_MAIN.sql` — v jedné transakci a bez ručního přepisování:
+
+- založí **Food Fest Crew s.r.o.** (IČO 08911088, DIČ CZ08911088, sídlo
+  „Pasohlávky 251, 691 22 Pasohlávky“, stav „Zákazník Begina“, obchodník a „získal“ z leadu),
+- převede lead Tomáše Herouta (`cb5b6742…`, tom.herout@seznam.cz): fáze „převeden“,
+  propojení s firmou, záznam v historii leadu („Import WooCommerce (skript 65)“). Lead zůstává,
+- **nezaloží uživatelský účet** — Tomáš nedostane účet, heslo ani pozvánku
+  (pozvat se dá později ručně),
+- naimportuje objednávku 5215 (stejná data jako dřívější skript 62, ten je nahrazen).
+
+Pojistky (každá = stop, nic se nezmění): chybí migrace 60; firma s IČO 08911088 už je;
+objednávka 5215 už je; fakturační zákazník s IČO už je; lead s tím e-mailem není právě
+jeden; lead `cb5b6742…` nemá e-mail tom.herout@seznam.cz nebo už je převedený; platba
+nesedí s cenou. Druhé spuštění se tedy vždy zastaví.
+
+Fakturační zákazník (invoice_customers) = firma podle IČO, jeden na IČO.
 
 ## Postup (pořadí je závazné, každý krok jen se souhlasem)
 
-1. **Neon main:** `60_firmy_migrace_0022.sql` (prázdný sloupec DIČ + unikátní index;
-   stávající kód to neruší). Musí běžet **před** nasazením kódu.
-2. **Sloučit PR a nasadit Production** (fakturace zůstává `manual`).
-3. **MojeBegina → Obchod → lead „Tomáš Herout“ → Převést na zákazníka:**
-   název `Food Fest Crew s.r.o.`, IČO `08911088`, sídlo `Pasohlávky 251, 691 22 Pasohlávky`,
-   kontakt Tomáš Herout / tom.herout@seznam.cz. Lead zůstane, propojí se s firmou.
-4. **Neon main:** `61_food_fest_5215_before.sql` → čekáno `1 | 1 | ano | 0 | 0`,
-   pak `62_food_fest_5215.sql`, pak `63_food_fest_5215_after.sql` → `1 | CZ08911088 | 12647 | 1 | paid | 0`.
-5. **Ověřit v iDokladu (Lucie / ty):** Faktury vydané → hledat „Food Fest“ a „5215“ —
+1. ~~Neon main: `60_firmy_migrace_0022.sql`~~ — hotovo 20. 10. 2026.
+2. ~~Sloučit PR #24 a nasadit Production~~ — hotovo 20. 10. 2026 (fakturace `manual`).
+3. **Neon main:** `64_food_fest_crew_a_5215_before.sql` → čekáno `1 | 1 | 0 | ano | 0 | 0`.
+   Jiný výsledek = nespouštět dál.
+4. **Neon main:** `65_food_fest_crew_a_5215_MAIN.sql` → hláška „Hotovo: Food Fest Crew s.r.o. založena…“.
+5. **Neon main:** `68_food_fest_crew_a_5215_after.sql` →
+   `1 | CZ08911088 | ano | 1 | 0 | 1 | 12647 | 1 | paid | 0`.
+6. **Ověřit v iDokladu (Lucie / ty):** Faktury vydané → hledat „Food Fest“ a „5215“ —
    žádná faktura k 5215 (integrace to před vystavením zkontroluje také — VS, číslo
    objednávky, popis a stejná částka).
-6. **Detail objednávky** (Objednávky → „Objednávka z WooCommerce č. 5215“): zkontrolovat
+7. **Detail objednávky** (Objednávky → „Objednávka z WooCommerce č. 5215“): zkontrolovat
    návrh faktury (odběratel, IČO, DIČ, položky, VS 5215) → **jednou** „Vystavit fakturu v iDokladu“.
-7. Kontrola v iDokladu (řada E-shop Begina, uhrazeno, žádný e-mail z iDokladu) a e-mail Tomášovi.
+8. Kontrola v iDokladu (řada E-shop Begina, uhrazeno, žádný e-mail z iDokladu) a e-mail Tomášovi.
 
-Návrat importu (jen dokud není vystavená faktura): `69_food_fest_5215_rollback.sql`.
+Návrat (jen dokud není vystavená faktura): `69_food_fest_5215_rollback.sql` — smaže
+import 5215; firmu ze skriptu 65 smaže také a lead vrátí do původní fáze (jen pokud
+k firmě mezitím nic nepřibylo — jinak se zastaví celý). Po návratu platí znovu krok 3.
 Na Preview se do iDokladu nikdy nic neodesílá — tam jde ověřit jen návrh faktury.

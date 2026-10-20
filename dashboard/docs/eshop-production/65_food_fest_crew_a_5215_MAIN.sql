@@ -1,5 +1,6 @@
--- IMPORT objednávky WooCommerce #5215 (Food Fest Crew s.r.o.) do MojeBegina.
--- Návrh 19. 10. 2026; spuštění NESCHVÁLENO. Postup: FOOD_FEST_5215.md.
+-- FOOD FEST CREW + objednávka WooCommerce #5215 — jedním skriptem, bez ručního přepisování.
+-- Návrh 20. 10. 2026; spuštění na Neon main NESCHVÁLENO. Postup: FOOD_FEST_5215.md.
+-- Nahrazuje ruční převod leadu v aplikaci + skript 62.
 --
 -- Zdroj (WooCommerce, detail objednávky #5215, čteno 19. 10. 2026):
 --   Fakturace: Food Fest Crew s.r.o., Tomáš Herout, 251, 691 22 Pasohlávky,
@@ -10,15 +11,20 @@
 --   Celkem 12 647 Kč — zaplaceno 19. 10. 2026 v 6:23 kartou (WooPayments
 --   pi_3US86dCEhzAMgcfb0ufGppo3); stav ve WooCommerce „Zpracovává se“.
 --
--- Zapíše: DIČ firmy (jen když je prázdné), objednávku (channel „import“,
--- external_woocommerce_id 5215, firma, kontakt), 1 položku, 1 přijatou platbu
--- kartou a záznam do historie. NIC nevystavuje — faktura vznikne až tlačítkem
--- „Vystavit fakturu v iDokladu“ (VS faktury = 5215).
+-- Zapíše:
+--   1. firmu Food Fest Crew s.r.o. (IČO, DIČ, sídlo „Pasohlávky 251, 691 22 Pasohlávky“,
+--      obchodník a získal z leadu) — stejně jako „Převést na zákazníka“, ale BEZ
+--      uživatelského účtu: Tomáš nedostane účet, heslo ani pozvánku,
+--   2. lead Tomáše Herouta (cb5b6742…) → převedený, propojený s firmou, záznam
+--      „převeden“ v historii leadu (lead zůstává),
+--   3. objednávku (channel „import“, external_woocommerce_id 5215, firma, kontakt),
+--      1 položku, 1 přijatou platbu kartou a záznam do historie objednávky.
+-- NIC nevystavuje — faktura vznikne až tlačítkem „Vystavit fakturu v iDokladu“ (VS 5215).
 -- Jeden blok = jedna transakce: jakákoli pojistka nebo chyba → nic se nezmění.
 DO $$
 DECLARE
+  lead_row leads%ROWTYPE;
   org_id uuid;
-  org_count int;
   new_order_id uuid;
   paid timestamptz := '2026-10-19 06:23:00+02';
 BEGIN
@@ -26,23 +32,43 @@ BEGIN
                  WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'dic') THEN
     RAISE EXCEPTION 'Chybí organizations.dic — nejdřív 60_firmy_migrace_0022.sql.';
   END IF;
-  SELECT count(*) INTO org_count FROM organizations WHERE ico = '08911088';
-  IF org_count <> 1 THEN
-    RAISE EXCEPTION 'Čekám právě 1 firmu s IČO 08911088 (převod leadu Tomáše Herouta), našel jsem % — zastavuji.', org_count;
+  IF EXISTS (SELECT 1 FROM organizations WHERE ico = '08911088') THEN
+    RAISE EXCEPTION 'Firma s IČO 08911088 už v MojeBegina je — zastavuji, nic se nezměnilo.';
   END IF;
-  SELECT id INTO org_id FROM organizations WHERE ico = '08911088';
   IF EXISTS (SELECT 1 FROM orders WHERE external_woocommerce_id = '5215') THEN
     RAISE EXCEPTION 'Objednávka WooCommerce 5215 už v MojeBegina je — zastavuji, nic se nezměnilo.';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM organizations WHERE id = org_id AND registered_address ~ ',\s*[0-9]{3}\s?[0-9]{2}\s+\S') THEN
-    RAISE EXCEPTION 'Sídlo firmy nejde rozdělit na ulici, PSČ a město (čekám „Pasohlávky 251, 691 22 Pasohlávky“) — zastavuji.';
+  IF EXISTS (SELECT 1 FROM invoice_customers WHERE ico = '08911088') THEN
+    RAISE EXCEPTION 'Fakturační zákazník s IČO 08911088 už existuje — zastavuji k ruční kontrole.';
   END IF;
-  IF EXISTS (SELECT 1 FROM organizations WHERE id = org_id AND dic IS NOT NULL AND dic <> 'CZ08911088') THEN
-    RAISE EXCEPTION 'Firma má jiné DIČ, než uvádí objednávka (CZ08911088) — zastavuji.';
+  IF (SELECT count(*) FROM leads WHERE lower(contact_email) = 'tom.herout@seznam.cz') <> 1 THEN
+    RAISE EXCEPTION 'Čekám právě 1 lead s e-mailem tom.herout@seznam.cz — zastavuji.';
+  END IF;
+  SELECT * INTO lead_row FROM leads
+   WHERE id = 'cb5b6742-8031-40c9-9ac3-7456a946f061' AND lower(contact_email) = 'tom.herout@seznam.cz'
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Lead Tomáše Herouta (cb5b6742…, tom.herout@seznam.cz) nenalezen — zastavuji.';
+  END IF;
+  IF lead_row.converted_organization_id IS NOT NULL OR lead_row.stage = 'converted' THEN
+    RAISE EXCEPTION 'Lead Tomáše Herouta už je převedený — zastavuji, nic se nezměnilo.';
   END IF;
 
-  UPDATE organizations SET dic = 'CZ08911088' WHERE id = org_id AND dic IS NULL;
+  -- 1. firma (stejné hodnoty jako „Převést na zákazníka“ → založit nového zákazníka)
+  INSERT INTO organizations (ico, name, registered_address, dic, status, owner_user_id, acquired_by_user_id)
+  VALUES ('08911088', 'Food Fest Crew s.r.o.', 'Pasohlávky 251, 691 22 Pasohlávky', 'CZ08911088',
+          'Zákazník Begina', lead_row.owner_user_id, lead_row.acquired_by_user_id)
+  RETURNING id INTO org_id;
 
+  -- 2. lead → převedený na firmu (lead zůstává, jen se propojí)
+  UPDATE leads SET converted_organization_id = org_id, stage = 'converted', updated_at = now()
+   WHERE id = lead_row.id;
+  INSERT INTO lead_activity (lead_id, author_user_id, author_name, kind, metadata)
+  VALUES (lead_row.id, 'import:woocommerce', 'Import WooCommerce (skript 65)', 'converted',
+          jsonb_build_object('organizationId', org_id, 'linkedExisting', false,
+                             'source', 'script:65', 'previousStage', lead_row.stage));
+
+  -- 3. objednávka WooCommerce #5215 (stejně jako skript 62)
   INSERT INTO orders (
     channel, external_woocommerce_id, buyer_organization_id,
     contact_name, contact_phone, contact_email,
@@ -77,5 +103,5 @@ BEGIN
   IF (SELECT balance_state FROM order_payment_balance WHERE order_payment_balance.order_id = new_order_id) <> 'paid' THEN
     RAISE EXCEPTION 'Platba nesedí s cenou objednávky — zastavuji, nic se nezměnilo.';
   END IF;
-  RAISE NOTICE 'Hotovo: objednávka WooCommerce 5215 (Food Fest Crew) v MojeBegina, zaplacená kartou, bez faktury.';
+  RAISE NOTICE 'Hotovo: Food Fest Crew s.r.o. založena, lead Tomáše Herouta převeden, objednávka 5215 zaplacená kartou, bez faktury.';
 END $$;
