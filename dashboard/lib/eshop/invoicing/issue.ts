@@ -37,8 +37,8 @@ import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
-import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody } from "./idoklad";
-import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter } from "./idokladHttp";
+import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, vsSearchFromDay } from "./idoklad";
+import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
 import { liveInvoicingGate } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
@@ -86,11 +86,28 @@ function sameAmount(a: unknown, kc: number): boolean {
 
 // ------------------------------------------------------------- kontroly iDokladu
 
-/** Faktura s VS v iDokladu (pojistka proti dvojí faktuře). */
-async function findByVs(client: EshopIdokladClient, vs: string): Promise<IdokladInvoice | null> {
-  const page = await client.list<IdokladInvoice>("/IssuedInvoices", eqFilter("VariableSymbol", vs), 5);
-  const matches = page.Items.filter((i) => i.VariableSymbol === vs);
-  if (matches.length > 1 || page.TotalItems > 1) {
+/** Nejvýš tolik stran (po 100) faktur od vsSearchFromDay projde hledání VS. */
+const VS_SEARCH_PAGES = 10;
+
+/**
+ * Faktura s VS v iDokladu (pojistka proti dvojí faktuře). iDoklad podle VS
+ * filtrovat neumí (ISSUED_INVOICE_FILTER_COLUMNS) — projdou se všechny vydané
+ * faktury (jakákoli řada, jakýkoli odběratel) vystavené od vsSearchFromDay
+ * (VS_LOOKBACK_DAYS dní před úhradou) a VS se porovná tady. Víc stran než VS_SEARCH_PAGES = stop.
+ */
+async function findByVs(client: EshopIdokladClient, vs: string, day: string): Promise<IdokladInvoice | null> {
+  const fromDay = vsSearchFromDay(day);
+  const filter = issuedInvoiceFilter(sinceDayFilter("DateOfIssue", fromDay));
+  const matches: IdokladInvoice[] = [];
+  for (let page = 1; page <= VS_SEARCH_PAGES; page += 1) {
+    const result = await client.list<IdokladInvoice>("/IssuedInvoices", filter, 100, page);
+    matches.push(...result.Items.filter((i) => (i.VariableSymbol ?? "").trim() === vs));
+    if (page >= result.TotalPages || result.Items.length === 0) break;
+    if (page === VS_SEARCH_PAGES) {
+      throw new IssueStop(`V iDokladu je od ${fromDay} víc než ${VS_SEARCH_PAGES * 100} faktur — VS ${vs} nejde ověřit, nutná ruční kontrola.`);
+    }
+  }
+  if (matches.length > 1) {
     throw new IssueStop(`V iDokladu je víc vydaných faktur s VS ${vs} — nutná ruční kontrola, nic se nevystavilo.`);
   }
   return matches[0] ?? null;
@@ -130,7 +147,7 @@ async function assertNoForeignDuplicate(
 ) {
   const all: IdokladInvoice[] = [];
   for (let page = 1; page <= COMPANY_INVOICE_PAGES; page += 1) {
-    const result = await client.list<IdokladInvoice>("/IssuedInvoices", eqFilter("PartnerId", String(partnerId)), 100, page);
+    const result = await client.list<IdokladInvoice>("/IssuedInvoices", issuedInvoiceFilter(eqFilter("PartnerId", String(partnerId))), 100, page);
     all.push(...result.Items);
     if (page >= result.TotalPages || result.Items.length === 0) break;
     if (page === COMPANY_INVOICE_PAGES) {
@@ -373,7 +390,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
     if (externalId) {
       invoice = await client.get<IdokladInvoice>(`/IssuedInvoices/${externalId}`);
     } else {
-      invoice = await findByVs(client, vs);
+      invoice = await findByVs(client, vs, day);
     }
     const adopted = invoice !== null;
 

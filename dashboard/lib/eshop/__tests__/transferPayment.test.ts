@@ -329,7 +329,7 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
       },
     ]);
     const detail = await orders.getOrderDetail(TRANSFER);
-    expect(detail?.invoice?.link?.payload?.idoklad.duplicateCheck.filter).toBe("VariableSymbol~eq~70000001");
+    expect(detail?.invoice?.link?.payload?.idoklad.duplicateCheck.filter).toMatch(/^DateOfIssue~gte~\d{4}-\d{2}-\d{2}, VariableSymbol = 70000001$/);
     expect(detail?.invoice?.link?.payload?.draft.lines).toEqual([
       { kind: "item", name: "Kulajda", sku: "kulajda", quantity: 2, unitPriceKc: 379, totalKc: 758 },
     ]);

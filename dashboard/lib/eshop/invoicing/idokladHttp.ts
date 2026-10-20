@@ -345,6 +345,48 @@ export class EshopIdokladClient {
   }
 }
 
+/**
+ * Sloupce, podle kterých iDoklad u GET /IssuedInvoices umí filtrovat (výčet
+ * z odpovědi API 400 „Filtering by this column is not supported“, 20. 10. 2026).
+ * VariableSymbol mezi nimi NENÍ — VS se porovnává až u nás (issue.ts).
+ */
+export const ISSUED_INVOICE_FILTER_COLUMNS = [
+  "Id",
+  "CurrencyId",
+  "DateLastChange",
+  "DateOfIssue",
+  "DateOfPayment",
+  "DateOfMaturity",
+  "Exported",
+  "Description",
+  "NumericSequenceId",
+  "DocumentNumber",
+  "ConstantSymbolId",
+  "PartnerId",
+  "IsPaid",
+  "PaymentStatus",
+  "RecurringInvoiceId",
+  "NickName",
+  "DateOfTaxing",
+  "TagIds",
+] as const;
+
+/** Filtr vydaných faktur — jen podporovaný sloupec, jinak chyba ještě před voláním iDokladu. */
+export function issuedInvoiceFilter(filter: string): string {
+  const column = filter.split("~")[0];
+  if (!(ISSUED_INVOICE_FILTER_COLUMNS as readonly string[]).includes(column)) {
+    throw new IdokladBlockedError(`iDoklad u vydaných faktur nefiltruje podle ${column}`);
+  }
+  return filter;
+}
+
+/** Filtr ve tvaru SDK: Prop~gte~YYYY-MM-DD (den a později). */
+export function sinceDayFilter(property: string, day: string): string {
+  if (!/^[A-Za-z]+$/.test(property)) throw new Error(`Neplatné pole filtru: ${property}`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new IdokladBlockedError("neplatné datum filtru");
+  return `${property}~gte~${day}`;
+}
+
 /** Filtr ve tvaru SDK: Prop~eq~hodnota (hodnota bez znaků, které by filtr rozbily). */
 export function eqFilter(property: string, value: string): string {
   if (!/^[A-Za-z]+$/.test(property)) throw new Error(`Neplatné pole filtru: ${property}`);

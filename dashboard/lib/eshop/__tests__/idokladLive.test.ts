@@ -65,6 +65,13 @@ const ENV = {
 // Prostředí ostrého provozu — předává se výslovně jen do vystavení.
 const LIVE = { ...ENV, VERCEL_ENV: "production", IDOKLAD_ESHOP_CLIENT_ID: "cid", IDOKLAD_ESHOP_CLIENT_SECRET: "csecret", IDOKLAD_ESHOP_APPLICATION_ID: "capp" };
 const ACTOR = { type: "user" as const, userId: "admin-1", name: "Lucie Test" };
+/** Den úhrady objednávek v testu (platby se zapisují „teď“), v Praze. */
+const TODAY = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Prague" });
+const daysBefore = (day: string, days: number) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+};
 
 describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { timeout: 90_000 }, () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -356,7 +363,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     for (const n of [1, 2]) {
       fake.invoices.push({
         Id: 100 + n, DocumentNumber: `926000${n}`, VariableSymbol: vs, NumericSequenceId: 7277293, PartnerId: 1, PaymentStatus: 1,
-        Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 758 }, body: {},
+        Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 758 }, body: { DateOfIssue: TODAY },
       });
     }
     expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "failed", error: expect.stringMatching(/víc vydaných faktur/) });
@@ -366,10 +373,49 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
   it("faktura s VS existuje v jiné řadě → nepřipojí se, stop k ruční kontrole", async () => {
     const { id, vs } = await order();
     const fake = createFakeIdoklad();
-    fake.invoices.push({ Id: 300, DocumentNumber: "20260177", VariableSymbol: vs, NumericSequenceId: 2032369, PartnerId: 1, PaymentStatus: 0, Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 0 }, body: {} });
+    fake.invoices.push({ Id: 300, DocumentNumber: "20260177", VariableSymbol: vs, NumericSequenceId: 2032369, PartnerId: 1, PaymentStatus: 0, Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 0 }, body: { DateOfIssue: TODAY } });
     expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "failed", error: expect.stringMatching(/není z řady E-shop Begina/) });
     expect(fake.writes()).toEqual([]);
     expect(await state(id)).toMatchObject({ external_id: null, doc_state: "draft" });
+  });
+
+  // --------------------------------- regrese 20. 10. 2026: iDoklad nefiltruje podle VariableSymbol (400)
+
+  it("iDoklad podle VS filtrovat neumí (400) — kontrola duplicit se ptá jen podporovanými sloupci", async () => {
+    const fake = createFakeIdoklad();
+    // napodobenina odpovídá jako skutečný iDoklad 20. 10. 2026
+    const { EshopIdokladClient, eqFilter, issuedInvoiceFilter } = await import("../invoicing/idokladHttp");
+    const client = new EshopIdokladClient({ clientId: "test-client-id", clientSecret: "test-client-secret", applicationId: "test-application", writesAllowed: false, env: LIVE, fetchImpl: fake.fetchImpl });
+    await expect(client.list("/IssuedInvoices", eqFilter("VariableSymbol", "5215"), 5)).rejects.toThrow(
+      /400 Filtering by this column is not supported/
+    );
+    expect(() => issuedInvoiceFilter(eqFilter("VariableSymbol", "5215"))).toThrow(/nefiltruje podle VariableSymbol/);
+
+    const { id } = await order();
+    const before = fake.calls.length;
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "issued" });
+    const filters = fake.calls.slice(before).filter((c) => c.method === "GET" && c.path === "/IssuedInvoices").map((c) => c.query.filter);
+    expect(filters).toEqual([`DateOfIssue~gte~${daysBefore(TODAY, 31)}`]);
+  });
+
+  it("faktura s VS (jiná řada, jiný odběratel) až na 2. straně výpisu → stop, nic nového", async () => {
+    const { id, vs } = await order();
+    const fake = createFakeIdoklad();
+    for (let n = 0; n < 150; n += 1) {
+      fake.invoices.push({ Id: 1000 + n, DocumentNumber: `2026${String(n).padStart(4, "0")}`, VariableSymbol: `8${n}`, NumericSequenceId: 2032369, PartnerId: 9, PaymentStatus: 1, Prices: { TotalWithVat: 100, TotalVat: 0, TotalPaid: 100 }, body: { DateOfIssue: TODAY } });
+    }
+    fake.invoices.push({ Id: 2000, DocumentNumber: "20260999", VariableSymbol: vs, NumericSequenceId: 2032369, PartnerId: 77, PaymentStatus: 0, Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 0 }, body: { DateOfIssue: TODAY } });
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "failed", error: expect.stringMatching(/není z řady E-shop Begina/) });
+    expect(fake.writes()).toEqual([]);
+    expect(fake.calls.filter((c) => c.path === "/IssuedInvoices" && c.method === "GET").map((c) => c.query.page)).toEqual(["1", "2"]);
+  });
+
+  it("faktura se stejným VS starší než 31 dní před úhradou (jiná, dávná objednávka) → nevadí, vystaví se jednou", async () => {
+    const { id, vs } = await order();
+    const fake = createFakeIdoklad();
+    fake.invoices.push({ Id: 3000, DocumentNumber: "20250001", VariableSymbol: vs, NumericSequenceId: 2032369, PartnerId: 9, PaymentStatus: 1, Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 758 }, body: { DateOfIssue: daysBefore(TODAY, 32) } });
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "issued" });
+    expect(fake.writes().filter((w) => w === "POST /IssuedInvoices")).toHaveLength(1);
   });
 
   it("nezaplacená / částečně zaplacená objednávka: nic se nevolá", async () => {
@@ -428,7 +474,8 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(fake.calls.find((c) => c.path === "/Contacts")!.query.filter).toBe("IdentificationNumber~eq~08911088");
     const invoiceLookups = fake.calls.filter((c) => c.path === "/IssuedInvoices" && c.method === "GET").map((c) => c.query.filter);
     // VS 5215 (jakákoli řada) a faktury firmy od dne úhrady (jakákoli řada, jakýkoli VS)
-    expect(invoiceLookups).toEqual(["VariableSymbol~eq~5215", "PartnerId~eq~4242"]);
+    // iDoklad podle VS filtrovat neumí: faktury od 18. 9. (31 dní před úhradou), VS se porovná u nás
+    expect(invoiceLookups).toEqual(["DateOfIssue~gte~2026-09-18", "PartnerId~eq~4242"]);
     const post = fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
     expect(post).toMatchObject({
       PartnerId: 4242,
