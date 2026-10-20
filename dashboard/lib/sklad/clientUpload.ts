@@ -1,6 +1,6 @@
 // Mobilní tok 1.0 — čistě prohlížečový kód (Canvas, crypto.subtle, File),
 // NIKDY neimportovat ze server-side souboru. Zodpovídá za body 3+4 zadání:
-// převod HEIC/velkých fotek na JPEG (max. 2200 px delší strana, kvalita
+// převod HEIC/velkých fotek na JPEG (max. 3200 px delší strana, kvalita
 // ~85 %) a výpočet SHA-256 z KONEČNÝCH (už převedených) dat — ne
 // z originálu, aby otisk odpovídal tomu, co se skutečně nahraje.
 //

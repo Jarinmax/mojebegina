@@ -1,7 +1,13 @@
 // Mobilní tok 1.0 — čistá matematika za zmenšením fotky, bez Canvasu/File
 // API (ty žijí v clientUpload.ts, který se nedá spustit mimo prohlížeč).
 // Oddělené sem, aby šlo otestovat bez DOM.
-export const MAX_UPLOAD_DIMENSION_PX = 2200;
+// 3200 px delší strana: dlouhá účtenka vyfocená celá zabírá jen úzký pruh
+// snímku — po ořezu na serveru musí zůstat dost vysoká na rozdělení do
+// překrývajících se výřezů (SPLIT_MIN_HEIGHT_PX v receiptImagePreprocessing.ts).
+// Dřív 2200 px, takže ořezaná účtenka nikdy nedosáhla tehdejšího prahu
+// 2400 px a dělení se nespustilo. Do modelu jde i tak nejvýš
+// OCR_MAX_DIMENSION_PX (server zmenší), cena volání se nemění.
+export const MAX_UPLOAD_DIMENSION_PX = 3200;
 export const UPLOAD_JPEG_QUALITY = 0.85;
 
 export type ResizeTarget = { width: number; height: number };

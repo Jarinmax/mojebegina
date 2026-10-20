@@ -49,10 +49,16 @@ const MAX_CROP_AREA_FRACTION = 0.98;
 // viz komentář u findDocumentBounds níž).
 const MIN_AXIS_FOREGROUND_FRACTION = 0.3;
 
-export const SPLIT_MIN_HEIGHT_PX = 2400;
+// Práh dělení MUSÍ být dosažitelný pro fotku zmenšenou v prohlížeči
+// (MAX_UPLOAD_DIMENSION_PX = 3200, lib/sklad/imageResize.ts) i po ořezu
+// pozadí — hlídá to test „fotka z mobilu“ v receiptImagePreprocessing.test.ts.
+export const SPLIT_MIN_HEIGHT_PX = 1800;
 export const SPLIT_MIN_ASPECT_RATIO = 2.2;
 export const SPLIT_BAND_HEIGHT_PX = 1400;
 export const SPLIT_OVERLAP_PX = 220;
+// Každý obrázek pro OCR model se zmenší nejvýš na tuhle delší stranu —
+// větší vstup nepřidá čitelnost, jen zdraží volání.
+export const OCR_MAX_DIMENSION_PX = 2200;
 
 export type CropBox = { left: number; top: number; width: number; height: number };
 export type PageDimensions = { width: number; height: number };
@@ -258,6 +264,20 @@ async function splitIntoOverlappingBands(bytes: Buffer): Promise<Buffer[]> {
   }
 }
 
+async function limitForOcr(bytes: Buffer): Promise<Buffer> {
+  try {
+    const meta = await sharp(bytes, { failOn: "none" }).metadata();
+    if (Math.max(meta.width ?? 0, meta.height ?? 0) <= OCR_MAX_DIMENSION_PX) {
+      return bytes;
+    }
+    return await sharp(bytes, { failOn: "none" })
+      .resize({ width: OCR_MAX_DIMENSION_PX, height: OCR_MAX_DIMENSION_PX, fit: "inside", withoutEnlargement: true })
+      .toBuffer();
+  } catch {
+    return bytes;
+  }
+}
+
 async function readDimensions(bytes: Buffer): Promise<PageDimensions> {
   try {
     const meta = await sharp(bytes, { failOn: "none" }).metadata();
@@ -292,7 +312,7 @@ export async function preprocessReceiptPage(image: ReceiptImageInput): Promise<P
     diagnostics.crop = box;
     const cropped = box ? await sharp(image.bytes, { failOn: "none" }).extract(box).toBuffer() : image.bytes;
     const enhanced = await normalizeAndSharpen(cropped);
-    const bandBuffers = await splitIntoOverlappingBands(enhanced);
+    const bandBuffers = await Promise.all((await splitIntoOverlappingBands(enhanced)).map(limitForOcr));
     diagnostics.bandDimensions = await Promise.all(bandBuffers.map(readDimensions));
     return { images: bandBuffers.map((bytes) => ({ mimeType: image.mimeType, bytes })), diagnostics };
   } catch {

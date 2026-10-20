@@ -16,15 +16,15 @@ describe("computeResizeTarget", () => {
   });
 
   it("širokou fotku nad limitem zmenší na přesně MAX_UPLOAD_DIMENSION_PX na delší straně, druhou proporčně", () => {
-    const result = computeResizeTarget(4400, 2200);
+    const result = computeResizeTarget(6400, 3200);
     expect(result.width).toBe(MAX_UPLOAD_DIMENSION_PX);
-    expect(result.height).toBe(1100);
+    expect(result.height).toBe(MAX_UPLOAD_DIMENSION_PX / 2);
   });
 
   it("vysokou fotku (na výšku) zmenší podle výšky, ne šířky", () => {
-    const result = computeResizeTarget(2200, 4400);
+    const result = computeResizeTarget(3200, 6400);
     expect(result.height).toBe(MAX_UPLOAD_DIMENSION_PX);
-    expect(result.width).toBe(1100);
+    expect(result.width).toBe(MAX_UPLOAD_DIMENSION_PX / 2);
   });
 
   it("čtvercovou fotku nad limitem zmenší na čtverec s MAX_UPLOAD_DIMENSION_PX", () => {
@@ -48,5 +48,11 @@ describe("computeResizeTarget", () => {
   it("výchozí kvalita JPEG je v rozumném rozsahu (0,1]", () => {
     expect(UPLOAD_JPEG_QUALITY).toBeGreaterThan(0);
     expect(UPLOAD_JPEG_QUALITY).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("limit uploadu — fotka z telefonu", () => {
+  it("12Mpx fotka na výšku (3024×4032) zůstane po zmenšení 2400×3200 — dost na rozdělení dlouhé účtenky", () => {
+    expect(computeResizeTarget(3024, 4032)).toEqual({ width: 2400, height: 3200 });
   });
 });

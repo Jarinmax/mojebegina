@@ -7,8 +7,10 @@
 // po nasazení (žádné živé volání modelu tady ani jinde v test suitě).
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
+import { computeResizeTarget, MAX_UPLOAD_DIMENSION_PX } from "@/lib/sklad/imageResize";
 import {
   computeBandTops,
+  OCR_MAX_DIMENSION_PX,
   preprocessReceiptPage,
   SPLIT_BAND_HEIGHT_PX,
   SPLIT_MIN_ASPECT_RATIO,
@@ -267,5 +269,46 @@ describe("computeBandTops — čistá aritmetika dělení (bez dekódování obr
     const tops = computeBandTops(height);
     expect(tops.length).toBeGreaterThanOrEqual(2);
     expect(Math.max(...tops) + SPLIT_BAND_HEIGHT_PX).toBe(height);
+  });
+});
+
+describe("dlouhá účtenka vyfocená mobilem — po zmenšení v prohlížeči se na serveru opravdu rozdělí (blokující bod 9)", () => {
+  // Dřív: prohlížeč zmenšil delší stranu na 2200 px, server dělil až od
+  // 2400 px výšky ořezu — dělení se u skutečné fotky nikdy nespustilo.
+  it("portrétní fotka 3024×4032 s účtenkou přes 85 % výšky: po zmenšení v prohlížeči a ořezu ≥ 2 překrývající se výřezy, každý nejvýš OCR_MAX_DIMENSION_PX", async () => {
+    const target = computeResizeTarget(3024, 4032);
+    expect(Math.max(target.width, target.height)).toBe(MAX_UPLOAD_DIMENSION_PX);
+
+    const stripWidth = Math.round(target.width * 0.22);
+    const stripHeight = Math.round(target.height * 0.85);
+    const strip = await sharp({ create: { width: stripWidth, height: stripHeight, channels: 3, background: { r: 240, g: 240, b: 240 } } })
+      .png()
+      .toBuffer();
+    const photo = await sharp({ create: { width: target.width, height: target.height, channels: 3, background: { r: 40, g: 35, b: 30 } } })
+      .composite([{ input: strip, left: Math.round((target.width - stripWidth) / 2), top: Math.round(target.height * 0.07) }])
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: photo });
+    expect(result.diagnostics.crop).not.toBeNull();
+    expect(result.diagnostics.crop!.height).toBeGreaterThanOrEqual(SPLIT_MIN_HEIGHT_PX);
+    expect(result.images.length).toBeGreaterThanOrEqual(2);
+    for (const band of result.diagnostics.bandDimensions) {
+      expect(Math.max(band.width, band.height)).toBeLessThanOrEqual(OCR_MAX_DIMENSION_PX);
+    }
+  });
+
+  it("práh dělení je dosažitelný: účtenka přes 60 % výšky zmenšené fotky ho překročí", () => {
+    expect(SPLIT_MIN_HEIGHT_PX).toBeLessThanOrEqual(MAX_UPLOAD_DIMENSION_PX * 0.6);
+    expect(SPLIT_MIN_HEIGHT_PX).toBeGreaterThan(SPLIT_BAND_HEIGHT_PX);
+  });
+
+  it("běžná (ne dlouhá) fotka v plném rozlišení z prohlížeče jde do modelu zmenšená na OCR_MAX_DIMENSION_PX — vyšší limit uploadu volání nezdraží", async () => {
+    const photo = await sharp({ create: { width: 2400, height: 3200, channels: 3, background: { r: 245, g: 245, b: 245 } } })
+      .jpeg()
+      .toBuffer();
+    const result = await preprocessReceiptPage({ mimeType: "image/jpeg", bytes: photo });
+    expect(result.images).toHaveLength(1);
+    expect(result.diagnostics.bandDimensions[0]).toEqual({ width: 1650, height: OCR_MAX_DIMENSION_PX });
   });
 });

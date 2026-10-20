@@ -290,7 +290,7 @@ export function validateStockItemInput(
 // jen kontrola typu/velikosti/cesty.
 export const ALLOWED_UPLOAD_MIME_TYPES = ["image/jpeg"] as const;
 // 12 MB je bezpečná rezerva nad reálným výstupem klientské konverze
-// (2200 px delší strana, kvalita ~85 % JPEG bývá řádově stovky kB až pár
+// (3200 px delší strana, kvalita ~85 % JPEG bývá řádově stovky kB až pár
 // MB) — chrání před neúměrně velkým souborem, ne přesný odhad komprese.
 export const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
