@@ -379,6 +379,44 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(await state(id)).toMatchObject({ external_id: null, doc_state: "draft" });
   });
 
+  // --------------------------------- řada vrácené faktury: chybějící NumericSequenceId nikdy neprojde
+
+  it("iDoklad fakturu založí mimo řadu 7277293 a řadu v odpovědi neuvede → potvrzení nenajde → STOP, neuhrazeno, žádný e-mail", async () => {
+    const { id } = await order();
+    const fake = createFakeIdoklad({ storeInSequence: 2032369 });
+    const next = fake.next();
+    const result = await afterPaid.issueAndSendInvoice(db, id, "https://moje.begina.cz", ACTOR, { env: LIVE, fetchImpl: fake.fetchImpl });
+    expect(result).toMatchObject({ status: "failed", error: expect.stringMatching(/není potvrzeně v řadě E-shop Begina \(7277293\)/) });
+    expect(fake.writes()).toEqual(["POST /Contacts", "POST /IssuedInvoices"]); // žádné „uhrazeno“
+    expect(mail.sent).toEqual([]);
+    // ID je uložené (další pokus nezaloží druhou fakturu), stav ale není „vystaveno“
+    expect(await state(id)).toMatchObject({ doc_state: "draft", state: "failed", external_id: String(next.id) });
+    // ani opakování ji nepřevezme — řada se znovu neověří
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "failed" });
+    expect(fake.invoices).toHaveLength(1);
+    expect(await state(id)).toMatchObject({ doc_state: "draft", state: "failed" });
+  });
+
+  it("odpověď uvádí jinou řadu → STOP bez potvrzovacího dotazu", async () => {
+    const { id } = await order();
+    const fake = createFakeIdoklad({ storeInSequence: 2032369, sequenceInView: true });
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({
+      status: "failed",
+      error: expect.stringMatching(/není z řady E-shop Begina \(7277293\), ale z řady 2032369/),
+    });
+    expect(fake.calls.some((c) => (c.query.filter ?? "").startsWith("((Id~eq~"))).toBe(false);
+  });
+
+  it("potvrzovací dotaz na řadu selže → STOP (nic se nepředpokládá)", async () => {
+    const { id } = await order();
+    const fake = createFakeIdoklad({ failSequenceConfirmation: { status: 503, message: "Service Unavailable" } });
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({
+      status: "failed",
+      error: expect.stringMatching(/Řadu faktury 926\d{4} v iDokladu nejde ověřit/),
+    });
+    expect(fake.writes().filter((w) => w.startsWith("PUT"))).toEqual([]);
+  });
+
   // --------------------------------- regrese 20. 10. 2026: iDoklad nefiltruje podle VariableSymbol (400)
 
   it("iDoklad podle VS filtrovat neumí (400) — kontrola duplicit se ptá jen podporovanými sloupci", async () => {
@@ -401,6 +439,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       "NumericSequenceId~eq~7277293",
       `DocumentNumber~eq~${next.number}`,
       `DateOfIssue~gte~${daysBefore(TODAY, 31)}`,
+      `((Id~eq~${next.id})~and~(NumericSequenceId~eq~7277293))`, // řada nové faktury (odpověď ji neuvádí)
     ]);
   });
 
@@ -488,6 +527,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       `DocumentNumber~eq~${next.number}`,
       "DateOfIssue~gte~2026-09-18",
       "PartnerId~eq~4242",
+      `((Id~eq~${next.id})~and~(NumericSequenceId~eq~7277293))`, // potvrzení řady nové faktury
     ]);
     const post = fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
     expect(post).toMatchObject({

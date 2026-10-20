@@ -5,7 +5,7 @@
 // v preflightu (jen čtení), který běží před každým vystavením.
 import { describe, expect, it, vi } from "vitest";
 import { createFakeIdoklad } from "./helpers/fakeIdoklad";
-import { EshopIdokladClient } from "../invoicing/idokladHttp";
+import { EshopIdokladClient, andFilter, eqFilter, issuedInvoiceFilter } from "../invoicing/idokladHttp";
 import { runPreflightFromEnv } from "../invoicing/preflight";
 
 const ENV = {
@@ -103,5 +103,13 @@ describe("řada E-shop Begina (7277293) vedle ruční řady 2026xxxx", () => {
       await expect(client.post("/IssuedInvoices", body)).rejects.toThrow(/faktura mimo řadu 7277293 „E-shop Begina“/);
     }
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("složený filtr ve tvaru SDK: ověří se každý sloupec (VariableSymbol ani ve složeném filtru neprojde)", () => {
+    const ok = andFilter(eqFilter("Id", "67077149"), eqFilter("NumericSequenceId", "7277293"));
+    expect(ok).toBe("((Id~eq~67077149)~and~(NumericSequenceId~eq~7277293))");
+    expect(issuedInvoiceFilter(ok)).toBe(ok);
+    expect(() => issuedInvoiceFilter(andFilter(eqFilter("Id", "1"), eqFilter("VariableSymbol", "5215")))).toThrow(/nefiltruje podle VariableSymbol/);
+    expect(() => issuedInvoiceFilter("nesmysl")).toThrow(/neplatný filtr/);
   });
 });

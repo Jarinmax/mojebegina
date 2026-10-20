@@ -384,13 +384,21 @@ export const ISSUED_INVOICE_FILTER_COLUMNS = [
   "TagIds",
 ] as const;
 
-/** Filtr vydaných faktur — jen podporovaný sloupec, jinak chyba ještě před voláním iDokladu. */
+/** Filtr vydaných faktur — jen podporované sloupce (i ve složeném filtru), jinak chyba ještě před voláním iDokladu. */
 export function issuedInvoiceFilter(filter: string): string {
-  const column = filter.split("~")[0];
-  if (!(ISSUED_INVOICE_FILTER_COLUMNS as readonly string[]).includes(column)) {
-    throw new IdokladBlockedError(`iDoklad u vydaných faktur nefiltruje podle ${column}`);
+  const columns = [...filter.matchAll(/(?:^|\()([^()~]*)~(?:eq|gte|lte|gt|lt|ct|!eq)~/g)].map((m) => m[1]);
+  if (columns.length === 0) throw new IdokladBlockedError("neplatný filtr vydaných faktur");
+  for (const column of columns) {
+    if (!(ISSUED_INVOICE_FILTER_COLUMNS as readonly string[]).includes(column)) {
+      throw new IdokladBlockedError(`iDoklad u vydaných faktur nefiltruje podle ${column}`);
+    }
   }
   return filter;
+}
+
+/** Složený filtr ve tvaru SDK (ComplexFilterExpression): ((A~eq~1)~and~(B~eq~2)). */
+export function andFilter(first: string, second: string): string {
+  return `((${first})~and~(${second}))`;
 }
 
 /** Filtr ve tvaru SDK: Prop~gte~YYYY-MM-DD (den a později). */

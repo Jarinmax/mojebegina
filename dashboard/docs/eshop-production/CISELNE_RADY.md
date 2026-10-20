@@ -41,8 +41,13 @@ vystavení (samostatná oprava).
    s jinou řadou než 7277293 se zablokuje ještě před odesláním (ani token) —
    nezávisle na nastavení a na zbytku kódu.
 4. **Kontrola vrácené faktury** (`issue.ts`): faktura z iDokladu musí mít
-   číslo `9RRNNNN` a (nově) řadu 7277293; jinak se nevede jako vystavená,
-   neoznačí se uhrazená a nic se nepošle — „nutná ruční kontrola“.
+   číslo `9RRNNNN` a (nově) řadu 7277293. Řada se nikdy nepředpokládá —
+   odpověď iDokladu ji u faktury obvykle neuvádí (modely čtení faktury
+   v oficiálním SDK pole `NumericSequenceId` nemají). Chybí-li, ověří se
+   dotazem `((Id~eq~…)~and~(NumericSequenceId~eq~7277293))`; když ho iDoklad
+   nepotvrdí nebo dotaz selže, je to **STOP**. Při jakémkoli neúspěchu se
+   faktura nevede jako vystavená, neoznačí se uhrazená a nic se nepošle —
+   „nutná ruční kontrola“.
 5. Čísla obou řad se nemohou potkat: ruční řada má 8 číslic (`2026xxxx`),
    řada E-shop Begina 7 číslic začínajících 9.
 
