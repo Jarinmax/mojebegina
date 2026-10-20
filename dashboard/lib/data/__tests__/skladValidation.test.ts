@@ -680,3 +680,26 @@ describe("jeden slovník druhů pro kartu i řádek", () => {
     expect(unitMismatchError("BG", "kg")).toMatch(/„BG“ neodpovídá jednotce skladové karty „kg“/);
   });
 });
+
+describe("validateManualLineInput — oprava nenamapovaného řádku", () => {
+  const base = {
+    rawDescription: "Cukr",
+    supplierItemCode: "",
+    supplierAuxiliaryCode: "",
+    rawPackageQuantity: "10",
+    rawUnitsPerPackage: "1",
+    rawUnit: "kg",
+    normalizedUnit: "kg",
+    unitPriceWithoutVat: "20",
+    totalWithoutVatHal: "200",
+    totalWithVatHal: "224",
+    lineKind: "stock_material",
+    stockItemId: "",
+  };
+
+  it("nový ruční řádek kartu vyžaduje, oprava hodnot existujícího řádku ne (mapování je samostatný krok)", async () => {
+    const { validateManualLineInput } = await import("../skladValidation");
+    expect(validateManualLineInput(base)).toEqual({ ok: false, error: "Vyberte nebo založte skladovou kartu." });
+    expect(validateManualLineInput(base, { requireMapping: false })).toMatchObject({ ok: true, value: { stockItemId: null } });
+  });
+});

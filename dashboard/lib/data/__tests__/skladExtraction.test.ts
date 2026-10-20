@@ -50,7 +50,6 @@ let supplierByNameRow: [string, string] | null = null;
 // --- Mapování položek (body 6+7 zadání) -------------------------------------
 let mappingByCodeRow: [string, string, string, string] | null = null; // id, stock_item_id, line_kind, canonical_unit
 let mappingByDescriptionRow: [string, string, string, string] | null = null;
-let insertedLineCounter = 0;
 let finalWriteSucceeds = true;
 // --- confirmGoodsReceiptLineMapping ----------------------------------------
 let stockItemExists = true;
@@ -139,7 +138,6 @@ vi.mock("@neondatabase/serverless", () => ({
     }
     // atomický zápis vytěženého návrhu (hlavička + všechny řádky + historie jedním příkazem)
     if (sqlText.includes("jsonb_to_recordset") && sqlText.includes("INSERT INTO goods_receipt_lines")) {
-      insertedLineCounter += 1;
       const rows = finalWriteSucceeds ? [["activity-1"]] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
@@ -291,7 +289,6 @@ beforeEach(() => {
   supplierByNameRow = null;
   mappingByCodeRow = null;
   mappingByDescriptionRow = null;
-  insertedLineCounter = 0;
   finalWriteSucceeds = true;
   stockItemExists = true;
   stockItemKind = "resale_goods";

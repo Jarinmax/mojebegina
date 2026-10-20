@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getGoodsReceipt, listGoodsReceiptLines, listStockItems } from "@/lib/data/sklad";
+import { getAuthContext } from "@/lib/data/authContext";
+import { getGoodsReceipt, getGoodsReceiptConfirmationCheck, listGoodsReceiptLines, listStockItems } from "@/lib/data/sklad";
+import { canConfirmGoodsReceipt, canReviewExtractedData } from "@/lib/data/skladAuth";
 import { getGoodsReceiptExtractionSuggestions } from "@/lib/data/skladExtraction";
+import HlavickaForm from "./HlavickaForm";
 import KontrolaForm from "./KontrolaForm";
+import PotvrzeniPanel from "./PotvrzeniPanel";
 
 export default async function KontrolaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,10 +16,13 @@ export default async function KontrolaPage({ params }: { params: Promise<{ id: s
     notFound();
   }
 
-  const [lines, suggestions, stockItems] = await Promise.all([
+  const ctx = await getAuthContext();
+  const canReview = canReviewExtractedData(ctx);
+  const [lines, suggestions, stockItems, checks] = await Promise.all([
     listGoodsReceiptLines(id),
-    getGoodsReceiptExtractionSuggestions(id),
+    canReview ? getGoodsReceiptExtractionSuggestions(id) : Promise.resolve([]),
     listStockItems(),
+    getGoodsReceiptConfirmationCheck(id),
   ]);
 
   return (
@@ -25,17 +32,32 @@ export default async function KontrolaPage({ params }: { params: Promise<{ id: s
       </Link>
 
       <div className="mt-3 mb-5">
-        <h1 className="text-lg font-medium text-begina-primary-900">Kontrola vytěžených dat — {receipt.supplierNameSnapshot}</h1>
+        <h1 className="text-lg font-medium text-begina-primary-900">Kontrola a potvrzení — {receipt.supplierNameSnapshot}</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
-          Opravte hodnoty, potvrďte DPH a mapování na skladovou kartu u každého řádku. Vytěžil to model, ne člověk — nic se
-          nepotvrdí ani neovlivní sklad, dokud to tady nezkontrolujete.
+          Vytěžené údaje jsou jen návrh. Opravte hodnoty, potvrďte DPH a skladovou kartu u každého řádku — do skladu se nic
+          nezapíše, dokud příjemku níže výslovně nepotvrdíte.
         </p>
       </div>
 
-      {lines.length === 0 ? (
-        <p className="text-sm text-neutral-500">Žádné řádky k revizi.</p>
+      {receipt.status !== "draft" ? (
+        <p className="text-sm text-neutral-500">Příjemka už není návrh — kontrola ani potvrzení nejsou možné.</p>
       ) : (
-        <KontrolaForm receiptId={id} lines={lines} suggestions={suggestions} stockItems={stockItems} />
+        <div className="flex flex-col gap-4">
+          {canReview && (
+            <HlavickaForm
+              receiptId={id}
+              documentNumber={receipt.documentNumber}
+              documentDate={receipt.documentDate}
+              documentTotalWithVatHal={receipt.documentTotalWithVatHal}
+            />
+          )}
+          {lines.length === 0 ? (
+            <p className="text-sm text-neutral-500">Žádné řádky k revizi.</p>
+          ) : (
+            <KontrolaForm receiptId={id} lines={lines} suggestions={suggestions} stockItems={stockItems} />
+          )}
+          {checks && <PotvrzeniPanel receiptId={id} checks={checks} canConfirm={canConfirmGoodsReceipt(ctx)} />}
+        </div>
       )}
     </div>
   );

@@ -7,11 +7,11 @@
 // Potvrzení (confirmGoodsReceipt) i storno (voidGoodsReceipt) jsou JEDEN
 // atomický SQL příkaz s řetězenými CTE (stejný vzor jako
 // buildLogDailyCallOutcomeQuery) — neon-http driver nepodporuje
-// db.transaction (viz komentář v admin.ts u vytváření organizace), takže
-// vícekrokové zápisy musí buď jít přes db.batch (nezávislé statementy),
-// nebo přes jediný sql příkaz s podmíněnými CTE, pokud na sobě kroky
-// závisí. Oba zápisy tady závisí (pohyb/storno nesmí vzniknout, pokud se
-// nepodařilo claimnout příjemku), proto CTE, ne db.batch.
+// db.transaction (viz komentář v admin.ts u vytváření organizace); kroky na
+// sobě závisí (pohyb/storno nesmí vzniknout, pokud se nepodařilo claimnout
+// příjemku), proto CTE. Před ním jde v téže db.batch() transakci zámek
+// příjemky, aby se kontroly a zápis pohybů nemohly rozejít se souběžnou
+// úpravou řádků.
 //
 // Zápisy do goods_receipt_lines (addManualGoodsReceiptLine,
 // updateGoodsReceiptLine, deleteGoodsReceiptLine, reviewGoodsReceiptLineVat,
@@ -30,7 +30,7 @@
 // buildGoodsReceiptAdvisoryLockQuery.
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { del, get } from "@vercel/blob";
 import { db } from "@/lib/db/client";
 import {
@@ -52,7 +52,6 @@ import {
   requireVoidAccess,
 } from "./skladAuth";
 import {
-  STOCK_AFFECTING_LINE_KINDS,
   isValidDocumentPagePathname,
   lineKindMismatchError,
   unitMismatchError,
@@ -69,6 +68,13 @@ import {
   type VatReviewInput,
 } from "./skladValidation";
 import type { ReextractionRawPayload } from "./skladExtraction";
+import {
+  describeConfirmationChecks,
+  validateReceiptHeaderInput,
+  type ConfirmationChecks,
+  type ConfirmationChecksRow,
+  type ReceiptHeaderInput,
+} from "./skladConfirmationChecks";
 
 // --- Chyby z unikátních DB omezení přeložené na česká hlášení ----------
 // Stejná konvence jako admin.ts createCustomerOrganization/updateOrganization:
@@ -300,44 +306,41 @@ export type GoodsReceiptSummary = {
   // aby šlo zobrazit tlačítko/odkaz na porovnání nezávisle na tom, jak
   // dopadlo PŮVODNÍ vytěžení.
   reextractionStatus: string;
+  documentDate: string | null;
+  documentTotalWithVatHal: number | null;
+  totalWithVatHal: number | null;
+  confirmedAt: Date | null;
+  voidedAt: Date | null;
+  voidReason: string | null;
   createdAt: Date;
+};
+
+const RECEIPT_SUMMARY_COLUMNS = {
+  id: goodsReceipts.id,
+  supplierId: goodsReceipts.supplierId,
+  supplierNameSnapshot: goodsReceipts.supplierNameSnapshot,
+  stockLocationId: goodsReceipts.stockLocationId,
+  documentNumber: goodsReceipts.documentNumber,
+  status: goodsReceipts.status,
+  extractionStatus: goodsReceipts.extractionStatus,
+  reextractionStatus: goodsReceipts.reextractionStatus,
+  documentDate: goodsReceipts.documentDate,
+  documentTotalWithVatHal: goodsReceipts.documentTotalWithVatHal,
+  totalWithVatHal: goodsReceipts.totalWithVatHal,
+  confirmedAt: goodsReceipts.confirmedAt,
+  voidedAt: goodsReceipts.voidedAt,
+  voidReason: goodsReceipts.voidReason,
+  createdAt: goodsReceipts.createdAt,
 };
 
 export async function listGoodsReceipts(): Promise<GoodsReceiptSummary[]> {
   requirePricesAndOriginalAccess(await getAuthContext());
-  return db
-    .select({
-      id: goodsReceipts.id,
-      supplierId: goodsReceipts.supplierId,
-      supplierNameSnapshot: goodsReceipts.supplierNameSnapshot,
-      stockLocationId: goodsReceipts.stockLocationId,
-      documentNumber: goodsReceipts.documentNumber,
-      status: goodsReceipts.status,
-      extractionStatus: goodsReceipts.extractionStatus,
-      reextractionStatus: goodsReceipts.reextractionStatus,
-      createdAt: goodsReceipts.createdAt,
-    })
-    .from(goodsReceipts)
-    .orderBy(goodsReceipts.createdAt);
+  return db.select(RECEIPT_SUMMARY_COLUMNS).from(goodsReceipts).orderBy(goodsReceipts.createdAt);
 }
 
 export async function getGoodsReceipt(receiptId: string): Promise<GoodsReceiptSummary | null> {
   requirePricesAndOriginalAccess(await getAuthContext());
-  const [receipt] = await db
-    .select({
-      id: goodsReceipts.id,
-      supplierId: goodsReceipts.supplierId,
-      supplierNameSnapshot: goodsReceipts.supplierNameSnapshot,
-      stockLocationId: goodsReceipts.stockLocationId,
-      documentNumber: goodsReceipts.documentNumber,
-      status: goodsReceipts.status,
-      extractionStatus: goodsReceipts.extractionStatus,
-      reextractionStatus: goodsReceipts.reextractionStatus,
-      createdAt: goodsReceipts.createdAt,
-    })
-    .from(goodsReceipts)
-    .where(eq(goodsReceipts.id, receiptId))
-    .limit(1);
+  const [receipt] = await db.select(RECEIPT_SUMMARY_COLUMNS).from(goodsReceipts).where(eq(goodsReceipts.id, receiptId)).limit(1);
   return receipt ?? null;
 }
 
@@ -526,7 +529,7 @@ export async function updateGoodsReceiptLine(
     return { ok: false, error: "Řádky lze upravit jen u návrhu příjemky." };
   }
 
-  const validated = validateManualLineInput(rawInput);
+  const validated = validateManualLineInput(rawInput, { requireMapping: false });
   if (!validated.ok) {
     return validated;
   }
@@ -872,154 +875,238 @@ export async function reviewGoodsReceiptLineVat(
 }
 
 // --- Atomické potvrzení a skladové pohyby -------------------------------
-
-export type ConfirmReceiptResult = { ok: true } | { ok: false; error: string };
-
-// Jediný atomický SQL příkaz: `claimed` (UPDATE … WHERE status='draft') je
-// jediný gate — INSERT pohybů i aktivity běží jen `WHERE EXISTS (SELECT 1
-// FROM claimed)`, stejný dokumentovaný vzor jako
-// buildLogDailyCallOutcomeQuery (Postgres provede všechny data-měnící CTE
-// v jedné transakci přesně jednou). Pohyby vznikají INSERT…SELECT přímo z
-// goods_receipt_lines (jeden řádek dokladu = jeden pohyb), ne smyčkou v
-// JS — zvládne libovolný počet řádků v jednom příkazu. Řádky
-// "non_stock_private" se do skladu nikdy nezapisují (revize návrhu, bod 1
-// a schválený rozsah lineKind). Součty na hlavičce (total_*_hal) se
-// dopočítají ze VŠECH řádků (i non_stock_private) — musí sedět na celý
-// doklad, ne jen na skladovou část.
 //
-// Post-implementační audit (bod A) — rozhodnutí o non_stock_private:
-// vat_confirmed se vyžaduje u VŠECH řádků, i non_stock_private. Důvod:
-// soukromá/nefiremní položka se nezapisuje do skladu, ale její částka
-// ZŮSTÁVÁ součástí hlavičkových součtů výš (ty se počítají ze VŠECH
-// řádků) — nezrevidovaná/špatně dopočítaná sazba DPH na takovém řádku by
-// tedy pokřivila celkové DPH dokladu i bez dopadu na sklad. Revize musí
-// proběhnout u každého řádku, ne jen u skladových.
-export async function confirmGoodsReceipt(receiptId: string): Promise<ConfirmReceiptResult> {
+// Všechny kontroly před potvrzením počítá JEDEN SQL fragment (níž), který
+// používá jak náhled na kontrolní obrazovce, tak samotné potvrzení. Při
+// potvrzení běží v TÉŽE transakci hned po zámku příjemky
+// (buildGoodsReceiptAdvisoryLockQuery — stejný zámek berou všechny zápisy
+// řádků), takže mezi kontrolou a zápisem pohybů nemůže nikdo řádek změnit.
+// Dřív se DPH a mapování kontrolovaly v JS předem a bez zámku.
+//
+// Překážky (blockers) potvrzení vždy zastaví. Varování (warnings) projdou
+// jen tehdy, když je člověk výslovně odsouhlasil — klíč varování nese
+// konkrétní hodnoty (skladConfirmationChecks.ts), odsouhlasení se uloží do
+// historie příjemky.
+function confirmationChecksCtes(receiptId: string) {
+  return sql`
+    checks_receipt AS (
+      SELECT id, status, supplier_id, document_number, document_date, document_total_with_vat_hal
+      FROM goods_receipts WHERE id = ${receiptId}
+    ),
+    checks_lines AS (
+      SELECT
+        count(gl.id)::int AS line_count,
+        COALESCE(sum(gl.total_with_vat_hal), 0)::float8 AS lines_total_hal,
+        COALESCE(jsonb_agg(gl.raw_description ORDER BY gl.position) FILTER (WHERE NOT gl.vat_confirmed), '[]') AS vat_unconfirmed,
+        COALESCE(jsonb_agg(gl.raw_description ORDER BY gl.position)
+          FILTER (WHERE gl.line_kind <> 'non_stock_private' AND gl.stock_item_id IS NULL), '[]') AS unmapped,
+        COALESCE(jsonb_agg(gl.raw_description ORDER BY gl.position) FILTER (WHERE si.id IS NOT NULL AND si.kind <> gl.line_kind), '[]') AS kind_mismatch,
+        COALESCE(jsonb_agg(jsonb_build_object('name', gl.raw_description, 'unit', gl.normalized_unit, 'cardUnit', si.canonical_unit) ORDER BY gl.position)
+          FILTER (WHERE si.id IS NOT NULL AND lower(btrim(gl.normalized_unit)) <> si.canonical_unit), '[]') AS unit_mismatch
+      FROM goods_receipt_lines gl
+      LEFT JOIN stock_items si ON si.id = gl.stock_item_id
+      WHERE gl.receipt_id = ${receiptId}
+    ),
+    checks_others AS (
+      SELECT o.id, o.document_number, o.document_date, o.total_with_vat_hal,
+             (r.document_number IS NOT NULL AND lower(btrim(o.document_number)) = lower(btrim(r.document_number))) AS same_number,
+             (o.document_date IS NOT DISTINCT FROM r.document_date) AS same_date,
+             (o.total_with_vat_hal = l.lines_total_hal) AS same_total,
+             r.document_date IS NOT NULL AS has_date
+      FROM goods_receipts o, checks_receipt r, checks_lines l
+      WHERE o.status = 'confirmed' AND o.supplier_id = r.supplier_id AND o.id <> r.id
+    ),
+    checks AS (
+      SELECT r.status, l.line_count, l.lines_total_hal, l.vat_unconfirmed, l.unmapped, l.kind_mismatch, l.unit_mismatch,
+             r.document_total_with_vat_hal::float8 AS document_total_hal,
+             r.document_number, r.document_date::text AS document_date,
+             ${otherReceiptsJson(sql`same_number AND same_date AND same_total`)} AS duplicates,
+             ${otherReceiptsJson(sql`same_number AND NOT (same_date AND same_total)`)} AS same_number_others,
+             ${otherReceiptsJson(sql`NOT same_number AND has_date AND same_date AND same_total`)} AS same_date_total_others
+      FROM checks_receipt r CROSS JOIN checks_lines l
+    ),
+    verdict AS (
+      SELECT c.*,
+        array_remove(ARRAY[
+          CASE WHEN c.status <> 'draft' THEN 'not_draft' END,
+          CASE WHEN c.line_count = 0 THEN 'no_lines' END,
+          CASE WHEN jsonb_array_length(c.vat_unconfirmed) > 0 THEN 'vat_unconfirmed' END,
+          CASE WHEN jsonb_array_length(c.unmapped) > 0 THEN 'unmapped' END,
+          CASE WHEN jsonb_array_length(c.kind_mismatch) > 0 THEN 'kind_mismatch' END,
+          CASE WHEN jsonb_array_length(c.unit_mismatch) > 0 THEN 'unit_mismatch' END,
+          CASE WHEN jsonb_array_length(c.duplicates) > 0 THEN 'duplicate' END
+        ]::text[], NULL) AS blockers,
+        array_remove(ARRAY[
+          CASE WHEN c.document_total_hal IS NULL THEN 'document_total_missing:' || c.lines_total_hal::bigint END,
+          CASE WHEN c.document_total_hal IS NOT NULL AND c.document_total_hal <> c.lines_total_hal
+               THEN 'totals_mismatch:' || c.document_total_hal::bigint || ':' || c.lines_total_hal::bigint END,
+          CASE WHEN c.document_number IS NULL OR btrim(c.document_number) = '' THEN 'document_number_missing' END,
+          CASE WHEN jsonb_array_length(c.same_number_others) > 0
+               THEN 'same_number:' || (SELECT string_agg(x->>'id', ',' ORDER BY x->>'id') FROM jsonb_array_elements(c.same_number_others) x) END,
+          CASE WHEN jsonb_array_length(c.same_date_total_others) > 0
+               THEN 'same_date_total:' || (SELECT string_agg(x->>'id', ',' ORDER BY x->>'id') FROM jsonb_array_elements(c.same_date_total_others) x) END
+        ]::text[], NULL) AS warnings
+      FROM checks c
+    )`;
+}
+
+function otherReceiptsJson(condition: ReturnType<typeof sql>) {
+  return sql`(SELECT COALESCE(jsonb_agg(jsonb_build_object('id', id, 'number', document_number, 'date', document_date::text, 'totalHal', total_with_vat_hal::float8) ORDER BY id), '[]')
+               FROM checks_others WHERE ${condition})`;
+}
+
+/** Náhled kontrol pro kontrolní obrazovku — stejný výpočet, jaký provede potvrzení. */
+export async function getGoodsReceiptConfirmationCheck(receiptId: string): Promise<ConfirmationChecks | null> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  const result = await db.execute<ConfirmationChecksRow>(sql`WITH ${confirmationChecksCtes(receiptId)} SELECT * FROM verdict`);
+  const row = result.rows[0];
+  return row ? describeConfirmationChecks(row) : null;
+}
+
+export type ConfirmReceiptInput = { acknowledgedWarnings: string[] };
+export type ConfirmReceiptResult =
+  | { ok: true; movements: number }
+  | { ok: false; error: string; checks?: ConfirmationChecks };
+
+const DUPLICATE_CONFIRMED_ERROR =
+  "Stejný doklad (dodavatel, číslo, datum i částka) je už potvrzený. Pokud jde o opravu, nejdřív stornujte původní příjemku.";
+
+// Jediný atomický SQL příkaz za zámkem příjemky: kontroly (verdict) →
+// `claimed` (UPDATE … WHERE status='draft' a verdikt OK) → pohyby a historie
+// jen `FROM claimed`. Druhé potvrzení tedy nic nezdvojí (status už není
+// 'draft'). Pohyby vznikají INSERT…SELECT z goods_receipt_lines (jeden
+// skladový řádek = jeden pohyb v jednotce karty); "non_stock_private" se do
+// skladu nezapisuje. Součty na hlavičce se dopočítají ze VŠECH řádků (musí
+// sedět na celý doklad) a DPH se vyžaduje u každého řádku včetně soukromého
+// (jeho částka je součástí součtů dokladu).
+export async function confirmGoodsReceipt(receiptId: string, input: ConfirmReceiptInput): Promise<ConfirmReceiptResult> {
   const ctx = requireConfirmAccess(await getAuthContext());
+  const acknowledged = JSON.stringify(input.acknowledgedWarnings.filter((key) => typeof key === "string").slice(0, 20));
 
-  const receipt = await fetchReceiptForMutation(receiptId);
-  if (!receipt) {
-    return { ok: false, error: "Příjemka nebyla nalezena." };
-  }
-  if (receipt.status !== "draft") {
-    return { ok: false, error: "Příjemka už byla potvrzena nebo zrušena." };
-  }
-
-  const lines = await db
-    .select({
-      id: goodsReceiptLines.id,
-      lineKind: goodsReceiptLines.lineKind,
-      stockItemId: goodsReceiptLines.stockItemId,
-      rawDescription: goodsReceiptLines.rawDescription,
-      vatConfirmed: goodsReceiptLines.vatConfirmed,
-    })
-    .from(goodsReceiptLines)
-    .where(eq(goodsReceiptLines.receiptId, receiptId));
-  if (lines.length === 0) {
-    return { ok: false, error: "Příjemka nemá žádné řádky." };
-  }
-  const notVatConfirmed = lines.filter((line) => !line.vatConfirmed);
-  if (notVatConfirmed.length > 0) {
-    return {
-      ok: false,
-      error: `Všechny řádky musí mít potvrzenou revizi DPH (chybí u: ${notVatConfirmed
-        .map((line) => line.rawDescription)
-        .join(", ")}).`,
-    };
-  }
-  const unmapped = lines.filter(
-    (line) => STOCK_AFFECTING_LINE_KINDS.has(line.lineKind as LineKind) && !line.stockItemId
-  );
-  if (unmapped.length > 0) {
-    return {
-      ok: false,
-      error: `Všechny skladové/zbožové řádky musí mít přiřazenou skladovou kartu (chybí u: ${unmapped
-        .map((line) => line.rawDescription)
-        .join(", ")}).`,
-    };
-  }
-
-  // Tvrdý blok proti omylem dvojímu potvrzení stejného dokladu (revize
-  // návrhu, bod 6) — stejný invariant je i na DB úrovni (partial unique
-  // index goods_receipts_confirmed_document_once_key), tohle je jen
-  // předběžná kontrola pro srozumitelnou hlášku místo syrové chyby
-  // ovladače. Oprava jde přes storno původní a potvrzení nové příjemky
-  // (voidGoodsReceipt), ne přes bypass flag tady.
-  if (receipt.documentNumber) {
-    const [duplicate] = await db
-      .select({ id: goodsReceipts.id })
-      .from(goodsReceipts)
-      .where(
-        and(
-          eq(goodsReceipts.supplierId, receipt.supplierId),
-          eq(goodsReceipts.documentNumber, receipt.documentNumber),
-          eq(goodsReceipts.status, "confirmed"),
-          ne(goodsReceipts.id, receiptId)
-        )
-      )
-      .limit(1);
-    if (duplicate) {
-      return {
-        ok: false,
-        error:
-          "Doklad se stejným číslem od tohoto dodavatele už je potvrzený. Pokud jde o opravu, nejdřív stornujte původní příjemku.",
-      };
-    }
-  }
-
+  let result: { rows: Array<ConfirmationChecksRow & { claimed_id: string | null; movement_count: number }> };
   try {
-    const result = await db.execute<{ id: string }>(sql`
-      WITH claimed AS (
-        UPDATE goods_receipts
-        SET status = 'confirmed',
-            confirmed_by_user_id = ${ctx.userId},
-            confirmed_at = now(),
-            total_without_vat_hal = (SELECT COALESCE(SUM(total_without_vat_hal), 0) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}),
-            total_vat_hal = (SELECT COALESCE(SUM(vat_hal), 0) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}),
-            total_with_vat_hal = (SELECT COALESCE(SUM(total_with_vat_hal), 0) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}),
-            updated_at = now()
-        WHERE id = ${receiptId} AND status = 'draft'
-        RETURNING id
-      ),
-      movements AS (
-        INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id)
-        SELECT l.stock_item_id, ${receipt.stockLocationId}, ${receiptId}, l.id, 'in', l.normalized_quantity, ${ctx.userId}
-        FROM goods_receipt_lines l
-        WHERE l.receipt_id = ${receiptId}
-          AND l.line_kind <> 'non_stock_private'
-          AND EXISTS (SELECT 1 FROM claimed)
-        RETURNING id
-      )
-      INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind)
-      SELECT ${receiptId}, 'user', ${ctx.userId}, ${ctx.name}, 'confirmed'
-      WHERE EXISTS (SELECT 1 FROM claimed)
-      RETURNING id
-    `);
-
-    if (result.rows.length === 0) {
-      return { ok: false, error: "Příjemku se nepodařilo potvrdit — mezitím ji už někdo změnil." };
-    }
-    return { ok: true };
+    [, result] = await db.batch([
+      buildGoodsReceiptAdvisoryLockQuery(receiptId),
+      db.execute<ConfirmationChecksRow & { claimed_id: string | null; movement_count: number }>(sql`
+        WITH ${confirmationChecksCtes(receiptId)},
+        claimed AS (
+          UPDATE goods_receipts
+          SET status = 'confirmed',
+              confirmed_by_user_id = ${ctx.userId},
+              confirmed_at = now(),
+              total_without_vat_hal = (SELECT COALESCE(SUM(total_without_vat_hal), 0) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}),
+              total_vat_hal = (SELECT COALESCE(SUM(vat_hal), 0) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}),
+              total_with_vat_hal = (SELECT COALESCE(SUM(total_with_vat_hal), 0) FROM goods_receipt_lines WHERE receipt_id = ${receiptId}),
+              updated_at = now()
+          WHERE id = ${receiptId}
+            AND status = 'draft'
+            AND (SELECT cardinality(v.blockers) = 0
+                        AND v.warnings <@ ARRAY(SELECT jsonb_array_elements_text(${acknowledged}::jsonb))
+                 FROM verdict v)
+          RETURNING id, stock_location_id
+        ),
+        movements AS (
+          INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id)
+          SELECT l.stock_item_id, c.stock_location_id, c.id, l.id, 'in', l.normalized_quantity, ${ctx.userId}
+          FROM claimed c
+          JOIN goods_receipt_lines l ON l.receipt_id = c.id
+          WHERE l.line_kind <> 'non_stock_private'
+          RETURNING id
+        ),
+        activity AS (
+          INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, metadata)
+          SELECT c.id, 'user', ${ctx.userId}, ${ctx.name}, 'confirmed',
+                 jsonb_build_object(
+                   'acknowledgedWarnings', (SELECT to_jsonb(v.warnings) FROM verdict v),
+                   'linesTotalHal', (SELECT v.lines_total_hal FROM verdict v),
+                   'documentTotalHal', (SELECT v.document_total_hal FROM verdict v),
+                   'movements', (SELECT count(*) FROM movements)
+                 )
+          FROM claimed c
+          RETURNING id
+        )
+        SELECT v.*, (SELECT id FROM claimed) AS claimed_id, (SELECT count(*) FROM movements)::int AS movement_count
+        FROM verdict v
+      `),
+    ]);
   } catch (error) {
     if (messageIncludes(error, "goods_receipts_confirmed_document_once_key")) {
-      return {
-        ok: false,
-        error:
-          "Doklad se stejným číslem od tohoto dodavatele už je potvrzený. Pokud jde o opravu, nejdřív stornujte původní příjemku.",
-      };
+      return { ok: false, error: DUPLICATE_CONFIRMED_ERROR };
+    }
+    if (messageIncludes(error, "je součástí jiné aktivní příjemky")) {
+      return { ok: false, error: "Stejná fotka dokladu je součástí jiné aktivní příjemky — potvrzení zablokováno." };
     }
     throw error;
   }
+
+  const row = result.rows[0];
+  if (!row) {
+    return { ok: false, error: "Příjemka nebyla nalezena." };
+  }
+  if (row.claimed_id) {
+    return { ok: true, movements: row.movement_count };
+  }
+  const checks = describeConfirmationChecks(row);
+  if (checks.blockers.length > 0) {
+    return { ok: false, error: checks.blockers.map((b) => b.message).join(" "), checks };
+  }
+  return {
+    ok: false,
+    error: "Před potvrzením je potřeba výslovně odsouhlasit všechna varování (mezitím se mohla změnit).",
+    checks,
+  };
+}
+
+// --- Hlavička dokladu ------------------------------------------------------
+
+export type UpdateReceiptHeaderResult = { ok: true } | { ok: false; error: string };
+
+// Číslo, datum a celková částka dokladu — opravuje je člověk na kontrolní
+// obrazovce (vytěžení je vyplní jen tam, kde byla prázdná). Za zámkem
+// příjemky, aby se nemohly změnit uprostřed potvrzení.
+export async function updateGoodsReceiptHeader(receiptId: string, rawInput: ReceiptHeaderInput): Promise<UpdateReceiptHeaderResult> {
+  const ctx = requireReviewAccess(await getAuthContext());
+  const validated = validateReceiptHeaderInput(rawInput);
+  if (!validated.ok) {
+    return validated;
+  }
+  const value = validated.value;
+
+  const [, result] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.execute<{ id: string }>(sql`
+      WITH updated AS (
+        UPDATE goods_receipts
+        SET document_number = ${value.documentNumber},
+            document_date = ${value.documentDate}::date,
+            document_total_with_vat_hal = ${value.documentTotalWithVatHal}::bigint,
+            updated_at = now()
+        WHERE id = ${receiptId} AND status = 'draft'
+        RETURNING id
+      )
+      INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, metadata)
+      SELECT id, 'user', ${ctx.userId}, ${ctx.name}, 'header_updated',
+             jsonb_build_object('documentNumber', ${value.documentNumber}::text, 'documentDate', ${value.documentDate}::text,
+                                'documentTotalHal', ${value.documentTotalWithVatHal}::bigint)
+      FROM updated
+      RETURNING id
+    `),
+  ]);
+  if (result.rows.length === 0) {
+    return { ok: false, error: "Hlavičku lze upravit jen u návrhu příjemky." };
+  }
+  return { ok: true };
 }
 
 // --- Atomické storno -----------------------------------------------------
 
-export type VoidReceiptResult = { ok: true } | { ok: false; error: string };
+export type VoidReceiptResult = { ok: true; corrections: number } | { ok: false; error: string };
 
 // Storno vytváří NOVÉ, opačné pohyby (corrects_movement_id → originál) —
-// NIKDY update/delete historických pohybů (revize návrhu, bod 7). Dvojí
-// storno stejného pohybu je vyloučeno jak tady (`NOT EXISTS` v INSERT…
-// SELECT), tak na DB úrovni (stock_movements_corrects_once_key).
+// NIKDY update/delete historických pohybů. Za zámkem příjemky; druhé storno
+// nic nezdvojí: `claimed` vyžaduje status 'confirmed' (po stornu 'voided'),
+// INSERT…SELECT bere jen pohyby bez opravy (NOT EXISTS) a DB to drží i
+// unikátním indexem stock_movements_corrects_once_key.
 export async function voidGoodsReceipt(receiptId: string, reason: string): Promise<VoidReceiptResult> {
   const ctx = requireVoidAccess(await getAuthContext());
 
@@ -1027,48 +1114,57 @@ export async function voidGoodsReceipt(receiptId: string, reason: string): Promi
   if (!trimmedReason) {
     return { ok: false, error: "Důvod storna je povinný." };
   }
+  if (trimmedReason.length > 500) {
+    return { ok: false, error: "Důvod storna je příliš dlouhý (nejvýš 500 znaků)." };
+  }
 
-  const receipt = await fetchReceiptForMutation(receiptId);
-  if (!receipt) {
+  const [, result] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.execute<{ status: string; claimed_id: string | null; correction_count: number }>(sql`
+      WITH claimed AS (
+        UPDATE goods_receipts
+        SET status = 'voided',
+            voided_by_user_id = ${ctx.userId},
+            voided_at = now(),
+            void_reason = ${trimmedReason},
+            updated_at = now()
+        WHERE id = ${receiptId} AND status = 'confirmed'
+        RETURNING id
+      ),
+      corrections AS (
+        INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id, corrects_movement_id, reason)
+        SELECT m.stock_item_id, m.stock_location_id, m.receipt_id, m.receipt_line_id,
+               CASE WHEN m.direction = 'in' THEN 'out' ELSE 'in' END,
+               m.quantity, ${ctx.userId}, m.id, ${trimmedReason}
+        FROM claimed c
+        JOIN stock_movements m ON m.receipt_id = c.id
+        WHERE m.corrects_movement_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM stock_movements x WHERE x.corrects_movement_id = m.id)
+        RETURNING id
+      ),
+      activity AS (
+        INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, body, metadata)
+        SELECT c.id, 'user', ${ctx.userId}, ${ctx.name}, 'voided', ${trimmedReason},
+               jsonb_build_object('corrections', (SELECT count(*) FROM corrections))
+        FROM claimed c
+        RETURNING id
+      )
+      SELECT r.status, (SELECT id FROM claimed) AS claimed_id, (SELECT count(*) FROM corrections)::int AS correction_count
+      FROM goods_receipts r WHERE r.id = ${receiptId}
+    `),
+  ]);
+
+  const row = result.rows[0];
+  if (!row) {
     return { ok: false, error: "Příjemka nebyla nalezena." };
   }
-  if (receipt.status !== "confirmed") {
-    return { ok: false, error: "Stornovat lze jen potvrzenou příjemku." };
+  if (!row.claimed_id) {
+    return {
+      ok: false,
+      error: row.status === "voided" ? "Příjemka už je stornovaná." : "Stornovat lze jen potvrzenou příjemku.",
+    };
   }
-
-  const result = await db.execute<{ id: string }>(sql`
-    WITH claimed AS (
-      UPDATE goods_receipts
-      SET status = 'voided',
-          voided_by_user_id = ${ctx.userId},
-          voided_at = now(),
-          void_reason = ${trimmedReason},
-          updated_at = now()
-      WHERE id = ${receiptId} AND status = 'confirmed'
-      RETURNING id
-    ),
-    corrections AS (
-      INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id, corrects_movement_id, reason)
-      SELECT m.stock_item_id, m.stock_location_id, m.receipt_id, m.receipt_line_id,
-             CASE WHEN m.direction = 'in' THEN 'out' ELSE 'in' END,
-             m.quantity, ${ctx.userId}, m.id, ${trimmedReason}
-      FROM stock_movements m
-      WHERE m.receipt_id = ${receiptId}
-        AND m.corrects_movement_id IS NULL
-        AND NOT EXISTS (SELECT 1 FROM stock_movements c WHERE c.corrects_movement_id = m.id)
-        AND EXISTS (SELECT 1 FROM claimed)
-      RETURNING id
-    )
-    INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, body)
-    SELECT ${receiptId}, 'user', ${ctx.userId}, ${ctx.name}, 'voided', ${trimmedReason}
-    WHERE EXISTS (SELECT 1 FROM claimed)
-    RETURNING id
-  `);
-
-  if (result.rows.length === 0) {
-    return { ok: false, error: "Příjemku se nepodařilo stornovat — mezitím ji už někdo změnil." };
-  }
-  return { ok: true };
+  return { ok: true, corrections: row.correction_count };
 }
 
 // --- Foto stran dokladu (mobilní tok 1.0) --------------------------------

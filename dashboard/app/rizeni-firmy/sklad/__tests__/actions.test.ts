@@ -13,14 +13,20 @@ import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 const mockCreateSupplier = vi.fn();
 const mockAcceptReextraction = vi.fn();
 const mockDiscardReextraction = vi.fn();
+const mockConfirmReceipt = vi.fn();
+const mockVoidReceipt = vi.fn();
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/data/sklad", () => ({
   acceptGoodsReceiptReextraction: (...args: unknown[]) => mockAcceptReextraction(...args),
+  confirmGoodsReceipt: (...args: unknown[]) => mockConfirmReceipt(...args),
   createDraftGoodsReceipt: vi.fn(),
   createStockItem: vi.fn(),
   createSupplier: (...args: unknown[]) => mockCreateSupplier(...args),
   discardGoodsReceiptReextraction: (...args: unknown[]) => mockDiscardReextraction(...args),
   reviewGoodsReceiptLineVat: vi.fn(),
+  updateGoodsReceiptHeader: vi.fn(),
   updateGoodsReceiptLine: vi.fn(),
+  voidGoodsReceipt: (...args: unknown[]) => mockVoidReceipt(...args),
 }));
 
 const mockTriggerExtraction = vi.fn();
@@ -159,5 +165,28 @@ describe("\"Znovu přečíst doklad\" akce — překlad chyb oprávnění a pass
     mockDiscardReextraction.mockRejectedValueOnce(new Error("connection reset"));
     const { discardGoodsReceiptReextractionAction } = await import("../actions");
     await expect(discardGoodsReceiptReextractionAction("r1")).rejects.toThrow("connection reset");
+  });
+});
+
+describe("confirmGoodsReceiptAction / voidGoodsReceiptAction — potvrzení a storno", () => {
+  it("potvrzení předá odsouhlasená varování beze změny a vrátí výsledek", async () => {
+    mockConfirmReceipt.mockResolvedValueOnce({ ok: true, movements: 2 });
+    const { confirmGoodsReceiptAction } = await import("../actions");
+    expect(await confirmGoodsReceiptAction("r-1", ["document_number_missing"])).toEqual({ ok: true, movements: 2 });
+    expect(mockConfirmReceipt).toHaveBeenCalledWith("r-1", { acknowledgedWarnings: ["document_number_missing"] });
+  });
+
+  it("ForbiddenError → česká hláška (potvrdit smí jen Viner, Königsbergová, Blahout)", async () => {
+    mockConfirmReceipt.mockRejectedValueOnce(new ForbiddenError());
+    const { confirmGoodsReceiptAction } = await import("../actions");
+    expect(await confirmGoodsReceiptAction("r-1", [])).toEqual({ ok: false, error: "Nemáte oprávnění potvrdit příjemku." });
+  });
+
+  it("storno: ForbiddenError → česká hláška; úspěch → {ok:true}", async () => {
+    mockVoidReceipt.mockRejectedValueOnce(new ForbiddenError());
+    const { voidGoodsReceiptAction } = await import("../actions");
+    expect(await voidGoodsReceiptAction("r-1", "omyl")).toEqual({ ok: false, error: "Nemáte oprávnění stornovat příjemku." });
+    mockVoidReceipt.mockResolvedValueOnce({ ok: true, corrections: 1 });
+    expect(await voidGoodsReceiptAction("r-1", "omyl")).toEqual({ ok: true });
   });
 });

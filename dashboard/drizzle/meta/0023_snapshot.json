@@ -1453,10 +1453,22 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "document_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "total_with_vat_hal",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
             }
           ],
           "isUnique": true,
-          "where": "\"goods_receipts\".\"status\" = 'confirmed' AND \"goods_receipts\".\"document_number\" IS NOT NULL",
+          "where": "\"goods_receipts\".\"status\" = 'confirmed' AND \"goods_receipts\".\"document_number\" IS NOT NULL AND \"goods_receipts\".\"document_date\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}

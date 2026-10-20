@@ -7,13 +7,18 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   acceptGoodsReceiptReextraction,
+  confirmGoodsReceipt,
   createDraftGoodsReceipt,
   createStockItem,
   createSupplier,
   discardGoodsReceiptReextraction,
   reviewGoodsReceiptLineVat,
+  updateGoodsReceiptHeader,
   updateGoodsReceiptLine,
+  voidGoodsReceipt,
+  type ConfirmReceiptResult,
 } from "@/lib/data/sklad";
+import type { ReceiptHeaderInput } from "@/lib/data/skladConfirmationChecks";
 import {
   confirmGoodsReceiptLineMapping,
   triggerGoodsReceiptExtraction,
@@ -194,5 +199,44 @@ export async function createStockItemForReceiptAction(input: {
     return await createStockItem(input);
   } catch (error) {
     return translateAuthError(error, "Nemáte oprávnění založit skladovou kartu.");
+  }
+}
+
+// --- Hlavička dokladu, potvrzení a storno ----------------------------------
+
+export async function updateGoodsReceiptHeaderAction(receiptId: string, input: ReceiptHeaderInput): Promise<SimpleActionResult> {
+  try {
+    return await updateGoodsReceiptHeader(receiptId, input);
+  } catch (error) {
+    return translateAuthError(error, "Nemáte oprávnění upravit hlavičku této příjemky.");
+  }
+}
+
+// Potvrzení příjemky = jediné místo, kde vznikají skladové pohyby. Varování
+// (nesoulad součtu, doklad bez čísla, možná duplicita) projdou jen s
+// výslovným souhlasem — klíče posílá panel potvrzení, server je ověří znovu
+// pod zámkem příjemky (confirmGoodsReceipt).
+export async function confirmGoodsReceiptAction(receiptId: string, acknowledgedWarnings: string[]): Promise<ConfirmReceiptResult> {
+  try {
+    const result = await confirmGoodsReceipt(receiptId, { acknowledgedWarnings });
+    if (result.ok) {
+      revalidatePath("/rizeni-firmy/sklad");
+      revalidatePath(`/rizeni-firmy/sklad/prijemky/${receiptId}`);
+    }
+    return result;
+  } catch (error) {
+    return translateAuthError(error, "Nemáte oprávnění potvrdit příjemku.");
+  }
+}
+
+export async function voidGoodsReceiptAction(receiptId: string, reason: string): Promise<SimpleActionResult> {
+  try {
+    const result = await voidGoodsReceipt(receiptId, reason);
+    if (!result.ok) return result;
+    revalidatePath("/rizeni-firmy/sklad");
+    revalidatePath(`/rizeni-firmy/sklad/prijemky/${receiptId}`);
+    return { ok: true };
+  } catch (error) {
+    return translateAuthError(error, "Nemáte oprávnění stornovat příjemku.");
   }
 }

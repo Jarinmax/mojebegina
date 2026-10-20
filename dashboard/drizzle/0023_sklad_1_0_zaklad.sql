@@ -190,7 +190,7 @@ CREATE INDEX "goods_receipt_documents_receipt_idx" ON "goods_receipt_documents" 
 CREATE UNIQUE INDEX "goods_receipt_lines_position_key" ON "goods_receipt_lines" USING btree ("receipt_id","position");--> statement-breakpoint
 CREATE INDEX "goods_receipt_lines_stock_item_idx" ON "goods_receipt_lines" USING btree ("stock_item_id");--> statement-breakpoint
 CREATE INDEX "goods_receipts_supplier_document_idx" ON "goods_receipts" USING btree ("supplier_id","document_number");--> statement-breakpoint
-CREATE UNIQUE INDEX "goods_receipts_confirmed_document_once_key" ON "goods_receipts" USING btree ("supplier_id","document_number") WHERE "goods_receipts"."status" = 'confirmed' AND "goods_receipts"."document_number" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "goods_receipts_confirmed_document_once_key" ON "goods_receipts" USING btree ("supplier_id","document_number","document_date","total_with_vat_hal") WHERE "goods_receipts"."status" = 'confirmed' AND "goods_receipts"."document_number" IS NOT NULL AND "goods_receipts"."document_date" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "stock_locations_code_key" ON "stock_locations" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "stock_movements_item_location_idx" ON "stock_movements" USING btree ("stock_item_id","stock_location_id");--> statement-breakpoint
 CREATE INDEX "stock_movements_receipt_idx" ON "stock_movements" USING btree ("receipt_id");--> statement-breakpoint

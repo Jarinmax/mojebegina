@@ -6,26 +6,9 @@
 // a voidGoodsReceipt SAMY (skutečné funkce, ne jen text zkompilovaného SQL
 // — to ověřuje skladMigration.test.ts/skladValidation.test.ts už jinak).
 //
-// Co tenhle test dokazuje na reálných funkcích:
-//   - confirmGoodsReceipt: řádek bez potvrzené revize DPH (vat_confirmed
-//     false) blokuje potvrzení ještě PŘED atomickým příkazem
-//     (post-implementační audit, bod A);
-//   - confirmGoodsReceipt: nemapovaný skladový řádek (chybí stock_item_id)
-//     blokuje potvrzení ještě PŘED atomickým příkazem (žádný pokus o
-//     zápis);
-//   - confirmGoodsReceipt: prohraný claim (atomický příkaz vrátí 0 řádků,
-//     tj. příjemka mezitím přestala být 'draft') → {ok:false};
-//   - confirmGoodsReceipt: úspěšný claim → {ok:true} a atomický příkaz
-//     skutečně obsahuje `line_kind <> 'non_stock_private'` (pohyby jen ze
-//     skladových/zbožových řádků) a `WHERE EXISTS (SELECT 1 FROM
-//     claimed)` na INSERTech (revize návrhu, bod 1 a 7);
-//   - voidGoodsReceipt: prázdný důvod je odmítnutý ještě PŘED jakýmkoli
-//     dotazem (žádný SQL se nevyšle);
-//   - voidGoodsReceipt: prohraný claim → {ok:false};
-//   - voidGoodsReceipt: úspěšný claim → atomický příkaz obsahuje `NOT
-//     EXISTS (SELECT 1 FROM stock_movements c WHERE c.corrects_movement_id
-//     = m.id)` (pojistka proti dvojímu stornu i na úrovni příkazu, ne jen
-//     DB indexu — revize návrhu, bod 7).
+// Co tenhle test dokazuje: tvar volání potvrzení/storna (zámek příjemky a
+// jediný příkaz v téže transakci) a GUC flag revize DPH. Chování nad
+// skutečnou DB ověřuje skladFlow.integration.test.ts.
 //
 // Co tenhle test NEMŮŽE dokázat: skutečné vynucení CHECKů/partial unique
 // indexů/triggeru živou Postgres databází — to zůstává zdokumentované
@@ -111,10 +94,6 @@ function confirmCtx(): AuthContext {
   };
 }
 
-function findAtomicCall() {
-  return capturedQueries.find((q) => q.sql.includes("WITH claimed AS"));
-}
-
 beforeEach(() => {
   capturedQueries.length = 0;
   receiptRow = ["draft", SUPPLIER_ID, null, LOCATION_ID];
@@ -125,107 +104,47 @@ beforeEach(() => {
   mockGetAuthContext.mockResolvedValue(confirmCtx());
 });
 
-describe("confirmGoodsReceipt — atomický gate a skladová filtrace (Security Phase 22)", () => {
-  it("řádek bez potvrzené revize DPH (vat_confirmed=false) blokuje potvrzení PŘED atomickým příkazem", async () => {
-    lineRows = [["line-1", "stock_material", "item-1", "Nerevidovaný řádek", false]];
+// Chování potvrzení a storna (kontroly, varování, jediný pohyb, druhé
+// potvrzení/storno nic nezdvojí) ověřuje skladFlow.integration.test.ts nad
+// skutečnou databází. Tady jen tvar volání: zámek příjemky je první příkaz
+// TÉŽE dávky (transakce) a kontroly jsou v TÉMŽE příkazu jako zápis.
+describe("confirmGoodsReceipt — zámek a kontroly v jedné transakci", () => {
+  it("zámek příjemky → jediný příkaz s kontrolami (verdict), claimem, pohyby a historií; žádný předběžný SELECT řádků", async () => {
     const { confirmGoodsReceipt } = await import("../sklad");
+    await confirmGoodsReceipt(RECEIPT_ID, { acknowledgedWarnings: [] });
 
-    const result = await confirmGoodsReceipt(RECEIPT_ID);
-
-    expect(result.ok).toBe(false);
-    expect(findAtomicCall()).toBeFalsy();
-  });
-
-  it("nemapovaný skladový řádek (chybí stock_item_id) blokuje potvrzení PŘED atomickým příkazem", async () => {
-    lineRows = [["line-1", "stock_material", null, "Nenamapovaná položka", true]];
-    const { confirmGoodsReceipt } = await import("../sklad");
-
-    const result = await confirmGoodsReceipt(RECEIPT_ID);
-
-    expect(result.ok).toBe(false);
-    expect(findAtomicCall()).toBeFalsy();
-  });
-
-  it("prohraný/souběžný claim (0 řádků) → {ok:false}", async () => {
-    claimedRowCount = 0;
-    const { confirmGoodsReceipt } = await import("../sklad");
-
-    const result = await confirmGoodsReceipt(RECEIPT_ID);
-
-    expect(result.ok).toBe(false);
-    expect(findAtomicCall()).toBeTruthy();
-  });
-
-  it("úspěšný claim → {ok:true}, pohyby jen z řádků line_kind <> 'non_stock_private', INSERTy gatované na claimed", async () => {
-    const { confirmGoodsReceipt } = await import("../sklad");
-
-    const result = await confirmGoodsReceipt(RECEIPT_ID);
-
-    expect(result.ok).toBe(true);
-    const atomicCall = findAtomicCall()!;
-    expect(atomicCall.sql).toContain("line_kind <> 'non_stock_private'");
-    expect(atomicCall.sql).toContain("WHERE EXISTS (SELECT 1 FROM claimed)");
-    expect(atomicCall.sql).toMatch(/WHERE id = \$\d+ AND status = 'draft'/);
-  });
-
-  it("příjemka, která už není 'draft', je odmítnuta ještě PŘED atomickým příkazem", async () => {
-    receiptRow = ["confirmed", SUPPLIER_ID, null, LOCATION_ID];
-    const { confirmGoodsReceipt } = await import("../sklad");
-
-    const result = await confirmGoodsReceipt(RECEIPT_ID);
-
-    expect(result.ok).toBe(false);
-    expect(findAtomicCall()).toBeFalsy();
+    const lockIdx = capturedQueries.findIndex((q) => q.sql.includes("pg_advisory_xact_lock"));
+    const atomicIdx = capturedQueries.findIndex((q) => q.sql.includes("claimed AS"));
+    expect(lockIdx).toBeGreaterThanOrEqual(0);
+    expect(atomicIdx).toBe(lockIdx + 1);
+    const atomic = capturedQueries[atomicIdx].sql;
+    expect(atomic).toContain("verdict AS");
+    expect(atomic).toMatch(/WHERE id = \$\d+\s+AND status = 'draft'\s+AND \(SELECT cardinality\(v\.blockers\) = 0/);
+    expect(atomic).toContain("WHERE l.line_kind <> 'non_stock_private'");
+    expect(atomic).toContain("FROM claimed c");
+    expect(capturedQueries.some((q) => q.sql.startsWith("select") && q.sql.includes('from "goods_receipt_lines"'))).toBe(false);
   });
 });
 
-describe("voidGoodsReceipt — povinný důvod a atomická korekce (Security Phase 22)", () => {
-  beforeEach(() => {
-    receiptRow = ["confirmed", SUPPLIER_ID, null, LOCATION_ID];
-  });
-
+describe("voidGoodsReceipt — povinný důvod a zámek", () => {
   it("prázdný důvod je odmítnutý BEZ jakéhokoli SQL dotazu", async () => {
     const { voidGoodsReceipt } = await import("../sklad");
-
     const result = await voidGoodsReceipt(RECEIPT_ID, "   ");
-
     expect(result.ok).toBe(false);
     expect(capturedQueries.length).toBe(0);
   });
 
-  it("příjemka, která není 'confirmed', je odmítnuta ještě PŘED atomickým příkazem", async () => {
-    receiptRow = ["draft", SUPPLIER_ID, null, LOCATION_ID];
+  it("zámek příjemky → jediný příkaz: claim jen z 'confirmed', opačné pohyby jen pro dosud neopravené", async () => {
     const { voidGoodsReceipt } = await import("../sklad");
+    await voidGoodsReceipt(RECEIPT_ID, "omylem zadáno 2x");
 
-    const result = await voidGoodsReceipt(RECEIPT_ID, "omylem");
-
-    expect(result.ok).toBe(false);
-    expect(findAtomicCall()).toBeFalsy();
-  });
-
-  it("prohraný/souběžný claim (0 řádků) → {ok:false}", async () => {
-    claimedRowCount = 0;
-    const { voidGoodsReceipt } = await import("../sklad");
-
-    const result = await voidGoodsReceipt(RECEIPT_ID, "omylem zadáno 2x");
-
-    expect(result.ok).toBe(false);
-    expect(findAtomicCall()).toBeTruthy();
-  });
-
-  it("úspěšný claim → {ok:true}, korekce vylučuje už jednou stornované pohyby (NOT EXISTS), gatováno na claimed", async () => {
-    const { voidGoodsReceipt } = await import("../sklad");
-
-    const result = await voidGoodsReceipt(RECEIPT_ID, "omylem zadáno 2x");
-
-    expect(result.ok).toBe(true);
-    const atomicCall = findAtomicCall()!;
-    expect(atomicCall.sql).toContain("m.corrects_movement_id IS NULL");
-    expect(atomicCall.sql).toContain(
-      "NOT EXISTS (SELECT 1 FROM stock_movements c WHERE c.corrects_movement_id = m.id)"
-    );
-    expect(atomicCall.sql).toContain("AND EXISTS (SELECT 1 FROM claimed)");
-    expect(atomicCall.sql).toMatch(/WHERE id = \$\d+ AND status = 'confirmed'/);
+    const lockIdx = capturedQueries.findIndex((q) => q.sql.includes("pg_advisory_xact_lock"));
+    const atomicIdx = capturedQueries.findIndex((q) => q.sql.includes("WITH claimed AS"));
+    expect(atomicIdx).toBe(lockIdx + 1);
+    const atomic = capturedQueries[atomicIdx].sql;
+    expect(atomic).toMatch(/WHERE id = \$\d+ AND status = 'confirmed'/);
+    expect(atomic).toContain("m.corrects_movement_id IS NULL");
+    expect(atomic).toContain("NOT EXISTS (SELECT 1 FROM stock_movements x WHERE x.corrects_movement_id = m.id)");
   });
 });
 

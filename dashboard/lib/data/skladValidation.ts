@@ -138,8 +138,12 @@ export type ValidatedManualLine = {
 // zadaných celkových částek (ne zadává se zvlášť) — vylučuje to
 // nekonzistentní trojici čísel a automaticky splňuje DB CHECK
 // goods_receipt_lines_total_consistent.
+// `requireMapping`: nový ruční řádek musí mít kartu hned; oprava hodnot
+// existujícího (např. vytěženého, dosud nenamapovaného) řádku ne — mapování
+// je samostatný krok a bez karty řádek stejně nepůjde potvrdit.
 export function validateManualLineInput(
-  input: ManualLineInput
+  input: ManualLineInput,
+  { requireMapping = true }: { requireMapping?: boolean } = {}
 ): { ok: true; value: ValidatedManualLine } | { ok: false; error: string } {
   const rawDescription = input.rawDescription.trim();
   if (!rawDescription) {
@@ -185,7 +189,7 @@ export function validateManualLineInput(
   if (lineKind === "non_stock_private" && stockItemId) {
     return { ok: false, error: "Soukromá/nefiremní položka se nesmí napojit na skladovou kartu." };
   }
-  if (lineKind !== "non_stock_private" && !stockItemId) {
+  if (requireMapping && lineKind !== "non_stock_private" && !stockItemId) {
     return { ok: false, error: "Vyberte nebo založte skladovou kartu." };
   }
 

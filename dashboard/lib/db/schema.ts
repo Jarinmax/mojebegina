@@ -1168,15 +1168,19 @@ export const goodsReceipts = pgTable(
   },
   (table) => [
     index("goods_receipts_supplier_document_idx").on(table.supplierId, table.documentNumber),
-    // Tvrdá DB pojistka proti omylem dvojímu potvrzení stejného dokladu
-    // (revize návrhu, bod 6: "match na supplier_id + document_number musí
-    // BLOKOVAT, ne jen varovat"). Platí jen mezi POTVRZENÝMI příjemkami —
-    // oprava jde přes storno původní (status → 'voided', mimo predikát
-    // indexu) a potvrzení nové, správné náhrady (bod 6: "aby zůstala
-    // možná a auditovatelná korektní náhrada"), ne přes bypass flag.
+    // Tvrdá DB pojistka proti dvojímu potvrzení TÉHOŽ dokladu: dodavatel +
+    // číslo + datum + celková částka (součet řádků při potvrzení). Samotné
+    // číslo nestačí — pokladní účtenky čísla opakují (nový den, nová
+    // pokladna); shoda jen čísla, nebo jen data a částky je proto VAROVÁNÍ,
+    // které musí výslovně odsouhlasit člověk (confirmGoodsReceipt). Platí
+    // jen mezi POTVRZENÝMI příjemkami — oprava jde přes storno původní a
+    // potvrzení nové náhrady, ne přes bypass flag. Doklad bez data index
+    // nepokryje (NULL); tam drží úplnou shodu kontrola při potvrzení.
     uniqueIndex("goods_receipts_confirmed_document_once_key")
-      .on(table.supplierId, table.documentNumber)
-      .where(sql`${table.status} = 'confirmed' AND ${table.documentNumber} IS NOT NULL`),
+      .on(table.supplierId, table.documentNumber, table.documentDate, table.totalWithVatHal)
+      .where(
+        sql`${table.status} = 'confirmed' AND ${table.documentNumber} IS NOT NULL AND ${table.documentDate} IS NOT NULL`
+      ),
     check("goods_receipts_status_check", sql`${table.status} IN ('draft','confirmed','voided')`),
     check(
       "goods_receipts_document_total_nonnegative",

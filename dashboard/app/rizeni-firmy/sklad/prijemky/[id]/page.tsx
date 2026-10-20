@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGoodsReceipt, listGoodsReceiptDocumentPages, listGoodsReceiptLines } from "@/lib/data/sklad";
 import { getAuthContext } from "@/lib/data/authContext";
-import { canUploadGoodsReceiptDocument } from "@/lib/data/skladAuth";
+import { canUploadGoodsReceiptDocument, canVoidGoodsReceipt } from "@/lib/data/skladAuth";
+import { formatKc } from "@/lib/data/skladConfirmationChecks";
 import FotoCapture from "./FotoCapture";
 import NacistUdajeButton from "./NacistUdajeButton";
+import StornoForm from "./StornoForm";
 import ZnovuPrecistSekce from "./ZnovuPrecistSekce";
 
 const EXTRACTION_STATUS_LABELS: Record<string, string> = {
@@ -46,6 +48,21 @@ export default async function PrijemkaDetailPage({ params }: { params: Promise<{
       </div>
 
       <div className="max-w-md flex flex-col gap-4">
+        {receipt.status === "confirmed" && (
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-2">
+            <p className="text-sm text-green-700">
+              Potvrzeno a naskladněno{receipt.totalWithVatHal !== null ? ` · ${formatKc(receipt.totalWithVatHal)} s DPH` : ""}.
+            </p>
+            {canVoidGoodsReceipt(ctx) && <StornoForm receiptId={id} />}
+          </div>
+        )}
+        {receipt.status === "voided" && (
+          <div className="bg-white border border-neutral-200 rounded-xl p-4">
+            <p className="text-sm text-red-800">Stornováno — skladové pohyby byly vráceny opačnými pohyby.</p>
+            {receipt.voidReason && <p className="text-xs text-neutral-500 mt-1">Důvod: {receipt.voidReason}</p>}
+          </div>
+        )}
+
         {receipt.status !== "draft" ? (
           <p className="text-sm text-neutral-500">
             Fotky stran dokladu lze přidávat jen k návrhu příjemky.
@@ -71,12 +88,21 @@ export default async function PrijemkaDetailPage({ params }: { params: Promise<{
               href={`/rizeni-firmy/sklad/prijemky/${id}/kontrola`}
               className="block w-full text-center text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5"
             >
-              Zkontrolovat vytěžená data
+              Zkontrolovat a potvrdit příjemku
             </Link>
           </div>
         )}
 
-        {receipt.status === "draft" && canUpload && (receipt.extractionStatus === "not_applicable" || receipt.extractionStatus === "failed") && (
+        {receipt.status === "draft" && receipt.extractionStatus !== "needs_review" && lines.length > 0 && (
+          <Link
+            href={`/rizeni-firmy/sklad/prijemky/${id}/kontrola`}
+            className="block w-full text-center text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5"
+          >
+            Kontrola a potvrzení příjemky
+          </Link>
+        )}
+
+        {receipt.status === "draft" && canUpload && lines.length === 0 && (receipt.extractionStatus === "not_applicable" || receipt.extractionStatus === "failed") && (
           <div className="bg-white border border-neutral-200 rounded-xl p-4">
             {receipt.extractionStatus === "failed" && (
               <p className="text-sm text-begina-accent-700 mb-2">{EXTRACTION_STATUS_LABELS.failed}</p>

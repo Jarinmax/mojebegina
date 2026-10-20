@@ -55,7 +55,7 @@ export default function KontrolaForm({
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4">
         {allConfirmed ? (
-          <p className="text-sm text-green-700">Všechny řádky mají potvrzené DPH i mapování. Hotovo — příjemku můžete potvrdit.</p>
+          <p className="text-sm text-green-700">Všechny řádky mají potvrzené DPH i mapování. Zkontrolujte potvrzení příjemky níže.</p>
         ) : (
           <p className="text-sm text-neutral-500">
             Zbývá potvrdit DPH a/nebo mapování u {lines.filter((l) => !(l.vatConfirmed && (l.stockItemId || l.lineKind === "non_stock_private"))).length}{" "}
