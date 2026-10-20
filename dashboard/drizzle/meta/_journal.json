@@ -162,6 +162,20 @@
       "when": 1792435662841,
       "tag": "0022_eshop_1_0_company_invoicing",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792510773403,
+      "tag": "0023_sklad_1_0_zaklad",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792510774666,
+      "tag": "0024_sklad_1_0_znovu_precist",
+      "breakpoints": true
     }
   ]
 }
