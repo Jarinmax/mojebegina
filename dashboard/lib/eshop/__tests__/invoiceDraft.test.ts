@@ -133,7 +133,7 @@ describe("návrh faktury — data pro iDoklad (nic se neodesílá)", () => {
     const req = idokladRequests(draft);
     expect(req.contactLookup).toEqual({ by: "email", value: "jana@example.cz" });
     expect(req.contact).toMatchObject({ CompanyName: "Jana Nováková", Firstname: "Jana", Surname: "Nováková", PostalCode: "18600" });
-    expect(req.duplicateCheck).toEqual({ collection: "IssuedInvoices", filter: "VariableSymbol~eq~70000001" });
+    expect(req.duplicateCheck).toEqual({ collection: "IssuedInvoices", filter: "DateOfIssue~gte~2026-09-05, VariableSymbol = 70000001" }); // iDoklad podle VS filtrovat neumí
     expect(req.invoice).toMatchObject({
       NumericSequenceId: "12345",
       VariableSymbol: "70000001",

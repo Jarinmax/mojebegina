@@ -90,7 +90,7 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     expect(text).toContain("e-shopová řada — ID zatím nepotvrzené");
     expect(text).toContain("Zákazník nezadal adresu (osobní odběr)"); // upozornění
     expect(text).toContain("Chybí ID e-shopové číselné řady v iDokladu"); // doplnit před ostrým vystavením
-    expect(text).toContain("VariableSymbol~eq~70000001"); // pojistka proti dvojí faktuře
+    expect(text).toContain("VariableSymbol = 70000001"); // pojistka proti dvojí faktuře
     expect(text).toContain('"NumericSequenceId": null');
     expect(screen.getByRole("button", { name: "Přegenerovat návrh z aktuálních údajů" })).toBeTruthy();
   });

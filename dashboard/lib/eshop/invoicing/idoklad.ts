@@ -15,6 +15,16 @@
 // aby se den nikdy neposunul převodem časového pásma.
 import type { InvoiceDraft } from "./draft";
 
+/** Kolik dní před dnem úhrady se hledá faktura se stejným VS (i ruční, jakákoli řada). */
+export const VS_LOOKBACK_DAYS = 31;
+
+/** První den (YYYY-MM-DD), od kterého se hledá faktura se stejným VS. */
+export function vsSearchFromDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - VS_LOOKBACK_DAYS);
+  return date.toISOString().slice(0, 10);
+}
+
 export const IDOKLAD_PROVIDER = "idoklad";
 
 // OPRAVA 7. 10. 2026 (zjištěno živým read-only testem proti agendě Beginy,
@@ -201,7 +211,11 @@ export function idokladRequests(draft: InvoiceDraft): IdokladRequests {
         ? { by: "ico", value: draft.customer.ico }
         : { by: "email", value: draft.customer.email },
     contact: { ...contactPostBody(draft, { countryId: 0 }), CountryId: null },
-    duplicateCheck: { collection: "IssuedInvoices", filter: draft.vs ? `VariableSymbol~eq~${draft.vs}` : null },
+    // iDoklad podle VS filtrovat neumí — faktury od data, VS se porovná u nás (issue.ts findByVs)
+    duplicateCheck: {
+      collection: "IssuedInvoices",
+      filter: draft.vs && draft.issueDate ? `DateOfIssue~gte~${vsSearchFromDay(draft.issueDate)}, VariableSymbol = ${draft.vs}` : null,
+    },
     invoice: {
       PartnerId: null, // ID kontaktu z kroku „kontakt“
       NumericSequenceId: draft.numberSeriesId,

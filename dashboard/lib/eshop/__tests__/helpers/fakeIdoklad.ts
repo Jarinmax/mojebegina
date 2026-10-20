@@ -57,6 +57,13 @@ export const BEGINA_CODEBOOKS = {
 // v iDokladu) — testy sdílejí jednu DB s unikátními indexy na ID a číslo.
 const shared = { invoiceId: 7000, serial: 0, contactId: 900 };
 
+/** Výčet z odpovědi skutečného iDokladu (GET /IssuedInvoices, 400), 20. 10. 2026. */
+const ISSUED_INVOICE_FILTER_COLUMNS = [
+  "Id", "CurrencyId", "DateLastChange", "DateOfIssue", "DateOfPayment", "DateOfMaturity", "Exported", "Description",
+  "NumericSequenceId", "DocumentNumber", "ConstantSymbolId", "PartnerId", "IsPaid", "PaymentStatus", "RecurringInvoiceId",
+  "NickName", "DateOfTaxing", "TagIds",
+];
+
 export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
   const calls: FakeCall[] = [];
   const failOnce = { ...(options.failOnce ?? {}) };
@@ -170,11 +177,27 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     } else if (method === "GET" && path === "/IssuedInvoices/Default") {
       response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
     } else if (method === "GET" && path === "/IssuedInvoices") {
-      const vs = filterValue(query, "VariableSymbol");
+      // jako skutečný iDoklad: filtr jen podle podporovaných sloupců (VariableSymbol mezi nimi NENÍ)
+      const column = (query.filter ?? "").split("~")[0];
+      if (query.filter && !ISSUED_INVOICE_FILTER_COLUMNS.includes(column)) {
+        return fail(
+          400,
+          `Filtering by this column is not supported. Supported columns: ${ISSUED_INVOICE_FILTER_COLUMNS.join(", ")}. `
+        );
+      }
       const partner = filterValue(query, "PartnerId");
-      response = page(
-        invoices.filter((i) => (partner !== null ? String(i.PartnerId) === partner : i.VariableSymbol === vs)).map(invoiceView)
-      );
+      const since = /^DateOfIssue~gte~(\d{4}-\d{2}-\d{2})$/.exec(query.filter ?? "")?.[1] ?? null;
+      const all = invoices
+        .filter((i) => (partner === null || String(i.PartnerId) === partner))
+        .filter((i) => since === null || String(i.body.DateOfIssue ?? "").slice(0, 10) >= since)
+        .map(invoiceView);
+      const size = Number(query.pageSize ?? 100);
+      const number = Number(query.page ?? 1);
+      response = ok({
+        Items: all.slice((number - 1) * size, number * size),
+        TotalItems: all.length,
+        TotalPages: Math.max(1, Math.ceil(all.length / size)),
+      });
     } else if (method === "GET" && /^\/IssuedInvoices\/\d+$/.test(path)) {
       const i = invoices.find((x) => x.Id === Number(path.split("/")[2]));
       response = i ? ok(invoiceView(i)) : fail(404, "Not found");
