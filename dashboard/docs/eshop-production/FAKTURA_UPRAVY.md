@@ -6,44 +6,58 @@ Faktura **9260001 zůstává beze změny** (nemaže se, nepřečíslovává, zno
 
 | | Dosud (9260001) | Nově |
 |---|---|---|
-| Text na faktuře | — | za položkami: **„Faktura je již uhrazena – neplaťte.“** |
-| Položka dopravy | „Doprava: Chlazená přeprava“ | **„Chlazená přeprava“** (název dopravy; bez názvu „Doprava“) |
+| Text za položkami | výchozí text agendy iDokladu (o nedodržení splatnosti) | **úplně nahrazen**: jen „Faktura je již uhrazena – neplaťte.“ + ověřená dodací adresa |
+| Položka dopravy | „Doprava: Chlazená přeprava“ | **„Chlazená přeprava“** (název dopravy) |
 | Fakturační adresa | firma: sídlo; osoba: adresa z pokladny | beze změny (odběratel) |
-| Dodací adresa | na faktuře chyběla | zvlášť, za položkami: **„Dodací adresa: příjemce, adresa“**; osobní odběr: „Doručení: způsob dopravy“ |
-| Datum vystavení | den úhrady (9260001: 19. 10.) | **den, kdy se faktura vystavuje** |
-| DUZP / splatnost | den úhrady | den vystavení |
-| Datum úhrady | den úhrady | beze změny — **den skutečné úhrady** (např. platba kartou 19. 10.) |
-| Kopie e-mailu s fakturou | — | **skrytá kopie (Bcc)** na adresy z `ESHOP_EMAIL_INVOICE_COPY_TO` |
+| Dodací adresa | na faktuře chyběla | **„Dodací adresa: příjemce, ulice, PSČ obec“** — jen z explicitních polí objednávky, jinak STOP |
+| Datum vystavení | den úhrady (9260001: 19. 10.) | **skutečný den vystavení** |
+| Splatnost | den úhrady | den vystavení |
+| DUZP | den úhrady | **zatím beze změny (den úhrady)** — čeká na rozhodnutí Jaroslava a Lucie (datum dodání / jiný rozhodný den) |
+| Datum úhrady | den úhrady | beze změny — den skutečné úhrady (např. platba kartou 19. 10.) |
+| Kopie e-mailu s fakturou | — | **skrytá kopie (Bcc)** na `ESHOP_EMAIL_INVOICE_COPY_TO` |
 
-Text agendy „za položkami“ z iDokladu (je-li nastavený) zůstává — připojí se za naše řádky.
-Text „před položkami“ z agendy beze změny.
+Text „před položkami“ z agendy zůstává.
 
-## Kopie e-mailu s fakturou (Jaroslav Viner, Lucie Königsbergová)
+## Dodací adresa — pravidla
 
-- Nová proměnná prostředí ve Vercelu: `ESHOP_EMAIL_INVOICE_COPY_TO` = e-mailové adresy
-  oddělené čárkou. Adresy do kódu nepíšeme — doplní je majitel.
-- Kopie jde jen u e-mailu, který nese PDF faktury, jako **skrytá kopie** (zákazník
-  adresy Beginy nevidí). Adresa, která už je v „Komu“, se nezdvojí.
-- Preview (testovací režim): kopie dostanou jen adresy z `ESHOP_EMAIL_TEST_RECIPIENTS`.
-- Prázdná proměnná = bez kopie (dnešní stav). Historie objednávky u odeslaného e-mailu
-  zapisuje i seznam skrytých kopií.
+- Jen z explicitních polí objednávky: příjemce `recipient_name`, adresa `recipient_address`,
+  kód dopravy `shipping_method_code`. **Nikdy z poznámky zákazníka** ani z fakturační adresy.
+- Osobní odběr = jen kód `osobni-odber` (pokladna e-shopu). Vše ostatní, včetně importů
+  z WooCommerce bez kódu dopravy, je **zásilka**.
+- Zásilka se vystaví jen s ověřenou dodací adresou; jinak blokující chyba
+  „… — opravit u objednávky, faktura se do té doby nevystaví“ (nic se nepošle do iDokladu):
+  - adresa chybí (`delivery_address_missing`),
+  - nejde rozdělit na ulici, PSČ a obec (`delivery_address_unparsed`),
+  - před číslem není ulice ani obec, např. „251, 691 22 Pasohlávky“ (`delivery_address_unreliable`),
+  - chybí příjemce (`delivery_recipient_missing`).
+- Odběratel (fakturační adresa) = firma se sídlem z karty firmy, resp. osoba s adresou
+  z pokladny (pokladna sbírá jednu adresu). Existující kontakt v iDokladu se nepřepisuje.
+- iDoklad má `DeliveryAddressId`, ale jen pro adresy uložené u kontaktu (zápis do
+  kontaktů MojeBegina nemá povolený) — proto adresa v textu za položkami.
 
-## Fakturační vs. dodací adresa
+### Objednávka 5215 (čteno z Production 20. 10. 2026, beze změny)
 
-- Odběratel na faktuře = kontakt v iDokladu: **firma podle IČO se sídlem**, osoba
-  s adresou z pokladny. Pokladna dnes sbírá jen jednu adresu (doručovací), takže
-  u soukromé osoby jsou obě stejné; u firmy se liší (sídlo × místo doručení).
-- Dodací adresa = příjemce a adresa z objednávky (`recipient_name`, `recipient_address`),
-  vytištěná v textu za položkami. iDoklad má pole `DeliveryAddressId`, ale jen pro
-  doručovací adresy uložené u kontaktu — jejich zakládání by znamenalo měnit
-  kontakty v iDokladu (zápis, který MojeBegina nemá povolený), proto text.
-- Existující kontakt v iDokladu (nalezený podle IČO) se nepřepisuje — na faktuře
-  bude adresa, kterou má kontakt v iDokladu.
+| Pole | Hodnota |
+|---|---|
+| Fakturační adresa (sídlo firmy) | Pasohlávky 251, 691 22 Pasohlávky |
+| `recipient_name` | Tomáš Herout |
+| `recipient_address` | 251, 691 22 Pasohlávky |
+| `customer_note` | Prosím o dovoz do Drnholce do areálu Světa bludišť , děkuji. |
+| Doprava | Chlazená přeprava (kód dopravy prázdný = zásilka) |
+
+Podle nových pravidel by 5215 skončila STOPem (`delivery_address_unreliable`) — skutečné
+místo doručení (Drnholec, areál Světa bludišť) je jen v poznámce, a z ní se nic neodvozuje.
+
+## Kopie e-mailu s fakturou
+
+- Vercel: `ESHOP_EMAIL_INVOICE_COPY_TO=viner.jaroslav@gmail.com, lucie.konigsbergova@seznam.cz`
+  (nastaví majitel; adresy nejsou v kódu).
+- Jen u e-mailu s PDF faktury, jako **skrytá kopie**; adresa, která už je v „Komu“, se nezdvojí.
+- Preview: kopie jen na adresy z `ESHOP_EMAIL_TEST_RECIPIENTS`. Prázdná proměnná = bez kopie.
+- Historie objednávky u odeslaného e-mailu zapisuje i skryté kopie.
 
 ## Data
 
-- Návrh faktury se při vystavení vždy sestaví znovu z aktuálních údajů, takže datum
-  vystavení je den kliknutí na „Vystavit fakturu v iDokladu“ (režim `manual`) nebo
-  den automatického vystavení (režim `on`).
-- Pojistky proti dvojí faktuře dál počítají od dne úhrady (VS 31 dní zpět, faktury
-  firmy od dne úhrady).
+- Návrh se při vystavení vždy sestaví znovu → datum vystavení = den kliknutí na
+  „Vystavit fakturu v iDokladu“ (režim `manual`), resp. den automatického vystavení (`on`).
+- Pojistky proti dvojí faktuře dál počítají od dne úhrady.

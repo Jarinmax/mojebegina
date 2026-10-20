@@ -35,18 +35,30 @@ export function paidDayOf(draft: InvoiceDraft): string | null {
   return draft.paidDate ?? draft.issueDate;
 }
 
-/** Dodací adresa (příjemce, adresa / způsob dopravy) — odděleně od fakturační adresy odběratele. */
-export function deliveryText(draft: InvoiceDraft): string | null {
-  const delivery = draft.delivery;
-  if (!delivery) return null;
-  if (delivery.address) return `Dodací adresa: ${[delivery.name, delivery.address].filter(Boolean).join(", ")}`;
-  return delivery.method ? `Doručení: ${delivery.method}` : null;
+/** „69122“ → „691 22“ */
+function czZip(zip: string): string {
+  return /^\d{5}$/.test(zip) ? `${zip.slice(0, 3)} ${zip.slice(3)}` : zip;
 }
 
-/** Text za položkami: „uhrazeno – neplaťte“, dodací adresa, pak text agendy (je-li). */
-export function itemsTextSuffix(draft: InvoiceDraft, agendaSuffix: unknown = null): string {
-  const agenda = typeof agendaSuffix === "string" && agendaSuffix.trim() ? agendaSuffix.trim() : null;
-  return [INVOICE_PAID_TEXT, deliveryText(draft), agenda].filter(Boolean).join("\n");
+/**
+ * Ověřená dodací adresa zásilky (explicitní pole objednávky, ne poznámka),
+ * odděleně od fakturační adresy odběratele. Osobní odběr / neověřená adresa = null
+ * (neověřená adresa je v návrhu blokující chyba — faktura se nevystaví).
+ */
+export function deliveryText(draft: InvoiceDraft): string | null {
+  const delivery = draft.delivery;
+  if (!delivery || delivery.kind !== "shipment" || !delivery.address || !delivery.name) return null;
+  const a = delivery.address;
+  return `Dodací adresa: ${delivery.name}, ${a.street}, ${czZip(a.zip)} ${a.city}`;
+}
+
+/**
+ * Text za položkami faktury MojeBegina — ÚPLNĚ nahrazuje text agendy
+ * (výchozí text iDokladu o nedodržení splatnosti se nepřipojí): jen
+ * „uhrazeno – neplaťte“ a ověřená dodací adresa.
+ */
+export function itemsTextSuffix(draft: InvoiceDraft): string {
+  return [INVOICE_PAID_TEXT, deliveryText(draft)].filter(Boolean).join("\n");
 }
 
 // OPRAVA 7. 10. 2026 (zjištěno živým read-only testem proti agendě Beginy,
@@ -203,7 +215,7 @@ export function invoicePostBody(
   for (const key of ["AccountNumber", "BankId", "Iban", "Swift", "ConstantSymbolId", "IsIncomeTax", "ItemsTextPrefix"]) {
     if (defaults[key] !== undefined && defaults[key] !== null) fromDefaults[key] = defaults[key];
   }
-  // vystavení / DUZP / splatnost = den vystavení; datum úhrady jde do FullyPay (issue.ts)
+  // vystavení / splatnost = den vystavení; DUZP z návrhu (zatím den úhrady); datum úhrady jde do FullyPay (issue.ts)
   const date = idokladDate(draft.issueDate);
   return {
     IsIncomeTax: true,
@@ -222,7 +234,7 @@ export function invoicePostBody(
     DiscountPercentage: 0,
     IsEet: false,
     ReportLanguage: IDOKLAD_ENUMS.Language.Cz,
-    ItemsTextSuffix: itemsTextSuffix(draft, defaults.ItemsTextSuffix),
+    ItemsTextSuffix: itemsTextSuffix(draft),
     Items: items(draft, resolved.pricing),
   };
 }

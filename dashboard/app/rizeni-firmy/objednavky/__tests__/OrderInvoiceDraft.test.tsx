@@ -24,7 +24,9 @@ function invoiceView(recipientAddress: string | null): OrderInvoiceView {
       contactPhone: null,
       recipientName: "Jana Nováková",
       recipientAddress,
-      shippingMethodLabel: "Osobní vyzvednutí",
+      // bez adresy osobní odběr, s adresou zásilka
+      shippingMethodCode: recipientAddress ? "rozvoz" : "osobni-odber",
+      shippingMethodLabel: recipientAddress ? "Chlazená přeprava" : "Osobní vyzvednutí",
       subtotalKc: 379,
       discountKc: 0,
       shippingKc: 0,
@@ -87,8 +89,8 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     expect(text).toContain("Jana Nováková");
     expect(text).toContain("70000001");
     expect(text).toContain("1× Dýňová polévka");
-    // vystavení / DUZP / splatnost = den vystavení; úhrada zvlášť
-    expect(text).toContain("7. 10. 2026 / 7. 10. 2026 / 7. 10. 2026");
+    // vystavení / splatnost = den vystavení; DUZP zatím den úhrady; úhrada zvlášť
+    expect(text).toContain("7. 10. 2026 / 6. 10. 2026 / 7. 10. 2026");
     expect(text).toContain("uhrazeno 379 Kč · 6. 10. 2026");
     expect(text).toContain("Osobní vyzvednutí"); // doručení
     expect(text).toContain("Faktura je již uhrazena – neplaťte.");
@@ -109,8 +111,8 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     // fakturační adresa (odběratel), dodací adresa (doručení) a text na faktuře
     const text = container.textContent ?? "";
     expect(text).toContain("Lipová 5, 60200 Brno"); // odběratel
-    expect(text).toContain("DoručeníJana Nováková, Lipová 5, 60200 Brno");
-    expect(text).toContain("Dodací adresa: Jana Nováková, Lipová 5, 60200 Brno");
+    expect(text).toContain("DoručeníJana Nováková, Lipová 5, 602 00 BrnoChlazená přeprava");
+    expect(text).toContain("Dodací adresa: Jana Nováková, Lipová 5, 602 00 Brno");
   });
 });
 
