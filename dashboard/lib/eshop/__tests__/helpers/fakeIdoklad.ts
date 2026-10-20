@@ -89,6 +89,8 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     VariableSymbol: i.VariableSymbol,
     PartnerId: i.PartnerId,
     DateOfIssue: (i.body.DateOfIssue as string | undefined) ?? null,
+    OrderNumber: (i.body.OrderNumber as string | undefined) ?? null,
+    Description: (i.body.Description as string | undefined) ?? null,
     PaymentStatus: i.PaymentStatus,
     Prices: i.Prices,
   });

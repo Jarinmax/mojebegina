@@ -66,6 +66,8 @@ type IdokladInvoice = {
   DocumentNumber?: string | null;
   VariableSymbol?: string | null;
   DateOfIssue?: string | null;
+  OrderNumber?: string | null;
+  Description?: string | null;
   PaymentStatus?: number | string | null;
   Prices?: { TotalWithVat?: number | null; TotalVat?: number | null; TotalPaid?: number | null } | null;
 };
@@ -105,22 +107,66 @@ function assertOurInvoice(invoice: IdokladInvoice, vs: string) {
   }
 }
 
+/** Nejvýš tolik stran (po 100) faktur jedné firmy projde kontrola duplicit. */
+const COMPANY_INVOICE_PAGES = 5;
+
 /**
- * Firma: v iDokladu nesmí být jiná faktura této firmě vystavená v den úhrady
- * nebo později — v JAKÉKOLI řadě a s jakýmkoli VS (např. ruční faktura Lucie
- * k téže objednávce ve výchozí řadě). Když je, stop k ruční kontrole.
+ * Firma: skutečná duplicita mimo MojeBegina (např. ruční faktura Lucie
+ * k téže objednávce ve výchozí řadě). Projdou se faktury této firmě
+ * vystavené v den úhrady nebo později (jakákoli řada):
+ *   • vystavené MojeBegina (ID uložené u jiné objednávky) → v pořádku,
+ *     patří jiným objednávkám (další objednávky firmy se neblokují),
+ *   • cizí faktura odkazující na tuto objednávku (VS, číslo objednávky,
+ *     číslo v popisu) → STOP — duplicita,
+ *   • cizí faktura se stejnou částkou → STOP — nejasné, ruční kontrola,
+ *   • ostatní cizí faktury (jiná částka, jiný odkaz) → jiné objednávky.
+ * STOP platí jen pro toto vystavení; po kontrole se dá vystavit znovu.
  */
-async function assertNoRecentCompanyInvoice(client: EshopIdokladClient, partnerId: number, fromDay: string) {
-  const page = await client.list<IdokladInvoice>("/IssuedInvoices", eqFilter("PartnerId", String(partnerId)), 100);
-  if (page.TotalItems > page.Items.length) {
-    throw new IssueStop(`Firma má v iDokladu víc než ${page.Items.length} faktur — nejde ověřit, že už fakturu nemá. Nutná ruční kontrola.`);
+async function assertNoForeignDuplicate(
+  db: Db,
+  client: EshopIdokladClient,
+  partnerId: number,
+  check: { fromDay: string; vs: string; orderReference: string | null; totalKc: number }
+) {
+  const all: IdokladInvoice[] = [];
+  for (let page = 1; page <= COMPANY_INVOICE_PAGES; page += 1) {
+    const result = await client.list<IdokladInvoice>("/IssuedInvoices", eqFilter("PartnerId", String(partnerId)), 100, page);
+    all.push(...result.Items);
+    if (page >= result.TotalPages || result.Items.length === 0) break;
+    if (page === COMPANY_INVOICE_PAGES) {
+      throw new IssueStop(`Firma má v iDokladu víc než ${COMPANY_INVOICE_PAGES * 100} faktur — duplicitu nejde ověřit, nutná ruční kontrola.`);
+    }
   }
-  const recent = page.Items.filter((i) => (i.DateOfIssue ?? "").slice(0, 10) >= fromDay);
-  if (recent.length > 0) {
-    throw new IssueStop(
-      `Firma už má v iDokladu fakturu vystavenou ${fromDay} nebo později (${recent.map((i) => i.DocumentNumber ?? i.Id).join(", ")}) — ` +
-        "zkontrolovat, zda není k téže objednávce. Nic se nevystavilo."
-    );
+  const recent = all.filter((i) => (i.DateOfIssue ?? "").slice(0, 10) >= check.fromDay);
+  if (recent.length === 0) return;
+  const ids = recent.map((i) => String(i.Id));
+  const ours = new Set(
+    (
+      (
+        await db.execute(sql`
+          SELECT external_id FROM invoice_provider_links
+          WHERE provider = ${IDOKLAD_PROVIDER} AND external_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`)
+      ).rows as { external_id: string }[]
+    ).map((r) => r.external_id)
+  );
+  const ref = check.orderReference;
+  const refRe = ref ? new RegExp(`(^|\\D)${ref}(\\D|$)`) : null;
+  for (const invoice of recent) {
+    if (ours.has(String(invoice.Id))) continue;
+    const label = invoice.DocumentNumber ?? String(invoice.Id);
+    const refersToOrder =
+      invoice.VariableSymbol === check.vs ||
+      (ref !== null && (invoice.OrderNumber ?? "").trim() === ref) ||
+      (refRe !== null && refRe.test(invoice.Description ?? ""));
+    if (refersToOrder) {
+      throw new IssueStop(`V iDokladu už je faktura ${label} k této objednávce (${ref ?? check.vs}) — mimo MojeBegina. Nic se nevystavilo.`);
+    }
+    if (sameAmount(invoice.Prices?.TotalWithVat, check.totalKc)) {
+      throw new IssueStop(
+        `V iDokladu je faktura ${label} této firmě ze dne ${(invoice.DateOfIssue ?? "").slice(0, 10)} se stejnou částkou ${check.totalKc} Kč, ` +
+          "vystavená mimo MojeBegina — zkontrolovat, zda není k této objednávce. Nic se nevystavilo."
+      );
+    }
   }
 }
 
@@ -336,7 +382,14 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
       const paymentOptionId = resolved.paymentOptionIds[method];
       if (!paymentOptionId) throw new IssueStop(`Neznámý způsob úhrady „${method || "—"}“ — není jak ho zapsat do iDokladu.`);
       const partnerId = await resolveContact(db, client, draft, claimed.customer_id, resolved.countryId);
-      if (draft.customer.kind === "company") await assertNoRecentCompanyInvoice(client, partnerId, day);
+      if (draft.customer.kind === "company") {
+        await assertNoForeignDuplicate(db, client, partnerId, {
+          fromDay: day,
+          vs,
+          orderReference: draft.orderReference ?? null,
+          totalKc: draft.totalKc,
+        });
+      }
       const body = invoicePostBody(
         draft,
         {

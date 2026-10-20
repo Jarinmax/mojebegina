@@ -324,8 +324,8 @@ export class EshopIdokladClient {
     return this.call<T>("GET", path, query);
   }
 
-  async list<T>(path: string, filter?: string, pageSize = 100): Promise<IdokladListPage<T>> {
-    const query: Record<string, string> = { page: "1", pageSize: String(pageSize) };
+  async list<T>(path: string, filter?: string, pageSize = 100, page = 1): Promise<IdokladListPage<T>> {
+    const query: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (filter) query.filter = filter;
     const data = await this.call<Partial<IdokladListPage<T>>>("GET", path, query);
     if (!data || !Array.isArray(data.Items)) throw new IdokladApiError(`iDoklad GET ${path}: chybí Items`);

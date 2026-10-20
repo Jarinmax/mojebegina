@@ -28,8 +28,13 @@ MojeBegina přes existující integraci iDokladu (první skutečná faktura).
 - před vystavením hledání faktury s VS 5215 v iDokladu (Lucie ji nevystavila),
 - jedna faktura na objednávku, zámek proti souběhu, uložené ID z iDokladu,
 - víc kontaktů se stejným IČO = stop bez zápisu,
-- **faktura této firmě vystavená v den úhrady nebo později v JAKÉKOLI řadě a s jakýmkoli
-  VS** (např. ruční faktura Lucie ve výchozí řadě) = stop bez zápisu,
+- **duplicita mimo MojeBegina** — projdou se faktury firmy v iDokladu od dne úhrady
+  (jakákoli řada):
+  - vystavené MojeBegina (ID uložené u jiné objednávky) = jiné objednávky, **neblokují**,
+  - cizí faktura s VS / číslem objednávky / číslem v popisu této objednávky = **stop** (duplicita),
+  - cizí faktura se **stejnou částkou** bez odkazu = **stop** (nejasné → ruční kontrola),
+  - ostatní cizí faktury (jiná částka, jiný odkaz) = jiné objednávky, neblokují.
+  Stop platí jen pro dané vystavení — další objednávky firmy se vystavují dál,
 - import 5215 jen jednou (unikátní `external_woocommerce_id`, pojistka ve skriptu).
 
 ## Kolize migrace 0022 s PR #21 (ChatGPT pilot)
@@ -41,6 +46,16 @@ v Production ani jedna neběžela (ověřeno read-only 19. 10.: tabulky `agent_*
 přečísluje na 0023/0024 a znovu vygeneruje snapshoty (`drizzle-kit generate`) — jeho
 produkční SQL skripty jsou samostatné, na čísle souboru nezávisí. Do větve PR #21
 tento PR nesahá.
+
+### Evidence migrací Drizzle
+
+Production nemá tabulku `__drizzle_migrations` (ověřeno read-only 20. 10.) — migrace se
+na Neon nikdy nespouštěly přes `drizzle-kit migrate`, vždy ručními SQL skripty (0013–0021
+stejně). `drizzle/` + `meta/` slouží ke generování dalších migrací a k testům; build
+(`next build`) ani nasazení migrace nespouští. Skript 60 = přesně DDL z `0022`
+(generálka nad kopií Production porovná výsledné schéma se schématem kódu).
+Kompatibilita s PR #21: jeho migrace `0022_gpt_mcp_pilot` + `0023_customer_card_preview`
+se po této 0022 aplikují bez konfliktu (ověřeno nad PGlite 20. 10.).
 
 ## Zákaznická karta bez duplicity
 
@@ -63,7 +78,8 @@ tento PR nesahá.
 4. **Neon main:** `61_food_fest_5215_before.sql` → čekáno `1 | 1 | ano | 0 | 0`,
    pak `62_food_fest_5215.sql`, pak `63_food_fest_5215_after.sql` → `1 | CZ08911088 | 12647 | 1 | paid | 0`.
 5. **Ověřit v iDokladu (Lucie / ty):** Faktury vydané → hledat „Food Fest“ a „5215“ —
-   žádná faktura z 19. 10. nebo později (integrace to před vystavením zkontroluje také).
+   žádná faktura k 5215 (integrace to před vystavením zkontroluje také — VS, číslo
+   objednávky, popis a stejná částka).
 6. **Detail objednávky** (Objednávky → „Objednávka z WooCommerce č. 5215“): zkontrolovat
    návrh faktury (odběratel, IČO, DIČ, položky, VS 5215) → **jednou** „Vystavit fakturu v iDokladu“.
 7. Kontrola v iDokladu (řada E-shop Begina, uhrazeno, žádný e-mail z iDokladu) a e-mail Tomášovi.
