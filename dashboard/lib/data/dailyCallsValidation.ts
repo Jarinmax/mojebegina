@@ -3,82 +3,12 @@
 // testovatelné bez databáze, kontrola a dotaz se skládají až v
 // dailyCalls.ts.
 import { sql } from "drizzle-orm";
-import { validateStageInput, type LeadStage } from "./leadValidation";
 
-// Výsledek hovoru je ZÁMĚRNĚ oddělený od LEAD_STAGES (obchodní fáze) —
-// schváleno explicitně: "výsledek hovoru není obchodní fáze". Fáze zůstává
-// samostatné, nepovinné pole s výchozí hodnotou "neměnit".
-export const CALL_RESULTS = [
-  "reached_interested",
-  "reached_not_interested",
-  "no_answer",
-  "call_back_later",
-  "invalid_contact",
-] as const;
-export type CallResult = (typeof CALL_RESULTS)[number];
-
-export type DailyCallOutcomeInput = {
-  result: string;
-  note: string;
-  stageChange: string;
-  nextFollowUpAt: string;
-};
-
-export type ValidatedDailyCallOutcomeInput = {
-  result: CallResult;
-  note: string;
-  stageChange: LeadStage | null;
-  nextFollowUpAt: Date | null;
-};
-
-// Výsledek a poznámka POVINNÉ, fáze a datum nepovinné — s jednou vázanou
-// výjimkou: "zavolat později" bez termínu dalšího kontaktu by byl
-// nedohledatelný slib, proto je u něj datum vynucené (schváleno explicitně).
-export function validateDailyCallOutcomeInput(
-  input: DailyCallOutcomeInput
-): { ok: true; value: ValidatedDailyCallOutcomeInput } | { ok: false; error: string } {
-  const result = input.result.trim();
-  if (!CALL_RESULTS.includes(result as CallResult)) {
-    return { ok: false, error: "Vyberte výsledek hovoru." };
-  }
-
-  const note = input.note.trim();
-  if (!note) {
-    return { ok: false, error: "Poznámka je povinná." };
-  }
-  if (note.length > 2000) {
-    return { ok: false, error: "Poznámka je příliš dlouhá (max. 2000 znaků)." };
-  }
-
-  const stageChangeRaw = input.stageChange.trim();
-  let stageChange: LeadStage | null = null;
-  if (stageChangeRaw) {
-    const validatedStage = validateStageInput(stageChangeRaw);
-    if (!validatedStage.ok) {
-      return validatedStage;
-    }
-    stageChange = validatedStage.value;
-  }
-
-  const nextFollowUpAtRaw = input.nextFollowUpAt.trim();
-  let nextFollowUpAt: Date | null = null;
-  if (nextFollowUpAtRaw) {
-    // Stejná konvence jako leadValidation.ts/orderValidation.ts — datum bez
-    // času, uloženo na 12:00 UTC (V1 záměrně beze změny, viz schválený
-    // návrh — nový časový mechanismus se teď nezavádí).
-    const parsed = new Date(`${nextFollowUpAtRaw}T12:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime())) {
-      return { ok: false, error: "Neplatné datum dalšího kontaktu." };
-    }
-    nextFollowUpAt = parsed;
-  }
-
-  if ((result as CallResult) === "call_back_later" && !nextFollowUpAt) {
-    return { ok: false, error: "U výsledku „Zavolat později“ je datum dalšího kontaktu povinné." };
-  }
-
-  return { ok: true, value: { result: result as CallResult, note, stageChange, nextFollowUpAt } };
-}
+// Jarda – volání a provize, část 1, bod 2 doplňku — CALL_RESULTS/CallResult
+// i samotná validace (dřív DailyCallOutcomeInput/validateDailyCallOutcomeInput
+// tady) se přestěhovaly do leadValidation.ts (validateCallOutcomeInput),
+// sdílené s "Všechny leady" (leads.ts:logCallOutcome) — dailyCalls.ts teď
+// importuje validateCallOutcomeInput/CallOutcomeInput přímo odtamtud.
 
 // Maximální počet SOUČASNĚ nevyřízených položek fronty (staré nedokončené
 // + drafty + zveřejněné dohromady) — schváleno explicitně.
@@ -244,9 +174,11 @@ export function buildLogDailyCallOutcomeQuery(params: {
   note: string;
   stageChange: string | null;
   nextFollowUpAt: Date | null;
+  nextStepNote: string | null;
   result: string;
 }) {
-  const { itemId, leadId, authorUserId, authorName, activityId, note, stageChange, nextFollowUpAt, result } = params;
+  const { itemId, leadId, authorUserId, authorName, activityId, note, stageChange, nextFollowUpAt, nextStepNote, result } =
+    params;
   return sql`
     WITH old_lead AS (
       SELECT stage FROM leads WHERE id = ${leadId}
@@ -262,7 +194,8 @@ export function buildLogDailyCallOutcomeQuery(params: {
       SET last_contacted_at = now(),
           updated_at = now(),
           stage = COALESCE(${stageChange}::text, stage),
-          next_follow_up_at = COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at)
+          next_follow_up_at = COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at),
+          next_step_note = COALESCE(${nextStepNote}::text, next_step_note)
       WHERE id = ${leadId} AND EXISTS (SELECT 1 FROM claimed)
       RETURNING id
     )
@@ -271,6 +204,7 @@ export function buildLogDailyCallOutcomeQuery(params: {
       jsonb_build_object(
         'stageChangedTo', ${stageChange}::text,
         'nextFollowUpAt', ${nextFollowUpAt}::timestamptz,
+        'nextStepNote', ${nextStepNote}::text,
         'from', (SELECT stage FROM old_lead),
         'callResult', ${result}::text
       ),

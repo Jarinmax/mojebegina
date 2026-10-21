@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
-  validateDailyCallOutcomeInput,
   canAddManualCandidate,
   classifyAutoCandidate,
   orderAutoCandidates,
@@ -15,81 +14,14 @@ import {
   type AutoCandidateLeadRow,
 } from "../dailyCallsValidation";
 
-function baseOutcome(overrides: Partial<Parameters<typeof validateDailyCallOutcomeInput>[0]> = {}) {
-  return {
-    result: "reached_interested",
-    note: "Mluvili jsme, pošlu vzorek.",
-    stageChange: "",
-    nextFollowUpAt: "",
-    ...overrides,
-  };
-}
-
-// Security Phase 19 — výsledek hovoru NENÍ obchodní fáze (schváleno
-// explicitně, revize návrhu bod 2): výsledek a poznámka povinné, fáze
-// nepovinná s výchozí "neměnit", datum povinné jen pro "zavolat později".
-describe("validateDailyCallOutcomeInput — Security Phase 19", () => {
-  it("platný vstup s výsledkem a poznámkou projde, fáze zůstává null", () => {
-    const result = validateDailyCallOutcomeInput(baseOutcome());
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.result).toBe("reached_interested");
-      expect(result.value.stageChange).toBeNull();
-    }
-  });
-
-  it("chybějící výsledek je DENY", () => {
-    expect(validateDailyCallOutcomeInput(baseOutcome({ result: "" })).ok).toBe(false);
-  });
-
-  it("neplatný výsledek je DENY (žádné 'beze změny' u výsledku)", () => {
-    expect(validateDailyCallOutcomeInput(baseOutcome({ result: "beze_zmeny" })).ok).toBe(false);
-  });
-
-  it("chybějící poznámka je DENY, i když je výsledek vyplněný", () => {
-    expect(validateDailyCallOutcomeInput(baseOutcome({ note: "   " })).ok).toBe(false);
-  });
-
-  it("volitelná fáze — platná hodnota projde a uloží se", () => {
-    const result = validateDailyCallOutcomeInput(baseOutcome({ stageChange: "interested" }));
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.stageChange).toBe("interested");
-    }
-  });
-
-  it("neplatná fáze je DENY", () => {
-    expect(validateDailyCallOutcomeInput(baseOutcome({ stageChange: "nesmysl" })).ok).toBe(false);
-  });
-
-  it("výsledek 'call_back_later' BEZ data je DENY", () => {
-    const result = validateDailyCallOutcomeInput(baseOutcome({ result: "call_back_later", nextFollowUpAt: "" }));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/Zavolat později/);
-    }
-  });
-
-  it("výsledek 'call_back_later' S datem projde", () => {
-    const result = validateDailyCallOutcomeInput(
-      baseOutcome({ result: "call_back_later", nextFollowUpAt: "2026-10-05" })
-    );
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.nextFollowUpAt).not.toBeNull();
-    }
-  });
-
-  it("jiný výsledek než 'call_back_later' nevyžaduje datum", () => {
-    expect(validateDailyCallOutcomeInput(baseOutcome({ result: "no_answer", nextFollowUpAt: "" })).ok).toBe(true);
-  });
-
-  it("neplatné datum je DENY", () => {
-    expect(
-      validateDailyCallOutcomeInput(baseOutcome({ result: "call_back_later", nextFollowUpAt: "not-a-date" })).ok
-    ).toBe(false);
-  });
-});
+// Jarda – volání a provize, část 1, bod 2 doplňku — validateDailyCallOutcomeInput
+// zmizela (dailyCalls.ts teď volá sdílenou validateCallOutcomeInput z
+// leadValidation.ts, stejnou jako leads.ts:logCallOutcome). Testy pravidla
+// (výsledek+poznámka povinné, fáze/datum/další krok nepovinné, "zavolat
+// později" vynucuje datum) se přestěhovaly do
+// lib/data/__tests__/leadValidation.test.ts
+// (describe("validateCallOutcomeInput…")) — jsou tam JEDNOU, pro obě
+// obrazovky, místo dvou nezávislých kopií.
 
 const NOW = new Date("2026-10-01T10:00:00.000Z"); // Europe/Prague: 2026-10-01 12:00 (CEST)
 
@@ -305,11 +237,11 @@ describe("pragueDateString — Security Phase 19", () => {
 // databáze, viz drizzle-orm/pg-core) — ověřuje, že vygenerované SQL má
 // explicitní `::text`/`::timestamptz` cast na KAŽDÉM parametru uvnitř
 // jsonb_build_object, takže typová chyba nemůže nastat bez ohledu na to,
-// jestli jsou stageChange/nextFollowUpAt null nebo ne.
+// jestli jsou stageChange/nextFollowUpAt/nextStepNote null nebo ne.
 describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", () => {
   const dialect = new PgDialect();
 
-  function compile(stageChange: string | null, nextFollowUpAt: Date | null) {
+  function compile(stageChange: string | null, nextFollowUpAt: Date | null, nextStepNote: string | null = null) {
     const query = buildLogDailyCallOutcomeQuery({
       itemId: "11111111-1111-1111-1111-111111111111",
       leadId: "22222222-2222-2222-2222-222222222222",
@@ -319,6 +251,7 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
       note: "Test Preview – nedovoláno",
       stageChange,
       nextFollowUpAt,
+      nextStepNote,
       result: "no_answer",
     });
     return dialect.sqlToQuery(query);
@@ -326,7 +259,7 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
 
   it("reprodukuje přesně nahlášenou kombinaci (fázi neměnit + prázdné další kontakt) beze zpádu na netypovaný NULL", () => {
     const { sql, params } = compile(null, null);
-    // jsonb_build_object dostává 4 páry klíč/hodnota — každá hodnota musí
+    // jsonb_build_object dostává 5 párů klíč/hodnota — každá hodnota musí
     // mít explicitní cast hned za svým placeholderem, jinak je netypovaná.
     // Nutné zachytit obsah NEgreedy až k UZAVÍRACÍ závorce jsonb_build_object
     // samotné, ne k první "(" uvnitř (ta patří vnořenému podvýrazu
@@ -336,6 +269,7 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
     const jsonbArgs = jsonbArgsMatch![1];
     expect(jsonbArgs).toMatch(/\$\d+::text/); // stageChangedTo
     expect(jsonbArgs).toMatch(/\$\d+::timestamptz/); // nextFollowUpAt
+    expect(jsonbArgs).toMatch(/\$\d+::text/); // nextStepNote
     expect(jsonbArgs).toMatch(/\$\d+::text/); // callResult
     // Žádný placeholder uvnitř jsonb_build_object nesmí zůstat bez castu.
     // Pozor: `\$\d+(?!::)` jako jediný regex by si u vícemístných čísel
@@ -351,16 +285,18 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
     expect(params).toContain(null);
   });
 
-  it("COALESCE pro stage i next_follow_up_at má taky explicitní cast", () => {
+  it("COALESCE pro stage, next_follow_up_at i next_step_note má taky explicitní cast", () => {
     const { sql } = compile(null, null);
     expect(sql).toMatch(/COALESCE\(\$\d+::text, stage\)/);
     expect(sql).toMatch(/COALESCE\(\$\d+::timestamptz, next_follow_up_at\)/);
+    expect(sql).toMatch(/COALESCE\(\$\d+::text, next_step_note\)/);
   });
 
-  it("stejná struktura platí i s vyplněnou fází a termínem (nejde o větev jen pro null)", () => {
-    const { sql } = compile("contacted", new Date("2026-10-05T12:00:00.000Z"));
+  it("stejná struktura platí i s vyplněnou fází, termínem a dalším krokem (nejde o větev jen pro null)", () => {
+    const { sql, params } = compile("contacted", new Date("2026-10-05T12:00:00.000Z"), "Poslat vzorek");
     const jsonbArgs = sql.match(/jsonb_build_object\(([\s\S]*?)\),\s*now\(\)/)![1];
     expect(jsonbArgs).toMatch(/\$\d+::text/);
     expect(jsonbArgs).toMatch(/\$\d+::timestamptz/);
+    expect(params).toContain("Poslat vzorek");
   });
 });

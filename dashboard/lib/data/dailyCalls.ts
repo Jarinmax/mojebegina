@@ -18,16 +18,23 @@
 // přeskočit) — viz komentář přímo u logDailyCallOutcome.
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { dailyCallQueue, leads } from "@/lib/db/schema";
+import { dailyCallQueue, leads, leadActivity } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import {
   requireDailyCallCuratorAccess,
   requireDailyCallWorkerAccess,
+  requireDailyCallAccess,
   DAILY_CALL_LEAD_OWNER_USER_ID,
 } from "./dailyCallsAuth";
-import { ACTIVE_LEAD_STAGES, leadDisplayName, type LeadStage } from "./leadValidation";
+import {
+  ACTIVE_LEAD_STAGES,
+  leadDisplayName,
+  validateCallOutcomeInput,
+  type LeadStage,
+  type CallOutcomeInput,
+} from "./leadValidation";
 import {
   autoCandidatesToAdd,
   buildLogDailyCallOutcomeQuery,
@@ -35,9 +42,7 @@ import {
   interpretCallLogOutcome,
   pragueDateString,
   swapAdjacent,
-  validateDailyCallOutcomeInput,
   MAX_QUEUE_SIZE,
-  type DailyCallOutcomeInput,
 } from "./dailyCallsValidation";
 import type { AuthContext } from "./types";
 
@@ -51,6 +56,11 @@ export async function requireDailyCallWorkerContext(): Promise<NonNullable<AuthC
   return requireDailyCallWorkerAccess(ctx);
 }
 
+export async function requireDailyCallAccessContext(): Promise<NonNullable<AuthContext>> {
+  const ctx = await getAuthContext();
+  return requireDailyCallAccess(ctx);
+}
+
 // --- Zobrazovací karty -------------------------------------------------
 
 export type QueueItemCardData = {
@@ -62,6 +72,7 @@ export type QueueItemCardData = {
   leadId: string;
   displayName: string;
   contactPhone: string | null;
+  contactEmail: string | null;
   stage: LeadStage;
   lastNote: string | null;
 };
@@ -113,6 +124,7 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       leadId: r.leadId,
       displayName: lead ? leadDisplayName(lead) : "Neznámý lead",
       contactPhone: lead?.contactPhone ?? null,
+      contactEmail: lead?.contactEmail ?? null,
       stage: (lead?.stage as LeadStage) ?? "new",
       lastNote: lastNoteByLead.get(r.leadId) ?? null,
     };
@@ -184,6 +196,149 @@ export async function getWorkerQueueView(): Promise<WorkerQueueView> {
     doneToday,
     totalToday: doneToday + cards.length,
   };
+}
+
+// --- Historie volání -------------------------------------------------------
+//
+// Jarda – volání a provize, část 1, bod 2 — "Již volané"/"Historie volání".
+// Čte VÝHRADNĚ lead_activity (kind='call_logged'), ne daily_call_queue —
+// stejná tabulka bez ohledu na to, jestli byl hovor zapsaný z "Dnešní
+// volání" (logDailyCallOutcome) nebo z "Všechny leady"/detailu leadu
+// (leads.ts:logCallOutcome), takže oprava bodu 3 (jedna společná historie)
+// se sem promítne automaticky — žádné rozlišování cesty zápisu.
+//
+// Viditelnost: stejná jako samotná stránka "Dnešní volání" (curator NEBO
+// worker) — requireDailyCallAccess, ne širší requireCrmContext, protože
+// zadání umisťuje historii do "Jardovy části volání", ne do obecného CRM.
+//
+// Jarda – volání a provize, část 1, doplněk — rychlé přepínače Dnes/Včera/
+// Posledních 7 dní + stránkování (dřív jen "posledních 50 záznamů bez
+// filtru", co by starší hovory jen TICHY schovalo, pokud by v mezidobí
+// přibylo přes 50 novějších). Hranice dne se počítá na STRANĚ Postgresu
+// (`AT TIME ZONE 'Europe/Prague')::date`), stejný ověřený vzor jako
+// countDoneToday výš — appka nikdy nepočítá hranici půlnoci v JS, takže je
+// to DST-safe a nezávislé na časové zóně serverless funkce.
+export type CallHistoryFilter = "today" | "yesterday" | "last7days";
+
+const CALL_HISTORY_PAGE_SIZE = 50;
+
+// "Posledních 7 dní" = dnešek + 6 předchozích kalendářních dní v Europe/
+// Prague (7 dní celkem, dnešek včetně) — běžný výklad takového přepínače.
+function callHistoryDateFilterSql(filter: CallHistoryFilter) {
+  if (filter === "today") {
+    return sql`(${leadActivity.createdAt} AT TIME ZONE 'Europe/Prague')::date = (now() AT TIME ZONE 'Europe/Prague')::date`;
+  }
+  if (filter === "yesterday") {
+    return sql`(${leadActivity.createdAt} AT TIME ZONE 'Europe/Prague')::date = (now() AT TIME ZONE 'Europe/Prague')::date - 1`;
+  }
+  return sql`(${leadActivity.createdAt} AT TIME ZONE 'Europe/Prague')::date >= (now() AT TIME ZONE 'Europe/Prague')::date - 6`;
+}
+
+export type CallHistoryEntry = {
+  id: string;
+  leadId: string;
+  displayName: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  authorName: string | null;
+  createdAt: Date;
+  callResult: string | null;
+  note: string | null;
+  nextFollowUpAt: Date | null;
+  nextStepNote: string | null;
+};
+
+function readMetadataString(metadata: unknown, key: string): string | null {
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readMetadataDate(metadata: unknown, key: string): Date | null {
+  const raw = readMetadataString(metadata, key);
+  if (!raw) {
+    return null;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export type CallHistoryPage = {
+  entries: CallHistoryEntry[];
+  hasMore: boolean;
+};
+
+// `page` je 1-indexované (stejná konvence jako URL searchParams v
+// historie/page.tsx). Načte se CALL_HISTORY_PAGE_SIZE + 1 řádků — pokud
+// přijde ten navíc, existuje další stránka (hasMore), appka ho jen
+// nevrátí; levnější než samostatný COUNT dotaz a netrpí race mezi count a
+// select.
+export async function getCallHistory(
+  filter: CallHistoryFilter = "today",
+  opts: { page?: number } = {}
+): Promise<CallHistoryPage> {
+  await requireDailyCallAccessContext();
+
+  const page = Math.max(1, opts.page ?? 1);
+  const offset = (page - 1) * CALL_HISTORY_PAGE_SIZE;
+
+  const activityRows = await db
+    .select({
+      id: leadActivity.id,
+      leadId: leadActivity.leadId,
+      authorName: leadActivity.authorName,
+      body: leadActivity.body,
+      metadata: leadActivity.metadata,
+      createdAt: leadActivity.createdAt,
+    })
+    .from(leadActivity)
+    .where(and(eq(leadActivity.kind, "call_logged"), callHistoryDateFilterSql(filter)))
+    .orderBy(desc(leadActivity.createdAt))
+    .limit(CALL_HISTORY_PAGE_SIZE + 1)
+    .offset(offset);
+
+  const hasMore = activityRows.length > CALL_HISTORY_PAGE_SIZE;
+  const pageRows = hasMore ? activityRows.slice(0, CALL_HISTORY_PAGE_SIZE) : activityRows;
+
+  if (pageRows.length === 0) {
+    return { entries: [], hasMore: false };
+  }
+
+  const leadIds = [...new Set(pageRows.map((r) => r.leadId))];
+  const leadRows = await db
+    .select({
+      id: leads.id,
+      companyName: leads.companyName,
+      contactName: leads.contactName,
+      contactPhone: leads.contactPhone,
+      contactEmail: leads.contactEmail,
+    })
+    .from(leads)
+    .where(inArray(leads.id, leadIds));
+  const leadById = new Map(leadRows.map((l) => [l.id, l]));
+
+  const entries = pageRows.map((row) => {
+    const lead = leadById.get(row.leadId);
+    return {
+      id: row.id,
+      leadId: row.leadId,
+      // Appka leady nikdy nemaže, takže `lead` tu chybět nemělo — stejný
+      // bezpečný fallback jako buildQueueCards výše, jen pro jistotu.
+      displayName: lead ? leadDisplayName(lead) : "Neznámý lead",
+      contactPhone: lead?.contactPhone ?? null,
+      contactEmail: lead?.contactEmail ?? null,
+      authorName: row.authorName,
+      createdAt: row.createdAt,
+      callResult: readMetadataString(row.metadata, "callResult"),
+      note: row.body,
+      nextFollowUpAt: readMetadataDate(row.metadata, "nextFollowUpAt"),
+      nextStepNote: readMetadataString(row.metadata, "nextStepNote"),
+    };
+  });
+
+  return { entries, hasMore };
 }
 
 // --- Sestavení a úprava fronty (kurátor) ----------------------------------
@@ -464,10 +619,18 @@ export async function moveQueueItemDown(itemId: string): Promise<DailyCallResult
 // stav, kdy se zapíše `lead_activity`, ale položka fronty zůstane
 // `pending`, ani naopak — a dvojitý/souběžný submit na stejné položce
 // zaručeně "vyhraje" jen jednou (druhý pokus dostane 0 řádků zpátky).
-export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOutcomeInput): Promise<DailyCallResult> {
+//
+// Jarda – volání a provize, část 1 (bod 3, "žádná stará cache") — vlastní
+// návratový typ (ne DailyCallResult) vrací i leadId, aby volající server
+// akce (logDailyCallOutcomeAction) mohla revalidovat i detail KONKRÉTNÍHO
+// leadu a "Všechny leady", ne jen "/rizeni-firmy/obchod/dnes" — zápis
+// odtud teď (viz logCallOutcome v leads.ts) ovlivňuje pořád stejná data.
+export type LogDailyCallOutcomeResult = { ok: true; leadId: string } | { ok: false; error: string };
+
+export async function logDailyCallOutcome(itemId: string, rawInput: CallOutcomeInput): Promise<LogDailyCallOutcomeResult> {
   const ctx = await requireDailyCallWorkerContext();
 
-  const validated = validateDailyCallOutcomeInput(rawInput);
+  const validated = validateCallOutcomeInput(rawInput);
   if (!validated.ok) {
     return validated;
   }
@@ -496,11 +659,16 @@ export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOut
       authorName: ctx.name,
       activityId: randomUUID(),
       note: value.note,
-      stageChange: value.stageChange,
+      stageChange: value.nextStage,
       nextFollowUpAt: value.nextFollowUpAt,
+      nextStepNote: value.nextStepNote,
       result: value.result,
     })
   );
 
-  return interpretCallLogOutcome(result.rows.length);
+  const outcome = interpretCallLogOutcome(result.rows.length);
+  if (!outcome.ok) {
+    return outcome;
+  }
+  return { ok: true, leadId: item.leadId };
 }

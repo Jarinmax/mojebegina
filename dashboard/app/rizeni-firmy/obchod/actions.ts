@@ -10,6 +10,7 @@ import {
   logCallOutcome,
   updateLeadStage,
   updateLeadCompanyName,
+  updateLeadContactEmail,
   assignLeadOwner,
   setLeadAcquiredBy,
   linkLeadToExistingOrganization,
@@ -21,9 +22,17 @@ import type { CreateCustomerInput } from "@/lib/data/createCustomerValidation";
 
 export type ActionState = { error: string } | { success: string } | null;
 
+// Jarda – volání a provize, část 1 (bod 3, "žádná stará cache") — leady
+// psané odtud (Všechny leady/detail) se teď mohou projevit i v "Dnešní
+// volání" (logCallOutcome v leads.ts může zavřít odpovídající položku
+// fronty) a v "Historii volání" (každý call_logged zápis) — revalidují se
+// proto VŽDY, ne jen podmínečně podle toho, co se právě zapsalo, stejný
+// princip jako obecné /rizeni-firmy a /rizeni-firmy/obchod o řádek výš.
 function revalidateCrm(leadId?: string, organizationId?: string) {
   revalidatePath("/rizeni-firmy");
   revalidatePath("/rizeni-firmy/obchod");
+  revalidatePath("/rizeni-firmy/obchod/dnes");
+  revalidatePath("/rizeni-firmy/obchod/dnes/historie");
   if (leadId) {
     revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
     revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}/prevest`);
@@ -60,6 +69,7 @@ export async function logCallOutcomeAction(
   formData: FormData
 ): Promise<ActionState> {
   const result = await logCallOutcome(leadId, {
+    result: String(formData.get("result") ?? ""),
     note: String(formData.get("note") ?? ""),
     nextStage: String(formData.get("nextStage") ?? ""),
     nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
@@ -100,6 +110,26 @@ export async function updateLeadCompanyNameAction(
 
   revalidateCrm(leadId);
   return { success: "Název byl uložen." };
+}
+
+// Jarda – volání a provize, část 1, bod 1 — doplnění e-mailu přímo z karty
+// kontaktu (Dnešní volání → QueueItemCard/LeadEmailField). Stejná "use
+// server" hranice jako zbytek CRM, i když komponenta, co ji volá, žije v
+// app/rizeni-firmy/obchod/dnes/ — leady jsou doménově CRM, ne Denní volání
+// (requireCrmContext uvnitř updateLeadContactEmail, stejně jako u
+// updateLeadCompanyNameAction výš).
+export async function updateLeadContactEmailAction(
+  leadId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await updateLeadContactEmail(leadId, String(formData.get("contactEmail") ?? ""));
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "E-mail byl uložen." };
 }
 
 export async function assignLeadOwnerAction(

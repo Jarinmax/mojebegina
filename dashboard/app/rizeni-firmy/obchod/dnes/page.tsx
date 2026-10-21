@@ -35,13 +35,21 @@ export default async function DailyCallsPage() {
         ← Obchod / CRM
       </Link>
 
-      <div className="mt-2 mb-4">
-        <h1 className="text-lg font-medium text-begina-primary-900">Dnešní volání</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          {curator
-            ? "Sestav a potvrď dnešní frontu kontaktů."
-            : "Kontakty, kterým dnes zavolat."}
-        </p>
+      <div className="mt-2 mb-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-lg font-medium text-begina-primary-900">Dnešní volání</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            {curator
+              ? "Sestav a potvrď dnešní frontu kontaktů."
+              : "Kontakty, kterým dnes zavolat."}
+          </p>
+        </div>
+        <Link
+          href="/rizeni-firmy/obchod/dnes/historie"
+          className="text-sm font-medium text-begina-primary-700 whitespace-nowrap"
+        >
+          Historie volání →
+        </Link>
       </div>
 
       {curator ? <CuratorSections /> : <WorkerSections />}

@@ -60,4 +60,13 @@ describe("CallOutcomeForm — Security Phase 19", () => {
     const dateInput = screen.getByLabelText(/^Další kontakt/) as HTMLInputElement;
     expect(dateInput.required).toBe(true);
   });
+
+  // Jarda – volání a provize, část 1, bod 2 doplňku — "Další krok" je teď
+  // sdílené pole (CallOutcomeFields), stejné jako na detailu leadu
+  // (CallLogForm).
+  it("má pole 'Další krok', stejné jméno jako na detailu leadu", () => {
+    render(<CallOutcomeForm itemId="item-1" />);
+    fireEvent.click(screen.getByText("Zapsat výsledek"));
+    expect(screen.getByLabelText("Další krok")).toBeTruthy();
+  });
 });

@@ -1,4 +1,5 @@
 import LeadStageBadge from "../LeadStageBadge";
+import LeadEmailField from "./LeadEmailField";
 import type { QueueItemCardData } from "@/lib/data/dailyCalls";
 
 // Security Phase 19 (Denní volání 1.0) — sdílená karta kontaktu, stejné
@@ -30,6 +31,8 @@ export default function QueueItemCard({ item, orderNumber, children }: Props) {
           {item.contactPhone}
         </a>
       )}
+
+      <LeadEmailField leadId={item.leadId} email={item.contactEmail} />
 
       {item.lastNote && (
         <p className="text-xs text-neutral-500 line-clamp-2">Poslední poznámka: {item.lastNote}</p>

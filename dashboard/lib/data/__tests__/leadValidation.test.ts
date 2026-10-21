@@ -2,14 +2,27 @@ import { describe, expect, it } from "vitest";
 import {
   validateCreateLeadInput,
   validateStageInput,
-  validateCallLogInput,
+  validateCallOutcomeInput,
   validateCompanyNameInput,
+  validateContactEmailInput,
   isFollowUpOverdue,
   leadDisplayName,
   compareLeadsForList,
   type CreateLeadInput,
+  type CallOutcomeInput,
   type LeadSortRow,
 } from "../leadValidation";
+
+function baseOutcome(overrides: Partial<CallOutcomeInput> = {}): CallOutcomeInput {
+  return {
+    result: "reached_interested",
+    note: "Mluvili jsme, pošlu vzorek.",
+    nextStage: "",
+    nextFollowUpAt: "",
+    nextStepNote: "",
+    ...overrides,
+  };
+}
 
 function baseInput(overrides: Partial<CreateLeadInput> = {}): CreateLeadInput {
   return {
@@ -107,80 +120,114 @@ describe("validateStageInput — Security Phase 16", () => {
   });
 });
 
-describe("validateCallLogInput — Security Phase 16", () => {
-  // Security Phase 16.5 — dřív bylo úplně prázdné odeslání povolené ("jen
-  // zápis kontaktu beze změny"), ale reálný test ukázal, že React po
-  // úspěšném submitu formulář vyprázdní, takže opakované klepnutí na
-  // "Uložit zápis" bez nového vyplnění dřív tiše vytvořilo prázdný
-  // call_logged záznam. Teď se to odmítá už na validaci.
-  it("úplně prázdné odeslání je DENY (UX past po vyprázdnění formuláře)", () => {
-    const result = validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", nextStepNote: "" });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/prázdný/i);
+// Jarda – volání a provize, část 1, bod 2 doplňku ("Jednotný zápis výsledku
+// hovoru") — JEDINÁ validace pro "Dnešní volání" (dailyCalls.ts:
+// logDailyCallOutcome) i "Všechny leady"/detail leadu (leads.ts:
+// logCallOutcome). Dřív dvě nezávislé kopie: validateCallLogInput tady
+// (výsledek vůbec nesbírala, všechna pole nepovinná) a
+// validateDailyCallOutcomeInput v dailyCallsValidation.ts (výsledek+
+// poznámka povinné). Teď JEDNO pravidlo, otestované jednou, pro obě
+// obrazovky.
+describe("validateCallOutcomeInput — Jarda – volání a provize, část 1", () => {
+  it("platný vstup s výsledkem a poznámkou projde, fáze/datum/další krok zůstávají null", () => {
+    const result = validateCallOutcomeInput(baseOutcome());
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.result).toBe("reached_interested");
+      expect(result.value.nextStage).toBeNull();
+      expect(result.value.nextFollowUpAt).toBeNull();
+      expect(result.value.nextStepNote).toBeNull();
     }
   });
 
-  it("jen poznámka bez čehokoliv dalšího je povolené", () => {
-    expect(
-      validateCallLogInput({ note: "Chce vzorek.", nextStage: "", nextFollowUpAt: "", nextStepNote: "" }).ok
-    ).toBe(true);
+  it("chybějící výsledek je DENY (stejné pravidlo na obou obrazovkách)", () => {
+    expect(validateCallOutcomeInput(baseOutcome({ result: "" })).ok).toBe(false);
   });
 
-  it("jen posun fáze bez poznámky je povolené", () => {
-    expect(
-      validateCallLogInput({ note: "", nextStage: "sample_offer", nextFollowUpAt: "", nextStepNote: "" }).ok
-    ).toBe(true);
+  it("neplatný výsledek je DENY (žádné 'beze změny' u výsledku)", () => {
+    expect(validateCallOutcomeInput(baseOutcome({ result: "beze_zmeny" })).ok).toBe(false);
   });
 
-  it("jen datum dalšího kontaktu bez čehokoliv dalšího je povolené", () => {
-    expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "2026-10-05", nextStepNote: "" }).ok
-    ).toBe(true);
+  // Security Phase 16.5 — dřív (CallLogInput) bylo úplně prázdné odeslání
+  // povolené, pak se chránilo jen "aspoň jedno pole" pravidlem. Sjednocení
+  // s "Dnešním voláním" to zpřísňuje na "poznámka vždy povinná" — reálný
+  // test ukázal, že React po úspěšném submitu formulář vyprázdní, takže
+  // opakované klepnutí na "Uložit" bez nového vyplnění by jinak tiše
+  // vytvořilo prázdný call_logged záznam.
+  it("chybějící poznámka je DENY, i když je výsledek vyplněný", () => {
+    const result = validateCallOutcomeInput(baseOutcome({ note: "   " }));
+    expect(result.ok).toBe(false);
   });
 
-  it("jen další krok bez čehokoliv dalšího je povolené", () => {
-    expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", nextStepNote: "Zavolat zítra." }).ok
-    ).toBe(true);
-  });
-
-  it("jen bílé znaky ve všech polích se počítá jako prázdné = DENY", () => {
-    expect(
-      validateCallLogInput({ note: "   ", nextStage: "", nextFollowUpAt: "", nextStepNote: "  " }).ok
-    ).toBe(false);
-  });
-
-  it("platný vstup s posunem fáze a follow-upem projde", () => {
-    const result = validateCallLogInput({
-      note: "Chce vzorek svařáku.",
-      nextStage: "sample_offer",
-      nextFollowUpAt: "2026-10-05",
-      nextStepNote: "Poslat vzorek a zavolat.",
-    });
+  it("volitelná fáze — platná hodnota projde a uloží se", () => {
+    const result = validateCallOutcomeInput(baseOutcome({ nextStage: "sample_offer" }));
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.nextStage).toBe("sample_offer");
+    }
+  });
+
+  it("neplatná fáze = DENY", () => {
+    expect(validateCallOutcomeInput(baseOutcome({ nextStage: "won" })).ok).toBe(false);
+  });
+
+  it("volitelný další krok — platná hodnota projde a uloží se", () => {
+    const result = validateCallOutcomeInput(baseOutcome({ nextStepNote: "Poslat vzorek a zavolat." }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.nextStepNote).toBe("Poslat vzorek a zavolat.");
+    }
+  });
+
+  it("příliš dlouhý další krok = DENY", () => {
+    expect(validateCallOutcomeInput(baseOutcome({ nextStepNote: "a".repeat(501) })).ok).toBe(false);
+  });
+
+  it("výsledek 'call_back_later' BEZ data je DENY", () => {
+    const result = validateCallOutcomeInput(baseOutcome({ result: "call_back_later", nextFollowUpAt: "" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/Zavolat později/);
+    }
+  });
+
+  it("výsledek 'call_back_later' S datem projde", () => {
+    const result = validateCallOutcomeInput(
+      baseOutcome({ result: "call_back_later", nextFollowUpAt: "2026-10-05" })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
       expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T12:00:00.000Z");
     }
   });
 
-  it("neplatná příští fáze = DENY", () => {
-    expect(validateCallLogInput({ note: "", nextStage: "won", nextFollowUpAt: "", nextStepNote: "" }).ok).toBe(
-      false
-    );
+  it("jiný výsledek než 'call_back_later' nevyžaduje datum", () => {
+    expect(validateCallOutcomeInput(baseOutcome({ result: "no_answer", nextFollowUpAt: "" })).ok).toBe(true);
   });
 
   it("neplatné datum follow-upu = DENY", () => {
-    expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "zítra", nextStepNote: "" }).ok
-    ).toBe(false);
+    expect(validateCallOutcomeInput(baseOutcome({ nextFollowUpAt: "zítra" })).ok).toBe(false);
+  });
+
+  it("platný vstup s posunem fáze, follow-upem i dalším krokem projde", () => {
+    const result = validateCallOutcomeInput(
+      baseOutcome({
+        note: "Chce vzorek svařáku.",
+        nextStage: "sample_offer",
+        nextFollowUpAt: "2026-10-05",
+        nextStepNote: "Poslat vzorek a zavolat.",
+      })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.nextStage).toBe("sample_offer");
+      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T12:00:00.000Z");
+      expect(result.value.nextStepNote).toBe("Poslat vzorek a zavolat.");
+    }
   });
 
   it("příliš dlouhá poznámka = DENY", () => {
-    expect(
-      validateCallLogInput({ note: "a".repeat(2001), nextStage: "", nextFollowUpAt: "", nextStepNote: "" }).ok
-    ).toBe(false);
+    expect(validateCallOutcomeInput(baseOutcome({ note: "a".repeat(2001) })).ok).toBe(false);
   });
 });
 
@@ -198,6 +245,32 @@ describe("validateCompanyNameInput — Security Phase 16.1", () => {
 
   it("příliš dlouhý název = DENY", () => {
     expect(validateCompanyNameInput("a".repeat(201)).ok).toBe(false);
+  });
+});
+
+// Jarda – volání a provize, část 1, bod 1 — povinné testy 3+4
+// ("platný e-mail lze uložit", "neplatný e-mail se neuloží"). Na rozdíl od
+// validateCompanyNameInput je tohle výhradně "přidat" tok — prázdný vstup
+// je DENY, ne povolené smazání.
+describe("validateContactEmailInput — Jarda – volání a provize, část 1", () => {
+  it("platný e-mail projde a ořízne mezery", () => {
+    expect(validateContactEmailInput("  jana@ukotvy.cz  ")).toEqual({ ok: true, value: "jana@ukotvy.cz" });
+  });
+
+  it("prázdný vstup je DENY (tohle je 'přidat', ne 'smazat zpátky na neznámé')", () => {
+    expect(validateContactEmailInput("   ").ok).toBe(false);
+  });
+
+  it("chybějící @ je DENY", () => {
+    expect(validateContactEmailInput("janaukotvy.cz").ok).toBe(false);
+  });
+
+  it("chybějící doména/tečka je DENY", () => {
+    expect(validateContactEmailInput("jana@ukotvy").ok).toBe(false);
+  });
+
+  it("mezera uvnitř adresy je DENY", () => {
+    expect(validateContactEmailInput("jana @ukotvy.cz").ok).toBe(false);
   });
 });
 

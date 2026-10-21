@@ -64,3 +64,18 @@ export function requireDailyCallWorkerAccess(ctx: AuthContext): NonNullable<Auth
   }
   return ctx;
 }
+
+// Jarda – volání a provize, část 1 (Historie volání) — stejná viditelnost
+// jako samotná stránka "Dnešní volání" (curator NEBO worker), jen vytčená
+// sem, aby se ta samá podmínka nepsala znovu na dalším místě (dnes/page.tsx
+// ji má duplikovanou jen pro redirect, čistě UI vrstva — tahle funkce je
+// skutečná bezpečnostní brána pro datovou vrstvu).
+export function requireDailyCallAccess(ctx: AuthContext): NonNullable<AuthContext> {
+  if (!ctx) {
+    throw new UnauthenticatedError();
+  }
+  if (!isDailyCallCurator(ctx) && !isDailyCallWorker(ctx)) {
+    throw new ForbiddenError();
+  }
+  return ctx;
+}

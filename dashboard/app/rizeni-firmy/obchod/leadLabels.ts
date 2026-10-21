@@ -1,6 +1,6 @@
 // Security Phase 16 (Obchod/CRM 1.0) — sdílené popisky/barvy, stejný vzor
 // jako orderLabels.ts.
-import type { LeadStage, LeadSource, VenueType } from "@/lib/data/leadValidation";
+import type { LeadStage, LeadSource, VenueType, CallResult } from "@/lib/data/leadValidation";
 
 export const STAGE_LABELS: Record<LeadStage, string> = {
   new: "Lead",
@@ -40,4 +40,16 @@ export const VENUE_TYPE_LABELS: Record<VenueType, string> = {
   restaurace: "Restaurace",
   hotel: "Hotel",
   jine: "Jiné",
+};
+
+// Jarda – volání a provize, část 1, bod 2 doplňku — přesunuto sem z
+// dnes/dailyCallLabels.ts, aby ho mohla použít sdílená CallOutcomeFields
+// (obchod/CallOutcomeFields.tsx, společná pro "Dnešní volání" i "Všechny
+// leady"), ne jen samotné "Dnešní volání".
+export const CALL_RESULT_LABELS: Record<CallResult, string> = {
+  reached_interested: "Dovoláno – zájem",
+  reached_not_interested: "Dovoláno – bez zájmu",
+  no_answer: "Nedovoláno",
+  call_back_later: "Zavolat později",
+  invalid_contact: "Neplatný kontakt",
 };

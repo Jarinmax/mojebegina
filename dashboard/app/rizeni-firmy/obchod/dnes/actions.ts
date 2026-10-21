@@ -27,6 +27,18 @@ export type ActionState = { error: string } | { success: string } | null;
 
 function revalidateDailyCalls() {
   revalidatePath("/rizeni-firmy/obchod/dnes");
+  revalidatePath("/rizeni-firmy/obchod/dnes/historie");
+}
+
+// Jarda – volání a provize, část 1 (bod 3, "žádná stará cache") — zápis
+// hovoru odtud teď (viz logCallOutcome, leads.ts) může zavřít i položku
+// fronty, takže se musí projevit i mimo "Dnešní volání": "Všechny leady",
+// kokpit (/rizeni-firmy/obchod) a detail KONKRÉTNÍHO leadu. Stejný princip
+// jako revalidateCrm v ../actions.ts, jen z druhé strany.
+function revalidateCrmAfterDailyCall(leadId: string) {
+  revalidatePath("/rizeni-firmy");
+  revalidatePath("/rizeni-firmy/obchod");
+  revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- tvar (state, formData) vyžaduje useActionState, formulář nemá žádná pole
@@ -109,8 +121,9 @@ export async function logDailyCallOutcomeAction(
     const result = await logDailyCallOutcome(itemId, {
       result: String(formData.get("result") ?? ""),
       note: String(formData.get("note") ?? ""),
-      stageChange: String(formData.get("stageChange") ?? ""),
+      nextStage: String(formData.get("nextStage") ?? ""),
       nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
+      nextStepNote: String(formData.get("nextStepNote") ?? ""),
     });
 
     if (!result.ok) {
@@ -118,6 +131,7 @@ export async function logDailyCallOutcomeAction(
     }
 
     revalidateDailyCalls();
+    revalidateCrmAfterDailyCall(result.leadId);
     return { success: "Výsledek hovoru byl uložen." };
   } catch (error) {
     console.error("logDailyCallOutcomeAction: neočekávaná chyba při zápisu výsledku hovoru", error);

@@ -11,9 +11,9 @@
 // (linkLeadToExistingOrganization / convertLeadToNewOrganization).
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { leads, leadActivity, organizations, orders, userRoles } from "@/lib/db/schema";
+import { leads, leadActivity, organizations, orders, userRoles, dailyCallQueue } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
@@ -23,14 +23,15 @@ import { distinctOrganizationIds } from "./orderBuyer";
 import {
   validateCreateLeadInput,
   validateStageInput,
-  validateCallLogInput,
+  validateCallOutcomeInput,
   validateCompanyNameInput,
+  validateContactEmailInput,
   isFollowUpOverdue,
   leadDisplayName,
   compareLeadsForList,
   ACTIVE_LEAD_STAGES,
   type CreateLeadInput,
-  type CallLogInput,
+  type CallOutcomeInput,
   type LeadStage,
 } from "./leadValidation";
 import type { AuthContext } from "./types";
@@ -324,14 +325,49 @@ export async function createLead(rawInput: CreateLeadInput): Promise<CreateLeadR
   return { ok: true, id };
 }
 
-// Kombinovaná akce "rychlý zápis po hovoru" — jeden formulář, jeden submit:
-// poznámka + volitelný posun fáze + volitelný další follow-up, vše
-// atomicky v jednom db.batch (stejný vzor jako updateFulfillmentStatus
-// v orders.ts).
-export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Promise<LeadResult> {
+// Jarda – volání a provize, část 1 (oprava neprovázání) — příčina: appka
+// měla DVĚ oddělené zápisové cesty pro "výsledek hovoru". logDailyCallOutcome
+// (dailyCalls.ts, cesta "Dnešní volání") atomicky zavírala i odpovídající
+// položku daily_call_queue. Tahle funkce (cesta "Všechny leady"/detail
+// leadu) se jí ale výslovně NEreuse-uje (viz komentář u
+// logDailyCallOutcome — jiná atomičnost, jiný gate) a dřív na queue nesahala
+// VŮBEC — zápis z "Všechny leady" tak nikdy nezmněnil stav položky v
+// "Dnešní volání", která tam zůstala ležet jako nevyřízená, i když byl
+// hovor ve skutečnosti zapsaný. Lead měl (a má) JEDNU historii
+// (lead_activity, podle lead_id) od začátku — chybělo jen tohle propojení
+// směrem k frontě.
+//
+// Oprava: třetí, nezávislá položka STEJNÉHO db.batch (jedna Neon HTTP
+// transakce, viz lib/data/sklad.ts pro ověření zdroje) — pokud pro tento
+// leadId existuje publikovaná nevyřízená položka fronty, zavře se (status
+// 'done', done_at/done_by) ve STEJNÉM zápisu jako lead+aktivita. Žádné
+// párování podle jména/telefonu/e-mailu — čistě přes lead_id (FK). Položka
+// nemusí existovat (lead nemusí být v dnešním plánu) — 0 ovlivněných řádků
+// je naprosto v pořádku, nic to neblokuje ani nehlásí jako chybu.
+// `publishedAt IS NOT NULL` je NUTNÁ podmínka (ne kosmetická) — CHECK
+// `daily_call_queue_done_implies_published_check` (migrace 0012) zakazuje
+// done=true u nepublikovaného draftu; bez týhle podmínky by zápis hovoru u
+// leadu s čekajícím draftem (kurátor ho ještě nezveřejnil) shodil celou
+// atomickou dávku chybou z DB constraintu.
+//
+// metadata.nextStepNote — dřív se nextStepNote zapisoval JEN na leads
+// řádek, ne do snímku aktivity, takže "Historie volání" (getCallHistory,
+// dailyCalls.ts) by u STARŠÍHO záznamu ukázala AKTUÁLNÍ (případně už
+// přepsaný pozdějším hovorem) další krok, ne ten, co platil v okamžiku
+// tohohle konkrétního zápisu. Snímek v metadatech tohle řeší stejně, jako
+// to už dřív řešily stageChangedTo/nextFollowUpAt.
+//
+// Jarda – volání a provize, část 1, bod 2 doplňku ("Jednotný zápis výsledku
+// hovoru") — validateCallOutcomeInput (leadValidation.ts) je STEJNÁ funkce,
+// jakou volá dailyCalls.ts:logDailyCallOutcome. Výsledek hovoru (dřív jen
+// na "Dnešní volání") je teď i tady POVINNÝ a zapisuje se do
+// metadata.callResult stejným klíčem jako v buildLogDailyCallOutcomeQuery —
+// obě cesty tak produkují bitově stejný tvar aktivity, ne jen stejný
+// `kind`.
+export async function logCallOutcome(leadId: string, rawInput: CallOutcomeInput): Promise<LeadResult> {
   const ctx = await requireCrmContext();
 
-  const validated = validateCallLogInput(rawInput);
+  const validated = validateCallOutcomeInput(rawInput);
   if (!validated.ok) {
     return { ok: false, error: validated.error };
   }
@@ -367,8 +403,60 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
       metadata: {
         stageChangedTo: value.nextStage,
         nextFollowUpAt: value.nextFollowUpAt,
+        nextStepNote: value.nextStepNote,
         from: current.stage,
+        callResult: value.result,
       },
+    }),
+    db
+      .update(dailyCallQueue)
+      .set({ status: "done", doneAt: new Date(), doneBy: ctx.userId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(dailyCallQueue.leadId, leadId),
+          eq(dailyCallQueue.status, "pending"),
+          isNotNull(dailyCallQueue.publishedAt)
+        )
+      ),
+  ]);
+
+  return { ok: true };
+}
+
+// Jarda – volání a provize, část 1 — doplnění e-mailu přímo z karty kontaktu
+// (Dnešní volání, QueueItemCard/LeadEmailField). Záměrně samostatná akce
+// (ne součást logCallOutcome) — e-mail se může/nemusí vůbec řešit v rámci
+// hovoru. Na rozdíl od updateLeadCompanyName tenhle tok NEumí smazat
+// existující e-mail zpátky na NULL (validateContactEmailInput prázdnou
+// hodnotu odmítá) — UI nabízí jen "Přidat", nikdy "Smazat/vyčistit".
+export async function updateLeadContactEmail(leadId: string, rawEmail: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateContactEmailInput(rawEmail);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+
+  const [current] = await db
+    .select({ contactEmail: leads.contactEmail })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  await db.batch([
+    db
+      .update(leads)
+      .set({ contactEmail: validated.value, updatedAt: new Date() })
+      .where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "contact_email_set",
+      metadata: { from: current.contactEmail, to: validated.value },
     }),
   ]);
 

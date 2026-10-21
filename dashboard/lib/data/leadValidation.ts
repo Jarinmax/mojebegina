@@ -156,6 +156,24 @@ export function validateCompanyNameInput(
   return { ok: true, value: value === "" ? null : value };
 }
 
+// Jarda – volání a provize, část 1 — doplnění e-mailu přímo z karty kontaktu
+// (Dnešní volání). Na rozdíl od validateCompanyNameInput je tohle výhradně
+// "přidat" tok (prázdné pole v UI se zobrazí až po kliknutí na "Přidat
+// e-mail", nikdy předvyplněné) — prázdný/chybějící vstup je tu proto chyba,
+// ne platné "smazat zpátky na neznámé".
+export function validateContactEmailInput(
+  raw: string
+): { ok: true; value: string } | { ok: false; error: string } {
+  const value = raw.trim();
+  if (!value) {
+    return { ok: false, error: "Zadejte e-mail." };
+  }
+  if (!EMAIL_RE.test(value)) {
+    return { ok: false, error: "Zadejte platný e-mail, např. jmeno@domena.cz." };
+  }
+  return { ok: true, value };
+}
+
 export function validateStageInput(
   rawStage: string
 ): { ok: true; value: LeadStage } | { ok: false; error: string } {
@@ -166,29 +184,61 @@ export function validateStageInput(
   return { ok: true, value: stage as LeadStage };
 }
 
-export type CallLogInput = {
+// Jarda – volání a provize, část 1, bod 2 doplňku ("Jednotný zápis výsledku
+// hovoru") — JEDINÁ validace pro obě obrazovky (dřív CallLogInput/
+// validateCallLogInput tady a DailyCallOutcomeInput/
+// validateDailyCallOutcomeInput v dailyCallsValidation.ts, dvě nezávislé
+// kopie stejného pravidla, co se časem mohly rozejít). "Dnešní volání"
+// (dailyCalls.ts:logDailyCallOutcome) i "Všechny leady"/detail leadu
+// (leads.ts:logCallOutcome) teď volají přesně tuhle funkci — stejná
+// pravidla, stejná chybová hlášení, stejný tvar výstupu.
+//
+// Výsledek hovoru byl dřív jen na "Dnešní volání" (CALL_RESULTS žil v
+// dailyCallsValidation.ts) — tady je teď kanonicky, protože
+// dailyCallsValidation.ts už beztak importuje z tohohle souboru
+// (validateStageInput), ne naopak (žádný cyklus).
+export const CALL_RESULTS = [
+  "reached_interested",
+  "reached_not_interested",
+  "no_answer",
+  "call_back_later",
+  "invalid_contact",
+] as const;
+export type CallResult = (typeof CALL_RESULTS)[number];
+
+export type CallOutcomeInput = {
+  result: string;
   note: string;
   nextStage: string;
   nextFollowUpAt: string;
   nextStepNote: string;
 };
 
-export type ValidatedCallLogInput = {
-  note: string | null;
+export type ValidatedCallOutcomeInput = {
+  result: CallResult;
+  note: string;
   nextStage: LeadStage | null;
   nextFollowUpAt: Date | null;
   nextStepNote: string | null;
 };
 
-// Rychlý zápis výsledku hovoru — jediný formulář, co Jarda vyplní po
-// telefonátu. Všechna pole jsou nepovinná (může jen posunout fázi bez
-// poznámky, nebo jen napsat poznámku beze změny fáze), aby zápis šel
-// opravdu za pár vteřin.
-export function validateCallLogInput(
-  input: CallLogInput
-): { ok: true; value: ValidatedCallLogInput } | { ok: false; error: string } {
-  const note = trimOrNull(input.note);
-  if (note && note.length > 2000) {
+// Výsledek a poznámka POVINNÉ (stejné pravidlo, jaké dřív platilo jen na
+// "Dnešní volání") — fáze, další kontakt a další krok zůstávají nepovinné.
+// U výsledku "Zavolat později" je datum dalšího kontaktu vynucené (bez něj
+// by to byl nedohledatelný slib).
+export function validateCallOutcomeInput(
+  input: CallOutcomeInput
+): { ok: true; value: ValidatedCallOutcomeInput } | { ok: false; error: string } {
+  const result = input.result.trim();
+  if (!CALL_RESULTS.includes(result as CallResult)) {
+    return { ok: false, error: "Vyberte výsledek hovoru." };
+  }
+
+  const note = input.note.trim();
+  if (!note) {
+    return { ok: false, error: "Poznámka je povinná." };
+  }
+  if (note.length > 2000) {
     return { ok: false, error: "Poznámka je příliš dlouhá (max. 2000 znaků)." };
   }
 
@@ -214,23 +264,16 @@ export function validateCallLogInput(
     nextFollowUpAt = parsed;
   }
 
+  if ((result as CallResult) === "call_back_later" && !nextFollowUpAt) {
+    return { ok: false, error: "U výsledku „Zavolat později“ je datum dalšího kontaktu povinné." };
+  }
+
   const nextStepNote = trimOrNull(input.nextStepNote);
   if (nextStepNote && nextStepNote.length > 500) {
     return { ok: false, error: "Popis dalšího kroku je příliš dlouhý (max. 500 znaků)." };
   }
 
-  // UX past nahlášená na reálném testu (Josef Huňáček): React po úspěšném
-  // submitu formulář vyprázdní (vestavěné chování <form action>), takže
-  // opakované klepnutí na "Uložit zápis" bez nového vyplnění odešle úplně
-  // prázdný zápis. To samo o sobě nemaže dřívější uložená data (viz
-  // logCallOutcome — prázdné pole se nikdy nepřepisuje na NULL), ale jde o
-  // zbytečný zápis "call_logged" bez jakéhokoliv obsahu. Odmítnout dřív, než
-  // se cokoliv uloží.
-  if (!note && !nextStage && !nextFollowUpAt && !nextStepNote) {
-    return { ok: false, error: "Zápis je prázdný — vyplňte alespoň jedno pole (poznámku, fázi, další kontakt nebo další krok)." };
-  }
-
-  return { ok: true, value: { note, nextStage, nextFollowUpAt, nextStepNote } };
+  return { ok: true, value: { result: result as CallResult, note, nextStage, nextFollowUpAt, nextStepNote } };
 }
 
 // Počítáno, ne uložené — stejný princip jako isPaymentOverdue
