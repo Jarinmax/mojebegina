@@ -38,9 +38,9 @@ export const contactDisplayName = customerAccount.contactLastName
   ? `${customerAccount.contactFirstName} ${customerAccount.contactLastName}`
   : customerAccount.contactFirstName;
 
-// --- Objednávky (skutečné uhrazené faktury) -------------------------
+// --- Objednávky a faktury -------------------------------------------
 
-export type OrderStatus = "Uhrazeno";
+export type OrderStatus = "Uhrazeno" | "Neuhrazeno" | "Částečně uhrazeno" | "Přeplaceno";
 
 export type OrderItem = {
   name: string;
