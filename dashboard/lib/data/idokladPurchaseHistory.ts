@@ -102,6 +102,7 @@ function toOrder(invoice: IdokladInvoice): (Order & { sortTimestamp: number }) |
   if (id === null || documentNumber === null || parts === null || totalKc === null) return null;
 
   const items = invoiceItems(invoice.Items);
+  const status = paymentStatus(invoice);
   return {
     id: `idoklad-${id}`,
     orderNumber: `Faktura č. ${documentNumber}`,
@@ -110,7 +111,8 @@ function toOrder(invoice: IdokladInvoice): (Order & { sortTimestamp: number }) |
     items,
     products: items.length > 0 ? items.map((item) => `${item.quantity}× ${item.name}`).join(", ") : "Nákup dle faktury",
     totalKc,
-    status: paymentStatus(invoice),
+    status,
+    paymentHref: status === "Neuhrazeno" || status === "Částečně uhrazeno" ? `/faktury/${id}/zaplatit` : undefined,
     sortTimestamp: parts.timestamp,
   };
 }
@@ -211,6 +213,7 @@ export async function loadIdokladPurchaseHistory(
       products: order.products,
       totalKc: order.totalKc,
       status: order.status,
+      paymentHref: order.paymentHref,
     }));
 }
 
@@ -220,6 +223,6 @@ export async function loadIdokladPurchaseHistory(
 export const getIdokladPurchaseHistory = unstable_cache(
   loadIdokladPurchaseHistory,
   ["idoklad-purchase-history-v1"],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ["idoklad-purchase-history"] }
 );
 
