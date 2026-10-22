@@ -33,7 +33,7 @@ export default async function Page() {
         <PageHeader title="Historie objednávek" />
 
         {customerOrders.map((order) => (
-          <OrderCard key={order.id} order={order} />
+          <OrderCard key={order.id} order={order} showPaymentAction />
         ))}
       </div>
 

@@ -59,6 +59,8 @@ export type Order = {
   products: string;
   totalKc: number;
   status: OrderStatus;
+  /** Odkaz se přidává jen k faktuře, kterou může přihlášený zákazník uhradit. */
+  paymentHref?: string;
 };
 
 type RawOrder = {
