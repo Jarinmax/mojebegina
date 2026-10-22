@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomerDetail } from "@/lib/data/leads";
 import { listStaffOptions } from "@/lib/data/leads";
+import { getAuthContext } from "@/lib/data/authContext";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import CustomerOwnerForm from "./CustomerOwnerForm";
+import CommissionBonusPanel from "./CommissionBonusPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,8 @@ export default async function CustomerDetailPage(
     notFound();
   }
   const staff = await listStaffOptions();
+  const ctx = await getAuthContext();
+  const isAdmin = ctx?.systemRole === "ADMIN";
 
   return (
     <div>
@@ -58,6 +62,8 @@ export default async function CustomerDetailPage(
           <p className="text-xs text-neutral-500">poslední objednávka</p>
         </div>
       </div>
+
+      <CommissionBonusPanel organizationId={customer.id} commission={customer.commission} isAdmin={isAdmin} />
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
         <CustomerOwnerForm

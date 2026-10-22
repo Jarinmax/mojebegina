@@ -141,7 +141,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0].n).toBeGreaterThan(0);
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0022) + pojistka číslování", async () => {
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0022 + připravená 0023) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
@@ -157,12 +157,48 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     const b = new Set((await schema(reference)).map(key));
     const onlyProduction = [...a].filter((x) => !b.has(x));
     const onlyCode = [...b].filter((x) => !a.has(x));
-    // Jediný rozdíl: pojistka orders_number_required ze zapnutí číslování
-    // (21_numbering_cutover.sql / 06b) — mimo drizzle migrace, stejně jako
-    // na Preview, kde nový kód běží.
+    // Jediný rozdíl na straně Production: pojistka orders_number_required
+    // ze zapnutí číslování (21_numbering_cutover.sql / 06b) — mimo drizzle
+    // migrace, stejně jako na Preview, kde nový kód běží.
+    //
+    // Na straně kódu: migrace 0023 (Jarda – volání a provize, část 2) je
+    // PŘIPRAVENÁ, ale výslovně NENASAZENÁ na Preview ani Production (viz
+    // hlavička drizzle/0023_jarda_provize_2_organizations_fields.sql) —
+    // nových sloupců organizations a celé nové tabulky
+    // organization_owner_history (append-only historie správců, viz
+    // schema.ts) je proto "jen v kódu" a zmizí odtud, až se migrace
+    // skutečně nasadí.
     expect({ onlyProduction, onlyCode }).toEqual({
       onlyProduction: [key({ kind: "con", t: "orders", n: "orders_number_required", d: "CHECK" })],
-      onlyCode: [],
+      onlyCode: [
+        key({ kind: "col", t: "organization_owner_history", n: "ended_at", d: "timestamp with time zone:YES" }),
+        key({ kind: "col", t: "organization_owner_history", n: "id", d: "uuid:NO" }),
+        key({ kind: "col", t: "organization_owner_history", n: "organization_id", d: "uuid:NO" }),
+        key({ kind: "col", t: "organization_owner_history", n: "owner_user_id", d: "text:NO" }),
+        key({ kind: "col", t: "organization_owner_history", n: "started_at", d: "timestamp with time zone:NO" }),
+        key({ kind: "col", t: "organizations", n: "acquired_at", d: "timestamp with time zone:YES" }),
+        key({ kind: "col", t: "organizations", n: "acquisition_bonus_paid_at", d: "timestamp with time zone:YES" }),
+        key({ kind: "col", t: "organizations", n: "acquisition_bonus_paid_by_user_id", d: "text:YES" }),
+        key({ kind: "con", t: "organization_owner_history", n: "organization_owner_history_id_not_null", d: "CHECK" }),
+        key({
+          kind: "con",
+          t: "organization_owner_history",
+          n: "organization_owner_history_organization_id_not_null",
+          d: "CHECK",
+        }),
+        key({
+          kind: "con",
+          t: "organization_owner_history",
+          n: "organization_owner_history_organization_id_organizations_id_fk",
+          d: "FOREIGN KEY",
+        }),
+        key({ kind: "con", t: "organization_owner_history", n: "organization_owner_history_owner_user_id_not_null", d: "CHECK" }),
+        key({ kind: "con", t: "organization_owner_history", n: "organization_owner_history_pkey", d: "PRIMARY KEY" }),
+        key({ kind: "con", t: "organization_owner_history", n: "organization_owner_history_started_at_not_null", d: "CHECK" }),
+        key({ kind: "idx", t: "organization_owner_history", n: "organization_owner_history_one_open_period", d: "" }),
+        key({ kind: "idx", t: "organization_owner_history", n: "organization_owner_history_org_idx", d: "" }),
+        key({ kind: "idx", t: "organization_owner_history", n: "organization_owner_history_pkey", d: "" }),
+      ],
     });
   });
 });

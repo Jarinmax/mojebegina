@@ -11,15 +11,16 @@
 // (linkLeadToExistingOrganization / convertLeadToNewOrganization).
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { leads, leadActivity, organizations, orders, userRoles, dailyCallQueue } from "@/lib/db/schema";
+import { leads, leadActivity, organizations, organizationOwnerHistory, orders, userRoles, dailyCallQueue } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
-import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
+import { createCustomerOrganization, requireAdminContext, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { distinctOrganizationIds } from "./orderBuyer";
+import { computeCommissionAndBonus, type CommissionAndBonus, type CommissionOrderRow } from "./commission";
 import {
   validateCreateLeadInput,
   validateStageInput,
@@ -684,8 +685,14 @@ export async function linkLeadToExistingOrganization(
   if (!org.ownerUserId && lead.ownerUserId) {
     orgUpdates.ownerUserId = lead.ownerUserId;
   }
+  // Jarda – volání a provize, část 2 — acquiredAt se nastavuje atomicky se
+  // acquiredByUserId, stejnou "jen když je NULL" podmínkou (kotva pro
+  // šestiměsíční lhůtu akvizičního bonusu). Zda je zákazník kvůli tomuto
+  // zápisu skutečně "nový" (bez dřívějších zaplacených objednávek) ověřuje
+  // až výpočet bonusu (lib/data/commission.ts) — tady se nic nedomýšlí.
   if (!org.acquiredByUserId && lead.acquiredByUserId) {
     orgUpdates.acquiredByUserId = lead.acquiredByUserId;
+    orgUpdates.acquiredAt = new Date();
   }
 
   const leadUpdate = db
@@ -774,6 +781,8 @@ export type CustomerCardData = {
   orderCount: number;
   totalRevenueKc: number;
   lastOrderAt: Date | null;
+  /** Jarda – volání a provize, část 2 — 3% provize a akviziční bonus. */
+  commission: CommissionAndBonus;
 };
 
 export type CustomerListFilter = "mine" | "all";
@@ -781,7 +790,9 @@ export type CustomerListFilter = "mine" | "all";
 // Obrat = obchodní hodnota objednávek (SUM totalKc), NE cashflow — počítá
 // se ze VŠECH objednávek kromě zrušených (fulfillmentStatus != cancelled),
 // bez ohledu na paymentStatus (schváleno explicitně: "Objednáno" a
-// "Uhrazeno" jsou dvě různé věci, tohle číslo je "Objednáno").
+// "Uhrazeno" jsou dvě různé věci, tohle číslo je "Objednáno"). POZOR: toto
+// číslo se NESMÍ použít pro provizi/bonus (ty mají vlastní, striktnější
+// základnu — jen zaplacené, viz lib/data/commission.ts).
 export async function listCustomers(filter: CustomerListFilter): Promise<CustomerCardData[]> {
   const ctx = await requireCrmContext();
 
@@ -792,6 +803,8 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
       ico: organizations.ico,
       ownerUserId: organizations.ownerUserId,
       acquiredByUserId: organizations.acquiredByUserId,
+      acquiredAt: organizations.acquiredAt,
+      acquisitionBonusPaidAt: organizations.acquisitionBonusPaidAt,
     })
     .from(organizations)
     .where(filter === "mine" ? eq(organizations.ownerUserId, ctx.userId) : undefined)
@@ -823,12 +836,16 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
     statsByOrg.set(row.buyerOrganizationId, current);
   }
 
+  const paidOrders = await listPaidOrdersByOrganization(orgIds);
+  const stintStarts = await getOpenOwnerStintStartByOrganization(orgIds);
+
   const staffIds = [
     ...new Set(
       orgRows.flatMap((o) => [o.ownerUserId, o.acquiredByUserId]).filter((v): v is string => v !== null)
     ),
   ];
   const staff = await getUserProfiles(staffIds);
+  const now = new Date();
 
   return orgRows.map((org) => {
     const stats = statsByOrg.get(org.id) ?? { count: 0, total: 0, last: null };
@@ -845,8 +862,66 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
       orderCount: stats.count,
       totalRevenueKc: stats.total,
       lastOrderAt: stats.last,
+      commission: computeCommissionAndBonus({
+        orders: paidOrders.get(org.id) ?? [],
+        currentOwnerSince: stintStarts.get(org.id) ?? null,
+        acquiredByUserId: org.acquiredByUserId,
+        acquiredAt: org.acquiredAt,
+        bonusPaidAt: org.acquisitionBonusPaidAt,
+        now,
+      }),
     };
   });
+}
+
+/**
+ * Started_at AKTUÁLNĚ OTEVŘENÉHO období (ended_at IS NULL) z
+ * organization_owner_history — odkdy platí "nový správce nedostává
+ * provizi zpětně ze starých objednávek" pro TOHO, kdo zákazníka
+ * aktuálně správcuje. Chybějící záznam (organizace bez historie, např.
+ * ještě nenasazená migrace nebo zákazník bez obchodníka) se v
+ * computeCommissionAndBonus čte jako "od začátku" (ownerAssignedAt null).
+ */
+async function getOpenOwnerStintStartByOrganization(orgIds: string[]): Promise<Map<string, Date>> {
+  if (orgIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({ organizationId: organizationOwnerHistory.organizationId, startedAt: organizationOwnerHistory.startedAt })
+    .from(organizationOwnerHistory)
+    .where(and(inArray(organizationOwnerHistory.organizationId, orgIds), isNull(organizationOwnerHistory.endedAt)));
+  return new Map(rows.map((r) => [r.organizationId, r.startedAt]));
+}
+
+/** Zaplacené, nestornované objednávky po organizacích — základna pro provizi/bonus (commission.ts). */
+async function listPaidOrdersByOrganization(orgIds: string[]): Promise<Map<string, CommissionOrderRow[]>> {
+  if (orgIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({
+      buyerOrganizationId: orders.buyerOrganizationId,
+      subtotalKc: orders.subtotalKc,
+      discountKc: orders.discountKc,
+      orderedAt: orders.orderedAt,
+    })
+    .from(orders)
+    .where(
+      and(
+        inArray(orders.buyerOrganizationId, orgIds),
+        eq(orders.paymentStatus, "paid"),
+        ne(orders.fulfillmentStatus, "cancelled")
+      )
+    );
+
+  const byOrg = new Map<string, CommissionOrderRow[]>();
+  for (const row of rows) {
+    if (!row.buyerOrganizationId) continue; // SQL to vyloučí, jen pro typy
+    const list = byOrg.get(row.buyerOrganizationId) ?? [];
+    list.push({ subtotalKc: row.subtotalKc, discountKc: row.discountKc, orderedAt: row.orderedAt });
+    byOrg.set(row.buyerOrganizationId, list);
+  }
+  return byOrg;
 }
 
 export async function assignCustomerOwner(organizationId: string, ownerUserId: string): Promise<LeadResult> {
@@ -857,7 +932,40 @@ export async function assignCustomerOwner(organizationId: string, ownerUserId: s
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }
 
-  await db.update(organizations).set({ ownerUserId }).where(eq(organizations.id, organizationId));
+  // Jarda – volání a provize, část 2 — organization_owner_history se
+  // zapisuje jen při SKUTEČNÉ změně (ne při opakovaném uložení téhož
+  // obchodníka): uzavře aktuální otevřené období a založí nové, NIKDY
+  // nepřepisuje starší řádky. Na started_at toho NOVÉHO otevřeného období
+  // stojí "nový správce nedostává provizi zpětně ze starých objednávek" —
+  // a protože se starší období nemažou ani nepřepisují, i při návratu
+  // zákazníka k dřívějšímu obchodníkovi zůstává jeho první období (a
+  // tehdy vzniklá provize) dohledatelné, ne zahozené.
+  //
+  // Čtení + batch bez explicitní transakce je tu v pořádku (stejné riziko
+  // jako dřív) — jde o ruční přiřazení z formuláře.
+  const [current] = await db
+    .select({ ownerUserId: organizations.ownerUserId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Organizace nebyla nalezena." };
+  }
+
+  if (current.ownerUserId === ownerUserId) {
+    await db.update(organizations).set({ ownerUserId }).where(eq(organizations.id, organizationId));
+    return { ok: true };
+  }
+
+  const now = new Date();
+  await db.batch([
+    db.update(organizations).set({ ownerUserId }).where(eq(organizations.id, organizationId)),
+    db
+      .update(organizationOwnerHistory)
+      .set({ endedAt: now })
+      .where(and(eq(organizationOwnerHistory.organizationId, organizationId), isNull(organizationOwnerHistory.endedAt))),
+    db.insert(organizationOwnerHistory).values({ organizationId, ownerUserId, startedAt: now, endedAt: null }),
+  ]);
   return { ok: true };
 }
 
@@ -872,7 +980,72 @@ export async function setCustomerAcquiredBy(
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }
 
-  await db.update(organizations).set({ acquiredByUserId }).where(eq(organizations.id, organizationId));
+  // Jarda – volání a provize, část 2 — dřív šlo přepsat opakovaně i přes
+  // UI text "nastavuje se jednou"; teď je to i vynucené, protože se na tom
+  // staví akviziční bonus (přidělení kontaktu novému správci nesmí nikomu
+  // zpětně "ukrást" ani přepsat původní akvizici).
+  const [current] = await db
+    .select({ acquiredByUserId: organizations.acquiredByUserId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Organizace nebyla nalezena." };
+  }
+  if (current.acquiredByUserId) {
+    return { ok: false, error: "Původ akvizice je už nastaven a nepřepisuje se." };
+  }
+
+  await db
+    .update(organizations)
+    .set({ acquiredByUserId, acquiredAt: new Date() })
+    .where(eq(organizations.id, organizationId));
+  return { ok: true };
+}
+
+// Jarda – volání a provize, část 2 — vyplacení akvizičního bonusu je lidská
+// akce, nedá se odvodit z dat (žádný výplatní mechanismus v appce dnes
+// neexistuje). Jen ADMIN, stejná šířka jako Varianta B konverze výš —
+// EXECUTIVE (Jarda) sám sobě bonus "vyplatit" nemůže. Kontroluje se tu i
+// bonusStatus === "reached", aby šlo oznámit přesně to, co se stalo (ne
+// tiše přepsat "running"/"not_eligible" na "paid").
+export async function markAcquisitionBonusPaid(organizationId: string): Promise<LeadResult> {
+  const ctx = await requireAdminContext();
+
+  const [org] = await db
+    .select({
+      ownerUserId: organizations.ownerUserId,
+      acquiredByUserId: organizations.acquiredByUserId,
+      acquiredAt: organizations.acquiredAt,
+      acquisitionBonusPaidAt: organizations.acquisitionBonusPaidAt,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) {
+    return { ok: false, error: "Organizace nebyla nalezena." };
+  }
+  if (org.acquisitionBonusPaidAt) {
+    return { ok: false, error: "Bonus už je označený jako vyplacený." };
+  }
+
+  const paidOrders = (await listPaidOrdersByOrganization([organizationId])).get(organizationId) ?? [];
+  const commission = computeCommissionAndBonus({
+    orders: paidOrders,
+    currentOwnerSince: null, // irelevantní pro bonus, jen provize
+    acquiredByUserId: org.acquiredByUserId,
+    acquiredAt: org.acquiredAt,
+    bonusPaidAt: null,
+    now: new Date(),
+  });
+  if (commission.bonusStatus !== "reached") {
+    return { ok: false, error: "Bonus ještě nedosáhl hranice 15 000 Kč (nebo chybí data) — nejde vyplatit." };
+  }
+
+  await db
+    .update(organizations)
+    .set({ acquisitionBonusPaidAt: new Date(), acquisitionBonusPaidByUserId: ctx.userId })
+    .where(eq(organizations.id, organizationId));
   return { ok: true };
 }
 
@@ -895,6 +1068,8 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
       ico: organizations.ico,
       ownerUserId: organizations.ownerUserId,
       acquiredByUserId: organizations.acquiredByUserId,
+      acquiredAt: organizations.acquiredAt,
+      acquisitionBonusPaidAt: organizations.acquisitionBonusPaidAt,
     })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
@@ -924,6 +1099,9 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
   const owner = org.ownerUserId ? staff.get(org.ownerUserId) : null;
   const acquiredBy = org.acquiredByUserId ? staff.get(org.acquiredByUserId) : null;
 
+  const paidOrders = (await listPaidOrdersByOrganization([organizationId])).get(organizationId) ?? [];
+  const stintStart = (await getOpenOwnerStintStartByOrganization([organizationId])).get(organizationId) ?? null;
+
   return {
     id: org.id,
     name: org.name,
@@ -935,6 +1113,14 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     orderCount,
     totalRevenueKc,
     lastOrderAt,
+    commission: computeCommissionAndBonus({
+      orders: paidOrders,
+      currentOwnerSince: stintStart,
+      acquiredByUserId: org.acquiredByUserId,
+      acquiredAt: org.acquiredAt,
+      bonusPaidAt: org.acquisitionBonusPaidAt,
+      now: new Date(),
+    }),
     recentOrders: orderRows.slice(0, 10),
   };
 }

@@ -17,6 +17,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { notifyOrderOwnerPaidSafe } from "./notifications";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput } from "@/lib/eshop/checkout";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
@@ -562,6 +563,12 @@ export async function updatePaymentStatus(
       .limit(1);
     return conflictResult(now?.paymentStatus ?? from, validated.value, PAYMENT_LABELS, "Stav platby");
   }
+  // Jarda – volání a provize, část 2 — oznámení aktuálnímu správci
+  // zákazníka, jen při skutečném přepnutí NA Zaplaceno (changeOrderColumn
+  // výš uspělo = právě teď, ne při každém čtení stavu).
+  if (validated.value === "paid") {
+    await notifyOrderOwnerPaidSafe(db, orderId);
+  }
   return { ok: true, changed: true, status: validated.value };
 }
 
@@ -640,6 +647,7 @@ export async function recordOrderPayment(orderId: string, input: RecordPaymentIn
       userId: ctx.userId,
       name: ctx.name ?? ctx.email,
     });
+    await notifyOrderOwnerPaidSafe(db, orderId);
   }
   return { ok: true, ...result };
 }
@@ -842,6 +850,7 @@ export async function transferOrderPayment(
       userId: ctx.userId,
       name: ctx.name ?? ctx.email,
     });
+    await notifyOrderOwnerPaidSafe(db, result.target.id);
   }
   return result;
 }

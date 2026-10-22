@@ -76,9 +76,50 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   // DIČ firmy (faktura; migrace 0022). NULL = neuvedeno / neplátce.
   dic: text("dic"),
+  // Jarda – volání a provize, část 2 (migrace 0023). Kdy byl acquiredByUserId
+  // skutečně nastaven (ne domyšleno zpětně) — nastavuje se ATOMICKY s ním,
+  // stejnou "jen když je NULL" podmínkou, v convertLeadToNewOrganization a
+  // linkLeadToExistingOrganization. NULL u existujících řádků = neznámé,
+  // akviziční bonus se u nich nedá spočítat (chybí šestiměsíční kotva).
+  acquiredAt: timestamp("acquired_at", { withTimezone: true }),
+  // Jednorázový akviziční bonus 1000 Kč — vyplacení je lidská akce (ADMIN),
+  // nedá se odvodit z dat. NULL = nevyplaceno.
+  acquisitionBonusPaidAt: timestamp("acquisition_bonus_paid_at", { withTimezone: true }),
+  acquisitionBonusPaidByUserId: text("acquisition_bonus_paid_by_user_id"),
 }, (table) => [
   check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
 ]);
+
+// Jarda – volání a provize, část 2 (migrace 0023) — append-only historie
+// "kdo byl v jakém období aktuální správce zákazníka". Nahrazuje jediný
+// mutovatelný sloupec (ten by při návratu zákazníka k dřívějšímu
+// obchodníkovi nenávratně zahodil jeho první období): assignCustomerOwner
+// uzavře aktuální otevřený řádek (ended_at = now) a založí nový, nikdy
+// nepřepisuje. endedAt IS NULL = aktuálně otevřené období; podle
+// pravidla "nový správce nedostává provizi zpětně ze starých objednávek"
+// se 3% provize počítá z objednávek od started_at tohoto otevřeného
+// řádku. U zákazníků, kteří existovali už před nasazením téhle migrace a
+// od nasazení ještě nebyli přeřazeni, se první otevřený řádek založí při
+// nasazení migrace (started_at = okamžik nasazení) — ne zpětně domyšlený
+// dřívější dat, viz migrace 0023 samotná.
+export const organizationOwnerHistory = pgTable(
+  "organization_owner_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    ownerUserId: text("owner_user_id").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("organization_owner_history_one_open_period")
+      .on(table.organizationId)
+      .where(sql`${table.endedAt} IS NULL`),
+    index("organization_owner_history_org_idx").on(table.organizationId, table.startedAt),
+  ]
+);
 
 // Řeší "1 login ≠ 1 zákazník": jeden User (spravovaný Neon Auth) může mít
 // členství u víc organizací, jedna organizace může mít víc uživatelů.

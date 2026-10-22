@@ -17,7 +17,9 @@ import {
   convertLeadToNewOrganization,
   assignCustomerOwner,
   setCustomerAcquiredBy,
+  markAcquisitionBonusPaid,
 } from "@/lib/data/leads";
+import { markNotificationRead } from "@/lib/data/notificationsInbox";
 import type { CreateCustomerInput } from "@/lib/data/createCustomerValidation";
 
 export type ActionState = { error: string } | { success: string } | null;
@@ -247,4 +249,31 @@ export async function setCustomerAcquiredByAction(
 
   revalidateCrm(undefined, organizationId);
   return { success: "Původ akvizice byl uložen." };
+}
+
+// Jarda – volání a provize, část 2 — vyplacení akvizičního bonusu. Jen
+// ADMIN (vynucuje markAcquisitionBonusPaid/requireAdminContext); EXECUTIVE
+// tlačítko v UI ani neuvidí (viz CommissionBonusPanel).
+export async function markAcquisitionBonusPaidAction(
+  organizationId: string,
+  // useActionState vyžaduje (prevState, formData) — formulář nemá žádná pole.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _prevState: ActionState,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _formData: FormData
+): Promise<ActionState> {
+  const result = await markAcquisitionBonusPaid(organizationId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(undefined, organizationId);
+  return { success: "Bonus byl označen jako vyplacený." };
+}
+
+// Jarda – volání a provize, část 2 — "přečtení" oznámení o zaplacené
+// objednávce (panel Nové nákupy v app/rizeni-firmy/obchod/page.tsx).
+export async function markNotificationReadAction(notificationId: string): Promise<void> {
+  await markNotificationRead(notificationId);
+  revalidateCrm();
 }

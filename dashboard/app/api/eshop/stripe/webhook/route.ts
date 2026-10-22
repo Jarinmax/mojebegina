@@ -13,6 +13,7 @@ import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { handleStripeEvent } from "@/lib/eshop/stripe/webhook";
 import { invoiceAndNotifyPaid } from "@/lib/eshop/invoicing/afterPaid";
+import { notifyOrderOwnerPaidSafe } from "@/lib/data/notifications";
 
 // ostrý provoz: vystavení faktury v iDokladu proběhne před e-mailem
 export const maxDuration = 60;
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
       // návrh faktury → v ostrém režimu vystavení v iDokladu → e-mail s PDF
       // (mimo Production jen návrh, do iDokladu nic); nikdy nevyhazuje výjimku
       await invoiceAndNotifyPaid(db, orderId, "payment_confirmed", new URL(request.url).origin);
+      await notifyOrderOwnerPaidSafe(db, orderId);
     }
     return Response.json({ received: true, outcome });
   } catch (error) {

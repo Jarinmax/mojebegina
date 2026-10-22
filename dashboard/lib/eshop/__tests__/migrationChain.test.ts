@@ -61,7 +61,9 @@ describe("řetězec migrací Drizzle", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual(ESHOP);
+    // Jen e-shopové okno 0013–0022 — co následuje (Jarda – volání a
+    // provize, 0023+) je mimo rozsah téhle kontroly.
+    expect(tags.slice(FIRST_ESHOP_IDX, FIRST_ESHOP_IDX + ESHOP.length)).toEqual(ESHOP);
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {

@@ -2,9 +2,11 @@ import Link from "next/link";
 import { getCockpitCounts, listLeads, listCustomers } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
+import { listMyUnreadNotifications } from "@/lib/data/notificationsInbox";
 import CockpitTiles from "./CockpitTiles";
 import LeadCard from "./LeadCard";
 import CustomerCard from "./CustomerCard";
+import NewPurchaseNotifications from "./NewPurchaseNotifications";
 
 // Security Phase 16 (Obchod/CRM 1.0) — prodejní kokpit. Autorizace (ADMIN
 // nebo EXECUTIVE) řeší app/rizeni-firmy/layout.tsx nad touto stránkou,
@@ -34,6 +36,7 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   const showDailyCallsLink = isDailyCallCurator(ctx) || isDailyCallWorker(ctx);
 
   const counts = await getCockpitCounts();
+  const unreadNotifications = await listMyUnreadNotifications();
 
   const isLeadsView = activeView === "moje-leady" || activeView === "vsechny-leady";
   const leadFilter = activeView === "moje-leady" ? "mine" : "all";
@@ -67,6 +70,8 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           Dnešní volání →
         </Link>
       )}
+
+      <NewPurchaseNotifications notifications={unreadNotifications} />
 
       <div className="mb-4 mt-4">
         <CockpitTiles counts={counts} />

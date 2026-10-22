@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import type { CustomerCardData } from "@/lib/data/leads";
+import { BONUS_STATUS_LABELS, BONUS_STATUS_CLASSES } from "./bonusLabels";
 
 export default function CustomerCard({ customer }: { customer: CustomerCardData }) {
+  const { commission } = customer;
   return (
     <Link
       href={`/rizeni-firmy/obchod/zakaznici/${customer.id}`}
@@ -22,9 +24,18 @@ export default function CustomerCard({ customer }: { customer: CustomerCardData 
         {customer.lastOrderAt && <span>· poslední {formatCzechDate(customer.lastOrderAt)}</span>}
       </div>
 
-      <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">
+      <div className="flex items-center justify-between gap-2 text-xs text-neutral-400 mb-2">
         <span>{customer.ownerName ?? "Bez obchodníka"}</span>
         {customer.acquiredByName && <span>Získal: {customer.acquiredByName}</span>}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="font-medium text-begina-primary-800">Provize {formatKc(commission.commissionKc)}</span>
+        {commission.bonusStatus !== "unknown" && (
+          <span className={`rounded-full px-2 py-0.5 ${BONUS_STATUS_CLASSES[commission.bonusStatus]}`}>
+            {BONUS_STATUS_LABELS[commission.bonusStatus]}
+          </span>
+        )}
       </div>
     </Link>
   );
