@@ -8,6 +8,9 @@ type OrderCardProps = {
 
 const STATUS_STYLE: Record<Order["status"], string> = {
   Uhrazeno: "bg-begina-primary-100 text-begina-primary-800",
+  Neuhrazeno: "bg-amber-100 text-amber-800",
+  "Částečně uhrazeno": "bg-sky-100 text-sky-800",
+  Přeplaceno: "bg-violet-100 text-violet-800",
 };
 
 export default function OrderCard({ order }: OrderCardProps) {
