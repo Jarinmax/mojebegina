@@ -38,9 +38,9 @@ export const contactDisplayName = customerAccount.contactLastName
   ? `${customerAccount.contactFirstName} ${customerAccount.contactLastName}`
   : customerAccount.contactFirstName;
 
-// --- Objednávky (skutečné uhrazené faktury) -------------------------
+// --- Objednávky a faktury -------------------------------------------
 
-export type OrderStatus = "Uhrazeno";
+export type OrderStatus = "Uhrazeno" | "Neuhrazeno" | "Částečně uhrazeno" | "Přeplaceno";
 
 export type OrderItem = {
   name: string;
@@ -59,6 +59,8 @@ export type Order = {
   products: string;
   totalKc: number;
   status: OrderStatus;
+  /** Odkaz se přidává jen k faktuře, kterou může přihlášený zákazník uhradit. */
+  paymentHref?: string;
 };
 
 type RawOrder = {

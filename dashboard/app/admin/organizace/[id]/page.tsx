@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOrganizationDetail } from "@/lib/data/admin";
-import { formatCzechDate } from "@/lib/format";
+import { getOrganizationDetail, getOrganizationPurchaseHistory } from "@/lib/data/admin";
+import { formatCzechDate, formatKc } from "@/lib/format";
 import OrganizationMembersTable from "@/components/organization/OrganizationMembersTable";
 import OrganizationEditForm from "./OrganizationEditForm";
 import AddMemberForm from "./AddMemberForm";
 import MemberActions from "./MemberActions";
+import OrderCard from "@/components/OrderCard";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function AdminOrganizationDetailPage(
   if (!org) {
     notFound();
   }
+  const purchaseHistory = await getOrganizationPurchaseHistory(id);
 
   const justCreated = searchParams?.vytvoreno === "1";
 
@@ -77,6 +79,33 @@ export default async function AdminOrganizationDetailPage(
           )}
         />
       </div>
+
+      <section className="mt-7" aria-labelledby="purchase-history-title">
+        <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
+          <div>
+            <h2 id="purchase-history-title" className="text-sm font-medium text-begina-primary-900">
+              Historie nákupů ({purchaseHistory.length})
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">Kompletní přehled faktur z iDokladu</p>
+          </div>
+          {purchaseHistory.length > 0 && (
+            <p className="text-sm font-medium text-begina-primary-900">
+              Celkem {formatKc(purchaseHistory.reduce((sum, order) => sum + order.totalKc, 0))}
+            </p>
+          )}
+        </div>
+        {purchaseHistory.length === 0 ? (
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-600">
+            Pro tuto organizaci zatím nejsou dostupné žádné faktury.
+          </div>
+        ) : (
+          <div className="max-w-[520px]">
+            {purchaseHistory.map((order) => (
+              <OrderCard key={order.id} order={order} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
