@@ -38,7 +38,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
 import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, vsSearchFromDay } from "./idoklad";
-import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, andFilter, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
+import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
 import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
@@ -118,10 +118,11 @@ async function findByVs(client: EshopIdokladClient, vs: string, day: string): Pr
  * Faktura z iDokladu musí být naše: VS, číslo 9RRNNNN a řada 7277293.
  * Řada se NIKDY nepředpokládá: odpověď iDokladu ji u faktury obvykle
  * neuvádí (IssuedInvoiceGetModel / ListGetModel v oficiálním SDK pole
- * NumericSequenceId nemají). Chybí-li, ověří se dotazem (Id A řada
- * 7277293); když iDoklad fakturu v řadě nevrátí — nebo dotaz selže —
- * je to STOP: faktura se nevede jako vystavená, neoznačí se uhrazená
- * a nic se nepošle.
+ * NumericSequenceId nemají). Chybí-li, hledá se faktura mezi doklady řady
+ * 7277293 (filtr NumericSequenceId~eq~ — ověřený v Production auditem
+ * číslování 23. 10. 2026; složený filtr iDokladu ostře ověřený není);
+ * když v řadě není — nebo dotaz selže — je to STOP: faktura se nevede jako
+ * vystavená, neoznačí se uhrazená a nic se nepošle.
  */
 async function assertOurInvoice(client: EshopIdokladClient, invoice: IdokladInvoice, vs: string) {
   if (invoice.VariableSymbol !== vs) {
@@ -139,20 +140,27 @@ async function assertOurInvoice(client: EshopIdokladClient, invoice: IdokladInvo
     );
   }
   if (invoice.NumericSequenceId == null) {
-    let confirmed: { Id: number }[];
+    let confirmed = false;
     try {
-      const filter = issuedInvoiceFilter(andFilter(eqFilter("Id", String(invoice.Id)), eqFilter("NumericSequenceId", ESHOP_SERIES.id)));
-      confirmed = (await client.list<{ Id: number }>("/IssuedInvoices", filter, 5)).Items.filter((i) => i.Id === invoice.Id);
+      const filter = issuedInvoiceFilter(eqFilter("NumericSequenceId", ESHOP_SERIES.id));
+      for (let page = 1; page <= SERIES_CONFIRM_PAGES && !confirmed; page += 1) {
+        const result = await client.list<{ Id: number }>("/IssuedInvoices", filter, 100, page);
+        confirmed = result.Items.some((i) => i.Id === invoice.Id);
+        if (page >= result.TotalPages || result.Items.length === 0) break;
+      }
     } catch (error) {
       throw new IssueStop(
         `Řadu faktury ${label} v iDokladu nejde ověřit (${error instanceof Error ? error.message : String(error)}) — nutná ruční kontrola.`
       );
     }
-    if (confirmed.length !== 1) {
+    if (!confirmed) {
       throw new IssueStop(`Faktura ${label} v iDokladu není potvrzeně v řadě E-shop Begina (${ESHOP_SERIES.id}) — nutná ruční kontrola.`);
     }
   }
 }
+
+/** Nejvýš tolik stran (po 100) dokladů řady E-shop Begina projde ověření řady nové faktury. */
+const SERIES_CONFIRM_PAGES = 10;
 
 /** Nejvýš tolik stran (po 100) faktur jedné firmy projde kontrola duplicit. */
 const COMPANY_INVOICE_PAGES = 5;

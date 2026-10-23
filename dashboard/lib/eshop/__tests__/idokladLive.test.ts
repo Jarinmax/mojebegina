@@ -404,7 +404,9 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       status: "failed",
       error: expect.stringMatching(/není z řady E-shop Begina \(7277293\), ale z řady 2032369/),
     });
-    expect(fake.calls.some((c) => (c.query.filter ?? "").startsWith("((Id~eq~"))).toBe(false);
+    // řada v odpovědi → bez ověřovacího dotazu po vytvoření faktury
+    const afterPost = fake.calls.slice(fake.calls.findIndex((c) => c.method === "POST" && c.path === "/IssuedInvoices") + 1);
+    expect(afterPost.some((c) => (c.query.filter ?? "").startsWith("NumericSequenceId~eq~"))).toBe(false);
   });
 
   it("potvrzovací dotaz na řadu selže → STOP (nic se nepředpokládá)", async () => {
@@ -439,7 +441,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       "NumericSequenceId~eq~7277293",
       `DocumentNumber~eq~${next.number}`,
       `DateOfIssue~gte~${daysBefore(TODAY, 31)}`,
-      `((Id~eq~${next.id})~and~(NumericSequenceId~eq~7277293))`, // řada nové faktury (odpověď ji neuvádí)
+      "NumericSequenceId~eq~7277293", // řada nové faktury (odpověď ji neuvádí) — mezi doklady řady
     ]);
   });
 
@@ -527,7 +529,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       `DocumentNumber~eq~${next.number}`,
       "DateOfIssue~gte~2026-09-18",
       "PartnerId~eq~4242",
-      `((Id~eq~${next.id})~and~(NumericSequenceId~eq~7277293))`, // potvrzení řady nové faktury
+      "NumericSequenceId~eq~7277293", // potvrzení řady nové faktury — mezi doklady řady
     ]);
     const post = fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
     expect(post).toMatchObject({
