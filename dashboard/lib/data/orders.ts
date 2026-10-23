@@ -46,6 +46,7 @@ import {
 import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
 import { isInvoiceableOrder } from "@/lib/eshop/invoicing/draft";
 import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
+import { runNumberingAuditFromEnv, type NumberingAuditResult } from "@/lib/eshop/invoicing/numberingAudit";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "./invoiceAuth";
 import {
   loadOrderPayments,
@@ -727,6 +728,15 @@ export async function runEshopIdokladPreflight(): Promise<
   const ctx = await requireOrderContext();
   if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Kontrolu iDokladu smí spustit jen ${INVOICE_ISSUER_NAMES}.` };
   return runPreflightFromEnv();
+}
+
+/** Audit číslování vydaných faktur v iDokladu — jen čtení, nic se nezapisuje ani neukládá. */
+export async function runEshopNumberingAudit(input: { year: string; numbers: string[] }): Promise<
+  { ok: true; result: NumberingAuditResult } | { ok: false; error: string }
+> {
+  const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Audit číslování smí spustit jen ${INVOICE_ISSUER_NAMES}.` };
+  return runNumberingAuditFromEnv(input);
 }
 
 // --- Peníze stornované objednávky (lib/eshop/cancellation.ts) ---------
