@@ -43,9 +43,10 @@ vystavení (samostatná oprava).
 4. **Kontrola vrácené faktury** (`issue.ts`): faktura z iDokladu musí mít
    číslo `9RRNNNN` a (nově) řadu 7277293. Řada se nikdy nepředpokládá —
    odpověď iDokladu ji u faktury obvykle neuvádí (modely čtení faktury
-   v oficiálním SDK pole `NumericSequenceId` nemají). Chybí-li, ověří se
-   dotazem `((Id~eq~…)~and~(NumericSequenceId~eq~7277293))`; když ho iDoklad
-   nepotvrdí nebo dotaz selže, je to **STOP**. Při jakémkoli neúspěchu se
+   v oficiálním SDK pole `NumericSequenceId` nemají). Chybí-li, hledá se faktura
+   mezi doklady řady (`NumericSequenceId~eq~7277293` — filtr ověřený v Production
+   auditem 23. 10. 2026; složený filtr iDokladu se ostře nepoužívá); když v řadě
+   není nebo dotaz selže, je to **STOP**. Při jakémkoli neúspěchu se
    faktura nevede jako vystavená, neoznačí se uhrazená a nic se nepošle —
    „nutná ruční kontrola“.
 5. Čísla obou řad se nemohou potkat: ruční řada má 8 číslic (`2026xxxx`),
