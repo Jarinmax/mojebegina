@@ -28,6 +28,8 @@ import {
   upsertUserProfileStatement,
 } from "./userProfiles";
 import type { AuthContext } from "./types";
+import type { Order } from "@/mock/customer";
+import { getIdokladPurchaseHistory } from "./idokladPurchaseHistory";
 
 export async function requireAdminContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -175,6 +177,29 @@ export async function getOrganizationDetail(
       };
     }),
   };
+}
+
+export async function getOrganizationPurchaseHistory(
+  organizationId: string
+): Promise<Order[]> {
+  await requireAdminOrExecutiveContext();
+
+  const [org] = await db
+    .select({ ico: organizations.ico })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) return [];
+
+  try {
+    return await getIdokladPurchaseHistory(org.ico);
+  } catch (error) {
+    console.error(
+      "Admin: historii faktur z iDokladu se nepodařilo načíst:",
+      error instanceof Error ? error.message.slice(0, 240) : "neznámá chyba"
+    );
+    return [];
+  }
 }
 
 // Security Phase 5 — založení nového zákazníka z Begina Adminu.
