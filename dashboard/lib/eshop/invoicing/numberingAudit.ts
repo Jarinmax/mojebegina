@@ -14,6 +14,11 @@
 //   GET /NumericSequences?filter=DocumentType~eq~0        řady vydaných faktur
 //   GET /IssuedInvoices?filter=NumericSequenceId~eq~…     doklady každé řady (po 100)
 // Nic nezakládá, nemění ani neukládá; výsledek se jen zobrazí.
+//
+// Časy: Metadata.DateCreated vrací iDoklad v UTC — porovnává se s datem
+// vystavení v PRAŽSKÉM čase (lib/idoklad-read/time.ts); 1753-01-01 =
+// prázdné datum iDokladu (např. úhrada neuhrazené faktury) → null.
+import { idokladDay, idokladUtc, pragueDateTime } from "@/lib/idoklad-read/time";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, type IdokladLogEntry } from "./idokladHttp";
 import { BEGINA_ICO, eshopIdokladCredentials, missingIdokladCredentials } from "./mode";
 import { ISSUED_INVOICE_DOCUMENT_TYPE } from "./numberSeries";
@@ -33,7 +38,7 @@ export type AuditDocument = {
   dateOfTaxing: string | null;
   dateOfPayment: string | null;
   dateOfMaturity: string | null;
-  /** iDoklad Metadata — jak je vrátí API (bez převodu časového pásma) */
+  /** vytvoření / poslední změna v iDokladu, pražský čas „YYYY-MM-DD HH:mm:ss“ */
   created: string | null;
   lastChange: string | null;
   partner: string | null;
@@ -91,7 +96,11 @@ type RawInvoice = {
   Metadata?: { DateCreated?: string | null; DateLastChange?: string | null } | null;
 };
 
-const day = (value: string | null | undefined): string | null => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null);
+const day = idokladDay;
+const prague = (value: unknown): string | null => {
+  const date = idokladUtc(value);
+  return date ? pragueDateTime(date) : null;
+};
 
 function partnerName(raw: RawInvoice): string | null {
   const a = raw.PartnerAddress;
@@ -112,8 +121,8 @@ export function toAuditDocument(raw: RawInvoice, series: { id: number; name: str
     dateOfTaxing: day(raw.DateOfTaxing),
     dateOfPayment: day(raw.DateOfPayment),
     dateOfMaturity: day(raw.DateOfMaturity),
-    created: raw.Metadata?.DateCreated ?? null,
-    lastChange: raw.Metadata?.DateLastChange ?? null,
+    created: prague(raw.Metadata?.DateCreated),
+    lastChange: prague(raw.Metadata?.DateLastChange),
     partner: partnerName(raw),
     variableSymbol: raw.VariableSymbol ?? null,
     totalKc: typeof raw.Prices?.TotalWithVat === "number" ? raw.Prices.TotalWithVat : null,
@@ -191,7 +200,8 @@ export function analyzeSeries(seriesLabel: string, documents: AuditDocument[]): 
     }
   }
   for (const d of unique) {
-    const created = day(d.created);
+    // d.created je už pražský čas → pražský den vytvoření
+    const created = d.created ? d.created.slice(0, 10) : null;
     if (!created || !d.dateOfIssue) continue;
     const late = daysBetween(created, d.dateOfIssue);
     if (late > 0) {
@@ -199,7 +209,7 @@ export function analyzeSeries(seriesLabel: string, documents: AuditDocument[]): 
         level: "warning",
         series: seriesLabel,
         numbers: [d.number],
-        message: `${d.number}: datum vystavení ${d.dateOfIssue}, ale v iDokladu vznikl až ${d.created} (o ${late} ${late === 1 ? "den" : late < 5 ? "dny" : "dní"} později).`,
+        message: `${d.number}: datum vystavení ${d.dateOfIssue}, ale v iDokladu vznikl až ${d.created} pražského času (o ${late} ${late === 1 ? "den" : late < 5 ? "dny" : "dní"} později).`,
       });
     } else if (late < 0) {
       findings.push({
@@ -220,7 +230,7 @@ function message(error: unknown): string {
 
 /** Audit nad klientem (jen čtení). Nikdy nevyhazuje výjimku. */
 export async function runNumberingAudit(
-  client: EshopIdokladClient,
+  client: Pick<EshopIdokladClient, "get" | "list" | "requestCount" | "log">,
   options: { year: string; numbers: string[]; now?: Date }
 ): Promise<NumberingAuditResult> {
   const base = {

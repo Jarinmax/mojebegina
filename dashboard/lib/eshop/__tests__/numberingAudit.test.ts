@@ -17,16 +17,17 @@ const SEQUENCES = [
   { Id: 7277293, Name: "E-shop Begina", DocumentType: 0, IsDefault: false, NumberFormat: "9{RR}{NNNN}" },
 ];
 
-type Doc = { seq: number; Id: number; DocumentNumber: string; issue: string; created: string; partner?: string; vs?: string; total?: number };
+type Doc = { seq: number; Id: number; DocumentNumber: string; issue: string; created: string; partner?: string; vs?: string; total?: number; unpaid?: boolean };
 const inv = (d: Doc) => ({
   Id: d.Id,
   DocumentNumber: d.DocumentNumber,
   DateOfIssue: `${d.issue}T00:00:00`,
   DateOfTaxing: `${d.issue}T00:00:00`,
-  DateOfPayment: `${d.issue}T00:00:00`,
+  // neuhrazená: iDoklad vrací „prázdné“ datum 1753-01-01
+  DateOfPayment: d.unpaid ? "1753-01-01T00:00:00" : `${d.issue}T00:00:00`,
   DateOfMaturity: `${d.issue}T00:00:00`,
   VariableSymbol: d.vs ?? d.DocumentNumber,
-  PaymentStatus: 1,
+  PaymentStatus: d.unpaid ? 0 : 1,
   Prices: { TotalWithVat: d.total ?? 100 },
   PartnerAddress: { NickName: d.partner ?? "Zákazník" },
   Metadata: { DateCreated: d.created, DateLastChange: d.created },
@@ -54,17 +55,19 @@ function fakeIdoklad(docs: Doc[], ico = "74337297") {
   return { fetchImpl: fetchImpl as unknown as typeof fetch, calls };
 }
 
-// stav podle auditu 22. 10. 2026 (časy vytvoření u ruční řady jsou ilustrační)
+// stav podle auditu v Production 23. 10. 2026 — DateCreated je v UTC (jak ho vrací API);
+// 20260189, 20260193 a 20260194 mají časy vytvoření ilustrační
 const LUCIE = 2032369;
 const ESHOP = 7277293;
 const DOCS: Doc[] = [
-  { seq: LUCIE, Id: 1189, DocumentNumber: "20260189", issue: "2026-10-14", created: "2026-10-14T09:00:00" },
-  { seq: LUCIE, Id: 1190, DocumentNumber: "20260190", issue: "2026-10-16", created: "2026-10-16T09:00:00", partner: "Logistic areal Kralupy EU, s.r.o.", total: 1348 },
-  { seq: LUCIE, Id: 1191, DocumentNumber: "20260191", issue: "2026-10-15", created: "2026-10-16T10:00:00", partner: "Karolína Pospíšilová" },
-  { seq: LUCIE, Id: 1192, DocumentNumber: "20260192", issue: "2026-10-22", created: "2026-10-22T08:00:00", partner: "Milan Kašpárek" },
-  { seq: LUCIE, Id: 1193, DocumentNumber: "20260193", issue: "2026-10-22", created: "2026-10-22T08:30:00" },
-  { seq: LUCIE, Id: 1194, DocumentNumber: "20260194", issue: "2026-10-22", created: "2026-10-22T09:00:00" },
-  { seq: ESHOP, Id: 67077149, DocumentNumber: "9260001", issue: "2026-10-19", created: "2026-10-20T12:13:31", partner: "Food Fest Crew s.r.o.", vs: "5215", total: 12647 },
+  { seq: LUCIE, Id: 1189, DocumentNumber: "20260189", issue: "2026-10-14", created: "2026-10-14T07:00:00" },
+  { seq: LUCIE, Id: 1190, DocumentNumber: "20260190", issue: "2026-10-16", created: "2026-10-16T20:25:39.777", partner: "Logistic areal Kralupy EU, s.r.o.", total: 1348 },
+  { seq: LUCIE, Id: 1191, DocumentNumber: "20260191", issue: "2026-10-15", created: "2026-10-20T09:14:51.193", partner: "Karolína Pospíšilová" },
+  // vytvořena 21. 10. ve 22:36 UTC = 22. 10. v 0:36 pražského času → týž den jako vystavení
+  { seq: LUCIE, Id: 1192, DocumentNumber: "20260192", issue: "2026-10-22", created: "2026-10-21T22:36:52.227", partner: "Milan Kašpárek", unpaid: true },
+  { seq: LUCIE, Id: 1193, DocumentNumber: "20260193", issue: "2026-10-22", created: "2026-10-22T06:30:00" },
+  { seq: LUCIE, Id: 1194, DocumentNumber: "20260194", issue: "2026-10-22", created: "2026-10-22T07:00:00" },
+  { seq: ESHOP, Id: 67077149, DocumentNumber: "9260001", issue: "2026-10-19", created: "2026-10-20T10:13:30.687", partner: "Food Fest Crew s.r.o.", vs: "5215", total: 12647 },
 ];
 const NUMBERS = ["9260001", "20260190", "20260191", "20260192", "20260193", "20260194"];
 
@@ -83,16 +86,25 @@ describe("audit číslování vydaných faktur (jen čtení)", () => {
       seriesId: ESHOP,
       seriesName: "E-shop Begina",
       dateOfIssue: "2026-10-19",
-      created: "2026-10-20T12:13:31",
+      created: "2026-10-20 12:13:30", // pražský čas (API: 10:13:30.687 UTC)
       partner: "Food Fest Crew s.r.o.",
       variableSymbol: "5215",
       totalKc: 12647,
     });
-    expect(r.focus.find((f) => f.number === "20260192")!.document).toMatchObject({ seriesId: LUCIE, dateOfIssue: "2026-10-22", partner: "Milan Kašpárek" });
+    // 1753-01-01 = úhrada nevyplněná; vytvoření 22. 10. v 0:36 Praha = týž den → žádné zjištění
+    expect(r.focus.find((f) => f.number === "20260192")!.document).toMatchObject({
+      seriesId: LUCIE,
+      dateOfIssue: "2026-10-22",
+      dateOfPayment: null,
+      paid: false,
+      created: "2026-10-22 00:36:52",
+      partner: "Milan Kašpárek",
+    });
+    expect(r.focus.find((f) => f.number === "20260190")!.document).toMatchObject({ created: "2026-10-16 22:25:39" });
     expect(r.findings.map((f) => `${f.level} ${f.message}`)).toEqual([
       "warning 20260191 má datum vystavení 2026-10-15, dřívější než předchozí 20260190 (2026-10-16).",
-      "warning 20260191: datum vystavení 2026-10-15, ale v iDokladu vznikl až 2026-10-16T10:00:00 (o 1 den později).",
-      "warning 9260001: datum vystavení 2026-10-19, ale v iDokladu vznikl až 2026-10-20T12:13:31 (o 1 den později).",
+      "warning 20260191: datum vystavení 2026-10-15, ale v iDokladu vznikl až 2026-10-20 11:14:51 pražského času (o 5 dní později).",
+      "warning 9260001: datum vystavení 2026-10-19, ale v iDokladu vznikl až 2026-10-20 12:13:30 pražského času (o 1 den později).",
     ]);
     // jen čtení: GET + token, nic jiného
     expect(calls.every((c) => c.method === "GET")).toBe(true);
@@ -143,12 +155,22 @@ describe("audit číslování vydaných faktur (jen čtení)", () => {
   it("čistá analýza: předem datovaný doklad = jen informace; vyšší číslo vytvořené dřív = k vysvětlení", () => {
     const doc = (number: string, issue: string, created: string) =>
       toAuditDocument(inv({ seq: LUCIE, Id: Number(number.slice(-4)), DocumentNumber: number, issue, created }), { id: LUCIE, name: "Výchozí" });
+    // zimní čas: UTC + 1 h
     const findings = analyzeSeries("Výchozí", [doc("20260001", "2026-01-05", "2026-01-03T10:00:00"), doc("20260002", "2026-01-06", "2026-01-02T10:00:00")]);
     expect(findings.map((f) => `${f.level} ${f.message}`)).toEqual([
-      "warning 20260002 vznikl v iDokladu (2026-01-02T10:00:00) dřív než nižší 20260001 (2026-01-03T10:00:00) — číslo přidělené mimo pořadí vzniku.",
-      "info 20260001: datum vystavení 2026-01-05 je po vytvoření (2026-01-03T10:00:00).",
-      "info 20260002: datum vystavení 2026-01-06 je po vytvoření (2026-01-02T10:00:00).",
+      "warning 20260002 vznikl v iDokladu (2026-01-02 11:00:00) dřív než nižší 20260001 (2026-01-03 11:00:00) — číslo přidělené mimo pořadí vzniku.",
+      "info 20260001: datum vystavení 2026-01-05 je po vytvoření (2026-01-03 11:00:00).",
+      "info 20260002: datum vystavení 2026-01-06 je po vytvoření (2026-01-02 11:00:00).",
     ]);
+  });
+
+  it("půlnoc v Praze: vytvořeno 31. 12. ve 23:30 UTC (= 1. 1. v 0:30) s datem 31. 12. → zpětně o 1 den; 1753-01-01 = bez data", () => {
+    const doc = toAuditDocument(inv({ seq: LUCIE, Id: 1, DocumentNumber: "20270001", issue: "2026-12-31", created: "2026-12-31T23:30:00", unpaid: true }), {
+      id: LUCIE,
+      name: "Výchozí",
+    });
+    expect(doc).toMatchObject({ created: "2027-01-01 00:30:00", dateOfPayment: null, paid: false });
+    expect(analyzeSeries("Výchozí", [doc]).map((f) => f.level)).toEqual(["warning"]);
   });
 
   it("čísla z formuláře: jen číslice, bez opakování, nejvýš 20", () => {

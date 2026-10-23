@@ -46,7 +46,8 @@ import {
 import { invoicingMode, type InvoicingMode } from "@/lib/eshop/invoicing/mode";
 import { isInvoiceableOrder } from "@/lib/eshop/invoicing/draft";
 import { runPreflightFromEnv, type PreflightResult } from "@/lib/eshop/invoicing/preflight";
-import { runNumberingAuditFromEnv, type NumberingAuditResult } from "@/lib/eshop/invoicing/numberingAudit";
+import type { NumberingAuditResult } from "@/lib/eshop/invoicing/numberingAudit";
+import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "./invoiceAuth";
 import {
   loadOrderPayments,
@@ -736,7 +737,11 @@ export async function runEshopNumberingAudit(input: { year: string; numbers: str
 > {
   const ctx = await requireOrderContext();
   if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Audit číslování smí spustit jen ${INVOICE_ISSUER_NAMES}.` };
-  return runNumberingAuditFromEnv(input);
+  if (!/^20\d{2}$/.test(input.year)) return { ok: false, error: "Zadejte rok (např. 2026)." };
+  // společné čtení iDokladu (lib/idoklad-read): oprávnění, limit a auditní záznam jako u asistentů
+  const outcome = await runIdokladRead("idoklad_numbering_audit", { year: input.year, numbers: input.numbers }, "ui");
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  return { ok: true, result: { ...(outcome.data as unknown as NumberingAuditResult), requests: [] } };
 }
 
 // --- Peníze stornované objednávky (lib/eshop/cancellation.ts) ---------
