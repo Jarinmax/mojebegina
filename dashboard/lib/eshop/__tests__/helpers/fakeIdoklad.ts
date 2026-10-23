@@ -38,7 +38,7 @@ export type FakeIdokladOptions = {
   sequenceInView?: boolean;
   /** nová faktura se v iDokladu uloží do jiné řady (chyba / ruční zásah) */
   storeInSequence?: number;
-  /** potvrzovací dotaz ((Id~eq~…)~and~(NumericSequenceId~eq~…)) vždy selže */
+  /** ověření řady po vytvoření faktury (NumericSequenceId~eq~… po prvním POST /IssuedInvoices) vždy selže */
   failSequenceConfirmation?: { status: number; message: string };
   /** další kontakty v adresáři (např. firma z dřívější ruční faktury) */
   contacts?: { Id: number; Email: string | null; CompanyName: string; IdentificationNumber: string | null }[];
@@ -190,7 +190,11 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
       response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, ItemsTextSuffix: "Při nedodržení splatnosti účtujeme úrok z prodlení.", Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
     } else if (method === "GET" && path === "/IssuedInvoices") {
       // jako skutečný iDoklad: filtr jen podle podporovaných sloupců (VariableSymbol mezi nimi NENÍ)
-      if (options.failSequenceConfirmation && (query.filter ?? "").startsWith("((Id~eq~")) {
+      if (
+        options.failSequenceConfirmation &&
+        (query.filter ?? "").startsWith("NumericSequenceId~eq~") &&
+        calls.some((c) => c.method === "POST" && c.path === "/IssuedInvoices")
+      ) {
         return fail(options.failSequenceConfirmation.status, options.failSequenceConfirmation.message);
       }
       const column = filterColumns(query.filter ?? "").find((c) => !ISSUED_INVOICE_FILTER_COLUMNS.includes(c));
