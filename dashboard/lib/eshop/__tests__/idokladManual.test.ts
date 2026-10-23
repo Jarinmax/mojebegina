@@ -398,7 +398,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       expect(Object.fromEntries(outcome.result.checks.map((c) => [c.key, c.ok]))).toEqual({
         auth: true, agenda: true, vat: true, currency: true, country: true,
         payment_bank_transfer: true, payment_card: true, payment_cash: true,
-        series: true, next_number: true, pricing: true,
+        series: true, next_number: true, series_documents: true, pricing: true,
       });
       const detail = Object.fromEntries(outcome.result.checks.map((c) => [c.key, c.detail]));
       expect(detail.currency).toBe("ID 1");
@@ -408,6 +408,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       expect(detail.payment_cash).toBe("„Cash“ ID 3 (vyloučeno: „Cash on delivery“ ID 4)");
       expect(detail.pricing).toMatch(/^WithoutVat \(1\)/);
       expect(detail.next_number).toMatch(/^926\d{4} /);
+      expect(detail.series_documents).toMatch(/^0 dokladů; další 926\d{4} je volné$/);
       // jen čtení: kromě žádosti o token nic než GET
       expect(route.fake.calls.filter((c) => c.path !== "TOKEN").every((c) => c.method === "GET")).toBe(true);
       expect(route.fake.writes()).toEqual([]);
