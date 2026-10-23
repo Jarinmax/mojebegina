@@ -39,7 +39,7 @@ import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
 import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, vsSearchFromDay } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
-import { liveInvoicingGate } from "./mode";
+import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
 
@@ -64,6 +64,7 @@ class IssueStop extends Error {}
 type IdokladInvoice = {
   Id: number;
   DocumentNumber?: string | null;
+  NumericSequenceId?: number | null;
   VariableSymbol?: string | null;
   DateOfIssue?: string | null;
   OrderNumber?: string | null;
@@ -113,16 +114,53 @@ async function findByVs(client: EshopIdokladClient, vs: string, day: string): Pr
   return matches[0] ?? null;
 }
 
-function assertOurInvoice(invoice: IdokladInvoice, vs: string) {
+/**
+ * Faktura z iDokladu musí být naše: VS, číslo 9RRNNNN a řada 7277293.
+ * Řada se NIKDY nepředpokládá: odpověď iDokladu ji u faktury obvykle
+ * neuvádí (IssuedInvoiceGetModel / ListGetModel v oficiálním SDK pole
+ * NumericSequenceId nemají). Chybí-li, hledá se faktura mezi doklady řady
+ * 7277293 (filtr NumericSequenceId~eq~ — ověřený v Production auditem
+ * číslování 23. 10. 2026; složený filtr iDokladu ostře ověřený není);
+ * když v řadě není — nebo dotaz selže — je to STOP: faktura se nevede jako
+ * vystavená, neoznačí se uhrazená a nic se nepošle.
+ */
+async function assertOurInvoice(client: EshopIdokladClient, invoice: IdokladInvoice, vs: string) {
   if (invoice.VariableSymbol !== vs) {
     throw new IssueStop(`Faktura ${invoice.Id} v iDokladu má jiný VS (${invoice.VariableSymbol ?? "—"}) — nutná ruční kontrola.`);
+  }
+  const label = invoice.DocumentNumber ?? String(invoice.Id);
+  if (invoice.NumericSequenceId != null && String(invoice.NumericSequenceId) !== ESHOP_SERIES.id) {
+    throw new IssueStop(
+      `Faktura ${label} v iDokladu není z řady E-shop Begina (${ESHOP_SERIES.id}), ale z řady ${invoice.NumericSequenceId} — nutná ruční kontrola.`
+    );
   }
   if (!invoice.DocumentNumber || !ESHOP_NUMBER_RE.test(invoice.DocumentNumber)) {
     throw new IssueStop(
       `Faktura s VS ${vs} v iDokladu existuje, ale její číslo ${invoice.DocumentNumber ?? "—"} není z řady E-shop Begina — nutná ruční kontrola.`
     );
   }
+  if (invoice.NumericSequenceId == null) {
+    let confirmed = false;
+    try {
+      const filter = issuedInvoiceFilter(eqFilter("NumericSequenceId", ESHOP_SERIES.id));
+      for (let page = 1; page <= SERIES_CONFIRM_PAGES && !confirmed; page += 1) {
+        const result = await client.list<{ Id: number }>("/IssuedInvoices", filter, 100, page);
+        confirmed = result.Items.some((i) => i.Id === invoice.Id);
+        if (page >= result.TotalPages || result.Items.length === 0) break;
+      }
+    } catch (error) {
+      throw new IssueStop(
+        `Řadu faktury ${label} v iDokladu nejde ověřit (${error instanceof Error ? error.message : String(error)}) — nutná ruční kontrola.`
+      );
+    }
+    if (!confirmed) {
+      throw new IssueStop(`Faktura ${label} v iDokladu není potvrzeně v řadě E-shop Begina (${ESHOP_SERIES.id}) — nutná ruční kontrola.`);
+    }
+  }
 }
+
+/** Nejvýš tolik stran (po 100) dokladů řady E-shop Begina projde ověření řady nové faktury. */
+const SERIES_CONFIRM_PAGES = 10;
 
 /** Nejvýš tolik stran (po 100) faktur jedné firmy projde kontrola duplicit. */
 const COMPANY_INVOICE_PAGES = 5;
@@ -424,14 +462,14 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
     }
     if (adopted) {
       // nalezená faktura musí být naše (VS + číslo z řady E-shop Begina)
-      assertOurInvoice(invoice, vs);
+      await assertOurInvoice(client, invoice, vs);
       externalId = String(invoice.Id);
       await rememberExternal(db, claimed.link_id, invoice);
     } else {
       // nová faktura: ID hned do DB — další pokus už ji nezaloží znovu
       externalId = String(invoice.Id);
       await rememberExternal(db, claimed.link_id, invoice);
-      assertOurInvoice(invoice, vs);
+      await assertOurInvoice(client, invoice, vs);
     }
     const invoiceNumber = invoice.DocumentNumber!;
 
