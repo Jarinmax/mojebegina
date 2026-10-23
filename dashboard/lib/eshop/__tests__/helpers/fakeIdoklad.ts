@@ -187,7 +187,7 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     } else if (method === "GET" && path === "/PaymentOptions") {
       response = page(options.paymentOptions ?? BEGINA_CODEBOOKS.paymentOptions);
     } else if (method === "GET" && path === "/IssuedInvoices/Default") {
-      response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
+      response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, ItemsTextSuffix: "Při nedodržení splatnosti účtujeme úrok z prodlení.", Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
     } else if (method === "GET" && path === "/IssuedInvoices") {
       // jako skutečný iDoklad: filtr jen podle podporovaných sloupců (VariableSymbol mezi nimi NENÍ)
       if (

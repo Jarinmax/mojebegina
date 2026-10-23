@@ -37,7 +37,7 @@ import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
-import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, vsSearchFromDay } from "./idoklad";
+import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, paidDayOf, vsSearchFromDay } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
 import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
@@ -407,7 +407,9 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
         WHERE id = ${claimed.link_id}`);
     }
     const vs = draft.vs!;
+    // den vystavení (dnes) — další číslo řady; den úhrady — duplicity a „uhrazeno“
     const day = draft.issueDate!;
+    const paidDay = paidDayOf(draft)!;
 
     const client = new EshopIdokladClient({
       clientId: gate.clientId,
@@ -428,7 +430,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
     if (externalId) {
       invoice = await client.get<IdokladInvoice>(`/IssuedInvoices/${externalId}`);
     } else {
-      invoice = await findByVs(client, vs, day);
+      invoice = await findByVs(client, vs, paidDay);
     }
     const adopted = invoice !== null;
 
@@ -439,7 +441,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
       const partnerId = await resolveContact(db, client, draft, claimed.customer_id, resolved.countryId);
       if (draft.customer.kind === "company") {
         await assertNoForeignDuplicate(db, client, partnerId, {
-          fromDay: day,
+          fromDay: paidDay,
           vs,
           orderReference: draft.orderReference ?? null,
           totalKc: draft.totalKc,
@@ -484,7 +486,7 @@ export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}
 
     // uhrazeno + kontrola
     if (!enumIs(invoice.PaymentStatus, IDOKLAD_ENUMS.PaymentStatus.Paid, "Paid")) {
-      await client.put<boolean>(`/IssuedDocumentPayments/FullyPay/${externalId}`, { dateOfPayment: `${day} 12:00:00.000` });
+      await client.put<boolean>(`/IssuedDocumentPayments/FullyPay/${externalId}`, { dateOfPayment: `${paidDay} 12:00:00.000` });
       invoice = await client.get<IdokladInvoice>(`/IssuedInvoices/${externalId}`);
     }
     if (!enumIs(invoice.PaymentStatus, IDOKLAD_ENUMS.PaymentStatus.Paid, "Paid") || !sameAmount(invoice.Prices?.TotalPaid ?? draft.totalKc, draft.totalKc)) {
