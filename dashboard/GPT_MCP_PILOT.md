@@ -1,4 +1,4 @@
-# ChatGPT ↔ MojeBegina — pilot (MCP + OAuth)
+# ChatGPT a Claude ↔ MojeBegina — pilot (MCP + OAuth)
 
 Stav: **kód hotový, nic nenasazeno, nic nespuštěno na Neonu.** Výchozí stav
 je vypnuto: dokud ve Vercelu nejsou proměnné `MCP_*`, všechny nové adresy
@@ -8,6 +8,30 @@ Pilot je jen pro Jaroslava Vinera (ChatGPT Plus, Developer Mode). Kolegové
 se přidají později jedním řádkem v konfiguraci (viz níže). Každý se připojuje
 **pod svým účtem MojeBegina a jen s jeho oprávněními**. Žádný sdílený účet ani
 „robot“ s vlastními právy neexistuje.
+
+## Změny 24. 10. 2026 (sloučení s `main` po PR #32)
+
+- **Migrace přečíslované:** `main` má 0022 (firmy na faktuře) a 0023 (čtení
+  iDokladu, `idoklad_read_log`), obě už spuštěné na Production. Pilot je teď
+  **`0024_gpt_mcp_pilot`** a náhled karty **`0025_customer_card_preview`**. SQL je
+  bajtově shodné s dřívějšími 0022/0023, snapshoty jsou znovu vygenerované nad
+  `main` 0023 a `drizzle-kit generate` hlásí „No schema changes“. Produkční
+  skripty `docs/gpt-mcp`, `docs/nahled-zakaznika` se nemění (na čísle souboru
+  nezávisí), generálka Production je pouští v pořadí 0022 → 0023 → 0024 → 0025.
+  **Nic se nespouští** — migrace pilotu zůstávají NESCHVÁLENÉ.
+- **Dva asistenti, dva OAuth klienti:** ChatGPT (`MCP_OAUTH_*`, beze změny)
+  a Claude (`MCP_CLAUDE_OAUTH_*`, nové). Souhlas je vázaný na klienta, který ho
+  získal: kód, refresh token ani odvolání jeden klient za druhého neudělá;
+  redirect jen z adres toho klienta. Autor v historii je „Jméno (přes ChatGPT)“
+  nebo „Jméno (přes Claude)“.
+- **Čtení iDokladu přes MCP:** pět nástrojů `idoklad_*` z PR #32 je
+  zaregistrovaných, ale **výchozí stav = skryté a zamítnuté**. Nabídnou se jen
+  asistentovi, jehož kanál je v `IDOKLAD_READ_CHANNELS` (`mcp:chatgpt`,
+  `mcp:claude`); kanál se odvozuje z ověřeného tokenu, nikdy z argumentů. Číst
+  smí jen Jaroslav Viner a Lucie Königsbergová, limity 20/min a 300/h, každé
+  volání v `idoklad_read_log` (a v `agent_audit_log`). Klient iDokladu nemůže
+  zapisovat.
+- `MCP_ALLOW_WRITE` zůstává nenastavené → asistenti jen čtou.
 
 ## Jak to funguje
 
@@ -33,10 +57,12 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
   /api/oauth/revoke   odvolání (RFC 7009)
 ```
 
-- **Klient je statický** (client_id + secret z Vercelu, ručně vložený do ChatGPT).
-  Žádná samoregistrace (DCR), takže si cizí aplikace klienta nezaloží.
-- **Redirect jen na adresy z `MCP_OAUTH_REDIRECT_URIS`.** Cokoli jiného skončí
-  chybovou stránkou bez přesměrování.
+- **Klienti jsou statičtí** — jeden pro ChatGPT, jeden pro Claude (client_id +
+  secret z Vercelu, ručně vložené do konektoru). Žádná samoregistrace (DCR),
+  takže si cizí aplikace klienta nezaloží.
+- **Redirect jen na adresy daného klienta** (`MCP_OAUTH_REDIRECT_URIS`,
+  `MCP_CLAUDE_OAUTH_REDIRECT_URIS`). Cokoli jiného skončí chybovou stránkou bez
+  přesměrování.
 - Access token platí 1 hodinu, refresh token 30 dní a při každém použití se
   vymění. Když někdo použije starý refresh token nebo kód podruhé, považuje se
   to za odcizení a celý souhlas se odvolá.
@@ -62,9 +88,15 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 | `add_customer_note` | zápis | poznámka u zákazníka (nová tabulka `organization_activity`, vidět i na kartě zákazníka) |
 | `create_company_task` | zápis | nové téma v Živé mapě **pod existující oblast** (nové oblasti ne) |
 | `comment_company_task` | zápis | komentář do diskuse tématu |
+| `idoklad_search_invoices` | čtení iDokladu | hledání vydaných faktur (číslo, VS, odběratel, období, řada) |
+| `idoklad_get_invoice` | čtení iDokladu | detail jedné faktury (např. 9260001) včetně číselné řady |
+| `idoklad_list_series` | čtení iDokladu | číselné řady a jejich stav (E-shop Begina 7277293, ruční 2026xxxx) |
+| `idoklad_numbering_audit` | čtení iDokladu | audit číslování za rok (mezery, duplicity, zpětná data) |
+| `idoklad_unpaid_and_discrepancies` | čtení iDokladu | neuhrazené faktury a nesoulady s MojeBegina |
 
 Asistent **nikdy** nemaže, nemění fázi leadu, vlastníka, role ani oprávnění a
-nesahá na objednávky, platby ani fakturaci. Zápisové nástroje dostane jen
+nemění objednávky, platby ani fakturaci. Fakturaci jen čte nástroji `idoklad_*`
+(jen s povoleným kanálem a jen Jaroslav a Lucie, viz výše). Zápisové nástroje dostane jen
 tehdy, když je uživatel na souhlasové stránce povolí (rozsah `mojebegina.write`).
 
 Pojistky zápisů:
@@ -274,7 +306,7 @@ této větve sdílí Production DB nebo nemá vlastní větev.
 
 | # | Soubor | Očekáváno |
 |---|---|---|
-| 1 | `docs/gpt-mcp/00_kde_jsem.sql` | `je_production = ne`, `tabulek = 29`, `weight_g = 1`, `pilot = 0`; opsat `branch_id` |
+| 1 | `docs/gpt-mcp/00_kde_jsem.sql` | `je_production = ne`, `tabulek = 30`, `weight_g = 1`, `pilot = 0`; opsat `branch_id` |
 | 2 | `docs/gpt-mcp/10_before.sql` | `0` |
 | 3 | `docs/gpt-mcp/11_migration_PREVIEW.sql` s `branch_id` z kroku 1 místo `<PREVIEW_BRANCH_ID>` (oba výskyty) | „Statement executed successfully“; jinde `STOP` a nic se nezmění |
 | 4 | `docs/gpt-mcp/12_after.sql` | `4 \| 4 \| 0 \| 0` |
@@ -345,6 +377,29 @@ Názvy položek se v ChatGPT občas mění. Řiďte se tím, co aplikace ukáže
 Zápisy až později: nastavit `MCP_ALLOW_WRITE=on`, nasadit, odpojit a znovu
 připojit konektor a na souhlasové stránce zápisy zaškrtnout.
 
+## Claude (vlastní konektor v claude.ai) — zatím NEPŘIPOJENO
+
+Stejný server `/api/mcp`, vlastní OAuth klient. Názvy položek se v Claude mění,
+řiďte se aplikací.
+
+1. Vercel: `MCP_CLAUDE_OAUTH_CLIENT_ID` (např. `claude-begina`),
+   `MCP_CLAUDE_OAUTH_CLIENT_SECRET` (nově vygenerovat, ≥ 32 znaků, **tajné**,
+   jen do Vercelu a do Claude), `MCP_CLAUDE_OAUTH_REDIRECT_URIS =
+   https://claude.ai/api/mcp/auth_callback` (ověřit při připojení; kdyby Claude
+   ukázal jinou adresu, platí ta) → nově nasadit.
+2. claude.ai › Settings › Connectors › **Add custom connector**: URL
+   `<MCP_ISSUER>/api/mcp`, v Advanced settings vložit OAuth Client ID a Secret.
+3. **Connect** → MojeBegina → přihlásit se svým účtem → **Povolit**
+   (stránka ukáže „Propojit Claude s MojeBegina?“).
+4. Čtení iDokladu: až po rozhodnutí přidat `mcp:claude` do
+   `IDOKLAD_READ_CHANNELS` (u Lucy `mcp:chatgpt`). Test: „Načti fakturu 9260001“
+   a „Audit číslování 2026“.
+
+Servery Anthropicu volají MojeBegina zvenku (jako ChatGPT), takže platí totéž
+o Vercel Deployment Protection. Claude Code v cloudovém prostředí na
+`moje.begina.cz` nedosáhne (síťová politika) — čte přes tento konektor v
+claude.ai, ne z kontejneru.
+
 ## Production přes čtecí roli (varianta B, zatím NESPUŠTĚNO)
 
 Skripty: `docs/gpt-mcp/30_production_readonly_role.sql` (role `lucy_readonly`),
@@ -390,9 +445,13 @@ s `MCP_ISSUER=https://moje.begina.cz`.
 
 ## Provoz
 
-- **Odvolat svůj přístup:** `/rizeni-firmy/asistent` › Odvolat, nebo odpojit konektor v ChatGPT.
-- **Odpojit všechny najednou:** změnit `MCP_OAUTH_CLIENT_ID` (nebo smazat
-  proměnné `MCP_*`) a nasadit. Všechny dosavadní tokeny okamžitě přestanou platit.
+- **Odvolat svůj přístup:** `/rizeni-firmy/asistent` › Odvolat, nebo odpojit konektor v ChatGPT / Claude.
+- **Odpojit jednoho asistenta:** změnit jeho client_id (`MCP_OAUTH_CLIENT_ID`
+  nebo `MCP_CLAUDE_OAUTH_CLIENT_ID`) nebo smazat jeho trojici proměnných a nasadit.
+  Tokeny toho asistenta okamžitě přestanou platit, druhý běží dál.
+- **Odpojit všechny najednou:** smazat proměnné `MCP_*` a nasadit.
+- **Vypnout čtení iDokladu přes asistenty:** vyprázdnit `IDOKLAD_READ_CHANNELS`
+  (UI MojeBegina čte dál).
 - **Přidat kolegu:** jeho userId přidat do `MCP_ALLOWED_USER_IDS` (čárkou).
   Musí mít roli ADMIN nebo EXECUTIVE (`lib/agent/oauthCore.ts`, `AGENT_ROLES`).
   Pro roli EMPLOYEE/obchodník je potřeba nejdřív rozšířit brány domén
@@ -415,14 +474,15 @@ s `MCP_ISSUER=https://moje.begina.cz`.
 
 ## Soubory
 
-- `lib/agent/config.ts`: proměnné `MCP_*`, metadata discovery
+- `lib/agent/config.ts`: proměnné `MCP_*`, klienti ChatGPT a Claude, metadata discovery
 - `lib/agent/oauthCore.ts`: čisté funkce (PKCE, parametry, `?next=`, role)
 - `lib/agent/oauthStore.ts`: souhlasy, kódy, tokeny, odvolání, token → identita
 - `lib/agent/context.ts`: identita asistenta pro jedno volání (AsyncLocalStorage)
 - `lib/agent/mcp/*`: protokol, nástroje, argumenty, audit a idempotence
+- `lib/idoklad-read/*` (z `main`, PR #32): společné jádro čtení iDokladu; MCP ho volá přes `lib/idoklad-read/mcp.ts`
 - `app/api/mcp`, `app/api/oauth/*`, `app/oauth/authorize`, `app/.well-known/*`
 - `app/rizeni-firmy/asistent`: přehled a odvolání
-- `drizzle/0024_gpt_mcp_pilot.sql`, `docs/gpt-mcp/*.sql`
+- `drizzle/0024_gpt_mcp_pilot.sql`, `drizzle/0025_customer_card_preview.sql`, `docs/gpt-mcp/*.sql`
 - Testy: `lib/agent/__tests__/*` (včetně celého toku nad PGlite),
   `lib/data/__tests__/agentNoteValidation.test.ts`, generálka v
   `lib/eshop/__tests__/productionRehearsal.test.ts`

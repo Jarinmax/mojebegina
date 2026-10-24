@@ -1,6 +1,6 @@
 "use server";
 
-// GPT/MCP pilot — odvolání vlastního souhlasu pro ChatGPT. Odvolat jde jen
+// GPT/MCP pilot — odvolání vlastního souhlasu pro asistenta (ChatGPT, Claude). Odvolat jde jen
 // vlastní grant (userId ze session je přímo v podmínce UPDATE).
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";

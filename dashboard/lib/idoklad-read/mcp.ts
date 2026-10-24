@@ -5,14 +5,13 @@
 // limity, audit (idoklad_read_log) i čtení jsou tak stejné pro ChatGPT
 // (Lucy), Claude i UI MojeBegina.
 //
-// Registrace v lib/agent/mcp/tools.ts (po sloučení obou PR), např.:
+// Registrace v lib/agent/mcp/tools.ts (IDOKLAD_TOOLS):
 //
-//   import { idokladAgentTools } from "@/lib/idoklad-read/mcp";
-//   ...idokladAgentTools(defineTool, () => currentAgentChannel()),
+//   idokladAgentTools(defineTool, () => currentAgentChannel())
 //
-// kde currentAgentChannel() vrátí „mcp:<klient>“ podle OAuth klienta
-// aktuálního souhlasu (mcp:chatgpt / mcp:claude). Typ defineTool se sem
-// záměrně neimportuje — adaptér na PR #21 nezávisí.
+// kde currentAgentChannel() (lib/agent/context.ts) vrátí „mcp:<klient>“ podle
+// OAuth klienta aktuálního souhlasu (mcp:chatgpt / mcp:claude). Typ
+// defineTool se sem záměrně neimportuje — adaptér na lib/agent nezávisí.
 import "server-only";
 import { IDOKLAD_READ_TOOLS, runIdokladRead } from "./tools";
 

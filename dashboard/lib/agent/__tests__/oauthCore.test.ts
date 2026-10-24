@@ -6,6 +6,7 @@ import { agentConfig, authorizationServerMetadata, protectedResourceMetadata } f
 import {
   agentEligibleRoles,
   authenticateClient,
+  findClient,
   authorizeRedirect,
   checkAuthorizeParams,
   hashToken,
@@ -29,6 +30,15 @@ const ENV = {
   MCP_ALLOWED_USER_IDS: "user-jaroslav",
 };
 const config = agentConfig(ENV)!;
+
+const CLAUDE_SECRET = "c".repeat(40);
+const CLAUDE_REDIRECT = "https://claude.ai/api/mcp/auth_callback";
+const CLAUDE_ENV = {
+  MCP_CLAUDE_OAUTH_CLIENT_ID: "claude-begina",
+  MCP_CLAUDE_OAUTH_CLIENT_SECRET: CLAUDE_SECRET,
+  MCP_CLAUDE_OAUTH_REDIRECT_URIS: CLAUDE_REDIRECT,
+};
+const both = agentConfig({ ...ENV, ...CLAUDE_ENV })!;
 
 // RFC 7636, příloha B
 const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
@@ -68,7 +78,15 @@ describe("agentConfig — výchozí stav vypnuto", () => {
   });
 
   it("úplná konfigurace; localhost smí http", () => {
-    expect(config.redirectUris).toEqual([REDIRECT, "https://chatgpt.com/connector_platform_oauth_redirect"]);
+    expect(config.clients).toEqual([
+      {
+        integration: "chatgpt",
+        label: "ChatGPT",
+        clientId: "chatgpt-begina",
+        clientSecret: SECRET,
+        redirectUris: [REDIRECT, "https://chatgpt.com/connector_platform_oauth_redirect"],
+      },
+    ]);
     expect(config.allowedUserIds.has("user-jaroslav")).toBe(true);
     expect(agentConfig({ ...ENV, MCP_ISSUER: "http://localhost:3000" })?.issuer).toBe("http://localhost:3000");
   });
@@ -104,13 +122,57 @@ describe("tokeny a PKCE", () => {
   });
 });
 
+describe("agentConfig — klienti ChatGPT a Claude", () => {
+  it("oba klienti; každý vlastní id, secret a redirect", () => {
+    expect(both.clients.map((c) => [c.integration, c.label, c.clientId, c.redirectUris])).toEqual([
+      ["chatgpt", "ChatGPT", "chatgpt-begina", [REDIRECT, "https://chatgpt.com/connector_platform_oauth_redirect"]],
+      ["claude", "Claude", "claude-begina", [CLAUDE_REDIRECT]],
+    ]);
+  });
+
+  it("jen Claude (bez ChatGPT) stačí; neúplný klient se ignoruje, ostatní běží", () => {
+    const onlyClaude = agentConfig({ MCP_ISSUER: ENV.MCP_ISSUER, MCP_ALLOWED_USER_IDS: "user-jaroslav", ...CLAUDE_ENV });
+    expect(onlyClaude?.clients.map((c) => c.integration)).toEqual(["claude"]);
+    for (const broken of [
+      { MCP_CLAUDE_OAUTH_CLIENT_SECRET: "kratky" },
+      { MCP_CLAUDE_OAUTH_REDIRECT_URIS: "" },
+      { MCP_CLAUDE_OAUTH_REDIRECT_URIS: "http://claude.ai/api/mcp/auth_callback" },
+    ]) {
+      expect(agentConfig({ ...ENV, ...CLAUDE_ENV, ...broken })?.clients.map((c) => c.integration), JSON.stringify(broken)).toEqual(["chatgpt"]);
+    }
+  });
+
+  it("stejné client_id u obou klientů → vypnuto celé (nejednoznačné)", () => {
+    expect(agentConfig({ ...ENV, ...CLAUDE_ENV, MCP_CLAUDE_OAUTH_CLIENT_ID: "chatgpt-begina" })).toBeNull();
+  });
+
+  it("findClient podle id; neznámé id null", () => {
+    expect(findClient(both, "claude-begina")?.integration).toBe("claude");
+    expect(findClient(both, "chatgpt-begina")?.integration).toBe("chatgpt");
+    expect(findClient(both, "jiny")).toBeNull();
+  });
+});
+
 describe("/oauth/authorize — kontrola parametrů", () => {
   it("platný požadavek", () => {
     const check = checkAuthorizeParams(config, validParams);
     expect(check).toEqual({
       ok: true,
-      value: { clientId: "chatgpt-begina", redirectUri: REDIRECT, state: "xyz", codeChallenge: CHALLENGE, write: true },
+      value: { clientId: "chatgpt-begina", client: config.clients[0], redirectUri: REDIRECT, state: "xyz", codeChallenge: CHALLENGE, write: true },
     });
+  });
+
+  it("Claude: vlastní redirect projde; redirect ChatGPT pro Claude (a naopak) nikdy", () => {
+    const claudeParams = { ...validParams, client_id: "claude-begina", redirect_uri: CLAUDE_REDIRECT };
+    const check = checkAuthorizeParams(both, claudeParams);
+    expect(check.ok && check.value.client.integration).toBe("claude");
+    for (const params of [
+      { ...claudeParams, redirect_uri: REDIRECT },
+      { ...validParams, redirect_uri: CLAUDE_REDIRECT },
+    ]) {
+      const crossed = checkAuthorizeParams(both, params);
+      expect(crossed.ok === false && crossed.redirectable === false, JSON.stringify(params)).toBe(true);
+    }
   });
 
   it("neznámý klient nebo cizí redirect_uri: nikdy nepřesměrovat (open redirect)", () => {
@@ -158,16 +220,22 @@ describe("ověření klienta", () => {
   const basic = (id: string, secret: string) => `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
 
   it("client_secret_basic i client_secret_post", () => {
-    expect(authenticateClient(config, readClientCredentials(basic("chatgpt-begina", SECRET), new URLSearchParams()))).toBe(true);
+    expect(authenticateClient(config, readClientCredentials(basic("chatgpt-begina", SECRET), new URLSearchParams()))?.integration).toBe("chatgpt");
     const form = new URLSearchParams({ client_id: "chatgpt-begina", client_secret: SECRET });
-    expect(authenticateClient(config, readClientCredentials(null, form))).toBe(true);
+    expect(authenticateClient(config, readClientCredentials(null, form))?.integration).toBe("chatgpt");
   });
 
-  it("špatný secret, cizí id nebo nic → false", () => {
-    expect(authenticateClient(config, readClientCredentials(basic("chatgpt-begina", "x"), new URLSearchParams()))).toBe(false);
-    expect(authenticateClient(config, readClientCredentials(basic("jiny", SECRET), new URLSearchParams()))).toBe(false);
-    expect(authenticateClient(config, readClientCredentials(null, new URLSearchParams()))).toBe(false);
-    expect(authenticateClient(config, readClientCredentials("Basic !!!", new URLSearchParams()))).toBe(false);
+  it("špatný secret, cizí id nebo nic → null", () => {
+    expect(authenticateClient(config, readClientCredentials(basic("chatgpt-begina", "x"), new URLSearchParams()))).toBeNull();
+    expect(authenticateClient(config, readClientCredentials(basic("jiny", SECRET), new URLSearchParams()))).toBeNull();
+    expect(authenticateClient(config, readClientCredentials(null, new URLSearchParams()))).toBeNull();
+    expect(authenticateClient(config, readClientCredentials("Basic !!!", new URLSearchParams()))).toBeNull();
+  });
+
+  it("dva klienti: každý jen se SVÝM secretem", () => {
+    expect(authenticateClient(both, readClientCredentials(basic("claude-begina", CLAUDE_SECRET), new URLSearchParams()))?.integration).toBe("claude");
+    expect(authenticateClient(both, readClientCredentials(basic("claude-begina", SECRET), new URLSearchParams()))).toBeNull();
+    expect(authenticateClient(both, readClientCredentials(basic("chatgpt-begina", CLAUDE_SECRET), new URLSearchParams()))).toBeNull();
   });
 });
 

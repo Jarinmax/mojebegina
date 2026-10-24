@@ -85,8 +85,9 @@ Data a čas: `DateCreated` vrací iDoklad v UTC (ověřeno na 9260001), porovná
 | Osobní údaje | Odběratel jen název/jméno, IČO, DIČ, obec; ulice a PSČ jen u firmy; nikdy e-mail, telefon, účet; popis nástrojů upozorňuje na důvěrnost | v odpovědi není e-mail, telefon, účet ani ulice osoby |
 | Rozpracované MCP | Větev PR #21 beze změny; adaptér je samostatný soubor, typ `defineTool` se neimportuje | — |
 
-Zbývající rizika: v PR #21 je jeden OAuth klient — ChatGPT a Claude nejdou rozlišit,
-dokud PR #21 nedostane seznam klientů (kanál `mcp:chatgpt` / `mcp:claude`); obsah faktur
+Zbývající rizika: ~~v PR #21 je jeden OAuth klient~~ — vyřešeno v navazujícím PR k #21
+(24. 10. 2026): klienti ChatGPT a Claude zvlášť, kanál `mcp:chatgpt` / `mcp:claude`
+z ověřeného tokenu, nástroje skryté bez `IDOKLAD_READ_CHANNELS`; obsah faktur
 (popisy, položky) je text od lidí — asistent ho má brát jako data, ne pokyny (nástroje jsou
 jen ke čtení, zápis tudy neprojde).
 
@@ -101,7 +102,7 @@ jen ke čtení, zápis tudy neprojde).
 2. Neon main: `docs/idoklad-cteni/10_pred.sql` → `ne | ano`; `11_migrace_0023.sql`;
    `12_po.sql` → `ano | 0 | 2`. Návrat jen bez záznamů: `19_navrat.sql`.
 3. Sloučit tento PR, nasadit — UI audit číslování teď zapisuje do `idoklad_read_log`.
-4. PR #21 (samostatně, se souhlasem): přečíslovat migrace, registrovat
+4. PR #21 (samostatně, se souhlasem; připraveno 24. 10. 2026, migrace pilotu 0024/0025): přečíslovat migrace, registrovat
    `idokladAgentTools`, seznam OAuth klientů (`chatgpt`, `claude`) a kanál podle klienta,
    redirect pro Claude `https://claude.ai/api/mcp/auth_callback` (ověřit v nastavení konektoru).
 5. Preview → Production podle `GPT_MCP_PILOT.md` (PR #21), `MCP_ALLOW_WRITE` nenastavovat.
