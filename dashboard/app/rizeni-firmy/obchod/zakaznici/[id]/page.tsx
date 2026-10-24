@@ -4,6 +4,7 @@ import { getCustomerDetail } from "@/lib/data/leads";
 import { listStaffOptions } from "@/lib/data/leads";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import CustomerOwnerForm from "./CustomerOwnerForm";
+import { sanitizeReturnTo } from "../../returnTo";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export default async function CustomerDetailPage(
   props: PageProps<"/rizeni-firmy/obchod/zakaznici/[id]">
 ) {
   const { id } = await props.params;
+  const searchParams = await props.searchParams;
+  const backHref = sanitizeReturnTo(searchParams.returnTo);
 
   if (!UUID_RE.test(id)) {
     notFound();
@@ -31,7 +34,7 @@ export default async function CustomerDetailPage(
 
   return (
     <div>
-      <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 hover:text-begina-primary-900">
+      <Link href={backHref} className="text-sm text-neutral-500 hover:text-begina-primary-900">
         ← Obchod / CRM
       </Link>
 
