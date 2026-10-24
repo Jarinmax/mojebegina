@@ -8,7 +8,7 @@
 //
 // Ochrana osobních údajů: odběratel jen název/jméno, IČO, DIČ, obec
 // (u firmy i ulice a PSČ). Nikdy e-mail, telefon, bankovní účet ani PDF.
-import { andFilter, eqFilter, issuedInvoiceFilter, sinceDayFilter, type EshopIdokladClient } from "@/lib/eshop/invoicing/idokladHttp";
+import { eqFilter, issuedInvoiceFilter, sinceDayFilter, type EshopIdokladClient } from "@/lib/eshop/invoicing/idokladHttp";
 import { runNumberingAudit, type NumberingAuditResult } from "@/lib/eshop/invoicing/numberingAudit";
 import { ISSUED_INVOICE_DOCUMENT_TYPE } from "@/lib/eshop/invoicing/numberSeries";
 import { BEGINA_ICO } from "@/lib/eshop/invoicing/mode";
@@ -174,12 +174,23 @@ export function seriesByFormat(number: string, series: SeriesInfo[]): InvoiceSer
   return matches.length === 1 ? { id: matches[0].id, name: matches[0].name, resolvedBy: "format" } : null;
 }
 
-/** Řada ověřená v iDokladu: ((Id~eq~…)~and~(NumericSequenceId~eq~…)) pro každou řadu. */
+/** Nejvýš tolik stran (po 100) dokladů jedné řady projde ověření řady faktury. */
+export const SERIES_CONFIRM_PAGES = 10;
+
+/**
+ * Řada ověřená v iDokladu: faktura se hledá mezi doklady každé řady filtrem
+ * NumericSequenceId~eq~ — stejný postup jako pojistka vystavení (issue.ts),
+ * filtr ověřený v Production auditem číslování 23. 10. 2026. Složený filtr
+ * iDokladu se nepoužívá (ostře neověřený). Nenalezeno = null (řada neověřena).
+ */
 async function confirmSeries(client: IdokladReader, invoiceId: number, series: SeriesInfo[]): Promise<InvoiceSeries> {
   for (const s of series) {
-    const filter = issuedInvoiceFilter(andFilter(eqFilter("Id", String(invoiceId)), eqFilter("NumericSequenceId", String(s.id))));
-    const found = (await client.list<{ Id: number }>("/IssuedInvoices", filter, 5)).Items.some((i) => i.Id === invoiceId);
-    if (found) return { id: s.id, name: s.name, resolvedBy: "idoklad" };
+    const filter = issuedInvoiceFilter(eqFilter("NumericSequenceId", String(s.id)));
+    for (let page = 1; page <= SERIES_CONFIRM_PAGES; page += 1) {
+      const result = await client.list<{ Id: number }>("/IssuedInvoices", filter, 100, page);
+      if (result.Items.some((i) => i.Id === invoiceId)) return { id: s.id, name: s.name, resolvedBy: "idoklad" };
+      if (page >= result.TotalPages || result.Items.length === 0) break;
+    }
   }
   return null;
 }

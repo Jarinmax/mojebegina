@@ -189,6 +189,13 @@ describe("čtení iDokladu přes MojeBegina (ChatGPT / Claude / UI)", { timeout:
       expect(JSON.stringify(out)).not.toMatch(/fakturace@|\+420|123456789|token-xyz|secret-value/);
       // jen čtení
       expect(calls.every((c) => c.method === "GET")).toBe(true);
+      // řada ověřená filtrem NumericSequenceId~eq~ (ověřený v Production), žádný složený filtr
+      expect(calls.some((c) => (c.filter ?? "").includes("~and~"))).toBe(false);
+      expect(calls.filter((c) => c.path === "/IssuedInvoices").map((c) => c.filter)).toEqual([
+        "DocumentNumber~eq~9260001",
+        `NumericSequenceId~eq~${LUCIE_SERIES}`,
+        `NumericSequenceId~eq~${ESHOP_SERIES}`,
+      ]);
     }
     expect(await logRows()).toEqual([
       { user_id: LUCIE.userId, channel: "mcp:chatgpt", tool: "idoklad_get_invoice", args: { number: "9260001" }, status: "ok", result_count: 1, idoklad_requests: expect.any(Number), error: null },
