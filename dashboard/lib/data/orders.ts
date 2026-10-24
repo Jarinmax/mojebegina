@@ -52,6 +52,7 @@ import {
   loadOrderPayments,
   parseAmountKcToHal,
   recordManualPayment,
+  refundedOrderIds,
   type OrderPaymentSummary,
 } from "@/lib/eshop/payments";
 import {
@@ -137,6 +138,8 @@ export type OrderCardData = {
   fulfillmentStatus: FulfillmentStatus;
   paymentStatus: PaymentStatus;
   paymentOverdue: boolean;
+  /** e-shop: peníze vrácené celé (zapsané vrácení) → místo „Zaplaceno“ štítek „Vráceno“ */
+  paymentRefunded: boolean;
   responsibleUserId: string | null;
   responsibleName: string | null;
   /**
@@ -185,10 +188,9 @@ async function buildOrderCards(
         .from(orderItems)
         .where(inArray(orderItems.orderId, orderIds))
     : [];
-  const money = await moneyAlerts(
-    db,
-    orderRows.filter((o) => o.channel === "eshop").map((o) => o.id)
-  );
+  const eshopIds = orderRows.filter((o) => o.channel === "eshop").map((o) => o.id);
+  const money = await moneyAlerts(db, eshopIds);
+  const refunded = await refundedOrderIds(db, eshopIds);
   const itemsByOrder = new Map<string, string[]>();
   for (const item of itemRows) {
     const list = itemsByOrder.get(item.orderId) ?? [];
@@ -215,6 +217,7 @@ async function buildOrderCards(
       // od objednání (lib/eshop/bankTransfer.ts); po ní jen označení, nic
       // se automaticky neruší.
       paymentOverdue: isPaymentOverdue(o.paymentStatus as PaymentStatus, null) || isTransferOverdue(o),
+      paymentRefunded: refunded.has(o.id),
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
       moneyAlert: money.get(o.id) ?? null,
