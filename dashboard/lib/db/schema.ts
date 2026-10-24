@@ -1013,3 +1013,77 @@ export const idokladReadLog = pgTable(
     check("idoklad_read_log_channel_check", sql`${table.channel} ~ '^(ui|mcp:[a-z0-9_-]{1,40})$'`),
   ]
 );
+
+export const organizationActivity = pgTable(
+  "organization_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("organization_activity_org_id_idx").on(table.organizationId, table.createdAt)]
+);
+
+export const agentGrants = pgTable(
+  "agent_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    systemRole: text("system_role").notNull(),
+    clientId: text("client_id").notNull(),
+    scope: text("scope").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+  },
+  (table) => [index("agent_grants_user_id_idx").on(table.userId)]
+);
+
+export const agentTokens = pgTable(
+  "agent_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    grantId: uuid("grant_id").notNull().references(() => agentGrants.id),
+    kind: text("kind").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    redirectUri: text("redirect_uri"),
+    codeChallenge: text("code_challenge"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("agent_tokens_grant_id_idx").on(table.grantId),
+    check("agent_tokens_kind_check", sql`${table.kind} IN ('code','access','refresh')`),
+    check("agent_tokens_code_fields_check", sql`${table.kind} <> 'code' OR (${table.redirectUri} IS NOT NULL AND ${table.codeChallenge} IS NOT NULL)`),
+  ]
+);
+
+export const agentAuditLog = pgTable(
+  "agent_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id").notNull().references(() => agentGrants.id),
+    userId: text("user_id").notNull(),
+    tool: text("tool").notNull(),
+    isWrite: boolean("is_write").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    argsHash: text("args_hash"),
+    args: jsonb("args"),
+    status: text("status").notNull(),
+    result: jsonb("result"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("agent_audit_log_grant_created_idx").on(table.grantId, table.createdAt),
+    uniqueIndex("agent_audit_log_idempotency_idx").on(table.userId, table.idempotencyKey).where(sql`${table.idempotencyKey} IS NOT NULL`),
+    check("agent_audit_log_status_check", sql`${table.status} IN ('pending','ok','error','denied')`),
+  ]
+);

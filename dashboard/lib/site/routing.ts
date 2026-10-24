@@ -11,13 +11,19 @@
 // www.begina.cz — 301 na begina.cz (cesta i parametry zůstanou).
 // moje.begina.cz / Preview / localhost — beze změny jako dosud; jen po
 //   zapnutí ESHOP_CANONICAL_ORIGIN se /eshop/… přesměruje na begina.cz.
-import { PUBLIC_ORIGIN, siteForHost, type Site } from "./hosts";
+// gpt-pilot.begina.cz — VÝCHOZÍ ZÁKAZ pro pilot asistenta ChatGPT: projde
+//   jen přesná dvojice metoda + cesta z AGENT_ROUTES (discovery, /api/mcp,
+//   OAuth, přihlášení). Vše ostatní — e-shop, pokladna, webhook, reset
+//   hesla, interní stránky — prostá 404 (ne e-shopová stránka).
+import { PUBLIC_ORIGIN, isAgentRequest, siteForHost, type Site } from "./hosts";
 import { canonicalRedirectEnabled } from "./flags";
 
 type Env = Record<string, string | undefined>;
 
 export type RouteInput = {
   host: string | null;
+  /** X-Forwarded-Host — jen aby podvržená hodnota nemohla omezení pilotní domény obejít */
+  forwardedHost?: string | null;
   /** request.nextUrl.pathname — už normalizovaná (bez /./ a /../) */
   pathname: string;
   /** "" nebo "?…" */
@@ -30,6 +36,8 @@ export type RouteDecision =
   | { kind: "rewrite"; path: string }
   | { kind: "redirect"; location: string; status: 301 | 307 | 308 }
   | { kind: "notFound" }
+  /** prostá 404 bez stránky aplikace (pilotní doména) */
+  | { kind: "deny" }
   | { kind: "gone" };
 
 /** Kam se interně přepíše neznámá adresa na begina.cz — e-shopová 404 (app/eshop/[...nenalezeno]). */
@@ -193,9 +201,44 @@ function routeInternal(pathname: string, search: string, method: string, env: En
   return { kind: "pass", site: "internal" };
 }
 
+const GET_HEAD = ["GET", "HEAD"] as const;
+
+/**
+ * Pilotní doména asistenta: PŘESNÉ cesty (bez lomítka na konci, bez další
+ * části, bez jiné velikosti písmen či zakódovaných znaků — pathname se
+ * porovnává tak, jak přišel) a povolené metody. Nic dalšího.
+ *
+ * Neon Auth: přihlašovací formulář volá z prohlížeče jen
+ * POST /api/auth/sign-in/email; ověření session na serveru
+ * (auth.getSession) jde přímo na Neon Auth, ne přes /api/auth. Reset
+ * hesla, registrace, odhlášení ani nic dalšího pod /api/auth tu není.
+ */
+export const AGENT_ROUTES: Readonly<Record<string, readonly string[]>> = {
+  "/.well-known/oauth-authorization-server": GET_HEAD,
+  "/.well-known/oauth-protected-resource": GET_HEAD,
+  "/.well-known/oauth-protected-resource/api/mcp": GET_HEAD,
+  // GET a DELETE odpoví route 405 (bezstavový server) — klient MCP je zkouší.
+  "/api/mcp": ["POST", "GET", "DELETE"],
+  "/api/oauth/token": ["POST"],
+  "/api/oauth/revoke": ["POST"],
+  // POST = serverová akce souhlasu (Povolit / Zamítnout)
+  "/oauth/authorize": [...GET_HEAD, "POST"],
+  "/login": GET_HEAD,
+  "/api/auth/sign-in/email": ["POST"],
+  "/favicon.ico": GET_HEAD,
+  "/robots.txt": GET_HEAD,
+};
+
+function routeAgent(pathname: string, method: string): RouteDecision {
+  const methods = Object.hasOwn(AGENT_ROUTES, pathname) ? AGENT_ROUTES[pathname] : undefined;
+  return methods?.includes(method) ? { kind: "pass", site: "internal" } : { kind: "deny" };
+}
+
 export function route(input: RouteInput, env: Env = process.env): RouteDecision {
-  const site: Site = siteForHost(input.host);
   const method = input.method.toUpperCase();
+  // Pilotní doména má přednost: Host NEBO kterákoli hodnota X-Forwarded-Host.
+  if (isAgentRequest(input.host, input.forwardedHost)) return routeAgent(input.pathname, method);
+  const site: Site = siteForHost(input.host);
   if (site === "www") {
     return { kind: "redirect", location: `${PUBLIC_ORIGIN}${input.pathname}${input.search}`, status: isGetLike(method) ? 301 : 308 };
   }

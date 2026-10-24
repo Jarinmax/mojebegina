@@ -169,6 +169,13 @@
       "when": 1792742022306,
       "tag": "0023_idoklad_read_log",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792874987179,
+      "tag": "0024_gpt_mcp_production",
+      "breakpoints": true
     }
   ]
 }
