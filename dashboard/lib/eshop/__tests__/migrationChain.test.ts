@@ -40,6 +40,8 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
   "0022_eshop_1_0_company_invoicing",
 ];
+/** Za e-shopem: čtení iDokladu (auditní záznam přístupů). */
+const AFTER_ESHOP = ["0023_idoklad_read_log"];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
@@ -57,11 +59,11 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0022 hned za nimi", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0022 hned za nimi, pak 0023 čtení iDokladu", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual(ESHOP);
+    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP]);
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {

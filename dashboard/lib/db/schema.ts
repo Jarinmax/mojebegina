@@ -984,3 +984,32 @@ export const focusProjectActivity = pgTable(
   },
   (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
 );
+
+// Čtení iDokladu (lib/idoklad-read) — auditní záznam KAŽDÉHO přístupu
+// k údajům z iDokladu přes MojeBegina (UI i asistenti ChatGPT / Claude přes
+// MCP). Zapíše se PŘED čtením (bez zápisu se nic nepřečte) a doplní po
+// něm. Argumenty jen bez osobních údajů (jméno zákazníka jen délka); žádné
+// tokeny ani výsledky. Nic se nemaže automaticky.
+export const idokladReadLog = pgTable(
+  "idoklad_read_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    userId: text("user_id").notNull(),
+    // "ui" | "mcp:<klient>" (např. mcp:chatgpt, mcp:claude)
+    channel: text("channel").notNull(),
+    tool: text("tool").notNull(),
+    args: jsonb("args").notNull(),
+    // started → ok | error; denied / rate_limited / invalid se zapisují rovnou
+    status: text("status").notNull(),
+    resultCount: integer("result_count"),
+    idokladRequests: integer("idoklad_requests"),
+    durationMs: integer("duration_ms"),
+    error: text("error"),
+  },
+  (table) => [
+    index("idoklad_read_log_user_created_idx").on(table.userId, table.createdAt),
+    check("idoklad_read_log_status_check", sql`${table.status} IN ('started', 'ok', 'error', 'denied', 'rate_limited', 'invalid')`),
+    check("idoklad_read_log_channel_check", sql`${table.channel} ~ '^(ui|mcp:[a-z0-9_-]{1,40})$'`),
+  ]
+);

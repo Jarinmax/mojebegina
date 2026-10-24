@@ -141,7 +141,23 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0].n).toBeGreaterThan(0);
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0022) + pojistka číslování", async () => {
+  it("čtení iDokladu — drizzle 0023 (auditní záznam přístupů): před / migrace / po, druhé spuštění se zastaví, návrat jen bez záznamů", async () => {
+    const line = async (name: string) =>
+      Object.values((await pg.query<Record<string, unknown>>(file("idoklad-cteni", name).replace(/--[^\n]*\n/g, "\n"))).rows[0]).map(String).join(" | ");
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+    await expect(run(pg, file("idoklad-cteni", "11_migrace_0023.sql"))).rejects.toThrow(/už existuje/);
+    expect(await line("12_po.sql")).toBe("ano | 0 | 2");
+    // návrat: s auditním záznamem se zastaví, prázdná tabulka jde vrátit (a znovu založit)
+    await pg.exec(`INSERT INTO idoklad_read_log (user_id, channel, tool, args, status) VALUES ('u', 'ui', 't', '{}', 'ok')`);
+    await expect(run(pg, file("idoklad-cteni", "19_navrat.sql"))).rejects.toThrow(/auditní stopa se nemaže/);
+    await pg.exec(`DELETE FROM idoklad_read_log`);
+    await run(pg, file("idoklad-cteni", "19_navrat.sql"));
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0023) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
