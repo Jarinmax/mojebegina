@@ -157,7 +157,13 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0023) + pojistka číslování", async () => {
+  it("MCP/OAuth — produkční migrace 0024: před / migrace / po", async () => {
+    expect(await check(pg, file("gpt-mcp", "10_before.sql"))).toBe("0");
+    await run(pg, file("gpt-mcp", "11_migration.sql"));
+    expect(await check(pg, file("gpt-mcp", "12_after.sql"))).toBe("4 | 4 | 0 | 0");
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0024) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

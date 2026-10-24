@@ -13,7 +13,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { leads, leadActivity, organizations, orders, userRoles } from "@/lib/db/schema";
+import { leads, leadActivity, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
@@ -25,12 +25,16 @@ import {
   validateStageInput,
   validateCallLogInput,
   validateCompanyNameInput,
+  validateNoteInput,
+  validateNextStepInput,
+  likePattern,
   isFollowUpOverdue,
   leadDisplayName,
   compareLeadsForList,
   ACTIVE_LEAD_STAGES,
   type CreateLeadInput,
   type CallLogInput,
+  type NextStepInput,
   type LeadStage,
 } from "./leadValidation";
 import type { AuthContext } from "./types";
@@ -368,6 +372,80 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
         stageChangedTo: value.nextStage,
         nextFollowUpAt: value.nextFollowUpAt,
         from: current.stage,
+      },
+    }),
+  ]);
+
+  return { ok: true };
+}
+
+// GPT/MCP pilot — samostatná poznámka k leadu (kind "note_added", už
+// dřív uvedený v schema.ts u lead_activity). Nemění fázi ani
+// lastContactedAt — poznámka není hovor (na to je logCallOutcome).
+export async function addLeadNote(leadId: string, rawBody: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateNoteInput(rawBody);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+
+  const [lead] = await db.select({ id: leads.id }).from(leads).where(eq(leads.id, leadId)).limit(1);
+  if (!lead) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  await db.insert(leadActivity).values({
+    leadId,
+    authorUserId: ctx.userId,
+    authorName: ctx.name,
+    kind: "note_added",
+    body: validated.value,
+  });
+
+  return { ok: true };
+}
+
+// GPT/MCP pilot — "úkol" u leadu: další krok a/nebo datum dalšího kontaktu.
+// Stejná pole jako v rychlém zápisu hovoru, ale bez lastContactedAt (nastavit
+// si připomínku není kontakt se zákazníkem). Prázdné pole se nemění.
+export async function setLeadNextStep(leadId: string, rawInput: NextStepInput): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateNextStepInput(rawInput);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+  const value = validated.value;
+
+  const [current] = await db
+    .select({ nextStepNote: leads.nextStepNote, nextFollowUpAt: leads.nextFollowUpAt })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  const updates: Partial<typeof leads.$inferInsert> = { updatedAt: new Date() };
+  if (value.nextStepNote !== null) {
+    updates.nextStepNote = value.nextStepNote;
+  }
+  if (value.nextFollowUpAt !== null) {
+    updates.nextFollowUpAt = value.nextFollowUpAt;
+  }
+
+  await db.batch([
+    db.update(leads).set(updates).where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "next_step_set",
+      body: value.nextStepNote,
+      metadata: {
+        nextFollowUpAt: value.nextFollowUpAt,
+        from: { nextStepNote: current.nextStepNote, nextFollowUpAt: current.nextFollowUpAt },
       },
     }),
   ]);
@@ -795,7 +873,19 @@ export type CustomerOrderSummary = {
   fulfillmentStatus: string;
 };
 
-export type CustomerDetail = CustomerCardData & { recentOrders: CustomerOrderSummary[] };
+export type CustomerActivityEntry = {
+  id: string;
+  kind: string;
+  authorUserId: string;
+  authorName: string | null;
+  body: string | null;
+  createdAt: Date;
+};
+
+export type CustomerDetail = CustomerCardData & {
+  recentOrders: CustomerOrderSummary[];
+  activity: CustomerActivityEntry[];
+};
 
 export async function getCustomerDetail(organizationId: string): Promise<CustomerDetail | null> {
   await requireCrmContext();
@@ -831,6 +921,12 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
   const totalRevenueKc = activeOrders.reduce((sum, o) => sum + o.totalKc, 0);
   const lastOrderAt = activeOrders.length > 0 ? activeOrders[0].orderedAt : null;
 
+  const activityRows = await db
+    .select()
+    .from(organizationActivity)
+    .where(eq(organizationActivity.organizationId, organizationId))
+    .orderBy(asc(organizationActivity.createdAt));
+
   const staffIds = [org.ownerUserId, org.acquiredByUserId].filter((v): v is string => v !== null);
   const staff = await getUserProfiles(staffIds);
   const owner = org.ownerUserId ? staff.get(org.ownerUserId) : null;
@@ -848,5 +944,95 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     totalRevenueKc,
     lastOrderAt,
     recentOrders: orderRows.slice(0, 10),
+    activity: activityRows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      authorUserId: r.authorUserId,
+      authorName: r.authorName,
+      body: r.body,
+      createdAt: r.createdAt,
+    })),
+  };
+}
+
+// GPT/MCP pilot — poznámka u zákazníka (organizace po konverzi). Do teď
+// neměl zákazník žádnou historii mimo objednávky — viz schema.ts
+// organization_activity.
+export async function addCustomerNote(organizationId: string, rawBody: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateNoteInput(rawBody);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+
+  const [org] = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) {
+    return { ok: false, error: "Zákazník nebyl nalezen." };
+  }
+
+  await db.insert(organizationActivity).values({
+    organizationId,
+    authorUserId: ctx.userId,
+    authorName: ctx.name,
+    kind: "note_added",
+    body: validated.value,
+  });
+
+  return { ok: true };
+}
+
+// --- Hledání napříč leady a zákazníky ---------------------------------------
+
+export type CrmSearchResult = {
+  leads: (LeadCardData & { ico: string | null })[];
+  customers: { id: string; name: string; ico: string }[];
+};
+
+const SEARCH_LIMIT = 20;
+
+// GPT/MCP pilot — hledání podle názvu, kontaktu, telefonu, e-mailu, města
+// nebo IČO. Na rozdíl od listLeads hledá i v ukončených leadech
+// (not_interested, converted) — kvůli otázkám typu "co jsme řešili s X".
+export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
+  await requireCrmContext();
+
+  const query = rawQuery.trim();
+  if (query.length < 2) {
+    return { leads: [], customers: [] };
+  }
+  const pattern = likePattern(query);
+
+  const leadRows = await db
+    .select()
+    .from(leads)
+    .where(
+      or(
+        ilike(leads.companyName, pattern),
+        ilike(leads.contactName, pattern),
+        ilike(leads.contactPhone, pattern),
+        ilike(leads.contactEmail, pattern),
+        ilike(leads.city, pattern),
+        ilike(leads.ico, pattern)
+      )
+    )
+    .orderBy(desc(leads.updatedAt))
+    .limit(SEARCH_LIMIT);
+
+  const customerRows = await db
+    .select({ id: organizations.id, name: organizations.name, ico: organizations.ico })
+    .from(organizations)
+    .where(or(ilike(organizations.name, pattern), ilike(organizations.ico, pattern)))
+    .orderBy(asc(organizations.name))
+    .limit(SEARCH_LIMIT);
+
+  const cards = await buildLeadCards(leadRows);
+  return {
+    leads: cards.map((card, i) => ({ ...card, ico: leadRows[i].ico })),
+    customers: customerRows,
   };
 }

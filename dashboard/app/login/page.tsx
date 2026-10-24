@@ -8,14 +8,21 @@ import Image from "next/image";
 import logoMark from "@/public/logo-begina-mark.png";
 import DecorativeMark from "@/components/DecorativeMark";
 import { auth } from "@/lib/auth/server";
+import { safeNextPath } from "@/lib/agent/oauthCore";
 import LoginForm from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+// GPT/MCP pilot — ?next= vrátí po přihlášení zpět na souhlasovou stránku
+// asistenta (/oauth/authorize) nebo na diagnostiku DB pro Preview
+// (/diagnostika-db). Povolené jsou jen ony (safeNextPath), jinak "/".
+export default async function LoginPage(props: PageProps<"/login">) {
+  const searchParams = await props.searchParams;
+  const next = safeNextPath(typeof searchParams?.next === "string" ? searchParams.next : null);
+
   const { data: session } = await auth.getSession();
   if (session?.user) {
-    redirect("/");
+    redirect(next);
   }
 
   return (
@@ -31,7 +38,7 @@ export default async function LoginPage() {
           <p className="text-sm text-neutral-600 mb-5">
             Přihlaste se e-mailem a heslem, které jste od nás dostali.
           </p>
-          <LoginForm />
+          <LoginForm next={next} />
         </div>
       </div>
     </div>
