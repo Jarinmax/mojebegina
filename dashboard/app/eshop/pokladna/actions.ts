@@ -38,7 +38,13 @@ export type CheckoutState =
       /** potvrzení e-mailem: odešlo / selhalo (objednávka je i tak uložená) / e-maily vypnuté */
       email: "sent" | "failed" | "off";
     }
-  | { redirectTo: string }
+  | {
+      /** platba kartou: platební stránka Stripe (nebo stránka objednávky, když Stripe nejde otevřít) */
+      redirectTo: string;
+      /** uložená objednávka — prohlížeč si ji zapamatuje dřív, než vyprázdní košík */
+      orderId: string;
+      orderNumber: number | null;
+    }
   | null;
 
 /** Adresa aplikace pro návrat ze Stripe (Preview/Production má každý svou). */
@@ -123,10 +129,11 @@ export async function submitCheckoutAction(
           saved.orderId,
           baseUrl
         );
-        return { redirectTo: payment.ok ? payment.url : fallback };
+        const pending = { orderId: saved.orderId, orderNumber: saved.orderNumber };
+        return { redirectTo: payment.ok ? payment.url : fallback, ...pending };
       } catch (error) {
         console.error("E-shop: platební stránku Stripe se nepodařilo otevřít", saved.orderId, error);
-        return { redirectTo: fallback };
+        return { redirectTo: fallback, orderId: saved.orderId, orderNumber: saved.orderNumber };
       }
     }
     // Jen u nově vzniklé objednávky (dvojí odeslání formuláře = žádný druhý

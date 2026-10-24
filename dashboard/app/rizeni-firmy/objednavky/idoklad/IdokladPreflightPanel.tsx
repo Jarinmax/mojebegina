@@ -42,6 +42,15 @@ export default function IdokladPreflightPanel() {
             {new Date(result.checkedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })} · požadavků na iDoklad:{" "}
             {result.requestCount} (jen čtení + získání tokenu)
           </p>
+          {result.requests.length > 0 && (
+            <ul className="text-xs text-neutral-500 font-mono">
+              {result.requests.map((r, i) => (
+                <li key={i}>
+                  {r.method} {r.path} → {r.status ?? "bez odpovědi"} · {(r.ms / 1000).toFixed(1)} s
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

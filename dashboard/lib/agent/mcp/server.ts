@@ -16,7 +16,8 @@ import type { AgentSession } from "../oauthStore";
 import { ArgError, idempotencyKey } from "./args";
 import { claimWrite, finishWrite, logCall, readsInLastHour, writesInLastHour, type AuditBase } from "./audit";
 import { toolError, toolSuccess, type CallToolResult, type McpServer } from "./protocol";
-import { AGENT_TOOLS, SERVER_INSTRUCTIONS, type AgentTool, type ToolOutcome } from "./tools";
+import { channelAllowed } from "@/lib/idoklad-read/tools";
+import { AGENT_TOOLS, IDOKLAD_TOOLS, serverInstructions, type AgentTool, type ToolOutcome } from "./tools";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -30,7 +31,7 @@ async function runTool(
   issuer: string
 ): Promise<{ status: "ok" | "error" | "denied"; outcome: ToolOutcome }> {
   try {
-    const outcome = await runAsAgent(session.ctx, () => tool.execute(parsed, issuer));
+    const outcome = await runAsAgent(session.ctx, () => tool.execute(parsed, issuer), session.client.integration);
     return { status: outcome.ok ? "ok" : "error", outcome };
   } catch (error) {
     if (error instanceof ForbiddenError || error instanceof UnauthenticatedError) {
@@ -63,7 +64,7 @@ export async function callAgentTool(
 
   if (tool.write && !canWrite(config, session.scope)) {
     const message = config.writeEnabled
-      ? "Zápisy nejsou pro tohle propojení povolené (souhlas byl udělen jen pro čtení). Pro zápisy je potřeba konektor v ChatGPT znovu připojit a zápisy povolit."
+      ? `Zápisy nejsou pro tohle propojení povolené (souhlas byl udělen jen pro čtení). Pro zápisy je potřeba konektor v ${session.client.label} znovu připojit a zápisy povolit.`
       : "Zápisy jsou v MojeBegina pro asistenta zatím vypnuté — asistent může jen číst.";
     await logCall(db, base, { status: "denied", error: "scope" });
     return toolError(message);
@@ -120,10 +121,22 @@ export async function callAgentTool(
   return toResult(outcome);
 }
 
+/**
+ * Nabízené nástroje: zápisové jen se zápisovým souhlasem; nástroje iDokladu
+ * jen asistentovi, jehož kanál je v IDOKLAD_READ_CHANNELS (výchozí žádný).
+ * Skrytí je jen pro přehlednost — volání i tak hlídá runIdokladRead.
+ */
+function offeredTools(session: AgentSession, config: AgentConfig): AgentTool[] {
+  const idokladOffered = channelAllowed(`mcp:${session.client.integration}`);
+  return AGENT_TOOLS.filter(
+    (t) => (!t.write || canWrite(config, session.scope)) && (idokladOffered || !IDOKLAD_TOOLS.includes(t))
+  );
+}
+
 export function agentMcpServer(db: Db, session: AgentSession, config: AgentConfig): McpServer {
   return {
-    instructions: SERVER_INSTRUCTIONS,
-    listTools: () => AGENT_TOOLS.filter((t) => !t.write || canWrite(config, session.scope)).map((t) => t.definition),
+    instructions: serverInstructions(session.client.label),
+    listTools: () => offeredTools(session, config).map((t) => t.definition),
     callTool: (name, args) => callAgentTool(db, session, config, name, args),
   };
 }

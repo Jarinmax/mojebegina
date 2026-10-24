@@ -48,8 +48,8 @@ describe(
   "docs/nahled-zakaznika — migrace, udělení, odebrání, návrat",
   { timeout: 120_000 },
   () => {
-    it("před → migrace (= drizzle 0023) → po; opakování se zastaví; návrat = stav před", async () => {
-      const { pg } = await createMigratedDb("0022_gpt_mcp_pilot");
+    it("před → migrace (= drizzle 0025) → po; opakování se zastaví; návrat = stav před", async () => {
+      const { pg } = await createMigratedDb("0024_gpt_mcp_pilot");
       await seedMembers(pg);
       const before = await schema(pg);
       expect(
@@ -61,7 +61,7 @@ describe(
       await pg.exec(file("11_migration.sql"));
       expect(await check(pg, file("12_after.sql"))).toBe("2 | 3 | 0 | 0");
       const { pg: reference } = await createMigratedDb(
-        "0023_customer_card_preview",
+        "0025_customer_card_preview",
       );
       expect(await schema(pg)).toEqual(await schema(reference));
       await expect(pg.exec(file("11_migration.sql"))).rejects.toThrow(
@@ -72,7 +72,7 @@ describe(
     });
 
     it("udělení: přesně 4 podle user_id, opakování nic nezdvojí; odebrání platí, historie zůstává", async () => {
-      const { pg } = await createMigratedDb("0023_customer_card_preview");
+      const { pg } = await createMigratedDb("0025_customer_card_preview");
       await seedMembers(pg);
       await pg.exec(file("20_udelit.sql"));
       await pg.exec(file("20_udelit.sql"));
@@ -98,7 +98,7 @@ describe(
     });
 
     it("pojistky udělení: chybějící účet nebo účet bez role vedení → nic se neudělí", async () => {
-      const { pg } = await createMigratedDb("0023_customer_card_preview");
+      const { pg } = await createMigratedDb("0025_customer_card_preview");
       await seedMembers(pg, ["f9f93f03-92b0-4724-becd-c0a3576b5275"]);
       await expect(pg.exec(file("20_udelit.sql"))).rejects.toThrow(
         /neexistuje/,
@@ -108,7 +108,7 @@ describe(
           .rows,
       ).toEqual([{ n: 0 }]);
 
-      const second = await createMigratedDb("0023_customer_card_preview");
+      const second = await createMigratedDb("0025_customer_card_preview");
       await seedMembers(second.pg);
       await second.pg.exec(
         `UPDATE user_roles SET system_role = 'CUSTOMER' WHERE user_id = '06240ac4-c050-47ea-998c-6c81389edf9f'`,
@@ -126,7 +126,7 @@ describe(
     });
 
     it("návrat se zastaví, když audit obsahuje záznamy", async () => {
-      const { pg } = await createMigratedDb("0023_customer_card_preview");
+      const { pg } = await createMigratedDb("0025_customer_card_preview");
       await pg.exec(`INSERT INTO organizations (id, ico, name, registered_address) VALUES ('00000000-0000-4000-8000-000000000001', '1', 'X', 'Y');
       INSERT INTO customer_card_preview_log (viewer_user_id, organization_id) VALUES ('u', '00000000-0000-4000-8000-000000000001')`);
       await expect(pg.exec(file("19_rollback.sql"))).rejects.toThrow(

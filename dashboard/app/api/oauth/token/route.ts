@@ -1,6 +1,8 @@
 // GPT/MCP pilot — token endpoint (RFC 6749 + OAuth 2.1): výměna
 // autorizačního kódu (s PKCE) a rotace refresh tokenu. Klient se ověřuje
-// statickým client_id/client_secret z env (Basic hlavička nebo tělo).
+// statickým client_id/client_secret z env (Basic hlavička nebo tělo); každý
+// asistent (ChatGPT, Claude) má svého klienta a vymění jen kódy a refresh
+// tokeny SVÝCH souhlasů (activeGrant v oauthStore).
 import { db } from "@/lib/db/client";
 import { agentConfig } from "@/lib/agent/config";
 import { authenticateClient, readClientCredentials } from "@/lib/agent/oauthCore";
@@ -19,12 +21,13 @@ export async function POST(request: Request) {
   }
 
   const credentials = readClientCredentials(request.headers.get("authorization"), form);
-  if (!authenticateClient(config, credentials)) {
+  const client = authenticateClient(config, credentials);
+  if (!client) {
     return oauthError("invalid_client", "Neplatné přihlášení klienta.", 401, {
       "WWW-Authenticate": 'Basic realm="MojeBegina"',
     });
   }
-  const clientId = config.clientId;
+  const clientId = client.clientId;
 
   const grantType = form.get("grant_type");
   if (grantType === "authorization_code") {

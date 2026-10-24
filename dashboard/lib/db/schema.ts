@@ -74,7 +74,11 @@ export const organizations = pgTable("organizations", {
   ownerUserId: text("owner_user_id"),
   acquiredByUserId: text("acquired_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  // DIČ firmy (faktura; migrace 0022). NULL = neuvedeno / neplátce.
+  dic: text("dic"),
+}, (table) => [
+  check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
+]);
 
 // Řeší "1 login ≠ 1 zákazník": jeden User (spravovaný Neon Auth) může mít
 // členství u víc organizací, jedna organizace může mít víc uživatelů.
@@ -184,6 +188,8 @@ export const orders = pgTable("orders", {
   paymentVs: text("payment_vs"),
 }, (table) => [
   uniqueIndex("orders_order_number_key").on(table.orderNumber),
+  // jedna objednávka z WooCommerce = nejvýš jeden záznam (migrace 0022)
+  uniqueIndex("orders_external_woocommerce_id_key").on(table.externalWooCommerceId),
   unique("orders_payment_vs_key").on(table.paymentVs),
   check("orders_payment_vs_format", sql`${table.paymentVs} IS NULL OR ${table.paymentVs} ~ '^7[0-9]{7}$'`),
   check("orders_eshop_requires_vs", sql`${table.channel} <> 'eshop' OR ${table.paymentVs} IS NOT NULL`),
@@ -979,7 +985,7 @@ export const focusProjectActivity = pgTable(
   (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
 );
 
-// GPT/MCP pilot (migrace 0022) — poznámky u ZÁKAZNÍKA (organizace po
+// GPT/MCP pilot (migrace 0024) — poznámky u ZÁKAZNÍKA (organizace po
 // konverzi leadu). Do teď existovala historie jen u leadu (lead_activity);
 // po konverzi neměl zákazník kam poznámku zapsat. Stejný vzor jako
 // lead_activity/company_node_activity: jeden chronologický timeline,
@@ -1001,7 +1007,7 @@ export const organizationActivity = pgTable(
   (table) => [index("organization_activity_org_id_idx").on(table.organizationId, table.createdAt)]
 );
 
-// GPT/MCP pilot (migrace 0022) — přístup asistenta (ChatGPT konektor) za
+// GPT/MCP pilot (migrace 0024) — přístup asistenta (ChatGPT konektor) za
 // KONKRÉTNÍHO uživatele. Jeden řádek = jeden udělený souhlas (OAuth
 // "grant"): kdo ho dal, v jaké roli a s jakým rozsahem (scope). Asistent
 // nikdy nemá vlastní identitu — každý zápis jde pod userId toho, kdo
@@ -1086,7 +1092,7 @@ export const agentAuditLog = pgTable(
   ]
 );
 
-// --- Úzká oprávnění konkrétních uživatelů (migrace 0023) -----------------
+// --- Úzká oprávnění konkrétních uživatelů (migrace 0025) -----------------
 //
 // Oprávnění NEZÁVISLÉ na roli: uděluje se konkrétnímu user_id (nikdy podle
 // jména či e-mailu) a jde odebrat (revoked_at). Aktivní = revoked_at IS NULL;
@@ -1124,3 +1130,32 @@ export const customerCardPreviewLog = pgTable("customer_card_preview_log", {
   index("customer_card_preview_log_org_idx").on(table.organizationId, table.openedAt),
   index("customer_card_preview_log_viewer_idx").on(table.viewerUserId, table.openedAt),
 ]);
+
+// Čtení iDokladu (lib/idoklad-read) — auditní záznam KAŽDÉHO přístupu
+// k údajům z iDokladu přes MojeBegina (UI i asistenti ChatGPT / Claude přes
+// MCP). Zapíše se PŘED čtením (bez zápisu se nic nepřečte) a doplní po
+// něm. Argumenty jen bez osobních údajů (jméno zákazníka jen délka); žádné
+// tokeny ani výsledky. Nic se nemaže automaticky.
+export const idokladReadLog = pgTable(
+  "idoklad_read_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    userId: text("user_id").notNull(),
+    // "ui" | "mcp:<klient>" (např. mcp:chatgpt, mcp:claude)
+    channel: text("channel").notNull(),
+    tool: text("tool").notNull(),
+    args: jsonb("args").notNull(),
+    // started → ok | error; denied / rate_limited / invalid se zapisují rovnou
+    status: text("status").notNull(),
+    resultCount: integer("result_count"),
+    idokladRequests: integer("idoklad_requests"),
+    durationMs: integer("duration_ms"),
+    error: text("error"),
+  },
+  (table) => [
+    index("idoklad_read_log_user_created_idx").on(table.userId, table.createdAt),
+    check("idoklad_read_log_status_check", sql`${table.status} IN ('started', 'ok', 'error', 'denied', 'rate_limited', 'invalid')`),
+    check("idoklad_read_log_channel_check", sql`${table.channel} ~ '^(ui|mcp:[a-z0-9_-]{1,40})$'`),
+  ]
+);

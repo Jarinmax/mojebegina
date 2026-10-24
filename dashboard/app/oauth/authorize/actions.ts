@@ -1,7 +1,7 @@
 "use server";
 
 // GPT/MCP pilot — rozhodnutí na souhlasové stránce. Skrytá pole formuláře
-// se NIKDY nepovažují za ověřená: dotaz z ChatGPT (client_id, redirect_uri,
+// se NIKDY nepovažují za ověřená: dotaz od asistenta (client_id, redirect_uri,
 // PKCE…) se tu kontroluje znovu stejnou funkcí jako na stránce, identita se
 // bere ze session a role musí být mezi rolemi účtu.
 import { redirect } from "next/navigation";

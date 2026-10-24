@@ -66,3 +66,36 @@ export function validateAddMemberInput(
 
   return { ok: true, value: { name, email, role: input.role } };
 }
+
+export type AddOrganizationLocationInput = {
+  label: string;
+  street: string;
+  city: string;
+  zip: string;
+  contactName: string;
+  contactPhone: string;
+};
+
+export type AddOrganizationLocationValue = AddOrganizationLocationInput;
+
+export function validateAddOrganizationLocationInput(
+  input: AddOrganizationLocationInput
+): { ok: true; value: AddOrganizationLocationValue } | { ok: false; error: string } {
+  const value = {
+    label: input.label.trim(),
+    street: input.street.trim(),
+    city: input.city.trim(),
+    zip: input.zip.trim(),
+    contactName: input.contactName.trim(),
+    contactPhone: input.contactPhone.trim(),
+  };
+
+  if (!value.label) return { ok: false, error: "Vyplňte název provozovny." };
+  if (!value.street) return { ok: false, error: "Vyplňte ulici provozovny." };
+  if (!value.city) return { ok: false, error: "Vyplňte město provozovny." };
+  if (!/^\d{3}\s?\d{2}$/.test(value.zip)) {
+    return { ok: false, error: "PSČ musí mít tvar 123 45." };
+  }
+
+  return { ok: true, value };
+}

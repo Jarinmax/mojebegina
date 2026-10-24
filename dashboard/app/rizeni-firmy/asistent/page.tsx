@@ -1,4 +1,4 @@
-// GPT/MCP pilot — přehled vlastního propojení s ChatGPT: aktivní souhlasy
+// GPT/MCP pilot — přehled vlastního propojení s asistenty (ChatGPT, Claude): aktivní souhlasy
 // (odvolání jedním tlačítkem) a co asistent za posledních 7 dní dělal.
 // Přístup do /rizeni-firmy hlídá layout (ADMIN/EXECUTIVE).
 import Link from "next/link";
@@ -9,7 +9,7 @@ import { ROLE_LABELS } from "@/lib/data/roles";
 import type { SystemRole } from "@/lib/data/types";
 import { formatCzechDate } from "@/lib/format";
 import { agentConfig } from "@/lib/agent/config";
-import { canWrite } from "@/lib/agent/oauthCore";
+import { canWrite, findClient } from "@/lib/agent/oauthCore";
 import { listActiveGrants, listRecentAudit } from "@/lib/agent/oauthStore";
 import { revokeAgentGrantAction } from "./actions";
 
@@ -36,10 +36,10 @@ export default async function AgentAccessPage() {
       <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
         ← Řízení firmy
       </Link>
-      <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-1">Asistent ChatGPT</h1>
+      <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-1">Asistenti ChatGPT a Claude</h1>
       <p className="text-sm text-neutral-600 mb-4">
-        ChatGPT jedná za vás a jen s oprávněními vašeho účtu. Odvoláním ho okamžitě odpojíte — pro další použití je
-        potřeba konektor v ChatGPT připojit znovu.
+        Asistent jedná za vás a jen s oprávněními vašeho účtu. Odvoláním ho okamžitě odpojíte — pro další použití je
+        potřeba konektor v ChatGPT nebo Claude připojit znovu.
       </p>
 
       <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Aktivní propojení</h2>
@@ -51,6 +51,7 @@ export default async function AgentAccessPage() {
             <div key={grant.id} className="flex items-center justify-between gap-3">
               <div className="text-sm">
                 <p className="text-begina-primary-900">
+                  {findClient(config, grant.clientId)?.label ?? "odpojený klient"} ·{" "}
                   {ROLE_LABELS[grant.systemRole as SystemRole] ?? grant.systemRole} ·{" "}
                   {canWrite(config, grant.scope) ? "čtení i zápis" : "jen čtení"}
                 </p>

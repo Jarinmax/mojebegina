@@ -29,7 +29,7 @@ export default async function Page() {
 
   return (
     <CustomerPortalShell activeHref="/objednavky">
-      <CustomerOrdersView orders={customerOrders} />
+      <CustomerOrdersView orders={customerOrders} showPaymentAction />
     </CustomerPortalShell>
   );
 }

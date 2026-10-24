@@ -23,11 +23,19 @@
 //
 // Client ID, Client Secret ani token se nikdy nelogují ani neukládají.
 // Přesměrování se nesledují (redirect: "error").
-import { liveInvoicingGate } from "./mode";
+import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
 
 export const IDOKLAD_API_BASE = "https://api.idoklad.cz/v3";
 export const IDOKLAD_TOKEN_URL = "https://identity.idoklad.cz/server/v2/connect/token";
 export const IDOKLAD_TOKEN_SCOPE = "idoklad_api";
+
+/**
+ * Limit na jeden požadavek. 19. 10. 2026 v Production první čtení
+ * (/Account/CurrentAgenda) nedostalo odpověď do 10 s, i když token prošel —
+ * proto 20 s a u čtení jeden opakovaný pokus (send).
+ */
+export const IDOKLAD_TIMEOUT_MS = 20_000;
+const RETRY_STATUSES = new Set([502, 503, 504]);
 
 const API_HOST = "api.idoklad.cz";
 /** Česká nápověda k nejčastějším kódům odmítnutí přihlášení (OAuth 2.0). */
@@ -117,6 +125,18 @@ export function assertEshopIdokladRequest(method: string, rawUrl: string, writes
   }
 }
 
+/**
+ * Faktura z MojeBegina smí vzniknout JEN v řadě E-shop Begina (7277293).
+ * Ruční řada Lucie (výchozí řada agendy, čísla 2026xxxx) je pro MojeBegina
+ * zakázaná — poslední pojistka přímo před odesláním, nezávislá na nastavení.
+ */
+export function assertEshopSeriesBody(body: unknown): void {
+  const sequenceId = (body as { NumericSequenceId?: unknown } | null)?.NumericSequenceId;
+  if (String(sequenceId) !== ESHOP_SERIES.id) {
+    throw new IdokladBlockedError(`faktura mimo řadu ${ESHOP_SERIES.id} „${ESHOP_SERIES.name}“ (NumericSequenceId ${String(sequenceId ?? "—")})`);
+  }
+}
+
 export type IdokladLogEntry = { method: string; path: string; status: number | null; ms: number };
 
 export type EshopIdokladClientOptions = {
@@ -163,7 +183,7 @@ export class EshopIdokladClient {
       fetchImpl: options.fetchImpl ?? fetch,
       now: options.now ?? Date.now,
       requestBudget: options.requestBudget ?? 40,
-      timeoutMs: options.timeoutMs ?? 10_000,
+      timeoutMs: options.timeoutMs ?? IDOKLAD_TIMEOUT_MS,
       env: options.env ?? process.env,
     };
   }
@@ -198,23 +218,31 @@ export class EshopIdokladClient {
   private async send(method: string, url: string, init: RequestInit): Promise<Response> {
     // pojistka dřív než cokoli jiného — i před rozpočtem a tokenem
     assertEshopIdokladRequest(method, url, this.writesAllowed);
-    if (this.count >= this.opts.requestBudget) throw new IdokladApiError("Vyčerpán limit požadavků na iDoklad.");
-    this.count += 1;
-    const started = this.opts.now();
-    const path = new URL(url).pathname;
-    try {
-      const response = await this.opts.fetchImpl(url, {
-        ...init,
-        method,
-        redirect: "error",
-        cache: "no-store",
-        signal: AbortSignal.timeout(this.opts.timeoutMs),
-      });
-      this.log.push({ method, path, status: response.status, ms: this.opts.now() - started });
-      return response;
-    } catch (error) {
-      this.log.push({ method, path, status: null, ms: this.opts.now() - started });
-      throw new IdokladApiError(`iDoklad nedostupný: ${this.redact(error instanceof Error ? error.message : String(error))}`);
+    // Čtení a žádost o token nic nemění → jeden opakovaný pokus při výpadku
+    // (timeout, síť, 502/503/504). Zápis se NIKDY neopakuje automaticky:
+    // nejasný výsledek řeší další vystavení dohledáním faktury podle VS.
+    const retryable = method === "GET" || url === IDOKLAD_TOKEN_URL;
+    for (let attempt = 1; ; attempt += 1) {
+      if (this.count >= this.opts.requestBudget) throw new IdokladApiError("Vyčerpán limit požadavků na iDoklad.");
+      this.count += 1;
+      const started = this.opts.now();
+      const path = new URL(url).pathname;
+      try {
+        const response = await this.opts.fetchImpl(url, {
+          ...init,
+          method,
+          redirect: "error",
+          cache: "no-store",
+          signal: AbortSignal.timeout(this.opts.timeoutMs),
+        });
+        this.log.push({ method, path, status: response.status, ms: this.opts.now() - started });
+        if (retryable && attempt < 2 && RETRY_STATUSES.has(response.status)) continue;
+        return response;
+      } catch (error) {
+        this.log.push({ method, path, status: null, ms: this.opts.now() - started });
+        if (retryable && attempt < 2) continue;
+        throw new IdokladApiError(`iDoklad nedostupný: ${this.redact(error instanceof Error ? error.message : String(error))}`);
+      }
     }
   }
 
@@ -279,6 +307,7 @@ export class EshopIdokladClient {
     // Pojistka se ověří i tady (před získáním tokenu), aby blokovaný zápis
     // na Preview neposlal na identity server ani žádost o token.
     assertEshopIdokladRequest(method, url.toString(), this.writesAllowed);
+    if (method === "POST" && path === "/IssuedInvoices") assertEshopSeriesBody(body);
     const token = await this.accessToken();
     const response = await this.send(method, url.toString(), {
       headers: {
@@ -308,8 +337,8 @@ export class EshopIdokladClient {
     return this.call<T>("GET", path, query);
   }
 
-  async list<T>(path: string, filter?: string, pageSize = 100): Promise<IdokladListPage<T>> {
-    const query: Record<string, string> = { page: "1", pageSize: String(pageSize) };
+  async list<T>(path: string, filter?: string, pageSize = 100, page = 1): Promise<IdokladListPage<T>> {
+    const query: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (filter) query.filter = filter;
     const data = await this.call<Partial<IdokladListPage<T>>>("GET", path, query);
     if (!data || !Array.isArray(data.Items)) throw new IdokladApiError(`iDoklad GET ${path}: chybí Items`);
@@ -327,6 +356,56 @@ export class EshopIdokladClient {
   put<T>(path: string, query?: Record<string, string>): Promise<T> {
     return this.call<T>("PUT", path, query);
   }
+}
+
+/**
+ * Sloupce, podle kterých iDoklad u GET /IssuedInvoices umí filtrovat (výčet
+ * z odpovědi API 400 „Filtering by this column is not supported“, 20. 10. 2026).
+ * VariableSymbol mezi nimi NENÍ — VS se porovnává až u nás (issue.ts).
+ */
+export const ISSUED_INVOICE_FILTER_COLUMNS = [
+  "Id",
+  "CurrencyId",
+  "DateLastChange",
+  "DateOfIssue",
+  "DateOfPayment",
+  "DateOfMaturity",
+  "Exported",
+  "Description",
+  "NumericSequenceId",
+  "DocumentNumber",
+  "ConstantSymbolId",
+  "PartnerId",
+  "IsPaid",
+  "PaymentStatus",
+  "RecurringInvoiceId",
+  "NickName",
+  "DateOfTaxing",
+  "TagIds",
+] as const;
+
+/** Filtr vydaných faktur — jen podporované sloupce (i ve složeném filtru), jinak chyba ještě před voláním iDokladu. */
+export function issuedInvoiceFilter(filter: string): string {
+  const columns = [...filter.matchAll(/(?:^|\()([^()~]*)~(?:eq|gte|lte|gt|lt|ct|!eq)~/g)].map((m) => m[1]);
+  if (columns.length === 0) throw new IdokladBlockedError("neplatný filtr vydaných faktur");
+  for (const column of columns) {
+    if (!(ISSUED_INVOICE_FILTER_COLUMNS as readonly string[]).includes(column)) {
+      throw new IdokladBlockedError(`iDoklad u vydaných faktur nefiltruje podle ${column}`);
+    }
+  }
+  return filter;
+}
+
+/** Složený filtr ve tvaru SDK (ComplexFilterExpression): ((A~eq~1)~and~(B~eq~2)). */
+export function andFilter(first: string, second: string): string {
+  return `((${first})~and~(${second}))`;
+}
+
+/** Filtr ve tvaru SDK: Prop~gte~YYYY-MM-DD (den a později). */
+export function sinceDayFilter(property: string, day: string): string {
+  if (!/^[A-Za-z]+$/.test(property)) throw new Error(`Neplatné pole filtru: ${property}`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new IdokladBlockedError("neplatné datum filtru");
+  return `${property}~gte~${day}`;
 }
 
 /** Filtr ve tvaru SDK: Prop~eq~hodnota (hodnota bez znaků, které by filtr rozbily). */

@@ -1,20 +1,34 @@
-// GPT/MCP pilot — konfigurace přístupu asistenta (ChatGPT konektor).
-// VÝCHOZÍ STAV = VYPNUTO: dokud nejsou nastavené VŠECHNY proměnné níže,
-// vrací agentConfig() null a /api/mcp, /oauth/authorize, /api/oauth/*
+// GPT/MCP pilot — konfigurace přístupu asistentů (konektory ChatGPT a Claude).
+// VÝCHOZÍ STAV = VYPNUTO: dokud není nastavený MCP_ISSUER, MCP_ALLOWED_USER_IDS
+// a aspoň jeden ÚPLNÝ klient (níže), vrací agentConfig() null a /api/mcp, /oauth/authorize, /api/oauth/*
 // i /.well-known/oauth-* odpovídají 404 — jako by neexistovaly.
 //
 // MCP_ISSUER=https://moje.begina.cz
-//   Veřejná adresa MojeBegina, pod kterou ChatGPT server volá (bez lomítka
+//   Veřejná adresa MojeBegina, pod kterou asistenti server volají (bez lomítka
 //   na konci). Musí sedět přesně — z ní se skládají všechny adresy
 //   v discovery (issuer, /api/mcp, /oauth/authorize…). Jen https
 //   (http jen pro localhost při vývoji).
-// MCP_OAUTH_CLIENT_ID / MCP_OAUTH_CLIENT_SECRET
-//   Předem domluvený (statický) OAuth klient, který se ručně vloží do
-//   ChatGPT (Advanced settings konektoru). Žádná samoregistrace (DCR) —
-//   nikdo cizí si klienta nezaloží. Secret aspoň 32 znaků.
-// MCP_OAUTH_REDIRECT_URIS
-//   Callback adresa(y) ChatGPT oddělené čárkou, PŘESNĚ jak je ChatGPT
-//   ukáže v nastavení konektoru. Nic jiného se jako redirect nepřijme.
+//
+// Klienti (asistenti) — každý má VLASTNÍ statického OAuth klienta, souhlas
+// (grant) je vázaný na klienta, který ho získal, a kanál pro audit čtení
+// iDokladu je mcp:chatgpt / mcp:claude podle toho klienta. Žádná
+// samoregistrace (DCR) — nikdo cizí si klienta nezaloží. Secret aspoň
+// 32 znaků. Neúplně nastavený klient se ignoruje (ostatní fungují dál);
+// stejné client_id u dvou klientů = vypnuto celé (nejednoznačné).
+//
+// ChatGPT (Lucy):
+//   MCP_OAUTH_CLIENT_ID / MCP_OAUTH_CLIENT_SECRET — vkládají se ručně do
+//     ChatGPT (Advanced settings konektoru).
+//   MCP_OAUTH_REDIRECT_URIS — callback(y) ChatGPT oddělené čárkou, PŘESNĚ
+//     jak je ChatGPT ukáže v nastavení konektoru.
+// Claude (vlastní konektor v claude.ai):
+//   MCP_CLAUDE_OAUTH_CLIENT_ID / MCP_CLAUDE_OAUTH_CLIENT_SECRET — vkládají se
+//     do Claude (Settings › Connectors › Add custom connector › Advanced
+//     settings: OAuth Client ID / Secret).
+//   MCP_CLAUDE_OAUTH_REDIRECT_URIS — callback Claude, dnes
+//     https://claude.ai/api/mcp/auth_callback (ověřit při připojení).
+// Nic jiného se jako redirect nepřijme.
+//
 // MCP_ALLOWED_USER_IDS
 //   Neon Auth userId oddělená čárkou — kdo smí asistentovi přístup vůbec
 //   udělit (pilot: jen Jaroslav Viner; kolegové se přidají sem). Kromě toho
@@ -40,14 +54,28 @@ export const WRITE_LIMIT_PER_HOUR = 60;
 /** Nejvýš tolik čtecích volání za hodinu na jeden souhlas — běžná práce se vejde, hromadné vytěžení databáze ne. */
 export const READ_LIMIT_PER_HOUR = 600;
 
-export type AgentConfig = {
-  issuer: string;
+export type AgentIntegration = "chatgpt" | "claude";
+
+export type AgentClient = {
+  integration: AgentIntegration;
+  /** Název asistenta pro lidi (souhlasová stránka, přípona autora v historii). */
+  label: string;
   clientId: string;
   clientSecret: string;
   redirectUris: string[];
+};
+
+export type AgentConfig = {
+  issuer: string;
+  clients: AgentClient[];
   allowedUserIds: Set<string>;
   writeEnabled: boolean;
 };
+
+const CLIENT_ENV: { integration: AgentIntegration; label: string; prefix: string }[] = [
+  { integration: "chatgpt", label: "ChatGPT", prefix: "MCP_OAUTH" },
+  { integration: "claude", label: "Claude", prefix: "MCP_CLAUDE_OAUTH" },
+];
 
 function list(raw: string | undefined): string[] {
   return (raw ?? "")
@@ -69,22 +97,26 @@ function validIssuer(raw: string): boolean {
   return protocolOk && url.origin === raw;
 }
 
+function clientFromEnv(env: Env, spec: (typeof CLIENT_ENV)[number]): AgentClient | null {
+  const clientId = env[`${spec.prefix}_CLIENT_ID`]?.trim() ?? "";
+  const clientSecret = env[`${spec.prefix}_CLIENT_SECRET`]?.trim() ?? "";
+  const redirectUris = list(env[`${spec.prefix}_REDIRECT_URIS`]);
+  if (!clientId || clientSecret.length < 32 || redirectUris.length === 0) return null;
+  if (!redirectUris.every((uri) => uri.startsWith("https://"))) return null;
+  return { integration: spec.integration, label: spec.label, clientId, clientSecret, redirectUris };
+}
+
 export function agentConfig(env: Env = process.env): AgentConfig | null {
   const issuer = env.MCP_ISSUER?.trim() ?? "";
-  const clientId = env.MCP_OAUTH_CLIENT_ID?.trim() ?? "";
-  const clientSecret = env.MCP_OAUTH_CLIENT_SECRET?.trim() ?? "";
-  const redirectUris = list(env.MCP_OAUTH_REDIRECT_URIS);
   const allowedUserIds = list(env.MCP_ALLOWED_USER_IDS);
+  const clients = CLIENT_ENV.map((spec) => clientFromEnv(env, spec)).filter((c): c is AgentClient => c !== null);
 
-  if (!validIssuer(issuer) || !clientId || clientSecret.length < 32) return null;
-  if (redirectUris.length === 0 || allowedUserIds.length === 0) return null;
-  if (!redirectUris.every((uri) => uri.startsWith("https://"))) return null;
+  if (!validIssuer(issuer) || clients.length === 0 || allowedUserIds.length === 0) return null;
+  if (new Set(clients.map((c) => c.clientId)).size !== clients.length) return null;
 
   return {
     issuer,
-    clientId,
-    clientSecret,
-    redirectUris,
+    clients,
     allowedUserIds: new Set(allowedUserIds),
     writeEnabled: env.MCP_ALLOW_WRITE?.trim() === "on",
   };

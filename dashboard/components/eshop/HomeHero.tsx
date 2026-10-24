@@ -28,7 +28,9 @@ function Heart() {
   );
 }
 
-export default function HomeHero({ ctaHref }: { ctaHref: string }) {
+// Tlačítko „Vybrat si“ jen s odkazem (ctaHref) — 14. 10. 2026 dočasně
+// skryté, později povede na jinou stránku.
+export default function HomeHero({ ctaHref }: { ctaHref?: string }) {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] bg-[radial-gradient(ellipse_42%_60%_at_72%_62%,rgba(214,190,150,0.26),transparent_70%)] border-b border-[#EDE5D8]">
       <Image
@@ -51,12 +53,14 @@ export default function HomeHero({ ctaHref }: { ctaHref: string }) {
           <p className="mt-6 lg:mt-[clamp(0.75rem,2.2vh,1.5rem)] text-base sm:text-lg text-[#3B3631] max-w-md leading-relaxed">
             Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje z pečlivě vybraných surovin a čisté filtrované vody.
           </p>
+          {ctaHref && (
           <Link
             href={ctaHref}
             className="mt-7 lg:mt-[clamp(1rem,2.6vh,1.75rem)] inline-flex items-center justify-center rounded-full bg-[#E2702C] hover:bg-[#C95F20] transition-colors px-12 py-3.5 lg:py-3 text-lg text-white shadow-md shadow-[#E2702C]/25"
           >
             Vybrat si
           </Link>
+          )}
           <p className="mt-6 lg:mt-[clamp(0.75rem,2.2vh,1.5rem)] flex items-center gap-2 text-sm text-[#5E6B34]">
             <Snowflake className="w-4 h-4" aria-hidden="true" />
             Doručujeme chlazenou přepravou

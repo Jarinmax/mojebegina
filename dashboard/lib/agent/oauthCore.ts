@@ -1,7 +1,7 @@
 // GPT/MCP pilot — čisté funkce OAuth 2.1 (bez DB a bez Next.js), aby šly
 // otestovat tabulkou případů (lib/agent/__tests__/oauthCore.test.ts).
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { SCOPE_READ, SCOPE_WRITE, SUPPORTED_SCOPES, type AgentConfig } from "./config";
+import { SCOPE_READ, SCOPE_WRITE, SUPPORTED_SCOPES, type AgentClient, type AgentConfig } from "./config";
 import type { SystemRole } from "@/lib/data/types";
 import { DB_DIAGNOSTICS_PATH } from "@/lib/diagnostics/dbTarget";
 
@@ -102,21 +102,35 @@ export function readClientCredentials(
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
+/**
+ * Klient podle client_id. Porovná se vždy se VŠEMI klienty v konstantním
+ * čase (podle doby odpovědi nejde odhadnout, kolikátý klient sedí).
+ */
+export function findClient(config: AgentConfig, clientId: string): AgentClient | null {
+  let found: AgentClient | null = null;
+  for (const client of config.clients) {
+    if (safeEqual(clientId, client.clientId)) found = client;
+  }
+  return found;
+}
+
+/** Ověřený klient (id + secret), jinak null. */
 export function authenticateClient(
   config: AgentConfig,
   credentials: { clientId: string; clientSecret: string } | null
-): boolean {
-  if (!credentials) return false;
-  // Obě porovnání vždy (žádné zkratkové vyhodnocení podle id).
-  const idOk = safeEqual(credentials.clientId, config.clientId);
-  const secretOk = safeEqual(credentials.clientSecret, config.clientSecret);
-  return idOk && secretOk;
+): AgentClient | null {
+  if (!credentials) return null;
+  // Secret se porovná vždy (i u neznámého id) — žádné zkratkové vyhodnocení podle id.
+  const client = findClient(config, credentials.clientId);
+  const secretOk = safeEqual(credentials.clientSecret, client?.clientSecret ?? "");
+  return client && secretOk ? client : null;
 }
 
 // --- /oauth/authorize — kontrola parametrů --------------------------------
 
 export type AuthorizeParams = {
   clientId: string;
+  client: AgentClient;
   redirectUri: string;
   state: string | null;
   codeChallenge: string;
@@ -141,10 +155,12 @@ function single(params: Params, key: string): string | null {
 export function checkAuthorizeParams(config: AgentConfig, params: Params): AuthorizeCheck {
   const clientId = single(params, "client_id");
   const redirectUri = single(params, "redirect_uri");
-  if (!clientId || !safeEqual(clientId, config.clientId)) {
+  const client = clientId ? findClient(config, clientId) : null;
+  if (!clientId || !client) {
     return { ok: false, redirectable: false, message: "Neznámá aplikace (client_id)." };
   }
-  if (!redirectUri || !config.redirectUris.includes(redirectUri)) {
+  // Redirect jen z adres TOHO klienta — callback ChatGPT nesmí převzít kód pro Claude a naopak.
+  if (!redirectUri || !client.redirectUris.includes(redirectUri)) {
     return { ok: false, redirectable: false, message: "Nepovolená návratová adresa (redirect_uri)." };
   }
 
@@ -174,6 +190,7 @@ export function checkAuthorizeParams(config: AgentConfig, params: Params): Autho
     ok: true,
     value: {
       clientId,
+      client,
       redirectUri,
       state,
       codeChallenge: challenge,
@@ -182,7 +199,7 @@ export function checkAuthorizeParams(config: AgentConfig, params: Params): Autho
   };
 }
 
-/** Návrat do ChatGPT: code nebo error + state + iss (RFC 9207). */
+/** Návrat k asistentovi: code nebo error + state + iss (RFC 9207). */
 export function authorizeRedirect(
   config: AgentConfig,
   redirectUri: string,

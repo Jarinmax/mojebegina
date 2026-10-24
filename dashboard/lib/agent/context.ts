@@ -12,16 +12,33 @@
 // člověka v prohlížeči — žádná paralelní sada oprávnění. Hodnotu sem smí
 // vložit JEN runAsAgent, volaný z /api/mcp po ověření tokenu; nic z požadavku
 // ji nemůže podvrhnout.
+//
+// Spolu s identitou se ukládá i asistent (OAuth klient souhlasu): z něj je
+// kanál mcp:chatgpt / mcp:claude pro čtení iDokladu (lib/idoklad-read) —
+// odvozený z ověřeného tokenu, nikdy z argumentů nástroje.
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { AuthContext } from "@/lib/data/types";
+import type { AgentIntegration } from "./config";
 
-const agentStore = new AsyncLocalStorage<NonNullable<AuthContext>>();
+type AgentStore = { ctx: NonNullable<AuthContext>; integration: AgentIntegration | null };
 
-export function runAsAgent<T>(ctx: NonNullable<AuthContext>, fn: () => Promise<T>): Promise<T> {
-  return agentStore.run(ctx, fn);
+const agentStore = new AsyncLocalStorage<AgentStore>();
+
+export function runAsAgent<T>(
+  ctx: NonNullable<AuthContext>,
+  fn: () => Promise<T>,
+  integration: AgentIntegration | null = null
+): Promise<T> {
+  return agentStore.run({ ctx, integration }, fn);
 }
 
 export function currentAgentContext(): NonNullable<AuthContext> | null {
-  return agentStore.getStore() ?? null;
+  return agentStore.getStore()?.ctx ?? null;
+}
+
+/** Kanál aktuálního asistenta; bez známého klienta „mcp:unknown“ — ten žádná povolená sada nezná. */
+export function currentAgentChannel(): `mcp:${string}` {
+  const integration = agentStore.getStore()?.integration;
+  return integration ? `mcp:${integration}` : "mcp:unknown";
 }

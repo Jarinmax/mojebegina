@@ -13,6 +13,8 @@ export type EmailOrder = {
   id: string;
   orderNumber: number | null;
   paymentVs: string | null;
+  /** objednávka importovaná z WooCommerce (begina.cz) — číslo tam; jinak null */
+  externalWooCommerceId?: string | null;
   contactName: string | null;
   contactEmail: string | null;
   recipientAddress: string | null;
@@ -41,7 +43,8 @@ type Context = {
 };
 
 /** Číslo objednávky, dokud není číslování zapnuté, krátká reference z id. */
-export function orderReference(order: Pick<EmailOrder, "id" | "orderNumber">): string {
+export function orderReference(order: Pick<EmailOrder, "id" | "orderNumber" | "externalWooCommerceId">): string {
+  if (order.externalWooCommerceId) return order.externalWooCommerceId;
   return order.orderNumber !== null ? String(order.orderNumber) : order.id.slice(0, 8);
 }
 
@@ -290,7 +293,8 @@ export function customerPaymentReceivedEmail(
       ? "Platbu za vaši objednávku jsme přijali."
       : "Děkujeme, platbu za vaši objednávku jsme přijali. Objednávku připravujeme.") +
     (ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
-  const statusUrl = eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
+  // import z WooCommerce: stránka stavu objednávky v novém e-shopu neexistuje
+  const statusUrl = order.externalWooCommerceId ? null : eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
   const details: [string, string][] = [
     ["Objednávka", reference],
     ["Přijatá částka", formatKc(order.totalKc)],
@@ -306,7 +310,7 @@ ${detailsTable(details)}
 <div style="height:16px"></div>
 ${itemsTable(order)}
 <div style="height:16px"></div>
-<p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
+${statusUrl ? `<p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>` : ""}
 <p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
 </td></tr>`
   );
@@ -314,7 +318,7 @@ ${itemsTable(order)}
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${itemsText(order)}\n\nStav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${itemsText(order)}\n\n${statusUrl ? `Stav objednávky: ${statusUrl}\n\n` : ""}S dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }
 

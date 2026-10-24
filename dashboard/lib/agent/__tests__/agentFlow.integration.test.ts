@@ -35,6 +35,10 @@ const REDIRECT = "https://chatgpt.com/connector/oauth/abc123";
 const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 const CLIENT = "chatgpt-begina";
+const CLAUDE = "claude-begina";
+const CLAUDE_REDIRECT = "https://claude.ai/api/mcp/auth_callback";
+// skutečné userId Jaroslava Vinera (lib/data/invoiceAuth.ts) — jen on a Lucie čtou iDoklad
+const JAROSLAV = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c";
 
 describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,19 +49,20 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
 
   const rows = async (query: ReturnType<typeof sql>) => (await db.execute(query)).rows;
 
-  async function connect(write: boolean, userId = USER, role: "ADMIN" | "EXECUTIVE" = "EXECUTIVE") {
+  async function connect(write: boolean, userId = USER, role: "ADMIN" | "EXECUTIVE" = "EXECUTIVE", clientId = CLIENT) {
+    const redirectUri = clientId === CLAUDE ? CLAUDE_REDIRECT : REDIRECT;
     const code = await store.issueAuthorizationCode(db, {
       userId,
       systemRole: role,
-      clientId: CLIENT,
+      clientId,
       write,
-      redirectUri: REDIRECT,
+      redirectUri,
       codeChallenge: CHALLENGE,
     });
     const tokens = await store.exchangeAuthorizationCode(db, {
-      clientId: CLIENT,
+      clientId,
       code,
-      redirectUri: REDIRECT,
+      redirectUri,
       codeVerifier: VERIFIER,
     });
     if (!tokens.ok) throw new Error(tokens.description);
@@ -83,14 +88,17 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
       MCP_OAUTH_CLIENT_ID: CLIENT,
       MCP_OAUTH_CLIENT_SECRET: "s".repeat(40),
       MCP_OAUTH_REDIRECT_URIS: REDIRECT,
-      MCP_ALLOWED_USER_IDS: `${USER},${OTHER}`,
+      MCP_CLAUDE_OAUTH_CLIENT_ID: CLAUDE,
+      MCP_CLAUDE_OAUTH_CLIENT_SECRET: "c".repeat(40),
+      MCP_CLAUDE_OAUTH_REDIRECT_URIS: CLAUDE_REDIRECT,
+      MCP_ALLOWED_USER_IDS: `${USER},${OTHER},${JAROSLAV}`,
       MCP_ALLOW_WRITE: "on",
     })!;
     store = await import("../oauthStore");
     mcp = await import("../mcp/server");
 
     for (const statement of [
-      `INSERT INTO user_roles (user_id, system_role) VALUES ('${USER}', 'EXECUTIVE'), ('${OTHER}', 'CUSTOMER')`,
+      `INSERT INTO user_roles (user_id, system_role) VALUES ('${USER}', 'EXECUTIVE'), ('${OTHER}', 'CUSTOMER'), ('${JAROSLAV}', 'ADMIN')`,
       `INSERT INTO user_profiles (user_id, name, email) VALUES ('${USER}', 'Jaroslav Viner', 'jaroslav@begina.cz')`,
       `INSERT INTO organizations (id, ico, name, registered_address) VALUES ('${ORG}', '11935367', 'The Cup s.r.o.', 'Praha')`,
       `INSERT INTO leads (id, source, company_name, contact_name, contact_phone, city, owner_user_id)
@@ -165,7 +173,8 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
       const withoutUser = { ...config, allowedUserIds: new Set([OTHER]) };
       expect(await store.resolveAccessToken(db, withoutUser, tokens.access_token)).toBeNull();
       // výměna client_id ve Vercelu odpojí všechny dosavadní souhlasy
-      expect(await store.resolveAccessToken(db, { ...config, clientId: "novy-klient" }, tokens.access_token)).toBeNull();
+      const renamed = { ...config, clients: config.clients.map((c) => ({ ...c, clientId: `${c.clientId}-novy` })) };
+      expect(await store.resolveAccessToken(db, renamed, tokens.access_token)).toBeNull();
 
       await db.execute(sql`DELETE FROM user_roles WHERE user_id = ${USER}`);
       expect(await store.resolveAccessToken(db, config, tokens.access_token)).toBeNull();
@@ -454,7 +463,7 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
         await rows(sql`SELECT * FROM agent_tokens`),
         await rows(sql`SELECT * FROM agent_grants`),
       ]);
-      for (const secret of [tokens.access_token, tokens.refresh_token, config.clientSecret, NOTE, "Petra Malá", VERIFIER]) {
+      for (const secret of [tokens.access_token, tokens.refresh_token, ...config.clients.map((c) => c.clientSecret), NOTE, "Petra Malá", VERIFIER]) {
         expect(dump).not.toContain(secret);
       }
       const audit = await rows(sql`SELECT tool, args FROM agent_audit_log WHERE idempotency_key IN ('key-audit-0001', 'key-audit-0002') ORDER BY idempotency_key`);
@@ -483,6 +492,89 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
       });
       expect(denied).toMatchObject({ isError: true });
       expect(await rows(sql`SELECT 1 FROM lead_activity WHERE body = 'nesmí se zapsat'`)).toEqual([]);
+    });
+  });
+  describe("dva asistenti: ChatGPT a Claude — každý svůj klient, souhlas a kanál", () => {
+    const IDOKLAD = ["idoklad_search_invoices", "idoklad_get_invoice", "idoklad_list_series", "idoklad_numbering_audit", "idoklad_unpaid_and_discrepancies"];
+    const text = (result: unknown) => (result as { content: { text: string }[] }).content[0].text;
+    const idokladLog = async (userId: string) =>
+      rows(sql`SELECT channel, tool, status, error FROM idoklad_read_log WHERE user_id = ${userId} ORDER BY created_at`);
+
+    it("souhlas pro Claude: identita „(přes Claude)“, kód ani refresh nevymění klient ChatGPT", async () => {
+      const claude = await connect(false, USER, "EXECUTIVE", CLAUDE);
+      expect(claude.session.client.integration).toBe("claude");
+      expect(claude.session.ctx.name).toBe("Jaroslav Viner (přes Claude)");
+      expect(mcp.agentMcpServer(db, claude.session, config).instructions).toContain("(přes Claude)");
+
+      // refresh token Claude klientem ChatGPT nevymění
+      expect(await store.exchangeRefreshToken(db, { clientId: CLIENT, refreshToken: claude.tokens.refresh_token })).toMatchObject({ ok: false });
+      // kód vydaný pro Claude nevymění ChatGPT
+      const code = await store.issueAuthorizationCode(db, {
+        userId: USER, systemRole: "EXECUTIVE", clientId: CLAUDE, write: false, redirectUri: CLAUDE_REDIRECT, codeChallenge: CHALLENGE,
+      });
+      expect(await store.exchangeAuthorizationCode(db, { clientId: CLIENT, code, redirectUri: CLAUDE_REDIRECT, codeVerifier: VERIFIER })).toMatchObject({ ok: false });
+    });
+
+    it("odvolání tokenem: ChatGPT neodpojí Claude, Claude ano", async () => {
+      const claude = await connect(false, USER, "EXECUTIVE", CLAUDE);
+      await store.revokeByToken(db, claude.tokens.access_token, CLIENT);
+      expect(await store.resolveAccessToken(db, config, claude.tokens.access_token)).not.toBeNull();
+      await store.revokeByToken(db, claude.tokens.access_token, CLAUDE);
+      expect(await store.resolveAccessToken(db, config, claude.tokens.access_token)).toBeNull();
+    });
+
+    it("bez klienta Claude v konfiguraci jeho souhlasy neplatí, ChatGPT dál ano", async () => {
+      const claude = await connect(false, USER, "EXECUTIVE", CLAUDE);
+      const chatgpt = await connect(false);
+      const onlyChatgpt = { ...config, clients: config.clients.filter((c) => c.integration === "chatgpt") };
+      expect(await store.resolveAccessToken(db, onlyChatgpt, claude.tokens.access_token)).toBeNull();
+      expect(await store.resolveAccessToken(db, onlyChatgpt, chatgpt.tokens.access_token)).not.toBeNull();
+    });
+
+    it("nástroje iDokladu: výchozí skryté; nabídnou se jen kanálu z IDOKLAD_READ_CHANNELS", async () => {
+      const claude = await connect(false, JAROSLAV, "ADMIN", CLAUDE);
+      const chatgpt = await connect(false, JAROSLAV, "ADMIN");
+      const listed = (session: import("../oauthStore").AgentSession) =>
+        mcp.agentMcpServer(db, session, config).listTools().map((t) => t.name).filter((n) => n.startsWith("idoklad_"));
+      vi.stubEnv("IDOKLAD_READ_CHANNELS", "");
+      expect(listed(claude.session)).toEqual([]);
+      expect(listed(chatgpt.session)).toEqual([]);
+      vi.stubEnv("IDOKLAD_READ_CHANNELS", "mcp:claude");
+      try {
+        expect(listed(claude.session)).toEqual(IDOKLAD);
+        expect(listed(chatgpt.session)).toEqual([]);
+        for (const tool of mcp.agentMcpServer(db, claude.session, config).listTools().filter((t) => t.name.startsWith("idoklad_"))) {
+          expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+        }
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("volání iDokladu jde přes společné jádro s kanálem podle klienta; skryté nástroje stejně hlídá brána", async () => {
+      vi.stubEnv("IDOKLAD_READ_CHANNELS", "mcp:claude");
+      try {
+        // ChatGPT nemá kanál povolený → zamítnuto i bez nabídnutí, zapsáno do auditu s kanálem mcp:chatgpt
+        const chatgpt = await connect(false, JAROSLAV, "ADMIN");
+        const denied = await call(chatgpt.session, "idoklad_list_series");
+        expect(denied).toMatchObject({ isError: true });
+        expect(text(denied)).toContain("Kanál mcp:chatgpt nemá povolené čtení iDokladu");
+
+        // Claude jako kolega bez fakturačního oprávnění → zamítnuto (jen Jaroslav a Lucie)
+        const colleague = await connect(false, USER, "EXECUTIVE", CLAUDE);
+        expect(text(await call(colleague.session, "idoklad_list_series"))).toContain("smí číst jen");
+
+        // Claude jako Jaroslav → projde branami až ke čtení; v testu iDoklad není připojený (žádná síť)
+        const claude = await connect(false, JAROSLAV, "ADMIN", CLAUDE);
+        expect(text(await call(claude.session, "idoklad_list_series"))).toContain("iDoklad není na tomto prostředí připojený");
+
+        expect(await idokladLog(JAROSLAV)).toEqual([
+          { channel: "mcp:chatgpt", tool: "idoklad_list_series", status: "denied", error: "Kanál mcp:chatgpt nemá povolené čtení iDokladu." },
+        ]);
+        expect(await idokladLog(USER)).toMatchObject([{ channel: "mcp:claude", tool: "idoklad_list_series", status: "denied" }]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
   });
 });

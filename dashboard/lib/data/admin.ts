@@ -8,7 +8,13 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { organizations, organizationMemberships, userActivations, userRoles } from "@/lib/db/schema";
+import {
+  locations,
+  organizations,
+  organizationMemberships,
+  userActivations,
+  userRoles,
+} from "@/lib/db/schema";
 import { auth } from "@/lib/auth/server";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { getAuthContext } from "./authContext";
@@ -17,7 +23,9 @@ import { validateCreateCustomerInput, type CreateCustomerInput } from "./createC
 import { planCustomerCreation, type ExistingUserInfo } from "./createCustomerPlan";
 import {
   validateAddMemberInput,
+  validateAddOrganizationLocationInput,
   validateUpdateOrganizationInput,
+  type AddOrganizationLocationInput,
   type AddMemberInput,
   type UpdateOrganizationInput,
 } from "./organizationAdminValidation";
@@ -28,6 +36,8 @@ import {
   upsertUserProfileStatement,
 } from "./userProfiles";
 import type { AuthContext } from "./types";
+import type { Order } from "@/mock/customer";
+import { getIdokladPurchaseHistory } from "./idokladPurchaseHistory";
 
 export async function requireAdminContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -115,6 +125,18 @@ async function getOnboardingStatusesByUserIds(
 export type OrganizationDetail = OrganizationSummary & {
   registeredAddress: string;
   members: OrganizationMember[];
+  locations: OrganizationLocation[];
+};
+
+export type OrganizationLocation = {
+  id: string;
+  label: string;
+  street: string;
+  city: string;
+  zip: string;
+  contactName: string | null;
+  contactPhone: string | null;
+  isDefaultDelivery: boolean;
 };
 
 // Security Phase 14 — jméno/e-mail nejsou v naší DB (organization_memberships
@@ -146,15 +168,31 @@ export async function getOrganizationDetail(
     return null;
   }
 
-  const memberships = await db
-    .select({
-      userId: organizationMemberships.userId,
-      role: organizationMemberships.role,
-      createdAt: organizationMemberships.createdAt,
-    })
-    .from(organizationMemberships)
-    .where(eq(organizationMemberships.organizationId, organizationId))
-    .orderBy(asc(organizationMemberships.createdAt));
+  const [memberships, organizationLocations] = await Promise.all([
+    db
+      .select({
+        userId: organizationMemberships.userId,
+        role: organizationMemberships.role,
+        createdAt: organizationMemberships.createdAt,
+      })
+      .from(organizationMemberships)
+      .where(eq(organizationMemberships.organizationId, organizationId))
+      .orderBy(asc(organizationMemberships.createdAt)),
+    db
+      .select({
+        id: locations.id,
+        label: locations.label,
+        street: locations.street,
+        city: locations.city,
+        zip: locations.zip,
+        contactName: locations.contactName,
+        contactPhone: locations.contactPhone,
+        isDefaultDelivery: locations.isDefaultDelivery,
+      })
+      .from(locations)
+      .where(eq(locations.organizationId, organizationId))
+      .orderBy(asc(locations.createdAt)),
+  ]);
 
   const userIds = memberships.map((m) => m.userId);
   const [profiles, onboardingStatuses] = await Promise.all([
@@ -164,6 +202,7 @@ export async function getOrganizationDetail(
 
   return {
     ...org,
+    locations: organizationLocations,
     members: memberships.map((m) => {
       const profile = profiles.get(m.userId);
       return {
@@ -175,6 +214,29 @@ export async function getOrganizationDetail(
       };
     }),
   };
+}
+
+export async function getOrganizationPurchaseHistory(
+  organizationId: string
+): Promise<Order[]> {
+  await requireAdminOrExecutiveContext();
+
+  const [org] = await db
+    .select({ ico: organizations.ico })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) return [];
+
+  try {
+    return await getIdokladPurchaseHistory(org.ico);
+  } catch (error) {
+    console.error(
+      "Admin: historii faktur z iDokladu se nepodařilo načíst:",
+      error instanceof Error ? error.message.slice(0, 240) : "neznámá chyba"
+    );
+    return [];
+  }
 }
 
 // Security Phase 5 — založení nového zákazníka z Begina Adminu.
@@ -394,6 +456,40 @@ export async function createCustomerOrganization(
 // (organizationAdminValidation.ts), aby šla testovat.
 
 export type UpdateOrganizationResult = { ok: true } | { ok: false; error: string };
+
+export type AddOrganizationLocationResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function addOrganizationLocation(
+  organizationId: string,
+  rawInput: AddOrganizationLocationInput
+): Promise<AddOrganizationLocationResult> {
+  await requireAdminContext();
+
+  const validated = validateAddOrganizationLocationInput(rawInput);
+  if (!validated.ok) return { ok: false, error: validated.error };
+
+  const [firstLocation] = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(eq(locations.organizationId, organizationId))
+    .limit(1);
+
+  try {
+    await db.insert(locations).values({
+      organizationId,
+      ...validated.value,
+      contactName: validated.value.contactName || null,
+      contactPhone: validated.value.contactPhone || null,
+      isDefaultDelivery: !firstLocation,
+    });
+  } catch {
+    return { ok: false, error: "Provozovnu se nepodařilo uložit. Zkuste to prosím znovu." };
+  }
+
+  return { ok: true };
+}
 
 // IČO je editovatelné (ADMIN musí umět opravit chybu vzniklou při
 // založení) se stejnou validací tvaru jako createCustomerOrganization.

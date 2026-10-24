@@ -1,7 +1,7 @@
 // ESHOP 1.0 — e-maily k objednávce: pojistky (Preview / Production),
 // testovací příjemci, obsah e-mailů a volání Resend API (bez sítě).
 import { describe, expect, it, vi } from "vitest";
-import { emailConfig, parseEmailList, resolveRecipients } from "../email/config";
+import { emailConfig, invoiceCopyRecipients, parseEmailList, resolveRecipients } from "../email/config";
 import { emailsFor } from "../email/orderEmails";
 import { resendTransport } from "../email/resend";
 import {
@@ -33,6 +33,7 @@ describe("e-maily — kdy se vůbec posílají (pojistky)", () => {
       from: "Begina <objednavky@begina.cz>",
       replyTo: null,
       internalTo: ["jaroslav@begina.test", "lucie@begina.test"],
+      invoiceCopyTo: [],
       testRecipients: ["jaroslav@begina.test", "lucie@begina.test"],
     });
   });
@@ -246,6 +247,20 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
     expect(mail.html).toContain("TESTOVACÍ E-MAIL");
     expect(mail.html).toContain("jana@example.cz");
     expect(mail.text).toContain("V ostrém provozu by šel na: jana@example.cz");
+  });
+});
+
+describe("e-maily — skrytá kopie e-mailu s fakturou (ESHOP_EMAIL_INVOICE_COPY_TO)", () => {
+  it("ostrý provoz: všechny adresy kopie kromě těch, které už e-mail dostávají; testovací režim jen povolené", () => {
+    const copy = { invoiceCopyTo: ["jaroslav@begina.test", "lucie@begina.test"] };
+    expect(invoiceCopyRecipients({ ...copy, testRecipients: null }, ["zakaznik@example.cz"])).toEqual(["jaroslav@begina.test", "lucie@begina.test"]);
+    expect(invoiceCopyRecipients({ ...copy, testRecipients: null }, ["Lucie@begina.test"])).toEqual(["jaroslav@begina.test"]);
+    expect(invoiceCopyRecipients({ ...copy, testRecipients: ["lucie@begina.test", "x@begina.test"] }, ["x@begina.test"])).toEqual(["lucie@begina.test"]);
+    expect(invoiceCopyRecipients({ invoiceCopyTo: [], testRecipients: null }, ["z@example.cz"])).toEqual([]);
+    expect(emailConfig({ ...PREVIEW, ESHOP_EMAIL_INVOICE_COPY_TO: "Jaroslav@Begina.test; lucie@begina.test, neplatna" })?.invoiceCopyTo).toEqual([
+      "jaroslav@begina.test",
+      "lucie@begina.test",
+    ]);
   });
 });
 

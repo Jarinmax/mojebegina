@@ -13,6 +13,7 @@ import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { handleStripeEvent } from "@/lib/eshop/stripe/webhook";
 import { invoiceAndNotifyPaid } from "@/lib/eshop/invoicing/afterPaid";
+import { handleCustomerInvoiceStripeEvent } from "@/lib/eshop/stripe/customerInvoice";
 
 // ostrý provoz: vystavení faktury v iDokladu proběhne před e-mailem
 export const maxDuration = 60;
@@ -33,6 +34,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    const invoiceOutcome = await handleCustomerInvoiceStripeEvent(event);
+    if (invoiceOutcome) {
+      return Response.json({ received: true, outcome: invoiceOutcome });
+    }
     const outcome = await handleStripeEvent(db, event);
     if (outcome === "paid") {
       // handleStripeEvent už ověřil, že client_reference_id je naše objednávka.

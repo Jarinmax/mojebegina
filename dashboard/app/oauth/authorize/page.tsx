@@ -1,4 +1,4 @@
-// GPT/MCP pilot — souhlasová stránka OAuth (/oauth/authorize). Sem ChatGPT
+// GPT/MCP pilot — souhlasová stránka OAuth (/oauth/authorize). Sem asistent (ChatGPT, Claude)
 // pošle uživatele při připojení konektoru. Člověk se přihlásí SVÝM účtem
 // MojeBegina (běžný login), uvidí, k čemu asistent dostane přístup, a sám
 // rozhodne. Asistent pak jedná vždy za něj a jen s oprávněními jeho účtu.
@@ -16,6 +16,8 @@ import {
   isAgentUserAllowed,
   queryFromParams,
 } from "@/lib/agent/oauthCore";
+import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
+import { channelAllowed } from "@/lib/idoklad-read/tools";
 import { decideAuthorizationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +57,8 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
   const ctx = await getAuthContext();
   if (!ctx) redirect(`/login?next=${encodeURIComponent(`${AUTHORIZE_PATH}?${query}`)}`);
 
+  const assistant = check.value.client.label;
+  const idokladRead = channelAllowed(`mcp:${check.value.client.integration}`) && isInvoiceIssuer(ctx);
   const eligible = agentEligibleRoles(ctx.grantedRoles);
   const allowed = isAgentUserAllowed(config, ctx.userId) && eligible.length > 0;
 
@@ -62,12 +66,12 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
     return (
       <Card title="Přístup asistenta není povolen">
         <p className="text-sm text-neutral-600 mb-4">
-          Účet {ctx.email} zatím nemá povolené propojení s ChatGPT. O přístup požádejte správce MojeBegina.
+          Účet {ctx.email} zatím nemá povolené propojení s {assistant}. O přístup požádejte správce MojeBegina.
         </p>
         <form action={decideAuthorizationAction}>
           <input type="hidden" name="query" value={query} />
           <button type="submit" name="decision" value="deny" className={`${BUTTON} text-begina-primary-900 bg-neutral-50 border border-neutral-200`}>
-            Zpět do ChatGPT
+            Zpět do {assistant}
           </button>
         </form>
       </Card>
@@ -75,10 +79,10 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
   }
 
   return (
-    <Card title="Propojit ChatGPT s MojeBegina?">
+    <Card title={`Propojit ${assistant} s MojeBegina?`}>
       <p className="text-sm text-neutral-600 mb-4">
         Asistent bude jednat za vás (<span className="font-medium text-begina-primary-900">{ctx.name ?? ctx.email}</span>)
-        a jen s oprávněními vašeho účtu. Vše, co zapíše, bude v historii označené „(přes ChatGPT)“.
+        a jen s oprávněními vašeho účtu. Vše, co zapíše, bude v historii označené „(přes {assistant})“.
       </p>
 
       <form action={decideAuthorizationAction} className="flex flex-col gap-4">
@@ -101,6 +105,7 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
         <div className="flex flex-col gap-2 text-sm text-begina-primary-900">
           <p className="text-xs text-neutral-500">Asistent bude moct</p>
           <p>✓ číst leady, zákazníky a úkoly v Živé mapě firmy</p>
+          {idokladRead ? <p>✓ číst vydané faktury a číselné řady v iDokladu (jen čtení, každý přístup se zaznamená)</p> : null}
           {!config.writeEnabled ? (
             <p className="text-neutral-500">Zápisy jsou zatím vypnuté — asistent bude jen číst.</p>
           ) : check.value.write ? (
@@ -109,7 +114,7 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
               <span>zapisovat poznámky k leadům a zákazníkům, nastavovat další krok u leadu a zakládat a komentovat úkoly v Živé mapě firmy</span>
             </label>
           ) : (
-            <p className="text-neutral-500">Zápisy si ChatGPT nevyžádal — jen čtení.</p>
+            <p className="text-neutral-500">Zápisy si {assistant} nevyžádal — jen čtení.</p>
           )}
           <p className="text-xs text-neutral-500">
             Nikdy: mazat, měnit role a oprávnění, objednávky, platby ani fakturaci.

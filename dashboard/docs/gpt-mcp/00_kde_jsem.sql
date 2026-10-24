@@ -2,7 +2,7 @@
 -- Očekáváno na Preview větvi pilotu (preview/claude/upbeat-goodall-pj64t5):
 --   branch_id   = br-… té větve (zkontrolovat v Neon Console › Branches)
 --   je_production = ne      ← MUSÍ být „ne“, jinak NIC dalšího nespouštět
---   tabulek     = 29 (= main po migraci 0021: 28 tabulek + pohled order_payment_balance)
+--   tabulek     = 30 (= main po migraci 0023: 29 tabulek + pohled order_payment_balance)
 --   weight_g    = 1, pilot = 0
 -- Production `main` (ověřeno read-only 13. 10. 2026): br-odd-surf-b2by4tja,
 --   timeline 70a96b3677653646e65343cae8e27182, endpoint ep-orange-lake-b2zctiy8.

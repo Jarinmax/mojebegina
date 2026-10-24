@@ -14,15 +14,24 @@
 //   GET /PaymentOptions                              převod / karta / hotově (ne dobírka)
 //   GET /NumericSequences?filter=DocumentType~eq~0   řada 7277293 „E-shop Begina“
 //   GET /NumericSequences/DocumentNumbers/IssuedInvoice  další číslo (jen náhled)
+//   GET /IssuedInvoices?filter=NumericSequenceId~eq~…  doklady v řadě (formát, jedinečnost)
+//   GET /IssuedInvoices?filter=DocumentNumber~eq~…     poslední a další číslo napříč agendou
 //   GET /IssuedInvoices/Default                      šablona faktury (typ ceny, účet)
 // Nic nezakládá, nemění, nerezervuje ani neodesílá.
 import { CZECH_REPUBLIC_COUNTRY_CODE, IDOKLAD_ENUMS, PAYMENT_OPTION_MATCH, type ItemPricing } from "./idoklad";
-import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter } from "./idokladHttp";
+import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, type IdokladLogEntry } from "./idokladHttp";
 import { BEGINA_ICO, ESHOP_SERIES, eshopIdokladCredentials, missingIdokladCredentials } from "./mode";
 import { ISSUED_INVOICE_DOCUMENT_TYPE, checkEshopSeries, parseSeriesId, type IdokladNumericSequence } from "./numberSeries";
 
-/** Číslo faktury v řadě 9{RR}{NNNN}: 9 + rok (2 číslice) + pořadí (4 číslice). */
+/**
+ * Číslo faktury v řadě 9{RR}{NNNN}: 9 + rok (2 číslice) + pořadí (4 číslice).
+ * Ruční řada Lucie (2026xxxx, výchozí řada agendy) tvaru nevyhoví — MojeBegina
+ * ji proto nikdy nepoužije ani nepřevezme (dvě souběžné řady od 20. 10. 2026).
+ */
 export const ESHOP_NUMBER_RE = /^9\d{2}\d{4}$/;
+
+/** Nejvýš tolik stran (po 100) dokladů řady E-shop Begina projde kontrola řady. */
+const SERIES_DOCUMENT_PAGES = 10;
 
 export type PreflightCheckKey =
   | "auth"
@@ -35,6 +44,7 @@ export type PreflightCheckKey =
   | "payment_cash"
   | "series"
   | "next_number"
+  | "series_documents"
   | "pricing";
 
 export type PreflightCheck = { key: PreflightCheckKey; label: string; ok: boolean; detail: string };
@@ -59,6 +69,8 @@ export type PreflightResult = {
   /** hodnoty pro vystavení — jen při ok */
   resolved: PreflightResolved | null;
   requestCount: number;
+  /** průběh požadavků (metoda, cesta, HTTP stav / null = bez odpovědi, ms) — bez tokenu a údajů */
+  requests: IdokladLogEntry[];
 };
 
 const LABELS: Record<PreflightCheckKey, string> = {
@@ -72,6 +84,7 @@ const LABELS: Record<PreflightCheckKey, string> = {
   payment_cash: "Způsob úhrady hotově (Cash, ne dobírka)",
   series: `Řada ${ESHOP_SERIES.id} „${ESHOP_SERIES.name}“ (vydané faktury, není výchozí)`,
   next_number: "Další číslo v řadě (jen náhled)",
+  series_documents: "Doklady v řadě E-shop Begina (formát 9RRNNNN, čísla jedinečná, další číslo volné)",
   pricing: "Typ ceny položek u neplátce",
 };
 
@@ -119,12 +132,16 @@ export async function runIdokladPreflight(
       (key) => results.get(key) ?? { key, label: LABELS[key], ok: false, detail: "Neověřeno — předchozí kontrola selhala." }
     );
     const ok = checks.every((c) => c.ok) && resolved !== null;
+    const requests = [...client.log];
+    // do runtime logů Vercelu: jen metoda, cesta, stav a čas (nic tajného)
+    if (!ok) console.warn("iDoklad preflight neprošel", JSON.stringify(requests));
     return {
       ok,
       checkedAt: (options.now ?? new Date()).toISOString(),
       checks,
       resolved: ok ? resolved : null,
       requestCount: client.requestCount,
+      requests,
     };
   };
 
@@ -237,6 +254,8 @@ export async function runIdokladPreflight(
       fail("next_number", `iDoklad nevrátil další číslo v řadě ${ESHOP_SERIES.id}.`);
     } else if (!unique.DocumentNumber || !ESHOP_NUMBER_RE.test(unique.DocumentNumber)) {
       fail("next_number", `Další číslo „${unique.DocumentNumber ?? "—"}“ neodpovídá formátu 9{RR}{NNNN}.`);
+    } else if (!unique.DocumentNumber.startsWith(`9${options.day.slice(2, 4)}`)) {
+      fail("next_number", `Další číslo ${unique.DocumentNumber} nemá rok ${options.day.slice(0, 4)} (9${options.day.slice(2, 4)}NNNN).`);
     } else {
       next = { documentNumber: unique.DocumentNumber, serial: unique.DocumentSerialNumber, day: options.day };
       pass("next_number", `${unique.DocumentNumber} (pořadí ${unique.DocumentSerialNumber}, ${options.day})`);
@@ -245,7 +264,50 @@ export async function runIdokladPreflight(
     fail("next_number", message(error));
   }
 
-  // 7. typ ceny a sazba položek z výchozí faktury agendy
+  // 7. doklady v řadě: každý číslo 9RRNNNN, žádné číslo dvakrát, další číslo
+  //    ještě nikde v agendě není; poslední číslo řady je v agendě jen jednou
+  if (next) {
+    try {
+      const filter = issuedInvoiceFilter(eqFilter("NumericSequenceId", ESHOP_SERIES.id));
+      const documents: { Id: number; DocumentNumber?: string | null }[] = [];
+      let tooMany = false;
+      for (let page = 1; page <= SERIES_DOCUMENT_PAGES; page += 1) {
+        const result = await client.list<{ Id: number; DocumentNumber?: string | null }>("/IssuedInvoices", filter, 100, page);
+        documents.push(...result.Items);
+        if (page >= result.TotalPages || result.Items.length === 0) break;
+        if (page === SERIES_DOCUMENT_PAGES) tooMany = true;
+      }
+      const numbers = documents.map((d) => (d.DocumentNumber ?? "").trim());
+      const foreign = numbers.filter((n) => !ESHOP_NUMBER_RE.test(n));
+      const duplicates = [...new Set(numbers.filter((n, i) => numbers.indexOf(n) !== i))];
+      const last = [...numbers].filter((n) => ESHOP_NUMBER_RE.test(n)).sort().at(-1) ?? null;
+      const nextUsed = (await client.list<{ Id: number }>("/IssuedInvoices", issuedInvoiceFilter(eqFilter("DocumentNumber", next.documentNumber)), 5)).Items.length;
+      const lastCount = last
+        ? (await client.list<{ Id: number }>("/IssuedInvoices", issuedInvoiceFilter(eqFilter("DocumentNumber", last)), 5)).Items.length
+        : 0;
+      if (tooMany) {
+        fail("series_documents", `V řadě je víc než ${SERIES_DOCUMENT_PAGES * 100} dokladů — ověřit ručně.`);
+      } else if (foreign.length > 0) {
+        fail("series_documents", `V řadě ${ESHOP_SERIES.id} jsou doklady s cizím číslem: ${foreign.slice(0, 5).join(", ") || "bez čísla"}.`);
+      } else if (duplicates.length > 0) {
+        fail("series_documents", `Číslo ${duplicates.join(", ")} je v řadě víckrát.`);
+      } else if (numbers.includes(next.documentNumber) || nextUsed > 0) {
+        fail("series_documents", `Další číslo ${next.documentNumber} už v iDokladu existuje.`);
+      } else if (last && lastCount !== 1) {
+        fail("series_documents", `Číslo ${last} je v iDokladu ${lastCount}× (musí být jednou).`);
+      } else {
+        pass(
+          "series_documents",
+          `${numbers.length} ${numbers.length === 1 ? "doklad" : numbers.length >= 2 && numbers.length <= 4 ? "doklady" : "dokladů"}` +
+            `${last ? `, poslední ${last} (v agendě jednou)` : ""}; další ${next.documentNumber} je volné`
+        );
+      }
+    } catch (error) {
+      fail("series_documents", message(error));
+    }
+  }
+
+  // 8. typ ceny a sazba položek z výchozí faktury agendy
   let pricing: ItemPricing | null = null;
   let defaults: Record<string, unknown> = {};
   try {
@@ -263,7 +325,15 @@ export async function runIdokladPreflight(
     fail("pricing", message(error));
   }
 
-  if (currencyId === null || countryId === null || !sequence || !next || !pricing || Object.keys(paymentOptionIds).length !== 3) {
+  if (
+    currencyId === null ||
+    countryId === null ||
+    !sequence ||
+    !next ||
+    !pricing ||
+    Object.keys(paymentOptionIds).length !== 3 ||
+    !results.get("series_documents")?.ok
+  ) {
     return finish(null);
   }
   return finish({

@@ -1,5 +1,5 @@
 -- NÁHLED ZÁKAZNICKÉ KARTY: oprávnění + trvalý audit (= drizzle
--- 0023_customer_card_preview). Návrh 19. 10. 2026; spuštění NESCHVÁLENO.
+-- 0025_customer_card_preview). Návrh 19. 10. 2026; spuštění NESCHVÁLENO.
 -- Kontrola před: 10_before.sql, po: 12_after.sql, návrat: 19_rollback.sql.
 --   user_permissions           úzká oprávnění konkrétních user_id (udělit/odebrat)
 --   customer_card_preview_log  kdo, kdy a kterou organizaci otevřel v náhledu

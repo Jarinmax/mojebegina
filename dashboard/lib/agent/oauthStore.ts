@@ -15,10 +15,12 @@ import {
   ACCESS_TOKEN_TTL_MS,
   CODE_TTL_MS,
   REFRESH_TOKEN_TTL_MS,
+  type AgentClient,
   type AgentConfig,
 } from "./config";
 import {
   AGENT_ROLES,
+  findClient,
   hashToken,
   isAgentUserAllowed,
   newToken,
@@ -29,8 +31,10 @@ import {
 
 type Db = NeonHttpDatabase<typeof schema>;
 
-/** Přípona jména autora u všeho, co asistent zapíše — v historii je hned vidět, že šlo o ChatGPT. */
-export const AGENT_NAME_SUFFIX = " (přes ChatGPT)";
+/** Přípona jména autora u všeho, co asistent zapíše — v historii je hned vidět, který asistent to byl. */
+export function agentNameSuffix(client: Pick<AgentClient, "label">): string {
+  return ` (přes ${client.label})`;
+}
 
 export type TokenSuccess = {
   ok: true;
@@ -188,14 +192,21 @@ export async function exchangeRefreshToken(
   return issueTokenPair(db, grant.id, grant.scope, now);
 }
 
-/** RFC 7009 — odvolání jakéhokoli tokenu odvolá celý grant (asistent se musí znovu připojit). */
-export async function revokeByToken(db: Db, token: string, now: Date = new Date()): Promise<void> {
+/**
+ * RFC 7009 — odvolání jakéhokoli tokenu odvolá celý grant (asistent se musí
+ * znovu připojit). S clientId jen grant TOHO klienta: ChatGPT neodpojí Claude
+ * a naopak (cizí token = tichý úspěch, RFC 7009 §2.2).
+ */
+export async function revokeByToken(db: Db, token: string, clientId?: string, now: Date = new Date()): Promise<void> {
   const [row] = await db
-    .select({ grantId: agentTokens.grantId })
+    .select({ grantId: agentTokens.grantId, clientId: agentGrants.clientId })
     .from(agentTokens)
+    .innerJoin(agentGrants, eq(agentTokens.grantId, agentGrants.id))
     .where(eq(agentTokens.tokenHash, hashToken(token)))
     .limit(1);
-  if (row) await revokeGrant(db, row.grantId, "revoked_by_client", now);
+  if (!row) return;
+  if (clientId !== undefined && !safeEqual(row.clientId, clientId)) return;
+  await revokeGrant(db, row.grantId, "revoked_by_client", now);
 }
 
 // --- /api/mcp: access token → identita --------------------------------------
@@ -203,6 +214,8 @@ export async function revokeByToken(db: Db, token: string, now: Date = new Date(
 export type AgentSession = {
   grantId: string;
   scope: string;
+  /** Klient (asistent), kterému byl souhlas udělen — určuje kanál mcp:chatgpt / mcp:claude. */
+  client: AgentClient;
   ctx: NonNullable<AuthContext>;
 };
 
@@ -226,8 +239,10 @@ export async function resolveAccessToken(
   if (!row || row.expiresAt.getTime() <= now.getTime() || row.grant.revokedAt) return null;
 
   const { grant } = row;
-  // Výměna MCP_OAUTH_CLIENT_ID ve Vercelu = okamžité odpojení všech dosavadních souhlasů.
-  if (!safeEqual(grant.clientId, config.clientId) || !isAgentUserAllowed(config, grant.userId)) return null;
+  // Výměna client_id klienta ve Vercelu (MCP_OAUTH_CLIENT_ID, MCP_CLAUDE_OAUTH_CLIENT_ID)
+  // = okamžité odpojení všech dosavadních souhlasů TOHO klienta.
+  const client = findClient(config, grant.clientId);
+  if (!client || !isAgentUserAllowed(config, grant.userId)) return null;
 
   const roleRows = await db
     .select({ systemRole: userRoles.systemRole })
@@ -248,12 +263,13 @@ export async function resolveAccessToken(
   return {
     grantId: grant.id,
     scope: grant.scope,
+    client,
     ctx: {
       userId: grant.userId,
       systemRole: role,
       grantedRoles,
       roleSelectionRequired: false,
-      name: `${profile?.name ?? profile?.email ?? "Neznámý uživatel"}${AGENT_NAME_SUFFIX}`,
+      name: `${profile?.name ?? profile?.email ?? "Neznámý uživatel"}${agentNameSuffix(client)}`,
       email: profile?.email ?? "",
     },
   };
@@ -263,6 +279,7 @@ export async function resolveAccessToken(
 
 export type GrantSummary = {
   id: string;
+  clientId: string;
   systemRole: string;
   scope: string;
   createdAt: Date;
@@ -273,6 +290,7 @@ export async function listActiveGrants(db: Db, userId: string): Promise<GrantSum
   return db
     .select({
       id: agentGrants.id,
+      clientId: agentGrants.clientId,
       systemRole: agentGrants.systemRole,
       scope: agentGrants.scope,
       createdAt: agentGrants.createdAt,

@@ -23,6 +23,7 @@ import { getAuthContext } from "./authContext";
 import { assertOrgAccess } from "./organizations";
 import type { AuthContext } from "./types";
 import type { CustomerAccount, Order } from "@/mock/customer";
+import { getIdokladPurchaseHistory } from "./idokladPurchaseHistory";
 
 type NonNullAuthContext = NonNullable<AuthContext>;
 
@@ -219,7 +220,28 @@ async function loadCustomerOrders(organizationId: string): Promise<Order[]> {
     });
   }
 
-  return result;
+  try {
+    const [org] = await db
+      .select({ ico: organizations.ico })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+    if (!org) return result;
+
+    const historical = await getIdokladPurchaseHistory(org.ico);
+    if (historical.length === 0) return result;
+
+    // iDoklad je zdroj pravdy pro vystavené faktury. Lokální e-shopové
+    // objednávky doplní jen případné záznamy, které ještě fakturu nemají.
+    const historicalNumbers = new Set(historical.map((order) => order.orderNumber));
+    return [...historical, ...result.filter((order) => !historicalNumbers.has(order.orderNumber))];
+  } catch (error) {
+    console.error(
+      "Historii faktur z iDokladu se nepodařilo načíst, zobrazuji lokální objednávky:",
+      error instanceof Error ? error.message.slice(0, 240) : "neznámá chyba"
+    );
+    return result;
+  }
 }
 
 // --- Náhled zákaznické karty („očima zákazníka“) ------------------------

@@ -13,6 +13,7 @@ import { bankConfig, formatPragueDate, isTransferOverdue, transferInfo } from "@
 import { qrSvg } from "@/lib/eshop/qr";
 import PayAgainButton from "./PayAgainButton";
 import TransferPayment from "./TransferPayment";
+import ForgetPendingOrder from "./ForgetPendingOrder";
 
 // ESHOP 1.0 — stav e-shopové objednávky pro zákazníka (návrat ze Stripe).
 // Adresa obsahuje náhodné id objednávky; stránka ukazuje jen položky,
@@ -130,9 +131,10 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
 
       {!paid && canPay && (
         <div className="mb-6">
-          <PayAgainButton orderId={order.id} label={platba === "ok" ? "Zaplatit kartou" : "Zaplatit znovu kartou"} />
+          <PayAgainButton orderId={order.id} label={platba === "ok" ? "Zaplatit kartou" : "Zaplatit objednávku"} />
         </div>
       )}
+      {(paid || cancelled) && <ForgetPendingOrder orderId={order.id} />}
       {!paid && !cancelled && platba === "ok" && (
         <ShopLink href={`/objednavka/${order.id}?platba=ok`} className="text-sm underline underline-offset-2 mr-4">
           Obnovit stav
