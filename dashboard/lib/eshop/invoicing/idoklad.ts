@@ -15,7 +15,51 @@
 // aby se den nikdy neposunul převodem časového pásma.
 import type { InvoiceDraft } from "./draft";
 
+/** Kolik dní před dnem úhrady se hledá faktura se stejným VS (i ruční, jakákoli řada). */
+export const VS_LOOKBACK_DAYS = 31;
+
+/** První den (YYYY-MM-DD), od kterého se hledá faktura se stejným VS. */
+export function vsSearchFromDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - VS_LOOKBACK_DAYS);
+  return date.toISOString().slice(0, 10);
+}
+
 export const IDOKLAD_PROVIDER = "idoklad";
+
+/** Text na faktuře (za položkami) — faktura vzniká až po úplné úhradě. */
+export const INVOICE_PAID_TEXT = "Faktura je již uhrazena – neplaťte.";
+
+/** Den úhrady; starší uložené návrhy ho nemají — tehdy byl datem vystavení. */
+export function paidDayOf(draft: InvoiceDraft): string | null {
+  return draft.paidDate ?? draft.issueDate;
+}
+
+/** „69122“ → „691 22“ */
+function czZip(zip: string): string {
+  return /^\d{5}$/.test(zip) ? `${zip.slice(0, 3)} ${zip.slice(3)}` : zip;
+}
+
+/**
+ * Ověřená dodací adresa zásilky (explicitní pole objednávky, ne poznámka),
+ * odděleně od fakturační adresy odběratele. Osobní odběr / neověřená adresa = null
+ * (neověřená adresa je v návrhu blokující chyba — faktura se nevystaví).
+ */
+export function deliveryText(draft: InvoiceDraft): string | null {
+  const delivery = draft.delivery;
+  if (!delivery || delivery.kind !== "shipment" || !delivery.address || !delivery.name) return null;
+  const a = delivery.address;
+  return `Dodací adresa: ${delivery.name}, ${a.street}, ${czZip(a.zip)} ${a.city}`;
+}
+
+/**
+ * Text za položkami faktury MojeBegina — ÚPLNĚ nahrazuje text agendy
+ * (výchozí text iDokladu o nedodržení splatnosti se nepřipojí): jen
+ * „uhrazeno – neplaťte“ a ověřená dodací adresa.
+ */
+export function itemsTextSuffix(draft: InvoiceDraft): string {
+  return [INVOICE_PAID_TEXT, deliveryText(draft)].filter(Boolean).join("\n");
+}
 
 // OPRAVA 7. 10. 2026 (zjištěno živým read-only testem proti agendě Beginy,
 // potvrzeno proti oficiálnímu SDK Solitea/IdokladSdk a přeneseno sem z
@@ -106,15 +150,25 @@ export type IdokladRequests = {
 
 export type ContactResolved = { countryId: number };
 
+/** Číslo objednávky na faktuře; starší uložené návrhy (bez orderReference) = číslo objednávky. */
+function orderReference(draft: InvoiceDraft): string | null {
+  if (draft.orderReference !== undefined) return draft.orderReference;
+  return draft.orderNumber !== null ? String(draft.orderNumber) : null;
+}
+
 export function contactPostBody(draft: InvoiceDraft, resolved: ContactResolved): Record<string, unknown> {
-  const { firstname, surname } = splitName(draft.customer.name);
-  const address = draft.customer.address;
+  const customer = draft.customer;
+  const company = customer.kind === "company";
+  // osoba: jméno = celé jméno; firma: jméno a příjmení kontaktní osoby
+  const { firstname, surname } = splitName(company ? customer.contactPerson : customer.name);
+  const address = customer.address;
   return {
-    CompanyName: (draft.customer.name ?? draft.customer.email ?? "").slice(0, 200), // u osoby celé jméno
+    CompanyName: (customer.name ?? customer.email ?? "").slice(0, 200), // firma: název, osoba: celé jméno
     Firstname: firstname,
     Surname: surname,
-    Email: draft.customer.email,
-    Phone: draft.customer.phone,
+    ...(company ? { IdentificationNumber: customer.ico, VatIdentificationNumber: customer.dic } : {}),
+    Email: customer.email,
+    Phone: customer.phone,
     Street: address?.street ?? null,
     City: address?.city ?? null,
     PostalCode: address?.zip ?? null,
@@ -156,11 +210,12 @@ export function invoicePostBody(
   resolved: InvoiceResolved,
   defaults: Record<string, unknown> = {}
 ): Record<string, unknown> {
-  if (!draft.vs || !draft.issueDate) throw new Error("Návrh faktury nemá VS nebo datum úhrady.");
+  if (!draft.vs || !draft.issueDate || !paidDayOf(draft)) throw new Error("Návrh faktury nemá VS, datum vystavení nebo datum úhrady.");
   const fromDefaults: Record<string, unknown> = {};
-  for (const key of ["AccountNumber", "BankId", "Iban", "Swift", "ConstantSymbolId", "IsIncomeTax", "ItemsTextPrefix", "ItemsTextSuffix"]) {
+  for (const key of ["AccountNumber", "BankId", "Iban", "Swift", "ConstantSymbolId", "IsIncomeTax", "ItemsTextPrefix"]) {
     if (defaults[key] !== undefined && defaults[key] !== null) fromDefaults[key] = defaults[key];
   }
+  // vystavení / splatnost = den vystavení; DUZP z návrhu (zatím den úhrady); datum úhrady jde do FullyPay (issue.ts)
   const date = idokladDate(draft.issueDate);
   return {
     IsIncomeTax: true,
@@ -170,15 +225,16 @@ export function invoicePostBody(
     DocumentSerialNumber: resolved.documentSerialNumber,
     VariableSymbol: draft.vs,
     DateOfIssue: date,
-    DateOfTaxing: date,
-    DateOfMaturity: date,
+    DateOfTaxing: idokladDate(draft.taxableDate ?? draft.issueDate),
+    DateOfMaturity: idokladDate(draft.dueDate ?? draft.issueDate),
     CurrencyId: resolved.currencyId,
     PaymentOptionId: resolved.paymentOptionId,
-    OrderNumber: draft.orderNumber !== null ? String(draft.orderNumber) : null,
+    OrderNumber: orderReference(draft),
     Description: draft.note,
     DiscountPercentage: 0,
     IsEet: false,
     ReportLanguage: IDOKLAD_ENUMS.Language.Cz,
+    ItemsTextSuffix: itemsTextSuffix(draft),
     Items: items(draft, resolved.pricing),
   };
 }
@@ -186,9 +242,16 @@ export function invoicePostBody(
 /** Náhled pro MojeBegina: co se do iDokladu pošle (ID z číselníků doplní ostré vystavení). */
 export function idokladRequests(draft: InvoiceDraft): IdokladRequests {
   return {
-    contactLookup: { by: "email", value: draft.customer.email },
+    contactLookup:
+      draft.customer.kind === "company" && draft.customer.ico
+        ? { by: "ico", value: draft.customer.ico }
+        : { by: "email", value: draft.customer.email },
     contact: { ...contactPostBody(draft, { countryId: 0 }), CountryId: null },
-    duplicateCheck: { collection: "IssuedInvoices", filter: draft.vs ? `VariableSymbol~eq~${draft.vs}` : null },
+    // iDoklad podle VS filtrovat neumí — faktury od data, VS se porovná u nás (issue.ts findByVs)
+    duplicateCheck: {
+      collection: "IssuedInvoices",
+      filter: draft.vs && paidDayOf(draft) ? `DateOfIssue~gte~${vsSearchFromDay(paidDayOf(draft)!)}, VariableSymbol = ${draft.vs}` : null,
+    },
     invoice: {
       PartnerId: null, // ID kontaktu z kroku „kontakt“
       NumericSequenceId: draft.numberSeriesId,
@@ -197,11 +260,13 @@ export function idokladRequests(draft: InvoiceDraft): IdokladRequests {
       DateOfIssue: draft.issueDate,
       DateOfTaxing: draft.taxableDate,
       DateOfMaturity: draft.dueDate,
+      DateOfPayment: paidDayOf(draft), // FullyPay po vystavení
       CurrencyId: null, // CZK — z číselníku Currencies
       PaymentOptionId: null, // podle způsobu úhrady — z číselníku PaymentOptions
-      OrderNumber: draft.orderNumber !== null ? String(draft.orderNumber) : null,
+      OrderNumber: orderReference(draft),
       Description: draft.note,
       IsEet: false,
+      ItemsTextSuffix: itemsTextSuffix(draft),
       Items: items(draft, null).map((item) => ({
         Name: item.Name,
         Code: item.Code,

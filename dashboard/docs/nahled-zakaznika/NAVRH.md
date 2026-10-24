@@ -1,6 +1,6 @@
 # Náhled zákaznické karty („očima zákazníka“) — úzké oprávnění `customer_card_preview`
 
-Stav: **kód připravený, migrace 0023 PŘIPRAVENÁ a NESPUŠTĚNÁ** (ani v Preview,
+Stav: **kód připravený, migrace 0025 PŘIPRAVENÁ a NESPUŠTĚNÁ** (ani v Preview,
 ani v Production). Bez migrace náhled bezpečně selže: tlačítko se nikomu
 neukáže a adresa vrací 404. Návrh 19. 10. 2026.
 
@@ -82,7 +82,7 @@ sdílené komponenty (`components/customer-portal/*`) ze stejných funkcí
 znak po znaku stejné jako u přihlášeného zákazníka (kromě neaktivního
 „Odhlásit se“).
 
-## Migrace 0023 (jen přidává)
+## Migrace 0025 (jen přidává)
 
 - **`user_permissions`:**
   - kdo, jaké oprávnění, kdo a kdy udělil, důvod, kdo a kdy odebral;
@@ -93,7 +93,7 @@ znak po znaku stejné jako u přihlášeného zákazníka (kromě neaktivního
 - **`customer_card_preview_log`:** audit otevření (viz výše).
 - **Skripty** (`docs/nahled-zakaznika/`):
   - `10_before.sql`: jen čtení; očekáváno `0 | 4 | 4` + výpis 4 jmen ke kontrole;
-  - `11_migration.sql`: chráněný, drizzle 0023; podruhé se zastaví „už existuje“;
+  - `11_migration.sql`: chráněný, drizzle 0025; podruhé se zastaví „už existuje“;
   - `12_after.sql`: očekáváno `2 | 3 | 0 | 0`;
   - `19_rollback.sql`: zastaví se, pokud audit už obsahuje záznamy;
   - `20_udelit.sql`: udělí 4 členům podle `user_id`. Zastaví se, když účet
@@ -101,11 +101,11 @@ znak po znaku stejné jako u přihlášeného zákazníka (kromě neaktivního
   - `29_odebrat.sql`: odebere jednomu `user_id`. Platí okamžitě, historie zůstává.
 - **Ověřeno nad PGlite** (`customerCardPreviewScripts.test.ts`,
   `productionRehearsal.test.ts`):
-  - skript = drizzle 0023;
+  - skript = drizzle 0025;
   - návrat = přesný stav před;
   - udělení, odebrání a pojistky.
-- **Číslo:** 0023 na pilotní větvi. Rozpracované zapisovací balíčky se
-  přečíslují na 0024.
+- **Číslo:** 0025 (za `main` 0022–0023 a pilotem 0024). Rozpracované zapisovací balíčky se
+  přečíslují za 0025.
 
 ## Postup (každý krok po schválení)
 

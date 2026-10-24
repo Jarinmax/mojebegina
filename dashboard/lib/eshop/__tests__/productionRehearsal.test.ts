@@ -133,20 +133,44 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("eshop-production", "42_hmotnosti_after.sql"))).toBe("1 | 36 | 0 | 25 | 7 | 4 | 0");
   });
 
-  it("GPT/MCP pilot — drizzle 0022 (před / migrace / po), opakované spuštění se zastaví", async () => {
+  it("firmy na faktuře — drizzle 0022 (DIČ + unikátní číslo z WooCommerce), druhé spuštění se zastaví", async () => {
+    await run(pg, file("eshop-production", "60_firmy_migrace_0022.sql"));
+    await expect(run(pg, file("eshop-production", "60_firmy_migrace_0022.sql"))).rejects.toThrow(/už existuje/);
+    // The Cup (starší import bez čísla z WooCommerce) beze změny
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE external_woocommerce_id IS NULL`);
+    expect(rows[0].n).toBeGreaterThan(0);
+  });
+
+  it("čtení iDokladu — drizzle 0023 (auditní záznam přístupů): před / migrace / po, druhé spuštění se zastaví, návrat jen bez záznamů", async () => {
+    const line = async (name: string) =>
+      Object.values((await pg.query<Record<string, unknown>>(file("idoklad-cteni", name).replace(/--[^\n]*\n/g, "\n"))).rows[0]).map(String).join(" | ");
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+    await expect(run(pg, file("idoklad-cteni", "11_migrace_0023.sql"))).rejects.toThrow(/už existuje/);
+    expect(await line("12_po.sql")).toBe("ano | 0 | 2");
+    // návrat: s auditním záznamem se zastaví, prázdná tabulka jde vrátit (a znovu založit)
+    await pg.exec(`INSERT INTO idoklad_read_log (user_id, channel, tool, args, status) VALUES ('u', 'ui', 't', '{}', 'ok')`);
+    await expect(run(pg, file("idoklad-cteni", "19_navrat.sql"))).rejects.toThrow(/auditní stopa se nemaže/);
+    await pg.exec(`DELETE FROM idoklad_read_log`);
+    await run(pg, file("idoklad-cteni", "19_navrat.sql"));
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+  });
+
+  it("GPT/MCP pilot — drizzle 0024 (před / migrace / po), opakované spuštění se zastaví", async () => {
     expect(await check(pg, file("gpt-mcp", "10_before.sql"))).toBe("0");
     await run(pg, file("gpt-mcp", "11_migration.sql"));
     expect(await check(pg, file("gpt-mcp", "12_after.sql"))).toBe("4 | 4 | 0 | 0");
     await expect(run(pg, file("gpt-mcp", "11_migration.sql"))).rejects.toThrow(/už existuje/);
   });
 
-  it("náhled zákaznické karty — drizzle 0023 (migrace / po), opakované spuštění se zastaví", async () => {
+  it("náhled zákaznické karty — drizzle 0025 (migrace / po), opakované spuštění se zastaví", async () => {
     await run(pg, file("nahled-zakaznika", "11_migration.sql"));
     expect(await check(pg, file("nahled-zakaznika", "12_after.sql"))).toBe("2 | 3 | 0 | 0");
     await expect(run(pg, file("nahled-zakaznika", "11_migration.sql"))).rejects.toThrow(/už existuje/);
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0023) + pojistka číslování", async () => {
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0025) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

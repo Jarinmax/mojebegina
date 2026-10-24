@@ -1,4 +1,4 @@
--- GPT/MCP PILOT: 4 nové tabulky (= drizzle 0022_gpt_mcp_pilot), nic
+-- GPT/MCP PILOT: 4 nové tabulky (= drizzle 0024_gpt_mcp_pilot), nic
 -- existujícího se nemění. Návrh 13. 10. 2026; spuštění NESCHVÁLENO.
 -- Postup: GPT_MCP_PILOT.md. Kontrola před: 10_before.sql, po: 12_after.sql,
 -- návrat: 19_rollback.sql.

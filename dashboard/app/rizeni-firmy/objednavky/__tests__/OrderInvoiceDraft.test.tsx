@@ -22,8 +22,11 @@ function invoiceView(recipientAddress: string | null): OrderInvoiceView {
       contactName: "Jana Nováková",
       contactEmail: "jana@example.cz",
       contactPhone: null,
+      recipientName: "Jana Nováková",
       recipientAddress,
-      shippingMethodLabel: "Osobní vyzvednutí",
+      // bez adresy osobní odběr, s adresou zásilka
+      shippingMethodCode: recipientAddress ? "rozvoz" : "osobni-odber",
+      shippingMethodLabel: recipientAddress ? "Chlazená přeprava" : "Osobní vyzvednutí",
       subtotalKc: 379,
       discountKc: 0,
       shippingKc: 0,
@@ -32,7 +35,7 @@ function invoiceView(recipientAddress: string | null): OrderInvoiceView {
     },
     [{ name: "Dýňová polévka", quantity: 1, unitPriceKc: 379, lineTotalKc: 379, sku: "dynova-polevka" }],
     [{ id: "p1", source: "manual", externalId: "tok-1", method: "bank_transfer", direction: "inflow", status: "succeeded", amountHal: 37900, occurredAt: new Date("2026-10-06T08:00:00Z") }],
-    { numberSeriesId: null }
+    { numberSeriesId: null, now: new Date("2026-10-07T08:00:00Z") }
   );
   return {
     invoiceId: "i1",
@@ -86,11 +89,15 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     expect(text).toContain("Jana Nováková");
     expect(text).toContain("70000001");
     expect(text).toContain("1× Dýňová polévka");
-    expect(text).toContain("6. 10. 2026 / 6. 10. 2026 / 6. 10. 2026");
+    // vystavení / splatnost = den vystavení; DUZP zatím den úhrady; úhrada zvlášť
+    expect(text).toContain("7. 10. 2026 / 6. 10. 2026 / 7. 10. 2026");
+    expect(text).toContain("uhrazeno 379 Kč · 6. 10. 2026");
+    expect(text).toContain("Osobní vyzvednutí"); // doručení
+    expect(text).toContain("Faktura je již uhrazena – neplaťte.");
     expect(text).toContain("e-shopová řada — ID zatím nepotvrzené");
     expect(text).toContain("Zákazník nezadal adresu (osobní odběr)"); // upozornění
     expect(text).toContain("Chybí ID e-shopové číselné řady v iDokladu"); // doplnit před ostrým vystavením
-    expect(text).toContain("VariableSymbol~eq~70000001"); // pojistka proti dvojí faktuře
+    expect(text).toContain("VariableSymbol = 70000001"); // pojistka proti dvojí faktuře
     expect(text).toContain('"NumericSequenceId": null');
     expect(screen.getByRole("button", { name: "Přegenerovat návrh z aktuálních údajů" })).toBeTruthy();
   });
@@ -99,9 +106,13 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     const issued = invoiceView("Lipová 5, 60200 Brno");
     issued.docState = "issued";
     issued.link!.state = "issued";
-    render(<OrderInvoiceDraft orderId="o1" invoice={issued} paid />);
+    const { container } = render(<OrderInvoiceDraft orderId="o1" invoice={issued} paid />);
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByText(/Lipová 5, 60200/)).toBeTruthy();
+    // fakturační adresa (odběratel), dodací adresa (doručení) a text na faktuře
+    const text = container.textContent ?? "";
+    expect(text).toContain("Lipová 5, 60200 Brno"); // odběratel
+    expect(text).toContain("DoručeníJana Nováková, Lipová 5, 602 00 BrnoChlazená přeprava");
+    expect(text).toContain("Dodací adresa: Jana Nováková, Lipová 5, 602 00 Brno");
   });
 });
 

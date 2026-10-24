@@ -1,8 +1,8 @@
 // ESHOP 1.0 — zpracování událostí ze Stripe (volá se až PO ověření podpisu
 // v app/api/eshop/stripe/webhook/route.ts).
 //
-// Idempotence: Stripe smí stejnou událost poslat víckrát (a platby
-// WooCommerce na stejném účtu chodí sem taky). Každý pokus (Checkout
+// Idempotence: Stripe smí stejnou událost poslat víckrát (a cizí platby
+// na stejném účtu, pokud nějaké jsou, se ignorují podle metadata.source). Každý pokus (Checkout
 // Session) je jeden řádek v payments (UNIQUE source + external_id);
 // úspěšná platba ho přepne na „proběhlo“ a v téže transakci se přepočítá
 // objednávka (lib/eshop/payments.ts) — Zaplaceno až po úhradě celé částky,

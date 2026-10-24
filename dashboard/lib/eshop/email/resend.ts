@@ -14,6 +14,8 @@ export type Attachment = { filename: string; contentBase64: string };
 export type EmailMessage = {
   from: string;
   to: string[];
+  /** skrytá kopie (Bcc) */
+  bcc?: string[];
   replyTo?: string | null;
   subject: string;
   html: string;
@@ -42,6 +44,7 @@ export function resendTransport(apiKey: string, fetchImpl: typeof fetch = fetch)
         body: JSON.stringify({
           from: message.from,
           to: message.to,
+          ...(message.bcc?.length ? { bcc: message.bcc } : {}),
           ...(message.replyTo ? { reply_to: message.replyTo } : {}),
           subject: message.subject,
           html: message.html,

@@ -13,8 +13,8 @@ const tables = async (pg: import("@electric-sql/pglite").PGlite) =>
   );
 
 describe("docs/gpt-mcp — migrace a návrat", { timeout: 60_000 }, () => {
-  it("11 → 19 vrátí přesně stav po 0021; 19 nesmaže poznámky u zákazníků", async () => {
-    const { pg } = await createMigratedDb("0021_eshop_1_0_variant_weight");
+  it("11 → 19 vrátí přesně stav po 0023; 19 nesmaže poznámky u zákazníků", async () => {
+    const { pg } = await createMigratedDb("0023_idoklad_read_log");
     const before = await tables(pg);
 
     await pg.exec(file("11_migration.sql"));
@@ -36,7 +36,7 @@ describe("docs/gpt-mcp — migrace a návrat", { timeout: 60_000 }, () => {
     const tail = (sql: string) => sql.slice(sql.indexOf("  IF EXISTS (SELECT 1 FROM information_schema.tables"));
     expect(tail(preview)).toBe(tail(file("11_migration.sql"))); // tělo se nesmí rozejít
 
-    const { pg } = await createMigratedDb("0021_eshop_1_0_variant_weight");
+    const { pg } = await createMigratedDb("0023_idoklad_read_log");
     const before = await tables(pg);
     // bez neon.* nastavení (nenahrazený zástupný text) → STOP
     await expect(pg.exec(preview)).rejects.toThrow(/STOP/);
@@ -52,7 +52,7 @@ describe("docs/gpt-mcp — migrace a návrat", { timeout: 60_000 }, () => {
     // správná Preview větev → migrace proběhne, kontroly sedí
     await pg.exec(`SELECT set_config('neon.branch_id', 'br-preview-pilot', false)`);
     const where = await pg.query<Record<string, unknown>>(file("00_kde_jsem.sql"));
-    expect(where.rows[0]).toMatchObject({ branch_id: "br-preview-pilot", je_production: "ne", tabulek: 29, weight_g: 1, pilot: 0 });
+    expect(where.rows[0]).toMatchObject({ branch_id: "br-preview-pilot", je_production: "ne", tabulek: 30, weight_g: 1, pilot: 0 });
     await pg.exec(preview.replaceAll("<PREVIEW_BRANCH_ID>", "br-preview-pilot"));
     const after = await pg.query<Record<string, unknown>>(file("12_after.sql"));
     expect(Object.values(after.rows[0]).map(String)).toEqual(["4", "4", "0", "0"]);

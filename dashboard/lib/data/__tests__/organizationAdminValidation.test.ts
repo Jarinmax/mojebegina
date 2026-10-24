@@ -2,6 +2,7 @@
 // data, žádná reálná organizace ani zákazník, žádné I/O.
 import { describe, expect, it } from "vitest";
 import {
+  validateAddOrganizationLocationInput,
   validateAddMemberInput,
   validateUpdateOrganizationInput,
 } from "../organizationAdminValidation";
@@ -66,5 +67,34 @@ describe("validateAddMemberInput — Security Phase 6", () => {
 
   it("neplatný e-mail = DENY", () => {
     expect(validateAddMemberInput({ ...valid, email: "spatne" }).ok).toBe(false);
+  });
+});
+
+describe("validateAddOrganizationLocationInput", () => {
+  const valid = {
+    label: "Kavárna Nová hra",
+    street: "Jeremenkova 1019/66",
+    city: "Praha",
+    zip: "147 00",
+    contactName: "Paní Karabcová",
+    contactPhone: "+420 603 437 734",
+  };
+
+  it("přijme a ořízne platnou provozovnu", () => {
+    const result = validateAddOrganizationLocationInput({ ...valid, label: "  Kavárna Nová hra " });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.label).toBe("Kavárna Nová hra");
+  });
+
+  it("vyžaduje název, ulici a město", () => {
+    expect(validateAddOrganizationLocationInput({ ...valid, label: "" }).ok).toBe(false);
+    expect(validateAddOrganizationLocationInput({ ...valid, street: "" }).ok).toBe(false);
+    expect(validateAddOrganizationLocationInput({ ...valid, city: "" }).ok).toBe(false);
+  });
+
+  it("kontroluje české PSČ s mezerou i bez ní", () => {
+    expect(validateAddOrganizationLocationInput({ ...valid, zip: "14700" }).ok).toBe(true);
+    expect(validateAddOrganizationLocationInput({ ...valid, zip: "147 00" }).ok).toBe(true);
+    expect(validateAddOrganizationLocationInput({ ...valid, zip: "147" }).ok).toBe(false);
   });
 });

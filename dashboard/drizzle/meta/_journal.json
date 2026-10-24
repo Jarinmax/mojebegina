@@ -159,15 +159,29 @@
     {
       "idx": 22,
       "version": "7",
-      "when": 1791929032651,
-      "tag": "0022_gpt_mcp_pilot",
+      "when": 1792435662841,
+      "tag": "0022_eshop_1_0_company_invoicing",
       "breakpoints": true
     },
     {
       "idx": 23,
       "version": "7",
-      "when": 1792432943817,
-      "tag": "0023_customer_card_preview",
+      "when": 1792742022306,
+      "tag": "0023_idoklad_read_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792843540827,
+      "tag": "0024_gpt_mcp_pilot",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792843542045,
+      "tag": "0025_customer_card_preview",
       "breakpoints": true
     }
   ]

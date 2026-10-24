@@ -44,7 +44,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { ESHOP_ACTOR_NAME } from "../orderWrite";
-import { emailConfig, resolveRecipients, type EmailConfig } from "./config";
+import { emailConfig, invoiceCopyRecipients, resolveRecipients, type EmailConfig } from "./config";
 import { resendTransport, type EmailTransport } from "./resend";
 import {
   customerCancellationEmail,
@@ -87,10 +87,15 @@ type OrderForEmail = EmailOrder & { channel: string };
 
 /** Které e-maily daná událost spouští (čistá funkce). */
 export function emailsFor(
-  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus">,
+  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus" | "externalWooCommerceId">,
   trigger: OrderEmailTrigger,
   alreadySentTemplates: ReadonlySet<string> = new Set()
 ): OrderEmailTemplate[] {
+  // Objednávka importovaná z WooCommerce: jen „Faktura k objednávce“ (PDF
+  // z MojeBegina); potvrzení a stavové e-maily poslal zákazníkovi WooCommerce.
+  if (order.channel === "import" && order.externalWooCommerceId) {
+    return trigger === "invoice_issued" && order.paymentStatus === "paid" ? ["customer_invoice"] : [];
+  }
   if (order.channel !== "eshop") return [];
   const card = order.paymentMethodCode === "karta";
   if (trigger === "order_created") {
@@ -118,6 +123,7 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
       channel: orders.channel,
       orderNumber: orders.orderNumber,
       paymentVs: orders.paymentVs,
+      externalWooCommerceId: orders.externalWooCommerceId,
       contactName: orders.contactName,
       contactEmail: orders.contactEmail,
       recipientAddress: orders.recipientAddress,
@@ -282,8 +288,10 @@ export async function sendOrderEmails(
           ? customerReply.to[0]
           : config.replyTo;
 
+      // e-mail s fakturou: skrytá kopie Begině (ESHOP_EMAIL_INVOICE_COPY_TO)
+      const bcc = invoiceNumber ? invoiceCopyRecipients(config, to) : [];
       const result = await transport(
-        { from: config.from, to, replyTo, ...rendered, inlineImages, attachments },
+        { from: config.from, to, ...(bcc.length ? { bcc } : {}), replyTo, ...rendered, inlineImages, attachments },
         `eshop-${template}-${orderId}`
       );
       if (result.ok) {
@@ -292,6 +300,7 @@ export async function sendOrderEmails(
           provider: "resend",
           messageId: result.id,
           to,
+          ...(bcc.length ? { bcc } : {}),
           ...(inlineImages.length ? { qr: true } : {}),
           ...(invoiceNumber ? { invoice: invoiceNumber } : {}),
           ...(test ? { test: true, withheld } : {}),

@@ -38,10 +38,18 @@ export const contactDisplayName = customerAccount.contactLastName
   ? `${customerAccount.contactFirstName} ${customerAccount.contactLastName}`
   : customerAccount.contactFirstName;
 
-// --- Objednávky (skutečné uhrazené faktury) -------------------------
+// --- Objednávky a faktury -------------------------------------------
 
-// "Uhrazeno" = plně zaplaceno; ostatní stavy jen z DB (lib/data/dashboard.ts).
-export type OrderStatus = "Uhrazeno" | "Čeká na platbu" | "Fakturováno" | "Stornováno";
+// "Uhrazeno" = plně zaplaceno; ostatní stavy jen z DB (lib/data/dashboard.ts)
+// nebo z historie faktur iDokladu (lib/data/idokladPurchaseHistory.ts).
+export type OrderStatus =
+  | "Uhrazeno"
+  | "Čeká na platbu"
+  | "Fakturováno"
+  | "Stornováno"
+  | "Neuhrazeno"
+  | "Částečně uhrazeno"
+  | "Přeplaceno";
 
 export type OrderItem = {
   name: string;
@@ -69,6 +77,8 @@ export type Order = {
   paymentMethod?: string | null;
   /** Poznámka, kterou k objednávce napsal sám zákazník. */
   customerNote?: string | null;
+  /** Odkaz se přidává jen k faktuře, kterou může přihlášený zákazník uhradit. */
+  paymentHref?: string;
 };
 
 type RawOrder = {

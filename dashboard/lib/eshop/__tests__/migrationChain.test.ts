@@ -38,10 +38,12 @@ const ESHOP = [
   "0019_eshop_1_0_orders_guest",
   "0020_eshop_1_0_payments_invoicing",
   "0021_eshop_1_0_variant_weight",
+  "0022_eshop_1_0_company_invoicing",
 ];
+/** Za e-shopem: čtení iDokladu (auditní záznam přístupů), GPT/MCP pilot
+ *  (přístup asistenta + poznámky u zákazníka), náhled zákaznické karty. */
+const AFTER_ESHOP = ["0023_idoklad_read_log", "0024_gpt_mcp_pilot", "0025_customer_card_preview"];
 const FIRST_ESHOP_IDX = 13;
-/** Po e-shopu: GPT/MCP pilot (přístup asistenta + poznámky u zákazníka), náhled zákaznické karty. */
-const AFTER_ESHOP = ["0022_gpt_mcp_pilot", "0023_customer_card_preview"];
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
   "public.focus_projects": 11,
@@ -58,7 +60,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0021 hned za nimi, pak GPT/MCP pilot", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0022 hned za nimi, pak 0023 čtení iDokladu, 0024 GPT/MCP pilot, 0025 náhled karty", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
@@ -92,7 +94,7 @@ describe("řetězec migrací Drizzle", () => {
     }
   });
 
-  it("e-shop nemění tabulky z main (0013–0021 = stejné jako 0012)", () => {
+  it("e-shop nemění tabulky z main (0013–0022 = stejné jako 0012)", () => {
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
     for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);

@@ -1,6 +1,6 @@
 // GPT/MCP pilot — varianta B: čtecí role lucy_readonly pro Production
 // (docs/gpt-mcp/30 a 39). Ověřeno nad PGlite ve stavu Production (migrace
-// do 0021, bez tabulek pilotu): pojistka větve, jen SELECT na vyjmenované
+// do 0023, bez tabulek pilotu): pojistka větve, jen SELECT na vyjmenované
 // tabulky a sloupce, žádný přístup k agent_*, surovým platbám a payloadům,
 // role nesmí nic měnit ani vytvářet; návrat roli úplně odstraní.
 import { readFileSync } from "node:fs";
@@ -30,7 +30,7 @@ describe("docs/gpt-mcp 30/39 — čtecí role pro Production", { timeout: 60_000
   });
 
   it("pojistky: jiná větev, nevyplněný otisk, existující role", async () => {
-    const { pg } = await createMigratedDb("0021_eshop_1_0_variant_weight");
+    const { pg } = await createMigratedDb("0023_idoklad_read_log");
     const verifier = scramVerifier("x");
     await expect(pg.exec(roleScript(verifier))).rejects.toThrow(/Toto není Production/);
     await pg.exec(`SET neon.branch_id = 'br-super-dust-b2wbw2wk'`);
@@ -42,7 +42,7 @@ describe("docs/gpt-mcp 30/39 — čtecí role pro Production", { timeout: 60_000
   });
 
   it("role smí jen číst vyjmenované; návrat ji úplně odstraní", async () => {
-    const { pg } = await createMigratedDb("0021_eshop_1_0_variant_weight");
+    const { pg } = await createMigratedDb("0023_idoklad_read_log");
     await pg.exec(`SET neon.branch_id = '${PRODUCTION_BRANCH}'`);
     await pg.exec(roleScript(scramVerifier("x")));
     await expect(pg.exec(roleScript(scramVerifier("x")))).rejects.toThrow(/už existuje/);

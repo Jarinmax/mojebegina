@@ -22,6 +22,9 @@ import CancelledMoneyBadge from "../CancelledMoneyBadge";
 // getOrderDetail/listInternalStaff si ji navíc ověřují samy, stejný princip
 // jako getNodeDetail.
 export const dynamic = "force-dynamic";
+// Serverové akce stránky volají iDoklad (kontrola / vystavení faktury):
+// až ~20 čtení po 20 s — výchozí limit funkce by je mohl utnout uprostřed.
+export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -40,7 +43,7 @@ export default async function OrderDetailPage(
   }
   const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
-  const invoiceAccess = order.channel === "eshop" ? await getInvoiceIssueAccess() : null;
+  const invoiceAccess = order.invoiceable ? await getInvoiceIssueAccess() : null;
   const cancelled = order.fulfillmentStatus === "cancelled";
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
   // náhradní objednávka: jen stornovaná s drženými penězi (před rozhodnutím o vrácení)
@@ -121,6 +124,9 @@ export default async function OrderDetailPage(
           <p className="text-xs text-neutral-400">Zapsal(a) do systému: {order.enteredByName}</p>
         )}
         {order.channel === "eshop" && <p className="text-xs text-neutral-400">Objednávka z e-shopu</p>}
+        {order.externalWooCommerceId && (
+          <p className="text-xs text-neutral-400">Objednávka z WooCommerce (begina.cz) č. {order.externalWooCommerceId}</p>
+        )}
       </div>
 
       {(order.shippingMethodLabel || order.paymentMethodLabel || order.recipientAddress || order.customerNote) && (
@@ -217,7 +223,7 @@ export default async function OrderDetailPage(
         <NoteForm orderId={order.id} currentNote={order.note} />
       </div>
 
-      {order.channel === "eshop" && (
+      {order.invoiceable && (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
           <OrderInvoiceDraft
             orderId={order.id}

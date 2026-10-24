@@ -422,7 +422,7 @@ s `MCP_ISSUER=https://moje.begina.cz`.
 - `lib/agent/mcp/*`: protokol, nástroje, argumenty, audit a idempotence
 - `app/api/mcp`, `app/api/oauth/*`, `app/oauth/authorize`, `app/.well-known/*`
 - `app/rizeni-firmy/asistent`: přehled a odvolání
-- `drizzle/0022_gpt_mcp_pilot.sql`, `docs/gpt-mcp/*.sql`
+- `drizzle/0024_gpt_mcp_pilot.sql`, `docs/gpt-mcp/*.sql`
 - Testy: `lib/agent/__tests__/*` (včetně celého toku nad PGlite),
   `lib/data/__tests__/agentNoteValidation.test.ts`, generálka v
   `lib/eshop/__tests__/productionRehearsal.test.ts`

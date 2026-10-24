@@ -10,6 +10,7 @@ import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
   paymentMethodsFor,
+  defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
   type ShippingMode,
@@ -19,6 +20,8 @@ import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
+import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
+import { rememberPendingOrder } from "@/components/eshop/usePendingOrder";
 
 const initialState: CheckoutState = null;
 
@@ -71,7 +74,10 @@ export default function CheckoutForm({
   const href = useEshopHref();
   const hydrated = useHydrated();
   const [state, formAction, pending] = useActionState(submitCheckoutAction, initialState);
-  const [values, setValues] = useState<Values>(emptyValues);
+  const [values, setValues] = useState<Values>(() => ({
+    ...emptyValues,
+    paymentMethodId: defaultPaymentMethodId(cardPaymentAvailable),
+  }));
   // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
   // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
   const [orderToken] = useState(() =>
@@ -83,7 +89,8 @@ export default function CheckoutForm({
   const email = state && "confirmation" in state ? state.email : "off";
   const orderNumber = state && "confirmation" in state ? state.orderNumber : null;
 
-  const redirectTo = state && "redirectTo" in state ? state.redirectTo : null;
+  const redirect = state && "redirectTo" in state ? state : null;
+  const redirectTo = redirect?.redirectTo ?? null;
 
   // Meta Pixel (jen se souhlasem): zahájení pokladny jednou za návštěvu stránky.
   const checkoutTracked = useRef(false);
@@ -105,13 +112,17 @@ export default function CheckoutForm({
     }
   }, [confirmation, clear]);
 
-  // Platba kartou: objednávka je uložená, pokračuje se na platební stránku Stripe.
+  // Platba kartou: objednávka je uložená (server vrátil její id). Nejdřív si
+  // ji prohlížeč zapamatuje, teprve pak vyprázdní košík a otevře Stripe —
+  // návrat ze Stripe (Zpět, obnovení, nová návštěva) tak nabídne „Zaplatit
+  // objednávku“ místo nové objednávky (PendingOrderNotice).
   useEffect(() => {
-    if (redirectTo) {
+    if (redirect) {
+      rememberPendingOrder(redirect.orderId, redirect.orderNumber);
       clear();
-      window.location.assign(redirectTo);
+      window.location.assign(redirect.redirectTo);
     }
-  }, [redirectTo, clear]);
+  }, [redirect, clear]);
 
   // Meta: souhlas s reklamními cookies a _fbp/_fbc se odešlou s objednávkou;
   // nákup (Purchase) pak pošle server až po úplném zaplacení.
@@ -126,7 +137,14 @@ export default function CheckoutForm({
   }
 
   if (redirectTo) {
-    return <p className="text-sm text-neutral-600">Přesměrovávám na platbu kartou…</p>;
+    // Po návratu tlačítkem Zpět zůstane stránka v tomto stavu — nabídka
+    // zaplatit tutéž objednávku se ukáže pod textem.
+    return (
+      <div className="max-w-xl mx-auto">
+        <p className="text-sm text-neutral-600 mb-4">Přesměrovávám na platbu kartou…</p>
+        <PendingOrderNotice />
+      </div>
+    );
   }
 
   if (confirmation) {
@@ -219,12 +237,15 @@ export default function CheckoutForm({
 
   if (lines.length === 0) {
     return (
-      <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
-        <p className="text-neutral-600 mb-4">V košíku nic není.</p>
-        <ShopLink href="/" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
-          Prohlédnout nabídku
-        </ShopLink>
-      </div>
+      <>
+        <PendingOrderNotice />
+        <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
+          <p className="text-neutral-600 mb-4">V košíku nic není.</p>
+          <ShopLink href="/" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
+            Prohlédnout nabídku
+          </ShopLink>
+        </div>
+      </>
     );
   }
 
@@ -248,6 +269,8 @@ export default function CheckoutForm({
   }
 
   return (
+    <>
+    <PendingOrderNotice />
     <form action={formAction} onSubmitCapture={fillMetaSignals} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
       <input type="hidden" name="orderToken" value={orderToken} />
@@ -457,5 +480,6 @@ export default function CheckoutForm({
         </ShopLink>
       </aside>
     </form>
+    </>
   );
 }
