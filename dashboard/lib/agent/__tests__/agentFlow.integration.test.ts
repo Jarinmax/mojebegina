@@ -22,7 +22,7 @@ vi.mock("@/lib/db/client", () => ({
 }));
 // Cookie session (běžné přihlášení) — ve výchozím stavu nikdo; testy izolace
 // ji nastaví, aby ověřily, že se token a cookie nikdy nepomíchají.
-vi.mock("@/lib/auth/server", () => ({ auth: { getSession: async () => ({ data: holder.session }) } }));
+vi.mock("@/lib/auth/server", () => ({ sessionAuth: { getSession: async () => ({ data: holder.session }) } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/lib/data/admin", () => ({ createCustomerOrganization: async () => ({ ok: false }) }));
 
