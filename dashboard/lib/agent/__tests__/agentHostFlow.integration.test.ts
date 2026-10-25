@@ -38,8 +38,10 @@ vi.mock("next/headers", () => ({
 }));
 // Neon Auth: session prohlížeče a handler /api/auth (přihlášení e-mailem).
 vi.mock("@/lib/auth/server", () => ({
-  auth: {
+  sessionAuth: {
     getSession: async () => ({ data: holder.session }),
+  },
+  auth: {
     handler: () => ({
       GET: async () => new Response("upstream GET", { status: 200 }),
       POST: async (request: Request) => {
