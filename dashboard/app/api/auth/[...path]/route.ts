@@ -21,12 +21,11 @@ export function requestForNeonAuth(request: NextRequest): NextRequest | null {
   }
   if (request.headers.get("origin") !== AGENT_ORIGIN) return null;
 
-  const headers = new Headers(request.headers);
-  headers.set("origin", NEON_TRUSTED_AUTH_ORIGIN);
-  if (headers.get("referer")?.startsWith(`${AGENT_ORIGIN}/`)) {
-    headers.set("referer", `${NEON_TRUSTED_AUTH_ORIGIN}/login`);
+  request.headers.set("origin", NEON_TRUSTED_AUTH_ORIGIN);
+  if (request.headers.get("referer")?.startsWith(`${AGENT_ORIGIN}/`)) {
+    request.headers.set("referer", `${NEON_TRUSTED_AUTH_ORIGIN}/login`);
   }
-  return new NextRequest(request, { headers });
+  return request;
 }
 
 export { GET };
