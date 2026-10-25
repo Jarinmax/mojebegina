@@ -257,16 +257,24 @@ describe("pilotní doména gpt-pilot.begina.cz — celý OAuth tok přes proxy.t
     expect(loginPage.status).toBe(200);
     expect(findProp(loginPage.tree, "next")?.next).toBe(authorizePath);
 
-    // 5. přihlášení (jediný endpoint Neon Auth, který formulář volá)
+    // 5. přihlášení (jediný endpoint Neon Auth, který formulář volá); prohlížeč
+    // posílá Origin pilotní domény — bez něj (nebo s cizím) route odmítne 403
+    // a do Neon Auth nic nepošle
+    const foreign = await hit("/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://zly-web.example" },
+      body: JSON.stringify({ email: EMAIL, password: "správné-heslo" }),
+    });
+    expect(foreign.status).toBe(403);
     const wrong = await hit("/api/auth/sign-in/email", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: ISSUER },
       body: JSON.stringify({ email: EMAIL, password: "špatně" }),
     });
     expect(wrong.status).toBe(401);
     const signIn = await hit("/api/auth/sign-in/email", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: ISSUER },
       body: JSON.stringify({ email: EMAIL, password: "správné-heslo" }),
     });
     expect(signIn.status).toBe(200);
