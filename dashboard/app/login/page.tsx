@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import logoMark from "@/public/logo-begina-mark.png";
 import DecorativeMark from "@/components/DecorativeMark";
-import { auth } from "@/lib/auth/server";
+import { sessionAuth } from "@/lib/auth/server";
 import { safeNextPath } from "@/lib/agent/oauthCore";
 import LoginForm from "./LoginForm";
 
@@ -20,7 +20,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const searchParams = await props.searchParams;
   const next = safeNextPath(typeof searchParams?.next === "string" ? searchParams.next : null);
 
-  const { data: session } = await auth.getSession();
+  const { data: session } = await sessionAuth.getSession();
   if (session?.user) {
     redirect(next);
   }

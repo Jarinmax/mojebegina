@@ -14,7 +14,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { and, eq, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth/server";
+import { sessionAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
 import { userActivations, userRoles } from "@/lib/db/schema";
 import { ACTIVE_ROLE_COOKIE, resolveActiveRole } from "./activeRole";
@@ -72,7 +72,7 @@ export async function getAuthContext(): Promise<AuthContext> {
   const agent = currentAgentContext();
   if (agent) return agent;
 
-  const { data: session } = await auth.getSession();
+  const { data: session } = await sessionAuth.getSession();
   if (!session?.user) return null;
 
   await markActivatedIfNeeded(session.user.id);
