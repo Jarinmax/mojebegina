@@ -1,4 +1,5 @@
 // GPT/MCP pilot — jedno volání nástroje od začátku do konce:
+//   0. nástroj jen pro některé osoby (visible) — ostatním neexistuje,
 //   1. rozsah (scope): zápis jen s mojebegina.write,
 //   2. kontrola argumentů (bez DB),
 //   3. u zápisu limit za hodinu a atomický claim idempotency_key,
@@ -44,6 +45,10 @@ async function runTool(
   }
 }
 
+function visibleTo(tool: AgentTool, session: AgentSession): boolean {
+  return tool.visible ? tool.visible(session.ctx) : true;
+}
+
 function toResult(outcome: ToolOutcome): CallToolResult {
   return outcome.ok ? toolSuccess(outcome.data) : toolError(outcome.error);
 }
@@ -60,6 +65,11 @@ export async function callAgentTool(
   if (!tool) return null;
 
   const base: AuditBase = { grantId: session.grantId, userId: session.ctx.userId, tool: name, isWrite: tool.write, args };
+
+  if (!visibleTo(tool, session)) {
+    await logCall(db, base, { status: "denied", error: "not_permitted" });
+    return toolError(DENIED_MESSAGE);
+  }
 
   if (tool.write && !canWrite(config, session.scope)) {
     const message = config.writeEnabled
@@ -123,7 +133,8 @@ export async function callAgentTool(
 export function agentMcpServer(db: Db, session: AgentSession, config: AgentConfig): McpServer {
   return {
     instructions: SERVER_INSTRUCTIONS,
-    listTools: () => AGENT_TOOLS.filter((t) => !t.write || canWrite(config, session.scope)).map((t) => t.definition),
+    listTools: () =>
+      AGENT_TOOLS.filter((t) => visibleTo(t, session) && (!t.write || canWrite(config, session.scope))).map((t) => t.definition),
     callTool: (name, args) => callAgentTool(db, session, config, name, args),
   };
 }

@@ -1,6 +1,7 @@
 // GPT/MCP pilot — společná definice nástroje (schéma, anotace, kontrola
 // argumentů). Samostatný soubor, aby se nástroje daly dělit po doménách
 // (tools.ts, tools/*.ts) bez kruhových importů.
+import type { AuthContext } from "@/lib/data/types";
 import type { ToolDefinition } from "./protocol";
 import { idempotencyKey } from "./args";
 
@@ -11,6 +12,11 @@ export type ToolOutcome =
 export type AgentTool = {
   definition: ToolDefinition;
   write: boolean;
+  /**
+   * Jen pro některé osoby (např. fakturace — invoiceAuth.ts): ostatním se
+   * nástroj nevypíše a volání server odmítne. Bez visible = všem.
+   */
+  visible?: (ctx: NonNullable<AuthContext>) => boolean;
   /** Vyhodí ArgError při neplatném argumentu. */
   parse(args: Record<string, unknown>): unknown;
   execute(parsed: unknown, issuer: string): Promise<ToolOutcome>;
@@ -21,6 +27,7 @@ export function defineTool<P>(tool: {
   title: string;
   description: string;
   write: boolean;
+  visible?: (ctx: NonNullable<AuthContext>) => boolean;
   properties: Record<string, unknown>;
   required: string[];
   parse(args: Record<string, unknown>): P;
@@ -38,6 +45,7 @@ export function defineTool<P>(tool: {
     : tool.properties;
   return {
     write: tool.write,
+    ...(tool.visible ? { visible: tool.visible } : {}),
     definition: {
       name: tool.name,
       title: tool.title,

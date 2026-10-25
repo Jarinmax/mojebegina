@@ -342,7 +342,7 @@ async function markFailed(db: Db, orderId: string, linkId: string, message: stri
 // ------------------------------------------------------------- vystavení
 
 /** Je objednávka skutečně zaplacená? (stav objednávky i přepočet plateb) */
-async function reallyPaid(db: Db, orderId: string): Promise<string | null> {
+export async function reallyPaid(db: Db, orderId: string): Promise<string | null> {
   const row = (
     await db.execute(sql`
       SELECT o.channel, o.payment_status, o.payment_vs, o.external_woocommerce_id, o.fulfillment_status, b.balance_state

@@ -236,8 +236,17 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "my_overview",
       "list_company_tasks",
       "get_company_task",
+      // fakturace — jen vystavovatelé faktur (Viner), se čtecím souhlasem bez vystavení
+      "idoklad_search_invoices",
+      "idoklad_get_invoice",
+      "idoklad_list_series",
+      "idoklad_numbering_audit",
+      "idoklad_unpaid_and_discrepancies",
+      "invoice_preview",
     ]);
     for (const tool of tools) expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    const colleague = mcp.agentMcpServer(db, kolega, config).listTools().map((t) => t.name);
+    expect(colleague.filter((name) => name.startsWith("idoklad_") || name.startsWith("invoice_"))).toEqual([]);
   });
 
   describe("source hlavička", () => {
