@@ -73,11 +73,17 @@ export function canWrite(config: AgentConfig, scope: string): boolean {
 
 // --- Klient (statický, z env) -------------------------------------------
 
-/** client_secret_basic (hlavička) nebo client_secret_post (tělo formuláře). */
+export type ClientCredentials = {
+  clientId: string;
+  /** null = veřejný klient (token_endpoint_auth_method=none), chráněný povinným PKCE S256. */
+  clientSecret: string | null;
+};
+
+/** Veřejný PKCE klient, client_secret_basic nebo client_secret_post. */
 export function readClientCredentials(
   authorization: string | null,
   form: URLSearchParams
-): { clientId: string; clientSecret: string } | null {
+): ClientCredentials | null {
   if (authorization?.toLowerCase().startsWith("basic ")) {
     let decoded: string;
     try {
@@ -98,18 +104,16 @@ export function readClientCredentials(
     }
   }
   const clientId = form.get("client_id");
-  const clientSecret = form.get("client_secret");
-  return clientId && clientSecret ? { clientId, clientSecret } : null;
+  if (!clientId) return null;
+  return { clientId, clientSecret: form.get("client_secret") };
 }
 
-export function authenticateClient(
-  config: AgentConfig,
-  credentials: { clientId: string; clientSecret: string } | null
-): boolean {
+export function authenticateClient(config: AgentConfig, credentials: ClientCredentials | null): boolean {
   if (!credentials) return false;
-  // Obě porovnání vždy (žádné zkratkové vyhodnocení podle id).
   const idOk = safeEqual(credentials.clientId, config.clientId);
-  const secretOk = safeEqual(credentials.clientSecret, config.clientSecret);
+  // Pokud klient secret pošle, musí být správný. Bez secretu jde o standardní
+  // veřejný klient; autorizační kód je dál chráněný PKCE S256 a redirect allowlistem.
+  const secretOk = credentials.clientSecret === null || safeEqual(credentials.clientSecret, config.clientSecret);
   return idOk && secretOk;
 }
 

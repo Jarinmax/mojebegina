@@ -119,8 +119,10 @@ export function authorizationServerMetadata(config: AgentConfig) {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
-    revocation_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
+    // ChatGPT používá veřejného OAuth klienta s PKCE; stávající confidential režimy
+    // ponecháváme kvůli zpětné kompatibilitě.
+    token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
+    revocation_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
     scopes_supported: [...SUPPORTED_SCOPES],
     // RFC 9207 — v odpovědi na /oauth/authorize posíláme i `iss`.
     authorization_response_iss_parameter_supported: true,
