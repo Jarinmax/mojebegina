@@ -83,6 +83,8 @@ describe("agentConfig — výchozí stav vypnuto", () => {
       authorization_endpoint: "https://moje.begina.cz/oauth/authorize",
       token_endpoint: "https://moje.begina.cz/api/oauth/token",
       code_challenge_methods_supported: ["S256"],
+      token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
+      revocation_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
     });
   });
 });
@@ -157,15 +159,25 @@ describe("/oauth/authorize — kontrola parametrů", () => {
 describe("ověření klienta", () => {
   const basic = (id: string, secret: string) => `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
 
-  it("client_secret_basic i client_secret_post", () => {
+  it("veřejný PKCE klient, client_secret_basic i client_secret_post", () => {
+    expect(
+      authenticateClient(config, readClientCredentials(null, new URLSearchParams({ client_id: "chatgpt-begina" })))
+    ).toBe(true);
     expect(authenticateClient(config, readClientCredentials(basic("chatgpt-begina", SECRET), new URLSearchParams()))).toBe(true);
     const form = new URLSearchParams({ client_id: "chatgpt-begina", client_secret: SECRET });
     expect(authenticateClient(config, readClientCredentials(null, form))).toBe(true);
   });
 
-  it("špatný secret, cizí id nebo nic → false", () => {
+  it("zadaný špatný secret, cizí id nebo nic → false", () => {
     expect(authenticateClient(config, readClientCredentials(basic("chatgpt-begina", "x"), new URLSearchParams()))).toBe(false);
+    expect(
+      authenticateClient(
+        config,
+        readClientCredentials(null, new URLSearchParams({ client_id: "chatgpt-begina", client_secret: "x" }))
+      )
+    ).toBe(false);
     expect(authenticateClient(config, readClientCredentials(basic("jiny", SECRET), new URLSearchParams()))).toBe(false);
+    expect(authenticateClient(config, readClientCredentials(null, new URLSearchParams({ client_id: "jiny" })))).toBe(false);
     expect(authenticateClient(config, readClientCredentials(null, new URLSearchParams()))).toBe(false);
     expect(authenticateClient(config, readClientCredentials("Basic !!!", new URLSearchParams()))).toBe(false);
   });
