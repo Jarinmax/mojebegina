@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
     throw new Error(`NEXT_REDIRECT ${url}`);
   },
 }));
-vi.mock("@/lib/auth/server", () => ({ auth: { getSession: async () => ({ data: state.session }) } }));
+vi.mock("@/lib/auth/server", () => ({ sessionAuth: { getSession: async () => ({ data: state.session }) } }));
 vi.mock("@/lib/auth/client", () => ({ authClient: { signIn: { email: vi.fn() } } }));
 
 import LoginPage from "../page";
