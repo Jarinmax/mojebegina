@@ -19,7 +19,7 @@ vi.mock("@/lib/db/client", () => ({
     return holder.db;
   },
 }));
-vi.mock("@/lib/auth/server", () => ({ auth: { getSession: async () => ({ data: null }) } }));
+vi.mock("@/lib/auth/server", () => ({ sessionAuth: { getSession: async () => ({ data: null }) } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/lib/data/admin", () => ({ createCustomerOrganization: async () => ({ ok: false }) }));
 
