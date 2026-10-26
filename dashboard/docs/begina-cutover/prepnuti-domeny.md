@@ -25,6 +25,10 @@ záznam `moje` (MojeBegina), jmenné servery.
       Stripe → v MojeBegina zaplaceno, e-mail jednou.
 - [ ] Obsah: produkty k prodeji, obchodní podmínky, doprava.
 
+Starý WooCommerce (přístup k administraci, nevyřízené objednávky, platby
+WooPayments): **`stary-woocommerce.md`** — archiv a přístup připravit PŘED
+fází 3.
+
 ## Fáze 3 — den přepnutí (pořadí závazné)
 
 1. WooCommerce: vypnout pokladnu (údržba), nechat doběhnout platby.
