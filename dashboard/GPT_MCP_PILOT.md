@@ -62,8 +62,8 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 | `add_customer_note` | zápis | poznámka u zákazníka (nová tabulka `organization_activity`, vidět i na kartě zákazníka) |
 | `create_company_task` | zápis | nové téma v Živé mapě **pod existující oblast** (nové oblasti ne) |
 | `comment_company_task` | zápis | komentář do diskuse tématu |
-| `prepare_order` | čtení | návrh objednávky bez zápisu: součty, dohledání zákazníka (IČO, e-mail, telefon, název), odpovědná osoba, balení podle SKU, duplicity; vrací `proposal_token` |
-| `create_order` | zápis | založí NOVOU objednávku podle návrhu (`proposal_token` + `confirm=true` + `idempotency_key`); existující nikdy nemění |
+| `prepare_order` | čtení | návrh objednávky bez zápisu: součty, dohledání zákazníka (IČO, e-mail, telefon, název), odpovědná osoba, balení podle SKU, duplicity, body k rozhodnutí; vrací `proposal_token` a `autoCreateAllowed` |
+| `create_order` | zápis | založí NOVOU objednávku podle návrhu (`proposal_token` + `approval` + `idempotency_key`); čistý návrh podle trvalého pokynu, jinak jen po rozhodnutí uživatele; existující nikdy nemění |
 | `idoklad_search_invoices`, `idoklad_get_invoice`, `idoklad_list_series`, `idoklad_numbering_audit`, `idoklad_unpaid_and_discrepancies` | čtení | iDoklad jen ke čtení (`lib/idoklad-read`, audit `idoklad_read_log`) — **jen vystavovatelé faktur** |
 | `invoice_preview` | čtení | náhled faktury k objednávce bez zápisu: odběratel, položky, celkem, VS, řada, blokující problémy, stav dosavadní faktury, komu odejde PDF (Komu + Bcc); vrací `preview_token` — **jen vystavovatelé faktur** |
 | `issue_and_send_invoice` | zápis | vystavení v iDokladu + jedno odeslání PDF, týmž motorem jako tlačítko v detailu objednávky — **jen vystavovatelé faktur** |
@@ -78,27 +78,40 @@ tehdy, když je uživatel na souhlasové stránce povolí (rozsah `mojebegina.wr
 `requireOrderContext` = ADMIN/EXECUTIVE, stejně jako ruční „Nová objednávka“;
 kontrola položek, dopravy, kontaktu a termínu = `validateCreateOrderInput`).
 
-1. `prepare_order` (jen čtení) — asistent ukáže zákazníka, položky, součty a varování.
-2. Uživatel výslovně potvrdí.
-3. `create_order` se STEJNÝMI argumenty + `proposal_token`, `confirm=true`, `idempotency_key`.
+1. `prepare_order` (jen čtení) — návrh, `blocking`, `decisionReasons`, `warnings`, `autoCreateAllowed`, `proposal_token`.
+2. **Čistý návrh** (`autoCreateAllowed=true`: sedí `expected_total_kc`, zákazník podle
+   IČO / `organization_id`, externí číslo, žádná duplicita ani bod k rozhodnutí) →
+   `create_order` s `approval="standing_instruction"` — trvalý pokyn Jaroslava
+   (potvrzenou objednávku Begina.cz z Gmailu rovnou zapsat), bez dalšího potvrzení.
+   Server čistotu návrhu ověří znovu; jinak nic nezaloží.
+3. **Cokoli jiného** (nesedí částka, zákazník jen podle e-mailu/telefonu nebo nejednoznačný,
+   možná duplicita, jiné DIČ, chybějící údaj…) → nic se nezapíše, rozhodne Jaroslav;
+   po jeho souhlasu `approval="user_confirmed"` (u možné duplicity navíc `confirm_not_duplicate=true`).
 
 Pojistky:
 
-- **Zákazník:** `organization_id` → IČO → jednoznačná shoda e-mailu/telefonu
-  z dřívějších objednávek a leadů. Víc kandidátů = asistent se musí zeptat.
-  Nová firma jen s platným IČO (kontrolní číslice), názvem a sídlem — zakládá se
-  jen záznam organizace, žádný uživatelský účet ani pozvánka. Soukromou osobu
-  bez IČO tahle cesta nezakládá (ruční objednávka musí mít firmu).
-- **Duplicity:** stejné externí číslo (dřívější zápis, číslo WooCommerce,
-  číslo objednávky) = stop a odkaz na existující objednávku; stejný zákazník
-  a částka v okně ±3 dny = jen s `confirm_not_duplicate=true`. Zápis běží
-  v jedné transakci pod zámkem na externí číslo — ani souběžné požadavky
-  nezaloží objednávku dvakrát. U zdroje `gmail` a `eshop` je externí číslo povinné.
-- **`proposal_token`:** HMAC, 30 minut, jen pro uživatele, který návrh připravil,
-  a jen pro přesně tytéž údaje (včetně určeného zákazníka a odpovědné osoby).
-- **Audit:** `agent_audit_log` (volání, uživatel, výsledek) + historie objednávky
-  `created` s autorem „Jméno (přes ChatGPT)“ a metadaty `source`, `externalReference`,
-  `newCustomer`, odpovědná osoba. Číslo objednávky přidělí databáze (číslo = VS).
+- **Kanál:** `source=eshop` (begina.cz / WooCommerce) → `orders.channel = import` +
+  `external_woocommerce_id` (model #5215; unikátní index = ochrana i v DB, číslo
+  objednávky = číslo WooCommerce); `gmail`, `phone`, `manual` → `channel = manual`
+  (číslo objednávky = VS z DB). Kanál pokladny `eshop` asistent nepoužívá.
+- **Duplicity:** stejné externí číslo (dřívější zápis, `external_woocommerce_id`,
+  import s `metadata.externalId`, číslo objednávky) = stop s odkazem na existující
+  objednávku; stejný zákazník a částka ±3 dny = rozhodnutí uživatele. Zápis
+  v jedné transakci pod zámkem na externí číslo (ověřeno souběžným testem).
+- **Zákazník:** `organization_id` → IČO → (jen s rozhodnutím) e-mail/telefon. Nová
+  firma jen s platným IČO, názvem a sídlem — jen záznam organizace, žádný účet.
+- **DIČ:** jen výslovně z podkladu s `customer_dic_source` (idoklad, invoice, order,
+  company_register), nikdy odvozené z IČO. U existující firmy se doplní jen prázdné
+  DIČ (záznam `organization_activity` `dic_filled` se zdrojem); existující DIČ se
+  nikdy nepřepíše (jiné DIČ = rozhodnutí uživatele).
+- **Žádný e-mail ani faktura:** `external_invoice_number` (faktura vystavená mimo
+  MojeBegina, např. v iDokladu) se uloží do historie a fakturace MojeBegina
+  (`reallyPaid` v `issue.ts`) k objednávce nic nevystaví ani v režimu `on`.
+- **`proposal_token`:** HMAC, 30 minut, jen pro uživatele a přesně tytéž údaje.
+- **Audit:** `agent_audit_log` + historie objednávky `created` s autorem
+  „Jméno (přes ChatGPT)“ a metadaty `via=mcp`, `channel=mcp`, `client`, `approval`,
+  `source`, `orderChannel`, `externalReference`, `externalInvoiceNumber`, `newCustomer`,
+  `dicFilled`, odpovědná osoba.
 - **Stav „zaplaceno“** se uloží bez zápisu platby (asistent na to upozorní).
 
 ### Fakturace přes asistenta (Jaroslav Viner, Lucie Königsbergová)

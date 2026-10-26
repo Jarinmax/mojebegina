@@ -59,6 +59,22 @@ describe("příjem objednávky — čistá kontrola vstupu", () => {
     expect(err({ source: "phone", externalReference: null })).toBeNull();
   });
 
+  it("kanál podle zdroje: e-shop begina.cz = import (číslo WooCommerce jen číslice), ostatní = manual", () => {
+    expect(validateOrderIntake({ ...base, source: "eshop", externalReference: "5217" }, TODAY)).toMatchObject({ ok: true, value: { channel: "import", externalReference: "5217" } });
+    expect(validateOrderIntake({ ...base, source: "eshop", externalReference: "WC-5217" }, TODAY)).toMatchObject({ ok: false, error: expect.stringMatching(/jen číslice/) });
+    for (const source of ["gmail", "phone", "manual"]) {
+      expect(validateOrderIntake({ ...base, source }, TODAY)).toMatchObject({ ok: true, value: { channel: "manual" } });
+    }
+  });
+
+  it("DIČ jen s ověřeným zdrojem, nikdy odvozené; externí faktura a kontrolní součet se drží ve value", () => {
+    expect(validateOrderIntake({ ...base, customerDic: "CZ12345679" }, TODAY)).toMatchObject({ ok: false, error: expect.stringMatching(/ověřeného podkladu/) });
+    expect(validateOrderIntake({ ...base }, TODAY)).toMatchObject({ ok: true, value: { customerDic: null } });
+    expect(
+      validateOrderIntake({ ...base, customerDic: "cz 12345679", customerDicSource: "invoice", customerDicReference: "faktura 1", externalInvoiceNumber: "20260185", expectedTotalKc: "178" }, TODAY)
+    ).toMatchObject({ ok: true, value: { customerDic: { dic: "CZ12345679", source: "invoice", reference: "faktura 1" }, externalInvoiceNumber: "20260185", expectedTotalKc: 178 } });
+  });
+
   it("organization_id má přednost a musí být UUID", () => {
     const ok = validateOrderIntake({ ...base, organizationId: "00000000-0000-4000-8000-00000000A001" }, TODAY);
     expect(ok).toMatchObject({ ok: true, value: { customer: { kind: "id", organizationId: "00000000-0000-4000-8000-00000000a001", ico: "12345679" } } });

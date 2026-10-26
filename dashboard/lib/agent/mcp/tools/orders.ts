@@ -1,12 +1,17 @@
 // GPT/MCP — zápis objednávky do MojeBegina (např. potvrzená objednávka
-// z Gmailu). Dva kroky jako u fakturace:
+// z Gmailu). Dva kroky:
 //
 //   prepare_order (jen čtení) — kontrola, dohledání zákazníka (IČO, e-mail,
-//     telefon, název), odpovědné osoby a duplicit; vrací návrh
-//     a podepsaný proposal_token (30 min, jen pro tohoto uživatele
-//     a PŘESNĚ tento návrh),
+//     telefon, název), odpovědné osoby a duplicit; vrací návrh, body
+//     k rozhodnutí a podepsaný proposal_token (30 min, jen pro tohoto
+//     uživatele a PŘESNĚ tento návrh),
 //   create_order (zápis, mojebegina.write) — založí objednávku jen
-//     s proposal_token, confirm=true a idempotency_key.
+//     s proposal_token, approval a idempotency_key.
+//
+// approval = "standing_instruction": trvalý pokyn Jaroslava (potvrzenou
+// objednávku Begina.cz z Gmailu rovnou zapsat) — server ho přijme JEN pro
+// čistý návrh (autoCreateAllowed), jinak nic nezaloží. „user_confirmed“ =
+// uživatel výslovně rozhodl o tomto konkrétním návrhu.
 //
 // Datová vrstva: lib/data/orderIntake.ts (requireOrderContext — stejná
 // oprávnění jako ruční „Nová objednávka“). Existující objednávku nic z toho
@@ -15,9 +20,10 @@ import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
 import { createOrderFromIntake, planOrderIntake } from "@/lib/data/orderIntake";
-import { INTAKE_FULFILLMENT_STATUSES, ORDER_SOURCES, type OrderIntakeInput } from "@/lib/data/orderIntakeValidation";
+import { DIC_SOURCES, INTAKE_FULFILLMENT_STATUSES, ORDER_SOURCES, type OrderIntakeInput } from "@/lib/data/orderIntakeValidation";
+import type { IntakeApproval } from "@/lib/data/orderIntake";
 import { PAYMENT_STATUSES } from "@/lib/data/orderValidation";
-import { ArgError, optionalBoolean, requiredString } from "../args";
+import { ArgError, optionalBoolean, optionalEnum, requiredString } from "../args";
 import { defineTool, type AgentTool } from "../define";
 
 export const PROPOSAL_TOKEN_MINUTES = 30;
@@ -75,13 +81,20 @@ const S = (description: string) => ({ type: "string", description });
 const N = (description: string) => ({ type: "integer", minimum: 0, description });
 
 const ORDER_PROPERTIES: Record<string, unknown> = {
-  source: { type: "string", enum: [...ORDER_SOURCES], description: "Zdroj objednávky: gmail, eshop, phone (telefon), manual (ruční)." },
-  external_reference: S("Externí číslo objednávky (číslo z e-mailu / e-shopu, případně ID zprávy v Gmailu). U gmail a eshop povinné — chrání proti dvojímu zápisu."),
+  source: {
+    type: "string",
+    enum: [...ORDER_SOURCES],
+    description: "Zdroj objednávky: eshop (objednávka z e-shopu begina.cz — uloží se jako e-shopová s číslem WooCommerce), gmail (objednávka e-mailem), phone (telefon), manual (ruční).",
+  },
+  external_reference: S("Externí číslo objednávky. U eshop číslo objednávky z begina.cz (WooCommerce, jen číslice, např. 5217); u gmail číslo z e-mailu, případně ID zprávy. U eshop a gmail povinné — chrání proti dvojímu zápisu."),
+  external_invoice_number: S("Číslo faktury, která k objednávce UŽ existuje mimo MojeBegina (např. v iDokladu 20260185). MojeBegina pak k objednávce žádnou fakturu nevystaví ani nepošle."),
   organization_id: S("id existujícího zákazníka (UUID) — když už je známý, např. z kandidátů prepare_order nebo ze search_mojebegina."),
   customer_ico: S("IČO zákazníka (8 číslic). Podle něj se najde existující firma; když neexistuje, s customer_name a customer_address se založí nová."),
   customer_name: S("Název firmy zákazníka (pro dohledání; u nové firmy povinný)."),
   customer_address: S("Sídlo firmy (fakturační adresa) — u nové firmy povinné."),
-  customer_dic: S("DIČ firmy, např. CZ12345678 (jen u nové firmy, nepovinné)."),
+  customer_dic: S("DIČ firmy, např. CZ12345678 — JEN když je výslovně uvedené v podkladu (faktura, iDoklad, objednávka, rejstřík). Nikdy ho neodvozuj z IČO. U existující firmy se doplní jen prázdné DIČ, existující se nepřepisuje."),
+  customer_dic_source: { type: "string", enum: [...DIC_SOURCES], description: "Odkud DIČ je (povinné s customer_dic): idoklad, invoice (faktura), order (objednávka), company_register (rejstřík / ARES)." },
+  customer_dic_reference: S("Doklad, ze kterého DIČ je (např. „faktura 20260185“)."),
   contact_name: S("Kontaktní osoba."),
   contact_email: S("E-mail kontaktní osoby (slouží i k dohledání zákazníka)."),
   contact_phone: S("Telefon kontaktní osoby (slouží i k dohledání zákazníka)."),
@@ -139,11 +152,14 @@ function intakeOf(args: Record<string, unknown>): OrderIntakeInput {
   return {
     source: str(args, "source") ?? "",
     externalReference: str(args, "external_reference"),
+    externalInvoiceNumber: str(args, "external_invoice_number"),
     organizationId: str(args, "organization_id"),
     customerIco: str(args, "customer_ico"),
     customerName: str(args, "customer_name"),
     customerAddress: str(args, "customer_address"),
     customerDic: str(args, "customer_dic"),
+    customerDicSource: str(args, "customer_dic_source"),
+    customerDicReference: str(args, "customer_dic_reference"),
     contactName: str(args, "contact_name"),
     contactEmail: str(args, "contact_email"),
     contactPhone: str(args, "contact_phone"),
@@ -182,10 +198,10 @@ export const ORDER_TOOLS: AgentTool[] = [
     name: "prepare_order",
     title: "Připravit objednávku (návrh, nic nezapíše)",
     description:
-      "JEN ČTENÍ — nic nezaloží. Zkontroluje objednávku (např. potvrzenou v Gmailu) před zápisem do MojeBegina: spočítá součty, dohledá existujícího zákazníka " +
-      "podle IČO, e-mailu, telefonu a názvu (candidates), odpovědnou osobu, balení podle SKU a možné duplicity (stejné externí číslo = už zapsáno; stejný zákazník " +
-      "a částka ±3 dny = možná duplicita). Výsledek celý ukaž uživateli. Když canCreate=true, vrací proposal_token pro create_order (platí 30 minut, jen pro tebe " +
-      "a jen pro tyto údaje — create_order musí dostat STEJNÉ argumenty).",
+      "JEN ČTENÍ — nic nezaloží. Zkontroluje objednávku (např. potvrzenou v Gmailu) před zápisem do MojeBegina: spočítá součty a porovná je s expected_total_kc, " +
+      "dohledá existujícího zákazníka podle IČO, e-mailu, telefonu a názvu (candidates), odpovědnou osobu, balení podle SKU a možné duplicity. " +
+      "Vrací blocking (nelze zapsat), decisionReasons (zapsat jen po rozhodnutí Jaroslava), warnings (jen informace) a autoCreateAllowed. " +
+      "Když canCreate=true, vrací proposal_token pro create_order (platí 30 minut, jen pro tebe a jen pro tyto údaje — create_order musí dostat STEJNÉ argumenty).",
     write: false,
     properties: ORDER_PROPERTIES,
     required: ["source", "items"],
@@ -199,22 +215,28 @@ export const ORDER_TOOLS: AgentTool[] = [
       if (!planned.ok || !ctx) return planned.ok ? { ok: false, error: "Nepřihlášený uživatel." } : planned;
       const { plan } = planned;
       const canCreate = plan.blocking.length === 0;
+      const auto = plan.autoCreateAllowed;
       const v = plan.value;
       return {
         ok: true,
-        summary: { canCreate, blocking: plan.blocking.length, possibleDuplicates: plan.similar.length },
+        summary: { canCreate, autoCreateAllowed: auto, blocking: plan.blocking.length, decisionReasons: plan.decisionReasons.length },
         data: {
           canCreate,
+          autoCreateAllowed: auto,
           blocking: plan.blocking,
+          decisionReasons: plan.decisionReasons,
           warnings: plan.warnings,
           customer: plan.customer,
+          customerUpdate: plan.customerUpdate,
           candidates: plan.candidates,
           duplicates: plan.duplicates,
           possibleDuplicates: plan.similar,
           requiresConfirmNotDuplicate: plan.similar.length > 0,
           order: {
             source: v.source,
+            channel: v.channel,
             externalReference: v.externalReference,
+            externalInvoiceNumber: v.externalInvoiceNumber,
             orderedAt: v.orderedAt,
             plannedDeliveryAt: v.plannedDeliveryAt,
             contact: { name: v.contactName, email: v.contactEmail, phone: v.contactPhone },
@@ -234,9 +256,10 @@ export const ORDER_TOOLS: AgentTool[] = [
             ? {
                 proposal_token: signProposalToken({ userId: ctx.userId, fingerprint: plan.fingerprint, issuedAt: Date.now() }, proposalSecret()),
                 proposalValidMinutes: PROPOSAL_TOKEN_MINUTES,
-                nextStep:
-                  "Ukaž uživateli zákazníka (existující / nový), položky, součty, dopravu, platbu, termín a varování a zeptej se, zda objednávku zapsat. Až po jeho výslovném souhlasu zavolej create_order se STEJNÝMI argumenty, proposal_token, confirm=true a novým idempotency_key" +
-                  (plan.similar.length > 0 ? " — a protože existuje podobná objednávka, i confirm_not_duplicate=true, ale jen když uživatel potvrdí, že jde o jinou objednávku." : "."),
+                nextStep: auto
+                  ? "Čistý návrh: podle trvalého pokynu Jaroslava můžeš rovnou zavolat create_order se STEJNÝMI argumenty, proposal_token, approval=\"standing_instruction\" a novým idempotency_key. Uživateli pak oznam číslo a odkaz zapsané objednávky."
+                  : "Návrh NENÍ čistý — nic nezapisuj. Ukaž Jaroslavovi decisionReasons a návrh a vyžádej si jeho rozhodnutí. Zapsat smíš až po jeho výslovném souhlasu: create_order se STEJNÝMI argumenty, proposal_token, approval=\"user_confirmed\" a novým idempotency_key" +
+                    (plan.similar.length > 0 ? " — u možné duplicity navíc confirm_not_duplicate=true, jen když potvrdí, že jde o jinou objednávku." : "."),
               }
             : {}),
         },
@@ -247,39 +270,44 @@ export const ORDER_TOOLS: AgentTool[] = [
     name: "create_order",
     title: "Zapsat objednávku do MojeBegina",
     description:
-      "ZÁPIS — založí NOVOU objednávku v MojeBegina (existující nikdy nemění). Volej JEN po prepare_order, když jsi uživateli ukázal návrh a on výslovně potvrdil zápis. " +
-      "Pošli STEJNÉ argumenty objednávky jako do prepare_order + proposal_token, confirm=true a idempotency_key. Když se údaje mezitím změnily, objednávka se stejným " +
-      "externím číslem už existuje nebo je stav nejasný, nic nezaloží a vrátí důvod — ten sděl uživateli. Vrací id, číslo objednávky a odkaz pro kontrolu.",
+      "ZÁPIS — založí NOVOU objednávku v MojeBegina (existující nikdy nemění, žádný e-mail ani fakturu neposílá). Volej JEN po prepare_order se STEJNÝMI argumenty + proposal_token a idempotency_key. " +
+      "approval=\"standing_instruction\" (trvalý pokyn Jaroslava zapisovat potvrzené objednávky) jen když prepare_order vrátil autoCreateAllowed=true — server to ověří znovu; " +
+      "approval=\"user_confirmed\" jen po výslovném rozhodnutí uživatele o tomto návrhu. Když se údaje mezitím změnily, objednávka se stejným externím číslem už existuje " +
+      "nebo návrh není čistý, nic nezaloží a vrátí důvod — ten sděl uživateli. Vrací id, číslo objednávky a odkaz pro kontrolu.",
     write: true,
     properties: {
       ...ORDER_PROPERTIES,
       proposal_token: S("proposal_token z prepare_order."),
-      confirm: { type: "boolean", description: "true = uživatel výslovně potvrdil zápis této objednávky." },
-      confirm_not_duplicate: { type: "boolean", description: "true jen když prepare_order hlásil možnou duplicitu a uživatel potvrdil, že jde o jinou objednávku." },
+      approval: {
+        type: "string",
+        enum: ["standing_instruction", "user_confirmed"],
+        description: "standing_instruction = trvalý pokyn Jaroslava (jen čistý návrh, autoCreateAllowed=true); user_confirmed = uživatel výslovně rozhodl o tomto návrhu.",
+      },
+      confirm_not_duplicate: { type: "boolean", description: "true jen když prepare_order hlásil možnou duplicitu a uživatel rozhodl, že jde o jinou objednávku (jen s approval=user_confirmed)." },
     },
-    required: ["source", "items", "proposal_token", "confirm"],
+    required: ["source", "items", "proposal_token", "approval"],
     parse: (args) => {
-      onlyKnown(args, ["proposal_token", "confirm", "confirm_not_duplicate", "idempotency_key"]);
-      if (args.confirm !== true) throw new ArgError("Objednávku lze zapsat jen s confirm=true po výslovném souhlasu uživatele s návrhem.");
-      return {
-        input: intakeOf(args),
-        token: requiredString(args, "proposal_token", 2000),
-        confirmNotDuplicate: optionalBoolean(args, "confirm_not_duplicate") === true,
-      };
+      onlyKnown(args, ["proposal_token", "approval", "confirm_not_duplicate", "idempotency_key"]);
+      const approval = optionalEnum<IntakeApproval>(args, "approval", ["standing_instruction", "user_confirmed"]);
+      if (approval === null) throw new ArgError("Chybí approval: standing_instruction (čistý návrh podle trvalého pokynu), nebo user_confirmed (výslovné rozhodnutí uživatele).");
+      const confirmNotDuplicate = optionalBoolean(args, "confirm_not_duplicate") === true;
+      if (confirmNotDuplicate && approval !== "user_confirmed") throw new ArgError("confirm_not_duplicate smí přijít jen s approval=user_confirmed — o možné duplicitě rozhoduje uživatel.");
+      return { input: intakeOf(args), token: requiredString(args, "proposal_token", 2000), approval, confirmNotDuplicate };
     },
-    execute: async ({ input, token, confirmNotDuplicate }, issuer) => {
+    execute: async ({ input, token, approval, confirmNotDuplicate }, issuer) => {
       const ctx = await getAuthContext();
       if (!ctx) return { ok: false, error: "Nepřihlášený uživatel." };
       const verified = verifyProposalToken(token, ctx.userId, proposalSecret());
       if (!verified.ok) return verified;
       const result = await createOrderFromIntake(input, {
         expectedFingerprint: verified.claims.fingerprint,
+        approval,
         confirmNotDuplicate,
-        via: { channel: "mcp:chatgpt" },
+        via: { client: "chatgpt" },
       });
       if (!result.ok) {
         if (!result.existing?.length) return { ok: false, error: result.error };
-        const list = result.existing.map((o) => `${o.orderNumber ?? o.orderId} (${o.totalKc} Kč, ${orderUrl(issuer, o.orderId)})`).join("; ");
+        const list = result.existing.map((o) => `${o.externalWooCommerceId ?? o.orderNumber ?? o.orderId} (${o.totalKc} Kč, ${orderUrl(issuer, o.orderId)})`).join("; ");
         return { ok: false, error: `${result.error} Existující: ${list}.` };
       }
       return {
@@ -288,12 +316,21 @@ export const ORDER_TOOLS: AgentTool[] = [
         data: {
           created: true,
           orderId: result.orderId,
-          orderNumber: result.orderNumber,
+          // číslo objednávky: e-shop begina.cz = číslo WooCommerce, jinak číslo z MojeBegina (= VS)
+          orderNumber: result.externalWooCommerceId ?? result.orderNumber,
+          externalWooCommerceId: result.externalWooCommerceId,
           paymentVs: result.paymentVs,
+          channel: result.channel,
+          approval,
           url: orderUrl(issuer, result.orderId),
           customer: result.customer,
           totalKc: result.totalKc,
-          message: `Objednávka ${result.orderNumber ?? result.orderId} je zapsaná${result.customer.created ? ` (nový zákazník ${result.customer.name}, IČO ${result.customer.ico})` : ` pro ${result.customer.name}`}, celkem ${result.totalKc} Kč.`,
+          message:
+            `Objednávka ${result.externalWooCommerceId ?? result.orderNumber ?? result.orderId} je zapsaná` +
+            (result.customer.created ? ` (nový zákazník ${result.customer.name}, IČO ${result.customer.ico})` : ` pro ${result.customer.name}`) +
+            `, celkem ${result.totalKc} Kč.` +
+            (result.customer.dicFilled ? ` U zákazníka doplněno DIČ ${result.customer.dicFilled}.` : "") +
+            " Žádný e-mail ani faktura se neposlaly.",
         },
       };
     },

@@ -341,7 +341,7 @@ async function markFailed(db: Db, orderId: string, linkId: string, message: stri
 
 // ------------------------------------------------------------- vystavení
 
-/** Je objednávka skutečně zaplacená? (stav objednávky i přepočet plateb) */
+/** Lze k objednávce vystavit fakturu? (zaplacení, storno, faktura vystavená mimo MojeBegina) */
 export async function reallyPaid(db: Db, orderId: string): Promise<string | null> {
   const row = (
     await db.execute(sql`
@@ -364,6 +364,14 @@ export async function reallyPaid(db: Db, orderId: string): Promise<string | null
     return "Fakturu do iDokladu vystavuje MojeBegina jen k e-shopovým objednávkám a objednávkám importovaným z WooCommerce.";
   }
   if (row.fulfillment_status === "cancelled") return "Objednávka je stornovaná — faktura se nevystaví.";
+  // faktura vystavená mimo MojeBegina (zapsaná při příjmu objednávky přes
+  // asistenta, lib/data/orderIntake.ts) — druhá faktura nesmí vzniknout
+  const external = (
+    await db.execute(sql`
+      SELECT metadata->>'externalInvoiceNumber' AS number FROM order_activity
+      WHERE order_id = ${orderId} AND kind = 'created' AND metadata->>'externalInvoiceNumber' IS NOT NULL LIMIT 1`)
+  ).rows[0] as { number: string } | undefined;
+  if (external) return `K objednávce už existuje faktura ${external.number} vystavená mimo MojeBegina — MojeBegina další fakturu nevystaví.`;
   if (row.payment_status !== "paid" || !["paid", "overpaid"].includes(row.balance_state)) {
     return "Objednávka není uhrazená celá — faktura se nevystaví.";
   }

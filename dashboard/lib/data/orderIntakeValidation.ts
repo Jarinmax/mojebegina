@@ -16,6 +16,30 @@ export const ORDER_SOURCE_LABELS: Record<OrderSource, string> = {
   manual: "ruční zadání",
 };
 
+/**
+ * Kanál objednávky v tabulce orders podle zdroje (orders_channel_check:
+ * manual | eshop | import). Objednávka z e-shopu begina.cz (WooCommerce) =
+ * „import“ s external_woocommerce_id — stejný model jako #5215; „eshop“ je
+ * jen pokladna MojeBegina (vlastní VS 7xxxxxxx), tu asistent nezakládá.
+ * Gmail, telefon a ruční zadání = „manual“.
+ */
+export const ORDER_CHANNEL_FOR_SOURCE: Record<OrderSource, "manual" | "import"> = {
+  gmail: "manual",
+  eshop: "import",
+  phone: "manual",
+  manual: "manual",
+};
+
+/** Ověřený zdroj DIČ — DIČ se nikdy neodvozuje z IČO. */
+export const DIC_SOURCES = ["idoklad", "invoice", "order", "company_register"] as const;
+export type DicSource = (typeof DIC_SOURCES)[number];
+export const DIC_SOURCE_LABELS: Record<DicSource, string> = {
+  idoklad: "iDoklad",
+  invoice: "faktura",
+  order: "objednávka",
+  company_register: "obchodní rejstřík / ARES",
+};
+
 /** Stav objednávky při založení — storno se nezakládá. */
 export const INTAKE_FULFILLMENT_STATUSES: readonly FulfillmentStatus[] = FULFILLMENT_STATUSES.filter((s) => s !== "cancelled");
 
@@ -36,6 +60,12 @@ export type OrderIntakeInput = {
   customerName?: string | null;
   customerAddress?: string | null;
   customerDic?: string | null;
+  /** odkud DIČ je (povinné, když je DIČ zadané) */
+  customerDicSource?: string | null;
+  /** doklad, ze kterého DIČ je (např. „faktura 20260185“) */
+  customerDicReference?: string | null;
+  /** číslo faktury, která k objednávce už existuje mimo MojeBegina — MojeBegina pak fakturu nevystaví */
+  externalInvoiceNumber?: string | null;
   contactName?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
@@ -64,11 +94,15 @@ export type OrderIntakeItem = { name: string; quantity: number; unitPriceKc: num
 
 export type OrderIntakeValue = {
   source: OrderSource;
+  channel: "manual" | "import";
   externalReference: string | null;
+  externalInvoiceNumber: string | null;
   customer:
     | { kind: "id"; organizationId: string; ico: string | null }
-    | { kind: "ico"; ico: string; name: string | null; registeredAddress: string | null; dic: string | null }
+    | { kind: "ico"; ico: string; name: string | null; registeredAddress: string | null }
     | { kind: "search"; name: string | null };
+  /** DIČ z ověřeného zdroje (nová firma, nebo doplnění prázdného DIČ existující firmy) */
+  customerDic: { dic: string; source: DicSource; reference: string | null } | null;
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -76,6 +110,8 @@ export type OrderIntakeValue = {
   subtotalKc: number;
   shippingKc: number;
   totalKc: number;
+  /** kontrolní součet z podkladu (už ověřený proti totalKc); null = nezadán */
+  expectedTotalKc: number | null;
   shippingMethod: string | null;
   paymentMethod: string | null;
   paymentStatus: PaymentStatus;
@@ -154,6 +190,10 @@ export function validateOrderIntake(
     if ((source === "gmail" || source === "eshop") && !externalReference) {
       throw new IntakeError("U objednávky z Gmailu nebo e-shopu zadejte externí číslo (číslo objednávky z e-mailu / e-shopu, případně ID e-mailu) — chrání proti dvojímu zápisu.");
     }
+    if (source === "eshop" && !/^\d{1,10}$/.test(externalReference ?? "")) {
+      throw new IntakeError("U objednávky z e-shopu begina.cz je externí číslo číslo objednávky z WooCommerce (jen číslice, např. 5217).");
+    }
+    const externalInvoiceNumber = text(input.externalInvoiceNumber, 50, "Číslo faktury");
 
     // zákazník
     const organizationId = text(input.organizationId, 36, "organization_id");
@@ -163,12 +203,17 @@ export function validateOrderIntake(
     const customerAddress = text(input.customerAddress, MAX_ADDRESS, "Sídlo zákazníka");
     const dicRaw = text(input.customerDic, 20, "DIČ")?.replace(/\s/g, "").toUpperCase() ?? null;
     if (dicRaw !== null && !/^[A-Z]{2}[0-9A-Z]{2,13}$/.test(dicRaw)) throw new IntakeError("DIČ musí mít tvar např. CZ12345678.");
+    const dicSource = text(input.customerDicSource, 30, "Zdroj DIČ");
+    if (dicRaw !== null && !DIC_SOURCES.includes(dicSource as DicSource)) {
+      throw new IntakeError(`DIČ se zapisuje jen z ověřeného podkladu — uveďte customer_dic_source (${DIC_SOURCES.join(", ")}). DIČ se nikdy neodvozuje z IČO.`);
+    }
+    const customerDic = dicRaw !== null ? { dic: dicRaw, source: dicSource as DicSource, reference: text(input.customerDicReference, 100, "Doklad k DIČ") } : null;
     let customer: OrderIntakeValue["customer"];
     if (organizationId !== null) {
       if (!UUID_RE.test(organizationId)) throw new IntakeError("organization_id musí být id (UUID) zákazníka z MojeBegina.");
       customer = { kind: "id", organizationId: organizationId.toLowerCase(), ico: icoRaw };
     } else if (icoRaw !== null) {
-      customer = { kind: "ico", ico: icoRaw, name: customerName, registeredAddress: customerAddress, dic: dicRaw };
+      customer = { kind: "ico", ico: icoRaw, name: customerName, registeredAddress: customerAddress };
     } else {
       customer = { kind: "search", name: customerName };
     }
@@ -222,8 +267,11 @@ export function validateOrderIntake(
       ok: true,
       value: {
         source,
+        channel: ORDER_CHANNEL_FOR_SOURCE[source],
         externalReference,
+        externalInvoiceNumber,
         customer,
+        customerDic,
         contactName: base.value.contactName,
         contactEmail: base.value.contactEmail,
         contactPhone: base.value.contactPhone,
@@ -231,6 +279,7 @@ export function validateOrderIntake(
         subtotalKc: base.value.subtotalKc,
         shippingKc,
         totalKc: base.value.totalKc,
+        expectedTotalKc,
         shippingMethod: text(input.shippingMethod, MAX_TEXT, "Způsob dopravy"),
         paymentMethod: text(input.paymentMethod, MAX_TEXT, "Způsob platby"),
         paymentStatus,
