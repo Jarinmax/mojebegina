@@ -62,6 +62,8 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 | `add_customer_note` | zápis | poznámka u zákazníka (nová tabulka `organization_activity`, vidět i na kartě zákazníka) |
 | `create_company_task` | zápis | nové téma v Živé mapě **pod existující oblast** (nové oblasti ne) |
 | `comment_company_task` | zápis | komentář do diskuse tématu |
+| `prepare_order` | čtení | návrh objednávky bez zápisu: součty, dohledání zákazníka (IČO, e-mail, telefon, název), odpovědná osoba, balení podle SKU, duplicity; vrací `proposal_token` |
+| `create_order` | zápis | založí NOVOU objednávku podle návrhu (`proposal_token` + `confirm=true` + `idempotency_key`); existující nikdy nemění |
 | `idoklad_search_invoices`, `idoklad_get_invoice`, `idoklad_list_series`, `idoklad_numbering_audit`, `idoklad_unpaid_and_discrepancies` | čtení | iDoklad jen ke čtení (`lib/idoklad-read`, audit `idoklad_read_log`) — **jen vystavovatelé faktur** |
 | `invoice_preview` | čtení | náhled faktury k objednávce bez zápisu: odběratel, položky, celkem, VS, řada, blokující problémy, stav dosavadní faktury, komu odejde PDF (Komu + Bcc); vrací `preview_token` — **jen vystavovatelé faktur** |
 | `issue_and_send_invoice` | zápis | vystavení v iDokladu + jedno odeslání PDF, týmž motorem jako tlačítko v detailu objednávky — **jen vystavovatelé faktur** |
@@ -69,6 +71,35 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 Asistent **nikdy** nemaže, nemění fázi leadu, vlastníka, role ani oprávnění a
 nesahá na objednávky ani platby. Zápisové nástroje dostane jen
 tehdy, když je uživatel na souhlasové stránce povolí (rozsah `mojebegina.write`).
+
+### Zápis objednávky (např. potvrzené v Gmailu)
+
+`lib/agent/mcp/tools/orders.ts` → `lib/data/orderIntake.ts` (oprávnění
+`requireOrderContext` = ADMIN/EXECUTIVE, stejně jako ruční „Nová objednávka“;
+kontrola položek, dopravy, kontaktu a termínu = `validateCreateOrderInput`).
+
+1. `prepare_order` (jen čtení) — asistent ukáže zákazníka, položky, součty a varování.
+2. Uživatel výslovně potvrdí.
+3. `create_order` se STEJNÝMI argumenty + `proposal_token`, `confirm=true`, `idempotency_key`.
+
+Pojistky:
+
+- **Zákazník:** `organization_id` → IČO → jednoznačná shoda e-mailu/telefonu
+  z dřívějších objednávek a leadů. Víc kandidátů = asistent se musí zeptat.
+  Nová firma jen s platným IČO (kontrolní číslice), názvem a sídlem — zakládá se
+  jen záznam organizace, žádný uživatelský účet ani pozvánka. Soukromou osobu
+  bez IČO tahle cesta nezakládá (ruční objednávka musí mít firmu).
+- **Duplicity:** stejné externí číslo (dřívější zápis, číslo WooCommerce,
+  číslo objednávky) = stop a odkaz na existující objednávku; stejný zákazník
+  a částka v okně ±3 dny = jen s `confirm_not_duplicate=true`. Zápis běží
+  v jedné transakci pod zámkem na externí číslo — ani souběžné požadavky
+  nezaloží objednávku dvakrát. U zdroje `gmail` a `eshop` je externí číslo povinné.
+- **`proposal_token`:** HMAC, 30 minut, jen pro uživatele, který návrh připravil,
+  a jen pro přesně tytéž údaje (včetně určeného zákazníka a odpovědné osoby).
+- **Audit:** `agent_audit_log` (volání, uživatel, výsledek) + historie objednávky
+  `created` s autorem „Jméno (přes ChatGPT)“ a metadaty `source`, `externalReference`,
+  `newCustomer`, odpovědná osoba. Číslo objednávky přidělí databáze (číslo = VS).
+- **Stav „zaplaceno“** se uloží bez zápisu platby (asistent na to upozorní).
 
 ### Fakturace přes asistenta (Jaroslav Viner, Lucie Königsbergová)
 

@@ -340,6 +340,7 @@ describe("pilotní doména gpt-pilot.begina.cz — celý OAuth tok přes proxy.t
       "list_company_tasks",
       "list_leads",
       "my_overview",
+      "prepare_order",
       "search_crm",
       "search_mojebegina",
     ]);

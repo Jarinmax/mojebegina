@@ -11,7 +11,9 @@ function describeEntry(entry: OrderActivityEntry): string {
     case "created":
       return meta.replacementOfReference
         ? `vytvořil(a) náhradní objednávku za stornovanou ${String(meta.replacementOfReference)}${meta.ageConfirmedByStaff ? " (zákazník znovu potvrdil věk 18+)" : ""}`
-        : "založil(a) objednávku";
+        : meta.via === "mcp"
+          ? `založil(a) objednávku${meta.sourceLabel ? ` (zdroj: ${String(meta.sourceLabel)}${meta.externalReference ? `, č. ${String(meta.externalReference)}` : ""})` : ""}${meta.newCustomer ? " a nového zákazníka" : ""}`
+          : "založil(a) objednávku";
     case "note_added":
       return "upravil(a) poznámku";
     case "fulfillment_status_changed": {
