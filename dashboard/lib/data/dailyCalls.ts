@@ -499,6 +499,7 @@ export async function logDailyCallOutcome(itemId: string, rawInput: DailyCallOut
       note: value.note,
       stageChange: value.stageChange,
       nextFollowUpAt: value.nextFollowUpAt,
+      clearFollowUp: value.clearFollowUp,
       result: value.result,
     })
   );

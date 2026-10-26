@@ -13,7 +13,7 @@ import "server-only";
 import { randomBytes } from "crypto";
 import { google, calendar_v3 } from "googleapis";
 import { CodeChallengeMethod } from "google-auth-library";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { googleCalendarConnections, leadCalendarSync, leads, leadActivity } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -23,7 +23,7 @@ import {
   GOOGLE_CALENDAR_CONNECT_USER_ID,
 } from "./googleCalendarAuth";
 import { encryptToken, decryptToken } from "./googleCalendarCrypto";
-import { leadDisplayName, type LeadStage } from "./leadValidation";
+import { ACTIVE_LEAD_STAGES, leadDisplayName, type LeadStage } from "./leadValidation";
 import {
   effectiveNextFollowUpAt,
   resolveReconcileAction,
@@ -181,6 +181,15 @@ export async function completeGoogleCalendarConnect(
         revokedAt: null,
       },
     });
+
+  // Etapa 0 — po (nově i opakovaném) propojení dosynchronizovat termíny,
+  // které vznikly před propojením nebo zůstaly v jiném (dřívějším)
+  // kalendáři. Best-effort: selhání nesmí zrušit samotné propojení.
+  try {
+    await resyncAllLeadCalendarEvents();
+  } catch (error) {
+    console.error("Google Kalendář: dosynchronizace po propojení selhala", error);
+  }
 
   return { ok: true };
 }
@@ -345,7 +354,10 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
   try {
     const owner = await getAuthorizedClientForOwner();
     if (!owner.ok) {
-      await markSyncFailed(leadId, "Google Kalendář není propojen.");
+      // Etapa 0 — bez propojení to NENÍ chyba: stav zůstává 'pending' a po
+      // propojení ho dosynchronizuje resyncAllLeadCalendarEvents. Dřív se
+      // tu zapisovalo 'failed', takže by po nasazení (ještě před propojením)
+      // každý lead s termínem hlásil "synchronizace selhala".
       return;
     }
 
@@ -408,6 +420,32 @@ async function markSyncFailed(leadId: string, error: string): Promise<void> {
     .update(leadCalendarSync)
     .set({ syncStatus: "failed", lastError: safeMessage, updatedAt: new Date() })
     .where(eq(leadCalendarSync.leadId, leadId));
+}
+
+// Etapa 0 — jednorázová dosynchronizace po propojení: každý lead s
+// termínem v aktivní fázi (i bez dosavadního řádku v lead_calendar_sync) a
+// každý existující řádek se nastaví na 'pending' a projde reconcile. Po
+// opětovném propojení appka zakládá NOVÝ kalendář, proto se znovu
+// zpracují i řádky 'synced' (deterministické event id → v novém kalendáři
+// vznikne stejná událost, 409 řeší createOrPatchEvent). Leady bez
+// termínu bez řádku se přeskočí — není co zakládat.
+export async function resyncAllLeadCalendarEvents(): Promise<{ processed: number }> {
+  const withFollowUp = await db
+    .select({ id: leads.id })
+    .from(leads)
+    .where(and(isNotNull(leads.nextFollowUpAt), inArray(leads.stage, [...ACTIVE_LEAD_STAGES])));
+  const withSyncRow = await db.select({ id: leadCalendarSync.leadId }).from(leadCalendarSync);
+  const ids = [...new Set([...withFollowUp.map((r) => r.id), ...withSyncRow.map((r) => r.id)])];
+
+  for (const id of ids) {
+    await upsertPendingLeadCalendarSync(id);
+    try {
+      await reconcileLeadCalendarEvent(id);
+    } catch {
+      // stav zůstává pending/failed u konkrétního leadu, pokračuje se dál
+    }
+  }
+  return { processed: ids.length };
 }
 
 // Volající (dailyCalls.ts/leads.ts) tohle vloží do SVÉHO db.batch() pole

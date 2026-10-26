@@ -28,6 +28,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const PLAIN_KEYS = new Set([
   "priority",
   "follow_up_date",
+  "follow_up_time",
   "only_mine",
   // čtecí filtry: data, předvolby a výčty (ne jména, ne hledaný text)
   "date",

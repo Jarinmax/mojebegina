@@ -34,10 +34,9 @@ type Props = {
 // ne z formuláře) zobrazuje samostatně nad formulářem — nezávisle na tom,
 // jestli jsou pole zrovna vyplněná nebo prázdná.
 //
-// Security Phase 20 (Google Kalendář 1.0) — datum i čas dalšího kontaktu
-// (appka z termínu vytváří kalendářovou událost, potřebuje přesný čas, ne
-// jen den), POVINNÉ SPOLEČNĚ, jakmile se vůbec vyplní (viz
-// validateCallLogInput). Samostatné tlačítko "Odstranit naplánovaný
+// Security Phase 20 (Google Kalendář 1.0) — datum a čas dalšího kontaktu
+// (appka z termínu vytváří kalendářovou událost na konkrétní čas). Etapa 0:
+// datum bez času = 09:00 Europe/Prague (viz pragueTime.ts:parseFollowUpInput). Samostatné tlačítko "Odstranit naplánovaný
 // kontakt" — prázdná pole v hlavním formuláři znamenají "neřešeno", ne
 // "smazat", takže smazání potřebuje vlastní, jednoznačnou akci.
 export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, calendarSync }: Props) {
@@ -146,6 +145,7 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
               className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
             />
           </div>
+          <p className="text-xs text-neutral-400 mt-1">Bez času = 9:00. Nevyplněno = termín zůstane beze změny.</p>
         </div>
       </div>
 

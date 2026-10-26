@@ -242,17 +242,18 @@ describe("validateCallLogInput — Security Phase 16", () => {
 
   // Security Phase 20 (Google Kalendář 1.0) — datum a čas se musí vyplnit
   // SPOLEČNĚ, jakmile uživatel další kontakt vůbec plánuje.
-  it("jen datum bez času = DENY (musí jít dohromady)", () => {
+  it("Etapa 0 — jen datum bez času = 09:00 Europe/Prague (dřív DENY)", () => {
     const result = validateCallLogInput({
       note: "",
       nextStage: "",
-      nextFollowUpAtDate: "2026-10-05",
+      nextFollowUpAtDate: "2026-11-02",
       nextFollowUpAtTime: "",
       nextStepNote: "",
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/datum i čas/);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // 2. 11. 2026 = zimní čas (UTC+1) → 09:00 Praha = 08:00 UTC
+      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-11-02T08:00:00.000Z");
     }
   });
 

@@ -521,7 +521,14 @@ export async function setLeadNextStep(leadId: string, rawInput: NextStepInput): 
   if (value.nextFollowUpAt !== null) {
     updates.nextFollowUpAt = value.nextFollowUpAt;
   }
+  // Etapa 0, rozhodnutí 6 — smazání termínu jen výslovně (MCP clear_follow_up).
+  if (value.clearFollowUp) {
+    updates.nextFollowUpAt = null;
+  }
 
+  // Etapa 0 — termín z MCP se musí propsat i do Google Kalendáře stejně jako
+  // z formulářů (upsert 'pending' ve stejném batchi, volání Googlu až po
+  // commitu, best-effort).
   await db.batch([
     db.update(leads).set(updates).where(eq(leads.id, leadId)),
     db.insert(leadActivity).values({
@@ -532,10 +539,14 @@ export async function setLeadNextStep(leadId: string, rawInput: NextStepInput): 
       body: value.nextStepNote,
       metadata: {
         nextFollowUpAt: value.nextFollowUpAt,
+        followUpCleared: value.clearFollowUp,
         from: { nextStepNote: current.nextStepNote, nextFollowUpAt: current.nextFollowUpAt },
       },
     }),
+    upsertPendingLeadCalendarSync(leadId),
   ]);
+
+  await reconcileCalendarAfterCommit(leadId);
 
   return { ok: true };
 }

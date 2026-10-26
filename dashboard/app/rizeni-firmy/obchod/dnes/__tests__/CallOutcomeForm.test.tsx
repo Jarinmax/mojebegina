@@ -50,7 +50,7 @@ describe("CallOutcomeForm — Security Phase 19", () => {
     expect(dateInput.required).toBe(false);
   });
 
-  it("po výběru výsledku 'Zavolat později' se datum i čas stanou required", () => {
+  it("po výběru výsledku 'Zavolat později' je required jen datum; čas je nepovinný (bez času = 9:00, Etapa 0)", () => {
     render(<CallOutcomeForm itemId="item-1" />);
     fireEvent.click(screen.getByText("Zapsat výsledek"));
 
@@ -60,6 +60,18 @@ describe("CallOutcomeForm — Security Phase 19", () => {
     const dateInput = screen.getByLabelText(/^Další kontakt/) as HTMLInputElement;
     expect(dateInput.required).toBe(true);
     const timeInput = screen.getByLabelText("Čas dalšího kontaktu") as HTMLInputElement;
-    expect(timeInput.required).toBe(true);
+    expect(timeInput.required).toBe(false);
+  });
+
+  it("výslovné smazání termínu je samostatné zaškrtávátko; u 'Zavolat později' se nenabízí (Etapa 0)", () => {
+    render(<CallOutcomeForm itemId="item-1" />);
+    fireEvent.click(screen.getByText("Zapsat výsledek"));
+
+    const clear = screen.getByLabelText("Smazat naplánovaný další kontakt") as HTMLInputElement;
+    expect(clear.name).toBe("clearFollowUp");
+    expect(clear.checked).toBe(false);
+
+    fireEvent.change(screen.getByLabelText("Výsledek hovoru"), { target: { value: "call_back_later" } });
+    expect(screen.queryByLabelText("Smazat naplánovaný další kontakt")).toBeNull();
   });
 });

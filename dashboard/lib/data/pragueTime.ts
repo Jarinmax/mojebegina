@@ -75,3 +75,32 @@ export function pragueDateTimeToUtc(dateRaw: string, timeRaw: string): PragueDat
 
   return { ok: true, value: new Date(candidateMsB) };
 }
+
+// --- Termín dalšího kontaktu: jednotné pravidlo pro CRM, Denní volání i MCP ---
+//
+// Etapa 0 (ETAPA0_INTEGRACE_VETVI.md, rozhodnutí vedení 26. 10. 2026):
+//   • nic nevyplněno       → null = termín se NEMĚNÍ (zachová se stávající),
+//   • jen datum            → 09:00 Europe/Prague (DEFAULT_FOLLOW_UP_TIME),
+//   • datum + čas          → přesně ten čas v Europe/Prague,
+//   • jen čas bez data     → chyba (neúplný termín).
+// Smazání termínu sem NEPATŘÍ — je to vždy samostatná, výslovná akce
+// (removeLeadFollowUp, "Smazat naplánovaný kontakt" v Denním volání,
+// clear_follow_up v MCP), nikdy důsledek prázdného pole.
+export const DEFAULT_FOLLOW_UP_TIME = "09:00";
+
+export type FollowUpInputResult = { ok: true; value: Date | null } | { ok: false; error: string };
+
+export function parseFollowUpInput(
+  dateRaw: string | null | undefined,
+  timeRaw: string | null | undefined
+): FollowUpInputResult {
+  const date = (dateRaw ?? "").trim();
+  const time = (timeRaw ?? "").trim();
+  if (!date && !time) {
+    return { ok: true, value: null };
+  }
+  if (!date) {
+    return { ok: false, error: "K času dalšího kontaktu vyplňte i datum." };
+  }
+  return pragueDateTimeToUtc(date, time || DEFAULT_FOLLOW_UP_TIME);
+}

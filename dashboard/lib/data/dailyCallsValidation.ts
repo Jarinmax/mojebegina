@@ -4,7 +4,7 @@
 // dailyCalls.ts.
 import { sql } from "drizzle-orm";
 import { validateStageInput, type LeadStage } from "./leadValidation";
-import { pragueDateString, pragueDateTimeToUtc } from "./pragueTime";
+import { parseFollowUpInput, pragueDateString } from "./pragueTime";
 
 // Výsledek hovoru je ZÁMĚRNĚ oddělený od LEAD_STAGES (obchodní fáze) —
 // schváleno explicitně: "výsledek hovoru není obchodní fáze". Fáze zůstává
@@ -24,13 +24,17 @@ export type DailyCallOutcomeInput = {
   stageChange: string;
   nextFollowUpAtDate: string;
   nextFollowUpAtTime: string;
+  /** Výslovné smazání naplánovaného kontaktu (Etapa 0, rozhodnutí 6). */
+  clearFollowUp?: boolean;
 };
 
 export type ValidatedDailyCallOutcomeInput = {
   result: CallResult;
   note: string;
   stageChange: LeadStage | null;
+  /** null = termín se nemění (pokud zároveň není clearFollowUp). */
   nextFollowUpAt: Date | null;
+  clearFollowUp: boolean;
 };
 
 // Výsledek a poznámka POVINNÉ, fáze a datum nepovinné — s jednou vázanou
@@ -62,29 +66,25 @@ export function validateDailyCallOutcomeInput(
     stageChange = validatedStage.value;
   }
 
-  // Security Phase 20 (Google Kalendář 1.0) — datum i čas, ne jen datum
-  // (schváleno explicitně: appka má z termínu vytvořit kalendářovou
-  // událost na konkrétní čas, ne jen den). Obě pole se musí vyplnit
-  // společně — jedno bez druhého je neúplný termín.
-  const dateRaw = input.nextFollowUpAtDate.trim();
-  const timeRaw = input.nextFollowUpAtTime.trim();
-  let nextFollowUpAt: Date | null = null;
-  if (dateRaw || timeRaw) {
-    if (!dateRaw || !timeRaw) {
-      return { ok: false, error: "Vyplňte datum i čas dalšího kontaktu, nebo žádné z nich." };
-    }
-    const parsed = pragueDateTimeToUtc(dateRaw, timeRaw);
-    if (!parsed.ok) {
-      return { ok: false, error: parsed.error };
-    }
-    nextFollowUpAt = parsed.value;
+  // Security Phase 20 (Google Kalendář 1.0) + Etapa 0 — jednotné pravidlo
+  // termínu (pragueTime.ts:parseFollowUpInput): prázdné = beze změny, jen
+  // datum = 09:00 Europe/Prague, jen čas = chyba. Smazání jen výslovně.
+  const followUp = parseFollowUpInput(input.nextFollowUpAtDate, input.nextFollowUpAtTime);
+  if (!followUp.ok) {
+    return { ok: false, error: followUp.error };
+  }
+  const nextFollowUpAt = followUp.value;
+  const clearFollowUp = input.clearFollowUp === true;
+
+  if (clearFollowUp && nextFollowUpAt) {
+    return { ok: false, error: "Buď zadejte nový termín dalšího kontaktu, nebo ho smažte — ne obojí." };
   }
 
   if ((result as CallResult) === "call_back_later" && !nextFollowUpAt) {
-    return { ok: false, error: "U výsledku „Zavolat později“ je datum i čas dalšího kontaktu povinné." };
+    return { ok: false, error: "U výsledku „Zavolat později“ je datum dalšího kontaktu povinné." };
   }
 
-  return { ok: true, value: { result: result as CallResult, note, stageChange, nextFollowUpAt } };
+  return { ok: true, value: { result: result as CallResult, note, stageChange, nextFollowUpAt, clearFollowUp } };
 }
 
 // Maximální počet SOUČASNĚ nevyřízených položek fronty (staré nedokončené
@@ -263,9 +263,12 @@ export function buildLogDailyCallOutcomeQuery(params: {
   note: string;
   stageChange: string | null;
   nextFollowUpAt: Date | null;
+  /** Výslovné smazání termínu; jinak null nextFollowUpAt = beze změny. */
+  clearFollowUp?: boolean;
   result: string;
 }) {
   const { itemId, leadId, authorUserId, authorName, activityId, note, stageChange, nextFollowUpAt, result } = params;
+  const clearFollowUp = params.clearFollowUp === true;
   return sql`
     WITH old_lead AS (
       SELECT stage FROM leads WHERE id = ${leadId}
@@ -281,7 +284,10 @@ export function buildLogDailyCallOutcomeQuery(params: {
       SET last_contacted_at = now(),
           updated_at = now(),
           stage = COALESCE(${stageChange}::text, stage),
-          next_follow_up_at = ${nextFollowUpAt}::timestamptz
+          -- Etapa 0, rozhodnutí 6: nevyplněný termín zachová stávající,
+          -- smazat jde jen výslovně (clearFollowUp).
+          next_follow_up_at = CASE WHEN ${clearFollowUp}::boolean THEN NULL
+                                   ELSE COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at) END
       WHERE id = ${leadId} AND EXISTS (SELECT 1 FROM claimed)
       RETURNING id
     ),
@@ -296,6 +302,7 @@ export function buildLogDailyCallOutcomeQuery(params: {
       jsonb_build_object(
         'stageChangedTo', ${stageChange}::text,
         'nextFollowUpAt', ${nextFollowUpAt}::timestamptz,
+        'followUpCleared', ${clearFollowUp}::boolean,
         'from', (SELECT stage FROM old_lead),
         'callResult', ${result}::text
       ),

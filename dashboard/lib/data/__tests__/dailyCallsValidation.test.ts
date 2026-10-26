@@ -91,14 +91,38 @@ describe("validateDailyCallOutcomeInput — Security Phase 19", () => {
     ).toBe(true);
   });
 
-  it("Security Phase 20 — jen datum bez času je DENY (musí jít dohromady)", () => {
+  it("Etapa 0 — jen datum bez času = 09:00 Europe/Prague (dřív DENY)", () => {
     const result = validateDailyCallOutcomeInput(
       baseOutcome({ result: "no_answer", nextFollowUpAtDate: "2026-10-05", nextFollowUpAtTime: "" })
     );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/datum i čas/);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // 5. 10. 2026 je ještě letní čas (UTC+2) → 09:00 Praha = 07:00 UTC
+      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T07:00:00.000Z");
     }
+  });
+
+  it("Etapa 0 — nevyplněný termín = beze změny (null), ne smazání", () => {
+    const result = validateDailyCallOutcomeInput(baseOutcome({ result: "no_answer" }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.nextFollowUpAt).toBeNull();
+      expect(result.value.clearFollowUp).toBe(false);
+    }
+  });
+
+  it("Etapa 0 — výslovné smazání projde; smazání zároveň s novým termínem je DENY", () => {
+    const clear = validateDailyCallOutcomeInput(baseOutcome({ result: "no_answer", clearFollowUp: true }));
+    expect(clear.ok && clear.value.clearFollowUp).toBe(true);
+    const both = validateDailyCallOutcomeInput(
+      baseOutcome({ result: "no_answer", clearFollowUp: true, nextFollowUpAtDate: "2026-10-05", nextFollowUpAtTime: "10:00" })
+    );
+    expect(both.ok).toBe(false);
+  });
+
+  it("Etapa 0 — „Zavolat později“ se smazáním a bez nového termínu je DENY", () => {
+    const result = validateDailyCallOutcomeInput(baseOutcome({ result: "call_back_later", clearFollowUp: true }));
+    expect(result.ok).toBe(false);
   });
 
   it("Security Phase 20 — jen čas bez data je DENY (musí jít dohromady)", () => {
@@ -397,10 +421,10 @@ describe("buildLogDailyCallOutcomeQuery — regrese Preview chyby 2923716426", (
 // opak toho, co má nastat, když hovor proběhl a žádný nový termín se
 // nenaplánoval. next_follow_up_at je proto v Denním volání VŽDY binární
 // rozhodnutí (nastavit, nebo explicitně smazat), nikdy "neřešeno".
-describe("buildLogDailyCallOutcomeQuery — next_follow_up_at se skutečně maže, ne jen zachová (Security Phase 20)", () => {
+describe("buildLogDailyCallOutcomeQuery — prázdný termín se zachová, smazání jen výslovně (Etapa 0, rozhodnutí 6)", () => {
   const dialect = new PgDialect();
 
-  function compile(nextFollowUpAt: Date | null) {
+  function compile(nextFollowUpAt: Date | null, clearFollowUp = false) {
     const query = buildLogDailyCallOutcomeQuery({
       itemId: "11111111-1111-1111-1111-111111111111",
       leadId: "22222222-2222-2222-2222-222222222222",
@@ -410,15 +434,21 @@ describe("buildLogDailyCallOutcomeQuery — next_follow_up_at se skutečně maž
       note: "Dovoláno, bez zájmu.",
       stageChange: null,
       nextFollowUpAt,
+      clearFollowUp,
       result: "reached_not_interested",
     });
     return dialect.sqlToQuery(query);
   }
 
-  it("next_follow_up_at = $N::timestamptz PŘÍMO, žádné COALESCE kolem něj", () => {
+  it("next_follow_up_at: výslovné smazání → NULL, jinak COALESCE(nový, stávající)", () => {
     const { sql } = compile(null);
-    expect(sql).toMatch(/next_follow_up_at = \$\d+::timestamptz/);
-    expect(sql).not.toMatch(/COALESCE\([^)]*next_follow_up_at/);
+    expect(sql).toMatch(/next_follow_up_at = CASE WHEN \$\d+::boolean THEN NULL\s+ELSE COALESCE\(\$\d+::timestamptz, next_follow_up_at\) END/);
+  });
+
+  it("příznak smazání jde do SQL jako parametr (false i true) a do metadat aktivity", () => {
+    expect(compile(null, false).params).toContain(false);
+    expect(compile(null, true).params).toContain(true);
+    expect(compile(null).sql).toMatch(/'followUpCleared', \$\d+::boolean/);
   });
 
   it("při nextFollowUpAt=null je skutečná hodnota parametru null (SQL NULL), ne vynechaná", () => {
@@ -426,10 +456,9 @@ describe("buildLogDailyCallOutcomeQuery — next_follow_up_at se skutečně maž
     expect(params).toContain(null);
   });
 
-  it("při vyplněném nextFollowUpAt se stejná přímá cesta použije i pro nastavení (ne jen pro mazání)", () => {
+  it("při vyplněném nextFollowUpAt jde nová hodnota do parametrů", () => {
     const value = new Date("2026-10-05T10:00:00.000Z");
-    const { sql, params } = compile(value);
-    expect(sql).toMatch(/next_follow_up_at = \$\d+::timestamptz/);
+    const { params } = compile(value);
     expect(params).toContain(value);
   });
 

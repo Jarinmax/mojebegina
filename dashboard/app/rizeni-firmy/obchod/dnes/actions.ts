@@ -112,6 +112,7 @@ export async function logDailyCallOutcomeAction(
       stageChange: String(formData.get("stageChange") ?? ""),
       nextFollowUpAtDate: String(formData.get("nextFollowUpAtDate") ?? ""),
       nextFollowUpAtTime: String(formData.get("nextFollowUpAtTime") ?? ""),
+      clearFollowUp: formData.get("clearFollowUp") === "on",
     });
 
     if (!result.ok) {

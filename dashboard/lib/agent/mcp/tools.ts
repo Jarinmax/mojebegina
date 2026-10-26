@@ -242,23 +242,29 @@ const CORE_TOOLS: AgentTool[] = [
     name: "set_lead_next_step",
     title: "Další krok u leadu",
     description:
-      "Nastaví u leadu další krok (co udělat) a/nebo datum dalšího kontaktu — připomínka se pak objeví v kokpitu obchodníka. Nevyplněné pole zůstane beze změny.",
+      "Nastaví u leadu další krok (co udělat) a/nebo termín dalšího kontaktu — připomínka se pak objeví v kokpitu obchodníka a v Google Kalendáři. Nevyplněné pole zůstane beze změny. Datum bez času = 9:00 (Europe/Prague). Smazat termín jde jen výslovně přes clear_follow_up.",
     write: true,
     properties: {
       lead_id: { type: "string", description: "id leadu (UUID)." },
       next_step: { type: "string", description: "Co je potřeba udělat (max. 500 znaků)." },
       follow_up_date: { type: "string", description: "Datum dalšího kontaktu RRRR-MM-DD." },
+      follow_up_time: { type: "string", description: "Čas dalšího kontaktu HH:MM (Europe/Prague). Bez času = 09:00." },
+      clear_follow_up: { type: "boolean", description: "true = smazat naplánovaný termín dalšího kontaktu (nelze spolu s follow_up_date)." },
     },
     required: ["lead_id"],
     parse: (args) => ({
       leadId: requiredUuid(args, "lead_id"),
       nextStep: optionalString(args, "next_step", 500),
       followUpDate: optionalString(args, "follow_up_date", 10),
+      followUpTime: optionalString(args, "follow_up_time", 5),
+      clearFollowUp: optionalBoolean(args, "clear_follow_up") === true,
     }),
-    execute: async ({ leadId, nextStep, followUpDate }, issuer) => {
+    execute: async ({ leadId, nextStep, followUpDate, followUpTime, clearFollowUp }, issuer) => {
       const result = await setLeadNextStep(leadId, {
         nextStepNote: nextStep ?? "",
         nextFollowUpAt: followUpDate ?? "",
+        nextFollowUpTime: followUpTime ?? "",
+        clearFollowUp,
       });
       return result.ok ? { ok: true, data: { saved: true, url: leadUrl(issuer, leadId) } } : result;
     },
