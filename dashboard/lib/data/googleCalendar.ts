@@ -17,6 +17,7 @@ import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { googleCalendarConnections, leadCalendarSync, leads, leadActivity } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
+import { getAppOrigin } from "@/lib/appOrigin";
 import {
   requireGoogleCalendarConnectAccess,
   requireGoogleCalendarStatusAccess,
@@ -391,7 +392,7 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
       description: buildEventDescription({
         contactPhone: lead.contactPhone,
         note: lastNoteRow?.body ?? null,
-        leadUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/rizeni-firmy/obchod/leady/${leadId}`,
+        leadUrl: `${await appOriginForEvents()}/rizeni-firmy/obchod/leady/${leadId}`,
       }),
       startUtc: current,
       durationMinutes: EVENT_DURATION_MINUTES,
@@ -403,6 +404,17 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
   } catch (err) {
     const message = err instanceof Error ? err.message : "Neznámá chyba";
     await markSyncFailed(leadId, message);
+  }
+}
+
+// Etapa 0 — odkaz v události kalendáře: stejný origin jako odkazy v
+// e-mailech (getAppOrigin, v Production https://moje.begina.cz). Mimo
+// požadavek (headers() nedostupné) bezpečný návrat na produkční doménu.
+async function appOriginForEvents(): Promise<string> {
+  try {
+    return await getAppOrigin();
+  } catch {
+    return "https://moje.begina.cz";
   }
 }
 

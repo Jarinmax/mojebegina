@@ -461,3 +461,58 @@ describe("17_kategorie_zmrzliny_MAIN.sql — kategorie Zmrzliny (8. 10. 2026), j
     expect(await check(pg, file("eshop-catalog", "62_zmrzliny_after.sql"))).toBe("1 | Zmrzliny | 60 | ano | 0 | 6 | ano");
   });
 });
+
+describe("Google Kalendář — převod starých termínů „jen datum“ na 09:00 Praha (K8)", { timeout: 180_000 }, () => {
+  const L = (n: number) => `00000000-0000-4000-8000-00000000${String(n).padStart(4, "0")}`;
+
+  async function replica(): Promise<PGlite> {
+    const { pg } = await createMigratedDb(); // schéma kódu včetně 0025, stejně jako Production po 11_migrace_0025.sql
+    await pg.exec(`
+      INSERT INTO leads (id, source, stage, next_follow_up_at) VALUES
+        ('${L(1)}', 'existing_database', 'callback_later', '2026-10-23T12:00:00Z'), -- letní čas
+        ('${L(2)}', 'existing_database', 'interested',     '2026-11-04T12:00:00Z'), -- zimní čas
+        ('${L(3)}', 'existing_database', 'callback_later', '2027-03-01T12:00:00Z'),
+        ('${L(4)}', 'existing_database', 'contacted',      '2026-11-05T13:30:00Z'), -- už s časem → beze změny
+        ('${L(5)}', 'existing_database', 'new',            NULL);`);
+    return pg;
+  }
+  const value = async (pg: PGlite, id: string) =>
+    (await pg.query<{ v: Date | null }>(`SELECT next_follow_up_at AS v FROM leads WHERE id = '${id}'`)).rows[0].v?.toISOString() ?? null;
+
+  it("před / převod / po; jen 12:00 UTC hodnoty, den v Praze zůstává; druhé spuštění se zastaví", async () => {
+    const pg = await replica();
+    expect(await check(pg, file("google-kalendar", "20_terminy_pred.sql"))).toBe("3 | 4 | 0 | ne");
+    await run(pg, file("google-kalendar", "21_terminy_prevod.sql"));
+    await expect(run(pg, file("google-kalendar", "21_terminy_prevod.sql"))).rejects.toThrow(/už existuje/);
+    expect(await check(pg, file("google-kalendar", "22_terminy_po.sql"))).toBe("3 | 0 | 3 | 0");
+    expect(await value(pg, L(1))).toBe("2026-10-23T07:00:00.000Z");
+    expect(await value(pg, L(2))).toBe("2026-11-04T08:00:00.000Z");
+    expect(await value(pg, L(3))).toBe("2027-03-01T08:00:00.000Z");
+    expect(await value(pg, L(4))).toBe("2026-11-05T13:30:00.000Z");
+    expect(await value(pg, L(5))).toBeNull();
+  });
+
+  it("jakmile nový kód zapsal do lead_calendar_sync, převod se zastaví a nic nezmění", async () => {
+    const pg = await replica();
+    await pg.exec(`INSERT INTO lead_calendar_sync (lead_id) VALUES ('${L(4)}')`);
+    await expect(run(pg, file("google-kalendar", "21_terminy_prevod.sql"))).rejects.toThrow(/nový kód už běží/);
+    expect(await value(pg, L(1))).toBe("2026-10-23T12:00:00.000Z");
+  });
+
+  it("návrat vrátí jen nezměněné termíny; změněný ponechá v záloze; po úplném návratu záloha zmizí", async () => {
+    const pg = await replica();
+    await run(pg, file("google-kalendar", "21_terminy_prevod.sql"));
+    await pg.exec(`UPDATE leads SET next_follow_up_at = '2026-11-20T09:00:00Z' WHERE id = '${L(2)}'`); // obchodník mezitím změnil
+    await run(pg, file("google-kalendar", "29_terminy_navrat.sql"));
+    expect(await value(pg, L(1))).toBe("2026-10-23T12:00:00.000Z");
+    expect(await value(pg, L(2))).toBe("2026-11-20T09:00:00.000Z");
+    expect(await value(pg, L(3))).toBe("2027-03-01T12:00:00.000Z");
+    expect((await pg.query(`SELECT lead_id FROM lead_follow_up_k8_backup`)).rows).toEqual([{ lead_id: L(2) }]);
+
+    // úplný návrat: bez zásahu obchodníka se záloha odstraní
+    const clean = await replica();
+    await run(clean, file("google-kalendar", "21_terminy_prevod.sql"));
+    await run(clean, file("google-kalendar", "29_terminy_navrat.sql"));
+    expect(await check(clean, file("google-kalendar", "20_terminy_pred.sql"))).toBe("3 | 4 | 0 | ne");
+  });
+});

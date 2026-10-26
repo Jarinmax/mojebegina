@@ -6,6 +6,7 @@
 // completeGoogleCalendarConnect) — tahle route handler cookii jen zapisuje,
 // nic sama neověřuje napodruhé.
 import { NextResponse } from "next/server";
+import { getAppOrigin } from "@/lib/appOrigin";
 import { cookies } from "next/headers";
 import { beginGoogleCalendarConnect } from "@/lib/data/googleCalendar";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
@@ -28,7 +29,7 @@ export async function GET() {
     return NextResponse.redirect(url);
   } catch (err) {
     if (err instanceof UnauthenticatedError) {
-      return NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"));
+      return NextResponse.redirect(new URL("/login", await getAppOrigin()));
     }
     if (err instanceof ForbiddenError) {
       return new NextResponse("Propojení Google kalendáře smí zahájit jen Jaroslav Blahout.", { status: 403 });

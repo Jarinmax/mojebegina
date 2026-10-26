@@ -7,14 +7,17 @@
 // použitelná).
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getAppOrigin } from "@/lib/appOrigin";
 import { completeGoogleCalendarConnect, type OAuthFlightState } from "@/lib/data/googleCalendar";
 import { FLIGHT_COOKIE } from "../connect/route";
 
 const REDIRECT_TARGET = "/rizeni-firmy/obchod/dnes";
 
-function redirectWithStatus(status: "connected" | "error", message?: string): NextResponse {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const url = new URL(REDIRECT_TARGET, base);
+// Etapa 0 — návratová adresa ze sdíleného getAppOrigin() (v Production pevně
+// https://moje.begina.cz), ne z NEXT_PUBLIC_APP_URL, která v Production
+// nastavená není (dřív by se po propojení přesměrovalo na localhost).
+async function redirectWithStatus(status: "connected" | "error", message?: string): Promise<NextResponse> {
+  const url = new URL(REDIRECT_TARGET, await getAppOrigin());
   url.searchParams.set("googleCalendar", status);
   if (message) url.searchParams.set("googleCalendarError", message);
   return NextResponse.redirect(url);
@@ -26,26 +29,26 @@ export async function GET(request: Request) {
   cookieStore.delete(FLIGHT_COOKIE);
 
   if (!raw) {
-    return redirectWithStatus("error", "Propojení vypršelo, zkuste to prosím znovu.");
+    return await redirectWithStatus("error", "Propojení vypršelo, zkuste to prosím znovu.");
   }
 
   let flight: OAuthFlightState;
   try {
     flight = JSON.parse(raw);
   } catch {
-    return redirectWithStatus("error", "Neplatný stav propojení.");
+    return await redirectWithStatus("error", "Neplatný stav propojení.");
   }
 
   const { searchParams } = new URL(request.url);
   const returnedState = searchParams.get("state") ?? "";
   const code = searchParams.get("code") ?? "";
   if (!code) {
-    return redirectWithStatus("error", "Google nevrátil autorizační kód.");
+    return await redirectWithStatus("error", "Google nevrátil autorizační kód.");
   }
 
   const result = await completeGoogleCalendarConnect(flight, returnedState, code);
   if (!result.ok) {
-    return redirectWithStatus("error", result.error);
+    return await redirectWithStatus("error", result.error);
   }
-  return redirectWithStatus("connected");
+  return await redirectWithStatus("connected");
 }
