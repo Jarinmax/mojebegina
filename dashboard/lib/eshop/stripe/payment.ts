@@ -3,7 +3,8 @@
 //
 // Spojení platby s objednávkou: client_reference_id + metadata.orderId
 // (i na PaymentIntentu) = id objednávky, metadata.source odliší naše platby
-// od plateb WooCommerce na stejném Stripe účtu.
+// od cizích plateb, kdyby na Stripe účtu běžela i jiná integrace (WooCommerce
+// platí přes WooPayments, tedy samostatný účet).
 //
 // Opakované kliknutí / „Zaplatit znovu“: pokud poslední platební stránka
 // objednávky je ještě otevřená, použije se znovu; souběžné požadavky mají
@@ -14,6 +15,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { recordStripeAttempt } from "../payments";
+import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -60,6 +62,20 @@ export function canPayByCard(order: PaymentOrder): { ok: true } | { ok: false; e
   return { ok: true };
 }
 
+export type PendingOrderState = { state: "payable" | "paid" | "closed"; orderNumber: number | null };
+
+/**
+ * Rozpracovaná objednávka z prohlížeče zákazníka (lib/eshop/pendingOrder.ts):
+ * „payable“ = nabídnout „Zaplatit objednávku“, jinak se odkaz zapomene.
+ * Neexistující / cizí / převodem placená / zrušená = „closed“.
+ */
+export function pendingOrderState(order: PaymentOrder | null, cardAvailable: boolean): PendingOrderState {
+  if (!order || order.channel !== "eshop") return { state: "closed", orderNumber: null };
+  if (order.paymentStatus === "paid") return { state: "paid", orderNumber: order.orderNumber };
+  const payable = cardAvailable && canPayByCard(order).ok;
+  return { state: payable ? "payable" : "closed", orderNumber: order.orderNumber };
+}
+
 /** Parametry platební stránky — položky, doprava, částka v haléřích (CZK má ve Stripe 2 desetinná místa). */
 export function buildCheckoutSessionParams(order: PaymentOrder, baseUrl: string): Stripe.Checkout.SessionCreateParams {
   const lines: Stripe.Checkout.SessionCreateParams.LineItem[] = order.items.map((item) => ({
@@ -94,7 +110,7 @@ export function buildCheckoutSessionParams(order: PaymentOrder, baseUrl: string)
         ];
 
   const metadata = { orderId: order.id, source: STRIPE_SOURCE };
-  const statusUrl = `${baseUrl}/eshop/objednavka/${order.id}`;
+  const statusUrl = eshopAbsoluteUrl(baseUrl, orderStatusPath(order.id));
   return {
     mode: "payment",
     locale: "cs",

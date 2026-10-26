@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import ShopLink from "@/components/eshop/ShopLink";
+import { notFound, redirect } from "next/navigation";
 import { Check, ChevronLeft, Snowflake } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
-import { AGE_RESTRICTION_NOTICE, lowestPriceKc } from "@/lib/eshop/productRules";
+import { legacyProductFallback } from "@/lib/eshop/legacyProducts";
+import { eshopHref } from "@/lib/eshop/paths";
+import { eshopBase } from "@/lib/eshop/siteServer";
+import {
+  AGE_RESTRICTION_NOTICE,
+  isOrderable,
+  lowestPriceKc,
+  NOT_ORDERABLE_LABEL,
+  NOT_ORDERABLE_NOTICE,
+} from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "@/components/eshop/ProductImage";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
+import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
@@ -17,10 +27,24 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const product = (await getCatalogIndex()).getProduct(slug);
-  return product ? { title: product.name, description: product.shortDescription ?? undefined } : {};
+  if (!product) return {};
+  const description = product.shortDescription ?? undefined;
+  return {
+    title: product.name,
+    description,
+    alternates: { canonical: `/produkt/${product.slug}` },
+    openGraph: {
+      type: "website",
+      title: product.name,
+      description,
+      url: `/produkt/${product.slug}`,
+      ...(product.image ? { images: [product.image] } : {}),
+    },
+  };
 }
 
 const MISSING = "Doplníme";
+const ALLERGENS_UNVERIFIED = "Ověřujeme";
 
 function foodInfoRows(product: Product): { label: string; value: string | null }[] {
   const info = product.foodInfo;
@@ -32,7 +56,12 @@ function foodInfoRows(product: Product): { label: string; value: string | null }
     { label: "Složení", value: info.ingredients },
     {
       label: "Alergeny",
-      value: info.allergens === null ? null : info.allergens.length ? info.allergens.join(", ") : "Bez alergenů",
+      value:
+        info.allergens === null
+          ? ALLERGENS_UNVERIFIED
+          : info.allergens.length
+            ? info.allergens.join(", ")
+            : "Neobsahuje žádný z alergenů, které se povinně uvádějí",
     },
     ...(product.isAgeRestricted
       ? [
@@ -57,6 +86,9 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const product = index.getProduct(slug);
   const category = product ? index.findCategory(product.category) : undefined;
   if (!product || !category) {
+    // Stará adresa z WordPressu u produktu, který zatím není vidět → kategorie (307).
+    const fallback = legacyProductFallback(slug, index);
+    if (fallback) redirect(eshopHref(await eshopBase(), fallback));
     notFound();
   }
   const hasChoice = product.variants.length > 1;
@@ -65,13 +97,13 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
-      <Link
-        href={`/eshop/kategorie/${category.slug}`}
+      <ShopLink
+        href={`/kategorie/${category.slug}`}
         className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-6 -ml-1"
       >
         <ChevronLeft className="w-4 h-4" />
         {category.name}
-      </Link>
+      </ShopLink>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-start">
         <div className="md:sticky md:top-20">
@@ -96,8 +128,16 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             </ul>
           )}
 
+          <MetaViewContent sku={product.variants[0].sku} name={product.name} priceKc={lowestPriceKc(product)} />
           <div className="mt-6">
-            <AddToCartButton name={product.name} variants={product.variants} />
+            {isOrderable(product) ? (
+              <AddToCartButton name={product.name} variants={product.variants} />
+            ) : (
+              <div className="border border-neutral-200 rounded-xl p-4">
+                <p className="font-medium">{NOT_ORDERABLE_LABEL}</p>
+                <p className="text-sm text-neutral-600 mt-1">{NOT_ORDERABLE_NOTICE}</p>
+              </div>
+            )}
           </div>
 
           <p className="mt-5 text-sm text-neutral-600 flex items-start gap-2">

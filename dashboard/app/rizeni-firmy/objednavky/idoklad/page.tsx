@@ -2,14 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
-import { eshopIdokladCredentials, invoicingMode, invoicingSwitch } from "@/lib/eshop/invoicing/mode";
+import { invoicingMode, invoicingSwitch, missingIdokladCredentials } from "@/lib/eshop/invoicing/mode";
+import { DEFAULT_AUDIT_NUMBERS } from "@/lib/eshop/invoicing/numberingAudit";
 import IdokladPreflightPanel from "./IdokladPreflightPanel";
+import NumberingAuditPanel from "./NumberingAuditPanel";
 
-// ESHOP 1.0 — „Kontrola připojení iDokladu“ (preflight). Jen Jaroslav
-// Viner (invoiceAuth.ts). Stejné Client Credentials, jaké použije ostré
+// ESHOP 1.0 — „Kontrola připojení iDokladu“ (preflight). Jen oprávnění
+// vystavovatelé faktur (invoiceAuth.ts). Stejné Client Credentials, jaké použije ostré
 // vystavení, ale jen čtení — nic se nezapisuje do iDokladu ani do DB.
 // Jde spustit i s vypnutou fakturací (před zapnutím na Production).
 export const dynamic = "force-dynamic";
+// Serverové akce stránky volají iDoklad (kontrola / vystavení faktury):
+// až ~20 čtení po 20 s — výchozí limit funkce by je mohl utnout uprostřed.
+export const maxDuration = 60;
 
 export default async function IdokladPreflightPage() {
   const ctx = await getAuthContext();
@@ -17,7 +22,7 @@ export default async function IdokladPreflightPage() {
 
   const mode = invoicingMode();
   const sw = invoicingSwitch();
-  const hasCredentials = eshopIdokladCredentials() !== null;
+  const missingCredentials = missingIdokladCredentials();
   const environment = process.env.VERCEL_ENV === "production" ? "Production" : "Preview / vývoj";
 
   return (
@@ -41,7 +46,11 @@ export default async function IdokladPreflightPage() {
           <dt className="text-neutral-500">Režim</dt>
           <dd>{mode.reason}</dd>
           <dt className="text-neutral-500">Přístupové údaje</dt>
-          <dd>{hasCredentials ? "nastavené (IDOKLAD_ESHOP_CLIENT_ID / SECRET)" : "chybí"}</dd>
+          <dd>
+            {missingCredentials.length === 0
+              ? "nastavené (IDOKLAD_ESHOP_CLIENT_ID / SECRET / APPLICATION_ID)"
+              : `chybí: ${missingCredentials.join(", ")}`}
+          </dd>
         </dl>
         <p className="mt-3 text-xs text-neutral-500">
           Kontrola: přihlášení (Client Credentials), agenda Begina (IČO 74337297), neplátce DPH, CZK, Česká republika (CZ),
@@ -53,6 +62,16 @@ export default async function IdokladPreflightPage() {
 
       <div className="mt-4">
         <IdokladPreflightPanel />
+      </div>
+
+      <h2 className="mt-8 text-base font-medium text-begina-primary-900">Audit číslování vydaných faktur</h2>
+      <p className="mt-0.5 text-sm text-neutral-500">
+        Projde všechny řady vydaných faktur v iDokladu (ruční řada i E-shop Begina): duplicity, mezery v pořadí,
+        chronologii a datum vystavení proti skutečnému vytvoření v iDokladu. U vybraných čísel ukáže řadu, data
+        a historii vytvoření. Jen čtení — nic se nezapíše ani neuloží.
+      </p>
+      <div className="mt-3 rounded-xl border border-neutral-200 bg-white p-4">
+        <NumberingAuditPanel defaultYear={String(new Date().getFullYear())} defaultNumbers={DEFAULT_AUDIT_NUMBERS} />
       </div>
     </div>
   );

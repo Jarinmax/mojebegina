@@ -1,16 +1,27 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import Link from "next/link";
+import { useActionState, useEffect, useRef, useState } from "react";
+import ShopLink from "@/components/eshop/ShopLink";
+import { useEshopHref } from "@/components/eshop/EshopBase";
 import { CircleCheck } from "lucide-react";
-import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
+import { AGE_RESTRICTION_NOTICE, isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
-import { shippingMethods, paymentMethodsFor, getShippingMethod } from "@/lib/eshop/shipping";
+import {
+  shippingMethodsFor,
+  paymentMethodsFor,
+  defaultPaymentMethodId,
+  quoteLabel,
+  quoteShipping,
+  type ShippingMode,
+} from "@/lib/eshop/shipping";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
-import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
+import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
+import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
+import { rememberPendingOrder } from "@/components/eshop/usePendingOrder";
 
 const initialState: CheckoutState = null;
 
@@ -43,19 +54,30 @@ const emptyValues: Values = {
   city: "",
   zip: "",
   note: "",
-  shippingMethodId: shippingMethods[0].id,
+  shippingMethodId: "osobni-odber",
   paymentMethodId: "prevod",
   termsAccepted: false,
   ageConfirmed: false,
 };
 
-export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPaymentAvailable?: boolean }) {
+export default function CheckoutForm({
+  cardPaymentAvailable = false,
+  shippingMode = "flat",
+}: {
+  cardPaymentAvailable?: boolean;
+  shippingMode?: ShippingMode;
+}) {
   const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
+  const shippingMethods = shippingMethodsFor(shippingMode);
   const { cart, clear } = useCart();
   const catalog = useCatalog();
+  const href = useEshopHref();
   const hydrated = useHydrated();
   const [state, formAction, pending] = useActionState(submitCheckoutAction, initialState);
-  const [values, setValues] = useState<Values>(emptyValues);
+  const [values, setValues] = useState<Values>(() => ({
+    ...emptyValues,
+    paymentMethodId: defaultPaymentMethodId(cardPaymentAvailable),
+  }));
   // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
   // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
   const [orderToken] = useState(() =>
@@ -67,7 +89,22 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
   const email = state && "confirmation" in state ? state.email : "off";
   const orderNumber = state && "confirmation" in state ? state.orderNumber : null;
 
-  const redirectTo = state && "redirectTo" in state ? state.redirectTo : null;
+  const redirect = state && "redirectTo" in state ? state : null;
+  const redirectTo = redirect?.redirectTo ?? null;
+
+  // Meta Pixel (jen se souhlasem): zahájení pokladny jednou za návštěvu stránky.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || !hydrated) return;
+    const cartLines = resolveCartLines(cart, catalog);
+    if (cartLines.length === 0) return;
+    checkoutTracked.current = true;
+    trackMeta("InitiateCheckout", {
+      content_type: "product",
+      content_ids: cartLines.map((line) => line.sku),
+      num_items: cartLines.reduce((sum, line) => sum + line.quantity, 0),
+    });
+  }, [hydrated, cart, catalog]);
 
   useEffect(() => {
     if (confirmation) {
@@ -75,16 +112,39 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
     }
   }, [confirmation, clear]);
 
-  // Platba kartou: objednávka je uložená, pokračuje se na platební stránku Stripe.
+  // Platba kartou: objednávka je uložená (server vrátil její id). Nejdřív si
+  // ji prohlížeč zapamatuje, teprve pak vyprázdní košík a otevře Stripe —
+  // návrat ze Stripe (Zpět, obnovení, nová návštěva) tak nabídne „Zaplatit
+  // objednávku“ místo nové objednávky (PendingOrderNotice).
   useEffect(() => {
-    if (redirectTo) {
+    if (redirect) {
+      rememberPendingOrder(redirect.orderId, redirect.orderNumber);
       clear();
-      window.location.assign(redirectTo);
+      window.location.assign(redirect.redirectTo);
     }
-  }, [redirectTo, clear]);
+  }, [redirect, clear]);
+
+  // Meta: souhlas s reklamními cookies a _fbp/_fbc se odešlou s objednávkou;
+  // nákup (Purchase) pak pošle server až po úplném zaplacení.
+  // Hodnoty se doplní těsně před odesláním (souhlas se mohl změnit).
+  function fillMetaSignals(event: React.FormEvent<HTMLFormElement>) {
+    const signals = checkoutMetaSignals({ window, document });
+    const form = event.currentTarget;
+    for (const [name, value] of Object.entries(signals)) {
+      const input = form.elements.namedItem(name);
+      if (input instanceof HTMLInputElement) input.value = value;
+    }
+  }
 
   if (redirectTo) {
-    return <p className="text-sm text-neutral-600">Přesměrovávám na platbu kartou…</p>;
+    // Po návratu tlačítkem Zpět zůstane stránka v tomto stavu — nabídka
+    // zaplatit tutéž objednávku se ukáže pod textem.
+    return (
+      <div className="max-w-xl mx-auto">
+        <p className="text-sm text-neutral-600 mb-4">Přesměrovávám na platbu kartou…</p>
+        <PendingOrderNotice />
+      </div>
+    );
   }
 
   if (confirmation) {
@@ -151,16 +211,16 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           </dl>
         </div>
         {savedOrderId && confirmation.payment.id === "prevod" && (
-          <Link
-            href={`/eshop/objednavka/${savedOrderId}`}
+          <ShopLink
+            href={`/objednavka/${savedOrderId}`}
             className="mt-6 flex w-full justify-center bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5"
           >
             Platební údaje a QR kód
-          </Link>
+          </ShopLink>
         )}
-        <Link href="/eshop" className="mt-6 inline-block text-sm font-medium underline underline-offset-2">
+        <ShopLink href="/" className="mt-6 inline-block text-sm font-medium underline underline-offset-2">
           Zpět do e-shopu
-        </Link>
+        </ShopLink>
       </div>
     );
   }
@@ -171,19 +231,37 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
   const lines = resolveCartLines(cart, catalog);
   const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted);
+  // Server objednávku s neověřenými alergeny odmítne (priceCart); tady jen
+  // zákazníkovi řekneme proč, ještě před vyplněním formuláře.
+  const blockedLines = lines.filter((line) => !isOrderable(line.product));
 
   if (lines.length === 0) {
     return (
-      <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
-        <p className="text-neutral-600 mb-4">V košíku nic není.</p>
-        <Link href="/eshop" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
-          Prohlédnout nabídku
-        </Link>
-      </div>
+      <>
+        <PendingOrderNotice />
+        <div className="border border-dashed border-neutral-300 rounded-2xl p-8 text-center">
+          <p className="text-neutral-600 mb-4">V košíku nic není.</p>
+          <ShopLink href="/" className="inline-flex bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5">
+            Prohlédnout nabídku
+          </ShopLink>
+        </div>
+      </>
     );
   }
 
-  const shipping = getShippingMethod(values.shippingMethodId) ?? shippingMethods[0];
+  // Cena dopravy jen pro zobrazení — server ji spočítá znovu (priceCart).
+  const quoteLines = lines.map((line) => ({
+    sku: line.sku,
+    name: line.name,
+    quantity: line.quantity,
+    weightGrams: line.variant.weightGrams,
+  }));
+  const quotes = new Map(
+    shippingMethods.map((method) => [method.id, quoteShipping(method, quoteLines, shippingMode, OPERATOR)])
+  );
+  const shipping = shippingMethods.find((method) => method.id === values.shippingMethodId) ?? shippingMethods[0];
+  const quote = quotes.get(shipping.id)!;
+  const shippingKc = quote.available ? quote.priceKc : 0;
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
@@ -191,9 +269,14 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
   }
 
   return (
-    <form action={formAction} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
+    <>
+    <PendingOrderNotice />
+    <form action={formAction} onSubmitCapture={fillMetaSignals} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
       <input type="hidden" name="orderToken" value={orderToken} />
+      <input type="hidden" name="adConsent" defaultValue="0" />
+      <input type="hidden" name="fbp" defaultValue="" />
+      <input type="hidden" name="fbc" defaultValue="" />
       {/* Past na roboty — člověk pole nevidí ani na něj neskočí tabulátorem. */}
       <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
         <label htmlFor="website">Web (nevyplňujte)</label>
@@ -224,30 +307,39 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
         <fieldset>
           <legend className="font-medium mb-3">Doručení</legend>
           <div className="flex flex-col gap-2">
-            {shippingMethods.map((method) => (
-              <label
-                key={method.id}
-                className={`flex items-start gap-3 border rounded-xl p-3.5 cursor-pointer ${
-                  values.shippingMethodId === method.id ? "border-begina-primary-900" : "border-neutral-200"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="shippingMethodId"
-                  value={method.id}
-                  checked={values.shippingMethodId === method.id}
-                  onChange={() => set("shippingMethodId", method.id)}
-                  className="mt-1 accent-begina-primary-900"
-                />
-                <span className="flex-1">
-                  <span className="flex justify-between gap-3 text-sm font-medium">
-                    {method.label}
-                    <span className="tabular-nums whitespace-nowrap">{method.priceKc === 0 ? "Zdarma" : formatKc(method.priceKc)}</span>
+            {shippingMethods.map((method) => {
+              const methodQuote = quotes.get(method.id)!;
+              return (
+                <label
+                  key={method.id}
+                  className={`flex items-start gap-3 border rounded-xl p-3.5 ${
+                    methodQuote.available ? "cursor-pointer" : "cursor-not-allowed"
+                  } ${values.shippingMethodId === method.id ? "border-begina-primary-900" : "border-neutral-200"}`}
+                >
+                  <input
+                    type="radio"
+                    name="shippingMethodId"
+                    value={method.id}
+                    disabled={!methodQuote.available}
+                    checked={values.shippingMethodId === method.id}
+                    onChange={() => set("shippingMethodId", method.id)}
+                    className="mt-1 accent-begina-primary-900"
+                  />
+                  <span className="flex-1">
+                    <span className="flex justify-between gap-3 text-sm font-medium">
+                      {method.label}
+                      <span className="tabular-nums whitespace-nowrap">{quoteLabel(methodQuote)}</span>
+                    </span>
+                    <span className="block text-xs text-neutral-500 mt-0.5">{method.description}</span>
+                    {!methodQuote.available && (
+                      <span className="block text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5 mt-2" role="note">
+                        {methodQuote.message}
+                      </span>
+                    )}
                   </span>
-                  <span className="block text-xs text-neutral-500 mt-0.5">{method.description}</span>
-                </span>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
 
           {shipping.requiresAddress && (
@@ -266,6 +358,7 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
                   <input id="zip" name="zip" autoComplete="postal-code" inputMode="numeric" required value={values.zip} onChange={(e) => set("zip", e.target.value)} className={inputClass} />
                 </div>
               </div>
+              <p className="text-xs text-neutral-500">Doručujeme jen v České republice.</p>
             </div>
           )}
         </fieldset>
@@ -317,11 +410,11 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           ))}
           <li className="py-2 flex justify-between gap-3 text-neutral-600">
             <span>{shipping.label}</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(shipping.priceKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(shippingKc)}</span>
           </li>
           <li className="pt-3 flex justify-between gap-3 font-semibold">
             <span>Celkem</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc + shipping.priceKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc + shippingKc)}</span>
           </li>
         </ul>
 
@@ -352,16 +445,22 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
           />
           <span>
             Souhlasím s{" "}
-            <a href={INFO_PAGES.terms.path} target="_blank" rel="noopener" className="underline underline-offset-2">
+            <a href={href(INFO_PAGES.terms.path)} target="_blank" rel="noopener" className="underline underline-offset-2">
               obchodními podmínkami
             </a>{" "}
             a beru na vědomí{" "}
-            <a href={INFO_PAGES.privacy.path} target="_blank" rel="noopener" className="underline underline-offset-2">
+            <a href={href(INFO_PAGES.privacy.path)} target="_blank" rel="noopener" className="underline underline-offset-2">
               zpracování osobních údajů
             </a>
             .
           </span>
         </label>
+
+        {blockedLines.length > 0 && (
+          <p className="mt-4 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2" role="alert">
+            {blockedLines.map((line) => line.product.name).join(", ")}: {NOT_ORDERABLE_NOTICE} Upravte prosím košík.
+          </p>
+        )}
 
         {state && "error" in state && (
           <p className="mt-4 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2" role="alert">
@@ -371,15 +470,16 @@ export default function CheckoutForm({ cardPaymentAvailable = false }: { cardPay
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || blockedLines.length > 0 || !quote.available}
           className="mt-4 w-full bg-begina-primary-900 hover:bg-begina-primary-800 disabled:opacity-60 text-white text-sm font-medium rounded-lg h-11"
         >
           {pending ? "Odesílám…" : "Objednat s povinností platby"}
         </button>
-        <Link href="/eshop/kosik" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
+        <ShopLink href="/kosik" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
           Upravit košík
-        </Link>
+        </ShopLink>
       </aside>
     </form>
+    </>
   );
 }

@@ -1,16 +1,22 @@
-import { RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { CreditCard, RefreshCw } from "lucide-react";
 import { formatKc } from "@/lib/format";
 import type { Order } from "@/mock/customer";
 
 type OrderCardProps = {
   order: Order;
+  showPaymentAction?: boolean;
 };
 
 const STATUS_STYLE: Record<Order["status"], string> = {
   Uhrazeno: "bg-begina-primary-100 text-begina-primary-800",
+  Neuhrazeno: "bg-amber-100 text-amber-800",
+  "Částečně uhrazeno": "bg-sky-100 text-sky-800",
+  Přeplaceno: "bg-violet-100 text-violet-800",
 };
 
-export default function OrderCard({ order }: OrderCardProps) {
+export default function OrderCard({ order, showPaymentAction = false }: OrderCardProps) {
+  const canPay = showPaymentAction && order.paymentHref && (order.status === "Neuhrazeno" || order.status === "Částečně uhrazeno");
   return (
     <div
       id={order.id}
@@ -35,6 +41,15 @@ export default function OrderCard({ order }: OrderCardProps) {
         {formatKc(order.totalKc)}
       </p>
 
+      {canPay && (
+        <Link
+          href={order.paymentHref!}
+          className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-white bg-begina-primary-900 rounded-lg py-2.5 mb-2"
+        >
+          <CreditCard className="w-4 h-4" />
+          Zaplatit
+        </Link>
+      )}
       <button
         type="button"
         className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-begina-primary-900 border border-begina-primary-700 rounded-lg py-2"

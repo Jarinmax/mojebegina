@@ -1,12 +1,13 @@
 "use client";
 
+import ShopLink from "./ShopLink";
 import { useState } from "react";
-import Link from "next/link";
 import { Check } from "lucide-react";
 import type { Variant } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import QuantityStepper from "./QuantityStepper";
 import { useCart } from "./useCart";
+import { trackMeta } from "@/lib/eshop/metaPixel";
 
 type AddToCartButtonProps = {
   name: string;
@@ -23,7 +24,16 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
   const [added, setAdded] = useState(false);
 
   function handleAdd() {
-    add(sku, compact ? 1 : quantity);
+    const count = compact ? 1 : quantity;
+    add(sku, count);
+    const priceKc = variants.find((variant) => variant.sku === sku)?.priceKc ?? 0;
+    trackMeta("AddToCart", {
+      content_type: "product",
+      content_ids: [sku],
+      content_name: name,
+      contents: [{ id: sku, quantity: count, item_price: priceKc }],
+      value: priceKc * count,
+    });
     setAdded(true);
   }
 
@@ -86,9 +96,9 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
         <p className="mt-3 text-sm text-begina-primary-800 flex items-center gap-1.5 flex-wrap" role="status">
           <Check className="w-4 h-4" />
           Přidáno do košíku{variants.length > 1 && selected.label ? ` (${selected.label})` : ""}.
-          <Link href="/eshop/kosik" className="font-medium underline underline-offset-2">
+          <ShopLink href="/kosik" className="font-medium underline underline-offset-2">
             Zobrazit košík
-          </Link>
+          </ShopLink>
         </p>
       )}
     </div>

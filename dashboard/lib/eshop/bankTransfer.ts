@@ -153,8 +153,13 @@ type TransferOrder = {
   paymentStatus: string;
 };
 
-/** Platební údaje pro nezaplacenou objednávku převodem; jinak null. */
-export function transferInfo(order: TransferOrder, bank: BankConfig): TransferInfo | null {
+/**
+ * Platební údaje pro nezaplacenou objednávku převodem; jinak null.
+ * `amountKc` = kolik zbývá zaplatit (např. doplatek po převodu platby
+ * ze stornované objednávky); bez něj celá částka objednávky. QR jen pro
+ * celé koruny.
+ */
+export function transferInfo(order: TransferOrder, bank: BankConfig, amountKc: number = order.totalKc): TransferInfo | null {
   if (order.paymentMethodCode !== TRANSFER_PAYMENT_METHOD || order.paymentStatus !== "unpaid") return null;
   if (!bank.account && !bank.iban) return null;
   // VS = uložený payment_vs (nikdy se nedopočítává); zpráva pro příjemce
@@ -164,9 +169,10 @@ export function transferInfo(order: TransferOrder, bank: BankConfig): TransferIn
   const message = `Begina objednavka ${reference}`;
   const dueAt = transferDueAt(order.orderedAt);
   const qrPaymentDate = order.orderedAt;
+  if (amountKc <= 0) return null;
   const spayd =
-    bank.iban && variableSymbol
-      ? spaydString({ iban: bank.iban, amountKc: order.totalKc, variableSymbol, message, paymentDate: qrPaymentDate })
+    bank.iban && variableSymbol && Number.isInteger(amountKc)
+      ? spaydString({ iban: bank.iban, amountKc, variableSymbol, message, paymentDate: qrPaymentDate })
       : null;
-  return { account: bank.account, iban: bank.iban, amountKc: order.totalKc, variableSymbol, message, dueAt, qrPaymentDate, spayd };
+  return { account: bank.account, iban: bank.iban, amountKc, variableSymbol, message, dueAt, qrPaymentDate, spayd };
 }

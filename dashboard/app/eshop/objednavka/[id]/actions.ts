@@ -7,8 +7,9 @@ import { db } from "@/lib/db/client";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
 import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
-import { startCardPayment } from "@/lib/eshop/stripe/payment";
+import { loadPaymentOrder, pendingOrderState, startCardPayment, type PendingOrderState } from "@/lib/eshop/stripe/payment";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
+import { isAgentRequest } from "@/lib/site/hosts";
 
 export type PayAgainState = { error: string } | { redirectTo: string } | null;
 
@@ -19,6 +20,10 @@ export async function payAgainAction(_prev: PayAgainState, formData: FormData): 
     return { error: "Platba kartou teď není dostupná." };
   }
   const h = await headers();
+  // Pilotní doména asistenta: samostatná pojistka vedle 404 v proxy.ts.
+  if (isAgentRequest(h.get("host"), h.get("x-forwarded-host"))) {
+    return { error: "Platba kartou teď není dostupná." };
+  }
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   try {
@@ -27,5 +32,23 @@ export async function payAgainAction(_prev: PayAgainState, formData: FormData): 
   } catch (error) {
     console.error("E-shop: nová platba selhala", orderId, error);
     return { error: "Platební bránu se nepodařilo otevřít. Zkuste to prosím za chvíli." };
+  }
+}
+
+/**
+ * Stav rozpracované objednávky pro odkaz „Zaplatit objednávku“ v košíku
+ * a pokladně. Vrací jen stav a číslo (žádné osobní údaje); id objednávky je
+ * náhodné UUID jako v adrese stránky stavu. null = stav teď nejde zjistit
+ * (výpadek) → prohlížeč odkaz zatím nezapomíná.
+ */
+export async function pendingOrderStatusAction(rawOrderId: string): Promise<PendingOrderState | null> {
+  const orderId = parseOrderToken(String(rawOrderId ?? ""));
+  if (!orderId) return { state: "closed", orderNumber: null };
+  if (!isEshopPublic()) return null;
+  try {
+    return pendingOrderState(await loadPaymentOrder(db, orderId), stripeConfig() !== null);
+  } catch (error) {
+    console.error("E-shop: stav rozpracované objednávky nejde zjistit", orderId, error);
+    return null;
   }
 }

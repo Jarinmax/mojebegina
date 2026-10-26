@@ -13,12 +13,26 @@ import {
   prepareOrderInvoiceDraft,
   issueOrderInvoice,
   runEshopIdokladPreflight,
+  runEshopNumberingAudit,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
+  recordOrderPaymentAfterCancellation,
+  requestOrderRefund,
+  recordOrderRefund,
+  transferOrderPayment,
+  createReplacementFromCancelled,
+  type StatusChangeResult,
 } from "@/lib/data/orders";
+import { parseAuditNumbers } from "@/lib/eshop/invoicing/numberingAudit";
+import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
 
 export type ActionState = { error: string } | { success: string } | null;
+
+export type NumberingAuditActionState =
+  | { result: import("@/lib/eshop/invoicing/numberingAudit").NumberingAuditResult }
+  | { error: string }
+  | null;
 
 export type PreflightActionState =
   | { result: import("@/lib/eshop/invoicing/preflight").PreflightResult }
@@ -64,18 +78,41 @@ export async function createOrderAction(
   redirect(`/rizeni-firmy/objednavky/${result.id}`);
 }
 
+/** Výsledek uložení stavu → jednoznačná hláška podle skutečného stavu v DB. */
+function statusMessage(
+  result: StatusChangeResult,
+  labels: Readonly<Record<string, string>>,
+  what: string
+): ActionState {
+  if (!result.ok) return { error: result.error };
+  const label = labels[result.status] ?? result.status;
+  if (!result.changed) return { success: `${what} se nezměnil — je „${label}“.` };
+  const parts = [`Uloženo — ${what.toLowerCase()} je „${label}“.`];
+  const c = result.cancellation;
+  if (c) {
+    if (c.email?.status === "sent") parts.push("Zákazníkovi odešel e-mail o zrušení.");
+    else if (c.email?.status === "duplicate") parts.push("E-mail o zrušení už zákazník dostal dříve.");
+    else if (c.email?.status === "failed") parts.push("⚠ E-mail o zrušení se nepodařilo odeslat — kontaktujte zákazníka.");
+    else if (c.email?.status === "no-recipient") parts.push("Zákazník nemá e-mail — informujte ho jinak.");
+    if (c.heldHal > 0) parts.push("Objednávka je zaplacená — kontaktujte zákazníka (jiný produkt, nebo vrácení peněz).");
+  }
+  return { success: parts.join(" ") };
+}
+
 export async function updateFulfillmentStatusAction(
   orderId: string,
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const result = await updateFulfillmentStatus(orderId, String(formData.get("status") ?? ""));
-  if (!result.ok) {
-    return { error: result.error };
-  }
-
+  const expected = formData.get("expectedStatus");
+  const result = await updateFulfillmentStatus(
+    orderId,
+    String(formData.get("status") ?? ""),
+    typeof expected === "string" && expected ? expected : undefined
+  );
+  // i při souběhu obnovit stránku — formulář pak ukáže aktuální stav z DB
   revalidateOrder(orderId);
-  return { success: "Stav objednávky byl uložen." };
+  return statusMessage(result, FULFILLMENT_LABELS, "Stav objednávky");
 }
 
 export async function updatePaymentStatusAction(
@@ -83,13 +120,14 @@ export async function updatePaymentStatusAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const result = await updatePaymentStatus(orderId, String(formData.get("status") ?? ""));
-  if (!result.ok) {
-    return { error: result.error };
-  }
-
+  const expected = formData.get("expectedStatus");
+  const result = await updatePaymentStatus(
+    orderId,
+    String(formData.get("status") ?? ""),
+    typeof expected === "string" && expected ? expected : undefined
+  );
   revalidateOrder(orderId);
-  return { success: "Stav platby byl uložen." };
+  return statusMessage(result, PAYMENT_LABELS, "Stav platby");
 }
 
 // ESHOP 1.0 — „Zapsat platbu“ (e-shopové objednávky): Zaplaceno se nastaví
@@ -147,6 +185,14 @@ export async function runIdokladPreflightAction(): Promise<PreflightActionState>
   return outcome.ok ? { result: outcome.result } : { error: outcome.error };
 }
 
+/** Audit číslování faktur v iDokladu — jen čtení, nic se nezapisuje ani neukládá. */
+export async function runNumberingAuditAction(_prev: NumberingAuditActionState, formData: FormData): Promise<NumberingAuditActionState> {
+  const year = String(formData.get("year") ?? "").trim();
+  const numbers = parseAuditNumbers(String(formData.get("numbers") ?? ""));
+  const outcome = await runEshopNumberingAudit({ year, numbers });
+  return outcome.ok ? { result: outcome.result } : { error: outcome.error };
+}
+
 export async function assignResponsibleAction(
   orderId: string,
   _prevState: ActionState,
@@ -194,4 +240,126 @@ export async function updateOrderNoteAction(
 
   revalidateOrder(orderId);
   return { success: "Poznámka byla uložena." };
+}
+
+// --- Peníze stornované objednávky (lib/eshop/cancellation.ts) ---------
+
+const kcText = (hal: number) =>
+  `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+
+function moneyFields(formData: FormData) {
+  const field = (key: string) => String(formData.get(key) ?? "");
+  return { txId: field("txId"), amountKc: field("amountKc"), date: field("date"), method: field("method"), note: field("note") };
+}
+
+export async function recordPaymentAfterCancellationAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await recordOrderPaymentAfterCancellation(orderId, moneyFields(formData));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return {
+    success: result.recorded
+      ? "Platba po stornu zapsána. Objednávka zůstává stornovaná — kontaktujte zákazníka."
+      : "Platba s tímto ID transakce už je zapsaná.",
+  };
+}
+
+export async function requestRefundAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await requestOrderRefund(orderId, {
+    consent: formData.get("consent") === "on",
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return { success: `Zákazník požaduje vrácení ${kcText(result.heldHal)} — po vrácení ho zapište.` };
+}
+
+export async function recordRefundAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await recordOrderRefund(orderId, moneyFields(formData));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  if (!result.recorded) return { success: "Vrácení s tímto ID transakce už je zapsané." };
+  return {
+    success:
+      result.remainingHal > 0
+        ? `Vrácení zapsáno. Zbývá vrátit ${kcText(result.remainingHal)}.`
+        : "Vrácení zapsáno — peníze jsou vrácené celé.",
+  };
+}
+
+export async function transferPaymentAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await transferOrderPayment(orderId, {
+    target: String(formData.get("target") ?? ""),
+    consent: formData.get("consent") === "on",
+    note: String(formData.get("note") ?? ""),
+    allowDifferentCustomer: formData.get("differentCustomer") === "on",
+  });
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  revalidateOrder(result.target.id);
+  const ref = result.target.orderNumber ?? result.target.paymentVs ?? result.target.id.slice(0, 8);
+  return {
+    success: `Platba ${kcText(result.movedHal)} převedena na objednávku ${ref} (${result.target.contactName ?? "bez jména"})${
+      result.settled ? " — ta je teď zaplacená." : " — zákazník ji ještě doplatí."
+    }`,
+  };
+}
+
+export async function createReplacementAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const field = (key: string) => String(formData.get(key) ?? "");
+  const skus = formData.getAll("sku").map(String);
+  const quantities = formData.getAll("quantity").map(String);
+  const cart = skus
+    .map((sku, i) => ({ sku, quantity: Number.parseInt(quantities[i] ?? "", 10) }))
+    .filter((line) => line.sku && Number.isInteger(line.quantity) && line.quantity > 0);
+  if (cart.length === 0) return { error: "Vyberte aspoň jeden produkt." };
+  const result = await createReplacementFromCancelled(orderId, {
+    token: field("token"),
+    cart: JSON.stringify(cart),
+    shippingMethodId: field("shippingMethodId"),
+    street: field("street"),
+    city: field("city"),
+    zip: field("zip"),
+    ageConfirmed: formData.get("ageConfirmed") === "on",
+    consent: formData.get("consent") === "on",
+    note: field("note"),
+  });
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  revalidateOrder(result.orderId);
+  const ref = result.orderNumber ?? result.paymentVs ?? result.orderId.slice(0, 8);
+  if (result.alreadyCreated) return { success: `Náhradní objednávka ${ref} už je vytvořená.` };
+  const diff = result.requiredHal - result.movedHal;
+  const state =
+    diff > 0
+      ? `zákazník doplatí ${kcText(diff)} (QR jen na doplatek)`
+      : diff < 0
+        ? `je zaplacená, přeplatek ${kcText(-diff)} je k vrácení`
+        : "je zaplacená";
+  const email =
+    result.email === "sent"
+      ? " Zákazníkovi odešel e-mail o náhradní objednávce."
+      : result.email === "failed"
+        ? " ⚠ E-mail zákazníkovi se nepodařilo odeslat — kontaktujte ho."
+        : "";
+  return { success: `Náhradní objednávka ${ref} vytvořena a platba převedena — ${state}.${email}` };
 }

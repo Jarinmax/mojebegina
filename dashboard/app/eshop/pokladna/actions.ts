@@ -14,13 +14,18 @@ import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
+import { shippingModeFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
+import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
+import { eshopBase } from "@/lib/eshop/siteServer";
 import { isOrderWriteEnabled, parseOrderToken, saveEshopOrder } from "@/lib/eshop/orderWrite";
 import { stripeConfig } from "@/lib/eshop/stripe/config";
 import { getStripe } from "@/lib/eshop/stripe/client";
 import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/payment";
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
+import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
+import { isAgentRequest } from "@/lib/site/hosts";
 
 export type CheckoutState =
   | { error: string }
@@ -33,7 +38,13 @@ export type CheckoutState =
       /** potvrzení e-mailem: odešlo / selhalo (objednávka je i tak uložená) / e-maily vypnuté */
       email: "sent" | "failed" | "off";
     }
-  | { redirectTo: string }
+  | {
+      /** platba kartou: platební stránka Stripe (nebo stránka objednávky, když Stripe nejde otevřít) */
+      redirectTo: string;
+      /** uložená objednávka — prohlížeč si ji zapamatuje dřív, než vyprázdní košík */
+      orderId: string;
+      orderNumber: number | null;
+    }
   | null;
 
 /** Adresa aplikace pro návrat ze Stripe (Preview/Production má každý svou). */
@@ -52,6 +63,13 @@ export async function submitCheckoutAction(
   // i bez stránky — nic nezpracovat.
   if (!isEshopPublic()) {
     return { error: "E-shop zatím není spuštěný." };
+  }
+  // Pilotní doména asistenta (gpt-pilot.begina.cz): e-shop tam nemá co
+  // dělat. Proxy ho blokuje 404 už na vstupu; tohle je samostatná pojistka
+  // pro případ, že by se serverová akce zavolala jinou cestou.
+  const requestHeaders = await headers();
+  if (isAgentRequest(requestHeaders.get("host"), requestHeaders.get("x-forwarded-host"))) {
+    return { error: "Objednávku se nepodařilo odeslat." };
   }
   const field = (key: string) => String(formData.get(key) ?? "");
 
@@ -77,7 +95,7 @@ export async function submitCheckoutAction(
       ageConfirmed: formData.get("ageConfirmed") === "on",
     },
     await getCatalogIndex(),
-    { cardPaymentAvailable: stripe !== null }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv() }
   );
 
   if (!result.ok) {
@@ -90,7 +108,12 @@ export async function submitCheckoutAction(
 
   const orderId = parseOrderToken(field("orderToken")) ?? randomUUID();
   try {
-    const saved = await saveEshopOrder(db, orderId, result.value);
+    // Souhlas s reklamními cookies v okamžiku objednávky (Meta Purchase až po zaplacení).
+    const metaConsent = metaConsentFromCheckout(
+      { adConsent: field("adConsent"), fbp: field("fbp"), fbc: field("fbc"), userAgent: (await headers()).get("user-agent") },
+      new Date()
+    );
+    const saved = await saveEshopOrder(db, orderId, result.value, { metaConsent });
     if (!saved.ok) {
       return { error: saved.error };
     }
@@ -98,7 +121,7 @@ export async function submitCheckoutAction(
     if (result.value.payment.id === CARD_PAYMENT_METHOD && stripe) {
       // Objednávka je uložená i když platbu nejde otevřít (výpadek Stripe) —
       // zákazník ji zaplatí znovu ze stránky objednávky.
-      const fallback = `/eshop/objednavka/${saved.orderId}?platba=chyba`;
+      const fallback = eshopHref(await eshopBase(), `${orderStatusPath(saved.orderId)}?platba=chyba`);
       try {
         const payment = await startCardPayment(
           db,
@@ -106,10 +129,11 @@ export async function submitCheckoutAction(
           saved.orderId,
           baseUrl
         );
-        return { redirectTo: payment.ok ? payment.url : fallback };
+        const pending = { orderId: saved.orderId, orderNumber: saved.orderNumber };
+        return { redirectTo: payment.ok ? payment.url : fallback, ...pending };
       } catch (error) {
         console.error("E-shop: platební stránku Stripe se nepodařilo otevřít", saved.orderId, error);
-        return { redirectTo: fallback };
+        return { redirectTo: fallback, orderId: saved.orderId, orderNumber: saved.orderNumber };
       }
     }
     // Jen u nově vzniklé objednávky (dvojí odeslání formuláře = žádný druhý

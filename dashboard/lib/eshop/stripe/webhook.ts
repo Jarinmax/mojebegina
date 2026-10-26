@@ -1,8 +1,8 @@
 // ESHOP 1.0 — zpracování událostí ze Stripe (volá se až PO ověření podpisu
 // v app/api/eshop/stripe/webhook/route.ts).
 //
-// Idempotence: Stripe smí stejnou událost poslat víckrát (a platby
-// WooCommerce na stejném účtu chodí sem taky). Každý pokus (Checkout
+// Idempotence: Stripe smí stejnou událost poslat víckrát (a cizí platby
+// na stejném účtu, pokud nějaké jsou, se ignorují podle metadata.source). Každý pokus (Checkout
 // Session) je jeden řádek v payments (UNIQUE source + external_id);
 // úspěšná platba ho přepne na „proběhlo“ a v téže transakci se přepočítá
 // objednávka (lib/eshop/payments.ts) — Zaplaceno až po úhradě celé částky,
@@ -18,6 +18,7 @@ type Db = NeonHttpDatabase<typeof schema>;
 
 export type WebhookOutcome =
   | "paid"
+  | "paid-after-cancellation"
   | "already-paid"
   | "second-payment"
   | "amount-mismatch"
@@ -64,8 +65,10 @@ export async function handleStripeEvent(db: Db, event: Pick<Stripe.Event, "id" |
   if (!UUID.test(orderId) || session.metadata?.orderId !== orderId) return "ignored-foreign";
 
   const rows = (
-    await db.execute(sql`SELECT total_kc, payment_status, payment_vs FROM orders WHERE id = ${orderId} AND channel = 'eshop'`)
-  ).rows as { total_kc: number; payment_status: string; payment_vs: string | null }[];
+    await db.execute(
+      sql`SELECT total_kc, payment_status, payment_vs, fulfillment_status FROM orders WHERE id = ${orderId} AND channel = 'eshop'`
+    )
+  ).rows as { total_kc: number; payment_status: string; payment_vs: string | null; fulfillment_status: string }[];
   const order = rows[0];
   if (!order) return "ignored-unknown-order";
   const requiredHal = order.total_kc * 100;
@@ -112,6 +115,19 @@ export async function handleStripeEvent(db: Db, event: Pick<Stripe.Event, "id" |
     eventId: event.id,
   });
   if (result.settled) return "paid";
+  // Platba stornované objednávky: zapsaná (peníze přišly), ale objednávka
+  // zůstává Stornovaná a nezaplacená — žádná faktura ani e-mail o platbě.
+  // Upozornění „kontaktovat zákazníka“ (lib/eshop/cancellation.ts).
+  if (order.fulfillment_status === "cancelled") {
+    await warnOnce(
+      db,
+      orderId,
+      "payment_after_cancellation",
+      { key, provider: "stripe", method: "card", amountHal: session.amount_total, txId: pi ?? session.id, checkoutSession: session.id },
+      key
+    );
+    return "paid-after-cancellation";
+  }
   if (session.amount_total !== requiredHal) {
     await warnOnce(db, orderId, "payment_amount_mismatch", mismatchMeta, key);
     return "amount-mismatch";

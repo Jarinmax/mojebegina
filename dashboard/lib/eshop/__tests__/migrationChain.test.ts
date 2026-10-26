@@ -37,7 +37,15 @@ const ESHOP = [
   "0018_eshop_1_0_order_number",
   "0019_eshop_1_0_orders_guest",
   "0020_eshop_1_0_payments_invoicing",
+  "0021_eshop_1_0_variant_weight",
+  "0022_eshop_1_0_company_invoicing",
 ];
+/**
+ * Za e-shopem: audit čtení iDokladu, produkční MCP/OAuth a Google Kalendář
+ * (původně 0021 na feature/google-calendar-1-0, přečíslováno na 0025
+ * drizzle-kit generate při integraci — Etapa 0, ETAPA0_INTEGRACE_VETVI.md).
+ */
+const AFTER_ESHOP = ["0023_idoklad_read_log", "0024_gpt_mcp_production", "0025_phase_20_google_calendar"];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
@@ -55,17 +63,11 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0020 hned za nimi", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024 a Google Kalendář 0025", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    // Ohraničeno na vlastní (souvislý) blok e-shopu, ne na "všechno od
-    // FIRST_ESHOP_IDX do konce" — po sloučení main (0020) do
-    // feature/google-calendar-1-0 a přečíslování kolidující kalendářové
-    // migrace na 0021 (Security Phase 21 post-implementation audit)
-    // journal pokračuje DÁL za e-shopem, což je tomuto testu (ověřuje jen
-    // e-shopovu vlastní migraci) mimo rozsah.
-    expect(tags.slice(FIRST_ESHOP_IDX, FIRST_ESHOP_IDX + ESHOP.length)).toEqual(ESHOP);
+    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP]);
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {
@@ -95,7 +97,7 @@ describe("řetězec migrací Drizzle", () => {
     }
   });
 
-  it("e-shop nemění tabulky z main (0013–0020 = stejné jako 0012)", () => {
+  it("e-shop nemění tabulky z main (0013–0022 = stejné jako 0012)", () => {
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
     for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);

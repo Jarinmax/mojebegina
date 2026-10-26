@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateCheckoutInput as validateWith, type CheckoutInput } from "../checkout";
 import { catalogIndex } from "./helpers/catalogFixture";
+import { defaultPaymentMethodId, paymentMethodsFor } from "../shipping";
 
 const validateCheckoutInput = (input: CheckoutInput) => validateWith(input, catalogIndex);
 
@@ -94,5 +95,23 @@ describe("validateCheckoutInput — E-shop 1.0", () => {
       baseInput({ cart: JSON.stringify([{ sku: "kulajda", quantity: 1, priceKc: 1 }]) })
     );
     expect(result.ok && result.value.pricedCart.lines[0].unitPriceKc).toBe(379);
+  });
+});
+
+describe("výchozí způsob platby v pokladně", () => {
+  it("s dostupnou kartou je karta první a předvybraná, převod zůstává jako druhá možnost", () => {
+    expect(defaultPaymentMethodId(true)).toBe("karta");
+    expect(paymentMethodsFor(true).map((m) => [m.id, m.available])).toEqual([
+      ["karta", true],
+      ["prevod", true],
+    ]);
+  });
+
+  it("bez karty (Production před spuštěním Stripe) beze změny: převod první a výchozí, karta nedostupná", () => {
+    expect(defaultPaymentMethodId(false)).toBe("prevod");
+    expect(paymentMethodsFor(false).map((m) => [m.id, m.available])).toEqual([
+      ["prevod", true],
+      ["karta", false],
+    ]);
   });
 });

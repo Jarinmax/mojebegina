@@ -26,10 +26,30 @@ const ready = (async () => {
       if (statement.trim()) await pg.exec(statement);
     }
   }
+  // Volitelně katalog jako v Production (docs/eshop-catalog, např.
+  // E2E_CATALOG_SQL=31_sirupy.sql,41_polevky.sql,51_caje.sql,61_zmrzliny.sql,71_ovocne_napoje.sql).
+  for (const name of (process.env.E2E_CATALOG_SQL ?? "").split(",").filter(Boolean)) {
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-catalog", name), "utf8"));
+  }
+  // Volitelně hmotnosti balení jako po docs/eshop-production/41_hmotnosti.sql
+  // (E2E_WEIGHTS=1; vyžaduje katalog z E2E_CATALOG_SQL). Skript přidává sloupec
+  // sám (= drizzle 0021), proto se nejdřív vrátí stav před ním.
+  if (process.env.E2E_WEIGHTS === "1") {
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-production/49_hmotnosti_rollback.sql"), "utf8"));
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-production/41_hmotnosti.sql"), "utf8"));
+  }
+  // Testovací katalog: alergeny neověřené v seedu (NULL) se označí jako
+  // ověřené „bez alergenů“ ('{}'), aby šly produkty objednat. Jen testovací
+  // data — blokaci NULL hlídá allergenGate.test.ts (vrací NULL zpět).
+  await pg.exec(`UPDATE "products" SET "allergens" = '{}' WHERE "allergens" IS NULL`);
   // Volitelně zapnuté číslování objednávek (skript 06b, např. 900000 jako Preview).
   if (process.env.E2E_ORDER_NUMBER_START) {
     const numbering = readFileSync(join(DRIZZLE_DIR, "../docs/eshop-schema-draft/06b_order_number_cutover_up.sql"), "utf8");
     await pg.exec(numbering.replaceAll("<MAX_WOO_ORDER_NUMBER>", process.env.E2E_ORDER_NUMBER_START));
+  }
+  // Volitelně číslování „číslo objednávky = VS“ (docs/eshop-production/31_cislovani_vs.sql).
+  if (process.env.E2E_ORDER_NUMBERING === "vs") {
+    await pg.exec(readFileSync(join(DRIZZLE_DIR, "../docs/eshop-production/31_cislovani_vs.sql"), "utf8"));
   }
 })();
 
@@ -46,6 +66,20 @@ async function run({ query, params }) {
   };
 }
 
+// PGlite má jediné spojení: souběžné požadavky (dvojklik, dva souběžné
+// zápisy) by si jinak prokládaly příkazy v jedné transakci. Na Neonu je
+// každý HTTP požadavek / batch vlastní transakce — tady se proto požadavky
+// řadí za sebe (každý celý, atomicky).
+let queue = Promise.resolve();
+function exclusive(task) {
+  const result = queue.then(task, task);
+  queue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -53,6 +87,11 @@ globalThis.fetch = async (input, init) => {
     return realFetch(input, init);
   }
   await ready;
+  return exclusive(() => handle(init));
+};
+
+async function handle(init) {
+  startSqlServer();
   const body = JSON.parse(init.body);
   try {
     let payload;
@@ -74,12 +113,18 @@ globalThis.fetch = async (input, init) => {
   } catch (error) {
     return new Response(JSON.stringify({ message: error.message, code: error.code }), { status: 400 });
   }
-};
+}
 
 // Volitelně (jen testy): E2E_SQL_PORT=4999 → na 127.0.0.1 poslouchá malý
 // server, který spustí SELECT z těla požadavku v transakci jen pro čtení
 // a vrátí řádky jako JSON — aby šlo z testu ověřit, co aplikace uložila.
-if (process.env.E2E_SQL_PORT) {
+// Spustí se až při prvním dotazu aplikace: `next start` načte tento soubor
+// i v nadřazeném procesu (bez požadavků) a ten by port obsadil vlastní,
+// prázdnou databází.
+let sqlServerStarted = false;
+function startSqlServer() {
+  if (sqlServerStarted || !process.env.E2E_SQL_PORT) return;
+  sqlServerStarted = true;
   createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;

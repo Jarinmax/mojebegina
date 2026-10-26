@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import { ShoppingBag } from "lucide-react";
 import { cartItemCount, resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "./CatalogProvider";
@@ -12,8 +12,8 @@ export default function CartLink() {
   const count = cartItemCount(resolveCartLines(cart, catalog));
 
   return (
-    <Link
-      href="/eshop/kosik"
+    <ShopLink
+      href="/kosik"
       aria-label={count > 0 ? `Košík, ${count} ks` : "Košík"}
       className="flex items-center gap-1.5 text-sm font-medium text-begina-primary-900"
     >
@@ -26,6 +26,6 @@ export default function CartLink() {
         )}
       </span>
       <span className="hidden sm:inline ml-1">Košík</span>
-    </Link>
+    </ShopLink>
   );
 }

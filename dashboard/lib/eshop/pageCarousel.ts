@@ -5,6 +5,7 @@ import type { Catalog, Category } from "./types";
 
 export type CarouselTile = {
   key: string;
+  /** Cesta e-shopu bez /eshop (ShopLink doplní základ podle domény). */
   href: string;
   name: string;
   image: string | null;
@@ -37,7 +38,7 @@ function normalizeName(name: string): string {
 function categoryTile(category: Pick<Category, "slug" | "name" | "image">): CarouselTile {
   return {
     key: category.slug,
-    href: `/eshop/kategorie/${category.slug}`,
+    href: `/kategorie/${category.slug}`,
     name: category.name,
     image: category.image,
     kind: "category",
@@ -62,7 +63,7 @@ export function waterCarousel(catalog: Catalog): PageCarouselContent {
   const tiles = WATER_DRINKS.flatMap((name) => {
     const product = byName.get(normalizeName(name));
     return product
-      ? [{ key: product.slug, href: `/eshop/produkt/${product.slug}`, name: product.name, image: product.image, kind: "product" as const }]
+      ? [{ key: product.slug, href: `/produkt/${product.slug}`, name: product.name, image: product.image, kind: "product" as const }]
       : [];
   });
   if (tiles.length > 0) return { label: "Nápoje", tiles };

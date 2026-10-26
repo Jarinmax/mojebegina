@@ -20,6 +20,7 @@ import type { PgInsertValue } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders, productVariants } from "@/lib/db/schema";
 import type { CheckoutValue } from "./checkout";
+import type { MetaConsent } from "./metaPurchase";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
 
@@ -137,7 +138,12 @@ async function existingOrder(db: Db, orderId: string): Promise<SavedNumbers | un
   return row;
 }
 
-export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutValue): Promise<SaveOrderResult> {
+export async function saveEshopOrder(
+  db: Db,
+  orderId: string,
+  value: CheckoutValue,
+  options: { metaConsent?: MetaConsent | null } = {}
+): Promise<SaveOrderResult> {
   const existing = await existingOrder(db, orderId);
   if (existing !== undefined) {
     return { ok: true, orderId, ...existing, alreadySaved: true };
@@ -155,7 +161,12 @@ export async function saveEshopOrder(db: Db, orderId: string, value: CheckoutVal
     return built;
   }
 
-  const { order, items, activity } = built.rows;
+  const { order, items } = built.rows;
+  // Souhlas s reklamními cookies (jen udělený) k záznamu o vytvoření —
+  // podle něj server po úplném zaplacení pošle Meta „Purchase“.
+  const activity = options.metaConsent
+    ? { ...built.rows.activity, metadata: { ...(built.rows.activity.metadata as object), metaConsent: options.metaConsent } }
+    : built.rows.activity;
   try {
     await db.batch([
       db.insert(orders).values(order),

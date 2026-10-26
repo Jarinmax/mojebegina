@@ -31,6 +31,17 @@ export type FakeIdokladOptions = {
   paymentOptions?: { Id: number; Name: string; Code: string; IsDefault: boolean }[];
   /** přepsání odpovědi DocumentNumbers (např. špatný formát) */
   nextNumber?: { DocumentNumber: string; DocumentSerialNumber: number; NumericSequenceId: number } | null;
+  /**
+   * true = odpověď faktury uvádí NumericSequenceId. Výchozí false jako
+   * skutečný iDoklad (IssuedInvoiceGetModel / ListGetModel v SDK pole nemají).
+   */
+  sequenceInView?: boolean;
+  /** nová faktura se v iDokladu uloží do jiné řady (chyba / ruční zásah) */
+  storeInSequence?: number;
+  /** ověření řady po vytvoření faktury (NumericSequenceId~eq~… po prvním POST /IssuedInvoices) vždy selže */
+  failSequenceConfirmation?: { status: number; message: string };
+  /** další kontakty v adresáři (např. firma z dřívější ruční faktury) */
+  contacts?: { Id: number; Email: string | null; CompanyName: string; IdentificationNumber: string | null }[];
 };
 
 /** Číselníky skutečné agendy Begina (read-only kontrola 7. 10. 2026). */
@@ -55,11 +66,19 @@ export const BEGINA_CODEBOOKS = {
 // v iDokladu) — testy sdílejí jednu DB s unikátními indexy na ID a číslo.
 const shared = { invoiceId: 7000, serial: 0, contactId: 900 };
 
+/** Výčet z odpovědi skutečného iDokladu (GET /IssuedInvoices, 400), 20. 10. 2026. */
+const ISSUED_INVOICE_FILTER_COLUMNS = [
+  "Id", "CurrencyId", "DateLastChange", "DateOfIssue", "DateOfPayment", "DateOfMaturity", "Exported", "Description",
+  "NumericSequenceId", "DocumentNumber", "ConstantSymbolId", "PartnerId", "IsPaid", "PaymentStatus", "RecurringInvoiceId",
+  "NickName", "DateOfTaxing", "TagIds",
+];
+
 export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
   const calls: FakeCall[] = [];
   const failOnce = { ...(options.failOnce ?? {}) };
   const contacts: { Id: number; Email: string | null; CompanyName: string; IdentificationNumber: string | null }[] = [
     { Id: 501, Email: "odberatel@b2b.cz", CompanyName: "B2B s.r.o.", IdentificationNumber: "12345678" },
+    ...(options.contacts ?? []),
   ];
   const invoices: Invoice[] = [];
   const sequences = options.sequences ?? [
@@ -76,24 +95,42 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
   const fail = (status: number, message: string) =>
     new Response(JSON.stringify({ Data: null, IsSuccess: false, StatusCode: status, Message: message }), { status });
   const page = <T>(items: T[]) => ok({ Items: items, TotalItems: items.length, TotalPages: 1 });
+  // jednoduchý filtr Prop~eq~v i složený ((A~eq~1)~and~(B~eq~2)) jako v SDK
   const filterValue = (query: Record<string, string>, prop: string) => {
-    const m = new RegExp(`${prop}~eq~(.+)$`).exec(query.filter ?? "");
+    const m = new RegExp(`(?:^|\\()${prop}~eq~([^()]+?)(?:\\)|$)`).exec(query.filter ?? "");
     return m ? m[1] : null;
   };
+  const filterColumns = (filter: string) => [...filter.matchAll(/(?:^|\()([^()~]*)~[a-z!]+~/g)].map((m) => m[1]);
   const invoiceView = (i: Invoice) => ({
     Id: i.Id,
     DocumentNumber: i.DocumentNumber,
+    ...(options.sequenceInView ? { NumericSequenceId: i.NumericSequenceId } : {}),
     VariableSymbol: i.VariableSymbol,
     PartnerId: i.PartnerId,
+    DateOfIssue: (i.body.DateOfIssue as string | undefined) ?? null,
+    OrderNumber: (i.body.OrderNumber as string | undefined) ?? null,
+    Description: (i.body.Description as string | undefined) ?? null,
     PaymentStatus: i.PaymentStatus,
     Prices: i.Prices,
   });
 
   async function handle(method: string, url: URL, body: unknown): Promise<Response> {
     if (url.hostname === "identity.idoklad.cz") {
-      calls.push({ method, path: "TOKEN", query: {}, body: null });
+      // jen NÁZVY polí formuláře (v pořadí) — hodnoty přístupových údajů se nikam neukládají
+      const form = new URLSearchParams(typeof body === "string" ? body : "");
+      calls.push({ method, path: "TOKEN", query: {}, body: [...form.keys()] });
       if (options.tokenStatus && options.tokenStatus !== 200) {
         return new Response(JSON.stringify({ error: "invalid_client" }), { status: options.tokenStatus });
+      }
+      // jako identity server iDokladu podle oficiálního SDK 5.4.0: Client Credentials
+      // bez application_id (nebo s chybějícím polem) = 400 invalid_request
+      const required = ["grant_type", "application_id", "client_id", "client_secret", "scope"];
+      if (
+        form.get("grant_type") !== "client_credentials" ||
+        form.get("scope") !== "idoklad_api" ||
+        required.some((key) => !form.get(key))
+      ) {
+        return new Response(JSON.stringify({ error: "invalid_request" }), { status: 400 });
       }
       return new Response(JSON.stringify({ access_token: "tok-fake", expires_in: 3600 }), { status: 200 });
     }
@@ -126,15 +163,20 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
         Custom: null,
       });
     } else if (method === "GET" && path === "/Contacts") {
+      const ico = filterValue(query, "IdentificationNumber");
       const email = filterValue(query, "Email");
-      response = page(contacts.filter((c) => (c.Email ?? "").toLowerCase() === (email ?? "").toLowerCase()));
+      response = page(
+        ico !== null
+          ? contacts.filter((c) => c.IdentificationNumber === ico)
+          : contacts.filter((c) => (c.Email ?? "").toLowerCase() === (email ?? "").toLowerCase())
+      );
     } else if (method === "GET" && /^\/Contacts\/\d+$/.test(path)) {
       const c = contacts.find((x) => x.Id === Number(path.split("/")[2]));
       response = c ? ok(c) : fail(404, "Not found");
     } else if (method === "POST" && path === "/Contacts") {
-      const b = body as { Email: string; CompanyName: string; CountryId: number };
+      const b = body as { Email: string; CompanyName: string; CountryId: number; IdentificationNumber?: string | null };
       if (!b.CompanyName || !b.CountryId) return fail(400, "CompanyName a CountryId jsou povinné");
-      const c = { Id: shared.contactId++, Email: b.Email, CompanyName: b.CompanyName, IdentificationNumber: null };
+      const c = { Id: shared.contactId++, Email: b.Email, CompanyName: b.CompanyName, IdentificationNumber: b.IdentificationNumber ?? null };
       contacts.push(c);
       response = ok(c, 200);
     } else if (method === "GET" && path === "/Currencies") {
@@ -145,10 +187,42 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
     } else if (method === "GET" && path === "/PaymentOptions") {
       response = page(options.paymentOptions ?? BEGINA_CODEBOOKS.paymentOptions);
     } else if (method === "GET" && path === "/IssuedInvoices/Default") {
-      response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
+      response = ok({ AccountNumber: "19-2000145399", BankId: 7, IsIncomeTax: true, ConstantSymbolId: 3, ItemsTextSuffix: "Při nedodržení splatnosti účtujeme úrok z prodlení.", Items: [{ PriceType: 1, VatRateType: 2 }] }); // WithoutVat (agenda Beginy)
     } else if (method === "GET" && path === "/IssuedInvoices") {
-      const vs = filterValue(query, "VariableSymbol");
-      response = page(invoices.filter((i) => i.VariableSymbol === vs).map(invoiceView));
+      // jako skutečný iDoklad: filtr jen podle podporovaných sloupců (VariableSymbol mezi nimi NENÍ)
+      if (
+        options.failSequenceConfirmation &&
+        (query.filter ?? "").startsWith("NumericSequenceId~eq~") &&
+        calls.some((c) => c.method === "POST" && c.path === "/IssuedInvoices")
+      ) {
+        return fail(options.failSequenceConfirmation.status, options.failSequenceConfirmation.message);
+      }
+      const column = filterColumns(query.filter ?? "").find((c) => !ISSUED_INVOICE_FILTER_COLUMNS.includes(c));
+      if (query.filter && column !== undefined) {
+        return fail(
+          400,
+          `Filtering by this column is not supported. Supported columns: ${ISSUED_INVOICE_FILTER_COLUMNS.join(", ")}. `
+        );
+      }
+      const partner = filterValue(query, "PartnerId");
+      const sequence = filterValue(query, "NumericSequenceId");
+      const number = filterValue(query, "DocumentNumber");
+      const invoiceId = filterValue(query, "Id");
+      const since = /^DateOfIssue~gte~(\d{4}-\d{2}-\d{2})$/.exec(query.filter ?? "")?.[1] ?? null;
+      const all = invoices
+        .filter((i) => (partner === null || String(i.PartnerId) === partner))
+        .filter((i) => sequence === null || String(i.NumericSequenceId) === sequence)
+        .filter((i) => number === null || i.DocumentNumber === number)
+        .filter((i) => invoiceId === null || String(i.Id) === invoiceId)
+        .filter((i) => since === null || String(i.body.DateOfIssue ?? "").slice(0, 10) >= since)
+        .map(invoiceView);
+      const size = Number(query.pageSize ?? 100);
+      const pageNo = Number(query.page ?? 1);
+      response = ok({
+        Items: all.slice((pageNo - 1) * size, pageNo * size),
+        TotalItems: all.length,
+        TotalPages: Math.max(1, Math.ceil(all.length / size)),
+      });
     } else if (method === "GET" && /^\/IssuedInvoices\/\d+$/.test(path)) {
       const i = invoices.find((x) => x.Id === Number(path.split("/")[2]));
       response = i ? ok(invoiceView(i)) : fail(404, "Not found");
@@ -166,7 +240,7 @@ export function createFakeIdoklad(options: FakeIdokladOptions = {}) {
         Id: shared.invoiceId++,
         DocumentNumber: `9${String(b.DateOfIssue).slice(2, 4)}${String(shared.serial).padStart(4, "0")}`,
         VariableSymbol: String(b.VariableSymbol),
-        NumericSequenceId: Number(b.NumericSequenceId),
+        NumericSequenceId: options.storeInSequence ?? Number(b.NumericSequenceId),
         PartnerId: Number(b.PartnerId),
         PaymentStatus: 0,
         Prices: { TotalWithVat: total, TotalVat: 0, TotalPaid: 0 },

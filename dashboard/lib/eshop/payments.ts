@@ -11,6 +11,8 @@
 // uhrazená celá částka (paid / overpaid). Platba a přepočet běží v jedné
 // transakci (db.batch). Přepočet jde jen směrem k Zaplaceno — vratky
 // zatím vrací člověk ručně (Stripe / banka) a stav objednávky nemění.
+// Stornovaná objednávka se na Zaplaceno NIKDY nepřepne: platba po stornu
+// se jen eviduje a čeká na rozhodnutí zákazníka (lib/eshop/cancellation.ts).
 import { desc, eq, sql, type SQL } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
@@ -49,6 +51,7 @@ export function settleOrderPaymentSql(
     prev AS (
       SELECT o.id, o.payment_status FROM orders o
       WHERE o.id = ${orderId} AND o.channel = 'eshop' AND o.payment_status <> 'paid'
+        AND o.fulfillment_status <> 'cancelled'
         AND (SELECT balance_state FROM bal) IN ('paid', 'overpaid')
       FOR UPDATE OF o
     ),

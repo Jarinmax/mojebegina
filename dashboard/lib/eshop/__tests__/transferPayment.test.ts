@@ -198,7 +198,11 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
 
   it("karta: číslo 900002, potvrzení až po zaplacení a bez QR", async () => {
     const result = await submitCheckoutAction(null, form(CARD, { paymentMethodId: "karta" }));
-    expect(result).toEqual({ redirectTo: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//) });
+    expect(result).toEqual({
+      redirectTo: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//),
+      orderId: CARD,
+      orderNumber: 900002,
+    });
     expect(mail.sent).toHaveLength(0);
     expect((await payByWebhook(CARD, "evt_card")).outcome).toBe("paid");
     expect(mail.sent[0].subject).toBe("[TEST] Objednávka 900002 je zaplacená — děkujeme");
@@ -325,7 +329,7 @@ describe("převod + QR + číslování + platba přijata (neon-http → PGlite)"
       },
     ]);
     const detail = await orders.getOrderDetail(TRANSFER);
-    expect(detail?.invoice?.link?.payload?.idoklad.duplicateCheck.filter).toBe("VariableSymbol~eq~70000001");
+    expect(detail?.invoice?.link?.payload?.idoklad.duplicateCheck.filter).toMatch(/^DateOfIssue~gte~\d{4}-\d{2}-\d{2}, VariableSymbol = 70000001$/);
     expect(detail?.invoice?.link?.payload?.draft.lines).toEqual([
       { kind: "item", name: "Kulajda", sku: "kulajda", quantity: 2, unitPriceKc: 379, totalKc: 758 },
     ]);

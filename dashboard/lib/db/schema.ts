@@ -74,7 +74,11 @@ export const organizations = pgTable("organizations", {
   ownerUserId: text("owner_user_id"),
   acquiredByUserId: text("acquired_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  // DIČ firmy (faktura; migrace 0022). NULL = neuvedeno / neplátce.
+  dic: text("dic"),
+}, (table) => [
+  check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
+]);
 
 // Řeší "1 login ≠ 1 zákazník": jeden User (spravovaný Neon Auth) může mít
 // členství u víc organizací, jedna organizace může mít víc uživatelů.
@@ -184,6 +188,8 @@ export const orders = pgTable("orders", {
   paymentVs: text("payment_vs"),
 }, (table) => [
   uniqueIndex("orders_order_number_key").on(table.orderNumber),
+  // jedna objednávka z WooCommerce = nejvýš jeden záznam (migrace 0022)
+  uniqueIndex("orders_external_woocommerce_id_key").on(table.externalWooCommerceId),
   unique("orders_payment_vs_key").on(table.paymentVs),
   check("orders_payment_vs_format", sql`${table.paymentVs} IS NULL OR ${table.paymentVs} ~ '^7[0-9]{7}$'`),
   check("orders_eshop_requires_vs", sql`${table.channel} <> 'eshop' OR ${table.paymentVs} IS NOT NULL`),
@@ -815,9 +821,12 @@ export const productVariants = pgTable(
     label: text("label"), // NULL = balení zatím neznámé
     shortNote: text("short_note"),
     packageDescription: text("package_description"),
-    volumeMl: integer("volume_ml"), // doprava na begina.cz se počítá podle objemu
+    volumeMl: integer("volume_ml"),
     servings: integer("servings"),
     priceB2cKc: integer("price_b2c_kc").notNull(), // konečná cena, Begina není plátce DPH
+    // Hmotnost balení v gramech pro cenu chlazené přepravy (lib/eshop/shippingRates.ts).
+    // NULL = neznámá → chlazenou přepravu nejde spočítat a pokladna ji nenabídne.
+    weightG: integer("weight_g"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -829,6 +838,7 @@ export const productVariants = pgTable(
     check("product_variants_volume_positive", sql`${table.volumeMl} > 0`),
     check("product_variants_servings_positive", sql`${table.servings} > 0`),
     check("product_variants_price_nonnegative", sql`${table.priceB2cKc} >= 0`),
+    check("product_variants_weight_positive", sql`${table.weightG} > 0`),
   ]
 );
 
@@ -1025,4 +1035,107 @@ export const focusProjectActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
+);
+
+// Čtení iDokladu (lib/idoklad-read) — auditní záznam KAŽDÉHO přístupu
+// k údajům z iDokladu přes MojeBegina (UI i asistenti ChatGPT / Claude přes
+// MCP). Zapíše se PŘED čtením (bez zápisu se nic nepřečte) a doplní po
+// něm. Argumenty jen bez osobních údajů (jméno zákazníka jen délka); žádné
+// tokeny ani výsledky. Nic se nemaže automaticky.
+export const idokladReadLog = pgTable(
+  "idoklad_read_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    userId: text("user_id").notNull(),
+    // "ui" | "mcp:<klient>" (např. mcp:chatgpt, mcp:claude)
+    channel: text("channel").notNull(),
+    tool: text("tool").notNull(),
+    args: jsonb("args").notNull(),
+    // started → ok | error; denied / rate_limited / invalid se zapisují rovnou
+    status: text("status").notNull(),
+    resultCount: integer("result_count"),
+    idokladRequests: integer("idoklad_requests"),
+    durationMs: integer("duration_ms"),
+    error: text("error"),
+  },
+  (table) => [
+    index("idoklad_read_log_user_created_idx").on(table.userId, table.createdAt),
+    check("idoklad_read_log_status_check", sql`${table.status} IN ('started', 'ok', 'error', 'denied', 'rate_limited', 'invalid')`),
+    check("idoklad_read_log_channel_check", sql`${table.channel} ~ '^(ui|mcp:[a-z0-9_-]{1,40})$'`),
+  ]
+);
+
+export const organizationActivity = pgTable(
+  "organization_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("organization_activity_org_id_idx").on(table.organizationId, table.createdAt)]
+);
+
+export const agentGrants = pgTable(
+  "agent_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    systemRole: text("system_role").notNull(),
+    clientId: text("client_id").notNull(),
+    scope: text("scope").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+  },
+  (table) => [index("agent_grants_user_id_idx").on(table.userId)]
+);
+
+export const agentTokens = pgTable(
+  "agent_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    grantId: uuid("grant_id").notNull().references(() => agentGrants.id),
+    kind: text("kind").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    redirectUri: text("redirect_uri"),
+    codeChallenge: text("code_challenge"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("agent_tokens_grant_id_idx").on(table.grantId),
+    check("agent_tokens_kind_check", sql`${table.kind} IN ('code','access','refresh')`),
+    check("agent_tokens_code_fields_check", sql`${table.kind} <> 'code' OR (${table.redirectUri} IS NOT NULL AND ${table.codeChallenge} IS NOT NULL)`),
+  ]
+);
+
+export const agentAuditLog = pgTable(
+  "agent_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id").notNull().references(() => agentGrants.id),
+    userId: text("user_id").notNull(),
+    tool: text("tool").notNull(),
+    isWrite: boolean("is_write").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    argsHash: text("args_hash"),
+    args: jsonb("args"),
+    status: text("status").notNull(),
+    result: jsonb("result"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("agent_audit_log_grant_created_idx").on(table.grantId, table.createdAt),
+    uniqueIndex("agent_audit_log_idempotency_idx").on(table.userId, table.idempotencyKey).where(sql`${table.idempotencyKey} IS NOT NULL`),
+    check("agent_audit_log_status_check", sql`${table.status} IN ('pending','ok','error','denied')`),
+  ]
 );

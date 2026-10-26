@@ -6,7 +6,7 @@
 import { parseStoredCart } from "./cart";
 import type { CatalogIndex } from "./catalogIndex";
 import { priceCart, type PricedCart } from "./pricing";
-import { getPaymentMethod, type PaymentMethod } from "./shipping";
+import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
 
 const MAX_TEXT_LENGTH = 200;
 const MAX_NOTE_LENGTH = 1000;
@@ -45,6 +45,9 @@ type Result = { ok: true; value: CheckoutValue } | { ok: false; error: string };
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[0-9 ]{9,20}$/;
 const ZIP_PATTERN = /^\d{3} ?\d{2}$/;
+// Doručujeme jen v České republice (WooCommerce: zóna „ČR“, PSČ 10000–99999).
+// Česká PSČ začínají 1–7; 8xx/9xx a 0xx jsou slovenská.
+const CZ_ZIP_PATTERN = /^[1-7]\d{2} ?\d{2}$/;
 
 function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
   return value.length > max;
@@ -53,10 +56,10 @@ function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
 export function validateCheckoutInput(
   input: CheckoutInput,
   index: CatalogIndex,
-  options: { cardPaymentAvailable?: boolean } = {}
+  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId, index);
+  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode });
   if (!priced.ok) {
     return priced;
   }
@@ -92,6 +95,9 @@ export function validateCheckoutInput(
     }
     if (!ZIP_PATTERN.test(zip)) {
       return { ok: false, error: "Zadejte PSČ ve tvaru 123 45." };
+    }
+    if (!CZ_ZIP_PATTERN.test(zip)) {
+      return { ok: false, error: "Doručujeme jen v České republice — zadejte prosím české PSČ." };
     }
     if (tooLong(street) || tooLong(city)) {
       return { ok: false, error: `Adresa může mít nejvýše ${MAX_TEXT_LENGTH} znaků.` };

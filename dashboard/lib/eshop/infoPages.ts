@@ -5,25 +5,34 @@
 // `blocks: null` = text zatím nemáme → stránka existuje, odkaz funguje
 // a zobrazí se „Text připravujeme“ s kontaktem na provozovatele.
 // Právní texty se NEvymýšlejí — dodává je vedení (obchodní podmínky dodány
-// 3. 10. 2026, GDPR zatím chybí).
+// 3. 10. 2026, GDPR 8. 10. 2026).
 import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
-import { shippingMethods } from "./shipping";
+import { shippingMethodsFor, type ShippingMode } from "./shipping";
+import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
+import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
 
 /** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
 export type InfoPoint = { text: string; lines?: string[]; items?: string[]; after?: string };
 
 export type InfoBlock = {
   heading?: string;
+  /** podnadpis uvnitř článku (např. „1. Vyřízení objednávky…“) */
+  subheading?: string;
   paragraphs?: string[];
+  /** řádky adresy v rámečku (první tučně), za odstavci */
+  lines?: string[];
   items?: string[];
   /** "check" = odrážky ✔ (jako na begina.cz), jinak tečky */
   itemStyle?: "check";
   points?: InfoPoint[];
+  /** odstavce za odrážkami / adresou */
+  afterParagraphs?: string[];
 };
 
 export type InfoPage = {
+  /** Cesta e-shopu bez /eshop („/o-nas“) — odkaz přes ShopLink / eshopHref. */
   path: string;
   footerLabel: string;
   title: string;
@@ -63,7 +72,7 @@ export const filteredWater = [
 // Text stránky O nás z begina.cz (www.begina.cz/o-nas/), dodaný vedením
 // 4. 10. 2026 jako snímky obrazovky; přepsaný doslova v pořadí na stránce.
 const aboutPage: InfoPage = {
-  path: "/eshop/o-nas",
+  path: "/o-nas",
   footerLabel: "O nás",
   title: "O nás",
   description: "Begina — čerstvé polévky, sirupy a nápoje z čisté filtrované vody v praktickém balení.",
@@ -108,7 +117,7 @@ const aboutPage: InfoPage = {
 // Text stránky O vodě z begina.cz (www.begina.cz/o-vode/), dodaný vedením
 // 3. 10. 2026 jako snímek obrazovky; přepsaný doslova (nadpisy jako na webu).
 const waterPage: InfoPage = {
-  path: "/eshop/o-vode",
+  path: "/o-vode",
   footerLabel: "O vodě",
   title: "Voda je základ",
   description: "Proč Begina používá čistou filtrovanou vodu.",
@@ -131,33 +140,60 @@ const waterPage: InfoPage = {
   ],
 };
 
-const shippingPage: InfoPage = {
-  path: "/eshop/doprava",
-  footerLabel: "Doprava",
-  title: "Doprava a platba",
-  description: "Způsoby doručení a platby v e-shopu Begina.",
-  // Generováno ze stejných dat, ze kterých počítá pokladna (shipping.ts).
-  blocks: [
-    {
-      heading: "Doručení",
-      items: shippingMethods.map(
-        (method) => `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
-      ),
-    },
-    {
-      heading: "Platba",
-      items: [
-        `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
-        "Kartou online — platební karta, Apple Pay nebo Google Pay, zabezpečeně přes Stripe.",
-      ],
-    },
-  ],
-  pendingNote: "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
-};
+const kgText = (kg: number) => kg.toLocaleString("cs-CZ");
+
+/** Stránka Doprava a platba — ze stejných dat, ze kterých počítá pokladna (shipping.ts, shippingRates.ts). */
+export function shippingPageFor(mode: ShippingMode): InfoPage {
+  const methods = shippingMethodsFor(mode);
+  const byWeight = mode === "weight";
+  return {
+    path: "/doprava",
+    footerLabel: "Doprava",
+    title: "Doprava a platba",
+    description: "Způsoby doručení a platby v e-shopu Begina.",
+    blocks: [
+      {
+        heading: "Doručení",
+        items: methods.map((method) =>
+          byWeight && method.id === "rozvoz"
+            ? `${method.label} — ${method.description}`
+            : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
+        ),
+      },
+      ...(byWeight
+        ? [
+            {
+              heading: "Ceník chlazené přepravy",
+              paragraphs: ["Cena podle celkové hmotnosti objednávky:"],
+              items: COLD_SHIPPING_RULES.map(
+                (rule) => `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg — ${formatKc(rule.priceKc)}`
+              ),
+              afterParagraphs: [
+                `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,
+                "Doručujeme jen v České republice.",
+              ],
+            },
+          ]
+        : []),
+      {
+        heading: "Platba",
+        items: [
+          `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
+          "Kartou online — platební karta, Apple Pay nebo Google Pay, zabezpečeně přes Stripe.",
+        ],
+      },
+    ],
+    pendingNote: byWeight
+      ? "Rozvozové dny a lhůty doručení doplníme."
+      : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
+  };
+}
+
+const shippingPage: InfoPage = shippingPageFor("flat");
 
 // Text dodaný vedením 3. 10. 2026: lib/eshop/content/obchodniPodminky.ts.
 const termsPage: InfoPage = {
-  path: "/eshop/obchodni-podminky",
+  path: "/obchodni-podminky",
   footerLabel: "Obchodní podmínky",
   title: "Obchodní podmínky e-shopu Begina.cz",
   subtitle: `Platné a účinné od ${TERMS_EFFECTIVE}`,
@@ -166,11 +202,13 @@ const termsPage: InfoPage = {
 };
 
 const privacyPage: InfoPage = {
-  path: "/eshop/ochrana-osobnich-udaju",
+  path: "/ochrana-osobnich-udaju",
   footerLabel: "GDPR",
   title: "Ochrana osobních údajů (GDPR)",
+  subtitle: `Platné a účinné od ${PRIVACY_EFFECTIVE}`,
   description: "Zásady zpracování osobních údajů v e-shopu Begina.",
-  blocks: null,
+  // Text dodaný vedením 8. 10. 2026: lib/eshop/content/ochranaOsobnichUdaju.ts.
+  blocks: PRIVACY_BLOCKS,
 };
 
 export const INFO_PAGES = {

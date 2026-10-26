@@ -14,7 +14,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
-import { PRODUCTION_MAIN, guardedMigrationsSql, guardedPhaseARestSql } from "../../../scripts/eshop-production/build-sql.mjs";
+import { PRODUCTION_MAIN, guardedIceCreamCategorySql, guardedMigrationsSql, guardedPaymentsBSql, guardedPhaseARestSql } from "../../../scripts/eshop-production/build-sql.mjs";
 
 const ROOT = path.join(__dirname, "../../../docs");
 const file = (dir: string, name: string) => readFileSync(path.join(ROOT, dir, name), "utf8");
@@ -127,7 +127,58 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 1 | 0 | ano | ano");
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0020) + pojistka číslování", async () => {
+  it("hmotnosti balení — drizzle 0021 + 36 hmotností (před / skript / po)", async () => {
+    expect(await check(pg, file("eshop-production", "40_hmotnosti_before.sql"))).toBe("0 | 36 | 36 | 0");
+    await run(pg, file("eshop-production", "41_hmotnosti.sql"));
+    expect(await check(pg, file("eshop-production", "42_hmotnosti_after.sql"))).toBe("1 | 36 | 0 | 25 | 7 | 4 | 0");
+  });
+
+  it("firmy na faktuře — drizzle 0022 (DIČ + unikátní číslo z WooCommerce), druhé spuštění se zastaví", async () => {
+    await run(pg, file("eshop-production", "60_firmy_migrace_0022.sql"));
+    await expect(run(pg, file("eshop-production", "60_firmy_migrace_0022.sql"))).rejects.toThrow(/už existuje/);
+    // The Cup (starší import bez čísla z WooCommerce) beze změny
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE external_woocommerce_id IS NULL`);
+    expect(rows[0].n).toBeGreaterThan(0);
+  });
+
+  it("čtení iDokladu — drizzle 0023 (auditní záznam přístupů): před / migrace / po, druhé spuštění se zastaví, návrat jen bez záznamů", async () => {
+    const line = async (name: string) =>
+      Object.values((await pg.query<Record<string, unknown>>(file("idoklad-cteni", name).replace(/--[^\n]*\n/g, "\n"))).rows[0]).map(String).join(" | ");
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+    await expect(run(pg, file("idoklad-cteni", "11_migrace_0023.sql"))).rejects.toThrow(/už existuje/);
+    expect(await line("12_po.sql")).toBe("ano | 0 | 2");
+    // návrat: s auditním záznamem se zastaví, prázdná tabulka jde vrátit (a znovu založit)
+    await pg.exec(`INSERT INTO idoklad_read_log (user_id, channel, tool, args, status) VALUES ('u', 'ui', 't', '{}', 'ok')`);
+    await expect(run(pg, file("idoklad-cteni", "19_navrat.sql"))).rejects.toThrow(/auditní stopa se nemaže/);
+    await pg.exec(`DELETE FROM idoklad_read_log`);
+    await run(pg, file("idoklad-cteni", "19_navrat.sql"));
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+  });
+
+  it("MCP/OAuth — produkční migrace 0024: před / migrace / po", async () => {
+    expect(await check(pg, file("gpt-mcp", "10_before.sql"))).toBe("0");
+    await run(pg, file("gpt-mcp", "11_migration.sql"));
+    expect(await check(pg, file("gpt-mcp", "12_after.sql"))).toBe("4 | 4 | 0 | 0");
+  });
+
+  it("Google Kalendář — produkční migrace 0025: před / migrace / po, druhé spuštění se zastaví, návrat jen bez aktivního propojení", async () => {
+    expect(await check(pg, file("google-kalendar", "10_pred.sql"))).toBe("0 | ano");
+    await run(pg, file("google-kalendar", "11_migrace_0025.sql"));
+    await expect(run(pg, file("google-kalendar", "11_migrace_0025.sql"))).rejects.toThrow(/už existují/);
+    expect(await check(pg, file("google-kalendar", "12_po.sql"))).toBe("2 | 0 | 0 | 1");
+    // návrat: s aktivním propojením se zastaví; po zrušení přístupu projde (a jde znovu založit)
+    await pg.exec(`INSERT INTO google_calendar_connections (user_id, google_account_email, google_calendar_id, refresh_token_encrypted, granted_scopes)
+      VALUES ('u', 'a@b.cz', 'cal', 'x', 's')`);
+    await expect(run(pg, file("google-kalendar", "19_navrat.sql"))).rejects.toThrow(/stále propojený/);
+    await pg.exec(`UPDATE google_calendar_connections SET revoked_at = now()`);
+    await run(pg, file("google-kalendar", "19_navrat.sql"));
+    expect(await check(pg, file("google-kalendar", "10_pred.sql"))).toBe("0 | ano");
+    await run(pg, file("google-kalendar", "11_migrace_0025.sql"));
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0025) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
@@ -137,13 +188,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
           UNION ALL SELECT 'idx', tablename, indexname, '' FROM pg_indexes WHERE schemaname = 'public'
           ORDER BY 1, 2, 3`)
       ).rows;
-    // Ohraničeno na "migrace 0000–0020" (přesně to, co název testu
-    // deklaruje) — po sloučení main do feature/google-calendar-1-0 a
-    // přečíslování kolidující kalendářové migrace na 0021 (Security Phase
-    // 21 post-implementation audit) by `createMigratedDb()` bez parametru
-    // teď aplikovalo i 0021 (google_calendar_connections/lead_calendar_sync),
-    // což je mimo rozsah téhle generálky e-shopového rollout postupu.
-    const { pg: reference } = await createMigratedDb("0020_eshop_1_0_payments_invoicing");
+    const { pg: reference } = await createMigratedDb();
     const key = (r: unknown) => JSON.stringify(r);
     const a = new Set((await schema(pg)).map(key));
     const b = new Set((await schema(reference)).map(key));
@@ -295,5 +340,124 @@ describe("13_katalog_a_platby_A_MAIN.sql — zbytek fáze A v jedné transakci, 
     await expect(run(pg, file("eshop-production", REST))).rejects.toThrow(/už běžely/);
     await pg.exec("ROLLBACK");
     expect(await afterChecks(pg)).toEqual(done);
+  });
+});
+
+describe("15_platby_B_MAIN.sql — povinný VS PŘED první e-shopovou objednávkou, jen main", { timeout: 240_000 }, () => {
+  const B = "15_platby_B_MAIN.sql";
+  const ESHOP_ORDER = (vs: string) => `
+    INSERT INTO orders (channel, contact_email, contact_name, subtotal_kc, shipping_kc, total_kc, payment_status, payment_vs)
+    VALUES ('eshop', 'jaroslav@begina.cz', 'Jaroslav Viner', 129, 99, 228, 'unpaid', ${vs})`;
+  const NEXT_VS = `'7' || lpad(nextval('payment_vs_seq')::text, 7, '0')`;
+  const theCup = async (pg: PGlite) =>
+    (await pg.query(`SELECT id, total_kc, payment_status, fulfillment_status, payment_vs, channel FROM orders ORDER BY id`)).rows;
+  /** Stav Production 7. 10. 2026 po fázi A (oba soubory MAIN). */
+  async function afterPhaseA(timeline: string | null = PRODUCTION_MAIN.timelineId) {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    await run(pg, file("eshop-production", "13_katalog_a_platby_A_MAIN.sql"));
+    if (timeline !== PRODUCTION_MAIN.timelineId) await pg.exec(`SET neon.timeline_id = '${timeline ?? ""}'`);
+    return pg;
+  }
+
+  it("soubor = výstup generátoru; obsahuje 21_migration.sql beze změny kódu", () => {
+    const sqlText = file("eshop-production", B);
+    expect(sqlText).toBe(guardedPaymentsBSql());
+    expect(sqlText).toContain("ADD CONSTRAINT orders_eshop_requires_vs\n  CHECK (channel <> 'eshop' OR payment_vs IS NOT NULL);");
+    expect(sqlText.match(/^(BEGIN|COMMIT);$/gm)).toEqual(["BEGIN;", "COMMIT;"]);
+  });
+
+  it("na main po fázi A: před / migrace / po; The Cup beze změny; pak objednávka bez VS neprojde, s VS ano (70000001)", async () => {
+    const pg = await afterPhaseA();
+    expect(await check(pg, file("eshop-payments", "20_before.sql"))).toBe("ano | 0 | 0 | 0 | NULL");
+    const cup = await theCup(pg);
+    await run(pg, file("eshop-production", B));
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 0 | 0 | ano | ano");
+    expect(await theCup(pg)).toEqual(cup);
+    await expect(pg.exec(ESHOP_ORDER("NULL"))).rejects.toThrow(/orders_eshop_requires_vs/);
+    await pg.exec(ESHOP_ORDER(NEXT_VS));
+    const { rows } = await pg.query(`SELECT order_number, payment_vs FROM orders WHERE channel = 'eshop'`);
+    expect(rows).toEqual([{ order_number: null, payment_vs: "70000001" }]);
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 1 | 0 | ano | ano");
+    // vrácení vypne jen povinnost, VS zůstává
+    await run(pg, file("eshop-payments", "29_rollback.sql"));
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("0 | 1 | 0 | ano | ano");
+  });
+
+  it("jiná větev (backup) → STOP, nic se nezmění", async () => {
+    const pg = await afterPhaseA("c57cebc6ddf2b187ed1fcdd53c402b60");
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/NENÍ Production větev main/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-payments", "20_before.sql"))).toBe("ano | 0 | 0 | 0 | NULL");
+  });
+
+  it("bez kroku A → STOP", async () => {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    await run(pg, file("eshop-production", "11_migrations_0013_0019_MAIN.sql"));
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/chybí platby krok A/);
+    await pg.exec("ROLLBACK");
+  });
+
+  it("druhé spuštění → STOP „už běžel“", async () => {
+    const pg = await afterPhaseA();
+    await run(pg, file("eshop-production", B));
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/krok B už běžel/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-payments", "22_after.sql"))).toBe("1 | 0 | 0 | ano | ano");
+  });
+
+  it("už existuje e-shopová objednávka → STOP, nic se nezmění", async () => {
+    const pg = await afterPhaseA();
+    await pg.exec(ESHOP_ORDER(NEXT_VS));
+    await expect(run(pg, file("eshop-production", B))).rejects.toThrow(/už je e-shopová objednávka/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-payments", "20_before.sql"))).toBe("ano | 0 | 1 | 0 | 70000001");
+  });
+});
+
+describe("17_kategorie_zmrzliny_MAIN.sql — kategorie Zmrzliny (8. 10. 2026), jen main", { timeout: 240_000 }, () => {
+  const Z = "17_kategorie_zmrzliny_MAIN.sql";
+  async function afterB(timeline: string | null = PRODUCTION_MAIN.timelineId) {
+    const pg = await productionReplica();
+    await pg.exec(`SET neon.timeline_id = '${PRODUCTION_MAIN.timelineId}'`);
+    for (const f of ["11_migrations_0013_0019_MAIN.sql", "13_katalog_a_platby_A_MAIN.sql", "15_platby_B_MAIN.sql"]) {
+      await run(pg, file("eshop-production", f));
+    }
+    if (timeline !== PRODUCTION_MAIN.timelineId) await pg.exec(`SET neon.timeline_id = '${timeline ?? ""}'`);
+    return pg;
+  }
+  const products = async (pg: PGlite) => (await pg.query(`SELECT slug, category_id, is_active FROM products ORDER BY slug`)).rows;
+
+  it("soubor = výstup generátoru", () => {
+    expect(file("eshop-production", Z)).toBe(guardedIceCreamCategorySql());
+  });
+
+  it("na main: před / skript / po; produkty beze změny; Preview verze dá totéž a je opakovatelná", async () => {
+    const pg = await afterB();
+    expect(await check(pg, file("eshop-catalog", "60_zmrzliny_before.sql"))).toBe("0 | 50 | 5");
+    const before = await products(pg);
+    await run(pg, file("eshop-production", Z));
+    expect(await check(pg, file("eshop-catalog", "62_zmrzliny_after.sql"))).toBe("1 | Zmrzliny | 60 | ano | 0 | 6 | ano");
+    expect(await products(pg)).toEqual(before);
+    const preview = await afterB();
+    await run(preview, file("eshop-catalog", "61_zmrzliny.sql"));
+    await run(preview, file("eshop-catalog", "61_zmrzliny.sql"));
+    expect(await check(preview, file("eshop-catalog", "62_zmrzliny_after.sql"))).toBe("1 | Zmrzliny | 60 | ano | 0 | 6 | ano");
+    await run(preview, file("eshop-catalog", "69_zmrzliny_rollback.sql"));
+    expect(await check(preview, file("eshop-catalog", "62_zmrzliny_after.sql"))).toBe("1 | Zmrzliny | 60 | ne | 0 | 6 | ano");
+  });
+
+  it("jiná větev → STOP; podruhé → STOP; nic se nezmění", async () => {
+    const other = await afterB("c57cebc6ddf2b187ed1fcdd53c402b60");
+    await expect(run(other, file("eshop-production", Z))).rejects.toThrow(/NENÍ Production větev main/);
+    await other.exec("ROLLBACK");
+    expect(await check(other, file("eshop-catalog", "60_zmrzliny_before.sql"))).toBe("0 | 50 | 5");
+    const pg = await afterB();
+    await run(pg, file("eshop-production", Z));
+    await expect(run(pg, file("eshop-production", Z))).rejects.toThrow(/Zmrzliny už existuje/);
+    await pg.exec("ROLLBACK");
+    expect(await check(pg, file("eshop-catalog", "62_zmrzliny_after.sql"))).toBe("1 | Zmrzliny | 60 | ano | 0 | 6 | ano");
   });
 });

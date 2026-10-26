@@ -1,9 +1,11 @@
-import Link from "next/link";
+import ShopLink from "./ShopLink";
 import { FOOTER_LINKS, OPERATOR } from "@/lib/eshop/infoPages";
 
 // Patička e-shopu: údaje provozovatele + odkazy na informační stránky
 // (cíle a texty: lib/eshop/infoPages.ts).
-export default function EshopFooter() {
+// cookieSettings = cookie lišta zapnutá: tlačítko otevře nastavení CookieYes
+// (třída cky-banner-element) — souhlas jde kdykoli změnit nebo odvolat.
+export default function EshopFooter({ cookieSettings = false }: { cookieSettings?: boolean }) {
   return (
     <footer className="border-t border-neutral-200 bg-begina-primary-50">
       <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-neutral-600 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
@@ -23,11 +25,21 @@ export default function EshopFooter() {
           <ul className="flex flex-col">
             {FOOTER_LINKS.map((page) => (
               <li key={page.path}>
-                <Link href={page.path} className="block py-3 sm:inline-block sm:py-1.5 hover:underline underline-offset-2">
+                <ShopLink href={page.path} className="block py-3 sm:inline-block sm:py-1.5 hover:underline underline-offset-2">
                   {page.footerLabel}
-                </Link>
+                </ShopLink>
               </li>
             ))}
+            {cookieSettings && (
+              <li>
+                <button
+                  type="button"
+                  className="cky-banner-element block py-3 sm:inline-block sm:py-1.5 hover:underline underline-offset-2"
+                >
+                  Nastavení cookies
+                </button>
+              </li>
+            )}
           </ul>
         </nav>
       </div>

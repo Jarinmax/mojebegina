@@ -1,3 +1,8 @@
+-- Security Phase 20 (Google Kalendář 1.0) — dvě nové tabulky, nic
+-- existujícího se nemění. Původně 0021 na feature/google-calendar-1-0;
+-- při integraci do main (Etapa 0, ETAPA0_INTEGRACE_VETVI.md) znovu
+-- vygenerováno `drizzle-kit generate` jako 0025 nad snapshotem 0024 —
+-- SQL příkazy jsou shodné s původní migrací.
 CREATE TABLE "google_calendar_connections" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" text NOT NULL,

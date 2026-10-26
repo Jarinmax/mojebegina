@@ -152,8 +152,36 @@
     {
       "idx": 21,
       "version": "7",
-      "when": 1791394287133,
-      "tag": "0021_phase_20_google_calendar",
+      "when": 1791722734816,
+      "tag": "0021_eshop_1_0_variant_weight",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792435662841,
+      "tag": "0022_eshop_1_0_company_invoicing",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792742022306,
+      "tag": "0023_idoklad_read_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792874987179,
+      "tag": "0024_gpt_mcp_production",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792997564747,
+      "tag": "0025_phase_20_google_calendar",
       "breakpoints": true
     }
   ]
