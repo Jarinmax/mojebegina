@@ -271,7 +271,33 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
       expect(ok?.structuredContent).toMatchObject({ saved: true });
       const [lead] = await rows(sql`SELECT next_step_note, next_follow_up_at, last_contacted_at FROM leads WHERE id = ${LEAD}`);
       expect(lead).toMatchObject({ next_step_note: "Poslat ceník sirupů", last_contacted_at: null });
-      expect(String(lead.next_follow_up_at)).toContain("2026-10-20");
+      // Etapa 0: datum bez času = 09:00 Europe/Prague (20. 10. = letní čas → 07:00 UTC)
+      expect(new Date(String(lead.next_follow_up_at)).toISOString()).toBe("2026-10-20T07:00:00.000Z");
+      // Google Kalendář není propojený → synchronizace čeká, NEHLÁSÍ chybu
+      const [sync] = await rows(sql`SELECT sync_status, last_error FROM lead_calendar_sync WHERE lead_id = ${LEAD}`);
+      expect(sync).toEqual({ sync_status: "pending", last_error: null });
+
+      // jen další krok → termín zůstane beze změny (prázdné pole nikdy nemaže)
+      await call(session, "set_lead_next_step", { lead_id: LEAD, next_step: "Zavolat po ochutnávce", idempotency_key: "key-next-step-keep" });
+      const [kept] = await rows(sql`SELECT next_follow_up_at FROM leads WHERE id = ${LEAD}`);
+      expect(new Date(String(kept.next_follow_up_at)).toISOString()).toBe("2026-10-20T07:00:00.000Z");
+
+      // přesný čas
+      await call(session, "set_lead_next_step", {
+        lead_id: LEAD, follow_up_date: "2026-11-02", follow_up_time: "14:30", idempotency_key: "key-next-step-time",
+      });
+      const [timed] = await rows(sql`SELECT next_follow_up_at FROM leads WHERE id = ${LEAD}`);
+      expect(new Date(String(timed.next_follow_up_at)).toISOString()).toBe("2026-11-02T13:30:00.000Z");
+
+      // smazání jen výslovně; spolu s novým datem odmítnuto
+      const both = await call(session, "set_lead_next_step", {
+        lead_id: LEAD, follow_up_date: "2026-11-03", clear_follow_up: true, idempotency_key: "key-next-step-both",
+      });
+      expect(both).toMatchObject({ isError: true });
+      const cleared = await call(session, "set_lead_next_step", { lead_id: LEAD, clear_follow_up: true, idempotency_key: "key-next-step-clear" });
+      expect(cleared?.structuredContent).toMatchObject({ saved: true });
+      const [none] = await rows(sql`SELECT next_follow_up_at FROM leads WHERE id = ${LEAD}`);
+      expect(none.next_follow_up_at).toBeNull();
 
       const empty = await call(session, "set_lead_next_step", { lead_id: LEAD, idempotency_key: "key-next-step-2" });
       expect(empty).toMatchObject({ isError: true });

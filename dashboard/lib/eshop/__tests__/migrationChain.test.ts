@@ -40,8 +40,12 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
   "0022_eshop_1_0_company_invoicing",
 ];
-/** Za e-shopem: audit čtení iDokladu a produkční MCP/OAuth. */
-const AFTER_ESHOP = ["0023_idoklad_read_log", "0024_gpt_mcp_production"];
+/**
+ * Za e-shopem: audit čtení iDokladu, produkční MCP/OAuth a Google Kalendář
+ * (původně 0021 na feature/google-calendar-1-0, přečíslováno na 0025
+ * drizzle-kit generate při integraci — Etapa 0, ETAPA0_INTEGRACE_VETVI.md).
+ */
+const AFTER_ESHOP = ["0023_idoklad_read_log", "0024_gpt_mcp_production", "0025_phase_20_google_calendar"];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
@@ -59,7 +63,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023 a MCP 0024", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024 a Google Kalendář 0025", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);

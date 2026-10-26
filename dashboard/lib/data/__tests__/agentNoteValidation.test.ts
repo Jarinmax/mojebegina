@@ -11,13 +11,34 @@ describe("validateNoteInput", () => {
 });
 
 describe("validateNextStepInput", () => {
-  it("krok, datum nebo obojí; datum na 12:00 UTC", () => {
+  it("krok, datum nebo obojí; datum bez času = 09:00 Europe/Prague (Etapa 0)", () => {
     expect(validateNextStepInput({ nextStepNote: " Poslat ceník ", nextFollowUpAt: "" })).toEqual({
       ok: true,
-      value: { nextStepNote: "Poslat ceník", nextFollowUpAt: null },
+      value: { nextStepNote: "Poslat ceník", nextFollowUpAt: null, clearFollowUp: false },
     });
-    const withDate = validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "2026-10-20" });
-    expect(withDate.ok && withDate.value.nextFollowUpAt?.toISOString()).toBe("2026-10-20T12:00:00.000Z");
+    // 20. 10. 2026 = letní čas (UTC+2), 2. 11. 2026 = zimní čas (UTC+1)
+    const summer = validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "2026-10-20" });
+    expect(summer.ok && summer.value.nextFollowUpAt?.toISOString()).toBe("2026-10-20T07:00:00.000Z");
+    const winter = validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "2026-11-02" });
+    expect(winter.ok && winter.value.nextFollowUpAt?.toISOString()).toBe("2026-11-02T08:00:00.000Z");
+    const withTime = validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "2026-11-02", nextFollowUpTime: "14:30" });
+    expect(withTime.ok && withTime.value.nextFollowUpAt?.toISOString()).toBe("2026-11-02T13:30:00.000Z");
+  });
+
+  it("výslovné smazání termínu (Etapa 0, rozhodnutí 6)", () => {
+    expect(validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "", clearFollowUp: true })).toEqual({
+      ok: true,
+      value: { nextStepNote: null, nextFollowUpAt: null, clearFollowUp: true },
+    });
+    expect(validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "2026-11-02", clearFollowUp: true }).ok).toBe(false);
+  });
+
+  it.each(["9:00", "0900", "09:00:00", "ráno"])("neplatný čas %s", (time) => {
+    expect(validateNextStepInput({ nextStepNote: "", nextFollowUpAt: "2026-11-02", nextFollowUpTime: time }).ok).toBe(false);
+  });
+
+  it("čas bez data je DENY", () => {
+    expect(validateNextStepInput({ nextStepNote: "x", nextFollowUpAt: "", nextFollowUpTime: "10:00" }).ok).toBe(false);
   });
 
   it.each(["2026-02-30", "20. 10. 2026", "2026-10-20T10:00", "zítra"])("neplatné datum %s", (date) => {

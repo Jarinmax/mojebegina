@@ -4,6 +4,7 @@
 // dailyCalls.ts.
 import { sql } from "drizzle-orm";
 import { validateStageInput, type LeadStage } from "./leadValidation";
+import { parseFollowUpInput, pragueDateString } from "./pragueTime";
 
 // Výsledek hovoru je ZÁMĚRNĚ oddělený od LEAD_STAGES (obchodní fáze) —
 // schváleno explicitně: "výsledek hovoru není obchodní fáze". Fáze zůstává
@@ -21,14 +22,19 @@ export type DailyCallOutcomeInput = {
   result: string;
   note: string;
   stageChange: string;
-  nextFollowUpAt: string;
+  nextFollowUpAtDate: string;
+  nextFollowUpAtTime: string;
+  /** Výslovné smazání naplánovaného kontaktu (Etapa 0, rozhodnutí 6). */
+  clearFollowUp?: boolean;
 };
 
 export type ValidatedDailyCallOutcomeInput = {
   result: CallResult;
   note: string;
   stageChange: LeadStage | null;
+  /** null = termín se nemění (pokud zároveň není clearFollowUp). */
   nextFollowUpAt: Date | null;
+  clearFollowUp: boolean;
 };
 
 // Výsledek a poznámka POVINNÉ, fáze a datum nepovinné — s jednou vázanou
@@ -60,24 +66,25 @@ export function validateDailyCallOutcomeInput(
     stageChange = validatedStage.value;
   }
 
-  const nextFollowUpAtRaw = input.nextFollowUpAt.trim();
-  let nextFollowUpAt: Date | null = null;
-  if (nextFollowUpAtRaw) {
-    // Stejná konvence jako leadValidation.ts/orderValidation.ts — datum bez
-    // času, uloženo na 12:00 UTC (V1 záměrně beze změny, viz schválený
-    // návrh — nový časový mechanismus se teď nezavádí).
-    const parsed = new Date(`${nextFollowUpAtRaw}T12:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime())) {
-      return { ok: false, error: "Neplatné datum dalšího kontaktu." };
-    }
-    nextFollowUpAt = parsed;
+  // Security Phase 20 (Google Kalendář 1.0) + Etapa 0 — jednotné pravidlo
+  // termínu (pragueTime.ts:parseFollowUpInput): prázdné = beze změny, jen
+  // datum = 09:00 Europe/Prague, jen čas = chyba. Smazání jen výslovně.
+  const followUp = parseFollowUpInput(input.nextFollowUpAtDate, input.nextFollowUpAtTime);
+  if (!followUp.ok) {
+    return { ok: false, error: followUp.error };
+  }
+  const nextFollowUpAt = followUp.value;
+  const clearFollowUp = input.clearFollowUp === true;
+
+  if (clearFollowUp && nextFollowUpAt) {
+    return { ok: false, error: "Buď zadejte nový termín dalšího kontaktu, nebo ho smažte — ne obojí." };
   }
 
   if ((result as CallResult) === "call_back_later" && !nextFollowUpAt) {
     return { ok: false, error: "U výsledku „Zavolat později“ je datum dalšího kontaktu povinné." };
   }
 
-  return { ok: true, value: { result: result as CallResult, note, stageChange, nextFollowUpAt } };
+  return { ok: true, value: { result: result as CallResult, note, stageChange, nextFollowUpAt, clearFollowUp } };
 }
 
 // Maximální počet SOUČASNĚ nevyřízených položek fronty (staré nedokončené
@@ -195,13 +202,11 @@ export function canAddManualCandidate(currentPendingCount: number): { ok: true }
   return { ok: true };
 }
 
-// Europe/Prague datum jako "YYYY-MM-DD" (bez závislosti na timezone
-// knihovně — Intl.DateTimeFormat s en-CA locale dává přímo ISO tvar,
-// DST-aware). Používá se pro `added_for_date` a pro hranici "dnes" v
-// progress ukazateli a rozdělení "Nedokončeno z minula"/"Dnešní volání".
-export function pragueDateString(date: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague" }).format(date);
-}
+// pragueDateString žije v neutrálním pragueTime.ts (sdíleno i s
+// googleCalendarValidation.ts/leadValidation.ts) — reexportováno odsud,
+// aby stávající importy z téhle domény (dailyCalls.ts, testy) zůstaly
+// beze změny.
+export { pragueDateString };
 
 // Čistá interpretace výsledku atomického CTE zápisu (dailyCalls.ts:
 // logDailyCallOutcome). Skutečnou bezpečnost proti dvojímu/souběžnému
@@ -228,6 +233,20 @@ export function interpretCallLogOutcome(insertedRowCount: number): { ok: true } 
 // parametru uvnitř jsonb_build_object, i tam, kde by za normálních
 // okolností (nenulová hodnota) fungoval i bez castu.
 //
+// Security Phase 20 (Google Kalendář 1.0) — next_follow_up_at NENÍ přes
+// COALESCE (na rozdíl od stage, kde "Fázi neměnit" správně znamená
+// neměnit). V Denním volání je termín vždy BINÁRNÍ rozhodnutí: buď ho
+// zápis explicitně nastaví (výsledek "Zavolat později"), nebo ho explicitně
+// SMAŽE (jiný výsledek, žádný nový termín) — COALESCE by "smazání"
+// proměnil zpátky na "ponechat starý termín", což byl přesně nahlášený
+// bug (termín šel nastavit, ale nikdy doopravdy smazat). Proto přímé
+// `SET next_follow_up_at = ...` bez COALESCE.
+//
+// Stejná operace rovnou upsertuje lead_calendar_sync na 'pending' — V TÉŽE
+// atomické operaci jako zápis next_follow_up_at (schváleno explicitně) —
+// skutečné volání Google Kalendáře proběhne až PO commitu, viz
+// dailyCalls.ts:logDailyCallOutcome.
+//
 // Vytčeno jako samostatná exportovaná funkce, co jen SESTAVÍ dotaz (nic
 // nespouští), aby šlo jeho přesné SQL ověřit testem bez databáze — viz
 // __tests__/dailyCallsValidation.test.ts. Žije tady (ne v dailyCalls.ts),
@@ -244,9 +263,12 @@ export function buildLogDailyCallOutcomeQuery(params: {
   note: string;
   stageChange: string | null;
   nextFollowUpAt: Date | null;
+  /** Výslovné smazání termínu; jinak null nextFollowUpAt = beze změny. */
+  clearFollowUp?: boolean;
   result: string;
 }) {
   const { itemId, leadId, authorUserId, authorName, activityId, note, stageChange, nextFollowUpAt, result } = params;
+  const clearFollowUp = params.clearFollowUp === true;
   return sql`
     WITH old_lead AS (
       SELECT stage FROM leads WHERE id = ${leadId}
@@ -262,15 +284,25 @@ export function buildLogDailyCallOutcomeQuery(params: {
       SET last_contacted_at = now(),
           updated_at = now(),
           stage = COALESCE(${stageChange}::text, stage),
-          next_follow_up_at = COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at)
+          -- Etapa 0, rozhodnutí 6: nevyplněný termín zachová stávající,
+          -- smazat jde jen výslovně (clearFollowUp).
+          next_follow_up_at = CASE WHEN ${clearFollowUp}::boolean THEN NULL
+                                   ELSE COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at) END
       WHERE id = ${leadId} AND EXISTS (SELECT 1 FROM claimed)
       RETURNING id
+    ),
+    calendar_sync_upsert AS (
+      INSERT INTO lead_calendar_sync (lead_id, sync_status, updated_at)
+      SELECT ${leadId}, 'pending', now()
+      WHERE EXISTS (SELECT 1 FROM claimed)
+      ON CONFLICT (lead_id) DO UPDATE SET sync_status = 'pending', updated_at = now()
     )
     INSERT INTO lead_activity (id, lead_id, author_user_id, author_name, kind, body, metadata, created_at)
     SELECT ${activityId}, ${leadId}, ${authorUserId}, ${authorName}, 'call_logged', ${note},
       jsonb_build_object(
         'stageChangedTo', ${stageChange}::text,
         'nextFollowUpAt', ${nextFollowUpAt}::timestamptz,
+        'followUpCleared', ${clearFollowUp}::boolean,
         'from', (SELECT stage FROM old_lead),
         'callResult', ${result}::text
       ),

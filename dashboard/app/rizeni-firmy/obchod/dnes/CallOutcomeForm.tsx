@@ -18,6 +18,10 @@ const initialState: ActionState = null;
 // neměnit" — stejná konvence jako CallLogForm. Datum dalšího kontaktu je
 // nepovinné, KROMĚ výsledku "Zavolat později" — vynucení je na serveru
 // (validateDailyCallOutcomeInput), UI to jen napovídá.
+//
+// Etapa 0 (rozhodnutí 3 a 6): čas je nepovinný (bez času = 09:00
+// Europe/Prague), nevyplněný termín zachová stávající a smazání je
+// výslovná volba "Smazat naplánovaný kontakt".
 export default function CallOutcomeForm({ itemId }: { itemId: string }) {
   const boundAction = logDailyCallOutcomeAction.bind(null, itemId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
@@ -87,18 +91,35 @@ export default function CallOutcomeForm({ itemId }: { itemId: string }) {
           </select>
         </div>
         <div>
-          <label htmlFor={`nextFollowUpAt-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
+          <label htmlFor={`nextFollowUpAtDate-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
             Další kontakt{result === "call_back_later" ? " (povinné)" : ""}
           </label>
-          <input
-            id={`nextFollowUpAt-${itemId}`}
-            name="nextFollowUpAt"
-            type="date"
-            required={result === "call_back_later"}
-            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-          />
+          <div className="flex gap-2">
+            <input
+              id={`nextFollowUpAtDate-${itemId}`}
+              name="nextFollowUpAtDate"
+              type="date"
+              required={result === "call_back_later"}
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+            <input
+              id={`nextFollowUpAtTime-${itemId}`}
+              name="nextFollowUpAtTime"
+              type="time"
+              aria-label="Čas dalšího kontaktu"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+          </div>
+          <p className="text-xs text-neutral-400 mt-1">Bez času = 9:00. Nevyplněno = termín zůstane beze změny.</p>
         </div>
       </div>
+
+      {result !== "call_back_later" && (
+        <label className="flex items-center gap-2 text-sm text-neutral-600">
+          <input type="checkbox" name="clearFollowUp" className="h-4 w-4" />
+          Smazat naplánovaný další kontakt
+        </label>
+      )}
 
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}

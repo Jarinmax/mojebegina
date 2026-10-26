@@ -110,7 +110,9 @@ export async function logDailyCallOutcomeAction(
       result: String(formData.get("result") ?? ""),
       note: String(formData.get("note") ?? ""),
       stageChange: String(formData.get("stageChange") ?? ""),
-      nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
+      nextFollowUpAtDate: String(formData.get("nextFollowUpAtDate") ?? ""),
+      nextFollowUpAtTime: String(formData.get("nextFollowUpAtTime") ?? ""),
+      clearFollowUp: formData.get("clearFollowUp") === "on",
     });
 
     if (!result.ok) {
