@@ -21,6 +21,7 @@ import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders, productVariants } from "@/lib/db/schema";
 import type { CheckoutValue } from "./checkout";
 import type { MetaConsent } from "./metaPurchase";
+import { CURRENT_TERMS } from "./content/termsVersions";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
 
@@ -115,7 +116,9 @@ export function buildEshopOrderRows(
         authorUserId: null,
         authorName: ESHOP_ACTOR_NAME,
         kind: "created",
-        metadata: { channel: "eshop" },
+        // termsVersion = znění obchodních podmínek, se kterým zákazník souhlasil
+        // (content/termsVersions.ts) — podle něj jde PDF v potvrzení
+        metadata: { channel: "eshop", termsVersion: CURRENT_TERMS.id },
         createdAt: now,
       },
     },

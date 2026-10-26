@@ -1,3 +1,4 @@
+import EshopFileLink from "./EshopFileLink";
 import ShopLink from "./ShopLink";
 import type { ReactNode } from "react";
 import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
@@ -37,6 +38,13 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
     <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-balance">{page.title}</h1>
       {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
+      {page.download && (
+        <p className="mt-3 text-sm">
+          <EshopFileLink href={page.download.path} className="underline underline-offset-2">
+            {page.download.label}
+          </EshopFileLink>
+        </p>
+      )}
 
       {page.blocks ? (
         <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
