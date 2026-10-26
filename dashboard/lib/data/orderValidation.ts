@@ -177,6 +177,185 @@ export function validateCreateOrderInput(
   };
 }
 
+// Import z externího zdroje (WooCommerce) — webhook i MCP nástroj
+// (import_woocommerce_order) i případný ruční doplňkový zápis volají
+// TUTO validaci a pak stejné zápisové jádro (importExternalOrder,
+// orders.ts), aby „stejná produkční logika jako web" platila doslova:
+// jediná definice pravidel, ne tři kopie.
+const MAX_EXTERNAL_ID_LENGTH = 50;
+
+export type ImportOrderItemInput = CreateOrderItemInput;
+
+export type ImportOrderInput = {
+  externalWooCommerceId: string;
+  buyerOrganizationId: string;
+  /** Jen kontrola proti záměně zákazníka — nikdy se nezapisuje. */
+  expectedIco?: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  recipientName: string;
+  recipientAddress: string;
+  recipientPhone: string;
+  customerNote: string;
+  note: string;
+  shippingMethodLabel: string;
+  paymentMethodCode: string;
+  paymentMethodLabel: string;
+  shippingKc: string;
+  /** Celá sleva na zboží v Kč (ne haléře) — orders.discount_kc je integer, viz komentář u zápisu. */
+  discountKc: string;
+  /** ISO 8601 s časovým pásmem — appka čas nedomýšlí, musí ho dostat přímo ze zdroje. */
+  orderedAt: string;
+  items: ImportOrderItemInput[];
+};
+
+export type ImportOrderValue = {
+  externalWooCommerceId: string;
+  buyerOrganizationId: string;
+  expectedIco: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  recipientName: string | null;
+  recipientAddress: string | null;
+  recipientPhone: string | null;
+  customerNote: string | null;
+  note: string | null;
+  shippingMethodLabel: string | null;
+  paymentMethodCode: string | null;
+  paymentMethodLabel: string | null;
+  shippingKc: number;
+  discountKc: number;
+  subtotalKc: number;
+  totalKc: number;
+  orderedAt: Date;
+  items: CreateOrderItemValue[];
+};
+
+export function validateImportOrderInput(
+  input: ImportOrderInput
+): { ok: true; value: ImportOrderValue } | { ok: false; error: string } {
+  const externalWooCommerceId = input.externalWooCommerceId.trim();
+  if (!externalWooCommerceId || !/^\d{1,20}$/.test(externalWooCommerceId)) {
+    return { ok: false, error: "externalWooCommerceId musí být nezáporné číslo objednávky z WooCommerce." };
+  }
+  if (externalWooCommerceId.length > MAX_EXTERNAL_ID_LENGTH) {
+    return { ok: false, error: `externalWooCommerceId může mít nejvýše ${MAX_EXTERNAL_ID_LENGTH} znaků.` };
+  }
+
+  const buyerOrganizationId = input.buyerOrganizationId.trim();
+  if (!buyerOrganizationId) {
+    return { ok: false, error: "Chybí zákaznická organizace." };
+  }
+
+  const expectedIco = (input.expectedIco ?? "").trim() || null;
+
+  const contactName = input.contactName.trim();
+  const contactPhone = input.contactPhone.trim();
+  const contactEmail = input.contactEmail.trim();
+  if (contactName.length > MAX_CONTACT_LENGTH || contactPhone.length > MAX_CONTACT_LENGTH || contactEmail.length > MAX_CONTACT_LENGTH) {
+    return { ok: false, error: `Kontaktní údaje mohou mít nejvýše ${MAX_CONTACT_LENGTH} znaků.` };
+  }
+
+  const recipientName = input.recipientName.trim();
+  const recipientAddress = input.recipientAddress.trim();
+  const recipientPhone = input.recipientPhone.trim();
+  if (recipientName.length > MAX_NAME_LENGTH || recipientAddress.length > MAX_NOTE_LENGTH || recipientPhone.length > MAX_CONTACT_LENGTH) {
+    return { ok: false, error: "Dodací údaje jsou příliš dlouhé." };
+  }
+
+  const customerNote = input.customerNote.trim();
+  const note = input.note.trim();
+  if (customerNote.length > MAX_NOTE_LENGTH || note.length > MAX_NOTE_LENGTH) {
+    return { ok: false, error: `Poznámka může mít nejvýše ${MAX_NOTE_LENGTH} znaků.` };
+  }
+
+  const shippingMethodLabel = input.shippingMethodLabel.trim();
+  const paymentMethodCode = input.paymentMethodCode.trim();
+  const paymentMethodLabel = input.paymentMethodLabel.trim();
+  if (shippingMethodLabel.length > MAX_NAME_LENGTH || paymentMethodLabel.length > MAX_NAME_LENGTH || paymentMethodCode.length > 50) {
+    return { ok: false, error: "Způsob dopravy/platby je příliš dlouhý." };
+  }
+
+  const shippingRaw = input.shippingKc.trim();
+  const shippingKc = shippingRaw === "" ? 0 : parseNonNegativeInt(shippingRaw);
+  if (shippingKc === null) {
+    return { ok: false, error: "Doprava musí být nezáporné celé číslo Kč." };
+  }
+
+  const discountRaw = input.discountKc.trim();
+  const discountKc = discountRaw === "" ? 0 : parseNonNegativeInt(discountRaw);
+  if (discountKc === null) {
+    return { ok: false, error: "Sleva musí být nezáporné celé číslo Kč (orders.discount_kc nemá haléře — zaokrouhlete PŘED voláním, nikdy tady tiše)." };
+  }
+
+  const orderedAtRaw = input.orderedAt.trim();
+  const orderedAt = orderedAtRaw ? new Date(orderedAtRaw) : null;
+  if (!orderedAt || Number.isNaN(orderedAt.getTime())) {
+    return { ok: false, error: "orderedAt musí být platné ISO datum a čas s časovým pásmem." };
+  }
+
+  if (input.items.length === 0) {
+    return { ok: false, error: "Objednávka z WooCommerce musí mít alespoň jednu položku." };
+  }
+  if (input.items.length > MAX_ITEMS) {
+    return { ok: false, error: `Objednávka může mít nejvýše ${MAX_ITEMS} položek.` };
+  }
+
+  const items: CreateOrderItemValue[] = [];
+  for (const rawItem of input.items) {
+    const name = rawItem.name.trim();
+    if (!name) {
+      return { ok: false, error: "Zadejte název u každé položky." };
+    }
+    if (name.length > MAX_NAME_LENGTH) {
+      return { ok: false, error: `Název položky může mít nejvýše ${MAX_NAME_LENGTH} znaků.` };
+    }
+    const quantity = parseNonNegativeInt(rawItem.quantity);
+    if (quantity === null || quantity < 1) {
+      return { ok: false, error: `Množství u položky "${name}" musí být kladné celé číslo.` };
+    }
+    const unitPriceKc = parseNonNegativeInt(rawItem.unitPriceKc);
+    if (unitPriceKc === null) {
+      return { ok: false, error: `Cena u položky "${name}" musí být nezáporné celé číslo.` };
+    }
+    items.push({ name, quantity, unitPriceKc, lineTotalKc: quantity * unitPriceKc });
+  }
+
+  const subtotalKc = items.reduce((sum, item) => sum + item.lineTotalKc, 0);
+  if (discountKc > subtotalKc) {
+    return { ok: false, error: "Sleva nesmí být vyšší než mezisoučet položek." };
+  }
+  const totalKc = subtotalKc - discountKc + shippingKc;
+
+  return {
+    ok: true,
+    value: {
+      externalWooCommerceId,
+      buyerOrganizationId,
+      expectedIco,
+      contactName: contactName || null,
+      contactPhone: contactPhone || null,
+      contactEmail: contactEmail || null,
+      recipientName: recipientName || null,
+      recipientAddress: recipientAddress || null,
+      recipientPhone: recipientPhone || null,
+      customerNote: customerNote || null,
+      note: note || null,
+      shippingMethodLabel: shippingMethodLabel || null,
+      paymentMethodCode: paymentMethodCode || null,
+      paymentMethodLabel: paymentMethodLabel || null,
+      shippingKc,
+      discountKc,
+      subtotalKc,
+      totalKc,
+      orderedAt,
+      items,
+    },
+  };
+}
+
 export function validateFulfillmentStatusInput(
   status: string
 ): { ok: true; value: FulfillmentStatus } | { ok: false; error: string } {

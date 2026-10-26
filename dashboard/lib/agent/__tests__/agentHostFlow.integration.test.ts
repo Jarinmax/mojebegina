@@ -342,6 +342,7 @@ describe("pilotní doména gpt-pilot.begina.cz — celý OAuth tok přes proxy.t
       "my_overview",
       "search_crm",
       "search_mojebegina",
+      "woocommerce_order_import_preview",
     ]);
 
     const search = await rpc(tokens.access_token, 4, "tools/call", { name: "search_crm", arguments: { query: "Lípy" } });

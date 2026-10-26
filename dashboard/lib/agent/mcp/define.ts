@@ -74,4 +74,5 @@ export function defineTool<P>(tool: {
 export const leadUrl = (issuer: string, id: string) => `${issuer}/rizeni-firmy/obchod/leady/${id}`;
 export const customerUrl = (issuer: string, id: string) => `${issuer}/rizeni-firmy/obchod/zakaznici/${id}`;
 export const taskUrl = (issuer: string, id: string) => `${issuer}/rizeni-firmy/uzel/${id}`;
+export const orderUrl = (issuer: string, id: string) => `${issuer}/rizeni-firmy/objednavky/${id}`;
 

@@ -118,7 +118,7 @@ export default async function AdminOrganizationDetailPage(
         ) : (
           <div className="max-w-[520px]">
             {purchaseHistory.map((order) => (
-              <OrderCard key={order.id} order={order} />
+              <OrderCard key={order.id} order={order} reorderOrganizationId={org.id} />
             ))}
           </div>
         )}

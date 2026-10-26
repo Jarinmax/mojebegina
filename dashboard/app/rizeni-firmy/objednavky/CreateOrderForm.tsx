@@ -12,7 +12,14 @@ function emptyRow(key: number): ItemRow {
   return { key, name: "", quantity: "1", unitPriceKc: "" };
 }
 
-export default function CreateOrderForm({ organizations }: { organizations: OrganizationOption[] }) {
+export default function CreateOrderForm({
+  organizations,
+  defaultOrganizationId,
+}: {
+  organizations: OrganizationOption[];
+  /** Admin karta zákazníka → "Objednat znovu" (?org=...) — jen předvyplní výběr, nic nezamyká. */
+  defaultOrganizationId?: string;
+}) {
   const [state, formAction, pending] = useActionState(createOrderAction, initialState);
   const [items, setItems] = useState<ItemRow[]>([emptyRow(0)]);
   const [nextKey, setNextKey] = useState(1);
@@ -40,7 +47,7 @@ export default function CreateOrderForm({ organizations }: { organizations: Orga
           id="buyerOrganizationId"
           name="buyerOrganizationId"
           required
-          defaultValue=""
+          defaultValue={defaultOrganizationId ?? ""}
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
         >
           <option value="" disabled>

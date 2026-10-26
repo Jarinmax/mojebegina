@@ -67,11 +67,13 @@ import {
 } from "@/lib/eshop/invoicing/service";
 import {
   validateCreateOrderInput,
+  validateImportOrderInput,
   validateFulfillmentStatusInput,
   validatePaymentStatusInput,
   validateNoteInput,
   isPaymentOverdue,
   type CreateOrderInput,
+  type ImportOrderInput,
   type FulfillmentStatus,
   type PaymentStatus,
   type NoteInput,
@@ -425,6 +427,141 @@ export async function createOrder(rawInput: CreateOrderInput): Promise<CreateOrd
   ]);
 
   return { ok: true, id };
+}
+
+/** Kdo/co objednávku zapisuje — do order_activity (actor_type, author). */
+export type ImportOrderActor =
+  | { type: "user"; userId: string; name: string | null }
+  | { type: "system"; name: string };
+
+export type ImportOrderResult =
+  | { ok: true; id: string; /** true = objednávka s tímhle externalWooCommerceId už existovala, nic nového se nezapsalo */ alreadyExisted: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Jediné zápisové jádro pro objednávky importované z WooCommerce — volá ho
+ * webhook (lib/woocommerce/webhook.ts), MCP nástroj
+ * (lib/agent/mcp/tools/orders.ts) i případný budoucí ruční formulář.
+ * ZÁMĚRNĚ nevolá requireOrderContext() — každý volající se autorizuje
+ * sám (webhook podpisem, MCP/web session+rolí) a předá `actor` pro audit
+ * log; appka tady jen zapisuje, nerozhoduje, kdo smí.
+ *
+ * Idempotentní podle (provider, external_woocommerce_id) — druhé zavolání
+ * se stejným ID NEVYTVOŘÍ duplikát, vrátí id už existující objednávky
+ * (alreadyExisted: true). channel je vždy 'import' (nikdy 'eshop' — appka
+ * si číslo VS nevymýšlí, 'eshop' navíc vyžaduje payment_vs, který tu
+ * nemáme — orders_eshop_requires_vs). payment_status vždy 'unpaid': appka
+ * stav platby nikdy nepřevezme automaticky z WooCommerce bez ověření
+ * (zadání explicitně).
+ */
+export async function importExternalOrder(
+  rawInput: ImportOrderInput,
+  actor: ImportOrderActor
+): Promise<ImportOrderResult> {
+  const validated = validateImportOrderInput(rawInput);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+  const value = validated.value;
+
+  const existing = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.externalWooCommerceId, value.externalWooCommerceId))
+    .limit(1);
+  if (existing.length > 0) {
+    return { ok: true, id: existing[0].id, alreadyExisted: true };
+  }
+
+  const [buyer] = await db
+    .select({ id: organizations.id, ico: organizations.ico })
+    .from(organizations)
+    .where(eq(organizations.id, value.buyerOrganizationId))
+    .limit(1);
+  if (!buyer) {
+    return { ok: false, error: "Zákaznická organizace nebyla nalezena." };
+  }
+  if (value.expectedIco && buyer.ico !== value.expectedIco) {
+    return {
+      ok: false,
+      error: `Organizace má IČO ${buyer.ico}, zdroj uvádí ${value.expectedIco} — zastavuji, aby se objednávka nepropojila s jinou firmou.`,
+    };
+  }
+
+  const id = randomUUID();
+  try {
+    await db.batch([
+      db.insert(orders).values({
+        id,
+        channel: "import",
+        externalWooCommerceId: value.externalWooCommerceId,
+        buyerOrganizationId: value.buyerOrganizationId,
+        contactName: value.contactName,
+        contactPhone: value.contactPhone,
+        contactEmail: value.contactEmail,
+        recipientName: value.recipientName,
+        recipientAddress: value.recipientAddress,
+        recipientPhone: value.recipientPhone,
+        customerNote: value.customerNote,
+        note: value.note,
+        shippingMethodLabel: value.shippingMethodLabel,
+        paymentMethodCode: value.paymentMethodCode,
+        paymentMethodLabel: value.paymentMethodLabel,
+        subtotalKc: value.subtotalKc,
+        discountKc: value.discountKc,
+        shippingKc: value.shippingKc,
+        totalKc: value.totalKc,
+        paymentStatus: "unpaid",
+        fulfillmentStatus: "new",
+        orderedAt: value.orderedAt,
+      }),
+      db.insert(orderItems).values(
+        value.items.map((item) => ({
+          orderId: id,
+          name: item.name,
+          quantity: item.quantity,
+          unitPriceKc: item.unitPriceKc,
+          lineTotalKc: item.lineTotalKc,
+        }))
+      ),
+      db.insert(orderActivity).values(
+        actor.type === "user"
+          ? {
+              orderId: id,
+              actorType: "user",
+              authorUserId: actor.userId,
+              authorName: actor.name,
+              kind: "created",
+              body: `Importováno z WooCommerce #${value.externalWooCommerceId}.`,
+            }
+          : {
+              orderId: id,
+              actorType: "system",
+              authorName: actor.name,
+              kind: "created",
+              body: `Importováno z WooCommerce #${value.externalWooCommerceId}.`,
+            }
+      ),
+    ]);
+  } catch (error) {
+    // Souběh: dva souběžné pokusy (dvojí doručení webhooku, dvojí MCP
+    // volání) obě prošly kontrolou výš dřív, než druhý zapsal — unique
+    // index orders_external_woocommerce_id_key tohle zachytí jako chybu
+    // zápisu, ne jako tichou duplicitu. Při NÍ (a jen při ní) dohledáme
+    // už zapsanou objednávku a vrátíme ji jako alreadyExisted, přesně
+    // jako běžnou (ne souběžnou) idempotenci výš.
+    const isUniqueViolation = error instanceof Error && "code" in error && (error as { code?: string }).code === "23505";
+    if (!isUniqueViolation) throw error;
+    const [raceWinner] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.externalWooCommerceId, value.externalWooCommerceId))
+      .limit(1);
+    if (!raceWinner) throw error; // jiná kolize (ne na tomhle klíči) — nezakrývat
+    return { ok: true, id: raceWinner.id, alreadyExisted: true };
+  }
+
+  return { ok: true, id, alreadyExisted: false };
 }
 
 export type StatusChangeResult =

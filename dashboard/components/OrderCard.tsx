@@ -6,6 +6,17 @@ import type { Order } from "@/mock/customer";
 type OrderCardProps = {
   order: Order;
   showPaymentAction?: boolean;
+  /**
+   * Admin karta zákazníka (app/admin/organizace/[id]) zná organizaci —
+   * "Objednat znovu" pak odkazuje na ruční zadání nové objednávky s
+   * předvybraným zákazníkem (/rizeni-firmy/objednavky/nova?org=...).
+   * Bez téhle hodnoty appka tlačítko VYNECHÁ, ne nechá nefunkční: v
+   * zákaznickém samoobslužném portálu (app/objednavky) by "znovu
+   * objednat" musel umět vrátit zboží do e-shopového košíku — to tahle
+   * oprava neřeší (byl dřív jen mrtvý <button> bez onClick, teď je
+   * aspoň viditelně pryč místo tiše nefunkčního).
+   */
+  reorderOrganizationId?: string;
 };
 
 const STATUS_STYLE: Record<Order["status"], string> = {
@@ -15,7 +26,7 @@ const STATUS_STYLE: Record<Order["status"], string> = {
   Přeplaceno: "bg-violet-100 text-violet-800",
 };
 
-export default function OrderCard({ order, showPaymentAction = false }: OrderCardProps) {
+export default function OrderCard({ order, showPaymentAction = false, reorderOrganizationId }: OrderCardProps) {
   const canPay = showPaymentAction && order.paymentHref && (order.status === "Neuhrazeno" || order.status === "Částečně uhrazeno");
   return (
     <div
@@ -50,13 +61,15 @@ export default function OrderCard({ order, showPaymentAction = false }: OrderCar
           Zaplatit
         </Link>
       )}
-      <button
-        type="button"
-        className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-begina-primary-900 border border-begina-primary-700 rounded-lg py-2"
-      >
-        <RefreshCw className="w-4 h-4" />
-        Objednat znovu
-      </button>
+      {reorderOrganizationId && (
+        <Link
+          href={`/rizeni-firmy/objednavky/nova?org=${reorderOrganizationId}`}
+          className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-begina-primary-900 border border-begina-primary-700 rounded-lg py-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Objednat znovu
+        </Link>
+      )}
     </div>
   );
 }

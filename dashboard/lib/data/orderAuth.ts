@@ -11,12 +11,16 @@
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import type { AuthContext } from "./types";
 
+export function canAccessOrders(ctx: AuthContext): boolean {
+  return ctx !== null && (ctx.systemRole === "ADMIN" || ctx.systemRole === "EXECUTIVE");
+}
+
 export function requireOrderAccess(ctx: AuthContext): NonNullable<AuthContext> {
   if (!ctx) {
     throw new UnauthenticatedError();
   }
 
-  if (ctx.systemRole !== "ADMIN" && ctx.systemRole !== "EXECUTIVE") {
+  if (!canAccessOrders(ctx)) {
     throw new ForbiddenError();
   }
 

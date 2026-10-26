@@ -243,6 +243,7 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "idoklad_numbering_audit",
       "idoklad_unpaid_and_discrepancies",
       "invoice_preview",
+      "woocommerce_order_import_preview",
     ]);
     for (const tool of tools) expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     const colleague = mcp.agentMcpServer(db, kolega, config).listTools().map((t) => t.name);

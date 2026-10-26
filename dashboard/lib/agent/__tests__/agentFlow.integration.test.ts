@@ -216,9 +216,10 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
         "my_overview",
         "list_company_tasks",
         "get_company_task",
+        "woocommerce_order_import_preview",
       ]);
       const full = await connect(true);
-      expect(mcp.agentMcpServer(db, full.session, config).listTools()).toHaveLength(16);
+      expect(mcp.agentMcpServer(db, full.session, config).listTools()).toHaveLength(18);
     });
 
     it("hledání a detail leadu", async () => {

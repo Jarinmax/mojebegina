@@ -7,8 +7,13 @@ import CreateOrderForm from "../CreateOrderForm";
 // stránkou, listOrganizationsForOrderPicker si ji navíc ověřuje sama.
 export const dynamic = "force-dynamic";
 
-export default async function NewOrderPage() {
+export default async function NewOrderPage(props: PageProps<"/rizeni-firmy/objednavky/nova">) {
   const organizations = await listOrganizationsForOrderPicker();
+  const searchParams = await props.searchParams;
+  // Admin karta zákazníka → "Objednat znovu" (?org=...) — appka hodnotu
+  // jen předá do <select defaultValue>; neplatné/cizí id prostě neodpovídá
+  // žádné <option> a výběr zůstane prázdný (žádná validace tu není potřeba).
+  const orgParam = Array.isArray(searchParams.org) ? searchParams.org[0] : searchParams.org;
 
   return (
     <div>
@@ -21,7 +26,7 @@ export default async function NewOrderPage() {
 
       <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-4">Nová objednávka</h1>
 
-      <CreateOrderForm organizations={organizations} />
+      <CreateOrderForm organizations={organizations} defaultOrganizationId={orgParam} />
     </div>
   );
 }
