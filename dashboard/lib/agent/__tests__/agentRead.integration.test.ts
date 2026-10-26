@@ -236,6 +236,8 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "my_overview",
       "list_company_tasks",
       "get_company_task",
+      // zápis objednávky: návrh je čtení (create_order jen se zápisem)
+      "prepare_order",
       // fakturace — jen vystavovatelé faktur (Viner), se čtecím souhlasem bez vystavení
       "idoklad_search_invoices",
       "idoklad_get_invoice",
