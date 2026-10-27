@@ -1104,18 +1104,23 @@ export const workTasks = pgTable(
     createdBy: text("created_by").notNull(),
     dueDate: date("due_date", { mode: "string" }),
     priority: text("priority").notNull().default("normal"), // "normal" | "urgent"
-    status: text("status").notNull().default("open"), // "open" | "done"
+    status: text("status").notNull().default("open"), // "open" | "done" | "cancelled"
     doneAt: timestamp("done_at", { withTimezone: true }),
     doneBy: text("done_by"),
+    // Práce 1.1 (migrace 0026) — zrušení: úkol se nikdy nemaže, jen označí.
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("work_tasks_assignee_status_idx").on(table.assigneeUserId, table.status, table.dueDate),
     check("work_tasks_priority_check", sql`${table.priority} IN ('normal','urgent')`),
-    check("work_tasks_status_check", sql`${table.status} IN ('open','done')`),
+    check("work_tasks_status_check", sql`${table.status} IN ('open','done','cancelled')`),
     check("work_tasks_done_pair_check", sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`),
     check("work_tasks_done_status_check", sql`(${table.status} = 'done') = (${table.doneAt} IS NOT NULL)`),
+    check("work_tasks_cancel_pair_check", sql`(${table.cancelledAt} IS NULL) = (${table.cancelledBy} IS NULL)`),
+    check("work_tasks_cancel_status_check", sql`(${table.status} = 'cancelled') = (${table.cancelledAt} IS NOT NULL)`),
   ]
 );
 
@@ -1128,11 +1133,17 @@ export const workTaskActivity = pgTable(
       .references(() => workTasks.id),
     actorUserId: text("actor_user_id").notNull(),
     actorName: text("actor_name"),
-    kind: text("kind").notNull(), // "created" | "done" | "reopened"
+    // "created" | "done" | "reopened" | Práce 1.1: "updated" | "priority_changed" | "reassigned" | "cancelled"
+    kind: text("kind").notNull(),
+    // Práce 1.1 — co se změnilo (from/to po polích, důvod zrušení).
+    metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("work_task_activity_task_idx").on(table.taskId, table.createdAt),
-    check("work_task_activity_kind_check", sql`${table.kind} IN ('created','done','reopened')`),
+    check(
+      "work_task_activity_kind_check",
+      sql`${table.kind} IN ('created','done','reopened','updated','priority_changed','reassigned','cancelled')`
+    ),
   ]
 );

@@ -183,6 +183,13 @@
       "when": 1793085141409,
       "tag": "0025_prace_1_0_work_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793087301474,
+      "tag": "0026_prace_1_1_task_management",
+      "breakpoints": true
     }
   ]
 }
