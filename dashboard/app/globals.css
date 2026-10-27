@@ -25,3 +25,35 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Vizuální potvrzení doteku/kliknutí — napříč celou appkou (tlačítka i
+ * odkazy stylované jako tlačítka, všechny jsou <button>/<a>). Čistě CSS
+ * :active, žádný JS: zareaguje okamžitě při samotném dotyku, nezávisle
+ * na tom, jak dlouho trvá akce za ním (navigace, server action) — právě
+ * tohle řeší hlášený problém "dotkl jsem se, ale nevím, jestli to
+ * zabralo". Barevně nic nepřebarvujeme (paleta appky nemá zelenou ani
+ * modrou, viz tailwind.config.ts) — stisk je vidět přes výraznější
+ * zmenšení, ztmavení a "vmáčknutí" (inset stín), funguje na libovolném
+ * pozadí i na čistém textovém odkazu. Síla doladěna po zpětné vazbě, že
+ * původní (jemnější) verze nebyla na mobilu dost vidět.
+ */
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 80ms ease-out, filter 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+a:active,
+button:not(:disabled):active {
+  transform: scale(0.92);
+  filter: brightness(0.8);
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a:active,
+  button:not(:disabled):active {
+    transform: none;
+  }
+}
