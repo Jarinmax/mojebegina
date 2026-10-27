@@ -43,9 +43,15 @@ const ESHOP = [
 /**
  * Za e-shopem: audit čtení iDokladu, produkční MCP/OAuth a Google Kalendář
  * (původně 0021 na feature/google-calendar-1-0, přečíslováno na 0025
- * drizzle-kit generate při integraci — Etapa 0, ETAPA0_INTEGRACE_VETVI.md).
+ * drizzle-kit generate při integraci — Etapa 0, ETAPA0_INTEGRACE_VETVI.md)
+ * a Denní volání 1.1 (původně 0022, přečíslováno na 0026 stejným postupem).
  */
-const AFTER_ESHOP = ["0023_idoklad_read_log", "0024_gpt_mcp_production", "0025_phase_20_google_calendar"];
+const AFTER_ESHOP = [
+  "0023_idoklad_read_log",
+  "0024_gpt_mcp_production",
+  "0025_phase_20_google_calendar",
+  "0026_phase_21_daily_calls_worker_history",
+];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
@@ -63,7 +69,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024 a Google Kalendář 0025", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Google Kalendář 0025 a Denní volání 1.1 0026", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
@@ -98,10 +104,27 @@ describe("řetězec migrací Drizzle", () => {
   });
 
   it("e-shop nemění tabulky z main (0013–0022 = stejné jako 0012)", () => {
+    // Ohraničeno na vlastní blok e-shopu: Denní volání 1.1 (0026) legitimně
+    // přidává do daily_call_queue sloupec resulting_activity_id — viz test níže.
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
-    for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
+    const lastEshopIdx = FIRST_ESHOP_IDX + ESHOP.length - 1;
+    for (let i = FIRST_ESHOP_IDX; i <= lastEshopIdx; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);
     }
+  });
+
+  it("Denní volání 1.1 (0026) mění tabulky z main jen přidáním daily_call_queue.resulting_activity_id", () => {
+    const idx = journal.entries.findIndex((e) => e.tag === "0026_phase_21_daily_calls_worker_history");
+    expect(idx).toBeGreaterThan(0);
+    const before = snapshot(idx - 1).tables;
+    const after = snapshot(idx).tables;
+    for (const table of Object.keys(MAIN_TABLES)) {
+      if (table === "public.daily_call_queue") continue;
+      expect(after[table]).toEqual(before[table]);
+    }
+    const colsBefore = Object.keys(before["public.daily_call_queue"].columns).sort();
+    const colsAfter = Object.keys(after["public.daily_call_queue"].columns).sort();
+    expect(colsAfter).toEqual([...colsBefore, "resulting_activity_id"].sort());
   });
 
   it(
