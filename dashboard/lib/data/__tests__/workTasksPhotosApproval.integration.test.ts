@@ -69,7 +69,7 @@ describe("Práce 2.0 — fotografie a schvalování", { timeout: 120_000 }, () =
 
   const create = async (title: string, photoRequirement: string, requiresApproval: boolean) => {
     asViner();
-    const r = await wt.createWorkTask({ title, description: "", assigneeUserId: BLAHOUT, dueDate: "2026-10-28", priority: "normal", photoRequirement, requiresApproval });
+    const r = await wt.createWorkTask({ title, description: "", assigneeUserId: BLAHOUT, dueDate: "2099-12-31", priority: "normal", photoRequirement, requiresApproval });
     expect(r).toEqual({ ok: true });
     const [row] = (await db.execute<{ id: string }>(sql`SELECT id FROM work_tasks WHERE title = ${title}`)).rows;
     return row.id;

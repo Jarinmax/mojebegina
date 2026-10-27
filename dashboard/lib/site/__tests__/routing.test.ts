@@ -191,7 +191,7 @@ describe("begina.cz — vše, co e-shop potřebuje, je dostupné", () => {
   it("každá stránka a route handler z app/eshop má na begina.cz adresu, která se přepíše přesně na něj", () => {
     const files = walk("app/eshop").filter((f) => /\/(page\.tsx|route\.ts)$/.test(f));
     expect(files.length).toBeGreaterThanOrEqual(13);
-    const sample = { "[slug]": "kulajda", "[id]": ORDER_ID };
+    const sample = { "[slug]": "kulajda", "[id]": ORDER_ID, "[soubor]": "2026-10-27.pdf" };
     for (const file of files) {
       const internal = urlOf(file, sample);
       if (internal === null) continue; // [...nenalezeno] = 404

@@ -26,6 +26,15 @@
 // Ostrý provoz fakturace: PDF faktury z iDokladu (option invoicePdf) se
 // přiloží k potvrzení o zaplacení. iDoklad sám zákazníkovi nic neposílá.
 //
+// Obchodní podmínky (§ 1824 OZ — potvrzení smlouvy včetně obchodních
+// podmínek v textové podobě): k potvrzení objednávky z e-shopu (převod při
+// vzniku, karta po zaplacení) se přiloží PDF obchodních podmínek ve znění,
+// se kterým zákazník souhlasil (zapsané u objednávky při vzniku), včetně
+// vzorového formuláře pro odstoupení. Do historie (email_sent) se zapíše
+// znění a otisk SHA-256 odeslaného PDF. Když se PDF nepodaří vytvořit,
+// potvrzení odejde i tak (s odkazem ke stažení) a historie to zaznamená
+// (termsAttachment: "failed") — objednávku to nesmí zastavit.
+//
 // U převodu obsahuje potvrzení platební údaje a QR Platbu jako obrázek
 // vložený do e-mailu přes Content-ID (cid:) — spolehlivější než externí
 // obrázek (blokovaný do „zobrazit obrázky“) i než data: URL (Gmail
@@ -52,6 +61,7 @@ import {
   customerOrderEmail,
   customerPaymentReceivedEmail,
   internalOrderEmail,
+  type CustomerEmailContext,
   type EmailOrder,
   type RenderedEmail,
 } from "./templates";
@@ -59,6 +69,8 @@ import { bankConfig, transferInfo, type BankConfig } from "../bankTransfer";
 import { qrPng } from "../qr";
 import type { Attachment, InlineImage } from "./resend";
 import type { InvoicePdf } from "../invoicing/issue";
+import { termsPdfPath, termsVersionForOrder, type TermsVersion } from "../content/termsVersions";
+import { termsPdf as defaultTermsPdf, type TermsPdf } from "../legal/termsPdf";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -83,7 +95,13 @@ export type OrderEmailOutcome = { template: OrderEmailTemplate; status: "sent" |
 export const EMAIL_SENT = "email_sent";
 export const EMAIL_FAILED = "email_failed";
 
-type OrderForEmail = EmailOrder & { channel: string };
+type OrderForEmail = EmailOrder & {
+  channel: string;
+  /** souhlas s obchodními podmínkami (pokladna) */
+  termsAcceptedAt: Date | null;
+  /** znění podmínek zapsané při vzniku objednávky (order_activity created) */
+  termsVersion: string | null;
+};
 
 /** Které e-maily daná událost spouští (čistá funkce). */
 export function emailsFor(
@@ -138,6 +156,13 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
       shippingKc: orders.shippingKc,
       totalKc: orders.totalKc,
       customerNote: orders.customerNote,
+      termsAcceptedAt: orders.termsAcceptedAt,
+      // "orders"."id" výslovně: ${orders.id} by se v poddotazu vykreslilo
+      // jako holé "id" a porovnalo by se s id záznamu historie
+      termsVersion: sql<string | null>`(
+        SELECT a.metadata->>'termsVersion' FROM ${orderActivity} a
+        WHERE a.order_id = "orders"."id" AND a.kind = 'created'
+        ORDER BY a.created_at LIMIT 1)`,
     })
     .from(orders)
     .where(eq(orders.id, orderId))
@@ -176,6 +201,15 @@ async function qrImage(spayd: string | null): Promise<InlineImage | null> {
   }
 }
 
+/** Přílohy do historie: název a velikost; u obchodních podmínek i znění a otisk PDF. */
+function attachmentRecords(attachments: Attachment[], terms: TermsAttachmentRecord | null) {
+  return attachments.map((file) =>
+    terms && file.filename === terms.filename
+      ? terms
+      : { kind: "invoice", filename: file.filename, bytes: Buffer.from(file.contentBase64, "base64").length }
+  );
+}
+
 async function record(db: Db, orderId: string, kind: string, metadata: Record<string, unknown>) {
   await db.insert(orderActivity).values({
     orderId,
@@ -197,7 +231,16 @@ export type SendOrderEmailsOptions = {
   cancellation?: { heldHal: number };
   /** náhradní objednávka: odkud je platba a kolik jí přišlo (haléře) */
   replacement?: { fromReference: string; receivedHal: number };
+  /** jen testy: náhrada tvorby PDF obchodních podmínek */
+  termsPdf?: (version: TermsVersion) => Promise<TermsPdf>;
 };
+
+/** Potvrzení objednávky z e-shopu nese obchodní podmínky (zákazník s nimi v pokladně souhlasil). */
+export function carriesTerms(template: OrderEmailTemplate, order: Pick<OrderForEmail, "channel" | "termsAcceptedAt">): boolean {
+  return template === "customer_confirmation" && order.channel === "eshop" && order.termsAcceptedAt !== null;
+}
+
+type TermsAttachmentRecord = { kind: "terms"; version: string; filename: string; bytes: number; sha256: string };
 
 /** Ke kterému e-mailu patří PDF faktury (jen zaplacená objednávka). */
 function carriesInvoice(template: OrderEmailTemplate, paid: boolean): boolean {
@@ -250,12 +293,35 @@ export async function sendOrderEmails(
         outcomes.push({ template, status: "failed" });
         continue;
       }
-      const attachments: Attachment[] = pdf ? [{ filename: pdf.filename, contentBase64: pdf.contentBase64 }] : [];
+      const attachments: Attachment[] = pdf
+        ? [{ filename: pdf.filename, contentBase64: pdf.contentBase64, contentType: "application/pdf" }]
+        : [];
       const invoiceNumber = pdf?.invoiceNumber ?? null;
+      let termsRecord: TermsAttachmentRecord | null = null;
+      let termsFailed = false;
       if (template === "customer_confirmation") {
         const qr = await qrImage(transfer?.spayd ?? null);
         if (qr) inlineImages = [qr];
-        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber });
+        let terms: CustomerEmailContext["terms"] = null;
+        if (carriesTerms(template, order)) {
+          const version = termsVersionForOrder(order.termsVersion);
+          try {
+            const file = await (options.termsPdf ?? defaultTermsPdf)(version);
+            attachments.push({ filename: file.filename, contentBase64: file.contentBase64, contentType: "application/pdf" });
+            termsRecord = { kind: "terms", version: version.id, filename: file.filename, bytes: file.bytes.length, sha256: file.sha256 };
+          } catch (error) {
+            // Potvrzení odejde i bez přílohy (s odkazem ke stažení) — objednávku to nezastaví.
+            console.error("E-shop: PDF obchodních podmínek se nepodařilo vytvořit", orderId, version.id, error);
+            termsFailed = true;
+          }
+          terms = {
+            effectiveLabel: version.effectiveLabel,
+            withWithdrawalForm: version.withWithdrawalForm,
+            path: termsPdfPath(version),
+            attached: termsRecord !== null,
+          };
+        }
+        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber, terms });
       } else if (template === "customer_replacement") {
         // Platební údaje a QR jen na doplatek (zbytek po převedené platbě).
         const receivedHal = options.replacement?.receivedHal ?? 0;
@@ -303,6 +369,8 @@ export async function sendOrderEmails(
           ...(bcc.length ? { bcc } : {}),
           ...(inlineImages.length ? { qr: true } : {}),
           ...(invoiceNumber ? { invoice: invoiceNumber } : {}),
+          ...(attachments.length ? { attachments: attachmentRecords(attachments, termsRecord) } : {}),
+          ...(termsFailed ? { termsAttachment: "failed" } : {}),
           ...(test ? { test: true, withheld } : {}),
         });
         if (invoiceNumber) {
