@@ -185,7 +185,20 @@ export type CustomerEmailContext = Context & {
   qrContentId: string | null;
   /** číslo faktury v příloze (ostrý provoz, faktura z iDokladu) */
   invoiceNumber?: string | null;
+  /**
+   * Obchodní podmínky ve znění, se kterým zákazník souhlasil (potvrzení
+   * objednávky): attached = PDF je v příloze; jinak jen odkaz ke stažení.
+   */
+  terms?: { effectiveLabel: string; withWithdrawalForm: boolean; path: string; attached: boolean } | null;
 };
+
+/** Věta o obchodních podmínkách v potvrzení (příloha, případně jen odkaz). */
+function termsSentence(terms: NonNullable<CustomerEmailContext["terms"]>): string {
+  const what = `obchodní podmínky ve znění účinném od ${terms.effectiveLabel}, se kterými jste při objednávce souhlasili${
+    terms.withWithdrawalForm ? ", včetně vzorového formuláře pro odstoupení od smlouvy" : ""
+  }`;
+  return terms.attached ? `V příloze posíláme ${what}.` : `Ke stažení jsou ${what}:`;
+}
 
 /** Věta o přiložené faktuře (PDF posílá MojeBegina, ne iDoklad). */
 function invoiceSentence(invoiceNumber: string | null | undefined): string {
@@ -211,6 +224,17 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
   if (order.customerNote) details.push(["Vaše poznámka", order.customerNote]);
   const instructions = paymentInstructions(order, ctx.transfer, ctx.qrContentId);
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const termsUrl = ctx.terms ? eshopAbsoluteUrl(ctx.baseUrl, ctx.terms.path) : null;
+  const termsHtml =
+    ctx.terms && termsUrl
+      ? `<p style="margin:0 0 16px;color:#404040;font-size:13px;">${escapeHtml(termsSentence(ctx.terms))}${
+          ctx.terms.attached ? " Najdete je také na " : " "
+        }<a href="${escapeHtml(termsUrl)}" style="color:#404040;">${escapeHtml(termsUrl)}</a>.</p>\n`
+      : "";
+  const termsText =
+    ctx.terms && termsUrl
+      ? `${termsSentence(ctx.terms)}${ctx.terms.attached ? " Najdete je také na" : ""} ${termsUrl}\n\n`
+      : "";
 
   const html = layout(
     ctx,
@@ -223,14 +247,14 @@ ${detailsTable(details)}
 <div style="height:16px"></div>
 ${instructions.html}
 <p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
-<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+${termsHtml}<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
 </td></tr>`
   );
   const text =
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\n${termsText}S dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }
 

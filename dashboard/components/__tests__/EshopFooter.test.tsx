@@ -8,6 +8,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import EshopFooter from "../eshop/EshopFooter";
 import InfoPageView from "../eshop/InfoPageView";
 import { FOOTER_LINKS, INFO_PAGES } from "@/lib/eshop/infoPages";
+import { CURRENT_TERMS, LEGACY_TERMS } from "@/lib/eshop/content/termsVersions";
+import { WITHDRAWAL_FORM_SENTENCE } from "@/lib/eshop/content/obchodniPodminky";
 
 afterEach(() => cleanup());
 
@@ -150,23 +152,46 @@ describe("informační stránky", () => {
 });
 
 describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
-  it("13 článků I–XIII s počty bodů přesně podle dodaného znění", () => {
-    const blocks = INFO_PAGES.terms.blocks!;
-    expect(blocks.map((b) => [b.heading!.split(".")[0], b.points!.length])).toEqual([
-      ["I", 4], ["II", 5], ["III", 5], ["IV", 7], ["V", 7], ["VI", 11], ["VII", 8],
-      ["VIII", 13], ["IX", 4], ["X", 7], ["XI", 2], ["XII", 2], ["XIII", 6],
-    ]);
+  const POINTS_V1 = [
+    ["I", 4], ["II", 5], ["III", 5], ["IV", 7], ["V", 7], ["VI", 11], ["VII", 8],
+    ["VIII", 13], ["IX", 4], ["X", 7], ["XI", 2], ["XII", 2], ["XIII", 6],
+  ];
+
+  it("1. znění (22. 9. 2026): 13 článků I–XIII s počty bodů přesně podle dodaného znění", () => {
+    const blocks = LEGACY_TERMS.blocks;
+    expect(blocks.map((b) => [b.heading!.split(".")[0], b.points!.length])).toEqual(POINTS_V1);
     const subItems = blocks.flatMap((b) => b.points!.map((p) => p.items?.length ?? 0)).filter(Boolean);
     expect(subItems).toEqual([6, 3, 5, 5, 7, 3, 5, 5]);
   });
 
-  it("stránka: nadpis, účinnost, číslované body, odkazy na e-mail, telefon, ČOI", () => {
+  it("platné znění = 1. znění + věta o formuláři v čl. VII + příloha s formulářem; nic jiného", () => {
+    const blocks = INFO_PAGES.terms.blocks!;
+    expect(blocks).toBe(CURRENT_TERMS.blocks);
+    const articles = blocks.slice(0, 13);
+    expect(articles.map((b) => [b.heading!.split(".")[0], b.points!.length])).toEqual(
+      POINTS_V1.map(([h, n]) => [h, h === "VII" ? 9 : n])
+    );
+    expect(articles[6].points!.map((p) => p.text)).toEqual([
+      ...LEGACY_TERMS.blocks[6].points!.slice(0, 4).map((p) => p.text),
+      WITHDRAWAL_FORM_SENTENCE,
+      ...LEGACY_TERMS.blocks[6].points!.slice(4).map((p) => p.text),
+    ]);
+    expect(blocks[13].heading).toBe("Příloha: Vzorový formulář pro odstoupení od smlouvy");
+    expect(blocks).toHaveLength(14);
+  });
+
+  it("stránka: nadpis, účinnost, číslované body, formulář, PDF ke stažení, odkazy na e-mail, telefon, ČOI", () => {
     render(<InfoPageView page={INFO_PAGES.terms} />);
     expect(screen.getByRole("heading", { level: 1, name: "Obchodní podmínky e-shopu Begina.cz" })).toBeTruthy();
-    expect(screen.getByText("Platné a účinné od 22. září 2026")).toBeTruthy();
-    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(13);
+    expect(screen.getByText(`Platné a účinné od ${CURRENT_TERMS.effectiveLabel}`)).toBeTruthy();
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(14);
     expect(screen.getByText(/Prodávající není plátcem daně z přidané hodnoty\./)).toBeTruthy();
-    expect(screen.getByText(/Tyto obchodní podmínky jsou platné a účinné od 22\. září 2026\./)).toBeTruthy();
+    expect(screen.getByText(`Tyto obchodní podmínky jsou platné a účinné od ${CURRENT_TERMS.effectiveLabel}.`)).toBeTruthy();
+    expect(screen.getByText(WITHDRAWAL_FORM_SENTENCE)).toBeTruthy();
+    expect(screen.getByText("Číslo objednávky (nepovinné):")).toBeTruthy();
+    const pdf = screen.getByRole("link", { name: "Stáhnout obchodní podmínky včetně formuláře pro odstoupení (PDF)" });
+    // bez EshopBaseProvider = moje.begina.cz (/eshop/…)
+    expect(pdf.getAttribute("href")).toBe(`/eshop/obchodni-podminky/${CURRENT_TERMS.id}.pdf`);
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual(expect.arrayContaining(["mailto:info@begina.cz", "tel:+420774199975", "https://www.coi.cz", "https://adr.coi.cz", "https://www.begina.cz"]));
   });

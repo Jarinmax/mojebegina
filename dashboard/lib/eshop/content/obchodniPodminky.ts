@@ -1,11 +1,24 @@
 // Obchodní podmínky e-shopu Begina.cz — text dodaný vedením 3. 10. 2026,
 // přepsaný doslova (jen rozdělený do článků a bodů). Měnit jen podle nového
-// znění od vedení; datum účinnosti v `TERMS_EFFECTIVE` a v čl. XIII.
+// znění od vedení.
+//
+// Jednotlivá znění (verze) a jejich účinnost jsou v termsVersions.ts. Každé
+// znění, které už platilo, je NEMĚNNÉ — test hlídá jeho otisk (SHA-256).
+// Změna textu = nové znění v termsVersions.ts (nová verze s vlastním datem
+// účinnosti), nikdy úprava starého.
 import type { InfoBlock } from "../infoPages";
+import { withdrawalFormBlock } from "./withdrawalForm";
 
-export const TERMS_EFFECTIVE = "22. září 2026";
+/** Věta doplněná do čl. VII od znění s přílohou (schváleno vedením 26. 10. 2026). */
+export const WITHDRAWAL_FORM_SENTENCE =
+  "K odstoupení může spotřebitel využít vzorový formulář, který je přílohou těchto obchodních podmínek. Jeho použití není povinné.";
 
-export const TERMS_BLOCKS: InfoBlock[] = [
+/**
+ * Text obchodních podmínek pro dané znění: datum účinnosti (čl. XIII)
+ * a od 2. znění věta o vzorovém formuláři v čl. VII a formulář v příloze.
+ */
+export function termsBlocks(effectiveLabel: string, withWithdrawalForm: boolean): InfoBlock[] {
+  return [
   {
     heading: "I. Úvodní ustanovení",
     points: [
@@ -177,6 +190,7 @@ export const TERMS_BLOCKS: InfoBlock[] = [
       {
         text: "Pokud se na zboží právo na odstoupení vztahuje, může spotřebitel odstoupení oznámit na e-mailu info@begina.cz nebo písemně na adrese prodávajícího.",
       },
+      ...(withWithdrawalForm ? [{ text: WITHDRAWAL_FORM_SENTENCE }] : []),
       { text: "Spotřebitel musí zboží odeslat nebo předat prodávajícímu nejpozději do 14 dnů od odstoupení od smlouvy." },
       { text: "Náklady na vrácení zboží nese spotřebitel, pokud se s prodávajícím nedohodne jinak." },
       {
@@ -328,7 +342,7 @@ export const TERMS_BLOCKS: InfoBlock[] = [
   {
     heading: "XIII. Závěrečná ustanovení",
     points: [
-      { text: `Tyto obchodní podmínky jsou platné a účinné od ${TERMS_EFFECTIVE}.` },
+      { text: `Tyto obchodní podmínky jsou platné a účinné od ${effectiveLabel}.` },
       {
         text: "Prodávající může obchodní podmínky přiměřeným způsobem měnit nebo doplňovat. Na objednávku se použije znění obchodních podmínek účinné v okamžiku jejího odeslání kupujícím.",
       },
@@ -342,4 +356,6 @@ export const TERMS_BLOCKS: InfoBlock[] = [
       { text: "Práva spotřebitele vyplývající z obecně závazných právních předpisů nejsou těmito obchodními podmínkami dotčena." },
     ],
   },
-];
+  ...(withWithdrawalForm ? [withdrawalFormBlock()] : []),
+  ];
+}

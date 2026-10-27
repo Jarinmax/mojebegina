@@ -13,7 +13,7 @@ function describeEntry(entry: OrderActivityEntry): string {
         ? `vytvořil(a) náhradní objednávku za stornovanou ${String(meta.replacementOfReference)}${meta.ageConfirmedByStaff ? " (zákazník znovu potvrdil věk 18+)" : ""}`
         : meta.via === "mcp"
           ? `založil(a) objednávku${meta.sourceLabel ? ` (zdroj: ${String(meta.sourceLabel)}${meta.externalReference ? `, č. ${String(meta.externalReference)}` : ""})` : ""}${meta.newCustomer ? " a nového zákazníka" : ""}`
-          : "založil(a) objednávku";
+          : `založil(a) objednávku${typeof meta.termsVersion === "string" ? ` (souhlas s obchodními podmínkami ve znění ${meta.termsVersion})` : ""}`;
     case "note_added":
       return "upravil(a) poznámku";
     case "fulfillment_status_changed": {
@@ -63,7 +63,7 @@ function describeEntry(entry: OrderActivityEntry): string {
     case "email_sent": {
       const label = emailLabel(meta.template);
       const to = Array.isArray(meta.to) ? ` (${meta.to.join(", ")})` : "";
-      return `odeslal(a) e-mail: ${label}${to}${meta.test ? " — testovací režim" : ""}`;
+      return `odeslal(a) e-mail: ${label}${to}${attachmentsLabel(meta)}${meta.test ? " — testovací režim" : ""}`;
     }
     case "email_failed": {
       const label = emailLabel(meta.template);
@@ -101,6 +101,19 @@ const CONSENT_NOTE_KINDS = new Set(["note_added", "refund_requested", "payment_t
 function money(hal: unknown): string {
   const value = Number(hal ?? 0);
   return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(value / 100)} Kč`;
+}
+
+/** Přílohy odeslaného e-mailu (orderEmails.ts → metadata.attachments) a varování, když PDF podmínek chybí. */
+function attachmentsLabel(meta: Record<string, unknown>): string {
+  const files = Array.isArray(meta.attachments) ? (meta.attachments as Record<string, unknown>[]) : [];
+  const names = files.map((file) =>
+    file.kind === "terms" ? `obchodní podmínky ve znění ${String(file.version)} (PDF)` : String(file.filename ?? "soubor")
+  );
+  const parts = names.length ? [` — přílohy: ${names.join(", ")}`] : [];
+  if (meta.termsAttachment === "failed") {
+    parts.push(" — ⚠ PDF obchodních podmínek se nepodařilo přiložit (zákazník dostal odkaz ke stažení)");
+  }
+  return parts.join("");
 }
 
 function emailLabel(template: unknown): string {

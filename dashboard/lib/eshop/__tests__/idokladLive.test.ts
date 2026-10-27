@@ -264,7 +264,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0].subject).toBe("[TEST] Platbu za objednávku " + (await rows(sql`SELECT order_number FROM orders WHERE id = ${id}`))[0].order_number + " jsme přijali");
     expect(mail.sent[0].text).toContain(`V příloze posíláme fakturu č. ${next.number}.`);
-    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String) }]);
+    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String), contentType: "application/pdf" }]);
     expect(Buffer.from(mail.sent[0].attachments![0].contentBase64, "base64").toString("latin1")).toMatch(/^%PDF-/);
   });
 
@@ -592,7 +592,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(mail.sent[0].subject).toBe("[TEST] Faktura k objednávce 5215");
     expect(mail.sent[0].text).toContain(`V příloze posíláme fakturu č. ${next.number}.`);
     expect(mail.sent[0].text).not.toContain("Stav objednávky");
-    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String) }]);
+    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String), contentType: "application/pdf" }]);
 
     // druhé kliknutí: nic nového v iDokladu ani v e-mailu
     mail.sent.length = 0;

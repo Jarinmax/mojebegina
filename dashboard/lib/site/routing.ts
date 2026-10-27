@@ -45,6 +45,7 @@ export const PUBLIC_NOT_FOUND_PATH = "/eshop/nenalezeno";
 
 const ESHOP_PREFIX = "/eshop";
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const TERMS_PDF = /^\d{4}-\d{2}-\d{2}\.pdf$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Statické soubory e-shopu (public/eshop/…) — fotky produktů, ikony, hero. */
 const ESHOP_ASSET = /^\/eshop\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:jpe?g|png|webp|avif|gif|svg|ico)$/;
@@ -140,6 +141,8 @@ export function publicEshopPath(pathname: string): string | null {
   if (rest.length > 0 || param === undefined) return null;
   if ((section === "produkt" || section === "kategorie") && SLUG.test(param)) return `${ESHOP_PREFIX}/${section}/${param}`;
   if (section === "objednavka" && UUID.test(param)) return `${ESHOP_PREFIX}/objednavka/${param}`;
+  // PDF znění obchodních podmínek (/obchodni-podminky/2026-10-27.pdf)
+  if (section === "obchodni-podminky" && TERMS_PDF.test(param)) return `${ESHOP_PREFIX}/obchodni-podminky/${param}`;
   return null;
 }
 
