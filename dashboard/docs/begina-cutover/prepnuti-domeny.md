@@ -8,8 +8,8 @@ Kód domén je v `main` od PR #17 (`lib/site/*`, testy 124/124 OK 16. 10.).
 
 | # | Krok | Kdo | Stav |
 |---|---|---|---|
-| 1 | Vercel → mojebegina → Settings → Domains: přidat `begina.cz` (Production) a `www.begina.cz` → 301 na `begina.cz`. Vercel ukáže „Invalid Configuration“ — správně, DNS se zatím nemění. | majitel | |
-| 2 | Opsat z Vercelu požadované hodnoty: A záznam pro `begina.cz`, CNAME pro `www` (případně TXT pro ověření vlastnictví). | majitel → Claude | |
+| 1 | Vercel → mojebegina → Settings → Domains: přidat `begina.cz` (Production) a `www.begina.cz` → 301 na `begina.cz`. Vercel ukáže „Invalid Configuration“ — správně, DNS se zatím nemění. | majitel | ✅ 27. 10. 2026 — `begina.cz` → Production, `www.begina.cz` → 308 na `begina.cz` (bez „apex → www“) |
+| 2 | Opsat z Vercelu požadované hodnoty: A záznam pro `begina.cz`, CNAME pro `www` (případně TXT pro ověření vlastnictví). | majitel → Claude | ✅ 27. 10. 2026 — `@` A `216.198.79.1`, `www` CNAME `6e5c4dc7d4a00105.vercel-dns-017.com.` (stejný cíl jako `moje`); TXT ověření Vercel nežádá |
 | 3 | U správce DNS: snímek celé zóny `begina.cz` (původní hodnoty A, CNAME `www`, MX, TXT/SPF, `_dmarc`, `send`, `resend._domainkey`, `moje`). Uložit pro návrat. | majitel | ✅ 27. 10. 2026 — export BIND z Active24: `dns-begina.cz-2026-10-27.bind.txt` |
 | 3a | **SPF před přepnutím:** dnes `v=spf1 a mx include:_spf.websupport.cz -all`. Mechanismus `a` povoluje odesílat poštu ze serveru, na který míří `begina.cz` (dnes hosting `37.9.175.164`). Po přepnutí `@` na Vercel by e-maily odesílané ze starého WordPressu přímo ze serveru (PHP mail — objednávky, hesla, oznámení WooCommerce) neprošly (`-all`). Den před přepnutím přidat do SPF `ip4:37.9.175.164 ip6:2a00:4b40:aaaa:2005::5` (nebo ověřit, že WordPress posílá přes SMTP Active24 — pak stačí `include`). | majitel (Claude připraví přesný záznam) | |
 | 4 | TTL záznamů `@` a `www` (A i AAAA, dnes 3600 s) snížit na 300 s — nejpozději den před přepnutím. Nic jiného neměnit. | majitel | |
@@ -24,11 +24,11 @@ jmenné servery (Websupport/Active24). SPF jen podle bodu 3a.
 
 | Záznam | Dnes (návrat) | Den D |
 |---|---|---|
-| `@` A | `37.9.175.164` | hodnota z Vercelu (bod 2) |
+| `@` A | `37.9.175.164` | **`216.198.79.1`** (Vercel; starší `76.76.21.21` funguje také) |
 | `@` AAAA | `2a00:4b40:aaaa:2005::5` | **smazat** (Vercel IPv6 pro kořen nemá) |
 | `www` A | `37.9.175.164` | **smazat** |
 | `www` AAAA | `2a00:4b40:aaaa:2005::5` | **smazat** |
-| `www` CNAME | — | hodnota z Vercelu (bod 2) |
+| `www` CNAME | — | **`6e5c4dc7d4a00105.vercel-dns-017.com.`** (CNAME nesmí mít vedle sebe A/AAAA → nejdřív smazat `www` A a AAAA) |
 | `stary` A / AAAA | — | `37.9.175.164` / `2a00:4b40:aaaa:2005::5` (už před dnem D, `stary-woocommerce.md`) |
 
 Před změnou vypnout automatiku „Active24 Web“ (spravuje A/AAAA/ANAME/CNAME
