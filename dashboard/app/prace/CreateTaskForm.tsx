@@ -2,8 +2,17 @@
 
 import { useActionState } from "react";
 import { createWorkTaskAction, type PraceActionState } from "./actions";
+import TaskControlFields from "./TaskControlFields";
 
-export default function CreateTaskForm({ assignees, today }: { assignees: ReadonlyArray<{ userId: string; name: string }>; today: string }) {
+export default function CreateTaskForm({
+  assignees,
+  today,
+  photosEnabled,
+}: {
+  assignees: ReadonlyArray<{ userId: string; name: string }>;
+  today: string;
+  photosEnabled: boolean;
+}) {
   const [state, formAction, pending] = useActionState<PraceActionState, FormData>(createWorkTaskAction, null);
   const input = "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-base text-begina-primary-900 bg-white";
   return (
@@ -33,6 +42,7 @@ export default function CreateTaskForm({ assignees, today }: { assignees: Readon
             <option value="urgent">Urgentní</option>
           </select>
         </label>
+        <TaskControlFields photosEnabled={photosEnabled} photoRequirement="none" requiresApproval={false} inputClass={input} />
         {state && "error" in state && <p className="text-sm text-red-700">{state.error}</p>}
         {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
         <button type="submit" disabled={pending} className="min-h-11 rounded-lg bg-begina-primary-900 px-4 py-2 text-sm font-medium text-begina-primary-50 disabled:opacity-50">

@@ -1104,19 +1104,33 @@ export const workTasks = pgTable(
     createdBy: text("created_by").notNull(),
     dueDate: date("due_date", { mode: "string" }),
     priority: text("priority").notNull().default("normal"), // "normal" | "urgent"
-    status: text("status").notNull().default("open"), // "open" | "done" | "cancelled"
+    // "open" | "done" | "cancelled" | Práce 2.0: "submitted" (čeká na schválení) | "returned" (vráceno k opravě)
+    status: text("status").notNull().default("open"),
     doneAt: timestamp("done_at", { withTimezone: true }),
     doneBy: text("done_by"),
     // Práce 1.1 (migrace 0026) — zrušení: úkol se nikdy nemaže, jen označí.
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: text("cancelled_by"),
+    // Práce 2.0 (migrace 0027) — fotografie a schvalování vedoucím.
+    photoRequirement: text("photo_requirement").notNull().default("none"), // "none" | "optional" | "required"
+    requiresApproval: boolean("requires_approval").notNull().default(false),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }), // poslední odeslání ke kontrole
+    submittedBy: text("submitted_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    returnReason: text("return_reason"), // poslední důvod vrácení (celá historie je ve work_task_activity)
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("work_tasks_assignee_status_idx").on(table.assigneeUserId, table.status, table.dueDate),
     check("work_tasks_priority_check", sql`${table.priority} IN ('normal','urgent')`),
-    check("work_tasks_status_check", sql`${table.status} IN ('open','done','cancelled')`),
+    check("work_tasks_status_check", sql`${table.status} IN ('open','submitted','returned','done','cancelled')`),
+    check("work_tasks_photo_requirement_check", sql`${table.photoRequirement} IN ('none','optional','required')`),
+    check("work_tasks_submit_pair_check", sql`(${table.submittedAt} IS NULL) = (${table.submittedBy} IS NULL)`),
+    check("work_tasks_approve_pair_check", sql`(${table.approvedAt} IS NULL) = (${table.approvedBy} IS NULL)`),
+    check("work_tasks_submitted_status_check", sql`${table.status} <> 'submitted' OR ${table.submittedAt} IS NOT NULL`),
+    check("work_tasks_returned_status_check", sql`${table.status} <> 'returned' OR ${table.returnReason} IS NOT NULL`),
     check("work_tasks_done_pair_check", sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`),
     check("work_tasks_done_status_check", sql`(${table.status} = 'done') = (${table.doneAt} IS NOT NULL)`),
     check("work_tasks_cancel_pair_check", sql`(${table.cancelledAt} IS NULL) = (${table.cancelledBy} IS NULL)`),
@@ -1143,7 +1157,39 @@ export const workTaskActivity = pgTable(
     index("work_task_activity_task_idx").on(table.taskId, table.createdAt),
     check(
       "work_task_activity_kind_check",
-      sql`${table.kind} IN ('created','done','reopened','updated','priority_changed','reassigned','cancelled')`
+      sql`${table.kind} IN ('created','done','reopened','updated','priority_changed','reassigned','cancelled','photo_added','photo_removed','submitted','approved','returned')`
     ),
+  ]
+);
+
+// Práce 2.0 (migrace 0027) — fotografie u úkolu. Soubor je v soukromém
+// úložišti (Cloudflare R2, EU) pod náhodným klíčem; tady jen metadata.
+// Nic se nemaže: odstranění před odesláním = deleted_at/by (objekt v
+// úložišti se smaže hned), po odeslání/dokončení je fotka zamčená
+// (locked_at) a zůstává jako doklad v historii.
+export const workTaskPhotos = pgTable(
+  "work_task_photos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => workTasks.id),
+    storageKey: text("storage_key").notNull().unique(),
+    contentType: text("content_type").notNull(), // vždy "image/jpeg" (po kontrole a vyčištění)
+    sizeBytes: integer("size_bytes").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    sha256: text("sha256").notNull(),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
+  },
+  (table) => [
+    index("work_task_photos_task_idx").on(table.taskId, table.uploadedAt),
+    check("work_task_photos_content_type_check", sql`${table.contentType} = 'image/jpeg'`),
+    check("work_task_photos_delete_pair_check", sql`(${table.deletedAt} IS NULL) = (${table.deletedBy} IS NULL)`),
+    check("work_task_photos_size_check", sql`${table.sizeBytes} > 0 AND ${table.sizeBytes} <= 4194304`),
   ]
 );

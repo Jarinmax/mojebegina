@@ -16,7 +16,14 @@ export const fmtDay = (day: string) => {
 };
 
 export const PRIORITY_LABEL: Record<string, string> = { normal: "běžná", urgent: "urgentní" };
-const FIELD_LABEL: Record<string, string> = { title: "název", description: "popis", dueDate: "termín" };
+const FIELD_LABEL: Record<string, string> = {
+  title: "název",
+  description: "popis",
+  dueDate: "termín",
+  photoRequirement: "fotografie",
+  requiresApproval: "schválení",
+};
+export const PHOTO_REQUIREMENT_LABEL: Record<string, string> = { none: "nevyžadována", required: "povinná", optional: "volitelná" };
 
 const personName = (userId: unknown) =>
   typeof userId === "string" ? (WORK_ASSIGNEES.find((a) => a.userId === userId)?.name ?? userId) : "—";
@@ -24,6 +31,8 @@ const personName = (userId: unknown) =>
 function fieldValue(field: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   if (field === "dueDate" && typeof value === "string") return fmtDay(value);
+  if (field === "photoRequirement" && typeof value === "string") return PHOTO_REQUIREMENT_LABEL[value] ?? value;
+  if (field === "requiresApproval") return String(value);
   return `„${String(value)}“`;
 }
 
@@ -48,6 +57,21 @@ export function historyText(h: WorkTaskHistoryEntry): string {
       break;
     case "cancelled":
       what = meta.reason ? `zrušeno (důvod: ${String(meta.reason)})` : "zrušeno";
+      break;
+    case "photo_added":
+      what = "přidána fotografie";
+      break;
+    case "photo_removed":
+      what = "odstraněna fotografie";
+      break;
+    case "submitted":
+      what = `odesláno ke kontrole${typeof meta.photos === "number" && meta.photos > 0 ? ` (${meta.photos} fot.)` : ""}`;
+      break;
+    case "approved":
+      what = "schváleno";
+      break;
+    case "returned":
+      what = `vráceno k opravě (důvod: ${String(meta.reason ?? "—")})`;
       break;
     case "updated": {
       const changes = (meta.changes ?? {}) as Record<string, { from: unknown; to: unknown }>;

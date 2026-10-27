@@ -2,15 +2,25 @@
 
 import { useActionState } from "react";
 import { updateWorkTaskAction, type PraceActionState } from "../../actions";
+import TaskControlFields from "../../TaskControlFields";
 
 type Props = {
   taskId: string;
   assignees: ReadonlyArray<{ userId: string; name: string }>;
-  initial: { title: string; description: string | null; assigneeUserId: string; dueDate: string | null; priority: string };
+  initial: {
+    title: string;
+    description: string | null;
+    assigneeUserId: string;
+    dueDate: string | null;
+    priority: string;
+    photoRequirement: string;
+    requiresApproval: boolean;
+  };
+  photosEnabled: boolean;
 };
 
 // Práce 1.1 — úprava zadání (jen vedoucí; server to ověřuje znovu).
-export default function EditTaskForm({ taskId, assignees, initial }: Props) {
+export default function EditTaskForm({ taskId, assignees, initial, photosEnabled }: Props) {
   const [state, formAction, pending] = useActionState<PraceActionState, FormData>(updateWorkTaskAction.bind(null, taskId), null);
   const input = "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-base text-begina-primary-900 bg-white";
   return (
@@ -44,6 +54,12 @@ export default function EditTaskForm({ taskId, assignees, initial }: Props) {
           <option value="urgent">Urgentní</option>
         </select>
       </label>
+      <TaskControlFields
+        photosEnabled={photosEnabled || initial.photoRequirement !== "none"}
+        photoRequirement={initial.photoRequirement}
+        requiresApproval={initial.requiresApproval}
+        inputClass={input}
+      />
       {state && "error" in state && <p className="text-sm text-red-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
       <button type="submit" disabled={pending} className="min-h-11 rounded-lg bg-begina-primary-900 px-4 py-2 text-sm font-medium text-begina-primary-50 disabled:opacity-50">

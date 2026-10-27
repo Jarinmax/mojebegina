@@ -1,57 +1,15 @@
 import Link from "next/link";
-import { listWorkTasks, type WorkTaskView } from "@/lib/data/workTasks";
+import { listWorkNotifications, listWorkTasks, type WorkTaskView } from "@/lib/data/workTasks";
 import { getWorkerQueueView, type WorkerQueueView } from "@/lib/data/dailyCalls";
 import { WORK_ASSIGNEES } from "@/lib/data/workTasksAuth";
-import { pragueToday, workTaskTone, type WorkTaskTone } from "@/lib/data/workTasksValidation";
-import TaskCard, { type TaskCardData } from "./TaskCard";
+import { pragueToday } from "@/lib/data/workTasksValidation";
+import TaskCard from "./TaskCard";
 import CreateTaskForm from "./CreateTaskForm";
-import { fmtDateTime, fmtDay, historyText } from "./workTaskLabels";
+import NotificationsPanel from "./NotificationsPanel";
+import { toCard } from "./taskCardData";
+import { fmtDay } from "./workTaskLabels";
 
 export const dynamic = "force-dynamic";
-
-function shift(day: string, n: number) {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-function dueLabel(due: string | null, today: string): string | null {
-  if (!due) return null;
-  if (due === today) return "termín dnes";
-  if (due === shift(today, 1)) return "termín zítra";
-  if (due < today) return `termín byl ${fmtDay(due)}`;
-  return `termín ${fmtDay(due)}`;
-}
-
-function toneLabel(tone: WorkTaskTone, t: WorkTaskView): string {
-  if (tone === "grey") return "Zrušeno";
-  if (tone === "green") return "Splněno";
-  if (tone === "red") return t.priority === "urgent" ? "Urgentní" : "Po termínu";
-  if (tone === "orange") return "Blíží se termín";
-  return "Běžný úkol";
-}
-
-function toCard(t: WorkTaskView, today: string): TaskCardData {
-  const tone = workTaskTone(t, today);
-  return {
-    id: t.id,
-    title: t.title,
-    description: t.description,
-    assigneeName: t.assigneeName,
-    dueLabel: dueLabel(t.dueDate, today),
-    urgent: t.priority === "urgent",
-    done: t.status === "done",
-    cancelled: t.status === "cancelled",
-    doneLabel: t.doneAt
-      ? `Splnil(a) ${t.doneByName ?? "—"} · ${fmtDateTime(t.doneAt)}`
-      : t.cancelledAt
-        ? `Zrušil(a) ${t.cancelledByName ?? "—"} · ${fmtDateTime(t.cancelledAt)}`
-        : null,
-    tone,
-    toneLabel: toneLabel(tone, t),
-    history: t.history.map(historyText),
-  };
-}
 
 async function loadCalls(): Promise<WorkerQueueView | null> {
   try {
@@ -61,9 +19,29 @@ async function loadCalls(): Promise<WorkerQueueView | null> {
   }
 }
 
+function Section({ title, tasks, today, isManager, empty }: { title: string; tasks: WorkTaskView[]; today: string; isManager: boolean; empty?: string }) {
+  if (tasks.length === 0 && !empty) return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-sm font-medium text-begina-primary-900">
+        {title} ({tasks.length})
+      </h2>
+      {tasks.length === 0 && <p className="text-sm text-neutral-500">{empty}</p>}
+      {tasks.map((t) => (
+        <TaskCard key={t.id} task={toCard(t, today, isManager)} showAssignee={isManager} />
+      ))}
+    </section>
+  );
+}
+
 export default async function PracePage() {
-  const [{ isManager, today, tasks, cancelled }, calls] = await Promise.all([listWorkTasks(), loadCalls()]);
-  const open = tasks.filter((t) => t.status === "open");
+  const [{ isManager, today, tasks, cancelled, photosEnabled }, calls, notifications] = await Promise.all([
+    listWorkTasks(),
+    loadCalls(),
+    listWorkNotifications(),
+  ]);
+  const active = tasks.filter((t) => t.status === "open" || t.status === "returned");
+  const waiting = tasks.filter((t) => t.status === "submitted");
   const done = tasks.filter((t) => t.status === "done");
   const doneToday = done.filter((t) => t.doneAt && pragueToday(t.doneAt) === today);
   const callItems = calls ? [...calls.carriedOver, ...calls.today] : [];
@@ -73,19 +51,23 @@ export default async function PracePage() {
       <div>
         <h1 className="text-xl font-medium text-begina-primary-900">{isManager ? "Práce týmu" : "Moje práce"}</h1>
         <p className="text-sm text-neutral-500">
-          Dnes {fmtDay(today)} · {open.length} nesplněných · {doneToday.length} splněno dnes
+          Dnes {fmtDay(today)} · {active.length} nesplněných · {waiting.length} čeká na schválení · {doneToday.length} splněno dnes
         </p>
       </div>
 
+      <NotificationsPanel items={notifications} />
+
       {isManager && (
         <>
-          <CreateTaskForm assignees={WORK_ASSIGNEES} today={today} />
+          <Section title="Ke kontrole" tasks={waiting} today={today} isManager={isManager} />
+          <CreateTaskForm assignees={WORK_ASSIGNEES} today={today} photosEnabled={photosEnabled} />
           <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-begina-primary-900">
             {WORK_ASSIGNEES.map((a) => {
               const mine = tasks.filter((t) => t.assigneeUserId === a.userId);
               return (
                 <p key={a.userId}>
-                  <span className="font-medium">{a.name}:</span> {mine.filter((t) => t.status === "open").length} nesplněných,{" "}
+                  <span className="font-medium">{a.name}:</span> {mine.filter((t) => t.status === "open" || t.status === "returned").length}{" "}
+                  nesplněných, {mine.filter((t) => t.status === "submitted").length} ke kontrole,{" "}
                   {mine.filter((t) => doneToday.includes(t)).length} splněno dnes
                   {calls ? ` · Denní volání ${calls.doneToday}/${calls.totalToday}` : ""}
                 </p>
@@ -95,13 +77,9 @@ export default async function PracePage() {
         </>
       )}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-begina-primary-900">Úkoly ({open.length})</h2>
-        {open.length === 0 && <p className="text-sm text-neutral-500">Žádné nesplněné úkoly.</p>}
-        {open.map((t) => (
-          <TaskCard key={t.id} task={toCard(t, today)} showAssignee={isManager} />
-        ))}
-      </section>
+      <Section title="Úkoly" tasks={active} today={today} isManager={isManager} empty="Žádné nesplněné úkoly." />
+
+      {!isManager && <Section title="Čeká na schválení" tasks={waiting} today={today} isManager={isManager} />}
 
       {calls && (
         <section className="flex flex-col gap-2">
@@ -127,14 +105,7 @@ export default async function PracePage() {
         </section>
       )}
 
-      {done.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Splněno za posledních 7 dní ({done.length})</h2>
-          {done.map((t) => (
-            <TaskCard key={t.id} task={toCard(t, today)} showAssignee={isManager} />
-          ))}
-        </section>
-      )}
+      <Section title="Splněno za posledních 7 dní" tasks={done} today={today} isManager={isManager} />
 
       {cancelled.length > 0 && (
         <details className="flex flex-col gap-2">
@@ -143,7 +114,7 @@ export default async function PracePage() {
           </summary>
           <div className="flex flex-col gap-2 mt-2">
             {cancelled.map((t) => (
-              <TaskCard key={t.id} task={toCard(t, today)} showAssignee={isManager} />
+              <TaskCard key={t.id} task={toCard(t, today, isManager)} showAssignee={isManager} />
             ))}
           </div>
         </details>

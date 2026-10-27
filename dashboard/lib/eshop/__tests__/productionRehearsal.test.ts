@@ -193,7 +193,25 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0].n).toBe(6);
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0026) + pojistka číslování", async () => {
+  it("Práce 2.0 — migrace 0027 tak, jak ji pustí build: stávající úkoly (i zrušený) beze změny, výchozí bez fotky a bez schválení", async () => {
+    await pg.exec(`UPDATE work_tasks SET status = 'cancelled', cancelled_at = now(), cancelled_by = 'u'
+                    WHERE id = (SELECT id FROM work_tasks ORDER BY id LIMIT 1)`);
+    const before = (await pg.query(`SELECT id, title, status, due_date, priority, done_at, cancelled_at FROM work_tasks ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0027_prace_2_0_photos_approval.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    const after = (await pg.query(`SELECT id, title, status, due_date, priority, done_at, cancelled_at FROM work_tasks ORDER BY id`)).rows;
+    expect(after).toEqual(before);
+    const { rows } = await pg.query<{ n: number; fotky: number }>(
+      `SELECT count(*) FILTER (WHERE photo_requirement = 'none' AND NOT requires_approval AND submitted_at IS NULL)::int AS n,
+              (SELECT count(*)::int FROM work_task_photos) AS fotky FROM work_tasks`
+    );
+    expect(rows[0]).toEqual({ n: 6, fotky: 0 });
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0027) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

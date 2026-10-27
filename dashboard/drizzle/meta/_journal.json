@@ -190,6 +190,13 @@
       "when": 1793087301474,
       "tag": "0026_prace_1_1_task_management",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793112983350,
+      "tag": "0027_prace_2_0_photos_approval",
+      "breakpoints": true
     }
   ]
 }
