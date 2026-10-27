@@ -176,6 +176,13 @@
       "when": 1792874987179,
       "tag": "0024_gpt_mcp_production",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793085141409,
+      "tag": "0025_prace_1_0_work_tasks",
+      "breakpoints": true
     }
   ]
 }

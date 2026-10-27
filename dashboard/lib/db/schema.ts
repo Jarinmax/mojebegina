@@ -1087,3 +1087,52 @@ export const agentAuditLog = pgTable(
     check("agent_audit_log_status_check", sql`${table.status} IN ('pending','ok','error','denied')`),
   ]
 );
+
+// Práce 1.0 (MVP pracovní obrazovky /prace, 27. 10. 2026) — provozní úkoly
+// zadané vedoucím konkrétnímu člověku. Samostatné tabulky, nezávislé na
+// company_nodes (strategická mapa firmy) i Denním volání. Termín je jen DEN
+// (Europe/Prague) — vedení výslovně nechce vymýšlet hodinové termíny.
+// Nic se nemaže; splnění/vrácení nese čas a uživatele a zapisuje se do
+// work_task_activity (append-only historie).
+export const workTasks = pgTable(
+  "work_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    assigneeUserId: text("assignee_user_id").notNull(),
+    createdBy: text("created_by").notNull(),
+    dueDate: date("due_date", { mode: "string" }),
+    priority: text("priority").notNull().default("normal"), // "normal" | "urgent"
+    status: text("status").notNull().default("open"), // "open" | "done"
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    doneBy: text("done_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("work_tasks_assignee_status_idx").on(table.assigneeUserId, table.status, table.dueDate),
+    check("work_tasks_priority_check", sql`${table.priority} IN ('normal','urgent')`),
+    check("work_tasks_status_check", sql`${table.status} IN ('open','done')`),
+    check("work_tasks_done_pair_check", sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`),
+    check("work_tasks_done_status_check", sql`(${table.status} = 'done') = (${table.doneAt} IS NOT NULL)`),
+  ]
+);
+
+export const workTaskActivity = pgTable(
+  "work_task_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => workTasks.id),
+    actorUserId: text("actor_user_id").notNull(),
+    actorName: text("actor_name"),
+    kind: text("kind").notNull(), // "created" | "done" | "reopened"
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("work_task_activity_task_idx").on(table.taskId, table.createdAt),
+    check("work_task_activity_kind_check", sql`${table.kind} IN ('created','done','reopened')`),
+  ]
+);
