@@ -32,7 +32,15 @@ fází 3.
 ## Fáze 3 — den přepnutí (pořadí závazné)
 
 1. WooCommerce: vypnout pokladnu (údržba), nechat doběhnout platby.
-2. DNS: `@` A a `www` CNAME na hodnoty z Vercelu (bod 2).
+2. DNS (Active24 → Domény → begina.cz → DNS nastavení):
+   - **nejdřív vypnout automatiku „Active24 Web“** (spravuje A, AAAA, ANAME,
+     CNAME pro begina.cz — jinak může ruční záznamy přepsat zpět na hosting).
+     **„Active24 Mail“ NECHAT zapnutou** (MX, TXT — e-maily).
+   - `@` A a `www` CNAME na hodnoty z Vercelu (bod 2),
+   - **smazat AAAA (IPv6) u `@` i `www`** — jinak návštěvníci s IPv6 skončí
+     dál na starém WordPressu,
+   - wildcard `*.begina.cz` (A/AAAA na hosting) nechat — drží `stary.begina.cz`
+     (`stary-woocommerce.md`).
 3. Kontrola (do ~15 min): `https://begina.cz` (certifikát), `https://www.begina.cz`
    → 301, `/produkt/kulajda`, staré `/produkt/kulajda/` → nová adresa,
    `/login` = 404, `https://moje.begina.cz/login` funguje, `/robots.txt` = Disallow,
