@@ -1,0 +1,51 @@
+; BIND db file for begina.cz
+begina.cz.   1D       IN      SOA     ns1.websupport.cz.     admin.websupport.cz. (
+                        1792327468; serial number
+                        7200; Refresh
+                        2048; Retry
+                        1048576; Expire
+                        2560; Min TTL
+            )
+
+
+
+@  3600  IN  NS   ns1.websupport.cz.
+@  3600  IN  NS   ns2.websupport.cz.
+@  3600  IN  NS   ns3.websupport.eu.
+@  3600  IN  AAAA   2a00:4b40:aaaa:2005:0000:0000:0000:0005
+www  3600  IN  AAAA   2a00:4b40:aaaa:2005:0000:0000:0000:0005
+mailin1  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0007
+mailin2  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0105
+@  3600  IN  A   37.9.175.164
+www  3600  IN  A   37.9.175.164
+mailin1  600  IN  A   45.13.137.111
+mailin2  600  IN  A   45.13.137.109
+ecomail._domainkey.begina.cz  600  IN  TXT   "v=DKIM1; k=rsa; h=sha256; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC0diuxLOeJJuRRu6v4Xnau70JIEEFGnkiiu6PK3i+1pGKyoLOyJFzk+Ah8zRoujJSzv95nxtDYERVpGxfgu+JXkV3ZDJucMkd/SxKIQ8pJ0Uk1MKKkUFnYgvOxW5Umq8VNpstZZfjhCRcYgb1Iw+oFabBbfShIM98yuaN7Q7KKcQIDAQAB"
+*  600  IN  A   37.9.175.163
+*  600  IN  AAAA   2a00:4b40:aaaa:2005:0000:0000:0000:0006
+mail._domainkey  600  IN  TXT   "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8ejroLjQU9C6m+NTgCdWMXsujBsREPCHCHXwIIMCVifwI60dsJfou9KSRPTwr9F3dZXD9rKepKivodjWn5sOgDL96G9iijII7tAYH6jFvELdvpb9Ea06lHftsluFd5v2HB5Z/v9ouQfQ5RsXCEoggWg0aDsCtsq23VqrSCotNAPku5r7t8L0O07a0QOMk90W" "Q3dx1yVn8b8wqoQxANKhdfL3yEScPnsA/ZQg2u0aWRCRWlYaCBZrtuJdW6Olrjd0aKEh6DHflttLt3PAPIxH8GlTSJegUN8SF/pG3n9iAs8ZFJUon4JINoIxdBzHdNzXcOqbl6lNou+M62T0l5I7wIDAQAB"
+@  600  IN  MX   10    mx10.active24.cz.
+@  600  IN  MX   100    mx20.active24.cz.
+@  600  IN  TXT   "v=spf1 a mx include:_spf.websupport.cz -all"
+admin  600  IN  A   37.9.175.25
+mail  600  IN  A   45.13.137.122
+webmail  600  IN  A   45.13.137.122
+smtp  600  IN  A   45.13.137.122
+pop3  600  IN  A   45.13.137.122
+imap  600  IN  A   45.13.137.122
+mail  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0122
+webmail  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0122
+smtp  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0122
+pop3  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0122
+imap  600  IN  AAAA   2a00:4b40:aaaa:2101:0045:0013:0137:0122
+autodiscover  600  IN  CNAME   web.prod.bts.websupport.sk.
+autoconfig  600  IN  CNAME   web.prod.bts.websupport.sk.
+_autodiscover._tcp  600  IN  SRV   0   0    443    web.prod.bts.websupport.sk.
+ecomail._domainkey  600  IN  TXT   "v=DKIM1; k=rsa; h=sha256; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC0diuxLOeJJuRRu6v4Xnau70JIEEFGnkiiu6PK3i+1pGKyoLOyJFzk+Ah8zRoujJSzv95nxtDYERVpGxfgu+JXkV3ZDJucMkd/SxKIQ8pJ0Uk1MKKkUFnYgvOxW5Umq8VNpstZZfjhCRcYgb1Iw+oFabBbfShIM98yuaN7Q7KKcQIDAQAB"
+_dmarc  600  IN  TXT   "v=DMARC1; p=none;"
+tracking  600  IN  CNAME   spgo.io.
+moje  600  IN  CNAME   6e5c4dc7d4a00105.vercel-dns-017.com.
+resend._domainkey  600  IN  TXT   "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDFz+Zxuwe21mj3uKK22KxgQ3CuoKGMMhs9/kdCGuxKUky4rYfQE3J2SNnDR6lGpozI6lIaKVovabTtDE9xPWUlqCFSEWbOvgfKc6DH0SWr6hWgtkwJKHnV/rvYS2MHB5Oe1OzIpy+bRoLXcrCiaoyfXUUsVaaYKMwNUmnKlQkdrwIDAQAB"
+rsend  600  IN  CNAME   rsend-euw1.forge.rmta.net.
+send  600  IN  CNAME   send.forge.rmta.net.
+gpt-pilot  600  IN  CNAME   6e5c4dc7d4a00105.vercel-dns-017.com.

@@ -10,11 +10,30 @@ Kód domén je v `main` od PR #17 (`lib/site/*`, testy 124/124 OK 16. 10.).
 |---|---|---|---|
 | 1 | Vercel → mojebegina → Settings → Domains: přidat `begina.cz` (Production) a `www.begina.cz` → 301 na `begina.cz`. Vercel ukáže „Invalid Configuration“ — správně, DNS se zatím nemění. | majitel | |
 | 2 | Opsat z Vercelu požadované hodnoty: A záznam pro `begina.cz`, CNAME pro `www` (případně TXT pro ověření vlastnictví). | majitel → Claude | |
-| 3 | U správce DNS: snímek celé zóny `begina.cz` (původní hodnoty A, CNAME `www`, MX, TXT/SPF, `_dmarc`, `send`, `resend._domainkey`, `moje`). Uložit pro návrat. | majitel | |
+| 3 | U správce DNS: snímek celé zóny `begina.cz` (původní hodnoty A, CNAME `www`, MX, TXT/SPF, `_dmarc`, `send`, `resend._domainkey`, `moje`). Uložit pro návrat. | majitel | ✅ 27. 10. 2026 — export BIND z Active24: `dns-begina.cz-2026-10-27.bind.txt` |
+| 3a | **SPF před přepnutím:** dnes `v=spf1 a mx include:_spf.websupport.cz -all`. Mechanismus `a` povoluje odesílat poštu ze serveru, na který míří `begina.cz` (dnes hosting `37.9.175.164`). Po přepnutí `@` na Vercel by e-maily odesílané ze starého WordPressu přímo ze serveru (PHP mail — objednávky, hesla, oznámení WooCommerce) neprošly (`-all`). Den před přepnutím přidat do SPF `ip4:37.9.175.164 ip6:2a00:4b40:aaaa:2005::5` (nebo ověřit, že WordPress posílá přes SMTP Active24 — pak stačí `include`). | majitel (Claude připraví přesný záznam) | |
 | 4 | TTL záznamů `@` a `www` (A i AAAA, dnes 3600 s) snížit na 300 s — nejpozději den před přepnutím. Nic jiného neměnit. | majitel | |
 
-**Nikdy neměnit:** MX, SPF/TXT kořene, `_dmarc`, `send`, `resend._domainkey`,
-záznam `moje` (MojeBegina), jmenné servery.
+**Nikdy neměnit:** MX, `_dmarc`, `send`, `rsend`, `resend._domainkey`,
+`mail._domainkey`, `ecomail._domainkey`, `tracking`, `mailin1/2`, `mail`,
+`webmail`, `smtp`, `pop3`, `imap`, `autodiscover`, `autoconfig`,
+`_autodiscover._tcp`, `admin`, wildcard `*`, `moje` (MojeBegina), `gpt-pilot`,
+jmenné servery (Websupport/Active24). SPF jen podle bodu 3a.
+
+### Změny DNS v den přepnutí (a návrat) — podle zálohy 27. 10. 2026
+
+| Záznam | Dnes (návrat) | Den D |
+|---|---|---|
+| `@` A | `37.9.175.164` | hodnota z Vercelu (bod 2) |
+| `@` AAAA | `2a00:4b40:aaaa:2005::5` | **smazat** (Vercel IPv6 pro kořen nemá) |
+| `www` A | `37.9.175.164` | **smazat** |
+| `www` AAAA | `2a00:4b40:aaaa:2005::5` | **smazat** |
+| `www` CNAME | — | hodnota z Vercelu (bod 2) |
+| `stary` A / AAAA | — | `37.9.175.164` / `2a00:4b40:aaaa:2005::5` (už před dnem D, `stary-woocommerce.md`) |
+
+Před změnou vypnout automatiku „Active24 Web“ (spravuje A/AAAA/ANAME/CNAME
+kořene a `www`), „Active24 Mail“ nechat. Návrat: obnovit levý sloupec
+a automatiku „Active24 Web“ zapnout.
 
 ## Fáze 2 — podmínky před přepnutím
 
