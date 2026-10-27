@@ -3,6 +3,7 @@ import { getCompanyMap } from "@/lib/data/companyNodes";
 import { listOrders } from "@/lib/data/orders";
 import OrganizationsTable from "@/components/organization/OrganizationsTable";
 import CompanyOverviewCard from "@/components/company-overview/CompanyOverviewCard";
+import WorkTasksLink from "@/components/WorkTasksLink";
 
 // Security Phase 7 (Executive 1.0) — read-only obdoba app/admin/page.tsx.
 // Žádné tlačítko "Nový zákazník", žádná mutace — listOrganizations je
@@ -17,6 +18,7 @@ export default async function ExecutiveOrganizationsPage() {
 
   return (
     <div>
+      <WorkTasksLink />
       <CompanyOverviewCard
         redCount={companyMap.counts.red}
         amberCount={companyMap.counts.amber}

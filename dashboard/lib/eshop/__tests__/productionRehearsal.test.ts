@@ -163,7 +163,23 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(await check(pg, file("gpt-mcp", "12_after.sql"))).toBe("4 | 4 | 0 | 0");
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0024) + pojistka číslování", async () => {
+  it("Práce 1.0 — migrace 0025 tak, jak ji pustí build (scripts/migrate-work-tasks.mjs): tabulky + 6 úkolů pro Jardu s dnešním termínem", async () => {
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0025_prace_1_0_work_tasks.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec(file("prace", "12_ukoly_jarda.sql"));
+    await pg.exec("COMMIT");
+    const { rows } = await pg.query<{ n: number; dnes: number; hist: number; komu: string; kdo: string }>(`
+      SELECT count(*)::int AS n,
+             count(*) FILTER (WHERE due_date = (now() AT TIME ZONE 'Europe/Prague')::date)::int AS dnes,
+             (SELECT count(*)::int FROM work_task_activity WHERE kind = 'created') AS hist,
+             min(assignee_user_id) AS komu, min(created_by) AS kdo
+        FROM work_tasks WHERE status = 'open' AND priority = 'normal'`);
+    expect(rows[0]).toEqual({ n: 6, dnes: 6, hist: 6, komu: "06240ac4-c050-47ea-998c-6c81389edf9f", kdo: "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c" });
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0025) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

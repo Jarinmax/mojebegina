@@ -4,6 +4,7 @@ import { getCompanyMap } from "@/lib/data/companyNodes";
 import { listOrders } from "@/lib/data/orders";
 import OrganizationsTable from "@/components/organization/OrganizationsTable";
 import CompanyOverviewCard from "@/components/company-overview/CompanyOverviewCard";
+import WorkTasksLink from "@/components/WorkTasksLink";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function AdminOrganizationsPage() {
 
   return (
     <div>
+      <WorkTasksLink />
       <CompanyOverviewCard
         redCount={companyMap.counts.red}
         amberCount={companyMap.counts.amber}
