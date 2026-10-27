@@ -46,6 +46,7 @@ const AFTER_ESHOP = [
   "0024_gpt_mcp_production",
   "0025_prace_1_0_work_tasks",
   "0026_prace_1_1_task_management",
+  "0027_prace_2_0_photos_approval",
 ];
 const FIRST_ESHOP_IDX = 13;
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
@@ -64,7 +65,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024 a Práce 0025–0026", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024 a Práce 0025–0027", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);

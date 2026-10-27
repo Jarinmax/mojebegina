@@ -56,11 +56,11 @@ describe("Práce 1.0 — úkoly nad DB", { timeout: 120_000 }, () => {
 
   it("vedoucí zadá úkol; uloží se i s historií „zadáno“", async () => {
     asViner();
-    expect(await wt.createWorkTask({ title: "Vyrobit destičky", description: "Jídla a sladkosti", assigneeUserId: BLAHOUT, dueDate: "2026-10-27", priority: "normal" })).toEqual({ ok: true });
+    expect(await wt.createWorkTask({ title: "Vyrobit destičky", description: "Jídla a sladkosti", assigneeUserId: BLAHOUT, dueDate: "2099-12-31", priority: "normal" })).toEqual({ ok: true });
     expect(await wt.createWorkTask({ title: "Urgentní", description: "", assigneeUserId: BLAHOUT, dueDate: "", priority: "urgent" })).toEqual({ ok: true });
     const { tasks } = await wt.listWorkTasks();
     const t = tasks.find((x) => x.title === "Vyrobit destičky")!;
-    expect(t).toMatchObject({ assigneeUserId: BLAHOUT, dueDate: "2026-10-27", status: "open", description: "Jídla a sladkosti" });
+    expect(t).toMatchObject({ assigneeUserId: BLAHOUT, dueDate: "2099-12-31", status: "open", description: "Jídla a sladkosti" });
     expect(t.history).toEqual([expect.objectContaining({ kind: "created", actorName: "Jaroslav Viner" })]);
   });
 
@@ -122,7 +122,7 @@ describe("Práce 1.0 — úkoly nad DB", { timeout: 120_000 }, () => {
 
   const fresh = async (title: string) => {
     asViner();
-    await wt.createWorkTask({ title, description: "", assigneeUserId: BLAHOUT, dueDate: "2026-10-27", priority: "normal" });
+    await wt.createWorkTask({ title, description: "", assigneeUserId: BLAHOUT, dueDate: "2099-12-31", priority: "normal" });
     return (await wt.listWorkTasks()).tasks.find((t) => t.title === title)!;
   };
   const hist = async (id: string) =>
@@ -159,7 +159,7 @@ describe("Práce 1.0 — úkoly nad DB", { timeout: 120_000 }, () => {
       changes: {
         title: { from: "Původní název", to: "Nový název" },
         description: { from: null, to: "Doplněný popis" },
-        dueDate: { from: "2026-10-27", to: "2026-10-29" },
+        dueDate: { from: "2099-12-31", to: "2026-10-29" },
       },
     });
     expect(h.find((x) => x.kind === "priority_changed")!.metadata).toEqual({ from: "normal", to: "urgent" });
@@ -173,7 +173,7 @@ describe("Práce 1.0 — úkoly nad DB", { timeout: 120_000 }, () => {
   it("úprava beze změny nic nezapíše; úprava s mikrosekundami v updated_at projde (žádný falešný konflikt)", async () => {
     const t = await fresh("Beze změny");
     asViner();
-    const same = { title: "Beze změny", description: "", assigneeUserId: BLAHOUT, dueDate: "2026-10-27", priority: "normal" };
+    const same = { title: "Beze změny", description: "", assigneeUserId: BLAHOUT, dueDate: "2099-12-31", priority: "normal" };
     expect(await wt.updateWorkTask(t.id, same)).toEqual({ ok: true, changed: 0 });
     expect((await hist(t.id)).length).toBe(1);
     await db.execute(sql`UPDATE work_tasks SET updated_at = '2026-10-27 07:00:00.123999+00' WHERE id = ${t.id}`);

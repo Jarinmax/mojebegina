@@ -1,5 +1,5 @@
-// Práce 1.0/1.1 — hlídané migrace 0025 (work_tasks + work_task_activity) a
-// 0026 (zrušení úkolů, metadata historie) při
+// Práce 1.0/1.1/2.0 — hlídané migrace 0025 (work_tasks + work_task_activity),
+// 0026 (zrušení úkolů, metadata historie) a 0027 (fotografie, schvalování) při
 // buildu na Vercelu, stejný princip jako migrate-mcp-production.mjs (#36):
 //   • Production: tabulky chybí → založí je a v TÉŽE transakci zapíše první
 //     zadané úkoly (docs/prace/12_ukoly_jarda.sql); obě tabulky už jsou →
@@ -69,4 +69,20 @@ if (has0026) {
   const statements = statementsOf(await read("../drizzle/0026_prace_1_1_task_management.sql"));
   await sql.transaction((tx) => statements.map((s) => tx.query(s)));
   console.log(`Work tasks migration (${env}): schema 0026 applied (task management).`);
+}
+
+// --- 0027 (Práce 2.0): fotografie, schvalování, stavy submitted/returned ---
+// Hotovo = existuje sloupec work_tasks.photo_requirement. Nová tabulka
+// work_task_photos, nové sloupce s výchozími hodnotami (žádná fotka, bez
+// schválení) a rozšířené CHECK omezení; stávající úkoly a historie beze změny.
+const [{ has0027 }] = await sql.query(
+  `select count(*)::int > 0 as has0027 from information_schema.columns
+    where table_schema = 'public' and table_name = 'work_tasks' and column_name = 'photo_requirement'`,
+);
+if (has0027) {
+  console.log(`Work tasks migration (${env}): 0027 already applied.`);
+} else {
+  const statements = statementsOf(await read("../drizzle/0027_prace_2_0_photos_approval.sql"));
+  await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+  console.log(`Work tasks migration (${env}): schema 0027 applied (photos, approval).`);
 }

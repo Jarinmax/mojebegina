@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { diffWorkTask, pragueToday, validateCancelReason, validateCreateWorkTask, workTaskTone } from "../workTasksValidation";
+import { diffWorkTask, pragueToday, validateCancelReason, validateCreateWorkTask, validateReturnReason, workTaskTone } from "../workTasksValidation";
 import { landingForExecutive } from "../workTasksAuth";
 
 const A = ["u1"];
 describe("validateCreateWorkTask", () => {
   it("název povinný, termín jen platný den, priorita normal/urgent", () => {
     expect(validateCreateWorkTask({ title: " Úkol ", description: " ", assigneeUserId: "u1", dueDate: "2026-10-27", priority: "" }, A))
-      .toEqual({ ok: true, value: { title: "Úkol", description: null, assigneeUserId: "u1", dueDate: "2026-10-27", priority: "normal" } });
+      .toEqual({
+        ok: true,
+        value: { title: "Úkol", description: null, assigneeUserId: "u1", dueDate: "2026-10-27", priority: "normal", photoRequirement: "none", requiresApproval: false },
+      });
     expect(validateCreateWorkTask({ title: "", description: "", assigneeUserId: "u1", dueDate: "", priority: "normal" }, A).ok).toBe(false);
     expect(validateCreateWorkTask({ title: "x", description: "", assigneeUserId: "u2", dueDate: "", priority: "normal" }, A).ok).toBe(false);
     expect(validateCreateWorkTask({ title: "x", description: "", assigneeUserId: "u1", dueDate: "2026-02-30", priority: "normal" }, A).ok).toBe(false);
@@ -53,5 +56,33 @@ describe("Práce 1.1 — diffWorkTask, zrušené, důvod", () => {
   it("důvod zrušení je nepovinný, max. 500 znaků", () => {
     expect(validateCancelReason("  ")).toEqual({ ok: true, value: null });
     expect(validateCancelReason("x".repeat(501)).ok).toBe(false);
+  });
+});
+
+describe("Práce 2.0 — fotografie, schválení, barvy", () => {
+  const base = { title: "x", description: "", assigneeUserId: "u1", dueDate: "", priority: "normal" };
+  it("nastavení fotografie: none / required / optional; jiné odmítne", () => {
+    for (const p of ["none", "required", "optional"]) {
+      const r = validateCreateWorkTask({ ...base, photoRequirement: p, requiresApproval: true }, ["u1"]);
+      expect(r.ok && r.value).toMatchObject({ photoRequirement: p, requiresApproval: true });
+    }
+    expect(validateCreateWorkTask({ ...base, photoRequirement: "always" }, ["u1"]).ok).toBe(false);
+  });
+  it("vráceno k opravě = červená, čeká na schválení = vlastní tón, schválené = zelená", () => {
+    const today = "2026-10-27";
+    expect(workTaskTone({ status: "returned", priority: "normal", dueDate: "2026-12-01" }, today)).toBe("red");
+    expect(workTaskTone({ status: "submitted", priority: "urgent", dueDate: "2026-10-01" }, today)).toBe("waiting");
+    expect(workTaskTone({ status: "done", priority: "normal", dueDate: null }, today)).toBe("green");
+  });
+  it("důvod vrácení je povinný", () => {
+    expect(validateReturnReason(" ").ok).toBe(false);
+    expect(validateReturnReason(" Chybí fotka ")).toEqual({ ok: true, value: "Chybí fotka" });
+    expect(validateReturnReason("x".repeat(1001)).ok).toBe(false);
+  });
+  it("změna nastavení fotky a schválení je v historii úprav", () => {
+    const before = { title: "A", description: null, dueDate: null, priority: "normal", assigneeUserId: "u1", photoRequirement: "none", requiresApproval: false };
+    expect(diffWorkTask(before, { ...before, photoRequirement: "required", requiresApproval: true })).toEqual([
+      { kind: "updated", metadata: { changes: { photoRequirement: { from: "none", to: "required" }, requiresApproval: { from: "ne", to: "ano" } } } },
+    ]);
   });
 });
