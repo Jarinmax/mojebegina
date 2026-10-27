@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pragueToday, validateCreateWorkTask, workTaskTone } from "../workTasksValidation";
+import { diffWorkTask, pragueToday, validateCancelReason, validateCreateWorkTask, workTaskTone } from "../workTasksValidation";
 import { landingForExecutive } from "../workTasksAuth";
 
 const A = ["u1"];
@@ -34,5 +34,24 @@ describe("přistání po přihlášení", () => {
   it("Blahout → /prace, ostatní EXECUTIVE → /executive", () => {
     expect(landingForExecutive("06240ac4-c050-47ea-998c-6c81389edf9f")).toBe("/prace");
     expect(landingForExecutive("jiny")).toBe("/executive");
+  });
+});
+
+describe("Práce 1.1 — diffWorkTask, zrušené, důvod", () => {
+  const base = { title: "A", description: null, dueDate: "2026-10-27", priority: "normal", assigneeUserId: "u1" };
+  it("beze změny = nic; obsah, priorita a přeřazení = samostatné záznamy", () => {
+    expect(diffWorkTask(base, { ...base })).toEqual([]);
+    expect(diffWorkTask(base, { ...base, title: "B", dueDate: null, priority: "urgent", assigneeUserId: "u2" })).toEqual([
+      { kind: "updated", metadata: { changes: { title: { from: "A", to: "B" }, dueDate: { from: "2026-10-27", to: null } } } },
+      { kind: "priority_changed", metadata: { from: "normal", to: "urgent" } },
+      { kind: "reassigned", metadata: { from: "u1", to: "u2" } },
+    ]);
+  });
+  it("zrušený úkol je šedý i když byl urgentní", () => {
+    expect(workTaskTone({ status: "cancelled", priority: "urgent", dueDate: "2026-01-01" }, "2026-10-27")).toBe("grey");
+  });
+  it("důvod zrušení je nepovinný, max. 500 znaků", () => {
+    expect(validateCancelReason("  ")).toEqual({ ok: true, value: null });
+    expect(validateCancelReason("x".repeat(501)).ok).toBe(false);
   });
 });

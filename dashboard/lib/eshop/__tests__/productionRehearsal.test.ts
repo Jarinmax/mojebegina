@@ -179,7 +179,21 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0]).toEqual({ n: 6, dnes: 6, hist: 6, komu: "06240ac4-c050-47ea-998c-6c81389edf9f", kdo: "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c" });
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0025) + pojistka číslování", async () => {
+  it("Práce 1.1 — migrace 0026 tak, jak ji pustí build: stávající úkoly zůstanou beze změny a platné", async () => {
+    const before = (await pg.query(`SELECT id, title, status, due_date, priority, done_at FROM work_tasks ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0026_prace_1_1_task_management.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    const after = (await pg.query(`SELECT id, title, status, due_date, priority, done_at FROM work_tasks ORDER BY id`)).rows;
+    expect(after).toEqual(before);
+    expect(after.length).toBe(6);
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM work_tasks WHERE cancelled_at IS NULL AND cancelled_by IS NULL`);
+    expect(rows[0].n).toBe(6);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0026) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

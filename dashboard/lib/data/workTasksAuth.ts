@@ -9,12 +9,15 @@ import { ForbiddenError, UnauthenticatedError } from "./errors";
 import type { AuthContext } from "./types";
 
 export const WORK_MANAGER_USER_ID = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c"; // Jaroslav Viner
+// Práce 1.1 — oprávnění vedoucí (zadávají, upravují, ruší). Další vedoucí se
+// přidá sem; role ADMIN zůstává druhou nezávislou podmínkou.
+export const WORK_MANAGER_USER_IDS: readonly string[] = [WORK_MANAGER_USER_ID];
 export const WORK_ASSIGNEES: ReadonlyArray<{ userId: string; name: string }> = [
   { userId: "06240ac4-c050-47ea-998c-6c81389edf9f", name: "Jaroslav Blahout" },
 ];
 
 export function isWorkManager(ctx: AuthContext): boolean {
-  return ctx !== null && ctx.userId === WORK_MANAGER_USER_ID && isAdmin(ctx);
+  return ctx !== null && WORK_MANAGER_USER_IDS.includes(ctx.userId) && isAdmin(ctx);
 }
 
 export function isWorkAssignee(ctx: AuthContext): boolean {

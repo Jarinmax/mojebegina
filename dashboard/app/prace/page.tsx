@@ -5,21 +5,10 @@ import { WORK_ASSIGNEES } from "@/lib/data/workTasksAuth";
 import { pragueToday, workTaskTone, type WorkTaskTone } from "@/lib/data/workTasksValidation";
 import TaskCard, { type TaskCardData } from "./TaskCard";
 import CreateTaskForm from "./CreateTaskForm";
+import { fmtDateTime, fmtDay, historyText } from "./workTaskLabels";
 
 export const dynamic = "force-dynamic";
 
-const PRAGUE_TIME = new Intl.DateTimeFormat("cs-CZ", {
-  timeZone: "Europe/Prague",
-  day: "numeric",
-  month: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const fmtDateTime = (d: Date) => PRAGUE_TIME.format(d);
-const fmtDay = (day: string) => {
-  const [y, m, d] = day.split("-").map(Number);
-  return `${d}. ${m}. ${y}`;
-};
 function shift(day: string, n: number) {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -35,13 +24,12 @@ function dueLabel(due: string | null, today: string): string | null {
 }
 
 function toneLabel(tone: WorkTaskTone, t: WorkTaskView): string {
+  if (tone === "grey") return "Zrušeno";
   if (tone === "green") return "Splněno";
   if (tone === "red") return t.priority === "urgent" ? "Urgentní" : "Po termínu";
   if (tone === "orange") return "Blíží se termín";
   return "Běžný úkol";
 }
-
-const KIND: Record<string, string> = { created: "zadáno", done: "splněno", reopened: "vráceno mezi nesplněné" };
 
 function toCard(t: WorkTaskView, today: string): TaskCardData {
   const tone = workTaskTone(t, today);
@@ -53,10 +41,15 @@ function toCard(t: WorkTaskView, today: string): TaskCardData {
     dueLabel: dueLabel(t.dueDate, today),
     urgent: t.priority === "urgent",
     done: t.status === "done",
-    doneLabel: t.doneAt ? `Splnil(a) ${t.doneByName ?? "—"} · ${fmtDateTime(t.doneAt)}` : null,
+    cancelled: t.status === "cancelled",
+    doneLabel: t.doneAt
+      ? `Splnil(a) ${t.doneByName ?? "—"} · ${fmtDateTime(t.doneAt)}`
+      : t.cancelledAt
+        ? `Zrušil(a) ${t.cancelledByName ?? "—"} · ${fmtDateTime(t.cancelledAt)}`
+        : null,
     tone,
     toneLabel: toneLabel(tone, t),
-    history: t.history.map((h) => `${fmtDateTime(h.createdAt)} — ${KIND[h.kind] ?? h.kind} (${h.actorName ?? "—"})`),
+    history: t.history.map(historyText),
   };
 }
 
@@ -69,7 +62,7 @@ async function loadCalls(): Promise<WorkerQueueView | null> {
 }
 
 export default async function PracePage() {
-  const [{ isManager, today, tasks }, calls] = await Promise.all([listWorkTasks(), loadCalls()]);
+  const [{ isManager, today, tasks, cancelled }, calls] = await Promise.all([listWorkTasks(), loadCalls()]);
   const open = tasks.filter((t) => t.status === "open");
   const done = tasks.filter((t) => t.status === "done");
   const doneToday = done.filter((t) => t.doneAt && pragueToday(t.doneAt) === today);
@@ -141,6 +134,19 @@ export default async function PracePage() {
             <TaskCard key={t.id} task={toCard(t, today)} showAssignee={isManager} />
           ))}
         </section>
+      )}
+
+      {cancelled.length > 0 && (
+        <details className="flex flex-col gap-2">
+          <summary className="text-sm font-medium text-neutral-500 cursor-pointer py-2">
+            Zrušené úkoly za posledních 30 dní ({cancelled.length})
+          </summary>
+          <div className="flex flex-col gap-2 mt-2">
+            {cancelled.map((t) => (
+              <TaskCard key={t.id} task={toCard(t, today)} showAssignee={isManager} />
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );

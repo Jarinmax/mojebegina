@@ -13,6 +13,16 @@ const holder = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/client", () => ({ get db() { return holder.db; } }));
 vi.mock("../authContext", () => ({ getAuthContext: async () => holder.ctx }));
+// Práce 1.1 — druhý (testovací) pracovník kvůli ověření přeřazení; v produkci je jen Blahout.
+vi.mock("../workTasksAuth", async (orig) => {
+  const real = await orig<typeof import("../workTasksAuth")>();
+  return {
+    ...real,
+    WORK_ASSIGNEES: [...real.WORK_ASSIGNEES, { userId: "user-druhy", name: "Druhý Pracovník" }],
+    isWorkAssignee: (ctx: { userId: string; systemRole: string } | null) =>
+      !!ctx && ["06240ac4-c050-47ea-998c-6c81389edf9f", "user-druhy"].includes(ctx.userId) && ["ADMIN", "EXECUTIVE"].includes(ctx.systemRole),
+  };
+});
 vi.mock("@/lib/auth/server", () => ({ sessionAuth: { getSession: async () => ({ data: null }) } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }), headers: async () => new Headers() }));
 
@@ -107,4 +117,109 @@ describe("Práce 1.0 — úkoly nad DB", { timeout: 120_000 }, () => {
     const row = (await db.execute<{ status: string; done_at: string | null }>(sql`SELECT status, done_at FROM work_tasks WHERE id = ${done.id}`)).rows[0];
     expect(row).toEqual({ status: "open", done_at: null });
   });
+
+  // --- Práce 1.1: detail, úprava, zrušení, historie -------------------------
+
+  const fresh = async (title: string) => {
+    asViner();
+    await wt.createWorkTask({ title, description: "", assigneeUserId: BLAHOUT, dueDate: "2026-10-27", priority: "normal" });
+    return (await wt.listWorkTasks()).tasks.find((t) => t.title === title)!;
+  };
+  const hist = async (id: string) =>
+    (await db.execute<{ kind: string; actor_user_id: string; metadata: Record<string, unknown> | null }>(
+      sql`SELECT kind, actor_user_id, metadata FROM work_task_activity WHERE task_id = ${id} ORDER BY created_at, kind`
+    )).rows;
+
+  it("detail: vedoucí otevře kterýkoli úkol, pracovník jen svůj; neplatné id = nic", async () => {
+    const t = await fresh("Detail test");
+    asViner();
+    expect((await wt.getWorkTask(t.id))?.task.title).toBe("Detail test");
+    expect((await wt.getWorkTask("00000000-0000-4000-8000-0000000000f1"))?.task.title).toBe("Cizí úkol");
+    asBlahout();
+    expect((await wt.getWorkTask(t.id))?.isManager).toBe(false);
+    expect(await wt.getWorkTask("00000000-0000-4000-8000-0000000000f1")).toBeNull();
+    expect(await wt.getWorkTask("nesmysl")).toBeNull();
+  });
+
+  it("vedoucí upraví zadání, prioritu a přeřadí: každá skupina změn v historii s časem, uživatelem a from/to", async () => {
+    const t = await fresh("Původní název");
+    asViner();
+    const res = await wt.updateWorkTask(t.id, {
+      title: "Nový název", description: "Doplněný popis", assigneeUserId: "user-druhy", dueDate: "2026-10-29", priority: "urgent",
+    });
+    expect(res).toEqual({ ok: true, changed: 3 });
+    const row = (await db.execute<Record<string, unknown>>(
+      sql`SELECT title, description, assignee_user_id, due_date::text AS due, priority, status FROM work_tasks WHERE id = ${t.id}`
+    )).rows[0];
+    expect(row).toEqual({ title: "Nový název", description: "Doplněný popis", assignee_user_id: "user-druhy", due: "2026-10-29", priority: "urgent", status: "open" });
+    const h = await hist(t.id);
+    expect(h.map((x) => x.kind).sort()).toEqual(["created", "priority_changed", "reassigned", "updated"]);
+    expect(h.every((x) => x.actor_user_id === VINER)).toBe(true);
+    expect(h.find((x) => x.kind === "updated")!.metadata).toEqual({
+      changes: {
+        title: { from: "Původní název", to: "Nový název" },
+        description: { from: null, to: "Doplněný popis" },
+        dueDate: { from: "2026-10-27", to: "2026-10-29" },
+      },
+    });
+    expect(h.find((x) => x.kind === "priority_changed")!.metadata).toEqual({ from: "normal", to: "urgent" });
+    expect(h.find((x) => x.kind === "reassigned")!.metadata).toEqual({ from: BLAHOUT, to: "user-druhy" });
+    // přeřazený úkol Blahout už nevidí
+    asBlahout();
+    expect((await wt.listWorkTasks()).tasks.map((x) => x.id)).not.toContain(t.id);
+    expect(await wt.getWorkTask(t.id)).toBeNull();
+  });
+
+  it("úprava beze změny nic nezapíše; úprava s mikrosekundami v updated_at projde (žádný falešný konflikt)", async () => {
+    const t = await fresh("Beze změny");
+    asViner();
+    const same = { title: "Beze změny", description: "", assigneeUserId: BLAHOUT, dueDate: "2026-10-27", priority: "normal" };
+    expect(await wt.updateWorkTask(t.id, same)).toEqual({ ok: true, changed: 0 });
+    expect((await hist(t.id)).length).toBe(1);
+    await db.execute(sql`UPDATE work_tasks SET updated_at = '2026-10-27 07:00:00.123999+00' WHERE id = ${t.id}`);
+    expect(await wt.updateWorkTask(t.id, { ...same, priority: "urgent" })).toEqual({ ok: true, changed: 1 });
+  });
+
+  it("pracovník nesmí měnit zadání ani rušit; svůj úkol ale splnit smí", async () => {
+    const t = await fresh("Jen splnit");
+    asBlahout();
+    await expect(wt.updateWorkTask(t.id, { title: "Hack", description: "", assigneeUserId: BLAHOUT, dueDate: "", priority: "urgent" })).rejects.toThrow();
+    await expect(wt.cancelWorkTask(t.id, "")).rejects.toThrow();
+    const row = (await db.execute<{ title: string; priority: string; status: string }>(sql`SELECT title, priority, status FROM work_tasks WHERE id = ${t.id}`)).rows[0];
+    expect(row).toEqual({ title: "Jen splnit", priority: "normal", status: "open" });
+    expect(await wt.setWorkTaskDone(t.id, true)).toEqual({ ok: true });
+  });
+
+  it("zrušení: nic se nemaže, zmizí z aktivního seznamu, je v historii s důvodem; zrušený nejde splnit, upravit ani zrušit znovu", async () => {
+    const t = await fresh("Ke zrušení");
+    asViner();
+    expect(await wt.cancelWorkTask(t.id, "Už není potřeba")).toEqual({ ok: true });
+    const row = (await db.execute<{ status: string; cancelled_by: string; cancelled_at: string | null }>(
+      sql`SELECT status, cancelled_by, cancelled_at FROM work_tasks WHERE id = ${t.id}`
+    )).rows[0];
+    expect(row).toMatchObject({ status: "cancelled", cancelled_by: VINER });
+    expect(row.cancelled_at).not.toBeNull();
+    expect((await hist(t.id)).at(-1)).toEqual({ kind: "cancelled", actor_user_id: VINER, metadata: { reason: "Už není potřeba" } });
+
+    asBlahout();
+    const list = await wt.listWorkTasks();
+    expect(list.tasks.map((x) => x.id)).not.toContain(t.id);
+    expect(list.cancelled.map((x) => x.id)).toContain(t.id);
+    expect((await wt.getWorkTask(t.id))?.task.status).toBe("cancelled");
+    expect((await wt.setWorkTaskDone(t.id, true)).ok).toBe(false);
+
+    asViner();
+    expect((await wt.cancelWorkTask(t.id, "")).ok).toBe(false);
+    expect((await wt.updateWorkTask(t.id, { title: "x", description: "", assigneeUserId: BLAHOUT, dueDate: "", priority: "normal" })).ok).toBe(false);
+    expect((await hist(t.id)).filter((x) => x.kind === "cancelled").length).toBe(1);
+  });
+
+  it("splněný úkol zrušit nejde", async () => {
+    const t = await fresh("Splněný");
+    asBlahout();
+    await wt.setWorkTaskDone(t.id, true);
+    asViner();
+    expect((await wt.cancelWorkTask(t.id, "")).ok).toBe(false);
+  });
 });
+

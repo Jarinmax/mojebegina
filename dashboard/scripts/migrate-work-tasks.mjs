@@ -1,4 +1,5 @@
-// Práce 1.0 — hlídaná migrace 0025 (work_tasks + work_task_activity) při
+// Práce 1.0/1.1 — hlídané migrace 0025 (work_tasks + work_task_activity) a
+// 0026 (zrušení úkolů, metadata historie) při
 // buildu na Vercelu, stejný princip jako migrate-mcp-production.mjs (#36):
 //   • Production: tabulky chybí → založí je a v TÉŽE transakci zapíše první
 //     zadané úkoly (docs/prace/12_ukoly_jarda.sql); obě tabulky už jsou →
@@ -31,25 +32,41 @@ if (env === "preview" && timeline === PRODUCTION_TIMELINE) {
   process.exit(0);
 }
 
+const read = (rel) => readFile(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const statementsOf = (text) =>
+  text
+    .split("--> statement-breakpoint")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+// --- 0025: tabulky + první úkoly -------------------------------------------
 const existing = await sql.query(
   `select table_name from information_schema.tables where table_schema = 'public' and table_name = any($1::text[]) order by table_name`,
   [TABLES],
 );
-if (existing.length === TABLES.length) {
-  console.log(`Work tasks migration (${env}): tables already exist.`);
-  process.exit(0);
-}
-if (existing.length !== 0) {
+if (existing.length === 0) {
+  const statements = statementsOf(await read("../drizzle/0025_prace_1_0_work_tasks.sql"));
+  const seed = await read("../docs/prace/12_ukoly_jarda.sql");
+  await sql.transaction((tx) => [...statements.map((s) => tx.query(s)), tx.query(seed)]);
+  console.log(`Work tasks migration (${env}): schema 0025 applied and first tasks created.`);
+} else if (existing.length !== TABLES.length) {
   throw new Error(`Work tasks migration: partial schema detected (${existing.map((r) => r.table_name).join(", ")}); stopping safely.`);
+} else {
+  console.log(`Work tasks migration (${env}): 0025 already applied.`);
 }
 
-const read = (rel) => readFile(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
-const migration = await read("../drizzle/0025_prace_1_0_work_tasks.sql");
-const statements = migration
-  .split("--> statement-breakpoint")
-  .map((s) => s.trim())
-  .filter(Boolean);
-const seed = await read("../docs/prace/12_ukoly_jarda.sql");
-
-await sql.transaction((tx) => [...statements.map((s) => tx.query(s)), tx.query(seed)]);
-console.log(`Work tasks migration (${env}): schema 0025 applied and first tasks created.`);
+// --- 0026 (Práce 1.1): zrušení úkolů + metadata historie -------------------
+// Hotovo = existuje sloupec work_tasks.cancelled_at. Jen přidání sloupců a
+// rozšíření CHECK omezení; stávající úkoly zůstávají beze změny. Celé v jedné
+// transakci — při chybě se nic nezmění (build skončí, běží dosavadní verze).
+const [{ has0026 }] = await sql.query(
+  `select count(*)::int > 0 as has0026 from information_schema.columns
+    where table_schema = 'public' and table_name = 'work_tasks' and column_name = 'cancelled_at'`,
+);
+if (has0026) {
+  console.log(`Work tasks migration (${env}): 0026 already applied.`);
+} else {
+  const statements = statementsOf(await read("../drizzle/0026_prace_1_1_task_management.sql"));
+  await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+  console.log(`Work tasks migration (${env}): schema 0026 applied (task management).`);
+}

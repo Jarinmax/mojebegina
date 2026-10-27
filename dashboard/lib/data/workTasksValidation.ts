@@ -57,9 +57,10 @@ function addDays(day: string, n: number): string {
 //   oranžová = blížící se termín (dnes nebo zítra)
 //   modrá    = běžný úkol
 //   zelená   = splněno
-export type WorkTaskTone = "red" | "orange" | "blue" | "green";
+export type WorkTaskTone = "red" | "orange" | "blue" | "green" | "grey";
 
 export function workTaskTone(task: { status: string; priority: string; dueDate: string | null }, today: string): WorkTaskTone {
+  if (task.status === "cancelled") return "grey"; // Práce 1.1 — zrušené jen v historii, mimo aktivní barvy
   if (task.status === "done") return "green";
   if (task.priority === "urgent") return "red";
   if (task.dueDate && task.dueDate < today) return "red";
@@ -67,7 +68,41 @@ export function workTaskTone(task: { status: string; priority: string; dueDate: 
   return "blue";
 }
 
-const TONE_ORDER: Record<WorkTaskTone, number> = { red: 0, orange: 1, blue: 2, green: 3 };
+const TONE_ORDER: Record<WorkTaskTone, number> = { red: 0, orange: 1, blue: 2, green: 3, grey: 4 };
+
+// Práce 1.1 — co se úpravou změnilo; každá skupina = jeden záznam historie
+// (obsah zadání / priorita / přeřazení). Prázdné pole = nic se nezměnilo.
+export type WorkTaskSnapshot = {
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  priority: string;
+  assigneeUserId: string;
+};
+
+export type WorkTaskChange =
+  | { kind: "updated"; metadata: { changes: Record<string, { from: string | null; to: string | null }> } }
+  | { kind: "priority_changed"; metadata: { from: string; to: string } }
+  | { kind: "reassigned"; metadata: { from: string; to: string } };
+
+export function diffWorkTask(before: WorkTaskSnapshot, after: WorkTaskSnapshot): WorkTaskChange[] {
+  const out: WorkTaskChange[] = [];
+  const changes: Record<string, { from: string | null; to: string | null }> = {};
+  for (const key of ["title", "description", "dueDate"] as const) {
+    if ((before[key] ?? null) !== (after[key] ?? null)) changes[key] = { from: before[key] ?? null, to: after[key] ?? null };
+  }
+  if (Object.keys(changes).length > 0) out.push({ kind: "updated", metadata: { changes } });
+  if (before.priority !== after.priority) out.push({ kind: "priority_changed", metadata: { from: before.priority, to: after.priority } });
+  if (before.assigneeUserId !== after.assigneeUserId)
+    out.push({ kind: "reassigned", metadata: { from: before.assigneeUserId, to: after.assigneeUserId } });
+  return out;
+}
+
+export function validateCancelReason(raw: string): { ok: true; value: string | null } | { ok: false; error: string } {
+  const reason = raw.trim() || null;
+  if (reason && reason.length > 500) return { ok: false, error: "Důvod je příliš dlouhý (max. 500 znaků)." };
+  return { ok: true, value: reason };
+}
 
 export function sortWorkTasks<T extends { status: string; priority: string; dueDate: string | null; createdAt: Date }>(
   tasks: readonly T[],

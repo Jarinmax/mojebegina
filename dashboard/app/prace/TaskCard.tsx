@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { setWorkTaskDoneAction, type PraceActionState } from "./actions";
 import type { WorkTaskTone } from "@/lib/data/workTasksValidation";
@@ -11,6 +12,7 @@ const TONE: Record<WorkTaskTone, { bar: string; bg: string; label: string }> = {
   orange: { bar: "bg-orange-500", bg: "bg-orange-50 border-orange-200", label: "text-orange-700" },
   blue: { bar: "bg-blue-600", bg: "bg-white border-blue-200", label: "text-blue-700" },
   green: { bar: "bg-emerald-600", bg: "bg-emerald-50 border-emerald-200", label: "text-emerald-700" },
+  grey: { bar: "bg-neutral-400", bg: "bg-neutral-50 border-neutral-200", label: "text-neutral-500" },
 };
 
 export type TaskCardData = {
@@ -21,6 +23,7 @@ export type TaskCardData = {
   dueLabel: string | null;
   urgent: boolean;
   done: boolean;
+  cancelled: boolean;
   doneLabel: string | null;
   tone: WorkTaskTone;
   toneLabel: string;
@@ -36,17 +39,21 @@ export default function TaskCard({ task, showAssignee }: { task: TaskCardData; s
     <article className={`relative overflow-hidden rounded-xl border ${tone.bg} pl-4 pr-3 py-3`}>
       <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${tone.bar}`} aria-hidden />
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        {/* Práce 1.1 — klepnutí na úkol otevře detail (běžný odkaz, žádné podržení prstu). */}
+        <Link href={`/prace/ukol/${task.id}`} className="min-w-0 flex-1 block -my-1 py-1">
           <p className={`text-xs font-medium ${tone.label}`}>
             {task.toneLabel}
             {task.dueLabel ? ` · ${task.dueLabel}` : ""}
             {showAssignee ? ` · ${task.assigneeName}` : ""}
           </p>
-          <h3 className={`text-base font-medium text-begina-primary-900 ${task.done ? "line-through opacity-70" : ""}`}>{task.title}</h3>
-          {task.description && <p className="text-sm text-neutral-600 whitespace-pre-wrap mt-0.5">{task.description}</p>}
+          <h3 className={`text-base font-medium text-begina-primary-900 ${task.done || task.cancelled ? "line-through opacity-70" : ""}`}>
+            {task.title}
+          </h3>
+          {task.description && <p className="text-sm text-neutral-600 whitespace-pre-wrap mt-0.5 line-clamp-3">{task.description}</p>}
           {task.doneLabel && <p className="text-xs text-emerald-700 mt-1">{task.doneLabel}</p>}
-        </div>
-        <form action={formAction} className="shrink-0">
+          <span className="text-xs text-blue-700 mt-1 inline-block">Detail ›</span>
+        </Link>
+        {!task.cancelled && <form action={formAction} className="shrink-0">
           <button
             type="submit"
             disabled={pending}
@@ -58,7 +65,7 @@ export default function TaskCard({ task, showAssignee }: { task: TaskCardData; s
           >
             {pending ? "Ukládám…" : task.done ? "Vrátit" : "Splněno"}
           </button>
-        </form>
+        </form>}
       </div>
       {state && "error" in state && <p className="text-sm text-red-700 mt-1">{state.error}</p>}
       {task.history.length > 0 && (
