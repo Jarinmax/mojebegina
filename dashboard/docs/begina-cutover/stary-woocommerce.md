@@ -1,7 +1,9 @@
 # Starý WooCommerce po přepnutí begina.cz — zachování přístupu a historie
 
 Stav 26. 10. 2026 (jen čtení): `begina.cz` i `www.begina.cz` → `37.9.175.164`
-(webhosting, server „openresty“). WordPress má adresu webu
+— webhosting **Active24, tarif Smart** (admin.active24.cz, účet `egeenvz1`,
+hosting `begina_cz`, platný do 19. 9. 2027; domény na hostingu 1 ze 3; na
+Active24 jsou i 4 e-mailové účty → MX se nemění). WordPress má adresu webu
 `https://www.begina.cz`, běží WooCommerce, **WooPayments** a **Jetpack**
 (`payments/woopay`, `jetpack/v4` ve `/wp-json/`).
 
@@ -43,19 +45,27 @@ konce), nebo se převezmou do MojeBegina stejně jako #5215 (import skriptem,
 **B1 — dlouhodobě: `stary.begina.cz` (doporučeno)**
 
 Před dnem D (hosting + jeden NOVÝ DNS záznam, `@`/`www`/MX beze změny):
-1. Hosting: přidat `stary.begina.cz` jako alias stejného webhostingu
-   a vystavit pro něj certifikát (Let's Encrypt).
-2. DNS: nový záznam `stary` A `37.9.175.164` (ostatní záznamy beze změny).
-3. Hosting: heslo (HTTP Basic Auth) na celou `stary.begina.cz` + `noindex`.
-   Je to jen pro Beginu, ne pro zákazníky.
+1. Active24 → Hostingy → `begina_cz` → Přiřazené domény → **Přidat** →
+   `stary.begina.cz` jako **web** (stejný adresář jako `begina.cz`, ne
+   přesměrování). Volné jsou 2 ze 3 domén tarifu.
+2. DNS: nový záznam `stary` A `37.9.175.164` (Active24 ho může při kroku 1
+   založit sám — ověřit; ostatní záznamy beze změny). Je to změna DNS → jen
+   se souhlasem.
+3. Active24: certifikát Let's Encrypt pro `stary.begina.cz` (až záznam
+   z kroku 2 funguje).
+4. **Žádné heslo (Basic Auth) na celý web:** WooPayments a Jetpack posílají
+   oznámení (spory, vratky, výplaty) na adresu webu (`/wp-json/…`), heslo by
+   je zablokovalo. Ochrana: administrace má vlastní přihlášení WordPressu,
+   pro veřejnost režim údržby/katalogu (krok C) + `noindex`
+   (Nastavení → Zobrazení pro vyhledávače).
 
 V den D, hned po přepnutí `@`/`www`:
-4. `wp-config.php`: `define('WP_HOME', 'https://stary.begina.cz');`
+5. `wp-config.php` (Active24 → správce souborů / FTP): `define('WP_HOME', 'https://stary.begina.cz');`
    `define('WP_SITEURL', 'https://stary.begina.cz');`
-5. Jetpack ukáže „Safe Mode / změna adresy webu“ → zvolit **„Move your
+6. Jetpack ukáže „Safe Mode / změna adresy webu“ → zvolit **„Move your
    settings“ / přesunout připojení** (ne „Create fresh connection“). Tím
    zůstane WooPayments připojený ke stejnému účtu.
-6. Ověřit: přihlášení do `stary.begina.cz/wp-admin`, Platby → Transakce
+7. Ověřit: přihlášení do `stary.begina.cz/wp-admin`, Platby → Transakce
    (stejný seznam jako před přepnutím), Objednávky.
 
 **B0 — nouzově, bez jakékoli změny: soubor hosts**
@@ -78,25 +88,24 @@ certifikát. Po skončení řádek smazat, jinak tento počítač neuvidí nový
 
 ## Co je potřeba od hostingu a od vás
 
-| # | Údaj / přístup | Proč |
+| # | Údaj / přístup | Stav |
 |---|---|---|
-| H1 | Název hostingové firmy a kdo má přístup do její administrace | IP `37.9.175.164` neprozradí poskytovatele (bez reverzního záznamu) |
-| H2 | Kdo spravuje DNS zónu `begina.cz` (stejná firma?) | záznam `stary` (B1) a pozdější přepnutí `@`/`www` |
-| H3 | Umí hosting alias/subdoménu ke stávajícímu webu + Let's Encrypt? | B1 kroky 1–2 |
-| H4 | Umí hosting heslo na doménu/adresář (Basic Auth)? | B1 krok 3 |
-| H5 | Přístup k souborům webu (správce souborů / FTP / SSH) | `wp-config.php` (B1 krok 4) |
-| H6 | Záloha / export databáze (phpMyAdmin nebo záloha z administrace) | A1 |
-| H7 | Do kdy platí současný certifikát `begina.cz` na hostingu | jak dlouho funguje B0 |
-| W1 | Administrátorský účet WordPressu (máte) | A2–A5, B1 krok 5 |
+| H1 | Hosting a přístup do administrace | ✅ Active24 (admin.active24.cz), účet `egeenvz1` (Jaroslav Viner) |
+| H2 | Kdo spravuje DNS zónu `begina.cz` | ❓ Active24 → Domény → `begina.cz` → DNS záznamy (pokud tam jsou, spravuje je Active24). Snímek záznamů = zároveň záloha zóny pro fázi 1 |
+| H3 | Alias/subdoména ke stávajícímu webu + Let's Encrypt | ✅ tarif má 3 domény (1 použitá); certifikát ověřit v nastavení domény na hostingu |
+| H5 | Přístup k souborům webu (správce souborů / FTP) | ❓ Active24 → hosting → Soubory / FTP |
+| H6 | Záloha / export databáze | ❓ Active24 → hosting → Zálohy / Databáze (phpMyAdmin) |
+| H7 | Do kdy platí certifikát `begina.cz` na hostingu | ❓ detail domény na hostingu (SSL) |
+| W1 | Administrátorský účet WordPressu | ✅ máte |
 
 Hesla a klíče se do chatu neposílají. Stačí odpovědět, zda a kdo přístup má.
 
 ## Pořadí (návrh)
 
 1. **Teď:** A1–A5 (záloha a exporty, nic se tím nemění).
-2. Zjistit H1–H7 u hostingu.
-3. Před dnem D, po souhlasu: B1 kroky 1–3 (alias, certifikát, heslo, nový
-   DNS záznam `stary`).
+2. Doplnit H2, H5–H7 v administraci Active24.
+3. Před dnem D, po souhlasu: B1 kroky 1–4 (alias, DNS záznam `stary`,
+   certifikát, noindex).
 4. Den D (`prepnuti-domeny.md`, fáze 3): pokladna Woo do údržby → DNS `@`/`www`
-   → B1 kroky 4–6 → kontrola.
+   → B1 kroky 5–7 → kontrola.
 5. Po 120 dnech: zvážit vypnutí starého webu (export znovu, pak rozhodnutí).
