@@ -11,7 +11,7 @@ Kód domén je v `main` od PR #17 (`lib/site/*`, testy 124/124 OK 16. 10.).
 | 1 | Vercel → mojebegina → Settings → Domains: přidat `begina.cz` (Production) a `www.begina.cz` → 301 na `begina.cz`. Vercel ukáže „Invalid Configuration“ — správně, DNS se zatím nemění. | majitel | |
 | 2 | Opsat z Vercelu požadované hodnoty: A záznam pro `begina.cz`, CNAME pro `www` (případně TXT pro ověření vlastnictví). | majitel → Claude | |
 | 3 | U správce DNS: snímek celé zóny `begina.cz` (původní hodnoty A, CNAME `www`, MX, TXT/SPF, `_dmarc`, `send`, `resend._domainkey`, `moje`). Uložit pro návrat. | majitel | |
-| 4 | TTL záznamů `@` (A) a `www` (CNAME) snížit na 300 s — nejpozději den před přepnutím. Nic jiného neměnit. | majitel | |
+| 4 | TTL záznamů `@` a `www` (A i AAAA, dnes 3600 s) snížit na 300 s — nejpozději den před přepnutím. Nic jiného neměnit. | majitel | |
 
 **Nikdy neměnit:** MX, SPF/TXT kořene, `_dmarc`, `send`, `resend._domainkey`,
 záznam `moje` (MojeBegina), jmenné servery.
@@ -39,8 +39,11 @@ fází 3.
    - `@` A a `www` CNAME na hodnoty z Vercelu (bod 2),
    - **smazat AAAA (IPv6) u `@` i `www`** — jinak návštěvníci s IPv6 skončí
      dál na starém WordPressu,
-   - wildcard `*.begina.cz` (A/AAAA na hosting) nechat — drží `stary.begina.cz`
-     (`stary-woocommerce.md`).
+   - wildcard `*.begina.cz` nechat beze změny; `stary.begina.cz` má vlastní
+     záznamy (`stary-woocommerce.md`).
+   - Záloha zóny před přepnutím: Active24 → DNS → **Export BIND souboru**.
+     Návrat = obnovit `@`/`www` A `37.9.175.164` + AAAA `2a00:4b40:aaaa:2005::5`
+     a znovu zapnout „Active24 Web“.
 3. Kontrola (do ~15 min): `https://begina.cz` (certifikát), `https://www.begina.cz`
    → 301, `/produkt/kulajda`, staré `/produkt/kulajda/` → nová adresa,
    `/login` = 404, `https://moje.begina.cz/login` funguje, `/robots.txt` = Disallow,

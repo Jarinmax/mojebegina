@@ -48,10 +48,12 @@ Před dnem D (hosting + jeden NOVÝ DNS záznam, `@`/`www`/MX beze změny):
 1. Active24 → Hostingy → `begina_cz` → Přiřazené domény → **Přidat** →
    `stary.begina.cz` jako **web** (stejný adresář jako `begina.cz`, ne
    přesměrování). Volné jsou 2 ze 3 domén tarifu.
-2. DNS: zóna má wildcard `*.begina.cz` (A/AAAA) — pokud míří na hosting,
-   `stary.begina.cz` už funguje bez nového záznamu (ověřit). Jinak nový
-   záznam `stary` A `37.9.175.164`. Ostatní záznamy beze změny; každá změna
-   DNS jen se souhlasem.
+2. DNS: wildcard `*.begina.cz` míří na **jiný** server (`37.9.175.163` /
+   `2a00:4b40:aaaa:2005::6`), ne na web (`.164`). `stary.begina.cz` proto
+   potřebuje vlastní záznamy — buď je založí Active24 při kroku 1 (automatika
+   „Active24 Web“; ověřit v DNS), nebo ručně: `stary` A `37.9.175.164`
+   a `stary` AAAA `2a00:4b40:aaaa:2005::5`. Ostatní záznamy beze změny;
+   každá změna DNS jen se souhlasem.
 3. Active24: certifikát Let's Encrypt pro `stary.begina.cz` (až záznam
    z kroku 2 funguje).
 4. **Žádné heslo (Basic Auth) na celý web:** WooPayments a Jetpack posílají
@@ -92,7 +94,7 @@ certifikát. Po skončení řádek smazat, jinak tento počítač neuvidí nový
 | # | Údaj / přístup | Stav |
 |---|---|---|
 | H1 | Hosting a přístup do administrace | ✅ Active24 (admin.active24.cz), účet `egeenvz1` (Jaroslav Viner) |
-| H2 | Kdo spravuje DNS zónu `begina.cz` | ✅ Active24 (DNS nastavení; zapnuté automatiky „Active24 Web“ a „Active24 Mail“; ~2 strany záznamů vč. wildcard `*.begina.cz`). Záloha zóny: snímky s typem a hodnotou všech záznamů — doplnit |
+| H2 | Kdo spravuje DNS zónu `begina.cz` | ✅ Active24 (automatiky „Active24 Web“ a „Active24 Mail“ zapnuté). Web: `@`/`www` A `37.9.175.164`, AAAA `2a00:4b40:aaaa:2005::5`, TTL 3600. Wildcard `*` → `.163`/`::6` (jiný server). Pošta: MX `mx10`/`mx20.active24.cz`, SPF, DKIM `mail._domainkey`, `ecomail._domainkey`, `mailin1/2`, `mail`/`webmail`/`smtp`/`pop3`. **Záloha zóny: DNS → Export BIND souboru** (úplné hodnoty) — doplnit |
 | H3 | Alias/subdoména ke stávajícímu webu + Let's Encrypt | ✅ tarif má 3 domény (1 použitá); certifikát ověřit v nastavení domény na hostingu |
 | H5 | Přístup k souborům webu (správce souborů / FTP) | ❓ Active24 → hosting → Soubory / FTP |
 | H6 | Záloha / export databáze | ❓ Active24 → hosting → Zálohy / Databáze (phpMyAdmin) |
