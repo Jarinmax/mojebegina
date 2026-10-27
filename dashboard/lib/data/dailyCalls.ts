@@ -194,6 +194,8 @@ export type DoneTodayItem = {
   stageFrom: LeadStage | null;
   stageTo: LeadStage | null;
   nextFollowUpAt: Date | null;
+  /** Etapa 0 — v tomto zápisu byl termín výslovně smazán. */
+  followUpCleared: boolean;
   activity: ActivityPreviewEntry[];
 };
 
@@ -261,6 +263,7 @@ export async function getDoneTodayItems(): Promise<DoneTodayItem[]> {
       stageFrom,
       stageTo,
       nextFollowUpAt: nextFollowUpAt && !Number.isNaN(nextFollowUpAt.getTime()) ? nextFollowUpAt : null,
+      followUpCleared: meta.followUpCleared === true,
       activity: activityByLead.get(r.leadId) ?? [],
     };
   });
@@ -602,8 +605,22 @@ export async function moveQueueItemDown(itemId: string): Promise<DailyCallResult
 // které se právě zapsaly (po validaci/trimu) — autoritativní zdroj pro
 // text poznámky zůstává lead_activity, tohle je jen echo TÉHOŽ zápisu ve
 // stejném requestu, ne nová kopie žijící jinde.
+//
+// Etapa 0 — `nextFollowUpAt` je SKUTEČNÝ termín leadu po zápisu (nový,
+// zachovaný, nebo null po výslovném smazání), `followUpChange` říká, co se
+// s ním v tomhle zápisu stalo — potvrzení tak neukáže "žádný termín", když
+// byl jen zachovaný.
+export type FollowUpChange = "set" | "kept" | "cleared";
+
 export type LogCallOutcomeResult =
-  | { ok: true; itemId: string; note: string; result: CallResult; nextFollowUpAt: Date | null }
+  | {
+      ok: true;
+      itemId: string;
+      note: string;
+      result: CallResult;
+      nextFollowUpAt: Date | null;
+      followUpChange: FollowUpChange;
+    }
   | { ok: false; error: string };
 
 // Atomický zápis: jediný SQL příkaz s řetězenými CTE. `claimed` je jediný
@@ -643,7 +660,7 @@ export async function logDailyCallOutcome(
     return { ok: false, error: "Tento kontakt už je vyřízený nebo odebraný." };
   }
 
-  const result = await db.execute<{ id: string }>(
+  const result = await db.execute<{ id: string; effectiveNextFollowUpAt: Date | string | null }>(
     buildLogDailyCallOutcomeQuery({
       itemId,
       leadId: item.leadId,
@@ -675,5 +692,13 @@ export async function logDailyCallOutcome(
     // CRM zápis výše je v pořádku bez ohledu na tohle.
   }
 
-  return { ok: true, itemId, note: value.note, result: value.result, nextFollowUpAt: value.nextFollowUpAt };
+  const effectiveRaw = result.rows[0]?.effectiveNextFollowUpAt ?? null;
+  return {
+    ok: true,
+    itemId,
+    note: value.note,
+    result: value.result,
+    nextFollowUpAt: effectiveRaw === null ? null : new Date(effectiveRaw),
+    followUpChange: value.clearFollowUp ? "cleared" : value.nextFollowUpAt ? "set" : "kept",
+  };
 }

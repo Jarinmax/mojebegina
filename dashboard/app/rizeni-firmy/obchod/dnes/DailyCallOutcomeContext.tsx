@@ -19,7 +19,7 @@ export type SavedCallOutcome = {
   itemId: string;
   note: string;
   resultLabel: string;
-  nextFollowUpAtLabel: string | null;
+  followUpText: string | null;
 };
 
 export type DailyCallOutcomeContextValue = {

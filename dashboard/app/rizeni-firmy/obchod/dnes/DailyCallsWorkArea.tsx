@@ -105,7 +105,7 @@ export default function DailyCallsWorkArea({
             <p className="text-sm text-emerald-900 whitespace-pre-wrap">{confirmation.note}</p>
             <p className="text-xs text-emerald-700">
               {confirmation.resultLabel}
-              {confirmation.nextFollowUpAtLabel ? ` · Zavolat znovu ${confirmation.nextFollowUpAtLabel}` : ""}
+              {confirmation.followUpText ? ` · ${confirmation.followUpText}` : ""}
             </p>
           </div>
         )}

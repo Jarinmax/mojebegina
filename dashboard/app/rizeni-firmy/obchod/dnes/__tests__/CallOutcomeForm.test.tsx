@@ -94,7 +94,7 @@ describe("CallOutcomeForm — oznámení úspěchu přes Context (Security Phase
       itemId: "item-1",
       note: "Dovoláno, pošlu nabídku.",
       resultLabel: "Dovoláno – zájem",
-      nextFollowUpAtLabel: null,
+      followUpText: null,
     });
     const notifySaved = vi.fn();
 

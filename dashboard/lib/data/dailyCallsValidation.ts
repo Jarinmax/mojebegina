@@ -330,7 +330,7 @@ export function buildLogDailyCallOutcomeQuery(params: {
           next_follow_up_at = CASE WHEN ${clearFollowUp}::boolean THEN NULL
                                    ELSE COALESCE(${nextFollowUpAt}::timestamptz, next_follow_up_at) END
       WHERE id = ${leadId} AND EXISTS (SELECT 1 FROM claimed)
-      RETURNING id
+      RETURNING id, next_follow_up_at
     ),
     calendar_sync_upsert AS (
       INSERT INTO lead_calendar_sync (lead_id, sync_status, updated_at)
@@ -349,7 +349,9 @@ export function buildLogDailyCallOutcomeQuery(params: {
       ),
       now()
     WHERE EXISTS (SELECT 1 FROM claimed)
-    RETURNING id
+    -- Etapa 0 — skutečný termín PO zápisu (nový / zachovaný / smazaný) pro
+    -- potvrzení v UI, bez dalšího čtení.
+    RETURNING id, (SELECT next_follow_up_at FROM lead_upd) AS "effectiveNextFollowUpAt"
   `;
 }
 

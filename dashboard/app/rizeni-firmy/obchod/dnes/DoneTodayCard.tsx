@@ -54,6 +54,7 @@ export default function DoneTodayCard({ item }: { item: DoneTodayItem }) {
           Zavolat znovu {formatCzechDateTime(item.nextFollowUpAt)}
         </p>
       )}
+      {item.followUpCleared && <p className="text-xs font-medium text-begina-primary-700">Naplánovaný kontakt smazán</p>}
 
       <button
         type="button"

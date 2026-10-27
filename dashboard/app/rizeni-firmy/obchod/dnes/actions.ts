@@ -22,8 +22,7 @@ import {
   moveQueueItemDown,
   logDailyCallOutcome,
 } from "@/lib/data/dailyCalls";
-import { CALL_RESULT_LABELS } from "./dailyCallLabels";
-import { formatCzechDateTime } from "@/lib/format";
+import { CALL_RESULT_LABELS, followUpConfirmationText } from "./dailyCallLabels";
 
 export type ActionState = { error: string } | { success: string } | null;
 
@@ -36,7 +35,8 @@ export type ActionState = { error: string } | { success: string } | null;
 export type LogCallOutcomeActionState =
   | { status: "idle" }
   | { status: "error"; error: string }
-  | { status: "saved"; itemId: string; note: string; resultLabel: string; nextFollowUpAtLabel: string | null };
+  | { status: "saved"; itemId: string; note: string; resultLabel: string; followUpText: string | null };
+
 
 function revalidateDailyCalls() {
   revalidatePath("/rizeni-firmy/obchod/dnes");
@@ -138,7 +138,7 @@ export async function logDailyCallOutcomeAction(
       itemId: result.itemId,
       note: result.note,
       resultLabel: CALL_RESULT_LABELS[result.result],
-      nextFollowUpAtLabel: result.nextFollowUpAt ? formatCzechDateTime(result.nextFollowUpAt) : null,
+      followUpText: followUpConfirmationText(result.followUpChange, result.nextFollowUpAt),
     };
   } catch (error) {
     console.error("logDailyCallOutcomeAction: neočekávaná chyba při zápisu výsledku hovoru", error);

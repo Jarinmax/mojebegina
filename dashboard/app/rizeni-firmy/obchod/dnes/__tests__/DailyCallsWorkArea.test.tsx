@@ -29,7 +29,7 @@ function SaveTrigger({ itemId }: { itemId: string }) {
           itemId,
           note: "Slíbil zavolat zpět příští týden.",
           resultLabel: "Dovoláno – zájem",
-          nextFollowUpAtLabel: "8. 10. 2026 v 10:30",
+          followUpText: "Zavolat znovu 8. 10. 2026 v 10:30",
         })
       }
     >
@@ -50,6 +50,7 @@ function doneItem(overrides: Partial<DoneTodayItem> = {}): DoneTodayItem {
     stageFrom: null,
     stageTo: null,
     nextFollowUpAt: new Date("2026-10-08T08:30:00.000Z"),
+    followUpCleared: false,
     activity: [],
     ...overrides,
   };

@@ -178,7 +178,28 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     await run(pg, file("google-kalendar", "11_migrace_0025.sql"));
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0025) + pojistka číslování", async () => {
+  it("Denní volání 1.1 — produkční migrace 0026: před / migrace / po, druhé spuštění se zastaví, návrat jen bez vazeb", async () => {
+    expect(await check(pg, file("denni-volani-1-1", "10_pred.sql"))).toBe("ne | ano");
+    await run(pg, file("denni-volani-1-1", "11_migrace_0026.sql"));
+    await expect(run(pg, file("denni-volani-1-1", "11_migrace_0026.sql"))).rejects.toThrow(/už existuje/);
+    expect(await check(pg, file("denni-volani-1-1", "12_po.sql"))).toBe("ano | 0 | 1");
+    // návrat: s vazbou se zastaví; bez vazeb projde (a jde znovu založit)
+    await pg.exec(`
+      INSERT INTO leads (id, source) VALUES ('00000000-0000-4000-8000-00000000d001', 'existing_database');
+      INSERT INTO lead_activity (id, lead_id, author_user_id, kind) VALUES ('00000000-0000-4000-8000-00000000d002', '00000000-0000-4000-8000-00000000d001', 'u', 'call_logged');
+      INSERT INTO daily_call_queue (id, lead_id, position, status, source, added_by, added_for_date, published_at, published_by, done_at, done_by, resulting_activity_id)
+        VALUES ('00000000-0000-4000-8000-00000000d003', '00000000-0000-4000-8000-00000000d001', 1, 'done', 'manual', 'u', '2026-10-27', now(), 'u', now(), 'u', '00000000-0000-4000-8000-00000000d002');`);
+    await expect(run(pg, file("denni-volani-1-1", "19_navrat.sql"))).rejects.toThrow(/vazby na aktivity/);
+    await pg.exec(`UPDATE daily_call_queue SET resulting_activity_id = NULL`);
+    await run(pg, file("denni-volani-1-1", "19_navrat.sql"));
+    expect(await check(pg, file("denni-volani-1-1", "10_pred.sql"))).toBe("ne | ano");
+    await run(pg, file("denni-volani-1-1", "11_migrace_0026.sql"));
+    await pg.exec(`DELETE FROM daily_call_queue WHERE id = '00000000-0000-4000-8000-00000000d003';
+      DELETE FROM lead_activity WHERE id = '00000000-0000-4000-8000-00000000d002';
+      DELETE FROM leads WHERE id = '00000000-0000-4000-8000-00000000d001';`);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0026) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
