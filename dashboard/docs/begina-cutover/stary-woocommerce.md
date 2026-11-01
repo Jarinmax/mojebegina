@@ -63,6 +63,12 @@ konce), nebo se převezmou do MojeBegina stejně jako #5215 (import skriptem,
 
 **B1 — dlouhodobě: `stary.begina.cz` (doporučeno)**
 
+**Stav 1. 11. 2026: kroky 1–3 hotové** (se souhlasem majitele): alias
+`stary.begina.cz` na hostingu, DNS `stary` A `37.9.175.164` + AAAA
+`2a00:4b40:aaaa:2005::5` (TTL 600), samostatný certifikát Let's Encrypt
+`stary.begina.cz` (expirace 30. 1. 2027, obnovuje se sám — `stary` zůstává
+na Active24). `@`/`www`/`*`/MX beze změny.
+
 Před dnem D (hosting + jeden NOVÝ DNS záznam, `@`/`www`/MX beze změny):
 1. Active24 → `begina.cz` → Pokročilá konfigurace → Web → **Aliasy** →
    přidat `stary.begina.cz` (stejný web/adresář jako `begina.cz`, ne
@@ -75,7 +81,9 @@ Před dnem D (hosting + jeden NOVÝ DNS záznam, `@`/`www`/MX beze změny):
    každá změna DNS jen se souhlasem.
 3. Active24: certifikát Let's Encrypt pro `stary.begina.cz` (až záznam
    z kroku 2 funguje).
-4. **Žádné heslo (Basic Auth) na celý web:** WooPayments a Jetpack posílají
+4. (**až v den D**, ne dřív — dokud je adresa webu `www.begina.cz`,
+   `noindex` by vyřadil z vyhledávačů současný web.)
+   **Žádné heslo (Basic Auth) na celý web:** WooPayments a Jetpack posílají
    oznámení (spory, vratky, výplaty) na adresu webu (`/wp-json/…`), heslo by
    je zablokovalo. Ochrana: administrace má vlastní přihlášení WordPressu,
    pro veřejnost režim údržby/katalogu (krok C) + `noindex`
@@ -114,10 +122,10 @@ certifikát. Po skončení řádek smazat, jinak tento počítač neuvidí nový
 |---|---|---|
 | H1 | Hosting a přístup do administrace | ✅ Active24 (admin.active24.cz), účet `egeenvz1` (Jaroslav Viner) |
 | H2 | Kdo spravuje DNS zónu `begina.cz` | ✅ Active24 (automatiky „Active24 Web“ a „Active24 Mail“ zapnuté). Web: `@`/`www` A `37.9.175.164`, AAAA `2a00:4b40:aaaa:2005::5`, TTL 3600. Wildcard `*` → `.163`/`::6` (jiný server). Pošta: MX `mx10`/`mx20.active24.cz`, SPF, DKIM `mail._domainkey`, `ecomail._domainkey`, `mailin1/2`, `mail`/`webmail`/`smtp`/`pop3`. **Záloha zóny: DNS → Export BIND souboru** (úplné hodnoty) — doplnit |
-| H3 | Alias/subdoména ke stávajícímu webu + Let's Encrypt | ✅ tarif má 3 domény (1 použitá); certifikát ověřit v nastavení domény na hostingu |
+| H3 | Alias/subdoména ke stávajícímu webu + Let's Encrypt | ✅ alias `stary.begina.cz` + vlastní certifikát (1. 11. 2026) |
 | H5 | Přístup k souborům webu (správce souborů / FTP) | ✅ Pokročilá konfigurace → Web → Zálohy a obnova; FTP účty |
 | H6 | Záloha / export databáze | ✅ Pokročilá konfigurace → Databáze → `beginacz` → ••• → Stáhnout |
-| H7 | Do kdy platí certifikát `begina.cz` na hostingu | ❓ detail domény na hostingu (SSL) |
+| H7 | Do kdy platí certifikát `begina.cz` na hostingu | ✅ 18. 12. 2026 (po přepnutí se neobnoví → nouzová cesta B0 funguje jen do tohoto data) |
 | W1 | Administrátorský účet WordPressu | ✅ máte |
 
 Hesla a klíče se do chatu neposílají. Stačí odpovědět, zda a kdo přístup má.
@@ -126,8 +134,8 @@ Hesla a klíče se do chatu neposílají. Stačí odpovědět, zda a kdo příst
 
 1. ✅ A1 + A5 (1. 11. 2026): záloha souborů i databáze, nevyřízené žádné.
 2. Doplnit H2, H5–H7 v administraci Active24.
-3. Před dnem D, po souhlasu: B1 kroky 1–4 (alias, DNS záznam `stary`,
-   certifikát, noindex).
+3. ✅ B1 kroky 1–3 (1. 11. 2026): alias, DNS záznamy `stary`, certifikát.
 4. Den D (`prepnuti-domeny.md`, fáze 3): pokladna Woo do údržby → DNS `@`/`www`
-   → B1 kroky 5–7 → kontrola.
+   → B1 kroky 4–7 (noindex, WP_HOME/WP_SITEURL, Jetpack „Move your settings“)
+   → kontrola.
 5. Po 120 dnech: zvážit vypnutí starého webu (export znovu, pak rozhodnutí).
