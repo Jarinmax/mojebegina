@@ -301,6 +301,81 @@ Seznam uložených vzorků, které mají být zlikvidovány dnes / jsou po lhůt
 
 ---
 
+## 6a. Automatizace: fotka nákupu → příjemka → předvyplněné vaření
+
+Cíl: **nic nepřepisovat ručně**. Ručně se jen potvrzuje a opravuje to,
+co systém nevyčte nebo neodhadne.
+
+### Krok 1 — vyfotím nákup (`/vyroba/nakup`)
+1. Po návratu z obchodu nahraju **všechny fotky najednou**: účtenka,
+   dodací list, faktura, případně etiketa z obalu.
+2. Server fotky přečte AI (Claude, čtení obrázků) a vrátí strukturovaný
+   návrh:
+   - obchod / dodavatel (IČO z účtenky → `suppliers`), datum, číslo dokladu;
+   - řádky: text z účtenky („SMETANA KYS.31% 250ML“), množství, jednotka,
+     cena;
+   - **spárování se surovinou** z číselníku („Smetana 31 %“). Každé ruční
+     spárování se uloží jako alias (`raw_material_aliases`), takže příště
+     se totéž spáruje samo;
+   - řádky, které nejsou suroviny (taška, čistidlo), se samy odškrtnou.
+3. Na obrazovce je hotová tabulka → zkontroluji, opravím → **„Uložit
+   nákup“** → vzniknou příjemky surovin (`raw_material_lots`) s fotkou
+   dokladu.
+
+AI nikdy nezapisuje sama — vždy jde o **návrh, který člověk potvrdí**
+(stejný princip jako `prepare_order → create_order` v MCP).
+
+### Šarže suroviny, když ji účtenka nemá
+Účtenka z obchodu šarži dodavatele obvykle neobsahuje. Pak:
+- **výchozí identifikace = obchod + datum nákupu + číslo účtenky.** Pro
+  „jeden krok zpět“ to stačí: víme, odkud a kdy surovina přišla, a obchod
+  podle data dohledá svou šarži;
+- u **živočišných a rizikových surovin** (smetana, mléko, vejce, maso)
+  systém požádá o **fotku etikety** → AI z ní vyčte šarži a datum
+  spotřeby. Jedna fotka, nic se neopisuje. Lze vypnout po surovinách.
+
+### Krok 2 — vařím (`/vyroba/nova-sarze`)
+Suroviny se **nepíšou, jen potvrzují**:
+1. Vyberu produkt (Kulajda).
+2. Systém předvyplní seznam surovin a množství:
+   - z **minulé várky téhož produktu** (hned od 1.0),
+   - později z **receptury** přepočtené na objem várky (Výroba 2.0).
+3. Ke každé surovině sám vybere šarži:
+   - **jen jedna šarže skladem** → vybrána, nic se neřeší;
+   - **víc šarží** → předvybere tu s nejbližší trvanlivostí (FEFO), nebo
+     tu z **dnešního nákupu**, pokud jsem při ukládání nákupu zaškrtl
+     „nakoupeno na dnešní vaření: Kulajda“;
+   - surovina **není skladem** → upozornění „smetanu nemáte v evidenci —
+     přidat nákup?“ (nejčastější díra v evidenci).
+4. Zkontroluji, případně opravím množství → **„Potvrzuji, vařím z těchto
+   surovin“**.
+
+Proč aspoň jedno potvrzení zůstává: systém neví, jestli smetanu z dnešního
+nákupu použiju do kulajdy, nebo do jiné polévky, ani jestli v lednici nemám
+zbytek z minulého týdne. Potvrzení je podpis pod záznamem, který se ukazuje
+kontrole. Je to ale jedno kliknutí, ne psaní.
+
+### Varianta přes asistenta (ChatGPT / Claude)
+Fotky pošlu do chatu: *„Zapiš nákup a založ várku kulajdy 60 l.“*
+Asistent přes MCP vrátí stejný návrh (nákup + várka se šaržemi) a zapíše
+ho až po mém potvrzení — nástroje `prepare_purchase` / `create_purchase`
+a `prepare_batch` / `create_batch` podle vzoru objednávek a faktur.
+
+### Technické poznámky
+- Dnes se v MojeBegina fotí jen u úkolů (Práce 2.0); úložiště (Cloudflare
+  R2, EU) a zmenšování fotek v telefonu se znovu použije.
+- ⚠ Fotky úkolů se po **400 dnech mažou** (pravidlo v R2). Doklady k šaržím
+  musí vydržet **5 let** → vlastní prefix `vyroba/` bez mazání.
+- Čtení obrázků AI v backendu dnes není — nová integrace (Claude API)
+  s výstupem ve pevném schématu; klíč jen ve Vercelu. Obrázek se pošle
+  ke čtení, výsledek a fotka zůstávají v MojeBegina.
+- Nová tabulka `raw_material_aliases` (`raw_material_id`, `supplier_id`
+  NULL, `receipt_text` UNIQUE v rámci dodavatele).
+- Nová tabulka `purchase_documents` (fotky, dodavatel, datum, číslo
+  dokladu, stav `draft` | `confirmed`), na kterou ukazují příjemky.
+
+---
+
 ## 7. Musím uchovat vzorek? — rozhodovací logika
 
 Funkce `evaluateSampleRequirement(batch, context)` → `{ level, reasons[],
@@ -407,7 +482,7 @@ iDokladu.
 
 | Fáze | Obsah | Hodnota |
 |---|---|---|
-| **Šarže 1.0 (MVP)** | dodavatelé, suroviny, příjem; výrobní šarže s číslem, surovinami a výstupem; ruční přiřazení šarže k objednávce; karta šarže + PDF; vzorky s pravidly; sklad = výroba − prodej − odpisy | **splní kontrolu** |
+| **Šarže 1.0 (MVP)** | dodavatelé, suroviny; **příjem z fotky nákupu s AI čtením a potvrzením**; vaření předvyplněné z minulé várky + automatický výběr šarží surovin; výrobní šarže s číslem, surovinami a výstupem; ruční přiřazení šarže k objednávce; karta šarže + PDF; vzorky s pravidly; sklad = výroba − prodej − odpisy | **splní kontrolu** |
 | Šarže 1.1 | automatické FEFO při „připraveno“; upozornění na prošlé šarže a vzorky k likvidaci; zpětné dohledání suroviny a blokace; MCP `get_batch_report` | rychlost, stažení z trhu |
 | Šarže 1.2 | tisk štítků (číslo šarže, datum spotřeby, složení a alergeny z produktu) | méně ruční práce |
 | Výroba 2.0 | receptury (předvyplnění surovin podle objemu), náklady várky, kontrola alergenů surovina ↔ produkt, plán výroby z objednávek | navazuje na „Produkty“ a „Plán výroby“ |
@@ -430,8 +505,12 @@ Migrace podle zvyku repozitáře: `drizzle/0028_vyroba_1_0_sarze.sql`
    s výchozím „doporučeným“ pravidlem pro polévky a chlazené nápoje?
 4. **Kdo zapisuje výrobu** — jen Jarda / vedoucí, nebo i další pracovníci
    (potřeba nové role, např. `PRODUCTION`)?
-5. **Suroviny z trhu bez šarže** (zelenina od farmáře): stačí dodavatel +
+5. **Suroviny bez šarže** (účtenka z obchodu, zelenina od farmáře): stačí dodavatel +
    datum nákupu + dodací list/účtenka? (návrh: ano, šarže = datum příjmu.)
 6. **Prodej mimo systém** (trhy, akce, přímý prodej): zapisovat jako pohyb
    `sale` bez objednávky s poznámkou „trh Jiřák 2. 11.“? (návrh: ano, jinak
    nesedí sklad.)
+7. **Kde nakupujete** (Makro, Lidl, Billa, farmáři, velkoobchod s fakturou)?
+   Podle toho se vyladí čtení účtenek a dodacích listů.
+8. **Fotka etikety** u živočišných surovin (smetana, vejce, maso) — chcete
+   ji vyžadovat, nebo jen nabízet?
