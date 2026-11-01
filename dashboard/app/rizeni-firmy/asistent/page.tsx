@@ -9,7 +9,7 @@ import { ROLE_LABELS } from "@/lib/data/roles";
 import type { SystemRole } from "@/lib/data/types";
 import { formatCzechDate } from "@/lib/format";
 import { agentConfig } from "@/lib/agent/config";
-import { canWrite } from "@/lib/agent/oauthCore";
+import { canInvoice, canWrite } from "@/lib/agent/oauthCore";
 import { listActiveGrants, listRecentAudit } from "@/lib/agent/oauthStore";
 import { revokeAgentGrantAction } from "./actions";
 
@@ -52,7 +52,7 @@ export default async function AgentAccessPage() {
               <div className="text-sm">
                 <p className="text-begina-primary-900">
                   {ROLE_LABELS[grant.systemRole as SystemRole] ?? grant.systemRole} ·{" "}
-                  {canWrite(config, grant.scope) ? "čtení i zápis" : "jen čtení"}
+                  {[canWrite(config, grant.scope) ? "čtení i zápis" : "jen čtení", ...(canInvoice(config, grant.scope) ? ["fakturace"] : [])].join(" + ")}
                 </p>
                 <p className="text-xs text-neutral-500">
                   povoleno {formatCzechDate(grant.createdAt)}

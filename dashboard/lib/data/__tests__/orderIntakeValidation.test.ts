@@ -75,6 +75,14 @@ describe("příjem objednávky — čistá kontrola vstupu", () => {
     ).toMatchObject({ ok: true, value: { customerDic: { dic: "CZ12345679", source: "invoice", reference: "faktura 1" }, externalInvoiceNumber: "20260185", expectedTotalKc: 178 } });
   });
 
+  it("paid_by_card: jen e-shop, znamená zaplaceno (výchozí paid), rozpor se stavem platby odmítne", () => {
+    const eshop = { ...base, source: "eshop", externalReference: "5300" };
+    expect(validateOrderIntake({ ...eshop, paidByCard: true }, TODAY)).toMatchObject({ ok: true, value: { paidByCard: true, paymentStatus: "paid" } });
+    expect(validateOrderIntake({ ...eshop, paidByCard: true, paymentStatus: "unpaid" }, TODAY)).toMatchObject({ ok: false, error: expect.stringMatching(/payment_status musí být paid/) });
+    expect(validateOrderIntake({ ...base, paidByCard: true }, TODAY)).toMatchObject({ ok: false, error: expect.stringMatching(/jen u objednávky z e-shopu/) });
+    expect(validateOrderIntake({ ...eshop }, TODAY)).toMatchObject({ ok: true, value: { paidByCard: false, paymentStatus: "unpaid" } });
+  });
+
   it("organization_id má přednost a musí být UUID", () => {
     const ok = validateOrderIntake({ ...base, organizationId: "00000000-0000-4000-8000-00000000A001" }, TODAY);
     expect(ok).toMatchObject({ ok: true, value: { customer: { kind: "id", organizationId: "00000000-0000-4000-8000-00000000a001", ico: "12345679" } } });

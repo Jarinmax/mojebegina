@@ -41,7 +41,8 @@ const INVOICING_TOOLS = [
   "idoklad_numbering_audit",
   "idoklad_unpaid_and_discrepancies",
   "invoice_preview",
-  "issue_and_send_invoice",
+  "issue_invoice",
+  "send_invoice_to_customer",
 ];
 
 const BASE = {
@@ -97,8 +98,8 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
   const rows = async (query: ReturnType<typeof sql>) => (await db.execute(query)).rows;
   const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
 
-  async function connect(userId: string, role: "ADMIN" | "EXECUTIVE", write = true): Promise<Session> {
-    const code = await store.issueAuthorizationCode(db, { userId, systemRole: role, clientId: CLIENT, write, redirectUri: REDIRECT, codeChallenge: CHALLENGE });
+  async function connect(userId: string, role: "ADMIN" | "EXECUTIVE", write = true, invoicing = true): Promise<Session> {
+    const code = await store.issueAuthorizationCode(db, { userId, systemRole: role, clientId: CLIENT, write, invoicing, redirectUri: REDIRECT, codeChallenge: CHALLENGE });
     const tokens = await store.exchangeAuthorizationCode(db, { clientId: CLIENT, code, redirectUri: REDIRECT, codeVerifier: VERIFIER });
     if (!tokens.ok) throw new Error(tokens.description);
     const session = await store.resolveAccessToken(db, config, tokens.body.access_token);
@@ -188,6 +189,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
       MCP_OAUTH_REDIRECT_URIS: REDIRECT,
       MCP_ALLOWED_USER_IDS: `${VINER},${LUCIE},${OTHER}`,
       MCP_ALLOW_WRITE: "on",
+      MCP_ALLOW_INVOICING: "on",
     })!;
 
     await db.execute(sql.raw(`INSERT INTO user_roles (user_id, system_role) VALUES ('${VINER}', 'ADMIN'), ('${LUCIE}', 'EXECUTIVE'), ('${OTHER}', 'EXECUTIVE')`));
@@ -223,7 +225,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     for (const [name, args] of [
       ["invoice_preview", { order_number: "1" }],
       ["idoklad_list_series", {}],
-      ["issue_and_send_invoice", { order_id: randomUUID(), preview_token: "x", confirm: true, idempotency_key: randomUUID() }],
+      ["issue_invoice", { order_id: randomUUID(), preview_token: "x", confirm: true, idempotency_key: randomUUID() }],
     ] as const) {
       const result = await call(other, name, args);
       expect(result).toMatchObject({ isError: true, text: expect.stringMatching(/nemá váš účet v MojeBegina oprávnění/) });
@@ -232,33 +234,48 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     expect(audit).toEqual([
       { tool: "invoice_preview", status: "denied", error: "not_permitted" },
       { tool: "idoklad_list_series", status: "denied", error: "not_permitted" },
-      { tool: "issue_and_send_invoice", status: "denied", error: "not_permitted" },
+      { tool: "issue_invoice", status: "denied", error: "not_permitted" },
     ]);
     expect(route.idoklad).toEqual([]);
   });
 
-  it("připojení jen pro čtení: náhled ano, vystavení se nevypíše a volání neprojde", async () => {
-    const readOnly = await connect(VINER, "ADMIN", false);
-    expect(listed(readOnly)).toContain("invoice_preview");
-    expect(listed(readOnly)).not.toContain("issue_and_send_invoice");
+  it("souhlasy: fakturaci odemyká jen mojebegina.invoicing — čtení ani obecný zápis ne; fakturace neodemyká obecné zápisy", async () => {
+    const readOnly = await connect(VINER, "ADMIN", false, false);
+    const writeOnly = await connect(VINER, "ADMIN", true, false);
+    const invoicingOnly = await connect(LUCIE, "EXECUTIVE", false, true);
+    for (const session of [readOnly, writeOnly]) {
+      expect(listed(session)).toContain("invoice_preview");
+      expect(listed(session)).not.toContain("issue_invoice");
+      expect(listed(session)).not.toContain("send_invoice_to_customer");
+    }
+    expect(listed(writeOnly)).toContain("add_lead_note");
+    expect(listed(invoicingOnly)).toEqual(expect.arrayContaining(["invoice_preview", "issue_invoice", "send_invoice_to_customer"]));
+    for (const general of ["add_lead_note", "create_order", "create_company_task"]) expect(listed(invoicingOnly)).not.toContain(general);
+    expect(invoicingOnly.scope).toBe("mojebegina.read mojebegina.invoicing");
+
     const order = await paidOrder(viner);
-    const preview = await call(readOnly, "invoice_preview", { order_id: order.id });
-    expect(preview.data).toMatchObject({ canIssue: true, preview_token: expect.any(String) });
+    const preview = await call(writeOnly, "invoice_preview", { order_id: order.id });
+    expect(preview.data).toMatchObject({ canIssue: true, preview_token: expect.any(String), sendsEmail: false });
     route.fake = createFakeIdoklad();
-    const issued = await call(readOnly, "issue_and_send_invoice", {
-      order_id: order.id,
-      preview_token: preview.data.preview_token,
-      confirm: true,
-      idempotency_key: randomUUID(),
-    });
-    expect(issued).toMatchObject({ isError: true, text: expect.stringMatching(/jen pro čtení/) });
+    for (const session of [readOnly, writeOnly]) {
+      const issued = await call(session, "issue_invoice", { order_id: order.id, preview_token: preview.data.preview_token, confirm: true, idempotency_key: randomUUID() });
+      expect(issued).toMatchObject({ isError: true, text: expect.stringMatching(/Fakturace není pro tohle propojení povolená/) });
+    }
+    // obecný zápis s fakturačním souhlasem neprojde
+    const note = await call(invoicingOnly, "add_lead_note", { lead_id: randomUUID(), text: "x", idempotency_key: randomUUID() });
+    expect(note).toMatchObject({ isError: true, text: expect.stringMatching(/jen pro čtení/) });
+    // vypnutý přepínač fakturace = nic, ani se souhlasem
+    const off = { ...config, invoicingEnabled: false };
+    expect(mcp.agentMcpServer(db, invoicingOnly, off).listTools().map((t) => t.name)).not.toContain("issue_invoice");
+    const denied = await mcp.callAgentTool(db, invoicingOnly, off, "issue_invoice", { order_id: order.id, preview_token: "x", confirm: true, idempotency_key: randomUUID() });
+    expect(denied?.content[0]).toMatchObject({ text: expect.stringMatching(/MCP_ALLOW_INVOICING/) });
     expect(route.fake.calls).toEqual([]);
     expect(await linkState(order.id)).toMatchObject({ doc_state: "draft", external_id: null });
   });
 
   // ---------------------------------------------------------------- celý postup
 
-  it("Jaroslav: náhled (nic nezapíše) → potvrzení → jedna faktura v řadě 7277293, uhrazeno, PDF jednou zákazníkovi + Bcc", async () => {
+  it("Jaroslav: náhled (nic nezapíše) → potvrzení → jedna faktura v řadě 7277293, uhrazená, BEZ e-mailu; PDF zákazníkovi až na výslovnou žádost, jednou + Bcc", async () => {
     const order = await paidOrder(viner);
     const before = await linkState(order.id);
 
@@ -268,7 +285,8 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     expect(preview.data).toMatchObject({
       orderId: order.id,
       canIssue: true,
-      action: "issue_and_send",
+      sendsEmail: false,
+      payment: { paid: true, method: "bank_transfer", invoiceMarkedPaid: true, invoiceText: "Faktura je již uhrazena – neplaťte." },
       mode: { live: true, trigger: "manual" },
       numberSeries: { id: "7277293", expected: "7277293" },
       orderStatus: { paidForInvoice: true },
@@ -282,7 +300,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     expect(mail.sent).toEqual([]);
 
     // bez confirm=true nic
-    const unconfirmed = await call(viner, "issue_and_send_invoice", {
+    const unconfirmed = await call(viner, "issue_invoice", {
       order_id: order.id,
       preview_token: preview.data.preview_token,
       confirm: false,
@@ -294,38 +312,61 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     const next = route.fake.next();
     const key = randomUUID();
     const args = { order_id: order.id, preview_token: preview.data.preview_token, confirm: true, idempotency_key: key };
-    const issued = await call(viner, "issue_and_send_invoice", args);
+    const issued = await call(viner, "issue_invoice", args);
     expect(issued.isError).toBe(false);
-    expect(issued.data).toMatchObject({ status: "issued", invoiceNumber: next.number, emailed: true });
+    expect(issued.data).toMatchObject({
+      status: "issued",
+      invoiceNumber: next.number,
+      idokladId: String(next.id),
+      numberSeries: "7277293",
+      markedPaid: true,
+      emailed: false,
+      pdfSentToCustomer: null,
+      orderUrl: `https://moje.begina.cz/rizeni-firmy/objednavky/${order.id}`,
+      pdfUrl: `https://moje.begina.cz/rizeni-firmy/objednavky/${order.id}/faktura-pdf`,
+    });
     expect(route.fake.writes()).toEqual(["POST /Contacts", "POST /IssuedInvoices", `PUT /IssuedDocumentPayments/FullyPay/${next.id}`]);
     const post = route.fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
-    expect(post).toMatchObject({ NumericSequenceId: 7277293 });
-    expect(await linkState(order.id)).toMatchObject({ doc_state: "issued", invoice_number: next.number, state: "issued", pdf_sent: true });
-    expect(invoiceMails()).toHaveLength(1);
-    expect(invoiceMails()[0]).toMatchObject({ to: [order.contact_email], bcc: ["faktury@begina.test"] });
-    expect(invoiceMails()[0].attachments?.[0].filename).toBe(`faktura-${next.number}.pdf`);
+    expect(post).toMatchObject({ NumericSequenceId: 7277293, ItemsTextSuffix: expect.stringContaining("Faktura je již uhrazena – neplaťte.") });
+    expect(await linkState(order.id)).toMatchObject({ doc_state: "issued", invoice_number: next.number, state: "issued", pdf_sent: false });
+    // vystavení zákazníkovi nic neposlalo
+    expect(mail.sent).toEqual([]);
 
     // stejný požadavek znovu (stejný klíč) → uložený výsledek, nic nového
     const writes = route.fake.writes().length;
-    const again = await call(viner, "issue_and_send_invoice", args);
+    const again = await call(viner, "issue_invoice", args);
     expect(again.data).toMatchObject({ status: "issued", invoiceNumber: next.number, alreadySaved: true });
-    // stejný náhled s novým klíčem → už vystavená, PDF se znovu neposílá
-    const third = await call(viner, "issue_and_send_invoice", { ...args, idempotency_key: randomUUID() });
-    expect(third.data).toMatchObject({ status: "already_issued", invoiceNumber: next.number, emailed: false, pdfSentBefore: true });
+    // stejný náhled s novým klíčem → už vystavená, nic se nevystaví ani nepošle
+    const third = await call(viner, "issue_invoice", { ...args, idempotency_key: randomUUID() });
+    expect(third.data).toMatchObject({ status: "already_issued", invoiceNumber: next.number, emailed: false });
     expect(route.fake.writes()).toHaveLength(writes);
     expect(route.fake.invoices).toHaveLength(1);
-    expect(invoiceMails()).toHaveLength(1);
-    // náhled teď hlásí hotovo — žádný další token
+    expect(mail.sent).toEqual([]);
+    // náhled teď hlásí vystaveno — žádný další token, ale odkaz na PDF
     const done = await call(viner, "invoice_preview", { order_id: order.id });
-    expect(done.data).toMatchObject({ canIssue: false, existing: { docState: "issued", pdfSent: true } });
+    expect(done.data).toMatchObject({ canIssue: false, existing: { docState: "issued", pdfSent: false }, pdfUrl: expect.stringMatching(/faktura-pdf$/) });
     expect(done.data.preview_token).toBeUndefined();
+
+    // odeslání jen na výslovnou žádost: bez confirm nic, s confirm jednou + Bcc, podruhé už ne
+    expect(await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: false, idempotency_key: randomUUID() })).toMatchObject({ isError: true });
+    expect(mail.sent).toEqual([]);
+    const sent = await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
+    expect(sent.data).toMatchObject({ emailed: true, invoiceNumber: next.number, recipients: { to: [order.contact_email], bcc: ["faktury@begina.test"] } });
+    expect(invoiceMails()).toHaveLength(1);
+    expect(invoiceMails()[0]).toMatchObject({ to: [order.contact_email], bcc: ["faktury@begina.test"] });
+    expect(invoiceMails()[0].attachments?.[0].filename).toBe(`faktura-${next.number}.pdf`);
+    const resend = await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
+    expect(resend.data).toMatchObject({ emailed: false, alreadySentAt: expect.any(String) });
+    expect(invoiceMails()).toHaveLength(1);
+    expect(route.fake.writes()).toHaveLength(writes);
 
     // audit: kdo, co a s jakým výsledkem
     const audit = await rows(sql`
       SELECT tool, status, idempotency_key FROM agent_audit_log
-      WHERE user_id = ${VINER} AND tool IN ('invoice_preview', 'issue_and_send_invoice') AND created_at > now() - interval '1 minute'
+      WHERE user_id = ${VINER} AND tool IN ('invoice_preview', 'issue_invoice', 'send_invoice_to_customer') AND created_at > now() - interval '1 minute'
       ORDER BY created_at`);
-    expect(audit.filter((a: { tool: string; status: string }) => a.tool === "issue_and_send_invoice" && a.status === "ok")).toHaveLength(2);
+    expect(audit.filter((a: { tool: string; status: string }) => a.tool === "issue_invoice" && a.status === "ok")).toHaveLength(2);
+    expect(audit.filter((a: { tool: string; status: string }) => a.tool === "send_invoice_to_customer" && a.status === "ok")).toHaveLength(2);
     expect(audit.filter((a: { idempotency_key: string | null }) => a.idempotency_key === key)).toHaveLength(1);
     const activity = await rows(sql`SELECT kind, author_user_id, author_name FROM order_activity WHERE order_id = ${order.id} AND kind = 'invoice_issued'`);
     expect(activity).toEqual([{ kind: "invoice_issued", author_user_id: VINER, author_name: "Jaroslav Viner (přes ChatGPT)" }]);
@@ -335,7 +376,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     const order = await paidOrder(viner);
     const vinerPreview = await call(viner, "invoice_preview", { order_id: order.id });
     route.fake = createFakeIdoklad();
-    const foreign = await call(lucie, "issue_and_send_invoice", {
+    const foreign = await call(lucie, "issue_invoice", {
       order_id: order.id,
       preview_token: vinerPreview.data.preview_token,
       confirm: true,
@@ -346,34 +387,38 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
 
     const preview = await call(lucie, "invoice_preview", { order_id: order.id });
     const next = route.fake.next();
-    const issued = await call(lucie, "issue_and_send_invoice", {
+    const issued = await call(lucie, "issue_invoice", {
       order_id: order.id,
       preview_token: preview.data.preview_token,
       confirm: true,
       idempotency_key: randomUUID(),
     });
-    expect(issued.data).toMatchObject({ status: "issued", invoiceNumber: next.number, emailed: true });
+    expect(issued.data).toMatchObject({ status: "issued", invoiceNumber: next.number, emailed: false });
+    expect(mail.sent).toEqual([]);
+    const [activity] = await rows(sql`SELECT author_user_id, author_name FROM order_activity WHERE order_id = ${order.id} AND kind = 'invoice_issued'`);
+    expect(activity).toEqual({ author_user_id: LUCIE, author_name: "Lucie Königsbergová (přes ChatGPT)" });
+    // na výslovnou žádost Lucie odejde PDF správnému příjemci
+    const sent = await call(lucie, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
+    expect(sent.data).toMatchObject({ emailed: true });
     expect(invoiceMails()).toHaveLength(1);
     expect(invoiceMails()[0].to).toEqual([order.contact_email]);
-    const [activity] = await rows(sql`SELECT author_user_id FROM order_activity WHERE order_id = ${order.id} AND kind = 'invoice_issued'`);
-    expect(activity).toEqual({ author_user_id: LUCIE });
   });
 
-  it("souběh: dva požadavky (různé klíče) na stejný náhled → jedna faktura, jeden e-mail", async () => {
+  it("souběh: dva požadavky (různé klíče) na stejný náhled → jedna faktura, žádný e-mail", async () => {
     const order = await paidOrder(viner);
     const preview = await call(viner, "invoice_preview", { order_id: order.id });
     route.fake = createFakeIdoklad();
     const args = { order_id: order.id, preview_token: preview.data.preview_token, confirm: true };
     const results = await Promise.all([
-      call(viner, "issue_and_send_invoice", { ...args, idempotency_key: randomUUID() }),
-      call(lucie, "issue_and_send_invoice", { ...args, idempotency_key: randomUUID() }).then(() =>
-        call(viner, "issue_and_send_invoice", { ...args, idempotency_key: randomUUID() })
+      call(viner, "issue_invoice", { ...args, idempotency_key: randomUUID() }),
+      call(lucie, "issue_invoice", { ...args, idempotency_key: randomUUID() }).then(() =>
+        call(viner, "issue_invoice", { ...args, idempotency_key: randomUUID() })
       ),
     ]);
     expect(results.filter((r) => r.data.status === "issued")).toHaveLength(1);
     expect(route.fake.writes().filter((w) => w === "POST /IssuedInvoices")).toHaveLength(1);
     expect(route.fake.invoices).toHaveLength(1);
-    expect(invoiceMails()).toHaveLength(1);
+    expect(mail.sent).toEqual([]);
   });
 
   it("změna objednávky po náhledu, podvržený token nebo jiná objednávka → stop bez požadavku do iDokladu", async () => {
@@ -383,7 +428,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     route.fake = createFakeIdoklad();
     const token = preview.data.preview_token as string;
     const issue = (orderId: string, previewToken: string) =>
-      call(viner, "issue_and_send_invoice", { order_id: orderId, preview_token: previewToken, confirm: true, idempotency_key: randomUUID() });
+      call(viner, "issue_invoice", { order_id: orderId, preview_token: previewToken, confirm: true, idempotency_key: randomUUID() });
 
     expect(await issue(other.id, token)).toMatchObject({ isError: true, text: expect.stringMatching(/jiné objednávce/) });
     const [v, body] = token.split(".");
@@ -403,7 +448,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
       UPDATE invoice_provider_links SET state = 'failed', external_id = '987654', last_error = 'FullyPay selhal'
       WHERE invoice_id IN (SELECT id FROM invoices WHERE order_id = ${order.id})`);
     route.fake = createFakeIdoklad();
-    const stopped = await call(viner, "issue_and_send_invoice", {
+    const stopped = await call(viner, "issue_invoice", {
       order_id: order.id,
       preview_token: preview.data.preview_token,
       confirm: true,
@@ -415,7 +460,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     await db.execute(sql`
       UPDATE invoice_provider_links SET state = 'pending', external_id = NULL, attempts = 1
       WHERE invoice_id IN (SELECT id FROM invoices WHERE order_id = ${order.id})`);
-    const pending = await call(viner, "issue_and_send_invoice", {
+    const pending = await call(viner, "issue_invoice", {
       order_id: order.id,
       preview_token: preview.data.preview_token,
       confirm: true,
@@ -450,6 +495,66 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
   });
 
   // ---------------------------------------------------------------- čtení iDokladu
+
+  it("objednávka z e-shopu zaplacená kartou (create_order paid_by_card): na převod se nečeká, faktura hned uhrazená kartou, bez e-mailu; PDF v MojeBegina", async () => {
+    const ORG = "00000000-0000-4000-8000-00000000c001";
+    await db.execute(sql`INSERT INTO organizations (id, ico, name, registered_address) VALUES (${ORG}, '12345679', 'TEST Karta s.r.o.', 'Testovací 1, 110 00 Praha') ON CONFLICT DO NOTHING`);
+    const orderArgs = {
+      source: "eshop",
+      external_reference: "9301",
+      customer_ico: "12345679",
+      contact_name: "Test Kupující",
+      contact_email: "kupujici@karta.test",
+      items: [{ name: "TEST Dýňová polévka", quantity: 10, unit_price_kc: 379 }],
+      shipping_kc: 290,
+      shipping_method: "Chlazená přeprava",
+      paid_by_card: true,
+      ordered_at: today(),
+      delivery_name: "Test Kupující",
+      delivery_address: "Testovací 12, 318 00 Plzeň",
+      expected_total_kc: 10 * 379 + 290,
+    };
+    const prepared = await call(viner, "prepare_order", orderArgs);
+    expect(prepared.data).toMatchObject({ autoCreateAllowed: true, order: { channel: "import", paymentStatus: "paid" } });
+    const created = await call(viner, "create_order", { ...orderArgs, proposal_token: prepared.data.proposal_token, approval: "standing_instruction", idempotency_key: randomUUID() });
+    expect(created.isError, created.text).toBe(false);
+    const orderId = created.data.orderId as string;
+    const [payment] = await rows(sql`SELECT source, external_id, method, status, amount_hal::int AS amount_hal FROM payments WHERE order_id = ${orderId}`);
+    expect(payment).toEqual({ source: "manual", external_id: "woocommerce:9301", method: "card", status: "succeeded", amount_hal: 408000 });
+    expect(mail.sent).toEqual([]);
+
+    // náhled: zaplaceno kartou, nic nečeká
+    const preview = await call(lucie, "invoice_preview", { order_id: orderId });
+    expect(preview.data).toMatchObject({
+      canIssue: true,
+      cannotIssueReasons: [],
+      orderStatus: { paidForInvoice: true },
+      payment: { paid: true, method: "card", methodLabel: "kartou", invoiceMarkedPaid: true, note: expect.stringMatching(/na převod se nečeká/) },
+      draft: { vs: "9301", totalKc: 4080 },
+    });
+    route.fake = createFakeIdoklad();
+    const next = route.fake.next();
+    const issued = await call(lucie, "issue_invoice", { order_id: orderId, preview_token: preview.data.preview_token, confirm: true, idempotency_key: randomUUID() });
+    expect(issued.data).toMatchObject({ status: "issued", invoiceNumber: next.number, markedPaid: true, emailed: false });
+    const post = route.fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
+    expect(post).toMatchObject({ NumericSequenceId: 7277293, PaymentOptionId: 2, VariableSymbol: "9301", ItemsTextSuffix: expect.stringContaining("Faktura je již uhrazena – neplaťte.") });
+    expect(route.fake.writes()).toContain(`PUT /IssuedDocumentPayments/FullyPay/${next.id}`);
+    expect(mail.sent).toEqual([]);
+
+    // PDF v MojeBegina (po přihlášení; čte se z iDokladu) — vystavovatel i vedení s přístupem k objednávkám
+    const { GET } = await import("@/app/rizeni-firmy/objednavky/[id]/faktura-pdf/route");
+    const response = await runAsAgent(lucie.ctx, () =>
+      GET(new Request(`https://moje.begina.cz/rizeni-firmy/objednavky/${orderId}/faktura-pdf`), { params: Promise.resolve({ id: orderId }) } as never)
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-disposition")).toContain(`faktura-${next.number}.pdf`);
+    expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(0);
+    // bez přihlášení → přihlášení, nic se nevydá
+    const anonymous = await GET(new Request(`https://moje.begina.cz/rizeni-firmy/objednavky/${orderId}/faktura-pdf`), { params: Promise.resolve({ id: orderId }) } as never);
+    expect(anonymous.status).toBe(307);
+    expect(route.fake.writes().filter((w) => w === "POST /IssuedInvoices")).toHaveLength(1);
+  });
 
   it("čtení iDokladu přes MCP: kanál mcp:chatgpt, audit s uživatelem; bez povoleného kanálu odmítnuto", async () => {
     // jen čtení: odpovědi ve tvaru iDoklad API v3 (agenda Begina, jedna řada, žádné faktury)

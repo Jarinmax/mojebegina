@@ -13,6 +13,11 @@ export type AgentTool = {
   definition: ToolDefinition;
   write: boolean;
   /**
+   * Zápis jiného druhu než obecný: „invoicing“ = fakturace v iDokladu — povolí
+   * ho jen souhlas mojebegina.invoicing (+ MCP_ALLOW_INVOICING), ne mojebegina.write.
+   */
+  writeScope?: "invoicing";
+  /**
    * Jen pro některé osoby (např. fakturace — invoiceAuth.ts): ostatním se
    * nástroj nevypíše a volání server odmítne. Bez visible = všem.
    */
@@ -27,6 +32,7 @@ export function defineTool<P>(tool: {
   title: string;
   description: string;
   write: boolean;
+  writeScope?: "invoicing";
   visible?: (ctx: NonNullable<AuthContext>) => boolean;
   properties: Record<string, unknown>;
   required: string[];
@@ -45,6 +51,7 @@ export function defineTool<P>(tool: {
     : tool.properties;
   return {
     write: tool.write,
+    ...(tool.writeScope ? { writeScope: tool.writeScope } : {}),
     ...(tool.visible ? { visible: tool.visible } : {}),
     definition: {
       name: tool.name,

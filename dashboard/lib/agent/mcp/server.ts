@@ -1,6 +1,7 @@
 // GPT/MCP pilot — jedno volání nástroje od začátku do konce:
 //   0. nástroj jen pro některé osoby (visible) — ostatním neexistuje,
-//   1. rozsah (scope): zápis jen s mojebegina.write,
+//   1. rozsah (scope): zápis jen s mojebegina.write, fakturace jen
+//      s mojebegina.invoicing (zvlášť, write ji nezahrnuje),
 //   2. kontrola argumentů (bez DB),
 //   3. u zápisu limit za hodinu a atomický claim idempotency_key,
 //   4. samotná práce pod identitou uživatele (runAsAgent → getAuthContext),
@@ -12,7 +13,7 @@ import * as schema from "@/lib/db/schema";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 import { runAsAgent } from "../context";
 import { READ_LIMIT_PER_HOUR, WRITE_LIMIT_PER_HOUR, type AgentConfig } from "../config";
-import { canWrite } from "../oauthCore";
+import { canInvoice, canWrite } from "../oauthCore";
 import type { AgentSession } from "../oauthStore";
 import { ArgError, idempotencyKey } from "./args";
 import { claimWrite, finishWrite, logCall, readsInLastHour, writesInLastHour, type AuditBase } from "./audit";
@@ -49,6 +50,11 @@ function visibleTo(tool: AgentTool, session: AgentSession): boolean {
   return tool.visible ? tool.visible(session.ctx) : true;
 }
 
+/** Smí souhlas tenhle zápis? Fakturace má vlastní scope, obecný zápis ji neodemyká. */
+function writeAllowed(tool: AgentTool, config: AgentConfig, scope: string): boolean {
+  return tool.writeScope === "invoicing" ? canInvoice(config, scope) : canWrite(config, scope);
+}
+
 function toResult(outcome: ToolOutcome): CallToolResult {
   return outcome.ok ? toolSuccess(outcome.data) : toolError(outcome.error);
 }
@@ -71,10 +77,15 @@ export async function callAgentTool(
     return toolError(DENIED_MESSAGE);
   }
 
-  if (tool.write && !canWrite(config, session.scope)) {
-    const message = config.writeEnabled
-      ? "Zápisy nejsou pro tohle propojení povolené (souhlas byl udělen jen pro čtení). Pro zápisy je potřeba konektor v ChatGPT znovu připojit a zápisy povolit."
-      : "Zápisy jsou v MojeBegina pro asistenta zatím vypnuté — asistent může jen číst.";
+  if (tool.write && !writeAllowed(tool, config, session.scope)) {
+    const message =
+      tool.writeScope === "invoicing"
+        ? config.invoicingEnabled
+          ? "Fakturace není pro tohle propojení povolená (souhlas bez fakturace). Je potřeba konektor v ChatGPT znovu připojit a na souhlasové stránce povolit fakturaci."
+          : "Fakturace je v MojeBegina pro asistenta vypnutá (MCP_ALLOW_INVOICING)."
+        : config.writeEnabled
+          ? "Zápisy nejsou pro tohle propojení povolené (souhlas byl udělen jen pro čtení). Pro zápisy je potřeba konektor v ChatGPT znovu připojit a zápisy povolit."
+          : "Zápisy jsou v MojeBegina pro asistenta zatím vypnuté — asistent může jen číst.";
     await logCall(db, base, { status: "denied", error: "scope" });
     return toolError(message);
   }
@@ -134,7 +145,7 @@ export function agentMcpServer(db: Db, session: AgentSession, config: AgentConfi
   return {
     instructions: SERVER_INSTRUCTIONS,
     listTools: () =>
-      AGENT_TOOLS.filter((t) => visibleTo(t, session) && (!t.write || canWrite(config, session.scope))).map((t) => t.definition),
+      AGENT_TOOLS.filter((t) => visibleTo(t, session) && (!t.write || writeAllowed(t, config, session.scope))).map((t) => t.definition),
     callTool: (name, args) => callAgentTool(db, session, config, name, args),
   };
 }

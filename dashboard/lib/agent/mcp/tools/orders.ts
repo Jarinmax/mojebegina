@@ -119,6 +119,10 @@ const ORDER_PROPERTIES: Record<string, unknown> = {
   shipping_method: S("Způsob dopravy (text, např. Rozvoz Begina, PPL, osobní odběr)."),
   payment_method: S("Způsob platby (text, např. převodem na fakturu, hotově, kartou)."),
   payment_status: { type: "string", enum: [...PAYMENT_STATUSES], description: "Stav platby: unpaid (výchozí), invoiced, paid." },
+  paid_by_card: {
+    type: "boolean",
+    description: "true = objednávka z e-shopu begina.cz je už zaplacená kartou (potvrzení platby v e-mailu). Zapíše se úhrada kartou, faktura pak půjde vystavit hned jako uhrazená. Jen se source=eshop.",
+  },
   fulfillment_status: { type: "string", enum: [...INTAKE_FULFILLMENT_STATUSES], description: "Stav objednávky (výchozí new)." },
   ordered_at: S("Datum objednávky RRRR-MM-DD (výchozí dnes)."),
   planned_delivery_at: S("Požadovaný termín doručení RRRR-MM-DD."),
@@ -172,6 +176,7 @@ function intakeOf(args: Record<string, unknown>): OrderIntakeInput {
     shippingMethod: str(args, "shipping_method"),
     paymentMethod: str(args, "payment_method"),
     paymentStatus: str(args, "payment_status"),
+    paidByCard: optionalBoolean(args, "paid_by_card"),
     fulfillmentStatus: str(args, "fulfillment_status"),
     orderedAt: str(args, "ordered_at"),
     plannedDeliveryAt: str(args, "planned_delivery_at"),

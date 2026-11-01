@@ -17,7 +17,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
-import { reallyPaid } from "@/lib/eshop/invoicing/issue";
+import { issueInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
 import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput } from "@/lib/eshop/checkout";
@@ -727,7 +727,8 @@ export async function issueOrderInvoice(
  */
 export async function issueOrderInvoiceDetailed(
   orderId: string,
-  options: { expectedFingerprint?: string } = {}
+  /** send=false: jen vystavit (asistent) — PDF zákazníkovi až na výslovný pokyn (sendOrderInvoiceToCustomer) */
+  options: { expectedFingerprint?: string; send?: boolean } = {}
 ): Promise<IssueOrderInvoiceOutcome> {
   const ctx = await requireOrderContext();
   if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Fakturu do iDokladu smí vystavit jen ${INVOICE_ISSUER_NAMES}.` };
@@ -749,11 +750,9 @@ export async function issueOrderInvoiceDetailed(
       };
     }
   }
-  const result = await issueAndSendInvoice(db, orderId, await getAppOrigin(), {
-    type: "user",
-    userId: ctx.userId,
-    name: ctx.name ?? ctx.email,
-  });
+  const actor = { type: "user" as const, userId: ctx.userId, name: ctx.name ?? ctx.email };
+  const result: Awaited<ReturnType<typeof issueAndSendInvoice>> =
+    options.send === false ? await issueInvoice(db, orderId, { actor }) : await issueAndSendInvoice(db, orderId, await getAppOrigin(), actor);
   const pdfSentBefore = before?.pdfSentAt != null;
   switch (result.status) {
     case "issued":
@@ -805,6 +804,84 @@ export function unclearInvoiceState(invoice: OrderInvoiceView | null): string | 
     return `V iDokladu už k objednávce existuje doklad (ID ${link.externalId}), ale vystavení skončilo chybou: ${link.lastError ?? "bez popisu"}. Nic se nespustilo — nutná ruční kontrola v detailu objednávky.`;
   }
   return null;
+}
+
+export type SendInvoiceOutcome =
+  | { ok: true; invoiceNumber: string; emailed: boolean; alreadySentAt: Date | null; emailInProgress: boolean; recipients: { to: string[]; bcc: string[] }; message: string }
+  | { ok: false; error: string };
+
+/**
+ * Pošle zákazníkovi PDF UŽ VYSTAVENÉ faktury (asistent jen na výslovný pokyn
+ * uživatele). Stejná cesta jako po vystavení tlačítkem: e-mail „Faktura
+ * k objednávce“ se skrytou kopií, nejvýš jednou (zámek odeslání, pdf_sent_at).
+ * Už odeslanou fakturu znovu neposílá. Nic nevystavuje.
+ */
+export async function sendOrderInvoiceToCustomer(orderId: string): Promise<SendInvoiceOutcome> {
+  const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Fakturu zákazníkovi smí poslat jen ${INVOICE_ISSUER_NAMES}.` };
+  const mode = invoicingMode();
+  if (mode.mode !== "live") return { ok: false, error: mode.reason };
+  const before = await loadOrderInvoice(db, orderId);
+  if (before?.docState !== "issued" || !before.invoiceNumber) {
+    return { ok: false, error: "Faktura k objednávce ještě není vystavená — nejdřív ji vystavte (issue_invoice)." };
+  }
+  const config = emailConfig();
+  if (!config) return { ok: false, error: "Odesílání e-mailů z MojeBegina není na tomto prostředí zapnuté." };
+  const [order] = await db.select({ contactEmail: orders.contactEmail }).from(orders).where(eq(orders.id, orderId)).limit(1);
+  const resolved = order?.contactEmail ? resolveRecipients([order.contactEmail], config) : { to: [], withheld: [] };
+  const recipients = { to: resolved.to, bcc: invoiceCopyRecipients(config, resolved.to) };
+  if (before.pdfSentAt) {
+    return {
+      ok: true,
+      invoiceNumber: before.invoiceNumber,
+      emailed: false,
+      alreadySentAt: before.pdfSentAt,
+      emailInProgress: false,
+      recipients,
+      message: `Faktura ${before.invoiceNumber} už byla zákazníkovi odeslaná — znovu se neposílá.`,
+    };
+  }
+  if (recipients.to.length === 0) return { ok: false, error: "Objednávka nemá e-mail zákazníka — fakturu nejde poslat." };
+  const result = await issueAndSendInvoice(db, orderId, await getAppOrigin(), { type: "user", userId: ctx.userId, name: ctx.name ?? ctx.email });
+  if (result.status !== "issued" && result.status !== "already_issued") return { ok: false, error: result.status === "skipped" ? result.reason : result.error };
+  return {
+    ok: true,
+    invoiceNumber: before.invoiceNumber,
+    emailed: result.emailed === true,
+    alreadySentAt: null,
+    emailInProgress: result.emailInProgress === true,
+    recipients,
+    message: result.emailed
+      ? `Faktura ${before.invoiceNumber} je odeslaná zákazníkovi (${recipients.to.join(", ")}).`
+      : result.emailInProgress
+        ? `Fakturu ${before.invoiceNumber} právě odesílá jiný požadavek — znovu se neposílala.`
+        : `Fakturu ${before.invoiceNumber} se NEPODAŘILO odeslat — zkontrolujte detail objednávky.`,
+  };
+}
+
+/**
+ * PDF vystavené faktury (čte se z iDokladu, jen čtení) — pro stažení
+ * v MojeBegina. Stejné oprávnění jako detail objednávky (requireOrderContext).
+ */
+export async function getOrderInvoicePdf(orderId: string): Promise<{ filename: string; content: Buffer } | null> {
+  await requireOrderContext();
+  const pdf = await loadIssuedPdf(db, orderId).catch(() => null);
+  return pdf ? { filename: pdf.filename, content: Buffer.from(pdf.contentBase64, "base64") } : null;
+}
+
+/** Stav vystavené faktury pro asistenta (ID v iDokladu, řada, odeslání). */
+export async function getOrderInvoiceSummary(
+  orderId: string
+): Promise<{ invoiceNumber: string | null; externalId: string | null; numberSeries: string | null; pdfSentAt: Date | null } | null> {
+  await requireOrderContext();
+  const invoice = await loadOrderInvoice(db, orderId);
+  if (!invoice) return null;
+  return { invoiceNumber: invoice.invoiceNumber, externalId: invoice.link?.externalId ?? null, numberSeries: invoice.link?.numberSeries ?? null, pdfSentAt: invoice.pdfSentAt };
+}
+
+/** Odkaz na PDF vystavené faktury v MojeBegina (po přihlášení; PDF se čte z iDokladu). */
+export async function invoicePdfUrl(orderId: string): Promise<string> {
+  return `${await getAppOrigin()}/rizeni-firmy/objednavky/${orderId}/faktura-pdf`;
 }
 
 /** Otisk návrhu faktury — náhled a vystavení musí mít stejný (žádná změna mezi tím). */

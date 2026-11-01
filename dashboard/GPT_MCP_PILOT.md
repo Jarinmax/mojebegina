@@ -66,7 +66,8 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 | `create_order` | zápis | založí NOVOU objednávku podle návrhu (`proposal_token` + `approval` + `idempotency_key`); čistý návrh podle trvalého pokynu, jinak jen po rozhodnutí uživatele; existující nikdy nemění |
 | `idoklad_search_invoices`, `idoklad_get_invoice`, `idoklad_list_series`, `idoklad_numbering_audit`, `idoklad_unpaid_and_discrepancies` | čtení | iDoklad jen ke čtení (`lib/idoklad-read`, audit `idoklad_read_log`) — **jen vystavovatelé faktur** |
 | `invoice_preview` | čtení | náhled faktury k objednávce bez zápisu: odběratel, položky, celkem, VS, řada, blokující problémy, stav dosavadní faktury, komu odejde PDF (Komu + Bcc); vrací `preview_token` — **jen vystavovatelé faktur** |
-| `issue_and_send_invoice` | zápis | vystavení v iDokladu + jedno odeslání PDF, týmž motorem jako tlačítko v detailu objednávky — **jen vystavovatelé faktur** |
+| `issue_invoice` | fakturace (`mojebegina.invoicing`) | vystaví fakturu v iDokladu (řada E-shop Begina, uhrazená) týmž motorem jako tlačítko v detailu objednávky; **zákazníkovi nic neposílá**; vrací číslo, ID v iDokladu, odkaz na objednávku a PDF — **jen vystavovatelé faktur** |
+| `send_invoice_to_customer` | fakturace (`mojebegina.invoicing`) | jen na výslovnou žádost: pošle PDF už vystavené faktury zákazníkovi (jednou, Bcc) — **jen vystavovatelé faktur** |
 
 Asistent **nikdy** nemaže, nemění fázi leadu, vlastníka, role ani oprávnění a
 nesahá na objednávky ani platby. Zápisové nástroje dostane jen
@@ -117,59 +118,52 @@ Pojistky:
 ### Fakturace přes asistenta (Jaroslav Viner, Lucie Königsbergová)
 
 Žádná druhá integrace iDokladu: nástroje volají `lib/data/orders.ts`
-(`previewOrderInvoice`, `issueOrderInvoiceDetailed`) → `issueAndSendInvoice`
-→ `issueInvoice`, tedy tutéž cestu jako tlačítko „Vystavit fakturu v iDokladu“
-(faktura 9260001): brána ostrého provozu (Production + `IDOKLAD_INVOICING_ENABLED`
-manual/on), kontrola iDokladu před každým pokusem, řada E-shop Begina 7277293,
-hledání podle VS, zámek proti souběhu, „uhrazeno“, PDF z iDokladu, e-mail
-zákazníkovi se skrytou kopií `ESHOP_EMAIL_INVOICE_COPY_TO`.
+(`previewOrderInvoice`, `issueOrderInvoiceDetailed(send: false)`,
+`sendOrderInvoiceToCustomer`) → `issueInvoice` / `issueAndSendInvoice`, tedy
+tutéž cestu jako tlačítko v detailu objednávky (faktura 9260001): brána ostrého
+provozu (Production + `IDOKLAD_INVOICING_ENABLED` manual/on), kontrola iDokladu
+před každým pokusem, řada E-shop Begina 7277293, hledání podle VS, zámek proti
+souběhu, „uhrazeno“ (FullyPay + text „Faktura je již uhrazena – neplaťte.“).
+Jen k objednávkám v MojeBegina (e-shop, import z WooCommerce); ruční řadu
+`2026xxxx` vede Lucie v iDokladu a asistent v ní nevystavuje.
 
-1. `invoice_preview` (jen čtení, nic nezapíše) — asistent ukáže celý návrh.
+1. `invoice_preview` (jen čtení) — návrh, úhrada (způsob, den, text „uhrazeno“),
+   stav faktury, odkaz na PDF u vystavené.
 2. Uživatel výslovně potvrdí.
-3. `issue_and_send_invoice` s `preview_token`, `confirm=true` a `idempotency_key`.
+3. `issue_invoice` s `preview_token`, `confirm=true` a `idempotency_key` — jen vystaví,
+   **zákazníkovi nic nepošle**. Vrací číslo faktury, ID v iDokladu, odkaz na objednávku
+   a na PDF (`/rizeni-firmy/objednavky/{id}/faktura-pdf`, po přihlášení, čte z iDokladu).
+4. `send_invoice_to_customer` jen na výslovnou žádost uživatele — PDF jednou, Bcc
+   `ESHOP_EMAIL_INVOICE_COPY_TO`; už odeslanou fakturu znovu neposílá.
 
-Pojistky navíc oproti tlačítku:
+Úhrada: faktura vzniká až po úplné úhradě v MojeBegina (`reallyPaid`). Kartou
+zaplacená objednávka se na převod nečeká — e-shop MojeBegina zapíše platbu
+webhook Stripe, objednávka z e-shopu begina.cz zapsaná přes `create_order` má
+`paid_by_card=true` (zapíše platbu kartou jako import #5215). Na faktuře je vždy
+způsob úhrady a „Faktura je již uhrazena – neplaťte.“
 
-- **Nástroje vidí jen vystavovatelé faktur** (`isInvoiceIssuer`, `lib/data/invoiceAuth.ts`).
-  Ostatním se nevypíšou; volání je odmítnuté a zapsané do auditu (`not_permitted`).
+Oprávnění — **samostatný souhlas `mojebegina.invoicing`**, ne obecný zápis:
+
+- Nástroje vidí jen vystavovatelé faktur (`isInvoiceIssuer`, `lib/data/invoiceAuth.ts`).
+- `issue_invoice` a `send_invoice_to_customer` povolí jen souhlas `mojebegina.invoicing`
+  a zároveň `MCP_ALLOW_INVOICING=on`. `mojebegina.write` fakturaci neodemyká a fakturační
+  souhlas neodemyká obecné zápisy (CRM, Živá mapa, objednávky). Na souhlasové stránce
+  se fakturace nabídne jen vystavovateli v jeho roli (Lucie: EXECUTIVE).
 - **`preview_token`** (HMAC z `MCP_OAUTH_CLIENT_SECRET`) platí 30 minut, jen pro
-  uživatele, který náhled zobrazil, jen pro tu objednávku a jen pro PŘESNĚ ten
-  návrh. Změní-li se údaje objednávky (nebo den vystavení), vystavení se zastaví.
-- **Nejasný stav = stop:** probíhající pokus, nedoběhlý pokus, nebo doklad
-  v iDokladu po chybě → nic se nespustí, asistent doporučí ruční kontrolu v detailu objednávky.
-- **Jedna faktura, jedno PDF:** stejný `idempotency_key` vrátí uložený výsledek;
-  nový klíč na už vystavenou fakturu ji nevystaví znovu. Odeslání PDF drží
-  krátký zámek (`invoice_provider_links.next_attempt_at`, 5 min) — souběžné
-  požadavky (asistent, tlačítko, automat) PDF neodešlou dvakrát.
-- **Audit:** `agent_audit_log` (každé volání, uživatel, výsledek),
-  `idoklad_read_log` (čtení iDokladu, kanál `mcp:chatgpt`), `order_activity`
-  (`invoice_issued` s autorem „Jméno (přes ChatGPT)“, odeslaný e-mail).
+  uživatele, který náhled zobrazil, jen pro tu objednávku a jen pro PŘESNĚ ten návrh.
+- **Nejasný stav = stop:** probíhající pokus, nedoběhlý pokus, doklad v iDokladu po chybě.
+- **Audit:** `agent_audit_log` (každé volání, uživatel), `idoklad_read_log` (čtení
+  iDokladu, kanál `mcp:chatgpt`), `order_activity` (`invoice_issued` s autorem
+  „Jméno (přes ChatGPT)“, odeslaný e-mail).
 
-Proměnné v **Production** (Vercel), pak nový deployment a v ChatGPT konektor
-odpojit a znovu připojit **se zápisy**:
+Co musí být zapnuté, aby nástroje uviděla Lucie:
 
-| Proměnná | Hodnota |
+| Kde | Co |
 |---|---|
-| `MCP_ALLOWED_USER_IDS` | `de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c,f9f93f03-92b0-4724-becd-c0a3576b5275` (Jaroslav, Lucie) |
-| `MCP_ALLOW_WRITE` | `on` |
-| `IDOKLAD_READ_CHANNELS` | `mcp:chatgpt` |
-| `IDOKLAD_INVOICING_ENABLED` | `manual` (beze změny) |
-
-Pojistky zápisů:
-
-- **Idempotence:** každý zápis nese `idempotency_key`. Když ChatGPT zopakuje stejné
-  volání (třeba po výpadku spojení), nic se nezapíše podruhé.
-- **Limit:** nejvýš 60 zápisů a 600 čtení za hodinu na jeden souhlas;
-  stránky max. 50 záznamů, jednotlivé hovory max. 31 dní, seznamy max. 92 dní,
-  manažerské souhrny bez omezení období (jen čísla).
-- **Hlavička `source`** v každém čtecím výstupu: Preview/Production, Neon větev,
-  čas dotazu, období, čerstvost čtené domény, `complete`/`truncated`/`nextCursor`
-  a varování (zastaralá kopie, nedostupná data).
-- **Audit:** každé volání (i zamítnuté) jde do `agent_audit_log`. Přehled za
-  posledních 7 dní je v MojeBegina › Řízení firmy › Asistent ChatGPT
-  (`/rizeni-firmy/asistent`). Tam jde přístup i jedním tlačítkem odvolat.
-- **Viditelnost:** vše, co asistent zapíše, má v historii autora
-  „Jméno (přes ChatGPT)“.
+| Vercel Production | `MCP_ALLOW_INVOICING=on`, `IDOKLAD_READ_CHANNELS=mcp:chatgpt`, `IDOKLAD_INVOICING_ENABLED=manual` (beze změny), `MCP_ALLOWED_USER_IDS` s Lucií |
+| Vercel Domains | `gpt-pilot.begina.cz` → Production (ne Git větev pilotu) |
+| ChatGPT konektor | scope `mojebegina.read mojebegina.invoicing` (nebo bez scope), obnovit nástroje |
+| Souhlas | Lucie znovu připojí konektor a zaškrtne „vystavovat faktury…“ (role EXECUTIVE) |
 
 ## Stav ověření
 
