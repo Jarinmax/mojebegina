@@ -36,6 +36,25 @@ Po změně DNS `@` a `www` na Vercel:
 | A4 | Platby, výplaty, spory | Platby (WooPayments) → Transakce / Výplaty / Spory → Stáhnout, celé období | 3× CSV |
 | A5 | Nevyřízené objednávky | WooCommerce → Objednávky, stavy *Zpracovává se*, *Čeká na platbu*, *Pozastaveno* | seznam čísel |
 
+**Stav 1. 11. 2026 — archiv hotový (A1, A5):**
+- soubory webu: Active24 → Pokročilá konfigurace → Web → **Zálohy a obnova**
+  → *Vyžádat zálohu* (záloha 31. 10. 2026, adresář `/`) → odkaz e-mailem na
+  `info@begina.cz` → uloženo v iCloudu (složka `www` = kompletní WordPress,
+  `wp-config.php`, `wp-content`). Pozor: **Nová obnova** přepisuje web — nepoužívat.
+- databáze: Pokročilá konfigurace → Databáze → Seznam → `beginacz` → ••• →
+  **Stáhnout** → `beginacz.sql.gz` (5,8 MB, 89 MB SQL, 120 tabulek, dump
+  dokončen 1. 11. 2026 14:27, gzip neporušený).
+- obsah: 66 objednávek (23. 5. 2025 – 29. 10. 2026): 62 vyřízených,
+  1 vrácená, 1 zrušená, 1 neúspěšná, 1 v koši. **Nevyřízené: žádné.**
+  WooPayments za posledních 120 dní: 13 objednávek → administraci držet
+  přístupnou zhruba do konce února 2027.
+- objednávky 5212–5214, 5217–5220 vede Begina ve vlastní evidenci
+  (70000003–05 v MojeBegina odpovídají 5217–5219); převzetí do MojeBegina
+  není potřeba (rozhodnutí vedení 1. 11. 2026).
+- A2–A4 (CSV) jsou volitelné — data jsou v záloze databáze; A4 (transakce
+  a spory WooPayments) doporučeno stáhnout v den D, protože část údajů je
+  jen na serveru WooPayments.
+
 Nevyřízené objednávky (A5) se před přepnutím **vyřídí ve WooCommerce** (do
 konce), nebo se převezmou do MojeBegina stejně jako #5215 (import skriptem,
 `docs/eshop-production/FOOD_FEST_5215.md`).
@@ -45,8 +64,8 @@ konce), nebo se převezmou do MojeBegina stejně jako #5215 (import skriptem,
 **B1 — dlouhodobě: `stary.begina.cz` (doporučeno)**
 
 Před dnem D (hosting + jeden NOVÝ DNS záznam, `@`/`www`/MX beze změny):
-1. Active24 → Hostingy → `begina_cz` → Přiřazené domény → **Přidat** →
-   `stary.begina.cz` jako **web** (stejný adresář jako `begina.cz`, ne
+1. Active24 → `begina.cz` → Pokročilá konfigurace → Web → **Aliasy** →
+   přidat `stary.begina.cz` (stejný web/adresář jako `begina.cz`, ne
    přesměrování). Volné jsou 2 ze 3 domén tarifu.
 2. DNS: wildcard `*.begina.cz` míří na **jiný** server (`37.9.175.163` /
    `2a00:4b40:aaaa:2005::6`), ne na web (`.164`). `stary.begina.cz` proto
@@ -96,8 +115,8 @@ certifikát. Po skončení řádek smazat, jinak tento počítač neuvidí nový
 | H1 | Hosting a přístup do administrace | ✅ Active24 (admin.active24.cz), účet `egeenvz1` (Jaroslav Viner) |
 | H2 | Kdo spravuje DNS zónu `begina.cz` | ✅ Active24 (automatiky „Active24 Web“ a „Active24 Mail“ zapnuté). Web: `@`/`www` A `37.9.175.164`, AAAA `2a00:4b40:aaaa:2005::5`, TTL 3600. Wildcard `*` → `.163`/`::6` (jiný server). Pošta: MX `mx10`/`mx20.active24.cz`, SPF, DKIM `mail._domainkey`, `ecomail._domainkey`, `mailin1/2`, `mail`/`webmail`/`smtp`/`pop3`. **Záloha zóny: DNS → Export BIND souboru** (úplné hodnoty) — doplnit |
 | H3 | Alias/subdoména ke stávajícímu webu + Let's Encrypt | ✅ tarif má 3 domény (1 použitá); certifikát ověřit v nastavení domény na hostingu |
-| H5 | Přístup k souborům webu (správce souborů / FTP) | ❓ Active24 → hosting → Soubory / FTP |
-| H6 | Záloha / export databáze | ❓ Active24 → hosting → Zálohy / Databáze (phpMyAdmin) |
+| H5 | Přístup k souborům webu (správce souborů / FTP) | ✅ Pokročilá konfigurace → Web → Zálohy a obnova; FTP účty |
+| H6 | Záloha / export databáze | ✅ Pokročilá konfigurace → Databáze → `beginacz` → ••• → Stáhnout |
 | H7 | Do kdy platí certifikát `begina.cz` na hostingu | ❓ detail domény na hostingu (SSL) |
 | W1 | Administrátorský účet WordPressu | ✅ máte |
 
@@ -105,7 +124,7 @@ Hesla a klíče se do chatu neposílají. Stačí odpovědět, zda a kdo příst
 
 ## Pořadí (návrh)
 
-1. **Teď:** A1–A5 (záloha a exporty, nic se tím nemění).
+1. ✅ A1 + A5 (1. 11. 2026): záloha souborů i databáze, nevyřízené žádné.
 2. Doplnit H2, H5–H7 v administraci Active24.
 3. Před dnem D, po souhlasu: B1 kroky 1–4 (alias, DNS záznam `stary`,
    certifikát, noindex).
