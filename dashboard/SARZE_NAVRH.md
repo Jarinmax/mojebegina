@@ -314,9 +314,9 @@ co systém nevyčte nebo neodhadne.
 2. Server fotky přečte AI (Claude, čtení obrázků) a vrátí strukturovaný
    návrh:
    - obchod / dodavatel (IČO z účtenky → `suppliers`), datum, číslo dokladu;
-   - řádky: text z účtenky („OVES.SMETANA VAR.200ML“), množství, jednotka,
+   - řádky: text z účtenky („KOKOS.MLEKO 400ML“), množství, jednotka,
      cena;
-   - **spárování se surovinou** z číselníku („Ovesná smetana na vaření“). Každé ruční
+   - **spárování se surovinou** z číselníku („Kokosové mléko“). Každé ruční
      spárování se uloží jako alias (`raw_material_aliases`), takže příště
      se totéž spáruje samo;
    - řádky, které nejsou suroviny (taška, čistidlo), se samy odškrtnou.
@@ -332,8 +332,8 @@ AI nikdy nezapisuje sama — vždy jde o **návrh, který člověk potvrdí**
 - **výchozí identifikace = obchod + datum nákupu + číslo účtenky.** Pro
   „jeden krok zpět“ to stačí: víme, odkud a kdy surovina přišla, a obchod
   podle data dohledá svou šarži;
-- u **složených a rizikových surovin** (rostlinná smetana a mléko, bujón,
-  koření ve směsi, tofu, pasty) systém požádá o **fotku etikety** → AI
+- u **složených a rizikových surovin** (kokosové mléko, koření ve směsi,
+  pasty, konzervy) systém požádá o **fotku etikety** → AI
   z ní vyčte šarži, datum spotřeby, **alergeny a věty „může obsahovat
   stopy…“** a hlavně ověří, že surovina je **rostlinná**. Jedna fotka,
   nic se neopisuje. Lze vypnout po surovinách (sůl, dýně z trhu ji
@@ -395,7 +395,7 @@ suroviny se do nich nepoužívají. Systém to hlídá, ne jen papír:
   syrovátku, máslo, med, želatinu…);
 - **alergeny se počítají ze surovin:** sjednocení alergenů všech použitých
   šarží surovin se při vaření porovná s `products.allergens`. Chybí-li
-  alergen na produktu (ovesná smetana → lepek), šarži **nejde uvolnit
+  alergen na produktu (např. siřičitany z konzervantu E223 v kokosovém mléce), šarži **nejde uvolnit
   k prodeji**, dokud se to nevyřeší (opravit produkt / štítek, nebo změnit
   surovinu). Věty „může obsahovat stopy mléka“ ze surovin se zobrazí
   jako upozornění pro štítek;
@@ -458,7 +458,7 @@ Uvařeno 60 l · Var 96 °C · Zchlazeno na 4 °C v 13:40
 
 SUROVINY                     DODAVATEL           ŠARŽE DOD.   DMT/DP       MNOŽSTVÍ
 Brambory                     Farma Novák         —(trh)       —            12 kg
-Ovesná smetana na vaření     Velkoobchod XY      L2610-447    20. 11. 2026  8 l
+Kokosové mléko               Velkoobchod XY      L2610-447    20. 05. 2027  8 l
 Hlíva ústřičná               Farma Z             nákup 31.10. 14. 11. 2026  4 kg
 Bag-in-box 3 l               Obaly s.r.o.        BX-88812     —            19 ks
 ...
@@ -500,12 +500,14 @@ iDokladu.
 **Zjištění z DB (kontrola jen čtením, 1. 11. 2026):**
 - ⚠ **Sirupy a koktejly nemají `shelf_life_days`** → systém by jim
   nespočítal datum trvanlivosti; před spuštěním doplnit.
-- ⚠ **Všechny polévky mají `allergens = {}` (bez alergenů).** Polévky jsou
-  rostlinné, takže mléko a vejce odpadají — ale rostlinné náhražky
-  alergeny často mají: **ovesná smetana = oves = lepek**, sójová = sója,
-  kešu = ořechy; zeleninový bujón často celer, někdy hořčice. Ověřit
-  u kulajdy (smetana) a u polévek s bujónem. S evidencí surovin to systém
-  bude **hlídat automaticky** (6b).
+- **Všechny polévky mají `allergens = {}` (bez alergenů)** — odpovídá
+  receptuře (potvrzeno vedením 1. 11. 2026): polévky jsou 100% rostlinné,
+  jako rostlinná smetana se používá **jen kokosové mléko** (kokos není
+  mezi 14 alergeny EU), **nikdy bujón** ani ovesná/sójová smetana.
+  Zbývá hlídat jen etikety kupovaných surovin: konzervant **E220–E228
+  (siřičitany)** v některých kokosových mlécích, kořenící směsi (celer,
+  hořčice) a věty „může obsahovat stopy…“. To udělá kontrola alergenů
+  ze surovin (6b) automaticky.
 - `products.lot_code` neexistuje → doplnit kódy produktů.
 
 ---
@@ -544,7 +546,6 @@ Migrace podle zvyku repozitáře: `drizzle/0028_vyroba_1_0_sarze.sql`
    nesedí sklad.)
 7. **Kde nakupujete** (Makro, Lidl, Billa, farmáři, velkoobchod s fakturou)?
    Podle toho se vyladí čtení účtenek a dodacích listů.
-8. **Fotka etikety** u složených surovin (rostlinná smetana, bujón, směsi
-   koření) — chcete ji vyžadovat, nebo jen nabízet?
+8. **Fotka etikety** u složených surovin (kokosové mléko, směsi koření) — chcete ji vyžadovat, nebo jen nabízet?
 9. **Rostlinné jsou jen polévky, nebo i nápoje?** (Sirupy/čaje s medem?)
    Podle toho se nastaví příznak `is_plant_based` u dalších produktů.
