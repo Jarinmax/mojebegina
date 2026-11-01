@@ -297,7 +297,11 @@ export async function planOrderIntake(input: OrderIntakeInput): Promise<{ ok: tr
   if (value.expectedTotalKc === null) decisionReasons.push("Chybí kontrolní celková cena z podkladu (expected_total_kc) — součet nelze ověřit.");
   if (!value.externalReference) decisionReasons.push("Chybí externí číslo objednávky — ochrana proti dvojímu zápisu je jen podle zákazníka a částky.");
   if (value.plannedDeliveryAt !== null && value.plannedDeliveryAt < value.orderedAt) decisionReasons.push("Termín doručení je dřív než datum objednávky.");
-  if (value.paymentStatus === "paid") warnings.push("Stav „zaplaceno“ se uloží bez zápisu platby — platbu případně doplňte v detailu objednávky.");
+  if (value.paidByCard) {
+    warnings.push(`Zaplaceno kartou: zapíše se úhrada ${value.totalKc} Kč kartou (WooCommerce #${value.externalReference}) — faktura pak půjde vystavit hned jako uhrazená, na převod se nečeká.`);
+  } else if (value.paymentStatus === "paid") {
+    warnings.push("Stav „zaplaceno“ se uloží bez zápisu platby — platbu případně doplňte v detailu objednávky (převod spáruje banka).");
+  }
   if (value.externalInvoiceNumber) warnings.push(`Faktura ${value.externalInvoiceNumber} už existuje mimo MojeBegina — MojeBegina k objednávce fakturu nevystaví ani nepošle.`);
 
   const core: PlanCore = { value, customer, customerUpdate, responsible, variantIds };
@@ -401,6 +405,7 @@ export async function createOrderFromIntake(
     externalInvoiceNumber: value.externalInvoiceNumber,
     newCustomer: customer.status === "new",
     dicFilled: customerUpdate?.dic ?? null,
+    cardPaymentRecorded: value.paidByCard,
     responsibleUserId: plan.responsible?.userId ?? null,
     responsibleName: plan.responsible?.name ?? null,
   };
@@ -423,11 +428,12 @@ export async function createOrderFromIntake(
       INSERT INTO orders (id, channel, external_woocommerce_id, buyer_organization_id, contact_name, contact_phone, contact_email, entered_by_user_id,
                           recipient_name, recipient_address, recipient_phone, subtotal_kc, shipping_kc, total_kc,
                           payment_status, fulfillment_status, planned_delivery_at, responsible_user_id, note, customer_note,
-                          shipping_method_label, payment_method_label, ordered_at, paid_at)
+                          shipping_method_label, payment_method_code, payment_method_label, ordered_at, paid_at)
       SELECT ${orderId}::uuid, ${value.channel}, ${wooId}, ${buyer}, ${value.contactName}, ${value.contactPhone}, ${value.contactEmail}, ${ctx.userId},
              ${value.deliveryName}, ${value.deliveryAddress}, ${value.deliveryPhone}, ${value.subtotalKc}, ${value.shippingKc}, ${value.totalKc},
              ${value.paymentStatus}, ${value.fulfillmentStatus}, ${plannedDelivery}, ${plan.responsible?.userId ?? null}, ${value.note}, ${value.customerNote},
-             ${value.shippingMethod}, ${value.paymentMethod}, ${orderedAt}, ${value.paymentStatus === "paid" ? orderedAt : sql`NULL`}
+             ${value.shippingMethod}, ${value.paidByCard ? "karta" : null}, ${value.paymentMethod ?? (value.paidByCard ? "Platební karta (WooCommerce)" : null)},
+             ${orderedAt}, ${value.paymentStatus === "paid" ? orderedAt : sql`NULL`}
       WHERE true ${duplicateGuard}
       RETURNING id, order_number, payment_vs, external_woocommerce_id, buyer_organization_id`),
     db.execute(sql`
@@ -450,6 +456,15 @@ export async function createOrderFromIntake(
                  ${JSON.stringify({ ...audit, dic: customerUpdate.dic, dicSource: customerUpdate.source, dicReference: customerUpdate.reference, orderId })}::jsonb
           FROM upd
           RETURNING id`)
+      : db.execute(sql`SELECT 1`),
+    // úhrada kartou na e-shopu (model #5215): jedna platba, (source, external_id) je unikátní
+    value.paidByCard
+      ? db.execute(sql`
+          INSERT INTO payments (order_id, source, external_id, method, direction, status, amount_hal, vs, occurred_at, recorded_by_user_id, note, raw)
+          SELECT id, 'manual', ${`woocommerce:${reference}`}, 'card', 'inflow', 'succeeded', ${value.totalKc * 100}, ${reference}, ${orderedAt},
+                 ${ctx.userId}, ${`Kartou (WooCommerce #${reference}) — zapsáno přes ChatGPT`}, ${JSON.stringify({ wooOrderId: reference, via: "mcp" })}::jsonb
+          FROM orders WHERE id = ${orderId}::uuid
+          ON CONFLICT (source, external_id) DO NOTHING`)
       : db.execute(sql`SELECT 1`),
   ]);
 

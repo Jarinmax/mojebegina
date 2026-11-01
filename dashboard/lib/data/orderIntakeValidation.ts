@@ -74,6 +74,8 @@ export type OrderIntakeInput = {
   shippingMethod?: string | null;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
+  /** zaplaceno kartou (platební brána e-shopu begina.cz) — zapíše se úhrada, na převod se nečeká */
+  paidByCard?: boolean | null;
   fulfillmentStatus?: string | null;
   /** YYYY-MM-DD (Europe/Prague); výchozí dnes */
   orderedAt?: string | null;
@@ -115,6 +117,7 @@ export type OrderIntakeValue = {
   shippingMethod: string | null;
   paymentMethod: string | null;
   paymentStatus: PaymentStatus;
+  paidByCard: boolean;
   fulfillmentStatus: FulfillmentStatus;
   orderedAt: string;
   plannedDeliveryAt: string | null;
@@ -256,7 +259,12 @@ export function validateOrderIntake(
       );
     }
 
-    const paymentStatus = (text(input.paymentStatus, 20, "Stav platby") ?? "unpaid") as PaymentStatus;
+    const paidByCard = input.paidByCard === true;
+    if (paidByCard && source !== "eshop") {
+      throw new IntakeError("Úhradu kartou (paid_by_card) lze zapsat jen u objednávky z e-shopu begina.cz (source=eshop).");
+    }
+    const paymentStatus = (text(input.paymentStatus, 20, "Stav platby") ?? (paidByCard ? "paid" : "unpaid")) as PaymentStatus;
+    if (paidByCard && paymentStatus !== "paid") throw new IntakeError("paid_by_card=true znamená zaplaceno — payment_status musí být paid (nebo ho vynechte).");
     if (!PAYMENT_STATUSES.includes(paymentStatus)) throw new IntakeError(`Stav platby musí být jedno z: ${PAYMENT_STATUSES.join(", ")}.`);
     const fulfillmentStatus = (text(input.fulfillmentStatus, 30, "Stav objednávky") ?? "new") as FulfillmentStatus;
     if (!INTAKE_FULFILLMENT_STATUSES.includes(fulfillmentStatus)) {
@@ -283,6 +291,7 @@ export function validateOrderIntake(
         shippingMethod: text(input.shippingMethod, MAX_TEXT, "Způsob dopravy"),
         paymentMethod: text(input.paymentMethod, MAX_TEXT, "Způsob platby"),
         paymentStatus,
+        paidByCard,
         fulfillmentStatus,
         orderedAt,
         plannedDeliveryAt,

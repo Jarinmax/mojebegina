@@ -1,27 +1,43 @@
 // GPT/MCP — fakturace e-shopových objednávek přes asistenta. Žádná druhá
 // integrace iDokladu: čtení je společné runIdokladRead (lib/idoklad-read),
 // náhled a vystavení volají tutéž datovou vrstvu jako tlačítko „Vystavit
-// fakturu v iDokladu“ v detailu objednávky (lib/data/orders.ts →
-// issueAndSendInvoice: brána ostrého provozu, kontrola iDokladu, řada
-// E-shop Begina 7277293, hledání podle VS, zámek, jedno odeslání PDF, Bcc).
+// fakturu v iDokladu“ v detailu objednávky (lib/data/orders.ts → issueInvoice:
+// brána ostrého provozu, kontrola iDokladu, řada E-shop Begina 7277293,
+// hledání podle VS, zámek, „uhrazeno“). Žádná jiná řada (2026xxxx vede Lucie
+// ručně v iDokladu) a žádná faktura bez objednávky v MojeBegina.
 //
-// Postup asistenta: invoice_preview (jen čtení) → uživatel návrh vidí
-// a výslovně potvrdí → issue_and_send_invoice s preview_token z náhledu,
-// confirm=true a idempotency_key. Token je podepsaný (HMAC), platí 30 minut
-// a jen pro stejného uživatele, stejnou objednávku a PŘESNĚ stejný návrh;
-// změní-li se mezitím data objednávky, vystavení se zastaví.
+// Postup asistenta:
+//   invoice_preview (jen čtení) → uživatel návrh vidí a výslovně potvrdí →
+//   issue_invoice (preview_token, confirm=true, idempotency_key) — jen vystaví,
+//   zákazníkovi NIC nepošle; vrací číslo, ID v iDokladu a odkaz na PDF →
+//   send_invoice_to_customer jen na výslovnou žádost uživatele (jednou, Bcc).
+// Token je podepsaný (HMAC), platí 30 minut a jen pro stejného uživatele,
+// stejnou objednávku a PŘESNĚ stejný návrh.
 //
 // Nástroje vidí a smí volat jen vystavovatelé faktur (invoiceAuth.ts:
 // Jaroslav Viner, Lucie Königsbergová) — server je ostatním nevypíše
-// a volání odmítne (server.ts, visible).
+// a volání odmítne (server.ts, visible). Vystavení a odeslání navíc
+// potřebuje samostatný souhlas mojebegina.invoicing (writeScope) —
+// obecný mojebegina.write fakturaci neodemyká a naopak.
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
-import { issueOrderInvoiceDetailed, previewOrderInvoice, type InvoicePreviewLookup } from "@/lib/data/orders";
+import {
+  getOrderInvoiceSummary,
+  invoicePdfUrl,
+  issueOrderInvoiceDetailed,
+  previewOrderInvoice,
+  sendOrderInvoiceToCustomer,
+  type InvoicePreviewLookup,
+} from "@/lib/data/orders";
+import { INVOICE_ISSUER_NAMES } from "@/lib/data/invoiceAuth";
+import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
+import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
 import { idokladAgentTools } from "@/lib/idoklad-read/mcp";
 import { ArgError, optionalString, requiredString } from "../args";
 import { defineTool, type AgentTool } from "../define";
+import { orderUrl } from "./orders";
 
 export const PREVIEW_TOKEN_MINUTES = 30;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,15 +102,17 @@ const issuerOnly = (ctx: Parameters<typeof isInvoiceIssuer>[0]) => isInvoiceIssu
 
 const IDOKLAD_TOOLS: AgentTool[] = idokladAgentTools(defineTool, () => "mcp:chatgpt").map((tool) => ({ ...tool, visible: issuerOnly }));
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = { card: "kartou", bank_transfer: "převodem", cash: "hotově" };
+
 const ISSUE_TOOLS: AgentTool[] = [
   defineTool({
     name: "invoice_preview",
     title: "Náhled faktury k objednávce",
     description:
       "JEN ČTENÍ — nic nevystaví ani neodešle. Sestaví návrh faktury k e-shopové (nebo z WooCommerce importované) objednávce přesně tak, jak by ji vystavilo MojeBegina " +
-      "do iDokladu (řada E-shop Begina): odběratel, položky, doprava, sleva, celkem, VS, data, způsob úhrady; dále blokující problémy, zda je objednávka skutečně zaplacená, " +
-      "dosavadní stav faktury (vystavená? PDF odesláno?) a komu by PDF odešlo (Komu + skrytá kopie). Celý náhled ukaž uživateli. " +
-      "Když canIssue=true, vrací preview_token pro issue_and_send_invoice (platí 30 minut, jen pro tebe a jen pro tento návrh).",
+      "do iDokladu (řada E-shop Begina): odběratel, položky, doprava, celkem, VS, data, úhrada (způsob, den) a text o zaplacení na faktuře; dále blokující problémy, " +
+      "zda je objednávka skutečně zaplacená, dosavadní stav faktury (vystavená? PDF? odesláno?) a komu by PDF případně odešlo. Celý náhled ukaž uživateli. " +
+      "Když canIssue=true, vrací preview_token pro issue_invoice (platí 30 minut, jen pro tebe a jen pro tento návrh).",
     write: false,
     visible: issuerOnly,
     properties: {
@@ -108,23 +126,39 @@ const ISSUE_TOOLS: AgentTool[] = [
       const result = await previewOrderInvoice(lookup);
       if (!result.ok || !ctx) return result.ok ? { ok: false, error: "Nepřihlášený uživatel." } : result;
       const p = result.preview;
-      const alreadyDone = p.existing?.docState === "issued" && p.existing.pdfSent;
+      const issued = p.existing?.docState === "issued";
       const reasons = [
         ...(!p.mode.live ? [p.mode.reason] : []),
         ...(p.orderStatus.notPaidReason ? [p.orderStatus.notPaidReason] : []),
         ...(p.existing?.unclear ? [p.existing.unclear] : []),
-        ...(p.existing?.docState === "issued" ? [] : p.blocking.map((b) => b.message)),
-        ...(alreadyDone ? [`Faktura ${p.existing!.invoiceNumber ?? ""} už je vystavená a PDF odeslané — není co dělat.`] : []),
+        ...(issued ? [`Faktura ${p.existing!.invoiceNumber ?? ""} už je vystavená — znovu se nevystavuje.`] : p.blocking.map((b) => b.message)),
       ];
       const canIssue = reasons.length === 0;
+      const method = p.draft.paymentMethod;
       return {
         ok: true,
-        summary: { canIssue, blocking: p.blocking.length, alreadyIssued: p.existing?.docState === "issued" },
+        summary: { canIssue, blocking: p.blocking.length, alreadyIssued: issued },
         data: {
           ...p,
-          action: p.existing?.docState === "issued" ? "send_pdf_only" : "issue_and_send",
+          payment: {
+            paid: p.orderStatus.paidForInvoice,
+            method,
+            methodLabel: method ? (PAYMENT_METHOD_LABELS[method] ?? method) : null,
+            paidDate: p.draft.paidDate,
+            // faktura vzniká až po úplné úhradě — v iDokladu se hned označí jako uhrazená
+            invoiceMarkedPaid: true,
+            invoiceText: INVOICE_PAID_TEXT,
+            note:
+              method === "card"
+                ? "Zaplaceno kartou — na převod se nečeká; faktura se vystaví rovnou jako uhrazená."
+                : p.orderStatus.paidForInvoice
+                  ? "Úhrada je v MojeBegina zapsaná — faktura se vystaví jako uhrazená."
+                  : "Úhrada v MojeBegina není zapsaná celá — fakturu zatím nejde vystavit.",
+          },
+          ...(issued ? { pdfUrl: await invoicePdfUrl(p.orderId) } : {}),
           canIssue,
           cannotIssueReasons: reasons,
+          sendsEmail: false,
           ...(canIssue
             ? {
                 preview_token: signPreviewToken(
@@ -133,7 +167,7 @@ const ISSUE_TOOLS: AgentTool[] = [
                 ),
                 previewValidMinutes: PREVIEW_TOKEN_MINUTES,
                 nextStep:
-                  "Ukaž uživateli celý náhled (odběratel, položky, celkem, příjemce e-mailu) a zeptej se, zda fakturu vystavit a odeslat. Až po jeho výslovném souhlasu zavolej issue_and_send_invoice s tímto preview_token, confirm=true a novým idempotency_key.",
+                  "Ukaž uživateli celý náhled (odběratel, položky, celkem, úhrada a text „uhrazeno“) a zeptej se, zda fakturu vystavit. Až po jeho výslovném souhlasu zavolej issue_invoice s tímto preview_token, confirm=true a novým idempotency_key. Vystavení zákazníkovi NIC neposílá — poslat jen na výslovnou žádost uživatele (send_invoice_to_customer).",
               }
             : {}),
         },
@@ -141,19 +175,20 @@ const ISSUE_TOOLS: AgentTool[] = [
     },
   }),
   defineTool({
-    name: "issue_and_send_invoice",
-    title: "Vystavit fakturu v iDokladu a odeslat PDF",
+    name: "issue_invoice",
+    title: "Vystavit fakturu v iDokladu (bez odeslání)",
     description:
-      "ZÁPIS DO ÚČETNICTVÍ — vystaví fakturu v iDokladu (řada E-shop Begina), označí ji jako uhrazenou a jednou odešle PDF zákazníkovi (se skrytou kopií Begině). " +
-      "Volej JEN poté, co jsi uživateli ukázal výsledek invoice_preview a on výslovně potvrdil vystavení. Vyžaduje preview_token z náhledu, confirm=true a idempotency_key. " +
-      "Když se údaje objednávky od náhledu změnily nebo je stav nejasný, nic nevystaví a vrátí důvod — pak ho sděl uživateli a nic nezkoušej obcházet. " +
-      "Už vystavenou fakturu nevystaví znovu (jen dorovná neodeslané PDF).",
+      "ZÁPIS DO ÚČETNICTVÍ — vystaví fakturu k objednávce v iDokladu (řada E-shop Begina) a označí ji jako uhrazenou. Zákazníkovi NIC neposílá. " +
+      "Volej JEN poté, co jsi uživateli ukázal invoice_preview a on výslovně potvrdil vystavení. Vyžaduje preview_token z náhledu, confirm=true a idempotency_key. " +
+      "Když se údaje objednávky od náhledu změnily nebo je stav nejasný, nic nevystaví a vrátí důvod — sděl ho uživateli a nic neobcházej. " +
+      "Vrací číslo faktury, ID v iDokladu, odkaz na objednávku a na PDF v MojeBegina. Už vystavenou fakturu znovu nevystaví.",
     write: true,
+    writeScope: "invoicing",
     visible: issuerOnly,
     properties: {
       order_id: { type: "string", description: "id objednávky (UUID) — orderId z náhledu." },
       preview_token: { type: "string", description: "preview_token z invoice_preview." },
-      confirm: { type: "boolean", description: "true = uživatel výslovně potvrdil vystavení a odeslání této faktury." },
+      confirm: { type: "boolean", description: "true = uživatel výslovně potvrdil vystavení této faktury." },
     },
     required: ["order_id", "preview_token", "confirm"],
     parse: (args) => {
@@ -163,30 +198,57 @@ const ISSUE_TOOLS: AgentTool[] = [
     },
     execute: async ({ orderId, token }) => {
       const ctx = await getAuthContext();
-      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: "Fakturu do iDokladu smí vystavit jen Jaroslav Viner a Lucie Königsbergová." };
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Fakturu do iDokladu smí vystavit jen ${INVOICE_ISSUER_NAMES}.` };
       const verified = verifyPreviewToken(token, { userId: ctx.userId, orderId }, previewSecret());
       if (!verified.ok) return verified;
-      const result = await issueOrderInvoiceDetailed(orderId, { expectedFingerprint: verified.claims.fingerprint });
+      const result = await issueOrderInvoiceDetailed(orderId, { expectedFingerprint: verified.claims.fingerprint, send: false });
       if (!result.ok) return result;
-      const pdf = result.emailed
-        ? "PDF právě odešlo zákazníkovi (se skrytou kopií Begině)."
-        : result.pdfSentBefore
-          ? "PDF zákazník dostal už dříve — znovu se neposílalo."
-          : result.emailInProgress
-            ? "PDF právě odesílá jiný souběžný požadavek — znovu se neposílalo; ověřte za chvíli v detailu objednávky."
-            : "PDF se NEPODAŘILO odeslat — zkontrolujte detail objednávky v MojeBegina (odeslání lze zopakovat tlačítkem Vystavit fakturu).";
+      const invoice = await getOrderInvoiceSummary(orderId);
       return {
         ok: true,
-        summary: { issued: result.status === "issued", emailed: result.emailed },
+        summary: { issued: result.status === "issued", emailed: false },
         data: {
           orderId,
           status: result.status,
           invoiceNumber: result.invoiceNumber,
-          emailed: result.emailed,
-          pdfSentBefore: result.pdfSentBefore,
-          emailInProgress: result.emailInProgress,
-          message: `${result.message} ${pdf}`,
+          idokladId: invoice?.externalId ?? null,
+          numberSeries: invoice?.numberSeries ?? null,
+          markedPaid: true,
+          emailed: false,
+          pdfSentToCustomer: invoice?.pdfSentAt ?? null,
+          orderUrl: orderUrl(await appOrigin(), orderId),
+          pdfUrl: await invoicePdfUrl(orderId),
+          message: `${result.message} Zákazníkovi se nic neposlalo — poslat jen na výslovnou žádost (send_invoice_to_customer).`,
         },
+      };
+    },
+  }),
+  defineTool({
+    name: "send_invoice_to_customer",
+    title: "Poslat vystavenou fakturu zákazníkovi",
+    description:
+      "ZÁPIS — pošle zákazníkovi e-mailem PDF UŽ VYSTAVENÉ faktury (se skrytou kopií Begině), nejvýš jednou. Volej JEN když uživatel výslovně požádal o odeslání " +
+      "konkrétní faktury zákazníkovi — nikdy automaticky po vystavení. Vyžaduje confirm=true a idempotency_key. Už odeslanou fakturu znovu neposílá; fakturu nevystavuje.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      order_id: { type: "string", description: "id objednávky (UUID)." },
+      confirm: { type: "boolean", description: "true = uživatel výslovně požádal o odeslání této faktury zákazníkovi." },
+    },
+    required: ["order_id", "confirm"],
+    parse: (args) => {
+      const lookup = lookupOf({ order_id: args.order_id });
+      if (args.confirm !== true) throw new ArgError("Fakturu lze poslat jen s confirm=true na výslovnou žádost uživatele.");
+      return { orderId: (lookup as { orderId: string }).orderId };
+    },
+    execute: async ({ orderId }) => {
+      const result = await sendOrderInvoiceToCustomer(orderId);
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        summary: { emailed: result.emailed },
+        data: { orderId, ...result, pdfUrl: await invoicePdfUrl(orderId) },
       };
     },
   }),

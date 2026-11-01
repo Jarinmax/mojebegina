@@ -28,7 +28,13 @@ type Env = Record<string, string | undefined>;
 
 export const SCOPE_READ = "mojebegina.read";
 export const SCOPE_WRITE = "mojebegina.write";
-export const SUPPORTED_SCOPES = [SCOPE_READ, SCOPE_WRITE] as const;
+/**
+ * Fakturace v iDokladu (vystavení, odeslání zákazníkovi) — samostatný souhlas,
+ * NEZAHRNUJE obecné zápisy (CRM, Živá mapa, objednávky). Nabízí se jen
+ * vystavovatelům faktur (invoiceAuth.ts) a jen se zapnutým MCP_ALLOW_INVOICING.
+ */
+export const SCOPE_INVOICING = "mojebegina.invoicing";
+export const SUPPORTED_SCOPES = [SCOPE_READ, SCOPE_WRITE, SCOPE_INVOICING] as const;
 
 export const CODE_TTL_MS = 5 * 60 * 1000;
 export const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -47,6 +53,8 @@ export type AgentConfig = {
   redirectUris: string[];
   allowedUserIds: Set<string>;
   writeEnabled: boolean;
+  /** MCP_ALLOW_INVOICING=on — nezávisle na MCP_ALLOW_WRITE */
+  invoicingEnabled: boolean;
 };
 
 function list(raw: string | undefined): string[] {
@@ -87,6 +95,7 @@ export function agentConfig(env: Env = process.env): AgentConfig | null {
     redirectUris,
     allowedUserIds: new Set(allowedUserIds),
     writeEnabled: env.MCP_ALLOW_WRITE?.trim() === "on",
+    invoicingEnabled: env.MCP_ALLOW_INVOICING?.trim() === "on",
   };
 }
 

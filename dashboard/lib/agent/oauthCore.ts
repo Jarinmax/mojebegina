@@ -1,7 +1,7 @@
 // GPT/MCP pilot — čisté funkce OAuth 2.1 (bez DB a bez Next.js), aby šly
 // otestovat tabulkou případů (lib/agent/__tests__/oauthCore.test.ts).
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { SCOPE_READ, SCOPE_WRITE, SUPPORTED_SCOPES, type AgentConfig } from "./config";
+import { SCOPE_INVOICING, SCOPE_READ, SCOPE_WRITE, SUPPORTED_SCOPES, type AgentConfig } from "./config";
 import type { SystemRole } from "@/lib/data/types";
 import { DB_DIAGNOSTICS_PATH } from "@/lib/diagnostics/dbTarget";
 
@@ -52,14 +52,14 @@ export function verifyPkce(verifier: string, challenge: string): boolean {
  * součástí (bez něj by asistent neuměl nic); prázdný požadavek = nabídnout
  * obojí, rozhodne uživatel na souhlasové stránce.
  */
-export function requestedScopes(raw: string | null | undefined): { read: true; write: boolean } {
+export function requestedScopes(raw: string | null | undefined): { read: true; write: boolean; invoicing: boolean } {
   const parts = (raw ?? "").split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { read: true, write: true };
-  return { read: true, write: parts.includes(SCOPE_WRITE) };
+  if (parts.length === 0) return { read: true, write: true, invoicing: true };
+  return { read: true, write: parts.includes(SCOPE_WRITE), invoicing: parts.includes(SCOPE_INVOICING) };
 }
 
-export function scopeString(write: boolean): string {
-  return write ? `${SCOPE_READ} ${SCOPE_WRITE}` : SCOPE_READ;
+export function scopeString(write: boolean, invoicing = false): string {
+  return [SCOPE_READ, ...(write ? [SCOPE_WRITE] : []), ...(invoicing ? [SCOPE_INVOICING] : [])].join(" ");
 }
 
 export function hasScope(scope: string, wanted: (typeof SUPPORTED_SCOPES)[number]): boolean {
@@ -69,6 +69,11 @@ export function hasScope(scope: string, wanted: (typeof SUPPORTED_SCOPES)[number
 /** Zápis jen se souhlasem k zápisu A zároveň zapnutým MCP_ALLOW_WRITE na serveru. */
 export function canWrite(config: AgentConfig, scope: string): boolean {
   return config.writeEnabled && hasScope(scope, SCOPE_WRITE);
+}
+
+/** Fakturace jen se souhlasem k fakturaci A zároveň zapnutým MCP_ALLOW_INVOICING (mojebegina.write nestačí). */
+export function canInvoice(config: AgentConfig, scope: string): boolean {
+  return config.invoicingEnabled && hasScope(scope, SCOPE_INVOICING);
 }
 
 // --- Klient (statický, z env) -------------------------------------------
@@ -125,6 +130,7 @@ export type AuthorizeParams = {
   state: string | null;
   codeChallenge: string;
   write: boolean;
+  invoicing: boolean;
 };
 
 export type AuthorizeCheck =
@@ -182,6 +188,7 @@ export function checkAuthorizeParams(config: AgentConfig, params: Params): Autho
       state,
       codeChallenge: challenge,
       write: requestedScopes(single(params, "scope")).write,
+      invoicing: requestedScopes(single(params, "scope")).invoicing,
     },
   };
 }

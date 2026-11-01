@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import logoMark from "@/public/logo-begina-mark.png";
 import { getAuthContext } from "@/lib/data/authContext";
+import { INVOICE_ISSUERS } from "@/lib/data/invoiceAuth";
 import { ROLE_LABELS } from "@/lib/data/roles";
 import { agentConfig } from "@/lib/agent/config";
 import {
@@ -57,6 +58,9 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
 
   const eligible = agentEligibleRoles(ctx.grantedRoles);
   const allowed = isAgentUserAllowed(config, ctx.userId) && eligible.length > 0;
+  // fakturace: jen vystavovatel faktur (invoiceAuth.ts) a jen ve své roli — ověří i akce
+  const invoicingRole = INVOICE_ISSUERS.get(ctx.userId) ?? null;
+  const offerInvoicing = config.invoicingEnabled && check.value.invoicing && invoicingRole !== null && eligible.includes(invoicingRole);
 
   if (!allowed) {
     return (
@@ -111,8 +115,17 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
           ) : (
             <p className="text-neutral-500">Zápisy si ChatGPT nevyžádal — jen čtení.</p>
           )}
+          {offerInvoicing && (
+            <label className="flex items-start gap-2">
+              <input type="checkbox" name="invoicing" defaultChecked className="mt-1" />
+              <span>
+                vystavovat faktury k objednávkám v iDokladu (řada E-shop Begina) po vašem potvrzení a na výslovný pokyn je poslat
+                zákazníkovi — jen v roli {ROLE_LABELS[invoicingRole!]}
+              </span>
+            </label>
+          )}
           <p className="text-xs text-neutral-500">
-            Nikdy: mazat, měnit role a oprávnění, objednávky, platby ani fakturaci.
+            Nikdy: mazat, měnit role a oprávnění ani platby{offerInvoicing ? "" : "; fakturu nevystaví"}.
           </p>
         </div>
 

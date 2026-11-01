@@ -122,6 +122,11 @@ function IssueStatus({
           PDF zákazníkovi:{" "}
           {invoice.pdfSentAt ? `odesláno ${czDateTime(invoice.pdfSentAt)} (e-mail MojeBegina)` : "zatím neodesláno"}
         </p>
+        <p>
+          <a href={`/rizeni-firmy/objednavky/${orderId}/faktura-pdf`} target="_blank" rel="noopener" className="underline font-medium">
+            Otevřít PDF faktury
+          </a>
+        </p>
         {allowed && !invoice.pdfSentAt && <IssueButton orderId={orderId} label="Poslat fakturu zákazníkovi" />}
       </div>
     );

@@ -14,8 +14,11 @@ import {
   pkceChallengeFor,
   queryFromParams,
   readClientCredentials,
+  canInvoice,
+  canWrite,
   requestedScopes,
   safeNextPath,
+  scopeString,
   verifyPkce,
 } from "../oauthCore";
 
@@ -111,7 +114,7 @@ describe("/oauth/authorize — kontrola parametrů", () => {
     const check = checkAuthorizeParams(config, validParams);
     expect(check).toEqual({
       ok: true,
-      value: { clientId: "chatgpt-begina", redirectUri: REDIRECT, state: "xyz", codeChallenge: CHALLENGE, write: true },
+      value: { clientId: "chatgpt-begina", redirectUri: REDIRECT, state: "xyz", codeChallenge: CHALLENGE, write: true, invoicing: false },
     });
   });
 
@@ -138,10 +141,22 @@ describe("/oauth/authorize — kontrola parametrů", () => {
     expect(check).toMatchObject({ ok: false, redirectable: true, redirectUri: REDIRECT, state: "xyz", error });
   });
 
-  it("scope: bez write jen čtení, prázdný = nabídnout obojí", () => {
-    expect(requestedScopes("mojebegina.read")).toEqual({ read: true, write: false });
-    expect(requestedScopes("")).toEqual({ read: true, write: true });
-    expect(requestedScopes("mojebegina.write neco")).toEqual({ read: true, write: true });
+  it("scope: bez write jen čtení, prázdný = nabídnout vše; fakturace je samostatný scope", () => {
+    expect(requestedScopes("mojebegina.read")).toEqual({ read: true, write: false, invoicing: false });
+    expect(requestedScopes("")).toEqual({ read: true, write: true, invoicing: true });
+    expect(requestedScopes("mojebegina.write neco")).toEqual({ read: true, write: true, invoicing: false });
+    expect(requestedScopes("mojebegina.read mojebegina.invoicing")).toEqual({ read: true, write: false, invoicing: true });
+  });
+
+  it("scopeString a canInvoice: fakturace jen se souhlasem a zapnutým MCP_ALLOW_INVOICING; write ji neodemyká", () => {
+    expect(scopeString(false)).toBe("mojebegina.read");
+    expect(scopeString(true)).toBe("mojebegina.read mojebegina.write");
+    expect(scopeString(false, true)).toBe("mojebegina.read mojebegina.invoicing");
+    const on = { ...config, writeEnabled: true, invoicingEnabled: true };
+    expect(canInvoice(on, "mojebegina.read mojebegina.invoicing")).toBe(true);
+    expect(canInvoice(on, "mojebegina.read mojebegina.write")).toBe(false);
+    expect(canWrite(on, "mojebegina.read mojebegina.invoicing")).toBe(false);
+    expect(canInvoice({ ...on, invoicingEnabled: false }, "mojebegina.read mojebegina.invoicing")).toBe(false);
   });
 
   it("návratová adresa nese code, state a iss", () => {

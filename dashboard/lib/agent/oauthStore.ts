@@ -53,6 +53,8 @@ export async function issueAuthorizationCode(
     systemRole: SystemRole;
     clientId: string;
     write: boolean;
+    /** souhlas s fakturací (jen vystavovatel faktur — ověřuje volající) */
+    invoicing?: boolean;
     redirectUri: string;
     codeChallenge: string;
   },
@@ -66,7 +68,7 @@ export async function issueAuthorizationCode(
       userId: input.userId,
       systemRole: input.systemRole,
       clientId: input.clientId,
-      scope: scopeString(input.write),
+      scope: scopeString(input.write, input.invoicing === true),
       createdAt: now,
     }),
     db.insert(agentTokens).values({

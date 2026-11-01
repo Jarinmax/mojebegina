@@ -7,6 +7,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getAuthContext } from "@/lib/data/authContext";
+import { INVOICE_ISSUERS } from "@/lib/data/invoiceAuth";
 import type { SystemRole } from "@/lib/data/types";
 import { agentConfig } from "@/lib/agent/config";
 import {
@@ -48,6 +49,12 @@ export async function decideAuthorizationAction(formData: FormData): Promise<voi
     systemRole: role,
     clientId: check.value.clientId,
     write: config.writeEnabled && check.value.write && formData.get("write") === "on",
+    // fakturace jen vystavovateli faktur v jeho roli (stejně jako isInvoiceIssuer)
+    invoicing:
+      config.invoicingEnabled &&
+      check.value.invoicing &&
+      INVOICE_ISSUERS.get(ctx.userId) === role &&
+      formData.get("invoicing") === "on",
     redirectUri,
     codeChallenge: check.value.codeChallenge,
   });
