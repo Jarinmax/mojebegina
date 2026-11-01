@@ -68,6 +68,8 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 | `invoice_preview` | čtení | náhled faktury k objednávce bez zápisu: odběratel, položky, celkem, VS, řada, blokující problémy, stav dosavadní faktury, komu odejde PDF (Komu + Bcc); vrací `preview_token` — **jen vystavovatelé faktur** |
 | `issue_invoice` | fakturace (`mojebegina.invoicing`) | vystaví fakturu v iDokladu (řada E-shop Begina, uhrazená) týmž motorem jako tlačítko v detailu objednávky; **zákazníkovi nic neposílá**; vrací číslo, ID v iDokladu, odkaz na objednávku a PDF — **jen vystavovatelé faktur** |
 | `send_invoice_to_customer` | fakturace (`mojebegina.invoicing`) | jen na výslovnou žádost: pošle PDF už vystavené faktury zákazníkovi (jednou, Bcc) — **jen vystavovatelé faktur** |
+| `idoklad_invoice_pdf` | čtení | PDF libovolné vydané faktury z iDokladu (i ruční řady 2026xxxx): ověří PDF a vrátí odkaz na stažení v MojeBegina (`/rizeni-firmy/faktury/idoklad/{id}/pdf`, po přihlášení); obsah PDF ani e-mail odběratele asistentovi nevrací — **jen vystavovatelé faktur** |
+| `send_idoklad_invoice_email` | fakturace (`mojebegina.invoicing`) | jen na výslovnou žádost: pošle PDF existující faktury z iDokladu e-mailem z MojeBegina — jen odběrateli z faktury, na `@begina.cz`, na e-mail účtu uživatele a na adresy z `IDOKLAD_INVOICE_EMAIL_ALLOWED` — **jen vystavovatelé faktur** |
 
 Asistent **nikdy** nemaže, nemění fázi leadu, vlastníka, role ani oprávnění a
 nesahá na objednávky ani platby. Zápisové nástroje dostane jen
@@ -156,11 +158,22 @@ Oprávnění — **samostatný souhlas `mojebegina.invoicing`**, ne obecný záp
   iDokladu, kanál `mcp:chatgpt`), `order_activity` (`invoice_issued` s autorem
   „Jméno (přes ChatGPT)“, odeslaný e-mail).
 
+PDF a odeslání EXISTUJÍCÍ faktury z iDokladu (např. ruční řada Lucie 2026xxxx):
+
+- `idoklad_invoice_pdf` (čtení) vrátí odkaz na PDF v MojeBegina. Stažení jde přes společný
+  runner čtení iDokladu (oprávnění vystavovatele, limity, `idoklad_read_log`, kanál `ui`).
+  Obsah PDF dostává jen server (interní nástroj `idoklad_invoice_pdf_file`, asistentovi se nenabízí).
+- `send_idoklad_invoice_email` (souhlas `mojebegina.invoicing`, `confirm=true`) pošle PDF
+  z MojeBegina (Resend, odesílatel e-shopu). Příjemce z konverzace se nebere jako ověřený:
+  povolen je jen e-mail odběratele na faktuře v iDokladu, `@begina.cz`, e-mail účtu uživatele
+  a adresy z `IDOKLAD_INVOICE_EMAIL_ALLOWED` (čárkou, např. soukromý e-mail Lucie). Jedna
+  nepovolená adresa = neodejde nic. Příjemci a ID zprávy zůstanou v `agent_audit_log`.
+
 Co musí být zapnuté, aby nástroje uviděla Lucie:
 
 | Kde | Co |
 |---|---|
-| Vercel Production | `MCP_ALLOW_INVOICING=on`, `IDOKLAD_READ_CHANNELS=mcp:chatgpt`, `IDOKLAD_INVOICING_ENABLED=manual` (beze změny), `MCP_ALLOWED_USER_IDS` s Lucií |
+| Vercel Production | `IDOKLAD_INVOICE_EMAIL_ALLOWED` (volitelně, další povolení příjemci), `MCP_ALLOW_INVOICING=on`, `IDOKLAD_READ_CHANNELS=mcp:chatgpt`, `IDOKLAD_INVOICING_ENABLED=manual` (beze změny), `MCP_ALLOWED_USER_IDS` s Lucií |
 | Vercel Domains | `gpt-pilot.begina.cz` → Production (ne Git větev pilotu) |
 | ChatGPT konektor | scope `mojebegina.read mojebegina.invoicing` (nebo bez scope), obnovit nástroje |
 | Souhlas | Lucie znovu připojí konektor a zaškrtne „vystavovat faktury…“ (role EXECUTIVE) |
