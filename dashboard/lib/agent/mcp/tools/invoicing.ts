@@ -34,6 +34,11 @@ import {
 import { INVOICE_ISSUER_NAMES } from "@/lib/data/invoiceAuth";
 import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
+import { emailConfig, resolveRecipients } from "@/lib/eshop/email/config";
+import { resendTransport } from "@/lib/eshop/email/resend";
+import { runIdokladRead } from "@/lib/idoklad-read/tools";
+import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
+import type { InvoicePdfFile } from "@/lib/idoklad-read/service";
 import { idokladAgentTools } from "@/lib/idoklad-read/mcp";
 import { ArgError, optionalString, requiredString } from "../args";
 import { defineTool, type AgentTool } from "../define";
@@ -254,4 +259,94 @@ const ISSUE_TOOLS: AgentTool[] = [
   }),
 ];
 
-export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS];
+const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/**
+ * PDF libovolné vydané faktury z iDokladu (i ruční řady 2026xxxx) e-mailem
+ * ze serveru MojeBegina (Resend, odesílatel e-shopu). Jen na výslovnou žádost,
+ * jen povoleným příjemcům (lib/idoklad-read/recipients.ts) a se samostatným
+ * souhlasem mojebegina.invoicing. PDF se čte přes společný runner čtení
+ * iDokladu (audit idoklad_read_log), výsledek s příjemci zůstane v agent_audit_log.
+ */
+const SEND_IDOKLAD_TOOLS: AgentTool[] = [
+  defineTool({
+    name: "send_idoklad_invoice_email",
+    title: "Poslat PDF faktury z iDokladu e-mailem",
+    description:
+      "ZÁPIS — pošle e-mailem PDF EXISTUJÍCÍ vydané faktury z iDokladu (i z ruční řady 2026xxxx) z MojeBegina. Nic nevystavuje ani nemění. " +
+      "Volej JEN když uživatel výslovně požádal o odeslání konkrétní faktury konkrétním příjemcům. Povolení příjemci: e-mail odběratele uvedený na faktuře, " +
+      `adresy @begina.cz, e-mail účtu uživatele v MojeBegina a adresy povolené správcem; jiné server odmítne. Nejvýš ${MAX_INVOICE_RECIPIENTS} příjemců. ` +
+      "Vyžaduje confirm=true a idempotency_key.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      number: { type: "string", description: "Číslo faktury, např. „20260202“." },
+      id: { type: "integer", description: "ID faktury v iDokladu (když číslo není jednoznačné)." },
+      to: { type: "array", items: { type: "string" }, minItems: 1, maxItems: MAX_INVOICE_RECIPIENTS, description: "Příjemci (e-maily)." },
+      message: { type: "string", description: "Krátký průvodní text (nepovinné, max. 1000 znaků)." },
+      confirm: { type: "boolean", description: "true = uživatel výslovně požádal o odeslání této faktury těmto příjemcům." },
+    },
+    required: ["to", "confirm"],
+    parse: (args) => {
+      const number = optionalString(args, "number", 20);
+      const id = args.id === undefined || args.id === null ? null : Number(args.id);
+      if (id !== null && !(Number.isInteger(id) && id > 0)) throw new ArgError("Argument id musí být kladné celé číslo.");
+      if (!number && id === null) throw new ArgError("Zadejte number nebo id faktury.");
+      if (!Array.isArray(args.to) || args.to.some((e) => typeof e !== "string")) throw new ArgError("Argument to musí být seznam e-mailů.");
+      if (args.confirm !== true) throw new ArgError("Fakturu lze poslat jen s confirm=true na výslovnou žádost uživatele.");
+      return { number, id, to: args.to as string[], message: optionalString(args, "message", 1000) };
+    },
+    execute: async ({ number, id, to, message }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury z iDokladu smí posílat jen ${INVOICE_ISSUER_NAMES}.` };
+      const config = emailConfig();
+      if (!config) return { ok: false, error: "Odesílání e-mailů z MojeBegina není na tomto prostředí zapnuté." };
+      const read = await runIdokladRead("idoklad_invoice_pdf_file", { ...(number ? { number } : {}), ...(id ? { id } : {}) }, "mcp:chatgpt");
+      if (!read.ok) return { ok: false, error: read.error };
+      if (read.data.found !== true) return { ok: false, error: `Faktura ${number ?? id} v iDokladu není.` };
+      const pdf = read.data as unknown as InvoicePdfFile;
+      const check = checkInvoiceRecipients(to, { partnerEmail: pdf.partnerEmail, userEmail: ctx.email || null, extra: allowedExtraRecipients() });
+      if (!check.ok) return check;
+
+      const resolved = resolveRecipients(check.to, config);
+      const test = config.testRecipients !== null;
+      const invoiceNumber = pdf.invoice.number;
+      const intro = message?.trim() || "Dobrý den,";
+      const body = `V příloze posíláme fakturu č. ${invoiceNumber}.`;
+      const testNote = test && resolved.withheld.length ? `\n\n[TEST] Určeno pro: ${resolved.withheld.join(", ")}` : "";
+      const text = `${intro}\n\n${body}\n\nS pozdravem\nBegina${testNote}`;
+      const html = `<p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p><p>${escapeHtml(body)}</p><p>S pozdravem<br>Begina</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
+      const key = createHash("sha256").update(`${pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
+      const sent = await resendTransport(config.apiKey)(
+        {
+          from: config.from,
+          to: resolved.to,
+          replyTo: config.replyTo,
+          subject: `${test ? "[TEST] " : ""}Faktura ${invoiceNumber} – Begina`,
+          text,
+          html,
+          attachments: [{ filename: pdf.filename, contentBase64: pdf.contentBase64, contentType: "application/pdf" }],
+        },
+        `idoklad-invoice-${key}`
+      );
+      if (!sent.ok) return { ok: false, error: `E-mail se nepodařilo odeslat: ${sent.error}` };
+      return {
+        ok: true,
+        summary: { sent: true, recipients: resolved.to.length },
+        data: {
+          sent: true,
+          invoiceNumber,
+          idokladId: pdf.invoice.id,
+          to: resolved.to,
+          withheldInTestMode: resolved.withheld,
+          recipientKinds: check.reasons,
+          messageId: sent.id,
+          message: `PDF faktury ${invoiceNumber} je odeslané na ${resolved.to.join(", ")}.`,
+        },
+      };
+    },
+  }),
+];
+
+export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS];

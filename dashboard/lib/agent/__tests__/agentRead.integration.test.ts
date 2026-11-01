@@ -241,6 +241,7 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       // fakturace — jen vystavovatelé faktur (Viner), se čtecím souhlasem bez vystavení
       "idoklad_search_invoices",
       "idoklad_get_invoice",
+      "idoklad_invoice_pdf",
       "idoklad_list_series",
       "idoklad_numbering_audit",
       "idoklad_unpaid_and_discrepancies",

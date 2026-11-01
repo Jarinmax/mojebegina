@@ -318,8 +318,10 @@ describe("čtení iDokladu přes MojeBegina (ChatGPT / Claude / UI)", { timeout:
     expect(await run("idoklad_issue_invoice", {}, "ui", fetchImpl)).toMatchObject({ ok: false, status: "invalid", error: "Neznámý nástroj idoklad_issue_invoice." });
     expect(calls).toEqual([]);
     expect(read.IDOKLAD_READ_TOOLS.map((t) => t.name)).toEqual([
-      "idoklad_search_invoices", "idoklad_get_invoice", "idoklad_list_series", "idoklad_numbering_audit", "idoklad_unpaid_and_discrepancies",
+      "idoklad_search_invoices", "idoklad_get_invoice", "idoklad_invoice_pdf", "idoklad_list_series", "idoklad_numbering_audit", "idoklad_unpaid_and_discrepancies",
     ]);
+    // obsah PDF jen pro server (stažení v MojeBegina, odeslání e-mailem) — asistentovi se nenabízí
+    expect(read.IDOKLAD_INTERNAL_TOOLS.map((t) => [t.name, t.internal])).toEqual([["idoklad_invoice_pdf_file", true]]);
   });
 
   it("limit: po 20 voláních za minutu → rate_limited bez dotazu do iDokladu", async () => {

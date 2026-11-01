@@ -23,9 +23,15 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError } from "@/lib/eshop/invoicing/idokladHttp";
 import { eshopIdokladCredentials } from "@/lib/eshop/invoicing/mode";
+import { getAppOrigin } from "@/lib/appOrigin";
+
+/** Stažení PDF vydané faktury v MojeBegina (po přihlášení, jen vystavovatelé faktur). */
+export const idokladInvoicePdfPath = (id: number) => `/rizeni-firmy/faktury/idoklad/${id}/pdf`;
 import {
   ReadInputError,
   getInvoice,
+  getInvoicePdf,
+  maskEmail,
   listSeriesStatus,
   numberingAudit,
   searchInvoices,
@@ -103,6 +109,8 @@ type Deps = { client: IdokladReader; db: Db; now: Date };
 
 export type IdokladReadTool = {
   name: string;
+  /** jen pro server (stažení PDF v MojeBegina, odeslání e-mailem) — asistentovi se nenabízí */
+  internal?: boolean;
   title: string;
   description: string;
   properties: Record<string, unknown>;
@@ -190,6 +198,41 @@ export const IDOKLAD_READ_TOOLS: IdokladReadTool[] = [
     },
   }),
   tool({
+    name: "idoklad_invoice_pdf",
+    title: "iDoklad: PDF vydané faktury (odkaz)",
+    description:
+      "PDF libovolné vydané faktury z iDokladu (i z ruční řady 2026xxxx). Ověří, že PDF v iDokladu existuje, a vrátí odkaz na stažení v MojeBegina " +
+      "(otevře se po přihlášení do MojeBegina, jen vystavovatelům faktur). Obsah PDF ani e-mail odběratele nevrací (e-mail jen maskovaný). " +
+      "Poslat PDF e-mailem lze nástrojem send_idoklad_invoice_email.",
+    properties: {
+      number: { type: "string", description: "Číslo faktury, např. „20260202“." },
+      id: { type: "integer", description: "ID faktury v iDokladu (když číslo není jednoznačné)." },
+    },
+    required: [],
+    parse: (args) => {
+      only(args, ["number", "id"]);
+      const parsed = { number: str(args, "number", 20, /^[0-9A-Za-z/-]+$/), id: int(args, "id", 1, 2_000_000_000) };
+      if (!parsed.number && !parsed.id) throw new ReadInputError("Zadejte number nebo id.");
+      return parsed;
+    },
+    run: async (input, { client, now }) => {
+      const pdf = await getInvoicePdf(client, input, now);
+      if (!pdf) return { data: { found: false, invoice: null }, count: 0, summary: { found: false } };
+      return {
+        data: {
+          found: true,
+          invoice: { id: pdf.invoice.id, number: pdf.invoice.number, partner: pdf.invoice.partner, totalKc: pdf.invoice.totalKc, payment: pdf.invoice.payment, dateOfIssue: pdf.invoice.dateOfIssue },
+          pdfUrl: `${await getAppOrigin()}${idokladInvoicePdfPath(pdf.invoice.id)}`,
+          filename: pdf.filename,
+          sizeBytes: pdf.sizeBytes,
+          customerEmailOnInvoice: maskEmail(pdf.partnerEmail),
+        },
+        count: 1,
+        summary: { found: true },
+      };
+    },
+  }),
+  tool({
     name: "idoklad_list_series",
     title: "iDoklad: číselné řady vydaných faktur",
     description:
@@ -268,8 +311,35 @@ export const IDOKLAD_READ_TOOLS: IdokladReadTool[] = [
   }),
 ];
 
+/**
+ * Obsah PDF vydané faktury — JEN pro server: stažení v MojeBegina
+ * (/rizeni-firmy/faktury/idoklad/{id}/pdf) a odeslání e-mailem
+ * (send_idoklad_invoice_email). Stejné oprávnění, limity a audit jako
+ * ostatní čtení; asistentovi se jako nástroj nenabízí (mcp.ts).
+ */
+export const IDOKLAD_INTERNAL_TOOLS: IdokladReadTool[] = [
+  tool({
+    name: "idoklad_invoice_pdf_file",
+    internal: true,
+    title: "iDoklad: PDF vydané faktury (obsah)",
+    description: "Obsah PDF vydané faktury pro stažení nebo odeslání ze serveru.",
+    properties: {},
+    required: [],
+    parse: (args) => {
+      only(args, ["number", "id"]);
+      const parsed = { number: str(args, "number", 20, /^[0-9A-Za-z/-]+$/), id: int(args, "id", 1, 2_000_000_000) };
+      if (!parsed.number && !parsed.id) throw new ReadInputError("Zadejte number nebo id.");
+      return parsed;
+    },
+    run: async (input, { client, now }) => {
+      const pdf = await getInvoicePdf(client, input, now);
+      return pdf ? { data: { found: true, ...pdf }, count: 1, summary: { found: true } } : { data: { found: false }, count: 0, summary: { found: false } };
+    },
+  }),
+];
+
 export function findIdokladReadTool(name: string): IdokladReadTool | null {
-  return IDOKLAD_READ_TOOLS.find((t) => t.name === name) ?? null;
+  return [...IDOKLAD_READ_TOOLS, ...IDOKLAD_INTERNAL_TOOLS].find((t) => t.name === name) ?? null;
 }
 
 // ------------------------------------------------------------------ přístup

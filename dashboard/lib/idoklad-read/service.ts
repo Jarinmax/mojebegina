@@ -7,7 +7,10 @@
 // serveru), klient je VŽDY bez práva zápisu a navenek dává jen get/list.
 //
 // Ochrana osobních údajů: odběratel jen název/jméno, IČO, DIČ, obec
-// (u firmy i ulice a PSČ). Nikdy e-mail, telefon, bankovní účet ani PDF.
+// (u firmy i ulice a PSČ). Do výstupu pro asistenta nikdy e-mail, telefon,
+// bankovní účet ani obsah PDF. PDF čte jen getInvoicePdf pro stažení
+// v MojeBegina (po přihlášení) a pro odeslání e-mailem ze serveru — e-mail
+// odběratele se použije jen na serveru (kontrola příjemce), ven maskovaný.
 import { eqFilter, issuedInvoiceFilter, sinceDayFilter, type EshopIdokladClient } from "@/lib/eshop/invoicing/idokladHttp";
 import { runNumberingAudit, type NumberingAuditResult } from "@/lib/eshop/invoicing/numberingAudit";
 import { ISSUED_INVOICE_DOCUMENT_TYPE } from "@/lib/eshop/invoicing/numberSeries";
@@ -37,6 +40,7 @@ type RawAddress = {
   Street?: string | null;
   City?: string | null;
   PostalCode?: string | null;
+  Email?: string | null;
 };
 type RawItem = { Name?: string | null; Amount?: number | null; Unit?: string | null; UnitPrice?: number | null; Prices?: { TotalWithVat?: number | null } | null };
 export type RawInvoice = {
@@ -310,7 +314,8 @@ export async function searchInvoices(client: IdokladReader, input: SearchInput, 
 
 // ------------------------------------------------------------------ detail
 
-export async function getInvoice(client: IdokladReader, input: { number?: string | null; id?: number | null }, now: Date = new Date()): Promise<InvoiceDetail | null> {
+/** Vydaná faktura podle čísla nebo ID (po kontrole agendy); null = není. */
+async function loadRawInvoice(client: IdokladReader, input: { number?: string | null; id?: number | null }): Promise<RawInvoice | null> {
   if (!input.number && !input.id) throw new ReadInputError("Zadejte číslo faktury nebo její ID v iDokladu.");
   await assertBeginaAgenda(client);
   let id = input.id ?? null;
@@ -320,13 +325,17 @@ export async function getInvoice(client: IdokladReader, input: { number?: string
     if (found.length > 1) throw new ReadInputError(`Číslo ${input.number} je v iDokladu ${found.length}× — zadejte ID faktury (${found.map((f) => f.Id).join(", ")}).`);
     id = found[0].Id;
   }
-  let raw: RawInvoice;
   try {
-    raw = await client.get<RawInvoice>(`/IssuedInvoices/${id}`);
+    return await client.get<RawInvoice>(`/IssuedInvoices/${id}`);
   } catch (error) {
     if (error instanceof Error && /: 404 /.test(error.message)) return null;
     throw error;
   }
+}
+
+export async function getInvoice(client: IdokladReader, input: { number?: string | null; id?: number | null }, now: Date = new Date()): Promise<InvoiceDetail | null> {
+  const raw = await loadRawInvoice(client, input);
+  if (!raw) return null;
   const series = await confirmSeries(client, raw.Id, await loadSeries(client));
   const summary = summarize(raw, series, todayPrague(now));
   const a = raw.PartnerAddress ?? null;
@@ -354,6 +363,42 @@ export async function getInvoice(client: IdokladReader, input: { number?: string
     })),
     createdUtc: created ? created.toISOString() : null,
     lastChangePrague: changed ? pragueDateTime(changed) : null,
+  };
+}
+
+// ------------------------------------------------------------------ PDF
+
+export type InvoicePdfFile = {
+  invoice: InvoiceSummary;
+  /** e-mail odběratele z faktury — JEN pro kontrolu příjemce na serveru, nikdy do výstupu asistenta */
+  partnerEmail: string | null;
+  filename: string;
+  contentBase64: string;
+  sizeBytes: number;
+};
+
+/** „lucie@seznam.cz“ → „l***@seznam.cz“ (do výstupu asistenta). */
+export function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const [local, domain] = email.split("@");
+  return domain ? `${local.slice(0, 1)}***@${domain}` : "***";
+}
+
+/** PDF vydané faktury z iDokladu (jen čtení: GET /Reports/IssuedInvoice/{id}/Pdf). */
+export async function getInvoicePdf(client: IdokladReader, input: { number?: string | null; id?: number | null }, now: Date = new Date()): Promise<InvoicePdfFile | null> {
+  const raw = await loadRawInvoice(client, input);
+  if (!raw) return null;
+  const number = (raw.DocumentNumber ?? "").trim();
+  const summary = summarize(raw, seriesByFormat(number, await loadSeries(client)), todayPrague(now));
+  const base64 = await client.get<string>(`/Reports/IssuedInvoice/${raw.Id}/Pdf`);
+  if (typeof base64 !== "string" || base64.length === 0) throw new ReadInputError(`iDoklad nevrátil PDF faktury ${number}.`);
+  const email = raw.PartnerAddress?.Email?.trim().toLowerCase() || null;
+  return {
+    invoice: summary,
+    partnerEmail: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    filename: `faktura-${number.replace(/[^0-9A-Za-z-]/g, "") || raw.Id}.pdf`,
+    contentBase64: base64,
+    sizeBytes: Math.floor((base64.length * 3) / 4),
   };
 }
 

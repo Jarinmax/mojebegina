@@ -30,7 +30,7 @@ type DefineToolLike<T> = (tool: {
 }) => T;
 
 export function idokladAgentTools<T>(defineTool: DefineToolLike<T>, channel: () => `mcp:${string}`): T[] {
-  return IDOKLAD_READ_TOOLS.map((t) =>
+  return IDOKLAD_READ_TOOLS.filter((t) => !t.internal).map((t) =>
     defineTool({
       name: t.name,
       title: t.title,
