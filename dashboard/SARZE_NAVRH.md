@@ -39,10 +39,12 @@ systém ukáže všechny výrobní šarže, ve kterých byla, a všechny odběra
 1. **Sledovatelnost** — nařízení (ES) č. 178/2002, čl. 18: provozovatel musí
    umět doložit **„jeden krok zpět“** (od koho má suroviny) a **„jeden krok
    vpřed“** (komu dodal — podnikatelským odběratelům; konečného spotřebitele
-   zákon nevyžaduje, e-shop ho má navíc). U potravin živočišného původu
-   (mléko, smetana, vejce, maso — např. kulajda) prováděcí nařízení (EU)
-   č. 931/2011 vyžaduje i: popis, množství, dodavatele, odběratele, **číslo
-   šarže** a datum odeslání.
+   zákon nevyžaduje, e-shop ho má navíc). Přísnější evidence podle
+   prováděcího nařízení (EU) č. 931/2011 platí jen pro potraviny
+   živočišného původu — **Begina vaří polévky pro e-shop 100% rostlinné**,
+   takže se na ně nevztahuje (rozhodnutí vedení, viz 5.2 a 6b). Systém
+   přesto ukládá i to, co 931/2011 chce (popis, množství, dodavatel,
+   odběratel, šarže, datum) — nic to nestojí a kontrola to ocení.
 2. **Označení šarže na obalu** — směrnice 2011/91/EU a prováděcí vyhláška
    k zákonu č. 110/1997 Sb. o potravinách: šarže se uvádí s předponou **„L“**
    (pokud je jinak nezaměnitelná, předpona není nutná). Pokud je na obalu
@@ -145,7 +147,7 @@ suppliers 1──* raw_material_lots *──1 raw_materials
 |---|---|
 | `id`, `name` (UNIQUE), `unit` (`kg` \| `l` \| `ks`) | |
 | `allergens text[]` | stejný CHECK na 14 kódů EU jako `products.allergens` |
-| `is_animal_origin boolean` | kvůli 931/2011 (přísnější evidence) |
+| `is_animal_origin boolean` | živočišná surovina; do rostlinného produktu ji **nejde použít** (6b) |
 | `is_packaging boolean` | obaly, víčka, bag-in-box |
 | `is_active`, časy | |
 
@@ -312,9 +314,9 @@ co systém nevyčte nebo neodhadne.
 2. Server fotky přečte AI (Claude, čtení obrázků) a vrátí strukturovaný
    návrh:
    - obchod / dodavatel (IČO z účtenky → `suppliers`), datum, číslo dokladu;
-   - řádky: text z účtenky („SMETANA KYS.31% 250ML“), množství, jednotka,
+   - řádky: text z účtenky („OVES.SMETANA VAR.200ML“), množství, jednotka,
      cena;
-   - **spárování se surovinou** z číselníku („Smetana 31 %“). Každé ruční
+   - **spárování se surovinou** z číselníku („Ovesná smetana na vaření“). Každé ruční
      spárování se uloží jako alias (`raw_material_aliases`), takže příště
      se totéž spáruje samo;
    - řádky, které nejsou suroviny (taška, čistidlo), se samy odškrtnou.
@@ -330,9 +332,12 @@ AI nikdy nezapisuje sama — vždy jde o **návrh, který člověk potvrdí**
 - **výchozí identifikace = obchod + datum nákupu + číslo účtenky.** Pro
   „jeden krok zpět“ to stačí: víme, odkud a kdy surovina přišla, a obchod
   podle data dohledá svou šarži;
-- u **živočišných a rizikových surovin** (smetana, mléko, vejce, maso)
-  systém požádá o **fotku etikety** → AI z ní vyčte šarži a datum
-  spotřeby. Jedna fotka, nic se neopisuje. Lze vypnout po surovinách.
+- u **složených a rizikových surovin** (rostlinná smetana a mléko, bujón,
+  koření ve směsi, tofu, pasty) systém požádá o **fotku etikety** → AI
+  z ní vyčte šarži, datum spotřeby, **alergeny a věty „může obsahovat
+  stopy…“** a hlavně ověří, že surovina je **rostlinná**. Jedna fotka,
+  nic se neopisuje. Lze vypnout po surovinách (sůl, dýně z trhu ji
+  nepotřebují).
 
 ### Krok 2 — vařím (`/vyroba/nova-sarze`)
 Suroviny se **nepíšou, jen potvrzují**:
@@ -373,6 +378,33 @@ a `prepare_batch` / `create_batch` podle vzoru objednávek a faktur.
   NULL, `receipt_text` UNIQUE v rámci dodavatele).
 - Nová tabulka `purchase_documents` (fotky, dodavatel, datum, číslo
   dokladu, stav `draft` | `confirmed`), na kterou ukazují příjemky.
+
+---
+
+## 6b. Pojistka „100% rostlinné“
+
+Rozhodnutí vedení: **polévky pro e-shop jsou čistě rostlinné**, živočišné
+suroviny se do nich nepoužívají. Systém to hlídá, ne jen papír:
+
+- nový příznak **`products.is_plant_based`** (polévky = `true`);
+- surovina s `is_animal_origin = true` **nejde vybrat** do várky rostlinného
+  produktu — tvrdý zákaz v aplikaci i v DB (trigger na
+  `production_batch_inputs`), ne jen varování;
+- nová surovina se při prvním nákupu musí označit rostlinná / živočišná;
+  u složených surovin pomůže fotka etikety (AI upozorní na mléko, vejce,
+  syrovátku, máslo, med, želatinu…);
+- **alergeny se počítají ze surovin:** sjednocení alergenů všech použitých
+  šarží surovin se při vaření porovná s `products.allergens`. Chybí-li
+  alergen na produktu (ovesná smetana → lepek), šarži **nejde uvolnit
+  k prodeji**, dokud se to nevyřeší (opravit produkt / štítek, nebo změnit
+  surovinu). Věty „může obsahovat stopy mléka“ ze surovin se zobrazí
+  jako upozornění pro štítek;
+- karta šarže pro kontrolu má řádek **„Rostlinný výrobek: ano — žádná
+  surovina živočišného původu“**, doložený seznamem surovin.
+
+Pokud by Begina někdy vařila nerostlinně (catering, zakázka), bude to
+samostatný produkt s `is_plant_based = false` — e-shopové polévky se tím
+nezmění.
 
 ---
 
@@ -426,8 +458,8 @@ Uvařeno 60 l · Var 96 °C · Zchlazeno na 4 °C v 13:40
 
 SUROVINY                     DODAVATEL           ŠARŽE DOD.   DMT/DP       MNOŽSTVÍ
 Brambory                     Farma Novák         —(trh)       —            12 kg
-Smetana 31 %                 Mlékárna XY         M2610-447    20. 11. 2026  8 l
-Vejce                        Drůbež Z            CZ-2-0417    14. 11. 2026  30 ks
+Ovesná smetana na vaření     Velkoobchod XY      L2610-447    20. 11. 2026  8 l
+Hlíva ústřičná               Farma Z             nákup 31.10. 14. 11. 2026  4 kg
 Bag-in-box 3 l               Obaly s.r.o.        BX-88812     —            19 ks
 ...
 
@@ -468,12 +500,12 @@ iDokladu.
 **Zjištění z DB (kontrola jen čtením, 1. 11. 2026):**
 - ⚠ **Sirupy a koktejly nemají `shelf_life_days`** → systém by jim
   nespočítal datum trvanlivosti; před spuštěním doplnit.
-- ⚠ **Kulajda má `allergens = {}` (bez alergenů)** — klasická kulajda
-  obsahuje mléko/smetanu a často vejce. Pokud je receptura rostlinná, je to
-  v pořádku; jinak je to chyba v označení produktu. S evidencí surovin
-  (alergeny u každé suroviny) to systém půjde do budoucna **hlídat
-  automaticky**: alergen v surovině, který chybí u produktu → varování
-  při vaření.
+- ⚠ **Všechny polévky mají `allergens = {}` (bez alergenů).** Polévky jsou
+  rostlinné, takže mléko a vejce odpadají — ale rostlinné náhražky
+  alergeny často mají: **ovesná smetana = oves = lepek**, sójová = sója,
+  kešu = ořechy; zeleninový bujón často celer, někdy hořčice. Ověřit
+  u kulajdy (smetana) a u polévek s bujónem. S evidencí surovin to systém
+  bude **hlídat automaticky** (6b).
 - `products.lot_code` neexistuje → doplnit kódy produktů.
 
 ---
@@ -482,7 +514,7 @@ iDokladu.
 
 | Fáze | Obsah | Hodnota |
 |---|---|---|
-| **Šarže 1.0 (MVP)** | dodavatelé, suroviny; **příjem z fotky nákupu s AI čtením a potvrzením**; vaření předvyplněné z minulé várky + automatický výběr šarží surovin; výrobní šarže s číslem, surovinami a výstupem; ruční přiřazení šarže k objednávce; karta šarže + PDF; vzorky s pravidly; sklad = výroba − prodej − odpisy | **splní kontrolu** |
+| **Šarže 1.0 (MVP)** | dodavatelé, suroviny; **příjem z fotky nákupu s AI čtením a potvrzením**; vaření předvyplněné z minulé várky + automatický výběr šarží surovin; pojistka „100% rostlinné“ a kontrola alergenů ze surovin; výrobní šarže s číslem, surovinami a výstupem; ruční přiřazení šarže k objednávce; karta šarže + PDF; vzorky s pravidly; sklad = výroba − prodej − odpisy | **splní kontrolu** |
 | Šarže 1.1 | automatické FEFO při „připraveno“; upozornění na prošlé šarže a vzorky k likvidaci; zpětné dohledání suroviny a blokace; MCP `get_batch_report` | rychlost, stažení z trhu |
 | Šarže 1.2 | tisk štítků (číslo šarže, datum spotřeby, složení a alergeny z produktu) | méně ruční práce |
 | Výroba 2.0 | receptury (předvyplnění surovin podle objemu), náklady várky, kontrola alergenů surovina ↔ produkt, plán výroby z objednávek | navazuje na „Produkty“ a „Plán výroby“ |
@@ -512,5 +544,7 @@ Migrace podle zvyku repozitáře: `drizzle/0028_vyroba_1_0_sarze.sql`
    nesedí sklad.)
 7. **Kde nakupujete** (Makro, Lidl, Billa, farmáři, velkoobchod s fakturou)?
    Podle toho se vyladí čtení účtenek a dodacích listů.
-8. **Fotka etikety** u živočišných surovin (smetana, vejce, maso) — chcete
-   ji vyžadovat, nebo jen nabízet?
+8. **Fotka etikety** u složených surovin (rostlinná smetana, bujón, směsi
+   koření) — chcete ji vyžadovat, nebo jen nabízet?
+9. **Rostlinné jsou jen polévky, nebo i nápoje?** (Sirupy/čaje s medem?)
+   Podle toho se nastaví příznak `is_plant_based` u dalších produktů.
