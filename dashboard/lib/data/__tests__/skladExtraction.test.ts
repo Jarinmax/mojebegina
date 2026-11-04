@@ -44,9 +44,17 @@ let receiptPaymentMethod: string | null = null;
 // --- Nahrané strany ---------------------------------------------------------
 let pageRows: Array<[string, string]> = [["sklad/r1/p1.jpg", "image/jpeg"]];
 let blobContent: Uint8Array | null = new Uint8Array([1, 2, 3]);
-// --- Dohledání dodavatele (bod 5 zadání) ------------------------------------
+// --- Dohledání dodavatele (bod 5 zadání; revize: appka ho smí i založit,
+// ale jen když příjemka ještě žádný nemá — viz receiptSupplierId) ----------
 let supplierByIcoRow: [string, string] | null = null;
 let supplierByNameRow: [string, string] | null = null;
+/** Jen pro test souběhu: různá odpověď na 1./2. volání "dohledat podle IČO" (appčino vlastní dohledání PŘED insertem vs. znovudohledání PO unique violation). Když je null, používá se statické supplierByIcoRow jako dosud. */
+let supplierByIcoSequence: Array<[string, string] | null> | null = null;
+/** Dodavatel aktuálně nastavený na příjemce (fetchReceiptForExtraction) — výchozí SUPPLIER_ID jako dosud; test na "draft bez dodavatele" ho nastaví na null. */
+let receiptSupplierId: string | null = SUPPLIER_ID;
+/** Odpověď na INSERT INTO suppliers (createSupplierFromExtraction) — "success" vrátí newSupplierRow, "ico-conflict"/"name-conflict" simulují souběh (unique violation). */
+let insertSupplierOutcome: "success" | "ico-conflict" | "name-conflict" = "success";
+let newSupplierRow: [string, string] = ["supplier-new", "Nový Dodavatel s.r.o."];
 // --- Mapování položek (body 6+7 zadání) -------------------------------------
 let mappingByCodeRow: [string, string, string, string] | null = null; // id, stock_item_id, line_kind, canonical_unit
 let mappingByDescriptionRow: [string, string, string, string] | null = null;
@@ -97,7 +105,7 @@ vi.mock("@neondatabase/serverless", () => ({
     if (sqlText.includes('"document_number", "document_date", "payment_method"')) {
       if (!receiptStatus) return Promise.resolve({ rows: [], rowCount: 0, fields: [] });
       return Promise.resolve({
-        rows: [[RECEIPT_ID, receiptStatus, SUPPLIER_ID, receiptDocumentNumber, receiptDocumentDate, receiptPaymentMethod]],
+        rows: [[RECEIPT_ID, receiptStatus, receiptSupplierId, receiptDocumentNumber, receiptDocumentDate, receiptPaymentMethod]],
         rowCount: 1,
         fields: [],
       });
@@ -113,7 +121,8 @@ vi.mock("@neondatabase/serverless", () => ({
     }
     // supplier by ico
     if (sqlText.startsWith('select "id", "name" from "suppliers" where "suppliers"."ico"')) {
-      const rows = supplierByIcoRow ? [supplierByIcoRow] : [];
+      const row = supplierByIcoSequence ? (supplierByIcoSequence.shift() ?? null) : supplierByIcoRow;
+      const rows = row ? [row] : [];
       return Promise.resolve({ rows, rowCount: rows.length, fields: [] });
     }
     // supplier by normalized name (ico IS NULL)
@@ -124,6 +133,15 @@ vi.mock("@neondatabase/serverless", () => ({
     // supplier correction on the receipt (goods_receipts.supplier_id/snapshot)
     if (sqlText.startsWith('update "goods_receipts" set "supplier_id"')) {
       return Promise.resolve({ rows: [], rowCount: 1, fields: [] });
+    }
+    // auto-vytvoření dodavatele (createSupplierFromExtraction) — jen když
+    // na příjemce zatím žádný není a appka nic nenašla ke korekci.
+    if (sqlText.startsWith('insert into "suppliers"')) {
+      if (insertSupplierOutcome === "success") {
+        return Promise.resolve({ rows: [newSupplierRow], rowCount: 1, fields: [] });
+      }
+      const constraint = insertSupplierOutcome === "ico-conflict" ? "suppliers_ico_key" : "suppliers_name_normalized_key";
+      return Promise.reject(new Error(`duplicate key value violates unique constraint "${constraint}"`));
     }
     // item mapping lookup (join stock_items) — by code or by description
     if (sqlText.startsWith('select "supplier_item_mappings"."id"')) {
@@ -287,6 +305,10 @@ beforeEach(() => {
   blobContent = new Uint8Array([1, 2, 3]);
   supplierByIcoRow = null;
   supplierByNameRow = null;
+  supplierByIcoSequence = null;
+  receiptSupplierId = SUPPLIER_ID;
+  insertSupplierOutcome = "success";
+  newSupplierRow = ["supplier-new", "Nový Dodavatel s.r.o."];
   mappingByCodeRow = null;
   mappingByDescriptionRow = null;
   finalWriteSucceeds = true;
@@ -695,7 +717,7 @@ describe("triggerGoodsReceiptExtraction — vícestránkový doklad (bod 2 zadá
   });
 });
 
-describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak normalizovaný název, NIKDY auto-vytvoření duplicity (bod 5 zadání)", () => {
+describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak normalizovaný název; založení nového jen když ho příjemka ještě nemá (revize bodu 5 zadání)", () => {
   it("shoda podle IČO má přednost před názvem a aktualizuje supplier_id na příjemce", async () => {
     supplierByIcoRow = ["supplier-matched", "Matched Supplier"];
     mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: "74337297", supplierName: "Jiný text na dokladu" }));
@@ -726,6 +748,49 @@ describe("triggerGoodsReceiptExtraction — dodavatel: IČO nejdřív, pak norma
     expect(result.ok).toBe(true);
     expect(extractionWrite().params).toContain(SUPPLIER_ID); // supplier_id zůstává původní
     expect(capturedQueries.some((q) => q.sql.startsWith('insert into "suppliers"'))).toBe(false);
+  });
+
+  it("draft BEZ dodavatele + shoda IČO → appka ho propojí (dohledá, nezakládá)", async () => {
+    receiptSupplierId = null;
+    supplierByIcoRow = ["supplier-matched", "Matched Supplier"];
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: "74337297", supplierName: "Jiný text na dokladu" }));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result.ok).toBe(true);
+    expect(extractionWrite().params).toContain("supplier-matched");
+    expect(capturedQueries.some((q) => q.sql.startsWith('insert into "suppliers"'))).toBe(false);
+  });
+
+  it("draft BEZ dodavatele + žádná shoda → appka založí NOVÉHO dodavatele a propojí ho s příjemkou", async () => {
+    receiptSupplierId = null;
+    supplierByIcoRow = null;
+    supplierByNameRow = null;
+    newSupplierRow = ["supplier-new", "Čerstvě Založená s.r.o."];
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: "11112222", supplierName: "Čerstvě Založená s.r.o." }));
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result.ok).toBe(true);
+    const insert = capturedQueries.find((q) => q.sql.startsWith('insert into "suppliers"'));
+    expect(insert, "appka měla založit nového dodavatele").toBeTruthy();
+    expect(insert!.params).toContain("11112222");
+    expect(insert!.params).toContain("Čerstvě Založená s.r.o.");
+    expect(extractionWrite().params).toContain("supplier-new");
+  });
+
+  it("draft BEZ dodavatele + souběh (INSERT narazí na unikátní IČO) → appka dohledá dodavatele založeného souběžnou příjemkou, NEHLÁSÍ chybu", async () => {
+    receiptSupplierId = null;
+    supplierByNameRow = null;
+    insertSupplierOutcome = "ico-conflict";
+    mockExtractStructuredReceipt.mockResolvedValue(baseExtracted({ supplierIco: "33334444", supplierName: "Souběžně založený dodavatel" }));
+    // 1. volání (appčino VLASTNÍ dohledání PŘED insertem): nic nenajde.
+    // INSERT pak narazí na unique violation (mezitím vznikl souběžně).
+    // 2. volání (dohledání PO chybě, uvnitř catch bloku): najde dodavatele,
+    // kterého založila ta souběžná transakce — appka ho POUŽIJE, nehlásí chybu.
+    supplierByIcoSequence = [null, ["supplier-from-race", "Souběžně založený dodavatel"]];
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const result = await triggerGoodsReceiptExtraction(RECEIPT_ID);
+    expect(result.ok).toBe(true);
+    expect(extractionWrite().params).toContain("supplier-from-race");
   });
 });
 

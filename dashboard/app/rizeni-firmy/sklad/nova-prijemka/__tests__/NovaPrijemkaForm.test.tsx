@@ -36,9 +36,13 @@ const SUPPLIERS = [{ id: "s-1", name: "Existující dodavatel", ico: null, dic: 
 const LOCATIONS = [{ id: "loc-1", code: "default", name: "Výchozí sklad" }];
 
 describe("NovaPrijemkaForm — '+ Založit dodavatele' (mobilní blokér)", () => {
-  it("bez dodavatelů se zobrazí hláška i tlačítko pro založení; formulář pro dodavatele je skrytý, dokud se na tlačítko neklikne", () => {
+  it("bez dodavatelů appka dovolí pokračovat (appka dodavatele pozná z fotky); tlačítko pro založení je k dispozici i tak", () => {
     render(<NovaPrijemkaForm suppliers={[]} stockLocations={LOCATIONS} />);
-    expect(screen.getByText("Zatím žádný dodavatel není založen.")).toBeTruthy();
+    const select = screen.getByLabelText("Dodavatel") as HTMLSelectElement;
+    expect(select.value).toBe("");
+    // Nepovinné — žádný required ani blokující hláška, jen placeholder volba.
+    expect(select.required).toBe(false);
+    expect(screen.getByText("Nechat appku poznat z fotky…")).toBeTruthy();
     expect(screen.queryByLabelText("Název *")).toBeNull();
 
     fireEvent.click(screen.getByText("+ Založit dodavatele"));

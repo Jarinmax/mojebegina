@@ -1124,9 +1124,15 @@ export const goodsReceipts = pgTable(
   "goods_receipts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    supplierId: uuid("supplier_id")
-      .notNull()
-      .references(() => suppliers.id, { onDelete: "restrict" }),
+    // NULL = dodavatel zatím neznámý — příjemka se smí založit i bez něj
+    // (fotka jde první, appka ho dohledá/založí podle vytěžení, viz
+    // resolveSupplierId v skladExtraction.ts). Draft bez dodavatele nejde
+    // potvrdit (blocker "no_supplier", skladConfirmationChecks.ts) — jen
+    // založit a vyfotit.
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "restrict" }),
+    // Placeholder text, dokud supplierId je NULL (DRAFT_SUPPLIER_PLACEHOLDER,
+    // sklad.ts) — sloupec zůstává NOT NULL, aby žádné zobrazení v appce
+    // nemuselo nově řešit null (karty příjemek, nadpis detailu…).
     supplierNameSnapshot: text("supplier_name_snapshot").notNull(),
     stockLocationId: uuid("stock_location_id")
       .notNull()

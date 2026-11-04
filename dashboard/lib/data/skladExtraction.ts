@@ -40,7 +40,7 @@ import {
   suppliers,
 } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
-import { buildGoodsReceiptAdvisoryLockQuery } from "./sklad";
+import { buildGoodsReceiptAdvisoryLockQuery, messageIncludes } from "./sklad";
 import { requirePricesAndOriginalAccess, requireReviewAccess, requireUploadAccess } from "./skladAuth";
 import {
   normalizeExtractedLine,
@@ -108,7 +108,7 @@ async function fetchReceiptPageImages(
 
 async function fetchReceiptForExtraction(
   receiptId: string
-): Promise<{ id: string; status: string; supplierId: string; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null } | null> {
+): Promise<{ id: string; status: string; supplierId: string | null; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null } | null> {
   const [receipt] = await db
     .select({
       id: goodsReceipts.id,
@@ -235,16 +235,29 @@ async function truncatedReextractionResult(receiptId: string, phase: "ocr" | "st
   };
 }
 
-// --- Dodavatel: IČO → normalizovaný název, NIKDY auto-vytvoření duplicity ---
+// --- Dodavatel: IČO/název → existující dodavatel, nebo nový (jen když ho
+// příjemka ještě nemá) ------------------------------------------------------
 //
-// Příjemka má supplier_id už od založení (viz createDraftGoodsReceipt) —
-// tahle funkce extrahovaný údaj použije jen k DOHLEDÁNÍ/OPRAVĚ na existující
-// záznam (bod 5 zadání), nikdy k založení nového dodavatele. Když se nic
-// nenajde, zůstává beze změny supplier_id nastavené při založení příjemky.
+// Dřív (bod 5 původního zadání): tahle funkce extrahovaný údaj použila jen
+// k DOHLEDÁNÍ/OPRAVĚ na existující záznam, nikdy k založení nového
+// dodavatele — příjemka bez ručně vybraného dodavatele nešla vůbec založit.
+// Zadání (revize): appka má dodavatele z fotky poznat SAMA — i založit
+// nového, pokud v seznamu ještě není. Založení nového dodavatele je proto
+// dovolené JEN když příjemka dodavatele ještě nemá (currentSupplierId je
+// null — appka ho nikdy nepřepíše AUTOMATICKY přes už vybraného, to by
+// tiše popřelo člověkovo rozhodnutí z NovaPrijemkaForm/HlavickaForm) A JEN
+// s allowCreate=true — "Znovu přečíst doklad" (triggerGoodsReceiptReextraction)
+// je záměrně čistě čtecí (nezapisuje výsledek, dokud ho člověk nepřevezme),
+// proto volá s allowCreate=false: tahle funkce by jinak založila dodavatele
+// jako VEDLEJŠÍ ÚČINEK pouhého náhledu, ne jako výsledek skutečného zápisu.
+// Nejde-li z dokladu rozpoznat ani IČO, ani název, appka nic nehádá —
+// příjemka zůstane bez dodavatele a potvrzení ji zastaví (blocker
+// "no_supplier", skladConfirmationChecks.ts) k ruční kontrole.
 async function resolveSupplierId(
-  currentSupplierId: string,
+  currentSupplierId: string | null,
   extractedName: string | null,
-  extractedIco: string | null
+  extractedIco: string | null,
+  allowCreate: boolean
 ): Promise<{ supplierId: string; supplierNameSnapshot: string } | null> {
   if (extractedIco) {
     const [byIco] = await db
@@ -256,6 +269,10 @@ async function resolveSupplierId(
       return { supplierId: byIco.id, supplierNameSnapshot: byIco.name };
     }
     if (byIco) return null; // matches current — no change needed
+    if (currentSupplierId === null && allowCreate) {
+      return createSupplierFromExtraction(extractedName, extractedIco);
+    }
+    return null; // dodavatel už vybraný ručně, appka ho nepřepíše neznámým IČO
   }
   if (extractedName) {
     const normalized = normalizeText(extractedName);
@@ -267,8 +284,41 @@ async function resolveSupplierId(
     if (byName && byName.id !== currentSupplierId) {
       return { supplierId: byName.id, supplierNameSnapshot: byName.name };
     }
+    if (!byName && currentSupplierId === null && allowCreate) {
+      return createSupplierFromExtraction(extractedName, null);
+    }
   }
   return null;
+}
+
+const MAX_EXTRACTED_SUPPLIER_NAME_LENGTH = 200;
+
+// Založí dodavatele podle vytěžených údajů (jen z resolveSupplierId výš,
+// jen když příjemka dodavatele ještě nemá). Souběh dvou příjemek od
+// stejného NOVÉHO dodavatele vytěžených téměř současně: druhý INSERT narazí
+// na unikátní index (suppliers_ico_key / suppliers_name_normalized_key) —
+// appka to NEOHLÁSÍ jako chybu, dohledá dodavatele, co právě vznikl v
+// souběžné transakci, a použije jeho id (stejný vzor jako createSupplier
+// race-safety, jen bez chybové hlášky navenek — tohle běží bez člověka).
+async function createSupplierFromExtraction(
+  extractedName: string | null,
+  extractedIco: string | null
+): Promise<{ supplierId: string; supplierNameSnapshot: string }> {
+  const name = (extractedName ?? `Dodavatel IČO ${extractedIco}`).trim().slice(0, MAX_EXTRACTED_SUPPLIER_NAME_LENGTH) || "Neznámý dodavatel";
+  try {
+    const [row] = await db
+      .insert(suppliers)
+      .values({ name, nameNormalized: normalizeText(name), ico: extractedIco, dic: null })
+      .returning({ id: suppliers.id, name: suppliers.name });
+    return { supplierId: row.id, supplierNameSnapshot: row.name };
+  } catch (error) {
+    const whereClause = extractedIco ? eq(suppliers.ico, extractedIco) : and(eq(suppliers.nameNormalized, normalizeText(name)), isNull(suppliers.ico));
+    if (messageIncludes(error, "suppliers_ico_key") || messageIncludes(error, "suppliers_name_normalized_key")) {
+      const [existing] = await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(whereClause).limit(1);
+      if (existing) return { supplierId: existing.id, supplierNameSnapshot: existing.name };
+    }
+    throw error;
+  }
 }
 
 type ItemMappingMatch = { stockItemId: string; lineKind: LineKind; canonicalUnit: string };
@@ -279,7 +329,11 @@ type ItemMappingMatch = { stockItemId: string; lineKind: LineKind; canonicalUnit
 // použití, ne jen první zápis (bod 7 zadání). Vrací i canonicalUnit ze
 // SKUTEČNÉ skladové karty (ne modelův odhad), aby normalizovaná jednotka
 // u známého mapování vždy odpovídala tomu, na čem se karta vede.
-async function findKnownMapping(supplierId: string, supplierItemCode: string | null, description: string): Promise<ItemMappingMatch | null> {
+async function findKnownMapping(supplierId: string | null, supplierItemCode: string | null, description: string): Promise<ItemMappingMatch | null> {
+  // Příjemka ještě bez dodavatele (appka ho z fotky nerozpoznala ani
+  // nezaložila) — žádné dřívější mapování nemůže existovat, řádek zůstane
+  // nenamapovaný k ruční kontrole (blocker "unmapped").
+  if (supplierId === null) return null;
   const whereClause = supplierItemCode
     ? and(eq(supplierItemMappings.supplierId, supplierId), eq(supplierItemMappings.supplierItemCode, supplierItemCode))
     : and(
@@ -338,7 +392,7 @@ export type ResolvedExtractionLine = {
 // k porovnání (triggerGoodsReceiptReextraction). Volá findKnownMapping
 // sekvenčně (ne Promise.all) — zachovává přesné pořadí řádků i u
 // případných budoucích vedlejších účinků mapování (bump last_used_at).
-async function resolveExtractedLines(supplierId: string, lines: ExtractedReceiptLine[]): Promise<ResolvedExtractionLine[]> {
+async function resolveExtractedLines(supplierId: string | null, lines: ExtractedReceiptLine[]): Promise<ResolvedExtractionLine[]> {
   const resolved: ResolvedExtractionLine[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -537,7 +591,7 @@ export async function triggerGoodsReceiptExtraction(receiptId: string): Promise<
   let written: { rows: unknown[] };
   try {
     const sanitizedIco = sanitizeExtractedIco(extracted.supplierIco);
-    const resolvedSupplier = await resolveSupplierId(receipt.supplierId, extracted.supplierName, sanitizedIco);
+    const resolvedSupplier = await resolveSupplierId(receipt.supplierId, extracted.supplierName, sanitizedIco, true);
     const finalSupplierId = resolvedSupplier?.supplierId ?? receipt.supplierId;
 
     const resolvedLines = await resolveExtractedLines(finalSupplierId, extracted.lines);
@@ -748,11 +802,15 @@ export async function confirmGoodsReceiptLineMapping(
       .where(eq(goodsReceiptLines.id, lineId)),
   ]);
 
-  if (input.rememberMapping && input.stockItemId) {
+  // Bez dodavatele (appka ho z fotky nerozpoznala, blocker "no_supplier")
+  // není ke komu mapování zapamatovat — appka ho jen tiše přeskočí, místo
+  // aby si vymýšlela nebo chybu zápisu.
+  if (input.rememberMapping && input.stockItemId && receipt.supplierId) {
+    const supplierId = receipt.supplierId;
     const descriptionNormalized = line.supplierItemCode ? null : normalizeText(line.rawDescription);
     const matchClause = line.supplierItemCode
-      ? and(eq(supplierItemMappings.supplierId, receipt.supplierId), eq(supplierItemMappings.supplierItemCode, line.supplierItemCode))
-      : and(eq(supplierItemMappings.supplierId, receipt.supplierId), eq(supplierItemMappings.descriptionNormalized, descriptionNormalized!));
+      ? and(eq(supplierItemMappings.supplierId, supplierId), eq(supplierItemMappings.supplierItemCode, line.supplierItemCode))
+      : and(eq(supplierItemMappings.supplierId, supplierId), eq(supplierItemMappings.descriptionNormalized, descriptionNormalized!));
 
     const [existingMapping] = await db.select({ id: supplierItemMappings.id }).from(supplierItemMappings).where(matchClause).limit(1);
     if (existingMapping) {
@@ -762,7 +820,7 @@ export async function confirmGoodsReceiptLineMapping(
         .where(eq(supplierItemMappings.id, existingMapping.id));
     } else {
       await db.insert(supplierItemMappings).values({
-        supplierId: receipt.supplierId,
+        supplierId,
         supplierItemCode: line.supplierItemCode,
         descriptionNormalized,
         stockItemId: input.stockItemId,
@@ -799,7 +857,7 @@ export type ReextractionResult = TriggerExtractionResult;
 
 async function fetchReceiptStatusForReextraction(
   receiptId: string
-): Promise<{ id: string; status: string; supplierId: string; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null; reextractionStatus: string } | null> {
+): Promise<{ id: string; status: string; supplierId: string | null; documentNumber: string | null; documentDate: string | null; paymentMethod: string | null; reextractionStatus: string } | null> {
   const [receipt] = await db
     .select({
       id: goodsReceipts.id,
@@ -957,7 +1015,7 @@ export async function triggerGoodsReceiptReextraction(receiptId: string): Promis
     // goods_receipts — dokud uživatel nový výsledek nepřevezme, hlavička
     // příjemky zůstává beze změny stejně jako řádky.
     const sanitizedIco = sanitizeExtractedIco(extracted.supplierIco);
-    const resolvedSupplier = await resolveSupplierId(receipt.supplierId, extracted.supplierName, sanitizedIco);
+    const resolvedSupplier = await resolveSupplierId(receipt.supplierId, extracted.supplierName, sanitizedIco, false);
     const finalSupplierId = resolvedSupplier?.supplierId ?? receipt.supplierId;
 
     const resolvedLines = await resolveExtractedLines(finalSupplierId, extracted.lines);

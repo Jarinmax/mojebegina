@@ -1,6 +1,6 @@
 // Řetězec migrací Drizzle (drizzle/ + drizzle/meta): po sloučení main
 // (0011 = CEO přehled, 0012 = Denní volání) jsou e-shopové migrace
-// 0013–0022 a za nimi Sklad 1.0 (0023–0024). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
+// 0013–0022 a za nimi Sklad 1.0 (0023–0025). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
 // tvoří souvislý řetězec bez mezer a že každý snapshot popisuje úplné
 // schéma — jinak by drizzle-kit generate vyrobil špatnou další migraci.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -40,7 +40,7 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
   "0022_eshop_1_0_company_invoicing",
 ];
-const SKLAD = ["0023_sklad_1_0_zaklad", "0024_sklad_1_0_znovu_precist"];
+const SKLAD = ["0023_sklad_1_0_zaklad", "0024_sklad_1_0_znovu_precist", "0025_sklad_1_0_dodavatel_volitelny"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length;
 const SKLAD_TABLES = [
@@ -71,14 +71,14 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0022, sklad 0023–0024", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání (z main), e-shop 0013–0022, sklad 0023–0025", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
     expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...SKLAD]);
   });
 
-  it("sklad: 0023 přidá právě 10 skladových tabulek, 0024 žádnou; nic jiného se nezmění", () => {
+  it("sklad: 0023 přidá právě 10 skladových tabulek, 0024 i 0025 žádnou; nic jiného se nezmění", () => {
     const before = snapshot(FIRST_SKLAD_IDX - 1).tables;
     const after = snapshot(FIRST_SKLAD_IDX).tables;
     const added = Object.keys(after).filter((t) => !(t in before)).sort();
@@ -86,6 +86,8 @@ describe("řetězec migrací Drizzle", () => {
     for (const t of Object.keys(before)) expect(after[t]).toEqual(before[t]);
     expect(Object.keys(snapshot(FIRST_SKLAD_IDX + 1).tables).sort()).toEqual(Object.keys(after).sort());
     for (const t of Object.keys(before)) expect(snapshot(FIRST_SKLAD_IDX + 1).tables[t]).toEqual(before[t]);
+    // 0025 (dodavatel volitelný) mění jen NOT NULL na goods_receipts.supplier_id — žádná tabulka nepřibyde ani nezmizí.
+    expect(Object.keys(snapshot(FIRST_SKLAD_IDX + 2).tables).sort()).toEqual(Object.keys(after).sort());
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {

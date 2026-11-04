@@ -74,13 +74,28 @@ describe("generálka na kopii Production (0022): před → migrace → po → vr
     await pg.exec(file("11_migration.sql"));
     expect(await check(pg, file("12_after.sql"))).toBe("10 | 1 | 4 | 1 | 0 | 0 | 0 | 0 | 4 | 1 | 1 | 1 | 0 | 7");
 
+    // Migrace 0025 (dodavatel volitelný) navazuje na 10→11→12 stejně, jako
+    // bude navazovat v Production — teprve PO ní kód (createMigratedDb,
+    // celý drizzle řetězec) a Production postup (docs/sklad) dávají stejné
+    // schéma.
+    expect(await check(pg, file("13_dodavatel_volitelny_before.sql"))).toBe("true | true | 0 | 0");
+    await pg.exec(file("14_dodavatel_volitelny.sql"));
+    expect(await check(pg, file("15_dodavatel_volitelny_after.sql"))).toBe("false | 0 | 0");
+
     const { pg: code } = await createMigratedDb();
     expect(await schemaPrint(pg)).toEqual(await schemaPrint(code));
 
     const before = await schemaPrint(pg);
     await expect(pg.exec(file("11_migration.sql"))).rejects.toThrow(/STOP: skladové tabulky už existují/);
     await pg.exec("ROLLBACK");
+    await expect(pg.exec(file("14_dodavatel_volitelny.sql"))).rejects.toThrow(/STOP: goods_receipts\.supplier_id už je volitelný/);
+    await pg.exec("ROLLBACK");
     expect(await schemaPrint(pg)).toEqual(before);
+  });
+
+  it("14_dodavatel_volitelny.sql: bez skladu STOP; nic nezmění", async () => {
+    const { pg } = await createMigratedDb("0022_eshop_1_0_company_invoicing");
+    await expect(pg.exec(file("14_dodavatel_volitelny.sql"))).rejects.toThrow(/STOP: sklad ještě neexistuje/);
   });
 
   it("jiná větev (backup, Preview) nebo mimo Neon → STOP, nic se nezmění", async () => {

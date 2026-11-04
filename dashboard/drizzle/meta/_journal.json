@@ -176,6 +176,13 @@
       "when": 1792510774666,
       "tag": "0024_sklad_1_0_znovu_precist",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793806745899,
+      "tag": "0025_sklad_1_0_dodavatel_volitelny",
+      "breakpoints": true
     }
   ]
 }
