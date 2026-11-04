@@ -1,6 +1,6 @@
 // Řetězec migrací Drizzle (drizzle/ + drizzle/meta): po sloučení main
 // (0011 = CEO přehled, 0012 = Denní volání) jsou e-shopové migrace
-// 0013–0019. Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
+// 0013–0022, za nimi audit iDokladu, MCP a Práce (0023–0027) a Sklad 1.0 (0028–0029). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
 // tvoří souvislý řetězec bez mezer a že každý snapshot popisuje úplné
 // schéma — jinak by drizzle-kit generate vyrobil špatnou další migraci.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -40,7 +40,7 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
   "0022_eshop_1_0_company_invoicing",
 ];
-/** Za e-shopem: audit čtení iDokladu a produkční MCP/OAuth. */
+/** Za e-shopem: audit čtení iDokladu a produkční MCP/OAuth, Práce 1.0–2.0. */
 const AFTER_ESHOP = [
   "0023_idoklad_read_log",
   "0024_gpt_mcp_production",
@@ -48,7 +48,21 @@ const AFTER_ESHOP = [
   "0026_prace_1_1_task_management",
   "0027_prace_2_0_photos_approval",
 ];
+const SKLAD = ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist"];
 const FIRST_ESHOP_IDX = 13;
+const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
+const SKLAD_TABLES = [
+  "suppliers",
+  "supplier_item_mappings",
+  "stock_locations",
+  "stock_items",
+  "goods_receipts",
+  "goods_receipt_documents",
+  "goods_receipt_document_pages",
+  "goods_receipt_lines",
+  "goods_receipt_activity",
+  "stock_movements",
+].map((t) => `public.${t}`);
 /** Tabulky z main, které e-shop nesmí měnit — od kterého snapshotu existují. */
 const MAIN_TABLES: Record<string, number> = {
   "public.focus_projects": 11,
@@ -65,11 +79,21 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024 a Práce 0025–0027", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, sklad 0028–0029", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP]);
+    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP, ...SKLAD]);
+  });
+
+  it("sklad: 0028 přidá právě 10 skladových tabulek, 0029 žádnou; nic jiného se nezmění", () => {
+    const before = snapshot(FIRST_SKLAD_IDX - 1).tables;
+    const after = snapshot(FIRST_SKLAD_IDX).tables;
+    const added = Object.keys(after).filter((t) => !(t in before)).sort();
+    expect(added).toEqual([...SKLAD_TABLES].sort());
+    for (const t of Object.keys(before)) expect(after[t]).toEqual(before[t]);
+    expect(Object.keys(snapshot(FIRST_SKLAD_IDX + 1).tables).sort()).toEqual(Object.keys(after).sort());
+    for (const t of Object.keys(before)) expect(snapshot(FIRST_SKLAD_IDX + 1).tables[t]).toEqual(before[t]);
   });
 
   it("ke každé položce journalu je SQL i snapshot a nic navíc", () => {
@@ -99,7 +123,7 @@ describe("řetězec migrací Drizzle", () => {
     }
   });
 
-  it("e-shop nemění tabulky z main (0013–0022 = stejné jako 0012)", () => {
+  it("e-shop ani sklad nemění tabulky z main (0013+ = stejné jako 0012)", () => {
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
     for (let i = FIRST_ESHOP_IDX; i < journal.entries.length; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);

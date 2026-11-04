@@ -78,7 +78,7 @@ export const companyOverview: CompanyOverviewContent = {
     { label: "Obchod / CRM", href: "/rizeni-firmy/obchod" },
     { label: "Objednávky", href: "/rizeni-firmy/objednavky" },
     { label: "Výroba" },
-    { label: "Sklad" },
+    { label: "Sklad", href: "/rizeni-firmy/sklad" },
     { label: "Marketing" },
     { label: "Akce / Festivaly / Bistro" },
     { label: "Finance" },

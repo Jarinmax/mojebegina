@@ -211,7 +211,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0]).toEqual({ n: 6, fotky: 0 });
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0027) + pojistka číslování", async () => {
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0027) + pojistka číslování; sklad (0028+) má vlastní generálku", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
@@ -221,7 +221,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
           UNION ALL SELECT 'idx', tablename, indexname, '' FROM pg_indexes WHERE schemaname = 'public'
           ORDER BY 1, 2, 3`)
       ).rows;
-    const { pg: reference } = await createMigratedDb();
+    const { pg: reference } = await createMigratedDb("0027_prace_2_0_photos_approval");
     const key = (r: unknown) => JSON.stringify(r);
     const a = new Set((await schema(pg)).map(key));
     const b = new Set((await schema(reference)).map(key));
