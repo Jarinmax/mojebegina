@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
-import { getCuratorQueueView, getWorkerQueueView, listManualCandidateOptions } from "@/lib/data/dailyCalls";
+import {
+  getCuratorQueueView,
+  getWorkerQueueView,
+  listManualCandidateOptions,
+  listMyRecentlyDoneCalls,
+} from "@/lib/data/dailyCalls";
 import QueueItemCard from "./QueueItemCard";
 import CuratorItemControls from "./CuratorItemControls";
 import CallOutcomeForm from "./CallOutcomeForm";
@@ -108,7 +113,10 @@ async function CuratorSections() {
 }
 
 async function WorkerSections() {
-  const { carriedOver, today, doneToday, totalToday } = await getWorkerQueueView();
+  const [{ carriedOver, today, doneToday, totalToday }, recentlyDone] = await Promise.all([
+    getWorkerQueueView(),
+    listMyRecentlyDoneCalls(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -148,6 +156,24 @@ async function WorkerSections() {
               <QueueItemCard key={item.id} item={item} orderNumber={carriedOver.length + i + 1}>
                 <CallOutcomeForm itemId={item.id} />
               </QueueItemCard>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Security Phase 19.3 — dokončené položky mizí z aktivní fronty výš
+          (getWorkerQueueView vrací jen status='pending'), ale karta
+          kontaktu/historie u nich musí fungovat dál, i u "Nezájem" a u
+          dnů, co už uběhly — proto vlastní sekce, bez akčního slotu
+          (výsledek je už zapsaný). */}
+      {recentlyDone.length > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
+            Nedávno obvoláno ({recentlyDone.length})
+          </h2>
+          <div className="flex flex-col gap-2">
+            {recentlyDone.map((item, i) => (
+              <QueueItemCard key={item.id} item={item} orderNumber={i + 1} />
             ))}
           </div>
         </div>

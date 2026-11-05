@@ -35,13 +35,28 @@ describe("QueueItemCard — Security Phase 19", () => {
 
   it("telefon je klikací tel: odkaz bez mezer", () => {
     const { container } = render(<QueueItemCard item={baseItem()} orderNumber={1} />);
-    const link = container.querySelector("a");
+    const link = container.querySelector('a[href^="tel:"]');
     expect(link?.getAttribute("href")).toBe("tel:+420777123456");
   });
 
-  it("bez telefonu se odkaz nezobrazí", () => {
+  it("bez telefonu se tel: odkaz nezobrazí (odkaz na historii zůstává)", () => {
     const { container } = render(<QueueItemCard item={baseItem({ contactPhone: null })} orderNumber={1} />);
-    expect(container.querySelector("a")).toBeNull();
+    expect(container.querySelector('a[href^="tel:"]')).toBeNull();
+    expect(screen.getByText("Otevřít kartu zákazníka / historii →")).toBeTruthy();
+  });
+
+  // Security Phase 19.3 — odkaz na kartu kontaktu musí být na KAŽDÉ kartě,
+  // včetně "Nezájem" a bez telefonu — oprávnění ověřuje cíl (server), ne
+  // tahle karta. Kotva `id="qi-<itemId>"` je cíl návratu z detailu.
+  it("odkaz 'Otevřít kartu zákazníka / historii' vede na detail podle leadId s ?from=item.id, i u 'Nezájem'", () => {
+    render(<QueueItemCard item={baseItem({ id: "item-9", leadId: "lead-9", stage: "not_interested" })} orderNumber={1} />);
+    const link = screen.getByText("Otevřít kartu zákazníka / historii →").closest("a");
+    expect(link?.getAttribute("href")).toBe("/rizeni-firmy/obchod/dnes/kontakt/lead-9?from=item-9");
+  });
+
+  it("kořenový prvek karty má kotvu qi-<itemId> pro návrat z detailu", () => {
+    const { container } = render(<QueueItemCard item={baseItem({ id: "item-7" })} orderNumber={1} />);
+    expect(container.querySelector("#qi-item-7")).toBeTruthy();
   });
 
   it("poslední poznámka se zobrazí, pokud existuje", () => {

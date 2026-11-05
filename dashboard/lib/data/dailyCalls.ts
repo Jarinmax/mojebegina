@@ -18,16 +18,19 @@
 // přeskočit) — viz komentář přímo u logDailyCallOutcome.
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { dailyCallQueue, leads } from "@/lib/db/schema";
+import { dailyCallQueue, leadActivity, leads, orders } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
+import { ForbiddenError } from "./errors";
 import {
+  isDailyCallCurator,
   requireDailyCallCuratorAccess,
   requireDailyCallWorkerAccess,
   DAILY_CALL_LEAD_OWNER_USER_ID,
 } from "./dailyCallsAuth";
 import { ACTIVE_LEAD_STAGES, leadDisplayName, type LeadStage } from "./leadValidation";
+import type { LeadActivityEntry } from "./leads";
 import {
   autoCandidatesToAdd,
   buildLogDailyCallOutcomeQuery,
@@ -184,6 +187,123 @@ export async function getWorkerQueueView(): Promise<WorkerQueueView> {
     doneToday,
     totalToday: doneToday + cards.length,
   };
+}
+
+// --- Rychlý přístup ke kartě kontaktu (karta z fronty → historie) --------
+
+export type DailyCallContactDetail = {
+  lead: {
+    id: string;
+    displayName: string;
+    contactPhone: string | null;
+    contactEmail: string | null;
+    stage: LeadStage;
+    ownerUserId: string | null;
+    convertedOrganizationId: string | null;
+  };
+  activity: LeadActivityEntry[];
+  recentOrders: { id: string; orderedAt: Date; totalKc: number }[] | null;
+};
+
+// Tlačítko "Otevřít kartu zákazníka / historii" na kartě z Dnešního volání
+// — ÚMYSLNĚ užší brána než requireCrmContext (plné CRM 1.0 = ADMIN +
+// EXECUTIVE beze změny, viz crmAuth.ts, tahle funkce ho nenahrazuje ani
+// neobchází). Kurátor (dnes Viner) vidí kohokoli — stejnou šířku má přes
+// CRM tak jako tak. Prostý pracovník (dnes jen Blahout) smí vidět JEN
+// kontakt, který je buď JEMU přiřazený (leads.ownerUserId), nebo který
+// sám prokazatelně obvolal (lead_activity kind='call_logged',
+// authorUserId = jeho) — zadání výslovně: nikdy ne obecný seznam všech
+// leadů. Tahle funkce je jediná cesta dovnitř a vždycky vyžaduje konkrétní
+// leadId (žádný list/browse zde neexistuje).
+export async function getDailyCallContactDetail(leadId: string): Promise<DailyCallContactDetail | null> {
+  const ctx = await requireDailyCallWorkerContext();
+
+  const [row] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  if (!row) {
+    return null;
+  }
+
+  if (!isDailyCallCurator(ctx)) {
+    let hasAccess = row.ownerUserId === ctx.userId;
+    if (!hasAccess) {
+      const [called] = await db
+        .select({ id: leadActivity.id })
+        .from(leadActivity)
+        .where(
+          and(
+            eq(leadActivity.leadId, leadId),
+            eq(leadActivity.authorUserId, ctx.userId),
+            eq(leadActivity.kind, "call_logged")
+          )
+        )
+        .limit(1);
+      hasAccess = called !== undefined;
+    }
+    if (!hasAccess) {
+      throw new ForbiddenError();
+    }
+  }
+
+  const activityRows = await db.select().from(leadActivity).where(eq(leadActivity.leadId, leadId));
+  activityRows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+  // Historie objednávek jen u leadu PŘEVEDENÉHO na zákazníka — do té doby
+  // žádné objednávky existovat nemůžou (stejný zdroj pravdy jako
+  // leads.convertedOrganizationId, viz leads.ts getCustomerDetail).
+  let recentOrders: DailyCallContactDetail["recentOrders"] = null;
+  if (row.convertedOrganizationId) {
+    recentOrders = await db
+      .select({
+        id: orders.id,
+        orderedAt: orders.orderedAt,
+        totalKc: orders.totalKc,
+      })
+      .from(orders)
+      .where(eq(orders.buyerOrganizationId, row.convertedOrganizationId))
+      .orderBy(desc(orders.orderedAt))
+      .limit(10);
+  }
+
+  return {
+    lead: {
+      id: row.id,
+      displayName: leadDisplayName(row),
+      contactPhone: row.contactPhone,
+      contactEmail: row.contactEmail,
+      stage: row.stage as LeadStage,
+      ownerUserId: row.ownerUserId,
+      convertedOrganizationId: row.convertedOrganizationId,
+    },
+    activity: activityRows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      authorUserId: r.authorUserId,
+      authorName: r.authorName,
+      body: r.body,
+      metadata: r.metadata,
+      createdAt: r.createdAt,
+    })),
+    recentOrders,
+  };
+}
+
+// Sekce "Nedávno obvoláno" na /dnes — kontakty z MINULÝCH i dnešních dní,
+// které už tenhle pracovník sám vyřídil (doneBy), aby šlo "Otevřít kartu
+// zákazníka / historii" i poté, co položka zmizí z aktivní fronty
+// (getWorkerQueueView dokončené položky vůbec nevrací).
+const RECENT_DONE_CALLS_LIMIT = 20;
+
+export async function listMyRecentlyDoneCalls(): Promise<QueueItemCardData[]> {
+  const ctx = await requireDailyCallWorkerContext();
+
+  const rows = await db
+    .select()
+    .from(dailyCallQueue)
+    .where(and(eq(dailyCallQueue.status, "done"), eq(dailyCallQueue.doneBy, ctx.userId)))
+    .orderBy(desc(dailyCallQueue.doneAt))
+    .limit(RECENT_DONE_CALLS_LIMIT);
+
+  return buildQueueCards(rows);
 }
 
 // --- Sestavení a úprava fronty (kurátor) ----------------------------------
