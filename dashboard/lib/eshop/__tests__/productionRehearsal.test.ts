@@ -233,7 +233,10 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
           UNION ALL SELECT 'idx', tablename, indexname, '' FROM pg_indexes WHERE schemaname = 'public'
           ORDER BY 1, 2, 3`)
       ).rows;
-    const { pg: reference } = await createMigratedDb();
+    // Pinováno na 0028 — tahle generálka je o migracích 0000–0028 (viz název
+    // testu); 0029 (objednávky 1.1, carrier/tracking_number) je další,
+    // oddělená migrace s vlastní produkční cestou, ne součást týhle generálky.
+    const { pg: reference } = await createMigratedDb("0028_eshop_coupons");
     const key = (r: unknown) => JSON.stringify(r);
     const a = new Set((await schema(pg)).map(key));
     const b = new Set((await schema(reference)).map(key));
