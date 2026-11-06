@@ -21,9 +21,7 @@ jobs:
       - run: npm ci
       - name: PDF ke kontrole
         run: npx tsx scripts/tmp/export-pdf.mts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pdf
-          path: dashboard/out/*.pdf
-      - name: Testy
-        run: npx vitest run
+      - name: PDF do logu (base64)
+        run: for f in out/*.pdf; do echo "=====BEGIN $f"; base64 -w0 "$f"; echo; echo "=====END $f"; done
+      - name: Testy (jen podmínky a patička)
+        run: npx vitest run lib/eshop/__tests__/termsVersions.test.ts components/__tests__/EshopFooter.test.tsx
