@@ -5,7 +5,8 @@
 
 import { parseStoredCart } from "./cart";
 import type { CatalogIndex } from "./catalogIndex";
-import { priceCart, type PricedCart } from "./pricing";
+import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
+import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
 
 const MAX_TEXT_LENGTH = 200;
@@ -25,7 +26,12 @@ export type CheckoutInput = {
   termsAccepted: boolean;
   /** Potvrzení 18+; vyžaduje se jen, když košík obsahuje alkohol. */
   ageConfirmed: boolean;
+  /** JSON ["kod", …] — uplatněné slevové kódy (z košíku / pokladny); nepovinné. */
+  couponCodes?: string;
 };
+
+/** Kupóny k ověření — načte je server (couponsServer.ts), checkout zůstává čistý. */
+export type CouponContext = { coupons: Map<string, Coupon>; usage: Map<string, CouponUsage>; now: Date };
 
 export type CheckoutValue = {
   pricedCart: PricedCart;
@@ -56,7 +62,7 @@ function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
 export function validateCheckoutInput(
   input: CheckoutInput,
   index: CatalogIndex,
-  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode } = {}
+  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
   const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode });
@@ -117,6 +123,26 @@ export function validateCheckoutInput(
     };
   }
 
+  // Slevové kódy až s e-mailem (omezení na e-mail a limit na zákazníka).
+  let pricedCart = priced.value;
+  const codes = parseCouponCodes(input.couponCodes);
+  if (codes.length > 0) {
+    const ctx = options.coupons ?? { coupons: new Map(), usage: new Map(), now: new Date() };
+    const coupons = evaluateCoupons(codes, {
+      lines: pricedCart.lines,
+      subtotalKc: pricedCart.subtotalKc,
+      index,
+      coupons: ctx.coupons,
+      usage: ctx.usage,
+      email,
+      now: ctx.now,
+    });
+    if (!coupons.ok) {
+      return { ok: false, error: `${coupons.error} Kód můžete odebrat a objednávku odeslat bez něj.` };
+    }
+    pricedCart = withCoupons(pricedCart, coupons);
+  }
+
   if (!input.termsAccepted) {
     return { ok: false, error: "Pro odeslání objednávky je potřeba souhlasit s obchodními podmínkami." };
   }
@@ -124,7 +150,7 @@ export function validateCheckoutInput(
   return {
     ok: true,
     value: {
-      pricedCart: priced.value,
+      pricedCart,
       payment,
       name,
       email,
