@@ -44,6 +44,8 @@ export type Coupon = {
   partnerLastMonthKc?: number | null;
   /** jen „partner“: název partnera (do vysvětlení) */
   partnerName?: string | null;
+  /** kupon ze starého e-shopu, ověřený jako partnerská sleva podle e-mailu */
+  legacy?: boolean;
 };
 
 /** Úroveň partnerského programu pro obrat minulého měsíce (stejná tabulka jako Moje Begina). */
@@ -64,6 +66,13 @@ export function partnerPercent(coupon: Coupon): { ok: true; percent: number } | 
     return coupon.amount > 0
       ? { ok: true, percent: coupon.amount }
       : { ok: false, error: `Partnerský kód ${code} má individuální podmínky, které zatím nejsou nastavené. Ozvěte se nám prosím na info@begina.cz.` };
+  }
+  if (tier.discountPercent === 0 && (coupon.code === PARTNER_CODE || coupon.legacy)) {
+    // e-mail není ověřený — bez částek
+    return {
+      ok: false,
+      error: "Na partnerskou slevu tento měsíc nárok nevznikl. Sleva se počítá z uhrazených nákupů zboží (bez dopravy) za minulý kalendářní měsíc, 3 % od 5 001 Kč.",
+    };
   }
   if (tier.discountPercent === 0) {
     const first = [...partnerTiers].sort((a, b) => a.minAmount - b.minAmount).find((t) => (t.discountPercent ?? 0) > 0);
@@ -93,6 +102,22 @@ export type CouponResult =
   | { ok: false; code: string; error: string };
 
 export const MAX_COUPONS = 5;
+
+/**
+ * Automatická partnerská sleva (zadání 6. 11. 2026): vyhrazený „kód“, který
+ * e-shop nabídne sám, jakmile podle e-mailu pozná zákazníka s partnerskou
+ * úrovní za minulý měsíc. Nikdo ho nerozesílá ani nezakládá.
+ */
+export const PARTNER_CODE = "partner";
+
+/** Jak se kód zobrazí zákazníkovi (automatická sleva slovy, jinak kód velkými písmeny). */
+export function couponDisplayName(applied: { code: string; partnerPercent?: number }): string {
+  if (applied.code === PARTNER_CODE) {
+    return applied.partnerPercent ? `Partnerská sleva ${applied.partnerPercent} %` : "Partnerská sleva";
+  }
+  if (applied.partnerPercent) return `${applied.code.toUpperCase()} (partnerská sleva ${applied.partnerPercent} %)`;
+  return applied.code.toUpperCase();
+}
 const MAX_CODE_LENGTH = 64;
 
 /** Kód tak, jak ho porovnává WooCommerce: bez mezer okolo, malými písmeny. */
@@ -205,8 +230,26 @@ export function evaluateCoupons(
   );
 
   const applied: AppliedCoupon[] = [];
+  let partnerApplied = false;
   for (const code of codes) {
     const coupon = coupons.get(code);
+    if (code === PARTNER_CODE && !coupon) {
+      return {
+        ok: false,
+        code,
+        error:
+          email === null
+            ? "Partnerskou slevu ověříme podle e-mailu — zadejte ho prosím v pokladně."
+            : "K tomuto e-mailu nenacházíme partnerskou úroveň za minulý měsíc, proto partnerská sleva neplatí.",
+      };
+    }
+    if (!coupon && email !== null) {
+      return {
+        ok: false,
+        code,
+        error: `Kupon ${quote(code)} v novém e-shopu nenacházíme a k zadanému e-mailu neevidujeme partnerskou úroveň za minulý měsíc. Jde-li o kupon ze starého e-shopu, zkontrolujte prosím e-mail, na který nakupujete, nebo nám napište na info@begina.cz.`,
+      };
+    }
     const failure = staticError(code, coupon, usage.get(code), now);
     if (failure || !coupon) return { ok: false, code, error: failure ?? "" };
 
@@ -255,6 +298,10 @@ export function evaluateCoupons(
 
     let percent = coupon.amount;
     if (coupon.discountType === "partner") {
+      if (partnerApplied) {
+        return { ok: false, code, error: `Partnerskou slevu lze v objednávce uplatnit jen jednou — kupon ${quote(code)} proto odeberte.` };
+      }
+      partnerApplied = true;
       const tier = partnerPercent(coupon);
       if (!tier.ok) return { ok: false, code, error: tier.error };
       percent = tier.percent;

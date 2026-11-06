@@ -1,5 +1,6 @@
 "use client";
 
+import { couponDisplayName } from "@/lib/eshop/coupons";
 import { useActionState, useEffect, useRef, useState } from "react";
 import ShopLink from "@/components/eshop/ShopLink";
 import { useEshopHref } from "@/components/eshop/EshopBase";
@@ -23,7 +24,7 @@ import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
 import CouponBox from "@/components/eshop/CouponBox";
-import { clearStoredCoupons, useCoupons } from "@/components/eshop/useCoupons";
+import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
 import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
 import { rememberPendingOrder } from "@/components/eshop/usePendingOrder";
 
@@ -91,6 +92,10 @@ export default function CheckoutForm({
     return () => clearTimeout(timer);
   }, [values.email]);
   const coupons = useCoupons(cart, couponEmail);
+  // e-mail si prohlížeč zapamatuje, aby příště nabídl partnerskou slevu už v košíku
+  useEffect(() => {
+    if (couponEmail) rememberCheckoutEmail(couponEmail);
+  }, [couponEmail]);
   // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
   // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
   const [orderToken] = useState(() =>
@@ -197,7 +202,7 @@ export default function CheckoutForm({
             ))}
             {confirmation.pricedCart.discountKc > 0 && (
               <li className="py-2 flex justify-between gap-3">
-                <span>Sleva ({confirmation.pricedCart.coupons.map((c) => c.code.toUpperCase()).join(", ")})</span>
+                <span>Sleva ({confirmation.pricedCart.coupons.map((c) => couponDisplayName(c)).join(", ")})</span>
                 <span className="tabular-nums whitespace-nowrap">−{formatKc(confirmation.pricedCart.discountKc)}</span>
               </li>
             )}
@@ -438,7 +443,7 @@ export default function CheckoutForm({
           ))}
           {discountKc > 0 && (
             <li className="py-2 flex justify-between gap-3">
-              <span>Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => a.code.toUpperCase()).join(", ")})</span>
+              <span>Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => couponDisplayName(a)).join(", ")})</span>
               <span className="tabular-nums whitespace-nowrap">−{formatKc(discountKc)}</span>
             </li>
           )}
