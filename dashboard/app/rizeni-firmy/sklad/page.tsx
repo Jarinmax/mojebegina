@@ -16,18 +16,33 @@ export default async function SkladPage() {
         ← Řízení firmy
       </Link>
 
-      <div className="mt-3 mb-5 flex items-center justify-between">
+      <div className="mt-3 mb-5 flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-lg font-medium text-begina-primary-900">Sklad — příjemky</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Mobilní tok 1.0 — založení příjemky a vyfocení dokladu.</p>
         </div>
-        <Link
-          href="/rizeni-firmy/sklad/nova-prijemka"
-          className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5 whitespace-nowrap"
-        >
-          + Nová příjemka
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/rizeni-firmy/sklad/nova-prijemka"
+            className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5 whitespace-nowrap"
+          >
+            + Nová příjemka
+          </Link>
+          <Link
+            href="/rizeni-firmy/sklad/vyroba"
+            className="text-sm font-medium text-begina-primary-900 bg-white border border-begina-primary-200 rounded-lg px-4 py-2.5 whitespace-nowrap"
+          >
+            + Výroba
+          </Link>
+        </div>
       </div>
+
+      <Link
+        href="/rizeni-firmy/sklad/stav"
+        className="block bg-white border border-neutral-200 rounded-xl p-4 mb-5 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
+      >
+        Stav skladu (fyzický / rezervováno / volný) →
+      </Link>
 
       {receipts.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
