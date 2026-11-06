@@ -657,11 +657,15 @@ describe("sanitizeExtractedDocumentDate", () => {
 });
 
 describe("jeden slovník druhů pro kartu i řádek", () => {
-  it("druhy karty = druhy řádku bez soukromého nákupu; surovina je stock_material", async () => {
+  it("druhy karty = druhy řádku + hotový výrobek (jen z výroby, ne z příjemky) bez soukromého nákupu; surovina je stock_material", async () => {
     const { STOCK_ITEM_KINDS, LINE_KINDS, STOCK_AFFECTING_LINE_KINDS } = await import("../skladValidation");
-    expect([...STOCK_ITEM_KINDS]).toEqual(["stock_material", "resale_goods", "operating_supply"]);
-    expect([...LINE_KINDS]).toEqual([...STOCK_ITEM_KINDS, "non_stock_private"]);
-    expect([...STOCK_AFFECTING_LINE_KINDS].sort()).toEqual([...STOCK_ITEM_KINDS].sort());
+    // Sklad 1.1: finished_good je platný druh SKLADOVÉ KARTY (hotový výrobek
+    // z výroby), ale NIKDY platný druh ŘÁDKU PŘÍJEMKY (do skladu nepřijde
+    // nákupem od dodavatele) — proto LINE_KINDS/STOCK_AFFECTING_LINE_KINDS
+    // nejsou odvozené z celého STOCK_ITEM_KINDS, jen z jeho podmnožiny.
+    expect([...STOCK_ITEM_KINDS]).toEqual(["stock_material", "resale_goods", "operating_supply", "finished_good"]);
+    expect([...LINE_KINDS]).toEqual(["stock_material", "resale_goods", "operating_supply", "non_stock_private"]);
+    expect([...STOCK_AFFECTING_LINE_KINDS].sort()).toEqual(["operating_supply", "resale_goods", "stock_material"]);
   });
 
   it("karta druhu stock_material jde založit, starý druh ingredient už ne", async () => {

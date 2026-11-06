@@ -6,13 +6,23 @@ import { z } from "zod";
 // Jeden slovník druhů pro skladovou kartu i řádek příjemky (dřív karta
 // "ingredient" a řádek "stock_material" — surovinu tak nešlo namapovat).
 // Řádek má navíc "non_stock_private", ten se do skladu nikdy nezapisuje.
-export const STOCK_ITEM_KINDS = ["stock_material", "resale_goods", "operating_supply"] as const;
+//
+// Sklad 1.1 přidává na KARTU čtvrtý druh "finished_good" (hotový výrobek
+// z výroby, zapisovaný výhradně přes production_in — viz
+// skladFinishedGoods.ts). Řádek příjemky od DODAVATELE ho záměrně
+// NEDOSTÁVÁ: dodavatelská příjemka vlastní výrobek nikdy nepřiváží
+// (DB check goods_receipt_lines_line_kind_check ho ani nepovolí) — proto
+// LINE_KINDS vychází z užší trojice RECEIPT_LINE_STOCK_KINDS, ne z celého
+// STOCK_ITEM_KINDS, aby formulář pro řádek příjemky "finished_good"
+// vůbec nenabídl.
+const RECEIPT_LINE_STOCK_KINDS = ["stock_material", "resale_goods", "operating_supply"] as const;
+export const STOCK_ITEM_KINDS = [...RECEIPT_LINE_STOCK_KINDS, "finished_good"] as const;
 export type StockItemKind = (typeof STOCK_ITEM_KINDS)[number];
 
-export const LINE_KINDS = [...STOCK_ITEM_KINDS, "non_stock_private"] as const;
+export const LINE_KINDS = [...RECEIPT_LINE_STOCK_KINDS, "non_stock_private"] as const;
 export type LineKind = (typeof LINE_KINDS)[number];
 
-export const STOCK_AFFECTING_LINE_KINDS: ReadonlySet<LineKind> = new Set<LineKind>(STOCK_ITEM_KINDS);
+export const STOCK_AFFECTING_LINE_KINDS: ReadonlySet<LineKind> = new Set<LineKind>(RECEIPT_LINE_STOCK_KINDS);
 
 export const LINE_KIND_LABELS: Record<LineKind, string> = {
   stock_material: "Skladová surovina",
