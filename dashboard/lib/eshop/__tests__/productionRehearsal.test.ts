@@ -211,7 +211,19 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0]).toEqual({ n: 6, fotky: 0 });
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0027) + pojistka číslování", async () => {
+  it("Kupóny — migrace 0028 tak, jak ji pustí build (scripts/migrate-eshop-coupons.mjs): prázdná tabulka, objednávky beze změny", async () => {
+    const before = (await pg.query(`SELECT id, total_kc, discount_kc FROM orders ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0028_eshop_coupons.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    expect((await pg.query(`SELECT id, total_kc, discount_kc FROM orders ORDER BY id`)).rows).toEqual(before);
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM eshop_coupons`);
+    expect(rows[0].n).toBe(0);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0028) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
