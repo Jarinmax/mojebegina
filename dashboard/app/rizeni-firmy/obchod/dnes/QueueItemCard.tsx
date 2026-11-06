@@ -1,3 +1,4 @@
+import Link from "next/link";
 import LeadStageBadge from "../LeadStageBadge";
 import type { QueueItemCardData } from "@/lib/data/dailyCalls";
 
@@ -40,6 +41,13 @@ export default function QueueItemCard({ item, orderNumber, children }: Props) {
       {item.lastNote && (
         <p className="text-xs text-neutral-500 line-clamp-2">Poslední poznámka: {item.lastNote}</p>
       )}
+
+      <Link
+        href={`/rizeni-firmy/obchod/leady/${item.leadId}?zpet=dnes`}
+        className="text-sm text-blue-700 underline self-start min-h-8 inline-flex items-center"
+      >
+        Otevřít kontakt a historii ›
+      </Link>
 
       {children}
     </div>
