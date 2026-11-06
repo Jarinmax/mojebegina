@@ -30,10 +30,21 @@ if (env === "preview" && timeline === PRODUCTION_TIMELINE) {
   process.exit(0);
 }
 
-const [{ exists }] = await sql.query(
-  `select count(*)::int > 0 as exists from information_schema.tables where table_schema = 'public' and table_name = 'eshop_coupons'`,
+const [{ exists, hasOrg }] = await sql.query(
+  `select count(*)::int > 0 as exists,
+          (select count(*)::int > 0 from information_schema.columns
+            where table_schema = 'public' and table_name = 'eshop_coupons' and column_name = 'organization_id') as "hasOrg"
+     from information_schema.tables where table_schema = 'public' and table_name = 'eshop_coupons'`,
 );
-if (exists) {
+// Preview mohl dostat dřívější návrh tabulky (bez organization_id) — je-li
+// prázdná, založí se znovu; s daty se nic nemění (STOP).
+if (exists && !hasOrg) {
+  const [{ n }] = await sql.query(`select count(*)::int as n from eshop_coupons`);
+  if (n > 0) throw new Error("Coupons migration: old eshop_coupons table with data; stopping safely.");
+  await sql.query(`drop table eshop_coupons`);
+  console.log(`Coupons migration (${env}): empty draft table dropped, recreating.`);
+}
+if (exists && hasOrg) {
   console.log(`Coupons migration (${env}): 0028 already applied.`);
 } else {
   const text = await readFile(fileURLToPath(new URL("../drizzle/0028_eshop_coupons.sql", import.meta.url)), "utf8");

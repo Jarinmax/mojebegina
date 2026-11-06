@@ -2,7 +2,7 @@
 // výpočet slevy, odmítnutí s vysvětlením, promítnutí do ceny a uložení.
 import { beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { emailAllowed, evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "../coupons";
+import { emailAllowed, evaluateCoupons, parseCouponCodes, partnerTierFor, type Coupon, type CouponUsage } from "../coupons";
 import { priceCart, withCoupons } from "../pricing";
 import { validateCheckoutInput, type CheckoutInput } from "../checkout";
 import { buildCheckoutSessionParams } from "../stripe/payment";
@@ -42,6 +42,12 @@ const COUPONS = new Map<string, Coupon>(
     coupon({ code: "firma", discountType: "percent", amount: 15, emailRestrictions: ["*@firma.cz"] }),
     coupon({ code: "doprava", discountType: "fixed_cart", amount: 0, freeShipping: true }),
     coupon({ code: "dvakusy", discountType: "percent", amount: 50, limitUsageToXItems: 2 }),
+    // osobní kódy partnerského programu — sleva podle obratu minulého měsíce
+    coupon({ code: "thecup", discountType: "partner", amount: 0, partnerLastMonthKc: 6200 }),
+    coupon({ code: "kavarna", discountType: "partner", amount: 0, partnerLastMonthKc: 15000 }),
+    coupon({ code: "maly", discountType: "partner", amount: 0, partnerLastMonthKc: 1200 }),
+    coupon({ code: "velky", discountType: "partner", amount: 9, partnerLastMonthKc: 25000 }),
+    coupon({ code: "velkybez", discountType: "partner", amount: 0, partnerLastMonthKc: 25000 }),
   ].map((c) => [c.code, c])
 );
 const USAGE = new Map<string, CouponUsage>([
@@ -111,6 +117,38 @@ describe("slevové kódy — výpočet", () => {
     expect(evaluate(["sleva10", "minus100"], [KULAJDA])).toMatchObject({ ok: true, discountKc: 176 });
     const priced = cart([{ sku: "kulajda", quantity: 1 }]);
     expect(withCoupons(priced, { applied: [], discountKc: 9999, freeShipping: false }).totalKc).toBe(0);
+  });
+});
+
+describe("partnerský program — osobní kód podle úrovně", () => {
+  it("úrovně: do 5 000 bez slevy, 5 001–8 000 = 3 %, 8 001–12 000 = 5 %, 12 001–20 000 = 7 %, nad 20 000 individuálně", () => {
+    expect([0, 5000, 5001, 8000, 8001, 12001, 20000, 20001].map((kc) => partnerTierFor(kc).discountPercent)).toEqual([0, 0, 3, 3, 5, 7, 7, null]);
+  });
+
+  it("3 % a 7 % z ceny zboží podle obratu partnera za minulý měsíc", () => {
+    // 3 % z 379 = 11,37 → 11 Kč za kus
+    expect(evaluate(["thecup"], [KULAJDA])).toEqual({
+      ok: true,
+      applied: [{ code: "thecup", discountKc: 22, freeShipping: false, partnerPercent: 3 }],
+      discountKc: 22,
+      freeShipping: false,
+    });
+    expect(evaluate(["kavarna"], [KULAJDA])).toMatchObject({ ok: true, discountKc: 2 * 27, applied: [{ partnerPercent: 7 }] });
+  });
+
+  it("individuální úroveň (nad 20 000 Kč) = sjednané procento; bez něj vysvětlení", () => {
+    expect(evaluate(["velky"], [KULAJDA])).toMatchObject({ ok: true, applied: [{ partnerPercent: 9 }], discountKc: 2 * 34 });
+    const r = evaluate(["velkybez"], [KULAJDA]);
+    expect(r.ok ? null : r.error).toBe(
+      "Partnerský kód „VELKYBEZ“ má individuální podmínky, které zatím nejsou nastavené. Ozvěte se nám prosím na info@begina.cz."
+    );
+  });
+
+  it("nízký obrat: kód je platný, ale slevu zatím nedává — srozumitelně proč", () => {
+    const r = evaluate(["maly"], [KULAJDA]);
+    expect(r.ok ? null : r.error).toBe(
+      "Partnerský kód „MALY“ tento měsíc slevu nedává — za minulý měsíc evidujeme uhrazené nákupy zboží za 1 200 Kč a sleva 3 % začíná od 5 001 Kč."
+    );
   });
 });
 
@@ -229,6 +267,10 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     db = drizzle(neon("postgresql://u:p@ep-test.neon.tech/neondb"), { schema });
     await db.execute(sql`INSERT INTO eshop_coupons (code, discount_type, amount, usage_limit, used_before, used_by_before)
                          VALUES ('test20', 'percent', 20, 2, 1, ARRAY['stary@example.cz'])`);
+    await db.execute(sql`INSERT INTO organizations (id, ico, name, registered_address)
+                         VALUES ('5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', '99999991', 'Kavárna Test s.r.o.', 'Praha')`);
+    await db.execute(sql`INSERT INTO eshop_coupons (code, discount_type, amount, organization_id)
+                         VALUES ('kavarna-test', 'partner', 0, '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d')`);
   }, 60_000);
 
   it("načte kupón a jeho použití z WooCommerce; po objednávce se použití započítá a limit platí", async () => {
@@ -277,5 +319,37 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
       ok: false,
       error: "Slevový kód „TEST20“ už byl vyčerpán. Kód můžete odebrat a objednávku odeslat bez něj.",
     });
+  });
+
+  it("partnerský kód: úroveň z uhrazených objednávek partnera za minulý měsíc (zboží bez dopravy)", async () => {
+    const { loadCouponContext, pragueMonthStart } = await import("../couponsServer");
+    const now = new Date("2026-11-06T12:00:00Z");
+    expect(pragueMonthStart(now, -1).toISOString()).toBe("2026-09-30T22:00:00.000Z"); // 1. 10. 0:00 v Praze (letní čas)
+    expect(pragueMonthStart(now, 0).toISOString()).toBe("2026-10-31T23:00:00.000Z"); // 1. 11. 0:00 v Praze
+    let ctx = await loadCouponContext(db, ["kavarna-test"], now);
+    expect(ctx.coupons.get("kavarna-test")).toMatchObject({ discountType: "partner", partnerLastMonthKc: 0, partnerName: "Kavárna Test s.r.o." });
+
+    // uhrazená říjnová objednávka partnera za 9 000 Kč zboží (+ doprava, ta se nepočítá) → 5 %
+    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
+                         VALUES ('1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 300, 9300, 'paid', 'delivered', '2026-10-15T10:00:00Z')`);
+    // neuhrazená a listopadová se nepočítají
+    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
+                         VALUES ('2f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'unpaid', 'new', '2026-10-20T10:00:00Z'),
+                                ('3f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'paid', 'new', '2026-11-02T10:00:00Z')`);
+    ctx = await loadCouponContext(db, ["kavarna-test"], now);
+    expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(9000);
+    const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
+    if (!priced.ok) throw new Error(priced.error);
+    const r = evaluateCoupons(["kavarna-test"], {
+      lines: priced.value.lines,
+      subtotalKc: priced.value.subtotalKc,
+      index: catalogIndex,
+      coupons: ctx.coupons,
+      usage: ctx.usage,
+      email: null,
+      now,
+    });
+    // 5 % z 379 = 18,95 → 19 Kč za kus
+    expect(r).toMatchObject({ ok: true, discountKc: 38, applied: [{ code: "kavarna-test", partnerPercent: 5 }] });
   });
 });

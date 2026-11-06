@@ -2,6 +2,9 @@
 // pravidla převzatá z WooCommerce, aby kupóny rozeslané ze starého e-shopu
 // platily beze změny hodnot, platnosti, omezení i pravidel kombinování.
 //
+//   partner        — osobní kód partnerského programu: procento podle úrovně
+//                    partnera (uhrazené nákupy zboží v minulém měsíci,
+//                    mock/partnerProgram.ts), nad 20 000 Kč individuálně
 //   percent        — procento z ceny způsobilého zboží
 //   fixed_cart     — pevná částka z košíku (rozpočítaná na způsobilé zboží)
 //   fixed_product  — pevná částka z každého způsobilého kusu
@@ -16,8 +19,9 @@
 import { formatKc } from "@/lib/format";
 import type { CatalogIndex } from "./catalogIndex";
 import type { PricedLine } from "./pricing";
+import { partnerTiers, type PartnerTier } from "@/mock/partnerProgram";
 
-export type CouponDiscountType = "percent" | "fixed_cart" | "fixed_product";
+export type CouponDiscountType = "partner" | "percent" | "fixed_cart" | "fixed_product";
 
 export type Coupon = {
   code: string;
@@ -36,12 +40,53 @@ export type Coupon = {
   usageLimit: number | null;
   usageLimitPerUser: number | null;
   limitUsageToXItems: number | null;
+  /** jen „partner“: uhrazené nákupy zboží partnera v minulém kalendářním měsíci (Kč) */
+  partnerLastMonthKc?: number | null;
+  /** jen „partner“: název partnera (do vysvětlení) */
+  partnerName?: string | null;
 };
+
+/** Úroveň partnerského programu pro obrat minulého měsíce (stejná tabulka jako Moje Begina). */
+export function partnerTierFor(lastMonthKc: number, tiers: PartnerTier[] = partnerTiers): PartnerTier {
+  const sorted = [...tiers].sort((a, b) => a.minAmount - b.minAmount);
+  return sorted.reduce((acc, tier) => (lastMonthKc >= tier.minAmount ? tier : acc), sorted[0]);
+}
+
+/**
+ * Procento slevy osobního kódu partnera, nebo vysvětlení, proč sleva zatím
+ * není. Individuální úroveň (nad 20 000 Kč) = `amount` kupónu.
+ */
+export function partnerPercent(coupon: Coupon): { ok: true; percent: number } | { ok: false; error: string } {
+  const lastMonth = coupon.partnerLastMonthKc ?? 0;
+  const tier = partnerTierFor(lastMonth);
+  const code = `„${coupon.code.toUpperCase()}“`;
+  if (tier.discountPercent === null) {
+    return coupon.amount > 0
+      ? { ok: true, percent: coupon.amount }
+      : { ok: false, error: `Partnerský kód ${code} má individuální podmínky, které zatím nejsou nastavené. Ozvěte se nám prosím na info@begina.cz.` };
+  }
+  if (tier.discountPercent === 0) {
+    const first = [...partnerTiers].sort((a, b) => a.minAmount - b.minAmount).find((t) => (t.discountPercent ?? 0) > 0);
+    return {
+      ok: false,
+      error: `Partnerský kód ${code} tento měsíc slevu nedává — za minulý měsíc evidujeme uhrazené nákupy zboží za ${formatKc(lastMonth)}${
+        first ? ` a sleva ${first.discountPercent} % začíná od ${formatKc(first.minAmount)}` : ""
+      }.`,
+    };
+  }
+  return { ok: true, percent: tier.discountPercent };
+}
 
 /** Kolikrát byl kupón použit (WooCommerce + nový e-shop, bez zrušených objednávek). */
 export type CouponUsage = { total: number; byEmail: Map<string, number> };
 
-export type AppliedCoupon = { code: string; discountKc: number; freeShipping: boolean };
+export type AppliedCoupon = {
+  code: string;
+  discountKc: number;
+  freeShipping: boolean;
+  /** jen partnerský kód: použité procento úrovně */
+  partnerPercent?: number;
+};
 
 export type CouponResult =
   | { ok: true; applied: AppliedCoupon[]; discountKc: number; freeShipping: boolean }
@@ -208,10 +253,17 @@ export function evaluateCoupons(
       units = units.slice(0, coupon.limitUsageToXItems);
     }
 
+    let percent = coupon.amount;
+    if (coupon.discountType === "partner") {
+      const tier = partnerPercent(coupon);
+      if (!tier.ok) return { ok: false, code, error: tier.error };
+      percent = tier.percent;
+    }
+
     let discount = 0;
-    if (coupon.discountType === "percent") {
+    if (coupon.discountType === "percent" || coupon.discountType === "partner") {
       for (const unit of units) {
-        const cut = Math.min(unit.priceKc, Math.round((unit.priceKc * coupon.amount) / 100));
+        const cut = Math.min(unit.priceKc, Math.round((unit.priceKc * percent) / 100));
         unit.priceKc -= cut;
         discount += cut;
       }
@@ -240,7 +292,12 @@ export function evaluateCoupons(
       }
       discount = total - left;
     }
-    applied.push({ code, discountKc: discount, freeShipping: coupon.freeShipping });
+    applied.push({
+      code,
+      discountKc: discount,
+      freeShipping: coupon.freeShipping,
+      ...(coupon.discountType === "partner" ? { partnerPercent: percent } : {}),
+    });
   }
 
   return {

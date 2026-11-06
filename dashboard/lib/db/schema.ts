@@ -616,7 +616,11 @@ export const companyNodeActivity = pgTable(
 // Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
 // "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
 // záznam (actor_type "user") musí autora mít dál — hlídá CHECK.
-// Slevové kupóny e-shopu (zadání Lucie 6. 11. 2026) — převzaté z WooCommerce
+// Slevové kupóny e-shopu (zadání Lucie 6. 11. 2026). Rozeslané kódy jsou
+// OSOBNÍ KÓDY PARTNERSKÉHO PROGRAMU (discount_type "partner"): kód patří
+// organizaci partnera a sleva = jeho úroveň podle uhrazených nákupů zboží
+// v minulém kalendářním měsíci (mock/partnerProgram.ts: 3 / 5 / 7 %, nad
+// 20 000 Kč individuálně = amount). Ostatní typy jako ve WooCommerce
 // (stary.begina.cz) se STEJNÝMI pravidly: typ a výše slevy, platnost,
 // minimální/maximální útrata, „použít samostatně“, omezení na produkty /
 // kategorie / e-maily, limity použití. Kód se ukládá malými písmeny (Woo
@@ -628,9 +632,12 @@ export const eshopCoupons = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     code: text("code").notNull().unique(),
+    // "partner" = osobní kód partnerského programu (sleva podle úrovně),
     // "percent" = % z ceny zboží, "fixed_cart" = pevná částka z košíku,
     // "fixed_product" = pevná částka z každého kusu (jako WooCommerce)
     discountType: text("discount_type").notNull(),
+    // partner, kterému kód patří (jen u "partner")
+    organizationId: uuid("organization_id").references(() => organizations.id),
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
     freeShipping: boolean("free_shipping").notNull().default(false),
     // okamžik konce platnosti (null = bez omezení)
@@ -656,8 +663,9 @@ export const eshopCoupons = pgTable(
   },
   (table) => [
     check("eshop_coupons_code_lower", sql`${table.code} = lower(${table.code}) AND length(${table.code}) BETWEEN 1 AND 64`),
-    check("eshop_coupons_type_check", sql`${table.discountType} IN ('percent', 'fixed_cart', 'fixed_product')`),
-    check("eshop_coupons_amount_check", sql`${table.amount} >= 0 AND (${table.discountType} <> 'percent' OR ${table.amount} <= 100)`),
+    check("eshop_coupons_type_check", sql`${table.discountType} IN ('partner', 'percent', 'fixed_cart', 'fixed_product')`),
+    check("eshop_coupons_partner_org", sql`(${table.discountType} = 'partner') = (${table.organizationId} IS NOT NULL)`),
+    check("eshop_coupons_amount_check", sql`${table.amount} >= 0 AND (${table.discountType} NOT IN ('percent', 'partner') OR ${table.amount} <= 100)`),
     check("eshop_coupons_limits_check", sql`(${table.usageLimit} IS NULL OR ${table.usageLimit} > 0) AND (${table.usageLimitPerUser} IS NULL OR ${table.usageLimitPerUser} > 0) AND (${table.limitUsageToXItems} IS NULL OR ${table.limitUsageToXItems} > 0) AND ${table.usedBefore} >= 0`),
   ]
 );

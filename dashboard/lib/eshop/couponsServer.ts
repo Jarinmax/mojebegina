@@ -1,7 +1,7 @@
 // E-shop — načtení slevových kupónů a jejich dosavadního použití z DB
 // (tabulka eshop_coupons, migrace 0028). Bez tabulky (migrace ještě
 // neproběhla) e-shop funguje dál a žádný kód neplatí.
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import type { Coupon, CouponDiscountType, CouponUsage } from "./coupons";
@@ -9,7 +9,20 @@ import type { CouponContext } from "./checkout";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-const { eshopCoupons, orderActivity, orders } = schema;
+const { eshopCoupons, orderActivity, orders, organizations } = schema;
+
+/** Začátek kalendářního měsíce v Praze jako okamžik (offset = 0 → tento měsíc, −1 → minulý). */
+export function pragueMonthStart(now: Date, offset: number): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit" }).formatToParts(now);
+  const year = Number(parts.find((p) => p.type === "year")!.value);
+  const month = Number(parts.find((p) => p.type === "month")!.value) - 1 + offset;
+  // půlnoc v Praze = 23:00 nebo 22:00 UTC předchozího dne; zjistí se z offsetu té půlnoci
+  const utcMidnight = new Date(Date.UTC(year, month, 1));
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Prague", hour: "2-digit", hourCycle: "h23" }).format(utcMidnight)
+  );
+  return new Date(utcMidnight.getTime() - hour * 3600_000);
+}
 
 /** Postgres „undefined_table“ (i zabalený v DrizzleQueryError.cause). */
 function isMissingTable(error: unknown): boolean {
@@ -58,6 +71,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
       usageLimit: row.usageLimit,
       usageLimitPerUser: row.usageLimitPerUser,
       limitUsageToXItems: row.limitUsageToXItems,
+      ...(row.discountType === "partner" ? { partnerLastMonthKc: 0, partnerName: null } : {}),
     });
     const byEmail = new Map<string, number>();
     for (const email of row.usedByBefore) {
@@ -67,6 +81,59 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
     usage.set(row.code, { total: row.usedBefore, byEmail });
   }
   if (coupons.size === 0) return { coupons, usage, now };
+
+  // Partnerské kódy: úroveň podle uhrazených nákupů zboží (bez dopravy, po
+  // slevě) za minulý kalendářní měsíc — objednávky partnera (buyer
+  // organizace) a e-shopové objednávky s některým jeho kódem.
+  const partnerRows = rows.filter((row) => row.discountType === "partner" && row.organizationId);
+  if (partnerRows.length > 0) {
+    const orgIds = [...new Set(partnerRows.map((row) => row.organizationId!))];
+    const allPartnerCodes = await db
+      .select({ code: eshopCoupons.code, organizationId: eshopCoupons.organizationId })
+      .from(eshopCoupons)
+      .where(and(eq(eshopCoupons.discountType, "partner"), inArray(eshopCoupons.organizationId, orgIds)));
+    const orgOfCode = new Map(allPartnerCodes.map((c) => [c.code, c.organizationId!]));
+    const from = pragueMonthStart(now, -1);
+    const to = pragueMonthStart(now, 0);
+    const paid = await db
+      .select({
+        organizationId: orders.buyerOrganizationId,
+        goodsKc: sql<number>`(${orders.subtotalKc} - ${orders.discountKc})::int`,
+        metadata: orderActivity.metadata,
+      })
+      .from(orders)
+      .leftJoin(orderActivity, and(eq(orderActivity.orderId, orders.id), eq(orderActivity.kind, "created")))
+      .where(
+        and(
+          eq(orders.paymentStatus, "paid"),
+          ne(orders.fulfillmentStatus, "cancelled"),
+          gte(orders.orderedAt, from),
+          lt(orders.orderedAt, to)
+        )
+      );
+    const totals = new Map<string, number>();
+    paid.forEach((row) => {
+      let org = row.organizationId && orgIds.includes(row.organizationId) ? row.organizationId : null;
+      if (!org) {
+        const list = (row.metadata as { coupons?: { code?: unknown }[] } | null)?.coupons;
+        const hit = Array.isArray(list) ? list.find((c) => typeof c?.code === "string" && orgOfCode.has(c.code)) : undefined;
+        if (hit) org = orgOfCode.get(hit.code as string) ?? null;
+      }
+      if (!org) return;
+      totals.set(org, (totals.get(org) ?? 0) + Number(row.goodsKc));
+    });
+    const names = await db
+      .select({ id: organizations.id, name: organizations.name })
+      .from(organizations)
+      .where(inArray(organizations.id, orgIds));
+    const nameOf = new Map(names.map((n) => [n.id, n.name]));
+    for (const row of partnerRows) {
+      const coupon = coupons.get(row.code);
+      if (!coupon) continue;
+      coupon.partnerLastMonthKc = totals.get(row.organizationId!) ?? 0;
+      coupon.partnerName = nameOf.get(row.organizationId!) ?? null;
+    }
+  }
 
   // Použití v novém e-shopu: objednávky, které kód uplatnily (metadata
   // „created“ → coupons: [{code, discountKc}]), kromě zrušených.
