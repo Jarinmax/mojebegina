@@ -104,6 +104,8 @@ export type QueueItemCardData = {
   contactPhone: string | null;
   stage: LeadStage;
   lastNote: string | null;
+  /** Kdy byl kontakt naposledy skutečně obvolán (leads.lastContactedAt) — null = nikdy. */
+  lastContactedAt: Date | null;
   /** Nezájem — pracovníkovi se nezobrazuje, kurátor ho vidí označený. */
   notInterested: boolean;
 };
@@ -123,6 +125,7 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       contactPhone: leads.contactPhone,
       contactEmail: leads.contactEmail,
       stage: leads.stage,
+      lastContactedAt: leads.lastContactedAt,
     })
     .from(leads)
     .where(inArray(leads.id, leadIds));
@@ -158,6 +161,7 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       contactPhone: lead?.contactPhone ?? null,
       stage: (lead?.stage as LeadStage) ?? "new",
       lastNote: lastNoteByLead.get(r.leadId) ?? null,
+      lastContactedAt: lead?.lastContactedAt ?? null,
       notInterested: notInterested.has(r.leadId),
     };
   });

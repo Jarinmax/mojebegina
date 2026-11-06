@@ -20,6 +20,7 @@ function baseItem(overrides: Partial<QueueItemCardData> = {}): QueueItemCardData
     contactPhone: "+420 777 123 456",
     stage: "new",
     lastNote: null,
+    lastContactedAt: null,
     notInterested: false,
     ...overrides,
   };
@@ -70,5 +71,15 @@ describe("QueueItemCard — Security Phase 19", () => {
   it("bez poznámky se řádek nezobrazí", () => {
     render(<QueueItemCard item={baseItem({ lastNote: null })} orderNumber={1} />);
     expect(screen.queryByText(/Poslední poznámka/)).toBeNull();
+  });
+
+  it("naposledy voláno se zobrazí, pokud byl kontakt dřív obvolaný", () => {
+    render(<QueueItemCard item={baseItem({ lastContactedAt: new Date(Date.UTC(2026, 10, 3)) })} orderNumber={1} />);
+    expect(screen.getByText("Naposledy voláno: 3. 11. 2026")).toBeTruthy();
+  });
+
+  it("bez předchozího hovoru se upozornění nezobrazí", () => {
+    render(<QueueItemCard item={baseItem({ lastContactedAt: null })} orderNumber={1} />);
+    expect(screen.queryByText(/Naposledy voláno/)).toBeNull();
   });
 });
