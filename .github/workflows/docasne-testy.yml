@@ -19,8 +19,11 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
-      - name: Typy
-        run: npx tsc --noEmit
-        continue-on-error: true
+      - name: PDF ke kontrole
+        run: npx tsx scripts/tmp/export-pdf.mts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdf
+          path: dashboard/out/*.pdf
       - name: Testy
         run: npx vitest run

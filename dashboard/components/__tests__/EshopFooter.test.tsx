@@ -188,8 +188,9 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(articles.map((b) => [b.heading!.split(".")[0], b.points!.length])).toEqual(
       POINTS_V1.map(([h, n]) => [h, h === "I" ? 5 : h === "VII" ? 13 : h === "VIII" ? n + 1 : n])
     );
-    // ostatní články beze změny proti dodanému znění
-    for (const i of [1, 2, 3, 4, 5, 8, 9, 10, 11, 12]) expect(articles[i]).toEqual(LEGACY_TERMS.blocks[i]);
+    // ostatní články beze změny proti dodanému znění (čl. XIII se liší jen datem účinnosti)
+    for (const i of [1, 2, 3, 4, 5, 8, 9, 10, 11]) expect(articles[i]).toEqual(LEGACY_TERMS.blocks[i]);
+    expect(articles[12].points!.slice(1)).toEqual(LEGACY_TERMS.blocks[12].points!.slice(1));
     expect(blocks[13].heading).toBe("Příloha: Vzorový formulář pro odstoupení od smlouvy");
     expect(blocks).toHaveLength(14);
   });

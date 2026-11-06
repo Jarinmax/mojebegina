@@ -34,8 +34,8 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
     pdf: "3d6697668cfb642afc9873f342c9a5fd028317f3df0ce66b2fb0ab46a0a7ebda",
   },
   "2026-11-06": {
-    text: "__V3_TEXT__",
-    pdf: "__V3_PDF__",
+    text: "e715d45f08811efe6606a682b24fb2bb17801ba0571dd93bd73d5b3bbdfa4a2c",
+    pdf: "7928be8402b56b88a885f0425645e0b16521c6dc84c642bbafae4eb9787b5eca",
   },
 };
 
