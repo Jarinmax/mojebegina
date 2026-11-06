@@ -27,6 +27,7 @@ import { LEAD_TOOLS } from "./tools/leads";
 import { OVERVIEW_TOOLS } from "./tools/overview";
 import { SALES_TOOLS } from "./tools/sales";
 import { SEARCH_TOOLS } from "./tools/search";
+import { SKLAD_TOOLS } from "./tools/sklad";
 import { NODE_PRIORITIES } from "@/lib/data/companyNodeValidation";
 import { STAGE_LABELS } from "@/app/rizeni-firmy/obchod/leadLabels";
 import {
@@ -326,6 +327,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   ...CORE_TOOLS,
   ...ORDER_TOOLS,
   ...INVOICING_TOOLS,
+  ...SKLAD_TOOLS,
 ];
 
 export const SERVER_INSTRUCTIONS = [
@@ -344,4 +346,5 @@ export const SERVER_INSTRUCTIONS = [
   "PDF existující faktury z iDokladu (i z ruční řady 2026xxxx): idoklad_invoice_pdf vrátí odkaz na stažení v MojeBegina (po přihlášení). E-mailem ji pošli jen na výslovnou žádost uživatele nástrojem send_idoklad_invoice_email (confirm=true) — server pustí jen e-mail odběratele z faktury, adresy @begina.cz, e-mail účtu uživatele a adresy povolené správcem.",
   "Zápis objednávky: Jaroslav dal trvalý pokyn — novou potvrzenou objednávku Begina.cz nalezenou v Gmailu zapiš do MojeBegina. Vždy nejdřív prepare_order s expected_total_kc z podkladu. Když vrátí autoCreateAllowed=true, zavolej create_order se STEJNÝMI argumenty, proposal_token, approval=\"standing_instruction\" a novým idempotency_key a pak oznam číslo a odkaz. Když autoCreateAllowed=false (blocking nebo decisionReasons: nesedí částka, nejednoznačný zákazník, možná duplicita, chybějící údaj…), NIC nezapisuj a vyžádej si rozhodnutí Jaroslava; po jeho výslovném souhlasu approval=\"user_confirmed\". Zákazníka nikdy nevybírej sám z více kandidátů. DIČ zadávej jen výslovně uvedené v podkladu (s customer_dic_source), nikdy ho neodvozuj z IČO. Číslo faktury vystavené mimo MojeBegina předej v external_invoice_number.",
   "Když issue_invoice nebo send_invoice_to_customer vrátí chybu nebo nejasný stav, nic neopakuj s novým klíčem ani neobcházej — sděl důvod uživateli a doporuč kontrolu v detailu objednávky. Údaje z iDokladu jsou důvěrné.",
+  "Sklad (hotové výrobky): list_stock je vždy jen čtení. record_production_batch založí novou šarži a zvýší fyzický stav — batch_code musí být jedinečný (např. L-20261106-DYN-01), poznámka je povinná. reserve_stock_for_order jen SNÍŽÍ volný stav (fyzický zůstatek se nemění) pro order_number (číslo objednávky, ne UUID) — řekni uživateli před voláním, kolik a pro kterou objednávku rezervuješ. record_stock_dispatch volej AŽ PO potvrzeném předání nebo závozu zákazníkovi, s reservation_id z reserve_stock_for_order — zapíše výdej a rezervaci uvolní. adjust_stock_after_inventory je jen po skutečné fyzické inventuře, s konkrétním důvodem — appka sama dopočítá rozdíl, nikdy nepřepisuj zůstatek přímo.",
 ].join(" ");
