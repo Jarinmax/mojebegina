@@ -145,3 +145,66 @@ export async function searchContacts(search: ContactSearch): Promise<ContactSear
     nextFollowUpAt: r.nextFollowUpAt,
   }));
 }
+
+export type TodayCall = {
+  leadId: string;
+  displayName: string;
+  contactPhone: string | null;
+  createdAt: Date;
+  resultLabel: string | null;
+  note: string | null;
+  authorName: string | null;
+};
+
+/**
+ * Dnes zavoláno — kontakty s uloženým hovorem DNES (Europe/Prague), každý
+ * jednou (poslední hovor), nejnovější nahoře. Aby se Jarda mohl za chvíli
+ * vrátit ke kontaktu, který mu po zapsání výsledku zmizel z fronty.
+ * Pracovník vidí své hovory, kurátor hovory všech (stejně jako historie).
+ */
+export async function getTodayCalls(): Promise<{ allAuthors: boolean; calls: TodayCall[] }> {
+  const ctx = requireDailyCallWorkerAccess(await getAuthContext());
+  const allAuthors = isDailyCallCurator(ctx);
+  const author = allAuthors ? sql`TRUE` : sql`la.author_user_id = ${ctx.userId}`;
+
+  const result = await db.execute<{
+    lead_id: string;
+    created_at: string | Date;
+    body: string | null;
+    metadata: unknown;
+    author_name: string | null;
+    company_name: string | null;
+    contact_name: string | null;
+    contact_phone: string | null;
+    contact_email: string | null;
+  }>(sql`
+    SELECT DISTINCT ON (la.lead_id)
+           la.lead_id, la.created_at, la.body, la.metadata, la.author_name,
+           l.company_name, l.contact_name, l.contact_phone, l.contact_email
+      FROM lead_activity la
+      JOIN leads l ON l.id = la.lead_id
+     WHERE la.kind = 'call_logged'
+       AND ${author}
+       AND (la.created_at AT TIME ZONE 'Europe/Prague')::date = (now() AT TIME ZONE 'Europe/Prague')::date
+     ORDER BY la.lead_id, la.created_at DESC, la.id DESC
+  `);
+
+  const calls = result.rows
+    .map((r) => ({
+      leadId: r.lead_id,
+      displayName: leadDisplayName({
+        companyName: r.company_name,
+        contactName: r.contact_name,
+        contactPhone: r.contact_phone,
+        contactEmail: r.contact_email,
+      }),
+      contactPhone: r.contact_phone,
+      createdAt: new Date(r.created_at),
+      resultLabel: describeCall(r.metadata).resultLabel,
+      note: r.body,
+      authorName: r.author_name,
+    }))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  return { allAuthors, calls };
+}
