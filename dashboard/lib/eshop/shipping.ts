@@ -29,11 +29,18 @@ export type ShippingMethod = {
   requiresAddress: boolean;
 };
 
+// Znění podle zadání Lucie (6. 11. 2026). Celá věta (PICKUP_NOTICE) se ukáže
+// při výběru dopravy, v potvrzení objednávky a v potvrzovacím e-mailu —
+// na úvodní stránce záměrně ne.
+const PICKUP_LABEL = "Osobní odběr – Zahradní Bistro Begina, Vitice 119";
+const PICKUP_DESCRIPTION = "Vyzvednutí je možné po předchozí domluvě.";
+export const PICKUP_NOTICE = `${PICKUP_LABEL}. ${PICKUP_DESCRIPTION}`;
+export const PICKUP_METHOD_ID = "osobni-odber";
+
 const PICKUP: ShippingMethod = {
   id: "osobni-odber",
-  // Podle skutečné objednávky z begina.cz (WooCommerce, 26. 9. 2026).
-  label: "Osobní vyzvednutí — Zahradní Bistro Begina",
-  description: "Areál Zahradnictví Jandl, Vitice 119, 281 06 Vitice (okr. Kolín).",
+  label: PICKUP_LABEL,
+  description: PICKUP_DESCRIPTION,
   priceKc: 0,
   requiresAddress: false,
 };
@@ -125,8 +132,9 @@ export type PaymentMethod = {
 
 // Platba kartou (Stripe) je dostupná, jen když to povolí server
 // (lib/eshop/stripe/config.ts → isCardPaymentAvailable) — výchozí stav je
-// nedostupná. Dostupná karta je první a předvybraná, převod zůstává jako
-// druhá možnost; bez karty je převod jediná (a výchozí) volba.
+// nedostupná. Pořadí podle zadání Lucie (6. 11. 2026): bankovní převod je
+// vždy první a předvybraný, karta (je-li dostupná) až za ním. Volbu, kterou
+// zákazník sám změní, pokladna drží ve stavu formuláře.
 export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
   const transfer: PaymentMethod = {
     id: "prevod",
@@ -142,11 +150,12 @@ export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
       : "Platební brána zatím není napojená.",
     available: cardAvailable,
   };
-  return cardAvailable ? [card, transfer] : [transfer, card];
+  return [transfer, card];
 }
 
-export function defaultPaymentMethodId(cardAvailable: boolean): PaymentMethod["id"] {
-  return cardAvailable ? "karta" : "prevod";
+/** Výchozí platba = bankovní převod (i když je karta dostupná). */
+export function defaultPaymentMethodId(_cardAvailable?: boolean): PaymentMethod["id"] {
+  return "prevod";
 }
 
 export const paymentMethods: PaymentMethod[] = paymentMethodsFor(false);

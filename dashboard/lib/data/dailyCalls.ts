@@ -18,7 +18,7 @@
 // přeskočit) — viz komentář přímo u logDailyCallOutcome.
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { dailyCallQueue, leads } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -51,6 +51,46 @@ export async function requireDailyCallWorkerContext(): Promise<NonNullable<AuthC
   return requireDailyCallWorkerAccess(ctx);
 }
 
+// --- Nezájem ----------------------------------------------------------------
+
+// Kontakt s nezájmem se v Denním volání nenavrhuje ani nezobrazuje
+// pracovníkovi (zadání vedení 6. 11. 2026). Nezájem je:
+//   • fáze leadu „Nezájem“ (not_interested), nebo
+//   • poslední uložený hovor má výsledek „Dovoláno – bez zájmu“ a po něm už
+//     nikdo nezměnil fázi. Rozhoduje výsledek, ne fáze zvolená u téhož
+//     hovoru (v ostrých datech je „bez zájmu“ i s fází „Kontaktován“).
+// Rozhoduje jen to, co je uložené výslovně (fáze, výsledek hovoru), ne text
+// poznámky. CRM ani data se nemění — jen se podle toho filtruje.
+// `leadId` je vždy kvalifikovaný sloupec ("tabulka"."sloupec").
+export function notInterestedLeadSql(leadId: SQL): SQL {
+  return sql`(
+    EXISTS (SELECT 1 FROM leads nl WHERE nl.id = ${leadId} AND nl.stage = 'not_interested')
+    OR EXISTS (
+      SELECT 1 FROM lead_activity c
+       WHERE c.lead_id = ${leadId}
+         AND c.kind = 'call_logged'
+         AND c.metadata->>'callResult' = 'reached_not_interested'
+         AND NOT EXISTS (
+           SELECT 1 FROM lead_activity x
+            WHERE x.lead_id = c.lead_id
+              AND x.kind IN ('call_logged', 'stage_changed')
+              AND (x.created_at, x.id) > (c.created_at, c.id)
+         )
+    )
+  )`;
+}
+
+const LEADS_ID = sql.raw(`"leads"."id"`);
+
+async function notInterestedLeadIds(leadIds: string[]): Promise<Set<string>> {
+  if (leadIds.length === 0) return new Set();
+  const rows = await db
+    .select({ id: leads.id })
+    .from(leads)
+    .where(and(inArray(leads.id, leadIds), notInterestedLeadSql(LEADS_ID)));
+  return new Set(rows.map((r) => r.id));
+}
+
 // --- Zobrazovací karty -------------------------------------------------
 
 export type QueueItemCardData = {
@@ -64,6 +104,8 @@ export type QueueItemCardData = {
   contactPhone: string | null;
   stage: LeadStage;
   lastNote: string | null;
+  /** Nezájem — pracovníkovi se nezobrazuje, kurátor ho vidí označený. */
+  notInterested: boolean;
 };
 
 type QueueRow = typeof dailyCallQueue.$inferSelect;
@@ -101,6 +143,7 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
     })
   );
   const lastNoteByLead = new Map(lastNotes);
+  const notInterested = await notInterestedLeadIds(leadIds);
 
   return rows.map((r) => {
     const lead = leadById.get(r.leadId);
@@ -115,6 +158,7 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       contactPhone: lead?.contactPhone ?? null,
       stage: (lead?.stage as LeadStage) ?? "new",
       lastNote: lastNoteByLead.get(r.leadId) ?? null,
+      notInterested: notInterested.has(r.leadId),
     };
   });
 }
@@ -175,7 +219,8 @@ export async function getWorkerQueueView(): Promise<WorkerQueueView> {
     .where(and(eq(dailyCallQueue.status, "pending"), sql`${dailyCallQueue.publishedAt} IS NOT NULL`))
     .orderBy(asc(dailyCallQueue.position));
 
-  const cards = await buildQueueCards(publishedPendingRows);
+  // Kontakty s nezájmem se pracovníkovi nezobrazují (ani v počtu na dnes).
+  const cards = (await buildQueueCards(publishedPendingRows)).filter((c) => !c.notInterested);
   const doneToday = await countDoneToday();
 
   return {
@@ -236,6 +281,7 @@ export async function generateDraftCandidates(): Promise<{ ok: true; added: numb
         eq(leads.ownerUserId, DAILY_CALL_LEAD_OWNER_USER_ID),
         inArray(leads.stage, ACTIVE_LEAD_STAGES),
         sql`${leads.contactPhone} IS NOT NULL AND btrim(${leads.contactPhone}) <> ''`,
+        sql`NOT ${notInterestedLeadSql(LEADS_ID)}`,
         notInArray(
           leads.id,
           db.select({ id: dailyCallQueue.leadId }).from(dailyCallQueue).where(eq(dailyCallQueue.status, "pending"))
@@ -290,6 +336,7 @@ export async function listManualCandidateOptions(): Promise<LeadOption[]> {
       and(
         inArray(leads.stage, ACTIVE_LEAD_STAGES),
         sql`${leads.contactPhone} IS NOT NULL AND btrim(${leads.contactPhone}) <> ''`,
+        sql`NOT ${notInterestedLeadSql(LEADS_ID)}`,
         notInArray(
           leads.id,
           db.select({ id: dailyCallQueue.leadId }).from(dailyCallQueue).where(eq(dailyCallQueue.status, "pending"))
@@ -331,6 +378,9 @@ export async function addManualCandidate(leadId: string): Promise<DailyCallResul
   }
   if (!lead.contactPhone || lead.contactPhone.trim() === "") {
     return { ok: false, error: "Lead nemá použitelné telefonní číslo." };
+  }
+  if ((await notInterestedLeadIds([leadId])).size > 0) {
+    return { ok: false, error: "Kontakt má zapsaný nezájem — do Denního volání se nepřidává." };
   }
 
   const [existing] = await db

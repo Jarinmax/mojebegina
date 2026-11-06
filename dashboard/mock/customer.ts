@@ -58,6 +58,9 @@ export type Order = {
   items: OrderItem[];
   products: string;
   totalKc: number;
+  /** Hodnota zboží bez dopravy a poplatků, po slevě — z ní se počítá
+   *  partnerský program. Chybí-li, použije se totalKc (mock data). */
+  goodsKc?: number;
   status: OrderStatus;
   /** Odkaz se přidává jen k faktuře, kterou může přihlášený zákazník uhradit. */
   paymentHref?: string;

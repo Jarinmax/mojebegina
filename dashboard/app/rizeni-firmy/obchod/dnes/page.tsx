@@ -10,6 +10,8 @@ import AddLeadToListForm from "./AddLeadToListForm";
 import GenerateCandidatesButton from "./GenerateCandidatesButton";
 import PublishDraftButton from "./PublishDraftButton";
 import QueueRecipientNotice from "./QueueRecipientNotice";
+import { getTodayCalls } from "@/lib/data/callHistory";
+import TodayCalls from "@/app/prace/TodayCalls";
 
 export const dynamic = "force-dynamic";
 
@@ -44,15 +46,24 @@ export default async function DailyCallsPage() {
         </p>
       </div>
 
+      <Link
+        href="/prace/hovory"
+        className="mb-4 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-blue-700 min-h-11 flex items-center justify-between"
+      >
+        <span>Historie hovorů a všechny kontakty</span>
+        <span aria-hidden>›</span>
+      </Link>
+
       {curator ? <CuratorSections /> : <WorkerSections />}
     </div>
   );
 }
 
 async function CuratorSections() {
-  const [{ draft, published }, manualOptions] = await Promise.all([
+  const [{ draft, published }, manualOptions, todayCalls] = await Promise.all([
     getCuratorQueueView(),
     listManualCandidateOptions(),
+    getTodayCalls(),
   ]);
 
   const totalPending = draft.length + published.length;
@@ -103,12 +114,14 @@ async function CuratorSections() {
           </div>
         )}
       </div>
+
+      <TodayCalls calls={todayCalls.calls} showAuthor={todayCalls.allAuthors} back="dnes" />
     </div>
   );
 }
 
 async function WorkerSections() {
-  const { carriedOver, today, doneToday, totalToday } = await getWorkerQueueView();
+  const [{ carriedOver, today, doneToday, totalToday }, todayCalls] = await Promise.all([getWorkerQueueView(), getTodayCalls()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -152,6 +165,8 @@ async function WorkerSections() {
           </div>
         </div>
       )}
+
+      <TodayCalls calls={todayCalls.calls} showAuthor={todayCalls.allAuthors} back="dnes" />
     </div>
   );
 }

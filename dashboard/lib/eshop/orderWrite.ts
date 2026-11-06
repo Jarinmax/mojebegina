@@ -21,6 +21,7 @@ import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders, productVariants } from "@/lib/db/schema";
 import type { CheckoutValue } from "./checkout";
 import type { MetaConsent } from "./metaPurchase";
+import { CURRENT_TERMS } from "./content/termsVersions";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
 
@@ -93,7 +94,7 @@ export function buildEshopOrderRows(
         recipientPhone: value.phone,
         recipientAddress: address,
         subtotalKc: pricedCart.subtotalKc,
-        discountKc: 0,
+        discountKc: pricedCart.discountKc,
         shippingKc: pricedCart.shippingKc,
         totalKc: pricedCart.totalKc,
         paymentStatus: "unpaid",
@@ -115,7 +116,16 @@ export function buildEshopOrderRows(
         authorUserId: null,
         authorName: ESHOP_ACTOR_NAME,
         kind: "created",
-        metadata: { channel: "eshop" },
+        // termsVersion = znění obchodních podmínek, se kterým zákazník souhlasil
+        // (content/termsVersions.ts) — podle něj jde PDF v potvrzení
+        // coupons = uplatněné slevové kódy — podle nich se počítá jejich použití (couponsServer.ts)
+        metadata: {
+          channel: "eshop",
+          termsVersion: CURRENT_TERMS.id,
+          ...(pricedCart.coupons.length > 0
+            ? { coupons: pricedCart.coupons.map((c) => ({ code: c.code, discountKc: c.discountKc, freeShipping: c.freeShipping })) }
+            : {}),
+        },
         createdAt: now,
       },
     },

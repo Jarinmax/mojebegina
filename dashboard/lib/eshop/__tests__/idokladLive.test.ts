@@ -264,7 +264,7 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0].subject).toBe("[TEST] Platbu za objednávku " + (await rows(sql`SELECT order_number FROM orders WHERE id = ${id}`))[0].order_number + " jsme přijali");
     expect(mail.sent[0].text).toContain(`V příloze posíláme fakturu č. ${next.number}.`);
-    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String) }]);
+    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String), contentType: "application/pdf" }]);
     expect(Buffer.from(mail.sent[0].attachments![0].contentBase64, "base64").toString("latin1")).toMatch(/^%PDF-/);
   });
 
@@ -379,6 +379,46 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     expect(await state(id)).toMatchObject({ external_id: null, doc_state: "draft" });
   });
 
+  // --------------------------------- řada vrácené faktury: chybějící NumericSequenceId nikdy neprojde
+
+  it("iDoklad fakturu založí mimo řadu 7277293 a řadu v odpovědi neuvede → potvrzení nenajde → STOP, neuhrazeno, žádný e-mail", async () => {
+    const { id } = await order();
+    const fake = createFakeIdoklad({ storeInSequence: 2032369 });
+    const next = fake.next();
+    const result = await afterPaid.issueAndSendInvoice(db, id, "https://moje.begina.cz", ACTOR, { env: LIVE, fetchImpl: fake.fetchImpl });
+    expect(result).toMatchObject({ status: "failed", error: expect.stringMatching(/není potvrzeně v řadě E-shop Begina \(7277293\)/) });
+    expect(fake.writes()).toEqual(["POST /Contacts", "POST /IssuedInvoices"]); // žádné „uhrazeno“
+    expect(mail.sent).toEqual([]);
+    // ID je uložené (další pokus nezaloží druhou fakturu), stav ale není „vystaveno“
+    expect(await state(id)).toMatchObject({ doc_state: "draft", state: "failed", external_id: String(next.id) });
+    // ani opakování ji nepřevezme — řada se znovu neověří
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "failed" });
+    expect(fake.invoices).toHaveLength(1);
+    expect(await state(id)).toMatchObject({ doc_state: "draft", state: "failed" });
+  });
+
+  it("odpověď uvádí jinou řadu → STOP bez potvrzovacího dotazu", async () => {
+    const { id } = await order();
+    const fake = createFakeIdoklad({ storeInSequence: 2032369, sequenceInView: true });
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({
+      status: "failed",
+      error: expect.stringMatching(/není z řady E-shop Begina \(7277293\), ale z řady 2032369/),
+    });
+    // řada v odpovědi → bez ověřovacího dotazu po vytvoření faktury
+    const afterPost = fake.calls.slice(fake.calls.findIndex((c) => c.method === "POST" && c.path === "/IssuedInvoices") + 1);
+    expect(afterPost.some((c) => (c.query.filter ?? "").startsWith("NumericSequenceId~eq~"))).toBe(false);
+  });
+
+  it("potvrzovací dotaz na řadu selže → STOP (nic se nepředpokládá)", async () => {
+    const { id } = await order();
+    const fake = createFakeIdoklad({ failSequenceConfirmation: { status: 503, message: "Service Unavailable" } });
+    expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({
+      status: "failed",
+      error: expect.stringMatching(/Řadu faktury 926\d{4} v iDokladu nejde ověřit/),
+    });
+    expect(fake.writes().filter((w) => w.startsWith("PUT"))).toEqual([]);
+  });
+
   // --------------------------------- regrese 20. 10. 2026: iDoklad nefiltruje podle VariableSymbol (400)
 
   it("iDoklad podle VS filtrovat neumí (400) — kontrola duplicit se ptá jen podporovanými sloupci", async () => {
@@ -393,9 +433,16 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
 
     const { id } = await order();
     const before = fake.calls.length;
+    const next = fake.next();
     expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "issued" });
     const filters = fake.calls.slice(before).filter((c) => c.method === "GET" && c.path === "/IssuedInvoices").map((c) => c.query.filter);
-    expect(filters).toEqual([`DateOfIssue~gte~${daysBefore(TODAY, 31)}`]);
+    // kontrola řady (preflight), pak faktury od 31 dní před úhradou (VS se porovná u nás)
+    expect(filters).toEqual([
+      "NumericSequenceId~eq~7277293",
+      `DocumentNumber~eq~${next.number}`,
+      `DateOfIssue~gte~${daysBefore(TODAY, 31)}`,
+      "NumericSequenceId~eq~7277293", // řada nové faktury (odpověď ji neuvádí) — mezi doklady řady
+    ]);
   });
 
   it("faktura s VS (jiná řada, jiný odběratel) až na 2. straně výpisu → stop, nic nového", async () => {
@@ -407,7 +454,9 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     fake.invoices.push({ Id: 2000, DocumentNumber: "20260999", VariableSymbol: vs, NumericSequenceId: 2032369, PartnerId: 77, PaymentStatus: 0, Prices: { TotalWithVat: 758, TotalVat: 0, TotalPaid: 0 }, body: { DateOfIssue: TODAY } });
     expect(await issue.issueInvoice(db, id, { env: LIVE, fetchImpl: fake.fetchImpl })).toMatchObject({ status: "failed", error: expect.stringMatching(/není z řady E-shop Begina/) });
     expect(fake.writes()).toEqual([]);
-    expect(fake.calls.filter((c) => c.path === "/IssuedInvoices" && c.method === "GET").map((c) => c.query.page)).toEqual(["1", "2"]);
+    expect(
+      fake.calls.filter((c) => c.path === "/IssuedInvoices" && c.method === "GET" && c.query.filter?.startsWith("DateOfIssue")).map((c) => c.query.page)
+    ).toEqual(["1", "2"]);
   });
 
   it("faktura se stejným VS starší než 31 dní před úhradou (jiná, dávná objednávka) → nevadí, vystaví se jednou", async () => {
@@ -468,6 +517,20 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       contacts: [{ Id: 4242, Email: "info@foodfest.example", CompanyName: "Food Fest Crew s.r.o.", IdentificationNumber: "08911088" }],
     });
     const next = fake.next();
+    // skrytá kopie e-mailu s fakturou Begině (v testu jen adresy z testovacího seznamu)
+    const savedEnv = { to: process.env.ESHOP_EMAIL_TEST_RECIPIENTS, copy: process.env.ESHOP_EMAIL_INVOICE_COPY_TO };
+    process.env.ESHOP_EMAIL_TEST_RECIPIENTS = "jaroslav@begina.test, tom.herout@seznam.cz, lucie@begina.test";
+    process.env.ESHOP_EMAIL_INVOICE_COPY_TO = "Jaroslav@Begina.test; lucie@begina.test, mimo-test@example.cz";
+
+    // dodací adresa z importu („251, 691 22 Pasohlávky“ — bez ulice/obce) není ověřená → STOP
+    // ještě před iDokladem; z poznámky zákazníka („dovoz do Drnholce“) se nic neodvozuje
+    const blocked = await afterPaid.issueAndSendInvoice(db, id, "https://moje.begina.cz", ACTOR, { env: LIVE, fetchImpl: fake.fetchImpl });
+    expect(blocked).toMatchObject({ status: "failed", error: expect.stringMatching(/Dodací adresa „251, 691 22 Pasohlávky“ nemá před číslem ulici ani obec — opravit u objednávky/) });
+    expect(fake.calls).toEqual([]);
+    expect(mail.sent).toEqual([]);
+    // oprava dodací adresy v explicitním poli objednávky (v testu přímo)
+    await rows(sql`UPDATE orders SET recipient_address = 'Pasohlávky 251, 691 22 Pasohlávky' WHERE id = ${id}`);
+
     const result = await afterPaid.issueAndSendInvoice(db, id, "https://moje.begina.cz", ACTOR, { env: LIVE, fetchImpl: fake.fetchImpl });
     expect(result).toMatchObject({ status: "issued", invoiceNumber: next.number, adopted: false, emailed: true });
     expect(fake.writes()).toEqual(["POST /IssuedInvoices", `PUT /IssuedDocumentPayments/FullyPay/${next.id}`]); // žádný nový kontakt
@@ -475,7 +538,13 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     const invoiceLookups = fake.calls.filter((c) => c.path === "/IssuedInvoices" && c.method === "GET").map((c) => c.query.filter);
     // VS 5215 (jakákoli řada) a faktury firmy od dne úhrady (jakákoli řada, jakýkoli VS)
     // iDoklad podle VS filtrovat neumí: faktury od 18. 9. (31 dní před úhradou), VS se porovná u nás
-    expect(invoiceLookups).toEqual(["DateOfIssue~gte~2026-09-18", "PartnerId~eq~4242"]);
+    expect(invoiceLookups).toEqual([
+      "NumericSequenceId~eq~7277293", // kontrola řady E-shop Begina (preflight)
+      `DocumentNumber~eq~${next.number}`,
+      "DateOfIssue~gte~2026-09-18",
+      "PartnerId~eq~4242",
+      "NumericSequenceId~eq~7277293", // potvrzení řady nové faktury — mezi doklady řady
+    ]);
     const post = fake.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body as Record<string, unknown>;
     expect(post).toMatchObject({
       PartnerId: 4242,
@@ -484,13 +553,19 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
       OrderNumber: "5215",
       PaymentOptionId: 2, // Credit card
       CurrencyId: 1,
-      DateOfIssue: "2026-10-19T12:00:00.000",
+      // vystaveno a splatné dnes (den vystavení), uhrazeno 19. 10. (den platby kartou);
+      // DUZP zatím den úhrady (čeká na rozhodnutí)
+      DateOfIssue: `${TODAY}T12:00:00.000`,
       DateOfTaxing: "2026-10-19T12:00:00.000",
+      DateOfMaturity: `${TODAY}T12:00:00.000`,
       Description: "Objednávka 5215 (begina.cz)",
+      // celý text za položkami je náš (text agendy se nepřipojí)
+      ItemsTextSuffix: "Faktura je již uhrazena – neplaťte.\nDodací adresa: Tomáš Herout, Pasohlávky 251, 691 22 Pasohlávky",
     });
+    expect(fake.calls.find((c) => c.method === "PUT")!.query).toEqual({ dateOfPayment: "2026-10-19 12:00:00.000" });
     expect(post.Items).toEqual([
       { Name: "Dýňová polévka", Code: null, Amount: 30, Unit: "ks", UnitPrice: 379, PriceType: 1, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
-      { Name: "Doprava: Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 1277, PriceType: 1, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
+      { Name: "Chlazená přeprava", Code: null, Amount: 1, Unit: null, UnitPrice: 1277, PriceType: 1, VatRateType: 2, DiscountPercentage: 0, IsTaxMovement: false, ItemType: 0 },
     ]);
     expect(fake.invoices[0].Prices.TotalPaid).toBe(12647);
 
@@ -505,11 +580,19 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     ]);
 
     // zákazník dostane jen „Faktura k objednávce 5215“ s PDF, bez odkazu na stav objednávky v novém e-shopu
+    process.env.ESHOP_EMAIL_TEST_RECIPIENTS = savedEnv.to;
+    if (savedEnv.copy === undefined) delete process.env.ESHOP_EMAIL_INVOICE_COPY_TO;
+    else process.env.ESHOP_EMAIL_INVOICE_COPY_TO = savedEnv.copy;
     expect(mail.sent).toHaveLength(1);
+    expect(mail.sent[0].to).toEqual(["tom.herout@seznam.cz"]);
+    expect(mail.sent[0].bcc).toEqual(["jaroslav@begina.test", "lucie@begina.test"]); // adresa mimo testovací seznam vynechána
+    expect(
+      await rows(sql`SELECT metadata->'bcc' AS bcc FROM order_activity WHERE order_id = ${id} AND kind = 'email_sent'`)
+    ).toEqual([{ bcc: ["jaroslav@begina.test", "lucie@begina.test"] }]);
     expect(mail.sent[0].subject).toBe("[TEST] Faktura k objednávce 5215");
     expect(mail.sent[0].text).toContain(`V příloze posíláme fakturu č. ${next.number}.`);
     expect(mail.sent[0].text).not.toContain("Stav objednávky");
-    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String) }]);
+    expect(mail.sent[0].attachments).toEqual([{ filename: `faktura-${next.number}.pdf`, contentBase64: expect.any(String), contentType: "application/pdf" }]);
 
     // druhé kliknutí: nic nového v iDokladu ani v e-mailu
     mail.sent.length = 0;
@@ -527,8 +610,9 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     const wooOrder = async (wooId: string, kc: number) => {
       const [{ id }] = await rows(sql`
         INSERT INTO orders (channel, external_woocommerce_id, buyer_organization_id, contact_name, contact_email,
-          subtotal_kc, shipping_kc, total_kc, payment_status, paid_at)
-        VALUES ('import', ${wooId}, ${org}, 'Tomáš Herout', 'tom.herout@seznam.cz', ${kc}, 0, ${kc}, 'paid', '2026-10-21 10:00+02')
+          recipient_name, recipient_address, subtotal_kc, shipping_kc, total_kc, payment_status, paid_at)
+        VALUES ('import', ${wooId}, ${org}, 'Tomáš Herout', 'tom.herout@seznam.cz', 'Tomáš Herout', 'Pasohlávky 251, 691 22 Pasohlávky',
+          ${kc}, 0, ${kc}, 'paid', '2026-10-21 10:00+02')
         RETURNING id`);
       await rows(sql`INSERT INTO order_items (order_id, name, quantity, unit_price_kc, line_total_kc) VALUES (${id}, 'Kulajda', ${kc / 379}, 379, ${kc})`);
       await rows(sql`INSERT INTO payments (order_id, source, external_id, method, direction, status, amount_hal, vs, occurred_at, recorded_by_user_id)
@@ -588,8 +672,9 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
     const [{ id: org }] = await rows(sql`SELECT id FROM organizations WHERE ico = '08911088'`);
     const [{ id }] = await rows(sql`
       INSERT INTO orders (channel, external_woocommerce_id, buyer_organization_id, contact_name, contact_email,
-        subtotal_kc, shipping_kc, total_kc, payment_status, paid_at)
-      VALUES ('import', '5301', ${org}, 'Tomáš Herout', 'tom.herout@seznam.cz', 379, 0, 379, 'paid', now())
+        recipient_name, recipient_address, subtotal_kc, shipping_kc, total_kc, payment_status, paid_at)
+      VALUES ('import', '5301', ${org}, 'Tomáš Herout', 'tom.herout@seznam.cz', 'Tomáš Herout', 'Pasohlávky 251, 691 22 Pasohlávky',
+        379, 0, 379, 'paid', now())
       RETURNING id`);
     await rows(sql`INSERT INTO order_items (order_id, name, quantity, unit_price_kc, line_total_kc) VALUES (${id}, 'Kulajda', 1, 379, 379)`);
     await rows(sql`INSERT INTO payments (order_id, source, external_id, method, direction, status, amount_hal, vs, occurred_at, recorded_by_user_id)
@@ -621,7 +706,8 @@ describe("ostré vystavení faktury v iDokladu (napodobenina API, PGlite)", { ti
         contactName: "Tomáš Herout",
         contactEmail: "Tom.Herout@seznam.cz",
         contactPhone: "+420723141743",
-        recipientAddress: "251, 691 22 Pasohlávky",
+        recipientName: "Tomáš Herout",
+        recipientAddress: "Drnholec 1, 691 83 Drnholec",
         shippingMethodLabel: null,
         subtotalKc: 379,
         discountKc: 0,

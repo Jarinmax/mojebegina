@@ -616,6 +616,60 @@ export const companyNodeActivity = pgTable(
 // Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
 // "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
 // záznam (actor_type "user") musí autora mít dál — hlídá CHECK.
+// Slevové kupóny e-shopu (zadání Lucie 6. 11. 2026). Rozeslané kódy jsou
+// OSOBNÍ KÓDY PARTNERSKÉHO PROGRAMU (discount_type "partner"): kód patří
+// organizaci partnera a sleva = jeho úroveň podle uhrazených nákupů zboží
+// v minulém kalendářním měsíci (mock/partnerProgram.ts: 3 / 5 / 7 %, nad
+// 20 000 Kč individuálně = amount). Ostatní typy jako ve WooCommerce
+// (stary.begina.cz) se STEJNÝMI pravidly: typ a výše slevy, platnost,
+// minimální/maximální útrata, „použít samostatně“, omezení na produkty /
+// kategorie / e-maily, limity použití. Kód se ukládá malými písmeny (Woo
+// kódy nerozlišuje velikost písmen). Použití v novém e-shopu se počítá
+// z objednávek (order_activity „created“ → metadata.coupons); used_before
+// a used_by_before = stav z WooCommerce v den převodu.
+export const eshopCoupons = pgTable(
+  "eshop_coupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull().unique(),
+    // "partner" = osobní kód partnerského programu (sleva podle úrovně),
+    // "percent" = % z ceny zboží, "fixed_cart" = pevná částka z košíku,
+    // "fixed_product" = pevná částka z každého kusu (jako WooCommerce)
+    discountType: text("discount_type").notNull(),
+    // partner, kterému kód patří (jen u "partner")
+    organizationId: uuid("organization_id").references(() => organizations.id),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    freeShipping: boolean("free_shipping").notNull().default(false),
+    // okamžik konce platnosti (null = bez omezení)
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    minimumAmountKc: integer("minimum_amount_kc"),
+    maximumAmountKc: integer("maximum_amount_kc"),
+    individualUse: boolean("individual_use").notNull().default(false),
+    productSlugs: text("product_slugs").array().notNull().default(sql`'{}'::text[]`),
+    excludedProductSlugs: text("excluded_product_slugs").array().notNull().default(sql`'{}'::text[]`),
+    categorySlugs: text("category_slugs").array().notNull().default(sql`'{}'::text[]`),
+    excludedCategorySlugs: text("excluded_category_slugs").array().notNull().default(sql`'{}'::text[]`),
+    // povolené e-maily (malými písmeny, „*“ = libovolná část, např. *@firma.cz)
+    emailRestrictions: text("email_restrictions").array().notNull().default(sql`'{}'::text[]`),
+    usageLimit: integer("usage_limit"),
+    usageLimitPerUser: integer("usage_limit_per_user"),
+    limitUsageToXItems: integer("limit_usage_to_x_items"),
+    usedBefore: integer("used_before").notNull().default(0),
+    usedByBefore: text("used_by_before").array().notNull().default(sql`'{}'::text[]`),
+    isActive: boolean("is_active").notNull().default(true),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("eshop_coupons_code_lower", sql`${table.code} = lower(${table.code}) AND length(${table.code}) BETWEEN 1 AND 64`),
+    check("eshop_coupons_type_check", sql`${table.discountType} IN ('partner', 'percent', 'fixed_cart', 'fixed_product')`),
+    check("eshop_coupons_partner_org", sql`(${table.discountType} = 'partner') = (${table.organizationId} IS NOT NULL)`),
+    check("eshop_coupons_amount_check", sql`${table.amount} >= 0 AND (${table.discountType} NOT IN ('percent', 'partner') OR ${table.amount} <= 100)`),
+    check("eshop_coupons_limits_check", sql`(${table.usageLimit} IS NULL OR ${table.usageLimit} > 0) AND (${table.usageLimitPerUser} IS NULL OR ${table.usageLimitPerUser} > 0) AND (${table.limitUsageToXItems} IS NULL OR ${table.limitUsageToXItems} > 0) AND ${table.usedBefore} >= 0`),
+  ]
+);
+
 export const orderActivity = pgTable(
   "order_activity",
   {
@@ -983,4 +1037,213 @@ export const focusProjectActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("focus_project_activity_project_id_idx").on(table.projectId, table.createdAt)]
+);
+
+// Čtení iDokladu (lib/idoklad-read) — auditní záznam KAŽDÉHO přístupu
+// k údajům z iDokladu přes MojeBegina (UI i asistenti ChatGPT / Claude přes
+// MCP). Zapíše se PŘED čtením (bez zápisu se nic nepřečte) a doplní po
+// něm. Argumenty jen bez osobních údajů (jméno zákazníka jen délka); žádné
+// tokeny ani výsledky. Nic se nemaže automaticky.
+export const idokladReadLog = pgTable(
+  "idoklad_read_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    userId: text("user_id").notNull(),
+    // "ui" | "mcp:<klient>" (např. mcp:chatgpt, mcp:claude)
+    channel: text("channel").notNull(),
+    tool: text("tool").notNull(),
+    args: jsonb("args").notNull(),
+    // started → ok | error; denied / rate_limited / invalid se zapisují rovnou
+    status: text("status").notNull(),
+    resultCount: integer("result_count"),
+    idokladRequests: integer("idoklad_requests"),
+    durationMs: integer("duration_ms"),
+    error: text("error"),
+  },
+  (table) => [
+    index("idoklad_read_log_user_created_idx").on(table.userId, table.createdAt),
+    check("idoklad_read_log_status_check", sql`${table.status} IN ('started', 'ok', 'error', 'denied', 'rate_limited', 'invalid')`),
+    check("idoklad_read_log_channel_check", sql`${table.channel} ~ '^(ui|mcp:[a-z0-9_-]{1,40})$'`),
+  ]
+);
+
+export const organizationActivity = pgTable(
+  "organization_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id),
+    authorUserId: text("author_user_id").notNull(),
+    authorName: text("author_name"),
+    kind: text("kind").notNull(),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("organization_activity_org_id_idx").on(table.organizationId, table.createdAt)]
+);
+
+export const agentGrants = pgTable(
+  "agent_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    systemRole: text("system_role").notNull(),
+    clientId: text("client_id").notNull(),
+    scope: text("scope").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+  },
+  (table) => [index("agent_grants_user_id_idx").on(table.userId)]
+);
+
+export const agentTokens = pgTable(
+  "agent_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    grantId: uuid("grant_id").notNull().references(() => agentGrants.id),
+    kind: text("kind").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    redirectUri: text("redirect_uri"),
+    codeChallenge: text("code_challenge"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("agent_tokens_grant_id_idx").on(table.grantId),
+    check("agent_tokens_kind_check", sql`${table.kind} IN ('code','access','refresh')`),
+    check("agent_tokens_code_fields_check", sql`${table.kind} <> 'code' OR (${table.redirectUri} IS NOT NULL AND ${table.codeChallenge} IS NOT NULL)`),
+  ]
+);
+
+export const agentAuditLog = pgTable(
+  "agent_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id").notNull().references(() => agentGrants.id),
+    userId: text("user_id").notNull(),
+    tool: text("tool").notNull(),
+    isWrite: boolean("is_write").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    argsHash: text("args_hash"),
+    args: jsonb("args"),
+    status: text("status").notNull(),
+    result: jsonb("result"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("agent_audit_log_grant_created_idx").on(table.grantId, table.createdAt),
+    uniqueIndex("agent_audit_log_idempotency_idx").on(table.userId, table.idempotencyKey).where(sql`${table.idempotencyKey} IS NOT NULL`),
+    check("agent_audit_log_status_check", sql`${table.status} IN ('pending','ok','error','denied')`),
+  ]
+);
+
+// Práce 1.0 (MVP pracovní obrazovky /prace, 27. 10. 2026) — provozní úkoly
+// zadané vedoucím konkrétnímu člověku. Samostatné tabulky, nezávislé na
+// company_nodes (strategická mapa firmy) i Denním volání. Termín je jen DEN
+// (Europe/Prague) — vedení výslovně nechce vymýšlet hodinové termíny.
+// Nic se nemaže; splnění/vrácení nese čas a uživatele a zapisuje se do
+// work_task_activity (append-only historie).
+export const workTasks = pgTable(
+  "work_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    assigneeUserId: text("assignee_user_id").notNull(),
+    createdBy: text("created_by").notNull(),
+    dueDate: date("due_date", { mode: "string" }),
+    priority: text("priority").notNull().default("normal"), // "normal" | "urgent"
+    // "open" | "done" | "cancelled" | Práce 2.0: "submitted" (čeká na schválení) | "returned" (vráceno k opravě)
+    status: text("status").notNull().default("open"),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    doneBy: text("done_by"),
+    // Práce 1.1 (migrace 0026) — zrušení: úkol se nikdy nemaže, jen označí.
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
+    // Práce 2.0 (migrace 0027) — fotografie a schvalování vedoucím.
+    photoRequirement: text("photo_requirement").notNull().default("none"), // "none" | "optional" | "required"
+    requiresApproval: boolean("requires_approval").notNull().default(false),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }), // poslední odeslání ke kontrole
+    submittedBy: text("submitted_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    returnReason: text("return_reason"), // poslední důvod vrácení (celá historie je ve work_task_activity)
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("work_tasks_assignee_status_idx").on(table.assigneeUserId, table.status, table.dueDate),
+    check("work_tasks_priority_check", sql`${table.priority} IN ('normal','urgent')`),
+    check("work_tasks_status_check", sql`${table.status} IN ('open','submitted','returned','done','cancelled')`),
+    check("work_tasks_photo_requirement_check", sql`${table.photoRequirement} IN ('none','optional','required')`),
+    check("work_tasks_submit_pair_check", sql`(${table.submittedAt} IS NULL) = (${table.submittedBy} IS NULL)`),
+    check("work_tasks_approve_pair_check", sql`(${table.approvedAt} IS NULL) = (${table.approvedBy} IS NULL)`),
+    check("work_tasks_submitted_status_check", sql`${table.status} <> 'submitted' OR ${table.submittedAt} IS NOT NULL`),
+    check("work_tasks_returned_status_check", sql`${table.status} <> 'returned' OR ${table.returnReason} IS NOT NULL`),
+    check("work_tasks_done_pair_check", sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`),
+    check("work_tasks_done_status_check", sql`(${table.status} = 'done') = (${table.doneAt} IS NOT NULL)`),
+    check("work_tasks_cancel_pair_check", sql`(${table.cancelledAt} IS NULL) = (${table.cancelledBy} IS NULL)`),
+    check("work_tasks_cancel_status_check", sql`(${table.status} = 'cancelled') = (${table.cancelledAt} IS NOT NULL)`),
+  ]
+);
+
+export const workTaskActivity = pgTable(
+  "work_task_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => workTasks.id),
+    actorUserId: text("actor_user_id").notNull(),
+    actorName: text("actor_name"),
+    // "created" | "done" | "reopened" | Práce 1.1: "updated" | "priority_changed" | "reassigned" | "cancelled"
+    kind: text("kind").notNull(),
+    // Práce 1.1 — co se změnilo (from/to po polích, důvod zrušení).
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("work_task_activity_task_idx").on(table.taskId, table.createdAt),
+    check(
+      "work_task_activity_kind_check",
+      sql`${table.kind} IN ('created','done','reopened','updated','priority_changed','reassigned','cancelled','photo_added','photo_removed','submitted','approved','returned')`
+    ),
+  ]
+);
+
+// Práce 2.0 (migrace 0027) — fotografie u úkolu. Soubor je v soukromém
+// úložišti (Cloudflare R2, EU) pod náhodným klíčem; tady jen metadata.
+// Nic se nemaže: odstranění před odesláním = deleted_at/by (objekt v
+// úložišti se smaže hned), po odeslání/dokončení je fotka zamčená
+// (locked_at) a zůstává jako doklad v historii.
+export const workTaskPhotos = pgTable(
+  "work_task_photos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => workTasks.id),
+    storageKey: text("storage_key").notNull().unique(),
+    contentType: text("content_type").notNull(), // vždy "image/jpeg" (po kontrole a vyčištění)
+    sizeBytes: integer("size_bytes").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    sha256: text("sha256").notNull(),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
+  },
+  (table) => [
+    index("work_task_photos_task_idx").on(table.taskId, table.uploadedAt),
+    check("work_task_photos_content_type_check", sql`${table.contentType} = 'image/jpeg'`),
+    check("work_task_photos_delete_pair_check", sql`(${table.deletedAt} IS NULL) = (${table.deletedBy} IS NULL)`),
+    check("work_task_photos_size_check", sql`${table.sizeBytes} > 0 AND ${table.sizeBytes} <= 4194304`),
+  ]
 );

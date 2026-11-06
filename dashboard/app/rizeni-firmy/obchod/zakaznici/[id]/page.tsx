@@ -4,6 +4,7 @@ import { getCustomerDetail } from "@/lib/data/leads";
 import { listStaffOptions } from "@/lib/data/leads";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import CustomerOwnerForm from "./CustomerOwnerForm";
+import CustomerNoteForm from "./CustomerNoteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,28 @@ export default async function CustomerDetailPage(
           acquiredByName={customer.acquiredByName}
           staff={staff}
         />
+      </div>
+
+      <div className="mb-4">
+        <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Poznámky</h2>
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
+          {customer.activity.length === 0 ? (
+            <p className="text-sm text-neutral-500">Zatím žádná poznámka.</p>
+          ) : (
+            customer.activity.map((entry) => (
+              <div key={entry.id} className="border-l-2 border-neutral-200 pl-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium text-begina-primary-900">
+                    {entry.authorName ?? "Neznámý uživatel"}
+                  </p>
+                  <p className="text-xs text-neutral-400 whitespace-nowrap">{formatCzechDate(entry.createdAt)}</p>
+                </div>
+                {entry.body && <p className="text-sm text-neutral-600 whitespace-pre-wrap mt-0.5">{entry.body}</p>}
+              </div>
+            ))
+          )}
+          <CustomerNoteForm organizationId={customer.id} />
+        </div>
       </div>
 
       <div className="mb-4">

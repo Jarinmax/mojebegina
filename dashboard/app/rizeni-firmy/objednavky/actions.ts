@@ -13,6 +13,7 @@ import {
   prepareOrderInvoiceDraft,
   issueOrderInvoice,
   runEshopIdokladPreflight,
+  runEshopNumberingAudit,
   assignResponsible,
   unassignResponsible,
   updateOrderNote,
@@ -23,9 +24,15 @@ import {
   createReplacementFromCancelled,
   type StatusChangeResult,
 } from "@/lib/data/orders";
+import { parseAuditNumbers } from "@/lib/eshop/invoicing/numberingAudit";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
 
 export type ActionState = { error: string } | { success: string } | null;
+
+export type NumberingAuditActionState =
+  | { result: import("@/lib/eshop/invoicing/numberingAudit").NumberingAuditResult }
+  | { error: string }
+  | null;
 
 export type PreflightActionState =
   | { result: import("@/lib/eshop/invoicing/preflight").PreflightResult }
@@ -175,6 +182,14 @@ export async function issueInvoiceAction(orderId: string): Promise<ActionState> 
 /** Kontrola připojení iDokladu — jen čtení, nic se nezapisuje ani neukládá. */
 export async function runIdokladPreflightAction(): Promise<PreflightActionState> {
   const outcome = await runEshopIdokladPreflight();
+  return outcome.ok ? { result: outcome.result } : { error: outcome.error };
+}
+
+/** Audit číslování faktur v iDokladu — jen čtení, nic se nezapisuje ani neukládá. */
+export async function runNumberingAuditAction(_prev: NumberingAuditActionState, formData: FormData): Promise<NumberingAuditActionState> {
+  const year = String(formData.get("year") ?? "").trim();
+  const numbers = parseAuditNumbers(String(formData.get("numbers") ?? ""));
+  const outcome = await runEshopNumberingAudit({ year, numbers });
   return outcome.ok ? { result: outcome.result } : { error: outcome.error };
 }
 

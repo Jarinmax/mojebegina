@@ -87,8 +87,8 @@ describe("pojistka: žádné cesty /eshop natvrdo v kódu e-shopu", () => {
       const code = readFileSync(path.join(ROOT, file), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/^\s*\/\/.*$/gm, "")
-        // typy rout (PageProps<"/eshop/…">) nejsou odkazy
-        .replace(/(?:PageProps|LayoutProps)<"[^"]*">/g, "");
+        // typy rout (PageProps<"/eshop/…">, RouteContext<"/eshop/…">) nejsou odkazy
+        .replace(/(?:PageProps|LayoutProps|RouteContext)<"[^"]*">/g, "");
       return [...code.matchAll(ROUTE_LITERAL)].map((m) => `${file}: ${code.slice(m.index!, m.index! + 40)}`);
     });
     expect(offenders).toEqual([]);

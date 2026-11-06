@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { landingForExecutive } from "@/lib/data/workTasksAuth";
 import Header from "@/components/Header";
 import DecorativeMark from "@/components/DecorativeMark";
 import MembershipCard from "@/components/MembershipCard";
@@ -38,7 +39,8 @@ export default async function Page() {
   // EXECUTIVE nemá organizaci (cross-org READ, ne členství), takže by na
   // "/" skončil na stejné matoucí "Váš účet není přiřazený" obrazovce.
   if (ctx.systemRole === "EXECUTIVE") {
-    redirect("/executive");
+    // Práce 1.0 — pracovník s úkoly (Blahout) přistane na /prace.
+    redirect(landingForExecutive(ctx.userId));
   }
 
   if (!organizationId) {

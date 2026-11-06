@@ -10,6 +10,7 @@ import { useActionState } from "react";
 import { issueInvoiceAction, prepareInvoiceDraftAction, type ActionState } from "./actions";
 import type { OrderInvoiceView } from "@/lib/eshop/invoicing/service";
 import type { InvoiceProblem } from "@/lib/eshop/invoicing/draft";
+import { deliveryText } from "@/lib/eshop/invoicing/idoklad";
 import { formatKc } from "@/lib/format";
 
 const initialState: ActionState = null;
@@ -120,6 +121,11 @@ function IssueStatus({
         <p>
           PDF zákazníkovi:{" "}
           {invoice.pdfSentAt ? `odesláno ${czDateTime(invoice.pdfSentAt)} (e-mail MojeBegina)` : "zatím neodesláno"}
+        </p>
+        <p>
+          <a href={`/rizeni-firmy/objednavky/${orderId}/faktura-pdf`} target="_blank" rel="noopener" className="underline font-medium">
+            Otevřít PDF faktury
+          </a>
         </p>
         {allowed && !invoice.pdfSentAt && <IssueButton orderId={orderId} label="Poslat fakturu zákazníkovi" />}
       </div>
@@ -287,7 +293,23 @@ export default function OrderInvoiceDraft({
             <dd className="text-begina-primary-900">
               {payload.draft.paymentMethod ? METHOD_LABELS[payload.draft.paymentMethod] ?? payload.draft.paymentMethod : "—"} ·
               uhrazeno {formatHal(payload.draft.paidHal)}
+              {payload.draft.paidDate && <> · {czDate(payload.draft.paidDate)}</>}
             </dd>
+            {payload.draft.delivery && (
+              <>
+                <dt className="text-neutral-500">Doručení</dt>
+                <dd className="text-begina-primary-900">
+                  {payload.draft.delivery.kind === "pickup"
+                    ? (payload.draft.delivery.method ?? "Osobní odběr")
+                    : (deliveryText(payload.draft)?.replace(/^Dodací adresa: /, "") ?? (
+                        <span className="text-red-700">dodací adresa chybí nebo není ověřená</span>
+                      ))}
+                  {payload.draft.delivery.kind === "shipment" && payload.draft.delivery.method && (
+                    <span className="block text-xs text-neutral-500">{payload.draft.delivery.method}</span>
+                  )}
+                </dd>
+              </>
+            )}
             <dt className="text-neutral-500">DPH</dt>
             <dd className="text-begina-primary-900">neplátce DPH — ceny bez rozpisu DPH</dd>
             <dt className="text-neutral-500">Číselná řada</dt>

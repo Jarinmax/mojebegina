@@ -67,6 +67,9 @@ export async function invoiceAndNotifyPaid(
   return { invoice, emails };
 }
 
+/** Jak dlouho drží odesílání PDF zámek (pád uprostřed = po vypršení zkusí znovu). */
+export const SEND_LEASE_MINUTES = 5;
+
 /**
  * MojeBegina „Vystavit fakturu v iDokladu“ (režim „manual“, nebo opakování
  * po chybě v „on“) — tentýž motor issueInvoice: vystaví (nebo dokončí
@@ -80,22 +83,45 @@ export async function issueAndSendInvoice(
   baseUrl: string,
   actor: InvoiceActor,
   deps: AfterPaidDeps = {}
-): Promise<IssueResult & { emailed?: boolean }> {
+): Promise<IssueResult & { emailed?: boolean; emailInProgress?: boolean }> {
   const env = deps.env ?? process.env;
   const result = await issueInvoice(db, orderId, { env, actor, fetchImpl: deps.fetchImpl });
   if (result.status !== "issued" && result.status !== "already_issued") return result;
-  const row = (
+  // PDF zákazníkovi nejvýš jednou: pdf_sent_at se zapíše až PO odeslání, proto
+  // odesílá jen ten, kdo zabere krátký zámek na vazbě vystavené faktury
+  // (stejný sloupec next_attempt_at jako zámek vystavení v issue.ts; u stavu
+  // „issued“ ho jinak nic nepoužívá). Souběžné volání (web i asistent) zámek
+  // nedostane a nic nepošle.
+  const lease = (
     await db.execute(sql`
-      SELECT pdf_sent_at FROM invoices WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued'`)
-  ).rows[0] as { pdf_sent_at: Date | null } | undefined;
-  if (!row || row.pdf_sent_at) return result;
-  const pdf =
-    result.status === "issued" && result.pdf
-      ? result.pdf
-      : await loadIssuedPdf(db, orderId, { env, fetchImpl: deps.fetchImpl }).catch(() => null);
-  if (!pdf) return result;
-  const outcomes = await sendOrderEmails(db, orderId, "invoice_issued", baseUrl, { ...deps.email, invoicePdf: pdf });
-  return { ...result, emailed: outcomes.some((o) => o.status === "sent") };
+      UPDATE invoice_provider_links l
+      SET next_attempt_at = now() + ${sql.raw(`interval '${SEND_LEASE_MINUTES} minutes'`)}, updated_at = now()
+      FROM invoices i
+      WHERE l.invoice_id = i.id AND i.order_id = ${orderId} AND i.document_type = 'invoice' AND i.doc_state = 'issued'
+        AND i.pdf_sent_at IS NULL AND l.state = 'issued'
+        AND (l.next_attempt_at IS NULL OR l.next_attempt_at < now())
+      RETURNING l.id`)
+  ).rows as { id: string }[];
+  if (lease.length === 0) {
+    const row = (
+      await db.execute(sql`
+        SELECT pdf_sent_at FROM invoices WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued'`)
+    ).rows[0] as { pdf_sent_at: Date | null } | undefined;
+    return row && !row.pdf_sent_at ? { ...result, emailInProgress: true } : result;
+  }
+  try {
+    const pdf =
+      result.status === "issued" && result.pdf
+        ? result.pdf
+        : await loadIssuedPdf(db, orderId, { env, fetchImpl: deps.fetchImpl }).catch(() => null);
+    if (!pdf) return result;
+    const outcomes = await sendOrderEmails(db, orderId, "invoice_issued", baseUrl, { ...deps.email, invoicePdf: pdf });
+    return { ...result, emailed: outcomes.some((o) => o.status === "sent") };
+  } finally {
+    await db
+      .execute(sql`UPDATE invoice_provider_links SET next_attempt_at = NULL, updated_at = now() WHERE id = ${lease[0].id}`)
+      .catch((error: unknown) => console.error("Fakturace: zámek odeslání PDF se nepodařilo uvolnit", orderId, error));
+  }
 }
 
 /**

@@ -16,6 +16,8 @@ import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { shippingModeFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
+import { parseCouponCodes } from "@/lib/eshop/coupons";
+import { loadCouponContext } from "@/lib/eshop/couponsServer";
 import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
 import { eshopBase } from "@/lib/eshop/siteServer";
 import { isOrderWriteEnabled, parseOrderToken, saveEshopOrder } from "@/lib/eshop/orderWrite";
@@ -25,6 +27,7 @@ import { CARD_PAYMENT_METHOD, startCardPayment } from "@/lib/eshop/stripe/paymen
 import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
+import { isAgentRequest } from "@/lib/site/hosts";
 
 export type CheckoutState =
   | { error: string }
@@ -63,6 +66,13 @@ export async function submitCheckoutAction(
   if (!isEshopPublic()) {
     return { error: "E-shop zatím není spuštěný." };
   }
+  // Pilotní doména asistenta (gpt-pilot.begina.cz): e-shop tam nemá co
+  // dělat. Proxy ho blokuje 404 už na vstupu; tohle je samostatná pojistka
+  // pro případ, že by se serverová akce zavolala jinou cestou.
+  const requestHeaders = await headers();
+  if (isAgentRequest(requestHeaders.get("host"), requestHeaders.get("x-forwarded-host"))) {
+    return { error: "Objednávku se nepodařilo odeslat." };
+  }
   const field = (key: string) => String(formData.get(key) ?? "");
 
   // Past na roboty: pole je pro lidi skryté. Vyplněné = nic neukládat.
@@ -71,6 +81,8 @@ export async function submitCheckoutAction(
   }
 
   const stripe = stripeConfig();
+  const couponCodes = field("couponCodes");
+  const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes));
   const result = validateCheckoutInput(
     {
       cart: field("cart"),
@@ -85,9 +97,10 @@ export async function submitCheckoutAction(
       note: field("note"),
       termsAccepted: formData.get("termsAccepted") === "on",
       ageConfirmed: formData.get("ageConfirmed") === "on",
+      couponCodes,
     },
     await getCatalogIndex(),
-    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv() }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons }
   );
 
   if (!result.ok) {

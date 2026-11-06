@@ -7,6 +7,8 @@ import OrganizationEditForm from "./OrganizationEditForm";
 import AddMemberForm from "./AddMemberForm";
 import MemberActions from "./MemberActions";
 import OrderCard from "@/components/OrderCard";
+import AddLocationForm from "./AddLocationForm";
+import OrganizationLocations from "@/components/organization/OrganizationLocations";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,21 @@ export default async function AdminOrganizationDetailPage(
         registeredAddress={org.registeredAddress}
         status={org.status}
       />
+
+      <section className="mb-6" aria-labelledby="locations-title">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div>
+            <h2 id="locations-title" className="text-sm font-medium text-begina-primary-900">
+              Provozovny ({org.locations.length})
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Dodací místa oddělená od fakturační adresy firmy
+            </p>
+          </div>
+          <AddLocationForm organizationId={org.id} />
+        </div>
+        <OrganizationLocations locations={org.locations} />
+      </section>
 
       <div>
         <div className="flex items-center justify-between mb-2">

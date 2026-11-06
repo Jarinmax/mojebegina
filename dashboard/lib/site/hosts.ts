@@ -1,6 +1,9 @@
 // Domény jedné aplikace (varianta A, rozhodnutí vedení 10. 10. 2026):
 //   begina.cz       = veřejný web a e-shop (stránky z app/eshop bez prefixu),
 //   www.begina.cz   = jen přesměrování 301 na begina.cz,
+//   gpt-pilot.begina.cz = GPT/MCP pilot: veřejně jen discovery, /api/mcp,
+//                     OAuth a nezbytné přihlášení, vše ostatní 404
+//                     (lib/site/routing.ts, routeAgent),
 //   cokoli jiného   = interní systém MojeBegina (moje.begina.cz, Preview
 //                     *.vercel.app, localhost) — chová se jako dosud.
 //
@@ -11,8 +14,15 @@
 export const PUBLIC_HOST = "begina.cz";
 export const WWW_HOST = "www.begina.cz";
 export const PUBLIC_ORIGIN = `https://${PUBLIC_HOST}`;
+/**
+ * Pilotní doména asistenta ChatGPT (Preview větve pilotu, výjimka
+ * z Deployment Protection). Pozná se JEN přesná shoda — podobné názvy ani
+ * poddomény ne. Omezení se odvozuje od hostitele, ne od proměnných
+ * prostředí: platí i kdyby doména omylem mířila jinam (třeba na Production).
+ */
+export const AGENT_HOST = "gpt-pilot.begina.cz";
 
-export type Site = "public" | "www" | "internal";
+export type Site = "public" | "www" | "agent" | "internal";
 
 /** Hlavička, kterou proxy.ts předává stránkám (vždy ji přepíše — nelze podvrhnout). */
 export const SITE_HEADER = "x-begina-site";
@@ -35,7 +45,18 @@ export function siteForHost(raw: string | null | undefined): Site {
   const host = normalizeHost(raw);
   if (host === PUBLIC_HOST) return "public";
   if (host === WWW_HOST) return "www";
+  if (host === AGENT_HOST) return "agent";
   return "internal";
+}
+
+/**
+ * Přišel požadavek přes pilotní doménu? Kontroluje Host i každou hodnotu
+ * X-Forwarded-Host — kterákoli z nich = ano. Podvržená hlavička tak může
+ * omezení jen přidat, nikdy obejít.
+ */
+export function isAgentRequest(host: string | null | undefined, forwardedHost: string | null | undefined): boolean {
+  if (siteForHost(host) === "agent") return true;
+  return (forwardedHost ?? "").split(",").some((value) => siteForHost(value) === "agent");
 }
 
 /** Hodnota SITE_HEADER → Site; cokoli neznámého = interní (bezpečný výchozí stav). */

@@ -6,7 +6,8 @@ import { authClient } from "@/lib/auth/client";
 // Security Phase 2.4 — zákaznický přihlašovací formulář. Jen e-mail +
 // heslo. Účty zakládáme zatím sami ručně (viz Fáze 2.3), proto tu není
 // žádná self-service registrace.
-export default function LoginForm() {
+// `next` už ověřený na serveru (safeNextPath v app/login/page.tsx).
+export default function LoginForm({ next = "/" }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +34,7 @@ export default function LoginForm() {
 
       // Plná navigace (ne router.push) — vynutí nový request se čerstvou
       // session cookie, aby server na "/" hned viděl přihlášeného uživatele.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = "/";
+      window.location.href = next;
     } catch {
       setBusy(false);
       setError("Přihlášení se nezdařilo. Zkuste to prosím znovu.");

@@ -282,3 +282,66 @@ export function compareLeadsForList(a: LeadSortRow, b: LeadSortRow): number {
   if (createdDiff !== 0) return createdDiff;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
+
+// GPT/MCP pilot — samostatná poznámka (u leadu i u zákazníka), BEZ zápisu
+// hovoru: na rozdíl od validateCallLogInput nemění lastContactedAt ani fázi
+// — poznámka z porady nebo od asistenta není telefonát.
+export function validateNoteInput(raw: string): { ok: true; value: string } | { ok: false; error: string } {
+  const body = raw.trim();
+  if (!body) {
+    return { ok: false, error: "Zadejte text poznámky." };
+  }
+  if (body.length > 2000) {
+    return { ok: false, error: "Poznámka je příliš dlouhá (max. 2000 znaků)." };
+  }
+  return { ok: true, value: body };
+}
+
+export type NextStepInput = {
+  nextStepNote: string;
+  nextFollowUpAt: string;
+};
+
+export type ValidatedNextStepInput = {
+  nextStepNote: string | null;
+  nextFollowUpAt: Date | null;
+};
+
+// GPT/MCP pilot — "úkol" u leadu = další krok + datum dalšího kontaktu
+// (existující pole leads.nextStepNote/nextFollowUpAt). Prázdné pole se
+// nikdy nepřepisuje na NULL (stejné pravidlo jako logCallOutcome), takže
+// stačí poslat jen to, co se mění — ale aspoň jedno pole musí být.
+export function validateNextStepInput(
+  input: NextStepInput
+): { ok: true; value: ValidatedNextStepInput } | { ok: false; error: string } {
+  const nextStepNote = trimOrNull(input.nextStepNote);
+  if (nextStepNote && nextStepNote.length > 500) {
+    return { ok: false, error: "Popis dalšího kroku je příliš dlouhý (max. 500 znaků)." };
+  }
+
+  const dateRaw = trimOrNull(input.nextFollowUpAt);
+  let nextFollowUpAt: Date | null = null;
+  if (dateRaw) {
+    // Jen YYYY-MM-DD (stejná konvence 12:00 UTC jako validateCallLogInput);
+    // přísnější formát, protože vstup nepíše člověk do <input type="date">.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
+      return { ok: false, error: "Datum dalšího kontaktu zadejte ve tvaru RRRR-MM-DD." };
+    }
+    const parsed = new Date(`${dateRaw}T12:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== dateRaw) {
+      return { ok: false, error: "Neplatné datum dalšího kontaktu." };
+    }
+    nextFollowUpAt = parsed;
+  }
+
+  if (!nextStepNote && !nextFollowUpAt) {
+    return { ok: false, error: "Vyplňte další krok, datum dalšího kontaktu, nebo obojí." };
+  }
+
+  return { ok: true, value: { nextStepNote, nextFollowUpAt } };
+}
+
+/** Text pro ILIKE '%…%' — escapuje zpětné lomítko, % a _, aby se hledal doslovný text, ne vzor. */
+export function likePattern(query: string): string {
+  return `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}

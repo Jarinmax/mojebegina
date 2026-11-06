@@ -10,7 +10,9 @@ import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethodsFor, type ShippingMode } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
-import { TERMS_BLOCKS, TERMS_EFFECTIVE } from "./content/obchodniPodminky";
+import { OPERATOR } from "./operator";
+import { CURRENT_TERMS, termsPdfPath } from "./content/termsVersions";
+import { WITHDRAWAL_FORM_DOWNLOAD_LABEL, WITHDRAWAL_FORM_PDF_PATH } from "./content/withdrawalForm";
 import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
 
 /** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
@@ -43,17 +45,13 @@ export type InfoPage = {
   blocks: InfoBlock[] | null;
   /** Upozornění, že část textu ještě chybí (stránka už ale obsah má). */
   pendingNote?: string;
+  /** Soubor ke stažení pod nadpisem (cesta e-shopu bez /eshop). */
+  download?: { path: string; label: string };
+  /** Další soubor ke stažení (např. samostatný formulář pro odstoupení). */
+  secondaryDownload?: { path: string; label: string };
 };
 
-/** Údaje provozovatele (převzaté ze stávající patičky begina.cz). */
-export const OPERATOR = {
-  name: "Jaroslav Viner",
-  phone: "+420 774 199 975",
-  phoneHref: "tel:+420774199975",
-  email: "info@begina.cz",
-  address: "Mostecká 273/21, 118 00 Praha 1",
-  ico: "74337297",
-} as const;
+export { OPERATOR };
 
 // Texty z begina.cz (doslova) pro úvodní stránku e-shopu.
 export const whyBegina = [
@@ -196,9 +194,20 @@ const termsPage: InfoPage = {
   path: "/obchodni-podminky",
   footerLabel: "Obchodní podmínky",
   title: "Obchodní podmínky e-shopu Begina.cz",
-  subtitle: `Platné a účinné od ${TERMS_EFFECTIVE}`,
+  subtitle: `Platné a účinné od ${CURRENT_TERMS.effectiveLabel}`,
   description: "Obchodní podmínky e-shopu Begina.cz.",
-  blocks: TERMS_BLOCKS,
+  // Platné znění (lib/eshop/content/termsVersions.ts); starší znění zůstávají ke stažení.
+  blocks: CURRENT_TERMS.blocks,
+  download: {
+    path: termsPdfPath(CURRENT_TERMS),
+    label: CURRENT_TERMS.withWithdrawalForm
+      ? "Stáhnout obchodní podmínky včetně formuláře pro odstoupení (PDF)"
+      : "Stáhnout obchodní podmínky (PDF)",
+  },
+  // Samostatný formulář k tisku — jen u znění, které ho má (od 3. vydání).
+  ...(CURRENT_TERMS.edition >= 3
+    ? { secondaryDownload: { path: WITHDRAWAL_FORM_PDF_PATH, label: WITHDRAWAL_FORM_DOWNLOAD_LABEL } }
+    : {}),
 };
 
 const privacyPage: InfoPage = {

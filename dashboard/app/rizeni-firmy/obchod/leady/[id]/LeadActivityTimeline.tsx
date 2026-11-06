@@ -29,10 +29,18 @@ function describeEntry(entry: LeadActivityEntry): string {
         : "založil(a) novou organizaci a převedl(a) lead na zákazníka";
     case "company_name_set":
       return meta.to ? `doplnil(a) název firmy: ${String(meta.to)}` : "smazal(a) název firmy";
+    case "note_added":
+      return "přidal(a) poznámku";
+    case "next_step_set":
+      return meta.nextFollowUpAt
+        ? `nastavil(a) další krok (kontakt ${formatCzechDate(new Date(String(meta.nextFollowUpAt)))})`
+        : "nastavil(a) další krok";
     default:
       return "";
   }
 }
+
+const BODY_KINDS = new Set(["call_logged", "note_added", "next_step_set"]);
 
 export default function LeadActivityTimeline({ activity }: { activity: LeadActivityEntry[] }) {
   if (activity.length === 0) {
@@ -50,7 +58,7 @@ export default function LeadActivityTimeline({ activity }: { activity: LeadActiv
             </p>
             <p className="text-xs text-neutral-400 whitespace-nowrap">{formatCzechDate(entry.createdAt)}</p>
           </div>
-          {entry.kind === "call_logged" && entry.body && (
+          {BODY_KINDS.has(entry.kind) && entry.body && (
             <p className="text-sm text-neutral-600 whitespace-pre-wrap mt-0.5">{entry.body}</p>
           )}
         </div>

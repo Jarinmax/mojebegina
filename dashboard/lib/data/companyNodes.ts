@@ -16,7 +16,7 @@ import { db } from "@/lib/db/client";
 import { companyNodes, companyNodeActivity } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCompanyNodeAccess } from "./companyNodeAuth";
-import { getUserProfile } from "./userProfiles";
+import { getUserProfile, getUserProfiles } from "./userProfiles";
 import {
   validateCreateNodeInput,
   validateTreeDepth,
@@ -185,6 +185,47 @@ export async function getCompanyMap(): Promise<CompanyMap> {
   }
 
   return { areas, counts };
+}
+
+export type CompanyTaskListItem = NodeCardData & {
+  path: string; // "Oblast › Podoblast › Téma"
+  ownerName: string | null;
+};
+
+// GPT/MCP pilot — celá mapa jako plochý seznam (strom je na Begina měřítku
+// malý), aby asistent našel téma podle názvu a znal jeho id/cestu. Volitelně
+// jen uzly, které vlastní přihlášený uživatel ("moje úkoly").
+export async function listCompanyTasks(filter: "all" | "mine" = "all"): Promise<CompanyTaskListItem[]> {
+  const ctx = await requireCompanyNodeContext();
+
+  const { rows, byId, byParent } = await fetchTree();
+  const selected = filter === "mine" ? rows.filter((r) => r.ownerUserId === ctx.userId) : rows;
+
+  const ownerIds = [...new Set(selected.map((r) => r.ownerUserId).filter((v): v is string => v !== null))];
+  const owners = await getUserProfiles(ownerIds);
+
+  const pathOf = (node: NodeRow): string => {
+    const titles: string[] = [];
+    const seen = new Set<string>();
+    let current: NodeRow | undefined = node;
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      titles.unshift(current.title);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+    return titles.join(" › ");
+  };
+
+  return selected
+    .map((row) => {
+      const owner = row.ownerUserId ? owners.get(row.ownerUserId) : null;
+      return {
+        ...buildCardData(row, byId, byParent),
+        path: pathOf(row),
+        ownerName: owner?.name ?? owner?.email ?? null,
+      };
+    })
+    .sort((a, b) => a.path.localeCompare(b.path, "cs"));
 }
 
 export type NodeActivityEntry = {

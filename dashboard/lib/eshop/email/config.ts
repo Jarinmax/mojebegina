@@ -6,6 +6,9 @@
 //     jen tyto adresy (testovací režim, viz resolveRecipients). Bez seznamu
 //     Preview neposílá nic — testovací objednávka tak nikdy neodejde
 //     skutečnému zákazníkovi.
+//   - ESHOP_EMAIL_INVOICE_COPY_TO: skrytá kopie (Bcc) každého e-mailu
+//     s fakturou (např. Jaroslav Viner a Lucie Königsbergová); prázdné =
+//     bez kopie. V testovacím režimu jen adresy z testovacího seznamu.
 import { isOrderWriteEnabled } from "../orderWrite";
 
 type Env = Record<string, string | undefined>;
@@ -16,6 +19,8 @@ export type EmailConfig = {
   replyTo: string | null;
   /** Interní upozornění pro Beginu; prázdné = neposílá se. */
   internalTo: string[];
+  /** Skrytá kopie e-mailů s fakturou (PDF); prázdné = bez kopie. */
+  invoiceCopyTo?: string[];
   /** null = ostrý provoz (Production); jinak jediné povolené adresy. */
   testRecipients: string[] | null;
 };
@@ -53,6 +58,7 @@ export function emailConfig(env: Env = process.env): EmailConfig | null {
     from,
     replyTo,
     internalTo: parseEmailList(env.ESHOP_EMAIL_INTERNAL_TO),
+    invoiceCopyTo: parseEmailList(env.ESHOP_EMAIL_INVOICE_COPY_TO),
     testRecipients,
   };
 }
@@ -75,4 +81,16 @@ export function resolveRecipients(intended: string[], config: Pick<EmailConfig, 
   const to = wanted.filter((email) => allowed.has(email));
   const withheld = wanted.filter((email) => !allowed.has(email));
   return { to: to.length > 0 ? to : [...config.testRecipients], withheld };
+}
+
+/**
+ * Skrytá kopie e-mailu s fakturou: v ostrém provozu všechny adresy
+ * z ESHOP_EMAIL_INVOICE_COPY_TO, v testovacím režimu jen ty z testovacího
+ * seznamu (ostatní se vynechají, nic se nenahrazuje). Bez adres, které už
+ * e-mail dostávají v „Komu“.
+ */
+export function invoiceCopyRecipients(config: Pick<EmailConfig, "invoiceCopyTo" | "testRecipients">, to: string[]): string[] {
+  const already = new Set(to.map((email) => email.toLowerCase()));
+  const allowed = config.testRecipients === null ? null : new Set(config.testRecipients);
+  return (config.invoiceCopyTo ?? []).filter((email) => !already.has(email) && (allowed === null || allowed.has(email)));
 }

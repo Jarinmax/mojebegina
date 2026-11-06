@@ -27,6 +27,7 @@ function robotsHeader(response: NextResponse, site: "public" | "internal"): Next
 export function proxy(request: NextRequest) {
   const decision = route({
     host: request.headers.get("host"),
+    forwardedHost: request.headers.get("x-forwarded-host"),
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
     method: request.method,
@@ -39,6 +40,11 @@ export function proxy(request: NextRequest) {
       return new NextResponse("Tato stránka už neexistuje.", {
         status: 410,
         headers: { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": NOINDEX },
+      });
+    case "deny":
+      return new NextResponse("Not Found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": NOINDEX },
       });
     case "notFound": {
       const url = new URL(PUBLIC_NOT_FOUND_PATH, request.url);

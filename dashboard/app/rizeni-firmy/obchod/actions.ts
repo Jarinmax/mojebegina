@@ -16,6 +16,7 @@ import {
   convertLeadToNewOrganization,
   assignCustomerOwner,
   setCustomerAcquiredBy,
+  addCustomerNote,
 } from "@/lib/data/leads";
 import type { CreateCustomerInput } from "@/lib/data/createCustomerValidation";
 
@@ -217,4 +218,18 @@ export async function setCustomerAcquiredByAction(
 
   revalidateCrm(undefined, organizationId);
   return { success: "Původ akvizice byl uložen." };
+}
+
+export async function addCustomerNoteAction(
+  organizationId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await addCustomerNote(organizationId, String(formData.get("body") ?? ""));
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(undefined, organizationId);
+  return { success: "Poznámka byla uložena." };
 }

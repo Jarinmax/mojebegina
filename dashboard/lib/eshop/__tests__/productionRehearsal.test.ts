@@ -141,7 +141,89 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0].n).toBeGreaterThan(0);
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0022) + pojistka číslování", async () => {
+  it("čtení iDokladu — drizzle 0023 (auditní záznam přístupů): před / migrace / po, druhé spuštění se zastaví, návrat jen bez záznamů", async () => {
+    const line = async (name: string) =>
+      Object.values((await pg.query<Record<string, unknown>>(file("idoklad-cteni", name).replace(/--[^\n]*\n/g, "\n"))).rows[0]).map(String).join(" | ");
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+    await expect(run(pg, file("idoklad-cteni", "11_migrace_0023.sql"))).rejects.toThrow(/už existuje/);
+    expect(await line("12_po.sql")).toBe("ano | 0 | 2");
+    // návrat: s auditním záznamem se zastaví, prázdná tabulka jde vrátit (a znovu založit)
+    await pg.exec(`INSERT INTO idoklad_read_log (user_id, channel, tool, args, status) VALUES ('u', 'ui', 't', '{}', 'ok')`);
+    await expect(run(pg, file("idoklad-cteni", "19_navrat.sql"))).rejects.toThrow(/auditní stopa se nemaže/);
+    await pg.exec(`DELETE FROM idoklad_read_log`);
+    await run(pg, file("idoklad-cteni", "19_navrat.sql"));
+    expect(await line("10_pred.sql")).toBe("ne | ano");
+    await run(pg, file("idoklad-cteni", "11_migrace_0023.sql"));
+  });
+
+  it("MCP/OAuth — produkční migrace 0024: před / migrace / po", async () => {
+    expect(await check(pg, file("gpt-mcp", "10_before.sql"))).toBe("0");
+    await run(pg, file("gpt-mcp", "11_migration.sql"));
+    expect(await check(pg, file("gpt-mcp", "12_after.sql"))).toBe("4 | 4 | 0 | 0");
+  });
+
+  it("Práce 1.0 — migrace 0025 tak, jak ji pustí build (scripts/migrate-work-tasks.mjs): tabulky + 6 úkolů pro Jardu s dnešním termínem", async () => {
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0025_prace_1_0_work_tasks.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec(file("prace", "12_ukoly_jarda.sql"));
+    await pg.exec("COMMIT");
+    const { rows } = await pg.query<{ n: number; dnes: number; hist: number; komu: string; kdo: string }>(`
+      SELECT count(*)::int AS n,
+             count(*) FILTER (WHERE due_date = (now() AT TIME ZONE 'Europe/Prague')::date)::int AS dnes,
+             (SELECT count(*)::int FROM work_task_activity WHERE kind = 'created') AS hist,
+             min(assignee_user_id) AS komu, min(created_by) AS kdo
+        FROM work_tasks WHERE status = 'open' AND priority = 'normal'`);
+    expect(rows[0]).toEqual({ n: 6, dnes: 6, hist: 6, komu: "06240ac4-c050-47ea-998c-6c81389edf9f", kdo: "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c" });
+  });
+
+  it("Práce 1.1 — migrace 0026 tak, jak ji pustí build: stávající úkoly zůstanou beze změny a platné", async () => {
+    const before = (await pg.query(`SELECT id, title, status, due_date, priority, done_at FROM work_tasks ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0026_prace_1_1_task_management.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    const after = (await pg.query(`SELECT id, title, status, due_date, priority, done_at FROM work_tasks ORDER BY id`)).rows;
+    expect(after).toEqual(before);
+    expect(after.length).toBe(6);
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM work_tasks WHERE cancelled_at IS NULL AND cancelled_by IS NULL`);
+    expect(rows[0].n).toBe(6);
+  });
+
+  it("Práce 2.0 — migrace 0027 tak, jak ji pustí build: stávající úkoly (i zrušený) beze změny, výchozí bez fotky a bez schválení", async () => {
+    await pg.exec(`UPDATE work_tasks SET status = 'cancelled', cancelled_at = now(), cancelled_by = 'u'
+                    WHERE id = (SELECT id FROM work_tasks ORDER BY id LIMIT 1)`);
+    const before = (await pg.query(`SELECT id, title, status, due_date, priority, done_at, cancelled_at FROM work_tasks ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0027_prace_2_0_photos_approval.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    const after = (await pg.query(`SELECT id, title, status, due_date, priority, done_at, cancelled_at FROM work_tasks ORDER BY id`)).rows;
+    expect(after).toEqual(before);
+    const { rows } = await pg.query<{ n: number; fotky: number }>(
+      `SELECT count(*) FILTER (WHERE photo_requirement = 'none' AND NOT requires_approval AND submitted_at IS NULL)::int AS n,
+              (SELECT count(*)::int FROM work_task_photos) AS fotky FROM work_tasks`
+    );
+    expect(rows[0]).toEqual({ n: 6, fotky: 0 });
+  });
+
+  it("Kupóny — migrace 0028 tak, jak ji pustí build (scripts/migrate-eshop-coupons.mjs): prázdná tabulka, objednávky beze změny", async () => {
+    const before = (await pg.query(`SELECT id, total_kc, discount_kc FROM orders ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0028_eshop_coupons.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    expect((await pg.query(`SELECT id, total_kc, discount_kc FROM orders ORDER BY id`)).rows).toEqual(before);
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM eshop_coupons`);
+    expect(rows[0].n).toBe(0);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0028) + pojistka číslování", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`

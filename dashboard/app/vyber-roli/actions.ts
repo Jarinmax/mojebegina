@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { ACTIVE_ROLE_COOKIE } from "@/lib/data/activeRole";
 import { defaultPathForRole } from "@/lib/data/roles";
+import { landingForExecutive } from "@/lib/data/workTasksAuth";
 import type { SystemRole } from "@/lib/data/types";
 
 export async function setActiveRoleAction(role: SystemRole, _formData: FormData): Promise<void> {
@@ -32,5 +33,6 @@ export async function setActiveRoleAction(role: SystemRole, _formData: FormData)
     maxAge: 60 * 60 * 24 * 30, // 30 dní — jen UI preference, ne bezpečnostní token; server ji stejně ověřuje vždy znovu proti grantedRoles.
   });
 
-  redirect(defaultPathForRole(role));
+  // Práce 1.0 — pracovník s úkoly (Blahout) přistane po výběru EXECUTIVE na /prace.
+  redirect(role === "EXECUTIVE" ? landingForExecutive(ctx.userId) : defaultPathForRole(role));
 }

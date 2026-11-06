@@ -84,7 +84,7 @@ describe("iDoklad: výpadek odpovědi", () => {
       env: { ...ENV, IDOKLAD_INVOICING_ENABLED: "manual" },
       fetchImpl,
     });
-    await expect(client.post("/IssuedInvoices", {})).rejects.toThrow(/iDoklad nedostupný/);
+    await expect(client.post("/IssuedInvoices", { NumericSequenceId: 7277293 })).rejects.toThrow(/iDoklad nedostupný/);
     const posts = spy.mock.calls.filter(([url]) => new URL(String(url)).pathname === "/v3/IssuedInvoices");
     expect(posts).toHaveLength(1);
   });

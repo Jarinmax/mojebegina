@@ -8,12 +8,14 @@
 /** Vložený obrázek: v HTML se odkazuje jako <img src="cid:{contentId}">. */
 export type InlineImage = { filename: string; contentBase64: string; contentId: string };
 
-/** Běžná příloha (např. PDF faktury). */
-export type Attachment = { filename: string; contentBase64: string };
+/** Běžná příloha (např. PDF faktury, PDF obchodních podmínek). */
+export type Attachment = { filename: string; contentBase64: string; contentType?: string };
 
 export type EmailMessage = {
   from: string;
   to: string[];
+  /** skrytá kopie (Bcc) */
+  bcc?: string[];
   replyTo?: string | null;
   subject: string;
   html: string;
@@ -42,6 +44,7 @@ export function resendTransport(apiKey: string, fetchImpl: typeof fetch = fetch)
         body: JSON.stringify({
           from: message.from,
           to: message.to,
+          ...(message.bcc?.length ? { bcc: message.bcc } : {}),
           ...(message.replyTo ? { reply_to: message.replyTo } : {}),
           subject: message.subject,
           html: message.html,
@@ -54,7 +57,11 @@ export function resendTransport(apiKey: string, fetchImpl: typeof fetch = fetch)
                     content: image.contentBase64,
                     content_id: image.contentId,
                   })),
-                  ...(message.attachments ?? []).map((file) => ({ filename: file.filename, content: file.contentBase64 })),
+                  ...(message.attachments ?? []).map((file) => ({
+                    filename: file.filename,
+                    content: file.contentBase64,
+                    ...(file.contentType ? { content_type: file.contentType } : {}),
+                  })),
                 ],
               }
             : {}),

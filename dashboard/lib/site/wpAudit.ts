@@ -47,7 +47,7 @@ export function verdictFor(url: string, known?: KnownSlugs): UrlVerdict {
       return hop === 0 ? { kind: "same", path: original } : { kind: "redirect", path: original, target: path };
     }
     if (decision.kind === "gone") return { kind: "gone", path: original };
-    if (decision.kind === "notFound") return { kind: "missing", path: original, reason: hop === 0 ? "404" : `→ ${path} = 404` };
+    if (decision.kind === "notFound" || decision.kind === "deny") return { kind: "missing", path: original, reason: hop === 0 ? "404" : `→ ${path} = 404` };
     const next = new URL(decision.location, "https://begina.cz");
     if (next.host !== "begina.cz") return { kind: "missing", path: original, reason: `→ jiná doména ${next.host}` };
     path = next.pathname;

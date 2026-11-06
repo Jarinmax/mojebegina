@@ -2,19 +2,58 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { availableHomeCategories, HOME_CATEGORIES, stripCategories } from "../homeNav";
+import { availableHomeCategories, HOME_CATEGORIES, mainMenu, stripCategories } from "../homeNav";
 
 describe("úvodní stránka — kategorie z návrhu", () => {
-  it("pořadí a krátké názvy podle návrhu (Polévky, Sirupy, Čaje, Nápoje, Koktejly) + Zmrzliny (8. 10. 2026)", () => {
-    expect(HOME_CATEGORIES.map((c) => c.menuLabel)).toEqual(["Polévky", "Sirupy", "Čaje", "Nápoje", "Koktejly", "Zmrzliny"]);
+  it("plné názvy kategorií podle zadání Lucie (6. 11. 2026)", () => {
+    expect(HOME_CATEGORIES.map((c) => c.menuLabel)).toEqual([
+      "Čerstvé polévky",
+      "Bylinné sirupy",
+      "Čaje",
+      "Ovocné nápoje",
+      "Alkoholické koktejly",
+      "Zmrzliny",
+    ]);
   });
 
-  it("Zmrzliny: v menu, jakmile je kategorie v katalogu; v pruhu ikon až s ikonou", () => {
+  it("pruh pod hero: všech šest kategorií včetně Zmrzlin s ilustrací", () => {
     const all = availableHomeCategories(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"]);
-    expect(all.map((c) => c.slug)).toContain("zmrzliny");
-    expect(stripCategories(all).map((c) => c.slug)).toEqual(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly"]);
+    expect(stripCategories(all).map((c) => c.stripLabel)).toEqual([
+      "Čerstvé polévky",
+      "Bylinné sirupy",
+      "Čaje",
+      "Ovocné nápoje",
+      "Alkoholické koktejly",
+      "Zmrzliny",
+    ]);
     // bez řádku v DB se nikde neukáže
     expect(availableHomeCategories(["polevky"]).map((c) => c.slug)).toEqual(["polevky"]);
+  });
+
+  it("horní menu: Nápoje jako rozbalovací položka s Čaji, Ovocnými nápoji a Alkoholickými koktejly", () => {
+    const menu = mainMenu(
+      availableHomeCategories(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"]),
+      [
+        { kind: "link", href: "/o-nas", label: "O nás" },
+        { kind: "link", href: "/o-vode", label: "O vodě" },
+      ]
+    );
+    expect(menu.map((e) => e.label)).toEqual(["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě"]);
+    const drinks = menu[2];
+    expect(drinks.kind).toBe("group");
+    if (drinks.kind !== "group") return;
+    expect(drinks.items).toEqual([
+      { kind: "link", href: "/kategorie/caje", label: "Čaje" },
+      { kind: "link", href: "/kategorie/ovocne-napoje", label: "Ovocné nápoje" },
+      { kind: "link", href: "/kategorie/koktejly", label: "Alkoholické koktejly" },
+    ]);
+  });
+
+  it("bez nápojových kategorií v katalogu se Nápoje nezobrazí", () => {
+    expect(mainMenu(availableHomeCategories(["polevky", "zmrzliny"])).map((e) => e.label)).toEqual([
+      "Čerstvé polévky",
+      "Zmrzliny",
+    ]);
   });
 
   it("zobrazí jen kategorie, které jsou v katalogu", () => {

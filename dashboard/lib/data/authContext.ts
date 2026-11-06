@@ -14,11 +14,12 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { and, eq, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth/server";
+import { sessionAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
 import { userActivations, userRoles } from "@/lib/db/schema";
 import { ACTIVE_ROLE_COOKIE, resolveActiveRole } from "./activeRole";
 import { syncUserProfileFromSession } from "./userProfiles";
+import { currentAgentContext } from "@/lib/agent/context";
 import type { AuthContext, SystemRole } from "./types";
 
 const DEFAULT_SYSTEM_ROLE: SystemRole = "CUSTOMER";
@@ -63,8 +64,15 @@ async function syncUserProfileIfNeeded(
 
 // Identita se vždy odvozuje ze server-side session (httpOnly cookie
 // ověřená přes Neon Auth) — nikdy z ničeho, co pošle klient.
+//
+// GPT/MCP pilot — výjimka: během volání nástroje z ChatGPT (/api/mcp) vrací
+// identitu ověřenou z bearer tokenu (viz lib/agent/context.ts). Mimo takové
+// volání je currentAgentContext() vždy null a chování je beze změny.
 export async function getAuthContext(): Promise<AuthContext> {
-  const { data: session } = await auth.getSession();
+  const agent = currentAgentContext();
+  if (agent) return agent;
+
+  const { data: session } = await sessionAuth.getSession();
   if (!session?.user) return null;
 
   await markActivatedIfNeeded(session.user.id);

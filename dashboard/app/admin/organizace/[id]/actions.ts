@@ -8,6 +8,7 @@
 // v tom není IDOR riziko, jen čistší API než skryté input pole.
 import { revalidatePath } from "next/cache";
 import {
+  addOrganizationLocation,
   addOrganizationMember,
   inviteCustomer,
   removeOrganizationMember,
@@ -61,6 +62,26 @@ export async function addMemberAction(
   return {
     success: "Uživatel byl založen. Až budete připraveni, pozvěte ho tlačítkem „Pozvat zákazníka“.",
   };
+}
+
+export async function addLocationAction(
+  organizationId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await addOrganizationLocation(organizationId, {
+    label: String(formData.get("label") ?? ""),
+    street: String(formData.get("street") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    zip: String(formData.get("zip") ?? ""),
+    contactName: String(formData.get("contactName") ?? ""),
+    contactPhone: String(formData.get("contactPhone") ?? ""),
+  });
+
+  if (!result.ok) return { error: result.error };
+
+  revalidatePath(`/admin/organizace/${organizationId}`);
+  return { success: "Provozovna byla přidána." };
 }
 
 export async function inviteCustomerAction(

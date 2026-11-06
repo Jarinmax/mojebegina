@@ -11,6 +11,7 @@ import { isCardPaymentAvailable } from "@/lib/eshop/stripe/config";
 import { canPayByCard, loadPaymentOrder } from "@/lib/eshop/stripe/payment";
 import { bankConfig, formatPragueDate, isTransferOverdue, transferInfo } from "@/lib/eshop/bankTransfer";
 import { qrSvg } from "@/lib/eshop/qr";
+import { PICKUP_METHOD_ID, PICKUP_NOTICE } from "@/lib/eshop/shipping";
 import PayAgainButton from "./PayAgainButton";
 import TransferPayment from "./TransferPayment";
 import ForgetPendingOrder from "./ForgetPendingOrder";
@@ -114,6 +115,12 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
               <span className="tabular-nums whitespace-nowrap">{formatKc(item.unitPriceKc * item.quantity)}</span>
             </li>
           ))}
+          {order.discountKc > 0 && (
+            <li className="py-2 flex justify-between gap-3">
+              <span>Sleva</span>
+              <span className="tabular-nums whitespace-nowrap">−{formatKc(order.discountKc)}</span>
+            </li>
+          )}
           {order.shippingKc > 0 && (
             <li className="py-2 flex justify-between gap-3">
               <span>{order.shippingMethodLabel ?? "Doprava"}</span>
@@ -126,6 +133,13 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
           </li>
         </ul>
       </div>
+
+      {order.shippingMethodCode === PICKUP_METHOD_ID && (
+        <p className="border border-neutral-200 rounded-2xl p-4 text-sm mb-6" role="note">
+          <span className="block font-medium mb-0.5">Doručení</span>
+          {PICKUP_NOTICE}
+        </p>
+      )}
 
       {transfer && <TransferPayment transfer={transfer} qrSvg={transferQr} overdue={overdue} />}
 
