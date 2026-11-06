@@ -31,6 +31,12 @@ export default function QueueItemCard({ item, orderNumber, children }: Props) {
         </a>
       )}
 
+      {item.notInterested && (
+        <p className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+          Nezájem — Jardovi se nezobrazuje. Odeberte ho z fronty.
+        </p>
+      )}
+
       {item.lastNote && (
         <p className="text-xs text-neutral-500 line-clamp-2">Poslední poznámka: {item.lastNote}</p>
       )}

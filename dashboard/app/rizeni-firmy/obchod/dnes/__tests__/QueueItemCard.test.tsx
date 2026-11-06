@@ -20,6 +20,7 @@ function baseItem(overrides: Partial<QueueItemCardData> = {}): QueueItemCardData
     contactPhone: "+420 777 123 456",
     stage: "new",
     lastNote: null,
+    notInterested: false,
     ...overrides,
   };
 }
@@ -47,6 +48,16 @@ describe("QueueItemCard — Security Phase 19", () => {
   it("poslední poznámka se zobrazí, pokud existuje", () => {
     render(<QueueItemCard item={baseItem({ lastNote: "Slíbil zavolat zpět." })} orderNumber={1} />);
     expect(screen.getByText(/Slíbil zavolat zpět\./)).toBeTruthy();
+  });
+
+  it("nezájem je pro kurátora výrazně označený, jinak nic", () => {
+    render(<QueueItemCard item={baseItem({ notInterested: true })} orderNumber={1} />);
+    expect(screen.getByText(/Nezájem — Jardovi se nezobrazuje/)).toBeTruthy();
+  });
+
+  it("bez nezájmu se označení nezobrazí", () => {
+    render(<QueueItemCard item={baseItem()} orderNumber={1} />);
+    expect(screen.queryByText(/Nezájem/)).toBeNull();
   });
 
   it("bez poznámky se řádek nezobrazí", () => {
