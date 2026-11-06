@@ -77,6 +77,7 @@ import {
   type NoteInput,
 } from "./orderValidation";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "./orderLabels";
+import { isAllowedFulfillmentTransition, type ValidatedUpdateOrderFulfillment } from "./orderFulfillmentAgentValidation";
 import type { AuthContext } from "./types";
 
 export async function requireOrderContext(): Promise<NonNullable<AuthContext>> {
@@ -151,6 +152,9 @@ export type OrderCardData = {
    * null = nic k řešení.
    */
   moneyAlert: MoneyAlert | null;
+  /** AKTUÁLNÍ přepravce/tracking (MCP objednávky 1.1) — historie je v order_activity. */
+  carrier: string | null;
+  trackingNumber: string | null;
 };
 
 export type OrderCounts = {
@@ -162,7 +166,7 @@ export type OrderCounts = {
 
 export type OrderList = { orders: OrderCardData[]; counts: OrderCounts };
 
-async function buildOrderCards(
+export async function buildOrderCards(
   orderRows: (typeof orders.$inferSelect)[]
 ): Promise<OrderCardData[]> {
   if (orderRows.length === 0) {
@@ -223,6 +227,8 @@ async function buildOrderCards(
       responsibleUserId: o.responsibleUserId,
       responsibleName: responsible?.name ?? responsible?.email ?? null,
       moneyAlert: money.get(o.id) ?? null,
+      carrier: o.carrier,
+      trackingNumber: o.trackingNumber,
     };
   });
 }
@@ -282,7 +288,11 @@ export type OrderDetail = {
     note: string | null;
     // ESHOP 1.0 — údaje z pokladny e-shopu (u ručních objednávek NULL).
     channel: string;
+    /** Sídlo firmy (organizations.registeredAddress) — fakturační adresa; null u soukromého zákazníka. */
+    buyerOrganizationAddress: string | null;
+    recipientName: string | null;
     recipientAddress: string | null;
+    recipientPhone: string | null;
     shippingMethodLabel: string | null;
     paymentMethodLabel: string | null;
     customerNote: string | null;
@@ -316,6 +326,9 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
   const invoiceable = isInvoiceableOrder(row);
 
   const enteredBy = row.enteredByUserId ? await getUserProfile(row.enteredByUserId) : null;
+  const buyerOrg = row.buyerOrganizationId
+    ? (await db.select({ registeredAddress: organizations.registeredAddress }).from(organizations).where(eq(organizations.id, row.buyerOrganizationId)).limit(1))[0]
+    : null;
 
   const items = await db
     .select({
@@ -344,7 +357,10 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       enteredByName: enteredBy?.name ?? enteredBy?.email ?? null,
       note: row.note,
       channel: row.channel,
+      buyerOrganizationAddress: buyerOrg?.registeredAddress ?? null,
+      recipientName: row.recipientName,
       recipientAddress: row.recipientAddress,
+      recipientPhone: row.recipientPhone,
       shippingMethodLabel: row.shippingMethodLabel,
       paymentMethodLabel: row.paymentMethodLabel,
       customerNote: row.customerNote,
@@ -528,6 +544,96 @@ export async function updateFulfillmentStatus(
       ? await afterOrderCancelled(db, orderId, await getAppOrigin())
       : undefined;
   return { ok: true, changed: true, status: validated.value, ...(cancellation ? { cancellation } : {}) };
+}
+
+export type AgentFulfillmentResult =
+  | { ok: true; changed: boolean; status: FulfillmentStatus; activityId: string | null; cancellation?: CancellationOutcome }
+  | { ok: false; error: string };
+
+/**
+ * ZÁPIS stavu objednávky přes MCP (asistent) — na rozdíl od
+ * updateFulfillmentStatus výše (lidská stránka, libovolný přechod kvůli
+ * opravě chyby) tahle cesta POVOLENÉ přechody hlídá
+ * (orderFulfillmentAgentValidation.ts): žádné přeskakování kroků, žádné
+ * "couvání" do stavu, který appka pro tenhle krok nezná. Stejná atomická
+ * WHERE-podmínka jako changeOrderColumn výše (souběh dvou zápisů nikdy
+ * nezmění stav dvakrát), stejná tabulka/kind order_activity (historie v UI
+ * funguje beze změny) — jen bohatší metadata (přepravce, tracking, čas
+ * události) a "(přes ChatGPT)" v authorName (z ctx.name, stejně jako
+ * u všech ostatních MCP zápisů).
+ */
+export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrderFulfillment): Promise<AgentFulfillmentResult> {
+  const ctx = await requireOrderContext();
+
+  const [current] = await db
+    .select({ fulfillmentStatus: orders.fulfillmentStatus })
+    .from(orders)
+    .where(eq(orders.id, input.orderId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Objednávka nebyla nalezena." };
+  }
+  const from = current.fulfillmentStatus as FulfillmentStatus;
+
+  // Cíl == současný stav: bezpečný no-op. Opakování STEJNÉ věty v chatu
+  // (např. "zákazník převzal" řečeno dvakrát) tak nikdy nezdvojí zápis
+  // ani historii — nezávisle na idempotency_key (ten řeší jen opakování
+  // PO CHYBĚ spojení se stejným klíčem, server.ts).
+  if (from === input.targetStatus) {
+    return { ok: true, changed: false, status: from, activityId: null };
+  }
+  if (!isAllowedFulfillmentTransition(from, input.targetStatus)) {
+    return {
+      ok: false,
+      error: `Přechod ze stavu „${FULFILLMENT_LABELS[from]}“ na „${FULFILLMENT_LABELS[input.targetStatus]}“ není povolený — zkontrolujte skutečný stav objednávky.`,
+    };
+  }
+
+  const metadata = {
+    from,
+    to: input.targetStatus,
+    eventAt: input.eventAt ? input.eventAt.toISOString() : null,
+    carrier: input.carrier,
+    trackingNumber: input.trackingNumber,
+  };
+
+  const result = await db.execute<{ id: string }>(sql`
+    WITH upd AS (
+      UPDATE orders
+      SET fulfillment_status = ${input.targetStatus},
+          carrier = COALESCE(${input.carrier}, carrier),
+          tracking_number = COALESCE(${input.trackingNumber}, tracking_number)
+      WHERE id = ${input.orderId} AND fulfillment_status = ${from}
+      RETURNING id
+    )
+    INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, body, metadata)
+    SELECT id, 'user', ${ctx.userId}, ${ctx.name}, 'fulfillment_status_changed', ${input.note}, ${JSON.stringify(metadata)}::jsonb FROM upd
+    RETURNING id`);
+
+  if (result.rows.length === 0) {
+    const [now] = await db
+      .select({ fulfillmentStatus: orders.fulfillmentStatus })
+      .from(orders)
+      .where(eq(orders.id, input.orderId))
+      .limit(1);
+    return {
+      ok: false,
+      error: `Stav objednávky mezitím změnil někdo jiný na „${FULFILLMENT_LABELS[(now?.fulfillmentStatus as FulfillmentStatus) ?? from]}“ — zkontrolujte objednávku a zkuste to znovu.`,
+    };
+  }
+
+  // Storno: jen po SKUTEČNÉ změně (tento zápis vyhrál) — stejný vedlejší
+  // účinek jako u lidské cesty výše (e-mail zákazníkovi nejvýš jednou).
+  const cancellation =
+    input.targetStatus === "cancelled" ? await afterOrderCancelled(db, input.orderId, await getAppOrigin()) : undefined;
+
+  return {
+    ok: true,
+    changed: true,
+    status: input.targetStatus,
+    activityId: result.rows[0].id,
+    ...(cancellation ? { cancellation } : {}),
+  };
 }
 
 export async function updatePaymentStatus(

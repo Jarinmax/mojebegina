@@ -186,6 +186,13 @@ export const orders = pgTable("orders", {
   // v lib/eshop/orderWrite.ts). Neměnný (trigger orders_payment_vs_immutable);
   // zákazník s ním platí, faktura ho nese. Není to číslo objednávky ani faktury.
   paymentVs: text("payment_vs"),
+  // MCP objednávky 1.0 (plánování rozvozů, migrace 0029) — AKTUÁLNÍ přepravce
+  // a tracking (ne historie — ta je v order_activity.metadata u každého
+  // fulfillment_status_changed). Vyplní se při přechodu na handed_to_carrier,
+  // volitelně i out_for_delivery; u ostatních stavů zůstávají beze změny
+  // (handedToCarrier→delivered si je typicky ponechá).
+  carrier: text("carrier"),
+  trackingNumber: text("tracking_number"),
 }, (table) => [
   uniqueIndex("orders_order_number_key").on(table.orderNumber),
   // jedna objednávka z WooCommerce = nejvýš jeden záznam (migrace 0022)

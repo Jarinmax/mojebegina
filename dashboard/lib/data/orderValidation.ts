@@ -2,12 +2,18 @@
 // objednávky. Bez "server-only", testovatelné stejně jako
 // companyNodeValidation.ts.
 
+// handed_to_carrier = předáno externímu přepravci (např. CoolBalík) — NENÍ
+// totéž co out_for_delivery (Jarin veze zákazníkovi sám). Jen jeden stav
+// pro "předáno/v přepravě u přepravce": appka nikde nerozlišuje okamžik
+// předání od průběhu přepravy, dva stavy by tu byly zbytečně jemnější
+// rozlišení (MCP objednávky 1.0, plánování rozvozů).
 export type FulfillmentStatus =
   | "new"
   | "confirmed"
   | "preparing"
   | "ready"
   | "out_for_delivery"
+  | "handed_to_carrier"
   | "delivered"
   | "cancelled";
 
@@ -19,6 +25,7 @@ export const FULFILLMENT_STATUSES: FulfillmentStatus[] = [
   "preparing",
   "ready",
   "out_for_delivery",
+  "handed_to_carrier",
   "delivered",
   "cancelled",
 ];

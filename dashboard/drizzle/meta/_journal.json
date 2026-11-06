@@ -204,6 +204,13 @@
       "when": 1793974210169,
       "tag": "0028_eshop_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793979307665,
+      "tag": "0029_objednavky_1_1_rozvoz_carrier_tracking",
+      "breakpoints": true
     }
   ]
 }
