@@ -85,30 +85,35 @@ systém ukáže všechny výrobní šarže, ve kterých byla, a všechny odběra
 
 ## 4. Číslo šarže
 
-Formát: **`L` + RRMMDD + `-` + kód produktu + `-` + pořadí v den**
+Formát (rozhodnuto 6. 11. 2026 první skutečnou šarží `L-20261106-DYN-01`):
+**`L-` + RRRRMMDD + `-` + kód výrobku + `-` + pořadí v den (2 číslice)**
 
 ```
-L261101-KUL-1    kulajda, uvařená 1. 11. 2026, první várka toho dne
-L261101-KUL-2    druhá várka kulajdy téhož dne
-L261101-DYN-1    dýňová polévka, stejný den
+L-20261106-DYN-01   dýňová polévka, výroba dokončena 6. 11. 2026, první várka dne
+L-20261106-DYN-02   druhá várka dýňové téhož dne
+L-20261106-KUL-01   kulajda, stejný den
 ```
+
+- **datum v čísle = den dokončení výroby** (u várky přes noc druhý den);
+  začátek výroby se ukládá zvlášť a počítá se od něj datum spotřeby;
 
 - čitelné bez systému (datum výroby + co to je), krátké na štítek;
 - kód produktu = nový sloupec `products.lot_code` (3–4 velká písmena,
   UNIQUE), např. KUL, DYN, RAJ, RAR (rajčatová s červenou řepou), SPE, GUL…;
-- pořadí v den přiděluje DB v témže INSERTu (jako dnes `order_number_seq`
-  a `payment_vs_seq`), takže dvě souběžná zapsání nedostanou stejné číslo;
-- číslo je **neměnné** (trigger, stejný vzor jako `orders_payment_vs_immutable`).
+- DB hlídá, že datum, kód i pořadí v čísle sedí s údaji šarže a výrobku
+  a že číslo je unikátní; dvě souběžná zapsání nedostanou stejné číslo;
+- číslo je **neměnné** (trigger, stejný vzor jako `orders_payment_vs_immutable`)
+  a kód výrobku se po první šarži už nedá změnit.
 
 Na štítku:
 
 ```
 Kulajda · 3 l
 Spotřebujte do: 15. 11. 2026
-Šarže: L261101-KUL-1
+Šarže: L-20261101-KUL-01
 ```
 
-Datum spotřeby/trvanlivosti systém spočítá: **datum výroby +
+Datum spotřeby/trvanlivosti systém spočítá: **začátek výroby +
 `products.shelf_life_days`** (polévky dnes 14 dní, čaje 60). Lze ručně
 zkrátit, nikdy prodloužit nad hodnotu z produktu.
 
@@ -199,6 +204,11 @@ součet spotřeb (dopočítává se, neukládá).
 Zápis výstupu zároveň vytvoří pohyb skladu `production` (+19).
 
 ### 5.7 `stock_movements` — sklad hotových výrobků po šaržích
+
+> **Aktualizace 6. 11. 2026:** samostatná tabulka se nezakládá — použije se
+> `stock_movements` ze Skladu 1.0 (append-only, storno = opačný pohyb
+> s `corrects_movement_id`) rozšířená o vazbu na šarži. Viz oddíl 12.
+
 
 | Sloupec | Pozn. |
 |---|---|
@@ -299,7 +309,7 @@ Prošlé šarže s kusy skladem systém připomene v upozorněních.
 
 ### E) Vzorky — `/vyroba/vzorky`
 Seznam uložených vzorků, které mají být zlikvidovány dnes / jsou po lhůtě
-→ „Zlikvidováno“. Upozornění v Práci (úkol „zlikvidovat vzorek L261101-KUL-1“).
+→ „Zlikvidováno“. Upozornění v Práci (úkol „zlikvidovat vzorek L-20261101-KUL-01“).
 
 ---
 
@@ -452,7 +462,7 @@ Stránka **`/vyroba/sarze/[lot]`** (hledání podle čísla šarže z obalu)
 + tlačítko **„Export PDF pro kontrolu“**:
 
 ```
-ŠARŽE L261101-KUL-1 — Kulajda
+ŠARŽE L-20261101-KUL-01 — Kulajda
 Vyrobeno 1. 11. 2026, vařil: Jarda · Spotřebujte do 15. 11. 2026 · Stav: uvolněno
 Uvařeno 60 l · Var 96 °C · Zchlazeno na 4 °C v 13:40
 
@@ -532,8 +542,7 @@ Migrace podle zvyku repozitáře: `drizzle/0028_vyroba_1_0_sarze.sql`
 
 1. **Jedna várka = jedna šarže?** (návrh: ano; když se jeden den vaří dvakrát,
    vzniknou dvě šarže.)
-2. **Formát čísla** `L261101-KUL-1` — vyhovuje, nebo chcete jiný (např. jen
-   pořadové číslo)?
+2. ~~Formát čísla~~ — **rozhodnuto 6. 11. 2026:** `L-RRRRMMDD-KÓD-NN` (oddíl 4).
 3. **Vzorky:** máte dnes nějaké rozhodnutí KHS nebo smlouvu (škola, catering),
    která vzorky vyžaduje? Zadáme je jako první povinná pravidla. Souhlasíte
    s výchozím „doporučeným“ pravidlem pro polévky a chlazené nápoje?
@@ -549,3 +558,64 @@ Migrace podle zvyku repozitáře: `drizzle/0028_vyroba_1_0_sarze.sql`
 8. **Fotka etikety** u složených surovin (kokosové mléko, směsi koření) — chcete ji vyžadovat, nebo jen nabízet?
 9. **Rostlinné jsou jen polévky, nebo i nápoje?** (Sirupy/čaje s medem?)
    Podle toho se nastaví příznak `is_plant_based` u dalších produktů.
+
+---
+
+## 12. Šarže 1.0 — připravené SQL (6. 11. 2026, NESPUŠTĚNO)
+
+Soubory v `docs/sarze/`; spouští se ručně v Neon Console v tomto pořadí:
+
+| Soubor | Co dělá |
+|---|---|
+| `10_before.sql` | jen čtení: je Sklad 1.0 nasazený, šarže ještě ne |
+| `11_migration.sql` | tabulky a pravidla šarží (níže) |
+| `20_L-20261106-DYN-01_priprava.sql` | první šarže + **připravený** příjem 38 ks (bez skladových pohybů) |
+| `21_L-20261106-DYN-01_potvrzeni.sql` | potvrzení příjmu → +38 ks skladem, šarže aktivní — **až na pokyn** |
+| `19_rollback.sql` | vrácení migrace; sám se zastaví, pokud už existuje šarže |
+
+**Předpoklad: Sklad 1.0** (migrace 0028 + 0029, větev `integrace/sklad-1-0`).
+V produkční DB zatím není žádná skladová tabulka (ověřeno čtením 6. 11.),
+takže pořadí je: nasadit Sklad 1.0 → `10` → `11` → `20` → (pokyn) → `21`.
+
+**Napojení na Sklad 1.0** (místo samostatných tabulek z oddílu 5):
+- hotový výrobek = `stock_items` s novým druhem `finished_product`
+  a vazbou na balení (`linked_product_variant_id`, jedna položka na balení);
+- skladové pohyby = `stock_movements` ze Skladu + sloupce
+  `production_batch_id`, `production_receipt_id`, `production_receipt_line_id`;
+  pohyb hotového výrobku **bez šarže DB nepřijme**;
+- `stock_movements` je nově **append-only i v DB** (UPDATE/DELETE odmítne
+  trigger) — Sklad 1.0 pohyby jen vkládá, takže se jeho chování nemění.
+
+**Nové tabulky:**
+- `production_batches` — šarže = jeden výrobní běh (začátek a konec výroby,
+  datum spotřeby, objem, stav `draft → active → blocked / recalled / closed`,
+  `voided` jen u nepotvrzené);
+- `production_receipts` + `production_receipt_lines` — výrobní příjem
+  (`draft → confirmed`), **nejvýš jeden platný na šarži**; řádek = balení
+  a počet kusů, balení musí patřit k výrobku šarže;
+- `production_batch_activity` — audit: každé založení a změna šarže,
+  příjmu i řádku se zapíše triggerem jako staré → nové hodnoty + kdo
+  (`begina.actor_user_id` v téže transakci, bez něj DB změnu odmítne);
+- pohled `production_batch_balances` — přijato a skladem po šaržích.
+
+**Aktivace šarže:** jen funkcí `confirm_production_receipt(příjem, uživatel)`
+— v jedné transakci vloží skladové pohyby, potvrdí příjem a aktivuje šarži.
+Přímý UPDATE stavu DB odmítne. Po aktivaci se údaje o výrobě a datum
+spotřeby už nemění; nic se nemaže.
+
+**Ověřeno** na PGlite s migracemi 0000–0029 ze `integrace/sklad-1-0`:
+příprava (draft / draft / 38 ks / 0 pohybů / 3 auditní záznamy),
+potvrzení (aktivní / potvrzeno / přijato 38 / skladem 38), opravný pohyb
+−1 → skladem 37, a odmítnutí: změna čísla, cizí kód výrobku, nesedící
+datum v čísle, datum spotřeby po trvanlivosti, přímá aktivace, přímé
+potvrzení, druhý příjem k šarži, změny po potvrzení, mazání šarže,
+řádku, pohybu i auditu, přepis pohybu, změna bez uvedeného uživatele,
+pohyb hotového výrobku bez šarže, rollback s existující šarží.
+
+**Otevřené k první šarži L-20261106-DYN-01:**
+- datum spotřeby připraveno **19. 11. 2026** (začátek výroby 5. 11. + 14 dní).
+  Pokud se trvanlivost počítá od dokončení (6. 11.), bylo by to 20. 11. —
+  rozhodne vedení, DB pozdější než 19. 11. při začátku 5. 11. nepřijme;
+- skladové místo: `default` (Výchozí sklad), dokud nevznikne chladicí sklad;
+- suroviny šarže se doplní, až bude evidence surovin (Sklad 1.0 příjemky
+  → spotřeba do šarže, další etapa).
