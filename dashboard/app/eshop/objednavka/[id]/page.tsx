@@ -11,6 +11,7 @@ import { isCardPaymentAvailable } from "@/lib/eshop/stripe/config";
 import { canPayByCard, loadPaymentOrder } from "@/lib/eshop/stripe/payment";
 import { bankConfig, formatPragueDate, isTransferOverdue, transferInfo } from "@/lib/eshop/bankTransfer";
 import { qrSvg } from "@/lib/eshop/qr";
+import { PICKUP_METHOD_ID, PICKUP_NOTICE } from "@/lib/eshop/shipping";
 import PayAgainButton from "./PayAgainButton";
 import TransferPayment from "./TransferPayment";
 import ForgetPendingOrder from "./ForgetPendingOrder";
@@ -126,6 +127,13 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
           </li>
         </ul>
       </div>
+
+      {order.shippingMethodCode === PICKUP_METHOD_ID && (
+        <p className="border border-neutral-200 rounded-2xl p-4 text-sm mb-6" role="note">
+          <span className="block font-medium mb-0.5">Doručení</span>
+          {PICKUP_NOTICE}
+        </p>
+      )}
 
       {transfer && <TransferPayment transfer={transfer} qrSvg={transferQr} overdue={overdue} />}
 

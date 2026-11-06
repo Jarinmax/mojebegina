@@ -36,6 +36,23 @@ describe("patička e-shopu", () => {
     }
   });
 
+  it("dva oddělené bloky: provozovatel (fakturace) a provozovna s mapou (zadání Lucie 6. 11. 2026)", () => {
+    render(<EshopFooter />);
+    const operator = screen.getByRole("region", { name: "Provozovatel a fakturační údaje" });
+    expect(operator.textContent).toContain("Jaroslav Viner");
+    expect(operator.textContent).toContain("Mostecká 273/21, 118 00 Praha 1");
+    expect(operator.textContent).toContain("IČO: 74337297");
+    expect(operator.textContent).toContain("Sídlo a fakturační adresa. Osobní odběr probíhá v provozovně ve Viticích.");
+    const place = screen.getByRole("region", { name: "Provozovna a osobní odběr" });
+    expect(place.textContent).toContain("Zahradní Bistro Begina");
+    expect(place.textContent).toContain("(areál Zahradnictví Jandl)");
+    expect(place.textContent).toContain("Vitice 119, 281 06 Vitice (okr. Kolín)");
+    expect(place.textContent).toContain("Zde najdete naše bistro a výdejní místo objednávek z e-shopu.");
+    const map = screen.getByRole("link", { name: "Zobrazit na mapě" });
+    expect(decodeURIComponent(map.getAttribute("href")!)).toContain("Zahradnictví Jandl, Vitice 119");
+    expect(map.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
   it("kontakt provozovatele zůstává (telefon, e-mail)", () => {
     render(<EshopFooter />);
     expect(screen.getByRole("link", { name: "+420 774 199 975" }).getAttribute("href")).toBe("tel:+420774199975");
@@ -47,7 +64,7 @@ describe("informační stránky", () => {
   it("Doprava: způsoby doručení a platby z dat pokladny (ceny, splatnost)", () => {
     render(<InfoPageView page={INFO_PAGES.shipping} />);
     expect(screen.getByRole("heading", { level: 1, name: "Doprava a platba" })).toBeTruthy();
-    expect(screen.getByText(/Osobní vyzvednutí — Zahradní Bistro Begina — zdarma\. Areál Zahradnictví Jandl/)).toBeTruthy();
+    expect(screen.getByText(/Osobní odběr – Zahradní Bistro Begina, Vitice 119 — zdarma\. Vyzvednutí je možné po předchozí domluvě\./)).toBeTruthy();
     expect(screen.getByText(/Chlazená přeprava — 99\s+Kč\./)).toBeTruthy();
     expect(screen.getByText(/Splatnost je 5 dní/)).toBeTruthy();
   });

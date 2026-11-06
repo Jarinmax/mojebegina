@@ -29,11 +29,18 @@ export type ShippingMethod = {
   requiresAddress: boolean;
 };
 
+// Znění podle zadání Lucie (6. 11. 2026). Celá věta (PICKUP_NOTICE) se ukáže
+// při výběru dopravy, v potvrzení objednávky a v potvrzovacím e-mailu —
+// na úvodní stránce záměrně ne.
+const PICKUP_LABEL = "Osobní odběr – Zahradní Bistro Begina, Vitice 119";
+const PICKUP_DESCRIPTION = "Vyzvednutí je možné po předchozí domluvě.";
+export const PICKUP_NOTICE = `${PICKUP_LABEL}. ${PICKUP_DESCRIPTION}`;
+export const PICKUP_METHOD_ID = "osobni-odber";
+
 const PICKUP: ShippingMethod = {
   id: "osobni-odber",
-  // Podle skutečné objednávky z begina.cz (WooCommerce, 26. 9. 2026).
-  label: "Osobní vyzvednutí — Zahradní Bistro Begina",
-  description: "Areál Zahradnictví Jandl, Vitice 119, 281 06 Vitice (okr. Kolín).",
+  label: PICKUP_LABEL,
+  description: PICKUP_DESCRIPTION,
   priceKc: 0,
   requiresAddress: false,
 };

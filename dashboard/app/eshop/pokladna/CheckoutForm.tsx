@@ -9,6 +9,8 @@ import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
+  PICKUP_METHOD_ID,
+  PICKUP_NOTICE,
   paymentMethodsFor,
   defaultPaymentMethodId,
   quoteLabel,
@@ -198,7 +200,9 @@ export default function CheckoutForm({
             <dd className="text-begina-primary-900">
               {confirmation.address
                 ? `${confirmation.address.street}, ${confirmation.address.zip} ${confirmation.address.city}`
-                : confirmation.pricedCart.shipping.label}
+                : confirmation.pricedCart.shipping.id === PICKUP_METHOD_ID
+                  ? PICKUP_NOTICE
+                  : confirmation.pricedCart.shipping.label}
             </dd>
             <dt>Platba</dt>
             <dd className="text-begina-primary-900">{confirmation.payment.label}</dd>
