@@ -1257,7 +1257,9 @@ export const suppliers = pgTable(
 // nezapisuje, nemá tedy ani kartu). `linkedProductVariantId` je
 // nepovinná vazba na prodejní katalog (viz komentář výš) — jen tam, kde
 // nakoupené zboží JE k dalšímu prodeji.
-export const STOCK_ITEM_KINDS = ["stock_material", "resale_goods", "operating_supply"] as const;
+// Sklad 1.1 přidává "finished_good" (hotový výrobek z výroby) — jediná
+// změna oproti Sklad 1.0 je tenhle nový čtvrtý druh, viz check níže.
+export const STOCK_ITEM_KINDS = ["stock_material", "resale_goods", "operating_supply", "finished_good"] as const;
 
 export const stockItems = pgTable(
   "stock_items",
@@ -1274,7 +1276,10 @@ export const stockItems = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    check("stock_items_kind_check", sql`${table.kind} IN ('stock_material','resale_goods','operating_supply')`),
+    check(
+      "stock_items_kind_check",
+      sql`${table.kind} IN ('stock_material','resale_goods','operating_supply','finished_good')`
+    ),
     check("stock_items_canonical_unit_format", sql`${table.canonicalUnit} ~ '^[a-z][a-z0-9_]*$'`),
   ]
 );
@@ -1561,9 +1566,49 @@ export const goodsReceiptLines = pgTable(
 // ukazujícím na původní (stejný vzor jako payments.refundOfPaymentId) —
 // databázová pojistka proti dvojímu stornu stejného pohybu je
 // uniqueIndex níž (ne jen status na goods_receipts). Zůstatek se počítá
+// Sklad 1.1 — šarže hotových výrobků z výroby (a v budoucnu i surovin,
+// kdyby bylo potřeba). Jedna šarže = jeden výrobní běh jedné skladové karty
+// (revize zadání: "1 ks polévky = 1 Bag-in-Box 3 l" je konvence množství na
+// kartě samotné, ne na šarži — šarže jen říká KDY a KTERÁ dávka).
+// `batchCode` je lidsky čitelné označení (např. "L-20261106-DYN-01"),
+// UNIKÁTNÍ globálně (kóduje si datum i produkt sama, schválený formát
+// L-RRRRMMDD-<zkratka>-<pořadí>), aby se dvě šarže nikdy nespletly ani
+// napříč kartami. `bestBeforeAt` je POVINNÉ (datum minimální trvanlivosti
+// NEBO spotřeby — revize zadání, bod 2) — žádná šarže bez tohohle data.
+export const stockBatches = pgTable(
+  "stock_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    stockItemId: uuid("stock_item_id")
+      .notNull()
+      .references(() => stockItems.id, { onDelete: "restrict" }),
+    batchCode: text("batch_code").notNull(),
+    producedAt: date("produced_at", { mode: "string" }).notNull(),
+    bestBeforeAt: date("best_before_at", { mode: "string" }).notNull(),
+    note: text("note"),
+    createdByUserId: text("created_by_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("stock_batches_code_key").on(table.batchCode),
+    index("stock_batches_item_idx").on(table.stockItemId),
+    check("stock_batches_code_format", sql`${table.batchCode} ~ '^[A-Z0-9][A-Z0-9-]*$'`),
+  ]
+);
+
 // za kombinaci (stock_item_id, stock_location_id) — viz stockItemBalances
 // pohled na konci souboru — nikdy jen globálně za položku (revize návrhu,
 // bod 1).
+//
+// Sklad 1.1 — rozšířeno o `kind` (DŮVOD pohybu, ne jen směr — zadání
+// výslovně žádá append-only pohyb typu `production_in` a další), `batchId`
+// (jen u pohybů hotových výrobků se šarží), `note` a `responsibleUserId`
+// ("odpovědná osoba" na doplnění výroby — záměrně OBOJÍ vedle
+// `recordedByUserId`: kdo pohyb do appky fyzicky zapsal, může být jiná
+// osoba než ta, co za výrobu/výdej odpovídá). Existující pohyby z příjemek
+// (Sklad 1.0, migrace 0028) dostávají `kind='goods_receipt_in'` a storno
+// reverzní pohyby `kind='void_reversal'` zpětně (migrace 0030) — žádný
+// pohyb bez druhu, ani ty založené před týhle migrací.
 export const stockMovements = pgTable(
   "stock_movements",
   {
@@ -1576,26 +1621,93 @@ export const stockMovements = pgTable(
       .references(() => stockLocations.id, { onDelete: "restrict" }),
     receiptId: uuid("receipt_id").references(() => goodsReceipts.id, { onDelete: "restrict" }),
     receiptLineId: uuid("receipt_line_id").references(() => goodsReceiptLines.id, { onDelete: "restrict" }),
+    // "goods_receipt_in" | "production_in" | "dispatch_out" |
+    // "inventory_correction" | "void_reversal"
+    kind: text("kind").notNull(),
+    batchId: uuid("batch_id").references(() => stockBatches.id, { onDelete: "restrict" }),
     direction: text("direction").notNull(), // "in" | "out"
     quantity: numeric("quantity", { precision: 14, scale: 6, mode: "number" }).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     recordedByUserId: text("recorded_by_user_id").notNull(),
+    responsibleUserId: text("responsible_user_id"),
     recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
     correctsMovementId: uuid("corrects_movement_id").references((): AnyPgColumn => stockMovements.id, {
       onDelete: "restrict",
     }),
     reason: text("reason"),
+    note: text("note"),
   },
   (table) => [
     index("stock_movements_item_location_idx").on(table.stockItemId, table.stockLocationId),
     index("stock_movements_receipt_idx").on(table.receiptId),
+    index("stock_movements_batch_idx").on(table.batchId),
     uniqueIndex("stock_movements_corrects_once_key")
       .on(table.correctsMovementId)
       .where(sql`${table.correctsMovementId} IS NOT NULL`),
     check("stock_movements_direction_check", sql`${table.direction} IN ('in','out')`),
     check("stock_movements_quantity_positive", sql`${table.quantity} > 0`),
+    check(
+      "stock_movements_kind_check",
+      sql`${table.kind} IN ('goods_receipt_in','production_in','dispatch_out','inventory_correction','void_reversal')`
+    ),
     check("stock_movements_correction_has_reason", sql`${table.correctsMovementId} IS NULL OR ${table.reason} IS NOT NULL`),
+    // Inventurní korekce MUSÍ mít důvod, i když neopravuje jeden konkrétní
+    // dřívější pohyb (fyzický počet prostě nesedí s žádným jedním pohybem
+    // — revize zadání, bod 7: "inventurní korekce s důvodem").
+    check("stock_movements_inventory_correction_has_reason", sql`${table.kind} <> 'inventory_correction' OR ${table.reason} IS NOT NULL`),
     check("stock_movements_not_self_corrected", sql`${table.correctsMovementId} IS DISTINCT FROM ${table.id}`),
+  ]
+);
+
+// Sklad 1.1 — rezervace zásoby pro konkrétní objednávku (revize zadání,
+// bod 5): nic nezmenšuje fyzický zůstatek (ten mění jen stock_movements),
+// jen "rezervuje" a snižuje VOLNÝ stav — viz stockItemAvailability pohled.
+// `status`: "active" (drží se), "fulfilled" (vydáno — fulfilledByMovementId
+// ukazuje na dispatch_out pohyb, co ji uvolnil), "released" (zrušeno bez
+// výdeje, např. zrušená objednávka). Append-only duch: aktivní rezervace se
+// NEMAŽE, jen přejde do fulfilled/released se záznamem KDY/KDO/PROČ.
+export const stockReservations = pgTable(
+  "stock_reservations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    stockItemId: uuid("stock_item_id")
+      .notNull()
+      .references(() => stockItems.id, { onDelete: "restrict" }),
+    stockLocationId: uuid("stock_location_id")
+      .notNull()
+      .references(() => stockLocations.id, { onDelete: "restrict" }),
+    batchId: uuid("batch_id").references(() => stockBatches.id, { onDelete: "restrict" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "restrict" }),
+    quantity: numeric("quantity", { precision: 14, scale: 6, mode: "number" }).notNull(),
+    status: text("status").notNull().default("active"), // "active" | "fulfilled" | "released"
+    note: text("note"),
+    createdByUserId: text("created_by_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    releasedByUserId: text("released_by_user_id"),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    releaseReason: text("release_reason"),
+    fulfilledByMovementId: uuid("fulfilled_by_movement_id").references(() => stockMovements.id, { onDelete: "restrict" }),
+    fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("stock_reservations_item_location_idx").on(table.stockItemId, table.stockLocationId),
+    index("stock_reservations_order_idx").on(table.orderId),
+    check("stock_reservations_quantity_positive", sql`${table.quantity} > 0`),
+    check("stock_reservations_status_check", sql`${table.status} IN ('active','fulfilled','released')`),
+    check(
+      "stock_reservations_released_pair_check",
+      sql`(${table.releasedAt} IS NULL) = (${table.releasedByUserId} IS NULL)`
+    ),
+    check(
+      "stock_reservations_released_status_check",
+      sql`(${table.status} = 'released') = (${table.releasedAt} IS NOT NULL)`
+    ),
+    check(
+      "stock_reservations_fulfilled_status_check",
+      sql`(${table.status} = 'fulfilled') = (${table.fulfilledAt} IS NOT NULL AND ${table.fulfilledByMovementId} IS NOT NULL)`
+    ),
   ]
 );
 
@@ -1633,4 +1745,19 @@ export const stockItemBalances = pgView("stock_item_balances", {
   stockItemId: uuid("stock_item_id").notNull(),
   stockLocationId: uuid("stock_location_id").notNull(),
   currentQuantity: numeric("current_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
+}).existing();
+
+// Sklad 1.1 — fyzický/rezervovaný/volný stav (revize zadání, bod 5) za
+// (stock_item_id, stock_location_id). POHLED, ne sloupec — stejný princip
+// jako stockItemBalances výš, definice (CREATE VIEW) ručně připsaná za
+// vygenerovanými tabulkami v migraci 0030. `physicalQuantity` = beze změny
+// stockItemBalances; `reservedQuantity` = SUM aktivních rezervací;
+// `freeQuantity` = physical - reserved (nikdy ukládaný sloupec, vždy
+// dopočítaný, aby nemohl zůstat zastaralý).
+export const stockItemAvailability = pgView("stock_item_availability", {
+  stockItemId: uuid("stock_item_id").notNull(),
+  stockLocationId: uuid("stock_location_id").notNull(),
+  physicalQuantity: numeric("physical_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
+  reservedQuantity: numeric("reserved_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
+  freeQuantity: numeric("free_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
 }).existing();

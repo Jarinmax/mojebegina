@@ -1,4 +1,4 @@
-// scripts/migrate-sklad.mjs — hlídané migrace 0028/0029 při buildu na
+// scripts/migrate-sklad.mjs — hlídané migrace 0028/0029/0030 při buildu na
 // Vercelu (Preview i Production). Tohle je PRÁVĚ TA cesta, kterou žádný
 // jiný test v repozitáři nespouští — docs/sklad/skladProductionSql.test.ts
 // ověřuje jen ruční SQL vložené najednou (Neon SQL Editor), kde na
@@ -13,13 +13,13 @@
 // Nad PGlite, stejný princip přesměrování @neondatabase/serverless na
 // PGlite jako scripts/eshop-e2e/neon-http-pglite.mjs, ale se stavem
 // zaseknutým PŘESNĚ na zvolené migraci (ne vždy na poslední), aby šlo
-// otestovat "od nuly", "0028 bez 0029" i "obojí už hotovo" zvlášť.
+// otestovat každou fázi (0028/0029/0030) zvlášť, i kombinace.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { runSkladMigration, SKLAD_TABLES } from "../migrate-sklad.mjs";
+import { runSkladMigration, SKLAD_1_1_TABLES, SKLAD_TABLES } from "../migrate-sklad.mjs";
 
 const DASHBOARD_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const DRIZZLE_DIR = join(DASHBOARD_ROOT, "drizzle");
@@ -132,7 +132,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
     await expect(runSkladMigration()).rejects.toThrow(/DATABASE_URL/);
   });
 
-  it("čerstvá větev (schéma Production 0027, bez skladu): 0028+0029 se aplikují v JEDNÉ transakci; podruhé beze změny", async () => {
+  it("čerstvá větev (schéma Production 0027, bez skladu): 0028+0029+0030 se aplikují v JEDNÉ transakci; podruhé beze změny", async () => {
     const pg = await seedPg(27);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "preview";
@@ -145,6 +145,11 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
       [SKLAD_TABLES]
     );
     expect(rows.map((r) => r.table_name).sort()).toEqual([...SKLAD_TABLES].sort());
+    const { rows: rows11 } = await pg.query<{ table_name: string }>(
+      `select table_name from information_schema.tables where table_schema = 'public' and table_name = any($1::text[])`,
+      [SKLAD_1_1_TABLES]
+    );
+    expect(rows11.map((r) => r.table_name).sort()).toEqual([...SKLAD_1_1_TABLES].sort());
     const [{ count }] = (await pg.query<{ count: number }>(`select count(*)::int as count from stock_locations where code = 'default'`))
       .rows;
     expect(count).toBe(1);
@@ -188,7 +193,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
     expect(rows.map((r) => r.table_name)).toEqual(["suppliers"]);
   });
 
-  it("0028 i 0029 už hotové (plný řetězec) — spuštění nic nemění a nehlásí jako nové", async () => {
+  it("0028, 0029 i 0030 už hotové (plný řetězec) — spuštění nic nemění a nehlásí jako nové", async () => {
     const pg = await seedPg(undefined);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "production";
@@ -197,7 +202,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
     await expect(runSkladMigration()).resolves.toBeUndefined();
   });
 
-  it("jen 0028 hotovo (starší nasazení bez 0029) → doplní jen chybějící 0029", async () => {
+  it("jen 0028 hotovo (starší nasazení bez 0029 i 0030) → doplní 0029 i 0030 v jedné transakci", async () => {
     const pg = await seedPg(28);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "production";
@@ -212,5 +217,44 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
       )
     ).rows;
     expect(has0029).toBe(true);
+    const { rows: rows11 } = await pg.query<{ table_name: string }>(
+      `select table_name from information_schema.tables where table_schema = 'public' and table_name = any($1::text[])`,
+      [SKLAD_1_1_TABLES]
+    );
+    expect(rows11.map((r) => r.table_name).sort()).toEqual([...SKLAD_1_1_TABLES].sort());
+  });
+
+  it("0028 + 0029 hotovo, 0030 chybí (starší nasazení před Sklad 1.1) → doplní jen 0030", async () => {
+    const pg = await seedPg(29);
+    restoreFetch = mockNeonFetch(pg);
+    process.env.VERCEL_ENV = "production";
+    process.env.DATABASE_URL = DATABASE_URL;
+
+    await runSkladMigration();
+
+    const { rows: rows11 } = await pg.query<{ table_name: string }>(
+      `select table_name from information_schema.tables where table_schema = 'public' and table_name = any($1::text[])`,
+      [SKLAD_1_1_TABLES]
+    );
+    expect(rows11.map((r) => r.table_name).sort()).toEqual([...SKLAD_1_1_TABLES].sort());
+
+    // Druhé spuštění — beze změny, jen "už hotovo".
+    await expect(runSkladMigration()).resolves.toBeUndefined();
+  });
+
+  it("částečné schéma 0030 (jen stock_batches, bez stock_reservations) → STOP, nic dalšího se neaplikuje", async () => {
+    const pg = await seedPg(29);
+    await pg.exec(`CREATE TABLE stock_batches (id uuid primary key default gen_random_uuid())`);
+    restoreFetch = mockNeonFetch(pg);
+    process.env.VERCEL_ENV = "production";
+    process.env.DATABASE_URL = DATABASE_URL;
+
+    await expect(runSkladMigration()).rejects.toThrow(/partial schema detected for 0030/);
+
+    const { rows: rows11 } = await pg.query<{ table_name: string }>(
+      `select table_name from information_schema.tables where table_schema = 'public' and table_name = any($1::text[])`,
+      [SKLAD_1_1_TABLES]
+    );
+    expect(rows11.map((r) => r.table_name)).toEqual(["stock_batches"]);
   });
 });
