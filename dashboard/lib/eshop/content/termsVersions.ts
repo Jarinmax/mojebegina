@@ -41,6 +41,9 @@ export const TERMS_VERSIONS: readonly TermsVersion[] = [
   // (výjimky podle § 1837 OZ, odlišení od reklamace), formulář k tisku a PDF
   // (zadání Lucie 6. 11. 2026); datum účinnosti = den nasazení
   version("2026-11-06", "6. listopadu 2026", 3),
+  // 4. znění — online odstoupení tlačítkem „Odstoupit od smlouvy“ (§ 1830a OZ,
+  // zákon č. 159/2026 Sb.); datum účinnosti = den nasazení
+  version("2026-11-07", "7. listopadu 2026", 4),
 ];
 
 /** Znění platné pro nové objednávky. */

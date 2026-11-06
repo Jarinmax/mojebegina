@@ -37,6 +37,10 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
     text: "e715d45f08811efe6606a682b24fb2bb17801ba0571dd93bd73d5b3bbdfa4a2c",
     pdf: "7928be8402b56b88a885f0425645e0b16521c6dc84c642bbafae4eb9787b5eca",
   },
+  "2026-11-07": {
+    text: "__V4_TEXT__",
+    pdf: "__V4_PDF__",
+  },
 };
 
 describe("znění obchodních podmínek", () => {
@@ -73,10 +77,21 @@ describe("znění obchodních podmínek", () => {
     expect(text).toContain("Adresát: Jaroslav Viner, Mostecká 273/21, 118 00 Praha 1, IČO: 74337297, e-mail: info@begina.cz");
   });
 
-  it("platné znění (3. vydání): sídlo odlišené od doručovací adresy ve Viticích, nový čl. VII, formulář s adresou ve Viticích", () => {
-    expect(CURRENT_TERMS.edition).toBe(3);
+  it("platné znění (4. vydání): online odstoupení tlačítkem v čl. VII (§ 1830a OZ)", () => {
+    expect(CURRENT_TERMS.edition).toBe(4);
     const text = termsPlainText(CURRENT_TERMS);
-    expect(text).toContain(`Tyto obchodní podmínky jsou platné a účinné od ${CURRENT_TERMS.effectiveLabel}.`);
+    expect(text).toContain("online tlačítkem „Odstoupit od smlouvy“ na stránce www.begina.cz/odstoupeni-od-smlouvy");
+    expect(text).toContain("tlačítkem „Potvrdit odstoupení od smlouvy“");
+    expect(text).toContain("s jeho obsahem a datem a časem odeslání");
+    // zbytek jako 3. vydání
+    expect(text.replace(/online tlačítkem[^\n]*\n/, "")).toContain("e-mailem na adresu info@begina.cz,");
+  });
+
+  it("3. vydání (6. 11. 2026): sídlo odlišené od doručovací adresy ve Viticích, nový čl. VII, formulář s adresou ve Viticích", () => {
+    const v3 = findTermsVersion("2026-11-06")!;
+    expect(v3.edition).toBe(3);
+    const text = termsPlainText(v3);
+    expect(text).toContain(`Tyto obchodní podmínky jsou platné a účinné od ${v3.effectiveLabel}.`);
     // čl. I: sídlo a fakturační adresa vs. doručovací adresa
     expect(text).toContain("sídlo a fakturační adresa: Mostecká 273/21, 118 00 Praha 1");
     expect(text).toContain("Adresa pro doručování odstoupení od smlouvy, reklamací a vraceného zboží (provozovna):");

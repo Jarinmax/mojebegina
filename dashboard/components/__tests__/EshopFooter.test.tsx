@@ -26,7 +26,7 @@ describe("patička e-shopu", () => {
       ["Doprava", "/eshop/doprava"],
       ["Obchodní podmínky", "/eshop/obchodni-podminky"],
       ["GDPR", "/eshop/ochrana-osobnich-udaju"],
-      ["Odstoupení od smlouvy", "/eshop/odstoupeni-od-smlouvy"],
+      ["Odstoupit od smlouvy", "/eshop/odstoupeni-od-smlouvy"],
     ]);
   });
 
@@ -181,7 +181,7 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(subItems).toEqual([6, 3, 5, 5, 7, 3, 5, 5]);
   });
 
-  it("platné znění (3. vydání) = 1. znění s novým čl. I, VII a VIII + příloha s formulářem; nic jiného", () => {
+  it("platné znění (od 3. vydání) = 1. znění s novým čl. I, VII a VIII + příloha s formulářem; nic jiného", () => {
     const blocks = INFO_PAGES.terms.blocks!;
     expect(blocks).toBe(CURRENT_TERMS.blocks);
     const articles = blocks.slice(0, 13);

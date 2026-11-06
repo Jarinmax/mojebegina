@@ -7,6 +7,8 @@
 import { formatKc } from "@/lib/format";
 import { getShippingMethod, PICKUP_METHOD_ID, PICKUP_NOTICE } from "../shipping";
 import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer";
+import { formatSubmittedAt, statementLines, type WithdrawalStatement } from "../withdrawal";
+import { WITHDRAWAL_PAGE_PATH } from "../content/withdrawalForm";
 import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
 
 export type EmailOrder = {
@@ -217,6 +219,10 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
       : "Děkujeme za objednávku. Begina ji přijala a připravíme ji po zaplacení.") +
     (paid && ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
   const statusUrl = eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
+  const withdrawUrl = eshopAbsoluteUrl(
+    ctx.baseUrl,
+    `${WITHDRAWAL_PAGE_PATH}${order.orderNumber ? `?objednavka=${order.orderNumber}` : ""}`
+  );
   const details: [string, string][] = [
     ["Objednávka", reference],
     ["Doprava", deliveryText(order)],
@@ -249,14 +255,15 @@ ${detailsTable(details)}
 <div style="height:16px"></div>
 ${instructions.html}
 <p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
-${termsHtml}<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+${termsHtml}<p style="margin:0 0 16px;color:#404040;font-size:13px;">Odstoupit od smlouvy můžete online: <a href="${escapeHtml(withdrawUrl)}" style="color:#404040;">${escapeHtml(withdrawUrl)}</a></p>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
 </td></tr>`
   );
   const text =
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
-    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\n${termsText}S dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+    `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\n${termsText}Odstoupit od smlouvy můžete online: ${withdrawUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }
 
@@ -459,5 +466,65 @@ ${instructions.html}
     `${greeting}\n\n${intro}\n\n${state}${invoice ? ` ${invoice}` : ""}\n\n${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
     `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+  return { subject, html, text };
+}
+
+// ---------- odstoupení od smlouvy (online formulář) ----------
+
+/** Potvrzení přijetí odstoupení spotřebiteli (§ 1830a OZ): obsah prohlášení, datum a čas odeslání. */
+export function withdrawalAcknowledgementEmail(
+  statement: WithdrawalStatement,
+  ctx: Context & { returnAddress: string }
+): RenderedEmail {
+  const subject = `${subjectPrefix(ctx)}Potvrzení přijetí odstoupení od smlouvy`;
+  const rows = statementLines(statement);
+  const intro = `Potvrzujeme, že jsme ${formatSubmittedAt(statement.submittedAt)} přijali vaše odstoupení od kupní smlouvy. Níže je jeho obsah.`;
+  const next =
+    "Zboží nám prosím zašlete nebo předejte bez zbytečného odkladu, nejpozději do 14 dnů od odstoupení, na adresu: " +
+    `${ctx.returnAddress}. Peníze vám vrátíme do 14 dnů od odstoupení stejným způsobem, jakým jste platili; ` +
+    "nejsme povinni je vrátit dříve, než zboží obdržíme nebo než prokážete, že jste ho odeslali.";
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">Dobrý den,</p>
+<p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+${detailsTable(rows)}
+<div style="height:16px"></div>
+<p style="margin:0 0 16px;">${escapeHtml(next)}</p>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    `Dobrý den,\n\n${intro}\n\n` +
+    rows.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${next}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
+  return { subject, html, text };
+}
+
+/** Upozornění pro Beginu: přišlo odstoupení (a zda se podle čísla objednávky našla objednávka). */
+export function withdrawalInternalEmail(
+  statement: WithdrawalStatement,
+  ctx: Context & { orderUrl: string | null }
+): RenderedEmail {
+  const subject = `${subjectPrefix(ctx)}Odstoupení od smlouvy — ${statement.contract}`;
+  const rows = statementLines(statement);
+  const found = ctx.orderUrl
+    ? `Objednávka nalezena: ${ctx.orderUrl}`
+    : "Objednávku se podle zadaných údajů nepodařilo automaticky dohledat — dohledejte ji prosím ručně.";
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">Zákazník odstoupil od smlouvy online formulářem. Potvrzení přijetí mu bylo odesláno.</p>
+${detailsTable(rows)}
+<div style="height:16px"></div>
+<p style="margin:0;">${escapeHtml(found)}</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    "Zákazník odstoupil od smlouvy online formulářem. Potvrzení přijetí mu bylo odesláno.\n\n" +
+    rows.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${found}\n`;
   return { subject, html, text };
 }
