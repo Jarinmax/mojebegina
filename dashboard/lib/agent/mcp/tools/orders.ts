@@ -16,15 +16,33 @@
 // Datová vrstva: lib/data/orderIntake.ts (requireOrderContext — stejná
 // oprávnění jako ruční „Nová objednávka“). Existující objednávku nic z toho
 // nemění.
+//
+// get_order / list_orders (jen čtení) a update_order_fulfillment (zápis,
+// mojebegina.write) — MCP objednávky 1.1, plánování rozvozů. Datová vrstva:
+// lib/data/orders.ts (getOrderDetail, updateOrderFulfillmentViaAgent) a
+// lib/data/agentOrders.ts (listOrdersForAgent) — stejná brána
+// (requireOrderContext) jako create_order výše. update_order_fulfillment
+// POVOLENÉ přechody hlídá (lib/data/orderFulfillmentAgentValidation.ts) —
+// žádné přeskakování kroků; stejný cíl jako aktuální stav = bezpečný no-op.
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
 import { createOrderFromIntake, planOrderIntake } from "@/lib/data/orderIntake";
 import { DIC_SOURCES, INTAKE_FULFILLMENT_STATUSES, ORDER_SOURCES, type OrderIntakeInput } from "@/lib/data/orderIntakeValidation";
 import type { IntakeApproval } from "@/lib/data/orderIntake";
-import { PAYMENT_STATUSES } from "@/lib/data/orderValidation";
-import { ArgError, optionalBoolean, optionalEnum, requiredString } from "../args";
+import { getOrderDetail, updateOrderFulfillmentViaAgent } from "@/lib/data/orders";
+import { listOrdersForAgent, type AgentOrderFilter } from "@/lib/data/agentOrders";
+import {
+  ALLOWED_FULFILLMENT_TRANSITIONS,
+  validateUpdateOrderFulfillmentInput,
+} from "@/lib/data/orderFulfillmentAgentValidation";
+import { FULFILLMENT_STATUSES, PAYMENT_STATUSES } from "@/lib/data/orderValidation";
+import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
+import { formatPragueDateTime } from "@/lib/data/callActivityValidation";
+import { ArgError, optionalBoolean, optionalEnum, optionalEnumArray, optionalString, requiredString, requiredUuid } from "../args";
 import { defineTool, type AgentTool } from "../define";
+import { PAGING_PROPERTIES, pageInfo, parsePaging } from "../envelope";
+import { DATE_DESCRIPTION, optionalRange, periodOf, sourceFor } from "./shared";
 
 export const PROPOSAL_TOKEN_MINUTES = 30;
 const MAX_ITEMS = 50;
@@ -79,6 +97,15 @@ export function verifyProposalToken(
 
 const S = (description: string) => ({ type: "string", description });
 const N = (description: string) => ({ type: "integer", minimum: 0, description });
+
+function requiredEnum<T extends string>(args: Record<string, unknown>, key: string, allowed: readonly T[]): T {
+  const value = optionalEnum(args, key, allowed);
+  if (value === null) throw new ArgError(`Chybí argument ${key}.`);
+  return value;
+}
+
+// Plánování rozvozů řeší dny/týdny dopředu, ne čtvrtrok jako CRM filtry.
+const MAX_PLANNED_DELIVERY_RANGE_DAYS = 31;
 
 const ORDER_PROPERTIES: Record<string, unknown> = {
   source: {
@@ -336,6 +363,204 @@ export const ORDER_TOOLS: AgentTool[] = [
             `, celkem ${result.totalKc} Kč.` +
             (result.customer.dicFilled ? ` U zákazníka doplněno DIČ ${result.customer.dicFilled}.` : "") +
             " Žádný e-mail ani faktura se neposlaly.",
+        },
+      };
+    },
+  }),
+
+  // ------------------------------------------------------------------ plánování rozvozů
+
+  defineTool({
+    name: "get_order",
+    title: "Detail objednávky",
+    description:
+      "JEN ČTENÍ — úplný detail jedné objednávky: zákazník, kontakt, fakturační a dodací adresa, položky a ceny, stav platby i vyřízení, " +
+      "aktuální přepravce a tracking, poznámky a celá historie změn (kdo, kdy, odkud kam, přes ChatGPT). allowedNextStatuses ukazuje, na co jde stav ZMĚNIT (update_order_fulfillment). " +
+      "id najděte nejdřív přes list_orders nebo search_mojebegina — nikdy ho nevymýšlejte.",
+    write: false,
+    properties: { order_id: { type: "string", description: "id objednávky (UUID)." } },
+    required: ["order_id"],
+    parse: (args) => requiredUuid(args, "order_id"),
+    execute: async (orderId, issuer) => {
+      const detail = await getOrderDetail(orderId);
+      if (!detail) return { ok: false, error: "Objednávka nebyla nalezena." };
+      const o = detail.order;
+      return {
+        ok: true,
+        data: {
+          id: o.id,
+          orderNumber: o.orderNumber,
+          customer: {
+            organizationId: o.buyerOrganizationId,
+            organizationName: o.buyerOrganizationName,
+            contactName: o.contactName,
+            contactPhone: o.contactPhone,
+            contactEmail: o.contactEmail,
+          },
+          billingAddress: o.buyerOrganizationAddress,
+          delivery: {
+            recipientName: o.recipientName,
+            address: o.recipientAddress,
+            phone: o.recipientPhone,
+            method: o.shippingMethodLabel,
+            plannedAtPrague: o.plannedDeliveryAt ? formatPragueDateTime(o.plannedDeliveryAt) : null,
+            carrier: o.carrier,
+            trackingNumber: o.trackingNumber,
+          },
+          items: detail.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPriceKc: item.unitPriceKc,
+            lineTotalKc: item.lineTotalKc,
+          })),
+          subtotalKc: o.subtotalKc,
+          shippingKc: o.shippingKc,
+          totalKc: o.totalKc,
+          paymentStatus: o.paymentStatus,
+          paymentStatusLabel: PAYMENT_LABELS[o.paymentStatus],
+          paymentOverdue: o.paymentOverdue,
+          fulfillmentStatus: o.fulfillmentStatus,
+          fulfillmentStatusLabel: FULFILLMENT_LABELS[o.fulfillmentStatus],
+          allowedNextStatuses: ALLOWED_FULFILLMENT_TRANSITIONS[o.fulfillmentStatus],
+          note: o.note,
+          customerNote: o.customerNote,
+          orderedAtPrague: formatPragueDateTime(o.orderedAt),
+          activity: detail.activity.map((entry) => ({
+            kind: entry.kind,
+            authorName: entry.authorName,
+            body: entry.body,
+            metadata: entry.metadata,
+            atPrague: formatPragueDateTime(entry.createdAt),
+          })),
+          url: orderUrl(issuer, o.id),
+          source: await sourceFor(["orders"]),
+        },
+      };
+    },
+  }),
+
+  defineTool({
+    name: "list_orders",
+    title: "Seznam objednávek (plánování rozvozů, kontrola nevyřízených)",
+    description:
+      "JEN ČTENÍ — objednávky s filtry pro plánování tras a kontrolu nevyřízených zásilek: zákazník (jméno/e-mail/telefon/firma), číslo objednávky, stav vyřízení, stav platby, " +
+      "termín plánovaného doručení a přepravce. Bez filtrů vrací nejbližší plánovaná doručení napřed. Stránkuje se přes cursor (max. 50 na stránku); celkový počet je v totalMatching.",
+    write: false,
+    properties: {
+      customer: { type: "string", description: "Volný text — jméno/e-mail/telefon kontaktu nebo název zákazníka (organizace)." },
+      order_number: { type: "integer", minimum: 1, description: "Přesné číslo objednávky." },
+      fulfillment_statuses: {
+        type: "array",
+        items: { type: "string", enum: [...FULFILLMENT_STATUSES] },
+        description: "Jen tyto stavy vyřízení.",
+      },
+      payment_statuses: {
+        type: "array",
+        items: { type: "string", enum: [...PAYMENT_STATUSES] },
+        description: "Jen tyto stavy platby.",
+      },
+      planned_delivery_from: { type: "string", description: `Plánované doručení od ${DATE_DESCRIPTION}` },
+      planned_delivery_to: { type: "string", description: `Plánované doručení do (včetně) ${DATE_DESCRIPTION}` },
+      carrier: { type: "string", description: "Volný text proti aktuálně nastavenému přepravci (např. CoolBalík)." },
+      ...PAGING_PROPERTIES,
+    },
+    required: [],
+    parse: (args) => {
+      const filters: AgentOrderFilter = {
+        customer: optionalString(args, "customer", 200),
+        orderNumber: (() => {
+          const value = args.order_number;
+          if (value === undefined || value === null) return null;
+          if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+            throw new ArgError("Argument order_number musí být kladné celé číslo.");
+          }
+          return value;
+        })(),
+        fulfillmentStatuses: optionalEnumArray(args, "fulfillment_statuses", FULFILLMENT_STATUSES),
+        paymentStatuses: optionalEnumArray(args, "payment_statuses", PAYMENT_STATUSES),
+        plannedDelivery: optionalRange(args, "planned_delivery_from", "planned_delivery_to", MAX_PLANNED_DELIVERY_RANGE_DAYS),
+        carrier: optionalString(args, "carrier", 200),
+      };
+      return { filters, paging: parsePaging(args, filters) };
+    },
+    execute: async ({ filters, paging }, issuer) => {
+      const { total, rows } = await listOrdersForAgent(filters, paging);
+      const page = pageInfo(total, paging, rows.length);
+      return {
+        ok: true,
+        summary: { totalMatching: total, returned: rows.length, truncated: page.truncated },
+        data: {
+          totalMatching: total,
+          orders: rows.map((o) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            customer: o.buyerOrganizationName,
+            contactName: o.contactName,
+            itemsSummary: o.itemsSummary,
+            totalKc: o.totalKc,
+            orderedAtPrague: formatPragueDateTime(o.orderedAt),
+            plannedDeliveryAtPrague: o.plannedDeliveryAt ? formatPragueDateTime(o.plannedDeliveryAt) : null,
+            fulfillmentStatus: o.fulfillmentStatus,
+            fulfillmentStatusLabel: FULFILLMENT_LABELS[o.fulfillmentStatus],
+            paymentStatus: o.paymentStatus,
+            paymentStatusLabel: PAYMENT_LABELS[o.paymentStatus],
+            paymentOverdue: o.paymentOverdue,
+            carrier: o.carrier,
+            trackingNumber: o.trackingNumber,
+            url: orderUrl(issuer, o.id),
+          })),
+          source: await sourceFor(["orders"], { period: periodOf(filters.plannedDelivery), page }),
+        },
+      };
+    },
+  }),
+
+  defineTool({
+    name: "update_order_fulfillment",
+    title: "Změnit stav vyřízení objednávky (rozvoz)",
+    description:
+      "ZÁPIS — bezpečný přechod stavu VYŘÍZENÍ objednávky (NE stavu platby — ty jsou nezávislé). Povolené přechody: " +
+      "new→confirmed→preparing→ready→{out_for_delivery nebo handed_to_carrier}→delivered; cancelled jde nastavit z kteréhokoli nedokončeného stavu. " +
+      "delivered navíc smí couvnout ZPĚT na handed_to_carrier nebo out_for_delivery — oprava předčasně/chybně označeného doručení (kurýr jen převzal, zákazník ještě nepřevzal), ne dál. " +
+      "Jiné přeskočení kroku nebo couvnutí nedovolí — při nepovoleném přechodu nic nezapíše a vrátí chybu. Stejný cíl, jaký objednávka UŽ MÁ, je bezpečný no-op (nic se nezdvojí). " +
+      "event_at je čas SKUTEČNÉ události (kdy se to stalo), ne kdy o tom píšete. carrier/tracking_number se uloží jako AKTUÁLNÍ hodnota na objednávce. " +
+      "id najděte nejdřív přes get_order nebo list_orders.",
+    write: true,
+    properties: {
+      order_id: { type: "string", description: "id objednávky (UUID) z get_order nebo list_orders." },
+      target_status: { type: "string", enum: [...FULFILLMENT_STATUSES], description: "Cílový stav vyřízení." },
+      event_at: { type: "string", description: "Kdy se to skutečně stalo (RRRR-MM-DD nebo RRRR-MM-DDTHH:mm). Bez zadání se použije teď." },
+      carrier: { type: "string", description: "Přepravce, např. CoolBalík (uloží se jako aktuální)." },
+      tracking_number: { type: "string", description: "Tracking/podací číslo u přepravce (uloží se jako aktuální)." },
+      note: { type: "string", description: "Poznámka k téhle změně (max. 2000 znaků) — uvidí ji i v historii objednávky v MojeBegina." },
+    },
+    required: ["order_id", "target_status"],
+    parse: (args) => ({
+      orderId: requiredUuid(args, "order_id"),
+      targetStatus: requiredEnum(args, "target_status", FULFILLMENT_STATUSES),
+      eventAt: optionalString(args, "event_at", 40),
+      carrier: optionalString(args, "carrier", 200),
+      trackingNumber: optionalString(args, "tracking_number", 200),
+      note: optionalString(args, "note", 2000),
+    }),
+    execute: async (parsed, issuer) => {
+      const validated = validateUpdateOrderFulfillmentInput(parsed);
+      if (!validated.ok) return validated;
+      const result = await updateOrderFulfillmentViaAgent(validated.value);
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        summary: { changed: result.changed },
+        data: {
+          changed: result.changed,
+          status: result.status,
+          statusLabel: FULFILLMENT_LABELS[result.status],
+          activityId: result.activityId,
+          ...(result.cancellation ? { cancellation: result.cancellation } : {}),
+          url: orderUrl(issuer, parsed.orderId),
+          message: result.changed
+            ? `Stav objednávky nastaven na „${FULFILLMENT_LABELS[result.status]}“.`
+            : `Stav objednávky už byl „${FULFILLMENT_LABELS[result.status]}“ — nic se nezapsalo znovu.`,
         },
       };
     },
