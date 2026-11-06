@@ -232,6 +232,10 @@ export async function listOrders(): Promise<OrderList> {
 
   const rows = await db.select().from(orders).orderBy(desc(orders.orderedAt));
   const cards = await buildOrderCards(rows);
+  // Stornované objednávky vždy úplně dolů — ať se neztratí mezi čerstvými,
+  // které je potřeba hlídat/řešit. Array.prototype.sort je stabilní, takže
+  // v obou skupinách zůstává pořadí podle orderedAt (nejnovější první).
+  cards.sort((a, b) => Number(a.fulfillmentStatus === "cancelled") - Number(b.fulfillmentStatus === "cancelled"));
 
   const counts: OrderCounts = { new: 0, inProcess: 0, readyForDelivery: 0, awaitingPayment: 0 };
   for (const card of cards) {
