@@ -227,7 +227,9 @@ describe("pokladna — sleva v objednávce a v částce pro platbu", () => {
     const r = validateCheckoutInput(input({ couponCodes: JSON.stringify(["neni"]) }), catalogIndex, { coupons: ctx });
     expect(r).toEqual({
       ok: false,
-      error: "Slevový kód „NENI“ neexistuje. Zkontrolujte prosím, zda je opsaný správně. Kód můžete odebrat a objednávku odeslat bez něj.",
+      // v pokladně (s e-mailem) se neznámý kupon ověřuje jako kupon ze starého e-shopu
+      error:
+        "Kupon „NENI“ v novém e-shopu nenacházíme a k zadanému e-mailu neevidujeme partnerskou úroveň za minulý měsíc. Jde-li o kupon ze starého e-shopu, zkontrolujte prosím e-mail, na který nakupujete, nebo nám napište na info@begina.cz. Kód můžete odebrat a objednávku odeslat bez něj.",
     });
   });
 
