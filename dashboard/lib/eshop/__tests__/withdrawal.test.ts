@@ -41,7 +41,7 @@ describe("odstoupení — odeslání: záznam k objednávce a potvrzení přijet
     const schema = await import("@/lib/db/schema");
     db = drizzle(neon("postgresql://u:p@ep-test.neon.tech/neondb"), { schema });
     await db.execute(sql`INSERT INTO orders (id, order_number, channel, contact_email, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, payment_vs)
-                         VALUES (${ORDER_ID}, 9260077, 'eshop', 'Jana@Example.cz', 758, 0, 99, 857, 'paid', 'delivered', '9260077')`);
+                         VALUES (${ORDER_ID}, 9260077, 'eshop', 'Jana@Example.cz', 758, 0, 99, 857, 'paid', 'delivered', '70260077')`);
   }, 60_000);
 
   it("potvrzení zákazníkovi (obsah prohlášení + datum a čas), upozornění Begině, záznam k nalezené objednávce", async () => {
