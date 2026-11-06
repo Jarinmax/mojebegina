@@ -199,6 +199,7 @@ CREATE UNIQUE INDEX "supplier_item_mappings_by_code_key" ON "supplier_item_mappi
 CREATE UNIQUE INDEX "supplier_item_mappings_by_description_key" ON "supplier_item_mappings" USING btree ("supplier_id","description_normalized") WHERE "supplier_item_mappings"."supplier_item_code" IS NULL AND "supplier_item_mappings"."description_normalized" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "suppliers_ico_key" ON "suppliers" USING btree ("ico") WHERE "suppliers"."ico" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "suppliers_name_normalized_key" ON "suppliers" USING btree ("name_normalized") WHERE "suppliers"."ico" IS NULL;
+--> statement-breakpoint
 
 -- ===== Ruční doplňky za vygenerované tabulky (stejný postup jako
 -- 0020_eshop_1_0_payments_invoicing.sql: orders_payment_vs_immutable

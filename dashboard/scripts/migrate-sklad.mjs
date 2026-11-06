@@ -38,7 +38,11 @@ export const statementsOf = (text) =>
 
 const read = (rel) => readFile(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
-async function main() {
+// Exportováno pro scripts/__tests__/migrateSklad.test.ts (spustí tenhle
+// přesný kód nad PGlite se všemi třemi větvemi — od nuly, už hotovo,
+// částečné schéma) — žádná jiná cesta neumí main() zavolat víckrát nad
+// stejnou databází bez spouštění coby samostatný proces pokaždé znovu.
+export async function runSkladMigration() {
   const env = process.env.VERCEL_ENV;
   if (env !== "production" && env !== "preview") {
     console.log("Sklad migration: skipped outside Vercel Production/Preview.");
@@ -85,5 +89,5 @@ async function main() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  await main();
+  await runSkladMigration();
 }

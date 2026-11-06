@@ -233,6 +233,7 @@ CREATE UNIQUE INDEX "supplier_item_mappings_by_description_key" ON "supplier_ite
 CREATE UNIQUE INDEX "suppliers_ico_key" ON "suppliers" USING btree ("ico") WHERE "suppliers"."ico" IS NOT NULL;
 CREATE UNIQUE INDEX "suppliers_name_normalized_key" ON "suppliers" USING btree ("name_normalized") WHERE "suppliers"."ico" IS NULL;
 
+
 -- ===== Ruční doplňky za vygenerované tabulky (stejný postup jako
 -- 0020_eshop_1_0_payments_invoicing.sql: orders_payment_vs_immutable
 -- trigger, order_payment_balance view) =====
