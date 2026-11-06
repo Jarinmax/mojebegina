@@ -393,9 +393,9 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     const { loadCouponContext } = await import("../couponsServer");
     const { PARTNER_CODE } = await import("../coupons");
     const now = new Date("2026-11-06T12:00:00Z");
-    await db.execute(sql`INSERT INTO orders (id, channel, contact_email, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
-                         VALUES ('4f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', 'Host@Example.cz', 6000, 0, 99, 6099, 'paid', 'delivered', '2026-10-10T10:00:00Z'),
-                                ('5f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', 'maly@example.cz', 1200, 0, 99, 1299, 'paid', 'delivered', '2026-10-10T10:00:00Z')`);
+    await db.execute(sql`INSERT INTO orders (id, channel, contact_email, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs)
+                         VALUES ('4f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', 'Host@Example.cz', 6000, 0, 99, 6099, 'paid', 'delivered', '2026-10-10T10:00:00Z', '70009991'),
+                                ('5f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', 'maly@example.cz', 1200, 0, 99, 1299, 'paid', 'delivered', '2026-10-10T10:00:00Z', '70009992')`);
     const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
     if (!priced.ok) throw new Error(priced.error);
     const run = async (email: string) => {
