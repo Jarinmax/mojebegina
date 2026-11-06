@@ -123,7 +123,12 @@ export function buildEshopOrderRows(
           channel: "eshop",
           termsVersion: CURRENT_TERMS.id,
           ...(pricedCart.coupons.length > 0
-            ? { coupons: pricedCart.coupons.map((c) => ({ code: c.code, discountKc: c.discountKc, freeShipping: c.freeShipping })) }
+            ? { coupons: pricedCart.coupons.map((c) => ({
+                code: c.code,
+                discountKc: c.discountKc,
+                freeShipping: c.freeShipping,
+                ...(c.partnerPercent ? { partnerPercent: c.partnerPercent } : {}),
+              })) }
             : {}),
         },
         createdAt: now,

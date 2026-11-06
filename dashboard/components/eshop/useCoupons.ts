@@ -4,7 +4,7 @@
 // z košíku do pokladny i obnovení stránky) a jejich ověření na serveru
 // (previewCouponsAction) při každé změně košíku, kódů nebo e-mailu.
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { normalizeCouponCode, parseCouponCodes, MAX_COUPONS } from "@/lib/eshop/coupons";
+import { normalizeCouponCode, parseCouponCodes, MAX_COUPONS, PARTNER_CODE } from "@/lib/eshop/coupons";
 import type { CartLine } from "@/lib/eshop/cart";
 import { previewCouponsAction, type CouponPreview } from "@/app/eshop/kosik/couponActions";
 
@@ -52,20 +52,68 @@ function subscribe(listener: () => void) {
   };
 }
 
+// E-mail z poslední pokladny (jen v tomto prohlížeči) — aby e-shop mohl
+// partnerskou slevu nabídnout už v košíku.
+const EMAIL_KEY = "begina-eshop-email-v1";
+
+export function rememberCheckoutEmail(email: string) {
+  try {
+    window.localStorage.setItem(EMAIL_KEY, email.trim().toLowerCase());
+  } catch {
+    // úložiště nedostupné — nabídka se ukáže až v pokladně
+  }
+}
+
+function storedEmail(): string | undefined {
+  try {
+    return window.localStorage.getItem(EMAIL_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Po odeslání objednávky se kódy zapomenou (příští nákup začíná bez nich). */
 export function clearStoredCoupons() {
   writeCodes(EMPTY);
 }
 
+const noopSubscribe = () => () => {};
+
 const NO_PREVIEW: CouponPreview = { applied: [], rejected: [], discountKc: 0, freeShipping: false, emailCheckPending: false };
 
-export function useCoupons(cart: CartLine[], email?: string) {
+export type PartnerOffer = { percent: number; discountKc: number };
+
+export function useCoupons(cart: CartLine[], checkoutEmail?: string) {
   const codes = useSyncExternalStore(subscribe, readCodes, () => EMPTY);
+  const remembered = useSyncExternalStore(noopSubscribe, storedEmail, () => undefined);
+  const email = checkoutEmail ?? remembered;
+  // Nabídka automatické partnerské slevy (zákazník ji uplatní tlačítkem).
+  const [offer, setOffer] = useState<PartnerOffer | null>(null);
   const [preview, setPreview] = useState<CouponPreview>(NO_PREVIEW);
   const [pending, setPending] = useState(false);
   // chyba právě zadaného kódu (ten se do seznamu neuloží)
   const [inputError, setInputError] = useState<string | null>(null);
   const cartKey = JSON.stringify(cart);
+  const hasPartner = codes.includes(PARTNER_CODE);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!email || hasPartner || cart.length === 0) {
+      setOffer(null);
+      return;
+    }
+    previewCouponsAction({ cart: cartKey, codes: [PARTNER_CODE], email })
+      .then((result) => {
+        const partner = result.applied.find((a) => a.code === PARTNER_CODE);
+        if (!cancelled) setOffer(partner && partner.discountKc > 0 && partner.partnerPercent ? { percent: partner.partnerPercent, discountKc: partner.discountKc } : null);
+      })
+      .catch(() => {
+        if (!cancelled) setOffer(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cartKey, email, hasPartner, cart.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,5 +181,5 @@ export function useCoupons(cart: CartLine[], email?: string) {
     writeCodes(readCodes().filter((c) => c !== code));
   }, []);
 
-  return { codes, preview, pending, inputError, apply, remove };
+  return { codes, preview, pending, inputError, apply, remove, offer, email };
 }

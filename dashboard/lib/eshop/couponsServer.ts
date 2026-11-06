@@ -4,12 +4,12 @@
 import { and, eq, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
-import type { Coupon, CouponDiscountType, CouponUsage } from "./coupons";
+import { PARTNER_CODE, type Coupon, type CouponDiscountType, type CouponUsage } from "./coupons";
 import type { CouponContext } from "./checkout";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-const { eshopCoupons, invoices, orderActivity, orders, organizations } = schema;
+const { eshopCoupons, invoiceCustomers, invoices, orderActivity, orders, organizationMemberships, organizations, userProfiles } = schema;
 
 /** Vydané faktury partnera z iDokladu (jako historie v Moje Begina): měsíc, stav, hodnota zboží. */
 export type PartnerInvoice = { invoiceNumber: string; monthKey: string; paid: boolean; goodsKc: number };
@@ -58,10 +58,21 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
   db: PgDatabase<T, typeof schema> | Db,
   codes: string[],
   now: Date = new Date(),
-  options: { partnerInvoices?: PartnerInvoiceLoader } = {}
+  options: { partnerInvoices?: PartnerInvoiceLoader; email?: string | null } = {}
 ): Promise<CouponContext> {
   const coupons = new Map<string, Coupon>();
   const usage = new Map<string, CouponUsage>();
+  if (codes.length === 0) return { coupons, usage, now };
+
+  // Automatická partnerská sleva podle e-mailu (bez řádku v eshop_coupons).
+  if (codes.includes(PARTNER_CODE) && options.email) {
+    const partner = await emailPartnerCoupon(db, options.email, now, options.partnerInvoices ?? idokladInvoices);
+    if (partner) {
+      coupons.set(PARTNER_CODE, partner);
+      usage.set(PARTNER_CODE, { total: 0, byEmail: new Map() });
+    }
+  }
+  codes = codes.filter((code) => code !== PARTNER_CODE);
   if (codes.length === 0) return { coupons, usage, now };
 
   let rows: (typeof eshopCoupons.$inferSelect)[];
@@ -207,4 +218,116 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
     }
   }
   return { coupons, usage, now };
+}
+
+/**
+ * Partnerská úroveň zákazníka podle e-mailu: uhrazené nákupy zboží (bez
+ * dopravy, po slevě) za minulý kalendářní měsíc —
+ *   • objednávky s tímto kontaktním e-mailem,
+ *   • objednávky a faktury z iDokladu organizací, ke kterým e-mail patří
+ *     (člen v Moje Begina nebo fakturační kontakt firmy).
+ * Faktura k objednávce se nepočítá dvakrát. null = e-mail nezná žádný nákup.
+ */
+async function emailPartnerCoupon<T extends PgQueryResultHKT>(
+  db: PgDatabase<T, typeof schema> | Db,
+  rawEmail: string,
+  now: Date,
+  loadInvoices: PartnerInvoiceLoader
+): Promise<Coupon | null> {
+  const email = rawEmail.trim().toLowerCase();
+  const [members, billing] = await Promise.all([
+    db
+      .select({ organizationId: organizationMemberships.organizationId })
+      .from(userProfiles)
+      .innerJoin(organizationMemberships, eq(organizationMemberships.userId, userProfiles.userId))
+      .where(sql`lower(${userProfiles.email}) = ${email}`),
+    db
+      .select({ organizationId: invoiceCustomers.organizationId, ico: invoiceCustomers.ico })
+      .from(invoiceCustomers)
+      .where(and(eq(invoiceCustomers.kind, "company"), eq(invoiceCustomers.emailNormalized, email))),
+  ]);
+  const orgIds = [...new Set([...members.map((m) => m.organizationId), ...billing.flatMap((b) => (b.organizationId ? [b.organizationId] : []))])];
+  const orgs = orgIds.length
+    ? await db.select({ id: organizations.id, ico: organizations.ico, name: organizations.name }).from(organizations).where(inArray(organizations.id, orgIds))
+    : [];
+  const icos = [...new Set([...orgs.map((o) => o.ico), ...billing.flatMap((b) => (b.ico ? [b.ico] : []))])];
+
+  const from = pragueMonthStart(now, -1);
+  const to = pragueMonthStart(now, 0);
+  const local = await db
+    .select({
+      id: orders.id,
+      goodsKc: sql<number>`(${orders.subtotalKc} - ${orders.discountKc})::int`,
+      invoiceNumber: invoices.invoiceNumber,
+    })
+    .from(orders)
+    .leftJoin(invoices, eq(invoices.orderId, orders.id))
+    .where(
+      and(
+        eq(orders.paymentStatus, "paid"),
+        ne(orders.fulfillmentStatus, "cancelled"),
+        gte(orders.orderedAt, from),
+        lt(orders.orderedAt, to),
+        orgIds.length
+          ? sql`(lower(${orders.contactEmail}) = ${email} OR ${inArray(orders.buyerOrganizationId, orgIds)})`
+          : sql`lower(${orders.contactEmail}) = ${email}`
+      )
+    );
+  const seenOrders = new Set<string>();
+  const counted = new Set<string>();
+  let total = 0;
+  for (const row of local) {
+    if (seenOrders.has(row.id)) continue;
+    seenOrders.add(row.id);
+    if (row.invoiceNumber) counted.add(row.invoiceNumber);
+    total += Number(row.goodsKc);
+  }
+  const monthKey = pragueMonthKey(from);
+  for (const ico of icos) {
+    try {
+      for (const invoice of await loadInvoices(ico)) {
+        if (invoice.monthKey !== monthKey || !invoice.paid || counted.has(invoice.invoiceNumber)) continue;
+        counted.add(invoice.invoiceNumber);
+        total += invoice.goodsKc;
+      }
+    } catch (error) {
+      console.error("Partnerská sleva: faktury z iDokladu se nepodařilo načíst", ico, error instanceof Error ? error.message.slice(0, 200) : error);
+    }
+  }
+  if (seenOrders.size === 0 && counted.size === 0 && orgIds.length === 0) return null;
+
+  // individuální úroveň (nad 20 000 Kč): sjednané procento z osobního kódu partnera
+  let individual = 0;
+  if (orgIds.length) {
+    try {
+      const rows = await db
+        .select({ amount: eshopCoupons.amount })
+        .from(eshopCoupons)
+        .where(and(eq(eshopCoupons.discountType, "partner"), eq(eshopCoupons.isActive, true), inArray(eshopCoupons.organizationId, orgIds)));
+      individual = Math.max(0, ...rows.map((r) => Number(r.amount)));
+    } catch (error) {
+      if (!isMissingTable(error)) throw error;
+    }
+  }
+
+  return {
+    code: PARTNER_CODE,
+    discountType: "partner",
+    amount: individual,
+    freeShipping: false,
+    expiresAt: null,
+    minimumAmountKc: null,
+    maximumAmountKc: null,
+    individualUse: false,
+    productSlugs: [],
+    excludedProductSlugs: [],
+    categorySlugs: [],
+    excludedCategorySlugs: [],
+    emailRestrictions: [],
+    usageLimit: null,
+    usageLimitPerUser: null,
+    limitUsageToXItems: null,
+    partnerLastMonthKc: total,
+    partnerName: orgs[0]?.name ?? null,
+  };
 }

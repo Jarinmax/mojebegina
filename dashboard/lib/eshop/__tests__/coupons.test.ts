@@ -372,6 +372,48 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     // 9 000 (objednávka) + 4 000 (faktura) = 13 000 → 7 %
     expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(13000);
   });
+
+  it("automatická partnerská sleva podle e-mailu: člen organizace partnera dostane úroveň za minulý měsíc", async () => {
+    const { loadCouponContext } = await import("../couponsServer");
+    const { PARTNER_CODE } = await import("../coupons");
+    const now = new Date("2026-11-06T12:00:00Z");
+    await db.execute(sql`INSERT INTO user_profiles (user_id, name, email) VALUES ('u-kavarna', 'Pavla', 'Pavla@Kavarna.cz')`);
+    await db.execute(sql`INSERT INTO organization_memberships (user_id, organization_id, role)
+                         VALUES ('u-kavarna', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 'owner')`);
+    const ctx = await loadCouponContext(db, [PARTNER_CODE], now, { email: "pavla@kavarna.cz", partnerInvoices: async () => [] });
+    // říjnová uhrazená objednávka organizace za 9 000 Kč zboží → 5 %
+    expect(ctx.coupons.get(PARTNER_CODE)).toMatchObject({ discountType: "partner", partnerLastMonthKc: 9000, partnerName: "Kavárna Test s.r.o." });
+    const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
+    if (!priced.ok) throw new Error(priced.error);
+    const r = evaluateCoupons([PARTNER_CODE], { lines: priced.value.lines, subtotalKc: priced.value.subtotalKc, index: catalogIndex, coupons: ctx.coupons, usage: ctx.usage, email: "pavla@kavarna.cz", now });
+    expect(r).toMatchObject({ ok: true, discountKc: 38, applied: [{ code: PARTNER_CODE, partnerPercent: 5 }] });
+  });
+
+  it("automatická partnerská sleva: zákazník bez firmy podle svých objednávek; nízký obrat a neznámý e-mail bez slevy a bez částek", async () => {
+    const { loadCouponContext } = await import("../couponsServer");
+    const { PARTNER_CODE } = await import("../coupons");
+    const now = new Date("2026-11-06T12:00:00Z");
+    await db.execute(sql`INSERT INTO orders (id, channel, contact_email, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
+                         VALUES ('4f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', 'Host@Example.cz', 6000, 0, 99, 6099, 'paid', 'delivered', '2026-10-10T10:00:00Z'),
+                                ('5f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', 'maly@example.cz', 1200, 0, 99, 1299, 'paid', 'delivered', '2026-10-10T10:00:00Z')`);
+    const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
+    if (!priced.ok) throw new Error(priced.error);
+    const run = async (email: string) => {
+      const ctx = await loadCouponContext(db, [PARTNER_CODE], now, { email, partnerInvoices: async () => [] });
+      return evaluateCoupons([PARTNER_CODE], { lines: priced.value.lines, subtotalKc: priced.value.subtotalKc, index: catalogIndex, coupons: ctx.coupons, usage: ctx.usage, email, now });
+    };
+    expect(await run("host@example.cz")).toMatchObject({ ok: true, discountKc: 22, applied: [{ partnerPercent: 3 }] });
+    expect(await run("maly@example.cz")).toEqual({
+      ok: false,
+      code: PARTNER_CODE,
+      error: "Na partnerskou slevu tento měsíc nárok nevznikl. Sleva se počítá z uhrazených nákupů zboží (bez dopravy) za minulý kalendářní měsíc, 3 % od 5 001 Kč.",
+    });
+    expect(await run("neznamy@example.cz")).toEqual({
+      ok: false,
+      code: PARTNER_CODE,
+      error: "K tomuto e-mailu nenacházíme partnerskou úroveň za minulý měsíc, proto partnerská sleva neplatí.",
+    });
+  });
 });
 
 describe("faktury z iDokladu: hodnota zboží bez dopravy a poplatků", () => {

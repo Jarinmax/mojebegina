@@ -65,6 +65,13 @@ export function partnerPercent(coupon: Coupon): { ok: true; percent: number } | 
       ? { ok: true, percent: coupon.amount }
       : { ok: false, error: `Partnerský kód ${code} má individuální podmínky, které zatím nejsou nastavené. Ozvěte se nám prosím na info@begina.cz.` };
   }
+  if (tier.discountPercent === 0 && coupon.code === PARTNER_CODE) {
+    // e-mail není ověřený — bez částek
+    return {
+      ok: false,
+      error: "Na partnerskou slevu tento měsíc nárok nevznikl. Sleva se počítá z uhrazených nákupů zboží (bez dopravy) za minulý kalendářní měsíc, 3 % od 5 001 Kč.",
+    };
+  }
   if (tier.discountPercent === 0) {
     const first = [...partnerTiers].sort((a, b) => a.minAmount - b.minAmount).find((t) => (t.discountPercent ?? 0) > 0);
     return {
@@ -93,6 +100,21 @@ export type CouponResult =
   | { ok: false; code: string; error: string };
 
 export const MAX_COUPONS = 5;
+
+/**
+ * Automatická partnerská sleva (zadání 6. 11. 2026): vyhrazený „kód“, který
+ * e-shop nabídne sám, jakmile podle e-mailu pozná zákazníka s partnerskou
+ * úrovní za minulý měsíc. Nikdo ho nerozesílá ani nezakládá.
+ */
+export const PARTNER_CODE = "partner";
+
+/** Jak se kód zobrazí zákazníkovi (automatická sleva slovy, jinak kód velkými písmeny). */
+export function couponDisplayName(applied: { code: string; partnerPercent?: number }): string {
+  if (applied.code === PARTNER_CODE) {
+    return applied.partnerPercent ? `Partnerská sleva ${applied.partnerPercent} %` : "Partnerská sleva";
+  }
+  return applied.code.toUpperCase();
+}
 const MAX_CODE_LENGTH = 64;
 
 /** Kód tak, jak ho porovnává WooCommerce: bez mezer okolo, malými písmeny. */
@@ -207,6 +229,16 @@ export function evaluateCoupons(
   const applied: AppliedCoupon[] = [];
   for (const code of codes) {
     const coupon = coupons.get(code);
+    if (code === PARTNER_CODE && !coupon) {
+      return {
+        ok: false,
+        code,
+        error:
+          email === null
+            ? "Partnerskou slevu ověříme podle e-mailu — zadejte ho prosím v pokladně."
+            : "K tomuto e-mailu nenacházíme partnerskou úroveň za minulý měsíc, proto partnerská sleva neplatí.",
+      };
+    }
     const failure = staticError(code, coupon, usage.get(code), now);
     if (failure || !coupon) return { ok: false, code, error: failure ?? "" };
 

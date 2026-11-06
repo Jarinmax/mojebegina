@@ -82,7 +82,7 @@ export async function submitCheckoutAction(
 
   const stripe = stripeConfig();
   const couponCodes = field("couponCodes");
-  const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes));
+  const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes), new Date(), { email: field("email").trim() || null });
   const result = validateCheckoutInput(
     {
       cart: field("cart"),

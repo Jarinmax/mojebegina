@@ -1,5 +1,6 @@
 "use client";
 
+import { couponDisplayName } from "@/lib/eshop/coupons";
 import ShopLink from "./ShopLink";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
@@ -102,7 +103,7 @@ export default function CartView() {
           <>
             <div className="flex justify-between text-sm mt-1.5">
               <span className="text-neutral-600">
-                Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => a.code.toUpperCase()).join(", ")})
+                Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => couponDisplayName(a)).join(", ")})
               </span>
               <span className="font-medium tabular-nums">−{formatKc(coupons.preview.discountKc)}</span>
             </div>
@@ -115,7 +116,7 @@ export default function CartView() {
         <p className="text-xs text-neutral-500 mt-1">
           Doprava se vybírá v dalším kroku{coupons.preview.freeShipping ? " — slevový kód vám dává dopravu zdarma" : ""}.
         </p>
-        <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-neutral-200" />
+        <CouponBox coupons={coupons} partnerHint className="mt-4 pt-4 border-t border-neutral-200" />
         {blocked ? (
           <p className="mt-5 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2">
             Košík obsahuje produkt, který zatím nelze objednat. Odeberte ho prosím.

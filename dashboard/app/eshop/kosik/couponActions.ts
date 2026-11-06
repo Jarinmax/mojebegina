@@ -11,7 +11,7 @@ import { loadCouponContext } from "@/lib/eshop/couponsServer";
 import { priceCart } from "@/lib/eshop/pricing";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 
-export type CouponLine = { code: string; discountKc: number; freeShipping: boolean };
+export type CouponLine = { code: string; discountKc: number; freeShipping: boolean; partnerPercent?: number };
 export type CouponPreview = {
   /** platné kódy se slevou (pořadí jako zadal zákazník) */
   applied: CouponLine[];
@@ -38,7 +38,7 @@ export async function previewCouponsAction(input: { cart: string; codes: string[
   if (!priced.ok) return { ...empty, rejected: codes.map((code) => ({ code, error: priced.error })) };
 
   const email = input.email && EMAIL_PATTERN.test(input.email.trim()) ? input.email.trim() : null;
-  const ctx = await loadCouponContext(db, codes);
+  const ctx = await loadCouponContext(db, codes, new Date(), { email });
   const rejected: CouponPreview["rejected"] = [];
   let remaining = [...codes];
   // Kód, který neprojde, se vyřadí a zbytek se spočítá znovu (jako WooCommerce).
