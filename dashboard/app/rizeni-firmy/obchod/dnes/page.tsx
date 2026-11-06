@@ -44,6 +44,14 @@ export default async function DailyCallsPage() {
         </p>
       </div>
 
+      <Link
+        href="/prace/hovory"
+        className="mb-4 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-blue-700 min-h-11 flex items-center justify-between"
+      >
+        <span>Historie hovorů a všechny kontakty</span>
+        <span aria-hidden>›</span>
+      </Link>
+
       {curator ? <CuratorSections /> : <WorkerSections />}
     </div>
   );
