@@ -48,6 +48,32 @@ Starý WooCommerce (přístup k administraci, nevyřízené objednávky, platby
 WooPayments): **`stary-woocommerce.md`** — archiv a přístup připravit PŘED
 fází 3.
 
+## Průběh přepnutí 5. 11. 2026 (provedeno)
+
+- 4. 11.: kontrolní objednávka 70000006 (převod) — potvrzovací e-mail s PDF
+  podmínek 2026-10-27 (otisk sedí), interní upozornění odešlo; stornována.
+  TTL `@`/`www` A+AAAA → 300; SPF doplněno o `ip4:37.9.175.164 ip6:2a00:4b40:aaaa:2005::5`.
+- 5. 11. 5:06: export BIND (záloha před změnou). Automatiku „Active24 Web“ nelze
+  vypnout — je to jen ukazatel shody se šablonou (po změně záznamů přejde do
+  stavu „Nastavit“); **tlačítko „Nastavit“ u Web/Mail nikdy nemačkat** (přepsalo
+  by záznamy). „Active24 Webadmin“ (admin.begina.cz) beze změny.
+- 5. 11. ~7:55–8:10: `@` A → `216.198.79.1`; smazány `@` AAAA, `www` A, `www` AAAA;
+  přidán `www` CNAME `6e5c4dc7d4a00105.vercel-dns-017.com` (TTL 300). Vercel:
+  obě domény verified, `www` → 308 na `begina.cz` (ověřila Lucie přes API).
+- **Incident ~11:00:** Safari „nepodařilo se navázat zabezpečené připojení“ —
+  Vercel nevydal certifikát (domény přidané 27. 10. při starém DNS, automatický
+  pokus se nechytil). Oprava: Lucie přes Vercel API `POST /v8/certs`
+  `{"cns":["begina.cz","www.begina.cz"]}` → `cert_bnrjOYu6wqUDeczkvoLccs8L`,
+  platný do 3. 2. 2027, automatická obnova. Poučení: po přepnutí DNS vždy
+  ověřit certifikát v seznamu Vercelu.
+- Vercel Production: `ESHOP_CANONICAL_ORIGIN` a `NEXT_PUBLIC_ESHOP_URL` =
+  `https://begina.cz` → Redeploy. Stripe: Business name (Trading name) „Begina“.
+- 6. 11. kontrola: `moje.begina.cz/eshop` → `begina.cz` ✅, košík na
+  `https://begina.cz` ✅, `/robots.txt` = `Disallow: /` ✅ (indexace zatím
+  vypnutá), `moje.begina.cz/login` ✅. Zkušební objednávky 70000006–07 stornovány.
+- Zbývá: WordPress na `stary.begina.cz` (`stary-woocommerce.md`, B1 kroky 4–7),
+  `ESHOP_INDEXING=on` po kontrole obsahu (dlouhý `Disallow` škodí SEO).
+
 ## Fáze 3 — den přepnutí (pořadí závazné)
 
 1. WooCommerce: vypnout pokladnu (údržba), nechat doběhnout platby.
