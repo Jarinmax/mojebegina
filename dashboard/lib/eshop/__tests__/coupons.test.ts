@@ -1,6 +1,6 @@
 // Slevové kupóny (zadání Lucie 6. 11. 2026): pravidla jako WooCommerce,
 // výpočet slevy, odmítnutí s vysvětlením, promítnutí do ceny a uložení.
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { emailAllowed, evaluateCoupons, parseCouponCodes, partnerTierFor, type Coupon, type CouponUsage } from "../coupons";
 import { priceCart, withCoupons } from "../pricing";
@@ -8,6 +8,9 @@ import { validateCheckoutInput, type CheckoutInput } from "../checkout";
 import { buildCheckoutSessionParams } from "../stripe/payment";
 import { defaultPaymentMethodId, paymentMethodsFor } from "../shipping";
 import { catalogIndex } from "./helpers/catalogFixture";
+
+vi.mock("server-only", () => ({}));
+vi.mock("next/cache", () => ({ unstable_cache: <T>(fn: T) => fn }));
 
 const NOW = new Date("2026-11-06T12:00:00Z");
 
@@ -336,7 +339,7 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
                          VALUES ('2f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'unpaid', 'new', '2026-10-20T10:00:00Z'),
                                 ('3f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'paid', 'new', '2026-11-02T10:00:00Z')`);
-    ctx = await loadCouponContext(db, ["kavarna-test"], now);
+    ctx = await loadCouponContext(db, ["kavarna-test"], now, { partnerInvoices: async () => [] });
     expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(9000);
     const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
     if (!priced.ok) throw new Error(priced.error);
@@ -351,5 +354,38 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     });
     // 5 % z 379 = 18,95 → 19 Kč za kus
     expect(r).toMatchObject({ ok: true, discountKc: 38, applied: [{ code: "kavarna-test", partnerPercent: 5 }] });
+  });
+
+  it("partnerský kód: k objednávkám se přičtou uhrazené říjnové faktury z iDokladu (zboží bez dopravy)", async () => {
+    const { loadCouponContext } = await import("../couponsServer");
+    const now = new Date("2026-11-06T12:00:00Z");
+    const ctx = await loadCouponContext(db, ["kavarna-test"], now, {
+      partnerInvoices: async (ico) => {
+        expect(ico).toBe("99999991");
+        return [
+          { invoiceNumber: "9260100", monthKey: "2026-10", paid: true, goodsKc: 4000 },
+          { invoiceNumber: "9260101", monthKey: "2026-10", paid: false, goodsKc: 50000 },
+          { invoiceNumber: "9260102", monthKey: "2026-11", paid: true, goodsKc: 50000 },
+        ];
+      },
+    });
+    // 9 000 (objednávka) + 4 000 (faktura) = 13 000 → 7 %
+    expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(13000);
+  });
+});
+
+describe("faktury z iDokladu: hodnota zboží bez dopravy a poplatků", () => {
+  it("odečte dopravu, přepravu, poštovné, balné i dobírku; zboží nechá", async () => {
+    const { invoiceGoodsKc, isShippingOrFeeItem } = await import("@/lib/data/idokladPurchaseHistory");
+    for (const name of ["Chlazená přeprava", "Doprava", "Poštovné", "Balné", "Dobírka", "Osobní vyzvednutí — Zahradní Bistro Begina"]) {
+      expect(isShippingOrFeeItem(name), name).toBe(true);
+    }
+    expect(isShippingOrFeeItem("Kulajda — 3 l Rodinná zásoba (bag-in-box)")).toBe(false);
+    expect(
+      invoiceGoodsKc(1236, [
+        { name: "Kulajda", quantity: 3, priceKc: 379 },
+        { name: "Chlazená přeprava", quantity: 1, priceKc: 99 },
+      ])
+    ).toBe(1137);
   });
 });

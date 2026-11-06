@@ -9,7 +9,29 @@ import type { CouponContext } from "./checkout";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-const { eshopCoupons, orderActivity, orders, organizations } = schema;
+const { eshopCoupons, invoices, orderActivity, orders, organizations } = schema;
+
+/** Vydané faktury partnera z iDokladu (jako historie v Moje Begina): měsíc, stav, hodnota zboží. */
+export type PartnerInvoice = { invoiceNumber: string; monthKey: string; paid: boolean; goodsKc: number };
+export type PartnerInvoiceLoader = (ico: string) => Promise<PartnerInvoice[]>;
+
+/** Výchozí zdroj: iDoklad (cache 5 min). Chyba iDokladu = počítají se jen objednávky v MojeBegina. */
+const idokladInvoices: PartnerInvoiceLoader = async (ico) => {
+  const { getIdokladPurchaseHistory } = await import("@/lib/data/idokladPurchaseHistory");
+  const history = await getIdokladPurchaseHistory(ico);
+  return history.map((order) => ({
+    invoiceNumber: order.orderNumber.replace(/^Faktura č\. /, ""),
+    monthKey: order.monthKey,
+    paid: order.status === "Uhrazeno" || order.status === "Přeplaceno",
+    goodsKc: order.goodsKc ?? order.totalKc,
+  }));
+};
+
+/** „RRRR-MM“ měsíce v Praze, ve kterém leží okamžik. */
+function pragueMonthKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit" }).formatToParts(date);
+  return `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}`;
+}
 
 /** Začátek kalendářního měsíce v Praze jako okamžik (offset = 0 → tento měsíc, −1 → minulý). */
 export function pragueMonthStart(now: Date, offset: number): Date {
@@ -35,7 +57,8 @@ function isMissingTable(error: unknown): boolean {
 export async function loadCouponContext<T extends PgQueryResultHKT>(
   db: PgDatabase<T, typeof schema> | Db,
   codes: string[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: { partnerInvoices?: PartnerInvoiceLoader } = {}
 ): Promise<CouponContext> {
   const coupons = new Map<string, Coupon>();
   const usage = new Map<string, CouponUsage>();
@@ -100,9 +123,11 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
         organizationId: orders.buyerOrganizationId,
         goodsKc: sql<number>`(${orders.subtotalKc} - ${orders.discountKc})::int`,
         metadata: orderActivity.metadata,
+        invoiceNumber: invoices.invoiceNumber,
       })
       .from(orders)
       .leftJoin(orderActivity, and(eq(orderActivity.orderId, orders.id), eq(orderActivity.kind, "created")))
+      .leftJoin(invoices, eq(invoices.orderId, orders.id))
       .where(
         and(
           eq(orders.paymentStatus, "paid"),
@@ -112,6 +137,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
         )
       );
     const totals = new Map<string, number>();
+    const localInvoiceNumbers = new Set<string>();
     paid.forEach((row) => {
       let org = row.organizationId && orgIds.includes(row.organizationId) ? row.organizationId : null;
       if (!org) {
@@ -120,13 +146,29 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
         if (hit) org = orgOfCode.get(hit.code as string) ?? null;
       }
       if (!org) return;
+      if (row.invoiceNumber) localInvoiceNumbers.add(row.invoiceNumber);
       totals.set(org, (totals.get(org) ?? 0) + Number(row.goodsKc));
     });
     const names = await db
-      .select({ id: organizations.id, name: organizations.name })
+      .select({ id: organizations.id, name: organizations.name, ico: organizations.ico })
       .from(organizations)
       .where(inArray(organizations.id, orgIds));
     const nameOf = new Map(names.map((n) => [n.id, n.name]));
+    // Faktury v iDokladu (B2B nákupy mimo e-shop) — stejný zdroj jako
+    // historie nákupů v Moje Begina; faktura k objednávce výše se nepočítá
+    // dvakrát.
+    const monthKey = pragueMonthKey(from);
+    const loadInvoices = options.partnerInvoices ?? idokladInvoices;
+    for (const org of names) {
+      try {
+        for (const invoice of await loadInvoices(org.ico)) {
+          if (invoice.monthKey !== monthKey || !invoice.paid || localInvoiceNumbers.has(invoice.invoiceNumber)) continue;
+          totals.set(org.id, (totals.get(org.id) ?? 0) + invoice.goodsKc);
+        }
+      } catch (error) {
+        console.error("Kupóny: faktury partnera z iDokladu se nepodařilo načíst", org.id, error instanceof Error ? error.message.slice(0, 200) : error);
+      }
+    }
     for (const row of partnerRows) {
       const coupon = coupons.get(row.code);
       if (!coupon) continue;
