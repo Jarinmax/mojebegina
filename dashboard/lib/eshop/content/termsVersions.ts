@@ -14,7 +14,7 @@
 //
 // Bez node:crypto — soubor používají i klientské komponenty (pokladna).
 import type { InfoBlock } from "../infoPages";
-import { termsBlocks } from "./obchodniPodminky";
+import { termsBlocks, type TermsEdition } from "./obchodniPodminky";
 
 export type TermsVersion = {
   /** = datum účinnosti RRRR-MM-DD; zapisuje se k objednávce */
@@ -22,19 +22,25 @@ export type TermsVersion = {
   /** datum účinnosti slovy (čl. XIII, podtitulek stránky, PDF) */
   effectiveLabel: string;
   withWithdrawalForm: boolean;
+  /** vydání textu (obchodniPodminky.ts → TermsEdition) */
+  edition: TermsEdition;
   blocks: InfoBlock[];
 };
 
-function version(id: string, effectiveLabel: string, withWithdrawalForm: boolean): TermsVersion {
-  return { id, effectiveLabel, withWithdrawalForm, blocks: termsBlocks(effectiveLabel, withWithdrawalForm) };
+function version(id: string, effectiveLabel: string, edition: TermsEdition): TermsVersion {
+  return { id, effectiveLabel, withWithdrawalForm: edition >= 2, edition, blocks: termsBlocks(effectiveLabel, edition) };
 }
 
 export const TERMS_VERSIONS: readonly TermsVersion[] = [
   // 1. znění — dodané vedením 3. 10. 2026, na webu od spuštění pokladny
-  version("2026-09-22", "22. září 2026", false),
+  version("2026-09-22", "22. září 2026", 1),
   // 2. znění — věta o vzorovém formuláři v čl. VII + formulář v příloze
   // (schváleno 26. 10. 2026); datum účinnosti = den nasazení
-  version("2026-10-27", "27. října 2026", true),
+  version("2026-10-27", "27. října 2026", 2),
+  // 3. znění — sídlo odlišené od doručovací adresy ve Viticích, nový čl. VII
+  // (výjimky podle § 1837 OZ, odlišení od reklamace), formulář k tisku a PDF
+  // (zadání Lucie 6. 11. 2026); datum účinnosti = den nasazení
+  version("2026-11-06", "6. listopadu 2026", 3),
 ];
 
 /** Znění platné pro nové objednávky. */

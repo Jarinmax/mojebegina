@@ -68,7 +68,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
     <div className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner mode={storeMode()} />
-      <header className="border-b border-neutral-200 bg-white sticky top-0 z-20">
+      <header className="border-b border-neutral-200 bg-white sticky top-0 z-20 print:hidden">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <ShopLink href="/" className="flex items-center gap-2.5 shrink-0" aria-label="Begina.cz — úvod">
             <Image src={logoMark} alt="" className="h-9 w-auto" priority />

@@ -45,6 +45,13 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
           </EshopFileLink>
         </p>
       )}
+      {page.secondaryDownload && (
+        <p className="mt-1.5 text-sm">
+          <EshopFileLink href={page.secondaryDownload.path} className="font-medium underline underline-offset-2">
+            {page.secondaryDownload.label}
+          </EshopFileLink>
+        </p>
+      )}
 
       {page.blocks ? (
         <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
@@ -67,7 +74,18 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                 </p>
               )}
               {block.items &&
-                (block.itemStyle === "check" ? (
+                (block.heading?.startsWith("Příloha:") ? (
+                  <div className="border border-neutral-300 rounded-2xl p-4 sm:p-6 flex flex-col gap-4 break-inside-avoid">
+                    {block.items.map((item) => (
+                      <div key={item}>
+                        <p>{linkify(item)}</p>
+                        {item.endsWith(":") && (
+                          <span aria-hidden="true" className="block h-7 border-b border-dotted border-neutral-400" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : block.itemStyle === "check" ? (
                   <ul className="flex flex-col gap-1.5">
                     {block.items.map((item) => (
                       <li key={item}>✔ {linkify(item)}</li>
@@ -135,7 +153,7 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
       {children}
 
       <p className="mt-8 text-sm text-neutral-500">
-        Provozovatel: {OPERATOR.name}, {OPERATOR.address}, IČO {OPERATOR.ico}
+        Provozovatel: {OPERATOR.name}, sídlo {OPERATOR.address}, IČO {OPERATOR.ico}
       </p>
       <ShopLink href="/" className="mt-4 inline-block text-sm font-medium underline underline-offset-2">
         Zpět do e-shopu

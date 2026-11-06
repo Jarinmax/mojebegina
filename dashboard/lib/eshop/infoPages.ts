@@ -12,6 +12,7 @@ import { shippingMethodsFor, type ShippingMode } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { OPERATOR } from "./operator";
 import { CURRENT_TERMS, termsPdfPath } from "./content/termsVersions";
+import { WITHDRAWAL_FORM_DOWNLOAD_LABEL, WITHDRAWAL_FORM_PDF_PATH } from "./content/withdrawalForm";
 import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
 
 /** Číslovaný bod (např. článek obchodních podmínek): text, případně řádky adresy, odrážky a pokračování. */
@@ -46,6 +47,8 @@ export type InfoPage = {
   pendingNote?: string;
   /** Soubor ke stažení pod nadpisem (cesta e-shopu bez /eshop). */
   download?: { path: string; label: string };
+  /** Další soubor ke stažení (např. samostatný formulář pro odstoupení). */
+  secondaryDownload?: { path: string; label: string };
 };
 
 export { OPERATOR };
@@ -201,6 +204,10 @@ const termsPage: InfoPage = {
       ? "Stáhnout obchodní podmínky včetně formuláře pro odstoupení (PDF)"
       : "Stáhnout obchodní podmínky (PDF)",
   },
+  // Samostatný formulář k tisku — jen u znění, které ho má (od 3. vydání).
+  ...(CURRENT_TERMS.edition >= 3
+    ? { secondaryDownload: { path: WITHDRAWAL_FORM_PDF_PATH, label: WITHDRAWAL_FORM_DOWNLOAD_LABEL } }
+    : {}),
 };
 
 const privacyPage: InfoPage = {
