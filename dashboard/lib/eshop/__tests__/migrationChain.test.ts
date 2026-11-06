@@ -1,6 +1,7 @@
 // Řetězec migrací Drizzle (drizzle/ + drizzle/meta): po sloučení main
 // (0011 = CEO přehled, 0012 = Denní volání) jsou e-shopové migrace
-// 0013–0022, za nimi audit iDokladu, MCP a Práce (0023–0027) a Sklad 1.0 (0028–0029). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
+// 0013–0022, za nimi audit iDokladu, MCP a Práce (0023–0027), Sklad 1.0
+// (0028–0029) a Sklad 1.1 — hotové výrobky (0030). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
 // tvoří souvislý řetězec bez mezer a že každý snapshot popisuje úplné
 // schéma — jinak by drizzle-kit generate vyrobil špatnou další migraci.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -48,7 +49,7 @@ const AFTER_ESHOP = [
   "0026_prace_1_1_task_management",
   "0027_prace_2_0_photos_approval",
 ];
-const SKLAD = ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist"];
+const SKLAD = ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist", "0030_sklad_1_1_hotove_vyrobky"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 const SKLAD_TABLES = [
@@ -79,7 +80,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, sklad 0028–0029", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, sklad 0028–0030", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
