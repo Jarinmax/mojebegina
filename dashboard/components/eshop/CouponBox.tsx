@@ -1,6 +1,6 @@
 "use client";
 
-// Pole „Slevový kód“ + „Uplatnit“, uplatněné kódy s výší slevy a odebráním,
+// Pole „Uplatnit slevový kupon“ + „Uplatnit“, uplatněné kódy s výší slevy a odebráním,
 // vysvětlení u neplatného kódu. Stav drží useCoupons (sdílený košík ↔ pokladna).
 import { useState } from "react";
 import { BadgePercent, Tag, X } from "lucide-react";
@@ -50,8 +50,8 @@ export default function CouponBox({
           </button>
         </div>
       )}
-      <label htmlFor="coupon-code" className="text-sm font-medium block mb-1.5">
-        Slevový kód
+      <label htmlFor="coupon-code" className="text-sm font-semibold block mb-1.5">
+        Uplatnit slevový kupon
       </label>
       <div className="flex gap-2">
         <input
@@ -72,7 +72,7 @@ export default function CouponBox({
           aria-invalid={inputError ? true : undefined}
           aria-describedby={inputError ? "coupon-error" : undefined}
           className="flex-1 min-w-0 border border-neutral-300 rounded-lg px-3 h-11 text-sm uppercase placeholder:normal-case bg-white"
-          placeholder="Zadejte kód"
+          placeholder="Zadejte kód kuponu"
         />
         <button
           type="button"
@@ -119,6 +119,9 @@ export default function CouponBox({
                     </button>
                   </span>
                 </div>
+                {!ok && !error && preview.pendingEmail.includes(code) && (
+                  <p className="mt-1 text-xs text-neutral-500">Kupon ověříme podle vašeho e-mailu v pokladně.</p>
+                )}
                 {error && (
                   <p role="alert" className="mt-1 text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5">
                     {error} Kód se teď neuplatní.

@@ -79,7 +79,7 @@ export function clearStoredCoupons() {
 
 const noopSubscribe = () => () => {};
 
-const NO_PREVIEW: CouponPreview = { applied: [], rejected: [], discountKc: 0, freeShipping: false, emailCheckPending: false };
+const NO_PREVIEW: CouponPreview = { applied: [], rejected: [], discountKc: 0, freeShipping: false, emailCheckPending: false, pendingEmail: [] };
 
 export type PartnerOffer = { percent: number; discountKc: number };
 
@@ -94,7 +94,8 @@ export function useCoupons(cart: CartLine[], checkoutEmail?: string) {
   // chyba právě zadaného kódu (ten se do seznamu neuloží)
   const [inputError, setInputError] = useState<string | null>(null);
   const cartKey = JSON.stringify(cart);
-  const hasPartner = codes.includes(PARTNER_CODE);
+  // partnerská sleva už je uplatněná (automaticky, nebo kuponem ze starého e-shopu)
+  const hasPartner = codes.includes(PARTNER_CODE) || preview.applied.some((a) => a.partnerPercent);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +159,7 @@ export function useCoupons(cart: CartLine[], checkoutEmail?: string) {
       try {
         const next = [...current, code];
         const result = await previewCouponsAction({ cart: cartKey, codes: next, email });
+        // kupon ze starého e-shopu se v košíku (bez e-mailu) uloží a ověří v pokladně
         const failure = result.rejected.find((r) => r.code === code);
         if (failure) {
           setInputError(failure.error);

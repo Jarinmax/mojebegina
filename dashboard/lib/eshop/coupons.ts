@@ -44,6 +44,8 @@ export type Coupon = {
   partnerLastMonthKc?: number | null;
   /** jen „partner“: název partnera (do vysvětlení) */
   partnerName?: string | null;
+  /** kupon ze starého e-shopu, ověřený jako partnerská sleva podle e-mailu */
+  legacy?: boolean;
 };
 
 /** Úroveň partnerského programu pro obrat minulého měsíce (stejná tabulka jako Moje Begina). */
@@ -65,7 +67,7 @@ export function partnerPercent(coupon: Coupon): { ok: true; percent: number } | 
       ? { ok: true, percent: coupon.amount }
       : { ok: false, error: `Partnerský kód ${code} má individuální podmínky, které zatím nejsou nastavené. Ozvěte se nám prosím na info@begina.cz.` };
   }
-  if (tier.discountPercent === 0 && coupon.code === PARTNER_CODE) {
+  if (tier.discountPercent === 0 && (coupon.code === PARTNER_CODE || coupon.legacy)) {
     // e-mail není ověřený — bez částek
     return {
       ok: false,
@@ -113,6 +115,7 @@ export function couponDisplayName(applied: { code: string; partnerPercent?: numb
   if (applied.code === PARTNER_CODE) {
     return applied.partnerPercent ? `Partnerská sleva ${applied.partnerPercent} %` : "Partnerská sleva";
   }
+  if (applied.partnerPercent) return `${applied.code.toUpperCase()} (partnerská sleva ${applied.partnerPercent} %)`;
   return applied.code.toUpperCase();
 }
 const MAX_CODE_LENGTH = 64;
@@ -227,6 +230,7 @@ export function evaluateCoupons(
   );
 
   const applied: AppliedCoupon[] = [];
+  let partnerApplied = false;
   for (const code of codes) {
     const coupon = coupons.get(code);
     if (code === PARTNER_CODE && !coupon) {
@@ -237,6 +241,13 @@ export function evaluateCoupons(
           email === null
             ? "Partnerskou slevu ověříme podle e-mailu — zadejte ho prosím v pokladně."
             : "K tomuto e-mailu nenacházíme partnerskou úroveň za minulý měsíc, proto partnerská sleva neplatí.",
+      };
+    }
+    if (!coupon && email !== null) {
+      return {
+        ok: false,
+        code,
+        error: `Kupon ${quote(code)} v novém e-shopu nenacházíme a k zadanému e-mailu neevidujeme partnerskou úroveň za minulý měsíc. Jde-li o kupon ze starého e-shopu, zkontrolujte prosím e-mail, na který nakupujete, nebo nám napište na info@begina.cz.`,
       };
     }
     const failure = staticError(code, coupon, usage.get(code), now);
@@ -287,6 +298,10 @@ export function evaluateCoupons(
 
     let percent = coupon.amount;
     if (coupon.discountType === "partner") {
+      if (partnerApplied) {
+        return { ok: false, code, error: `Partnerskou slevu lze v objednávce uplatnit jen jednou — kupon ${quote(code)} proto odeberte.` };
+      }
+      partnerApplied = true;
       const tier = partnerPercent(coupon);
       if (!tier.ok) return { ok: false, code, error: tier.error };
       percent = tier.percent;

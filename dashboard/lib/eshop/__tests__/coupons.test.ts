@@ -414,6 +414,37 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
       error: "K tomuto e-mailu nenacházíme partnerskou úroveň za minulý měsíc, proto partnerská sleva neplatí.",
     });
   });
+
+  it("kupon ze starého e-shopu: nový e-shop ho nezná, ověří ho podle e-mailu jako partnerskou slevu", async () => {
+    const { loadCouponContext } = await import("../couponsServer");
+    const { PARTNER_CODE, couponDisplayName } = await import("../coupons");
+    const now = new Date("2026-11-06T12:00:00Z");
+    const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
+    if (!priced.ok) throw new Error(priced.error);
+    const run = async (codes: string[], email: string) => {
+      const ctx = await loadCouponContext(db, codes, now, { email, partnerInvoices: async () => [] });
+      return evaluateCoupons(codes, { lines: priced.value.lines, subtotalKc: priced.value.subtotalKc, index: catalogIndex, coupons: ctx.coupons, usage: ctx.usage, email, now });
+    };
+    // partner s 9 000 Kč za říjen → jeho říjnový kupon dá 5 %
+    const ok = await run(["rijen-kavarna"], "pavla@kavarna.cz");
+    expect(ok).toMatchObject({ ok: true, discountKc: 38, applied: [{ code: "rijen-kavarna", partnerPercent: 5 }] });
+    if (ok.ok) expect(couponDisplayName(ok.applied[0])).toBe("RIJEN-KAVARNA (partnerská sleva 5 %)");
+    // neznámý zákazník → vysvětlení
+    expect(await run(["rijen-kavarna"], "cizi@example.cz")).toEqual({
+      ok: false,
+      code: "rijen-kavarna",
+      error:
+        "Kupon „RIJEN-KAVARNA“ v novém e-shopu nenacházíme a k zadanému e-mailu neevidujeme partnerskou úroveň za minulý měsíc. Jde-li o kupon ze starého e-shopu, zkontrolujte prosím e-mail, na který nakupujete, nebo nám napište na info@begina.cz.",
+    });
+    // partnerská sleva jen jednou (starý kupon + automatická)
+    expect(await run(["rijen-kavarna", PARTNER_CODE], "pavla@kavarna.cz")).toEqual({
+      ok: false,
+      code: PARTNER_CODE,
+      error: "Partnerskou slevu lze v objednávce uplatnit jen jednou — kupon „PARTNER“ proto odeberte.",
+    });
+    // existující kupon z DB funguje dál beze změny
+    expect(await run(["test20"], "pavla@kavarna.cz")).toMatchObject({ ok: false, error: "Slevový kód „TEST20“ už byl vyčerpán." });
+  });
 });
 
 describe("faktury z iDokladu: hodnota zboží bez dopravy a poplatků", () => {

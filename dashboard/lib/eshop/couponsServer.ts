@@ -65,15 +65,41 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
   if (codes.length === 0) return { coupons, usage, now };
 
   // Automatická partnerská sleva podle e-mailu (bez řádku v eshop_coupons).
+  // Spočítá se jednou a použije i pro kupony ze starého e-shopu (níže).
+  let partnerByEmail: Coupon | null | undefined;
+  const partnerForEmail = async () => {
+    if (partnerByEmail === undefined) {
+      partnerByEmail = options.email
+        ? await emailPartnerCoupon(db, options.email, now, options.partnerInvoices ?? idokladInvoices)
+        : null;
+    }
+    return partnerByEmail;
+  };
   if (codes.includes(PARTNER_CODE) && options.email) {
-    const partner = await emailPartnerCoupon(db, options.email, now, options.partnerInvoices ?? idokladInvoices);
+    const partner = await partnerForEmail();
     if (partner) {
       coupons.set(PARTNER_CODE, partner);
       usage.set(PARTNER_CODE, { total: 0, byEmail: new Map() });
     }
   }
+  const requested = codes;
   codes = codes.filter((code) => code !== PARTNER_CODE);
   if (codes.length === 0) return { coupons, usage, now };
+
+  // Kupony ze starého e-shopu (WooCommerce) nový e-shop nezná. Byly to
+  // kupony partnerského programu — proto se neznámý kupon ověří podle
+  // e-mailu: má-li zákazník za minulý měsíc partnerskou úroveň, dostane
+  // slevu podle ní (stejnou, jakou mu kupon dával). Volá se na konci.
+  const resolveLegacy = async () => {
+    if (!options.email) return;
+    for (const code of requested) {
+      if (code === PARTNER_CODE || coupons.has(code)) continue;
+      const partner = await partnerForEmail();
+      if (!partner) return;
+      coupons.set(code, { ...partner, code, legacy: true });
+      usage.set(code, { total: 0, byEmail: new Map() });
+    }
+  };
 
   let rows: (typeof eshopCoupons.$inferSelect)[];
   try {
@@ -84,6 +110,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
   } catch (error) {
     if (!isMissingTable(error)) throw error;
     console.warn("E-shop: tabulka eshop_coupons chybí (migrace 0028) — slevové kódy zatím neplatí.");
+    await resolveLegacy();
     return { coupons, usage, now };
   }
 
@@ -114,7 +141,10 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
     }
     usage.set(row.code, { total: row.usedBefore, byEmail });
   }
-  if (coupons.size === 0) return { coupons, usage, now };
+  if (rows.length === 0) {
+    await resolveLegacy();
+    return { coupons, usage, now };
+  }
 
   // Partnerské kódy: úroveň podle uhrazených nákupů zboží (bez dopravy, po
   // slevě) za minulý kalendářní měsíc — objednávky partnera (buyer
@@ -217,6 +247,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
       }
     }
   }
+  await resolveLegacy();
   return { coupons, usage, now };
 }
 
