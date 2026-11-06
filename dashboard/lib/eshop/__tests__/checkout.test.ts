@@ -99,11 +99,11 @@ describe("validateCheckoutInput — E-shop 1.0", () => {
 });
 
 describe("výchozí způsob platby v pokladně", () => {
-  it("s dostupnou kartou je karta první a předvybraná, převod zůstává jako druhá možnost", () => {
-    expect(defaultPaymentMethodId(true)).toBe("karta");
+  it("s dostupnou kartou: převod první a předvybraný, karta dostupná až za ním (zadání Lucie 6. 11. 2026)", () => {
+    expect(defaultPaymentMethodId(true)).toBe("prevod");
     expect(paymentMethodsFor(true).map((m) => [m.id, m.available])).toEqual([
-      ["karta", true],
       ["prevod", true],
+      ["karta", true],
     ]);
   });
 

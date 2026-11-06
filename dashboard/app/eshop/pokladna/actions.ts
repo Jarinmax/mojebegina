@@ -16,6 +16,8 @@ import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { shippingModeFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
+import { parseCouponCodes } from "@/lib/eshop/coupons";
+import { loadCouponContext } from "@/lib/eshop/couponsServer";
 import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
 import { eshopBase } from "@/lib/eshop/siteServer";
 import { isOrderWriteEnabled, parseOrderToken, saveEshopOrder } from "@/lib/eshop/orderWrite";
@@ -79,6 +81,8 @@ export async function submitCheckoutAction(
   }
 
   const stripe = stripeConfig();
+  const couponCodes = field("couponCodes");
+  const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes));
   const result = validateCheckoutInput(
     {
       cart: field("cart"),
@@ -93,9 +97,10 @@ export async function submitCheckoutAction(
       note: field("note"),
       termsAccepted: formData.get("termsAccepted") === "on",
       ageConfirmed: formData.get("ageConfirmed") === "on",
+      couponCodes,
     },
     await getCatalogIndex(),
-    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv() }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons }
   );
 
   if (!result.ok) {

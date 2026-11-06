@@ -616,6 +616,52 @@ export const companyNodeActivity = pgTable(
 // Ti nemají Neon Auth účet → author_user_id NULL; žádné falešné ID
 // "system" (stejné pravidlo jako u company_nodes.owner_user_id). Interní
 // záznam (actor_type "user") musí autora mít dál — hlídá CHECK.
+// Slevové kupóny e-shopu (zadání Lucie 6. 11. 2026) — převzaté z WooCommerce
+// (stary.begina.cz) se STEJNÝMI pravidly: typ a výše slevy, platnost,
+// minimální/maximální útrata, „použít samostatně“, omezení na produkty /
+// kategorie / e-maily, limity použití. Kód se ukládá malými písmeny (Woo
+// kódy nerozlišuje velikost písmen). Použití v novém e-shopu se počítá
+// z objednávek (order_activity „created“ → metadata.coupons); used_before
+// a used_by_before = stav z WooCommerce v den převodu.
+export const eshopCoupons = pgTable(
+  "eshop_coupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull().unique(),
+    // "percent" = % z ceny zboží, "fixed_cart" = pevná částka z košíku,
+    // "fixed_product" = pevná částka z každého kusu (jako WooCommerce)
+    discountType: text("discount_type").notNull(),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    freeShipping: boolean("free_shipping").notNull().default(false),
+    // okamžik konce platnosti (null = bez omezení)
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    minimumAmountKc: integer("minimum_amount_kc"),
+    maximumAmountKc: integer("maximum_amount_kc"),
+    individualUse: boolean("individual_use").notNull().default(false),
+    productSlugs: text("product_slugs").array().notNull().default(sql`'{}'::text[]`),
+    excludedProductSlugs: text("excluded_product_slugs").array().notNull().default(sql`'{}'::text[]`),
+    categorySlugs: text("category_slugs").array().notNull().default(sql`'{}'::text[]`),
+    excludedCategorySlugs: text("excluded_category_slugs").array().notNull().default(sql`'{}'::text[]`),
+    // povolené e-maily (malými písmeny, „*“ = libovolná část, např. *@firma.cz)
+    emailRestrictions: text("email_restrictions").array().notNull().default(sql`'{}'::text[]`),
+    usageLimit: integer("usage_limit"),
+    usageLimitPerUser: integer("usage_limit_per_user"),
+    limitUsageToXItems: integer("limit_usage_to_x_items"),
+    usedBefore: integer("used_before").notNull().default(0),
+    usedByBefore: text("used_by_before").array().notNull().default(sql`'{}'::text[]`),
+    isActive: boolean("is_active").notNull().default(true),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("eshop_coupons_code_lower", sql`${table.code} = lower(${table.code}) AND length(${table.code}) BETWEEN 1 AND 64`),
+    check("eshop_coupons_type_check", sql`${table.discountType} IN ('percent', 'fixed_cart', 'fixed_product')`),
+    check("eshop_coupons_amount_check", sql`${table.amount} >= 0 AND (${table.discountType} <> 'percent' OR ${table.amount} <= 100)`),
+    check("eshop_coupons_limits_check", sql`(${table.usageLimit} IS NULL OR ${table.usageLimit} > 0) AND (${table.usageLimitPerUser} IS NULL OR ${table.usageLimitPerUser} > 0) AND (${table.limitUsageToXItems} IS NULL OR ${table.limitUsageToXItems} > 0) AND ${table.usedBefore} >= 0`),
+  ]
+);
+
 export const orderActivity = pgTable(
   "order_activity",
   {

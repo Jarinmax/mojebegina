@@ -132,8 +132,9 @@ export type PaymentMethod = {
 
 // Platba kartou (Stripe) je dostupná, jen když to povolí server
 // (lib/eshop/stripe/config.ts → isCardPaymentAvailable) — výchozí stav je
-// nedostupná. Dostupná karta je první a předvybraná, převod zůstává jako
-// druhá možnost; bez karty je převod jediná (a výchozí) volba.
+// nedostupná. Pořadí podle zadání Lucie (6. 11. 2026): bankovní převod je
+// vždy první a předvybraný, karta (je-li dostupná) až za ním. Volbu, kterou
+// zákazník sám změní, pokladna drží ve stavu formuláře.
 export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
   const transfer: PaymentMethod = {
     id: "prevod",
@@ -149,11 +150,12 @@ export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
       : "Platební brána zatím není napojená.",
     available: cardAvailable,
   };
-  return cardAvailable ? [card, transfer] : [transfer, card];
+  return [transfer, card];
 }
 
-export function defaultPaymentMethodId(cardAvailable: boolean): PaymentMethod["id"] {
-  return cardAvailable ? "karta" : "prevod";
+/** Výchozí platba = bankovní převod (i když je karta dostupná). */
+export function defaultPaymentMethodId(_cardAvailable?: boolean): PaymentMethod["id"] {
+  return "prevod";
 }
 
 export const paymentMethods: PaymentMethod[] = paymentMethodsFor(false);

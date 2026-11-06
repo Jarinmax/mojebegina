@@ -12,6 +12,7 @@ import { isOrderable, lineName } from "./productRules";
 import { getShippingMethod, quoteShipping, type ShippingMethod, type ShippingMode } from "./shipping";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
+import type { AppliedCoupon } from "./coupons";
 
 export type PricedLine = {
   sku: string;
@@ -31,6 +32,10 @@ export type PricedCart = {
   weightGrams: number | null;
   /** Košík obsahuje alkohol — pokladna musí vyžadovat potvrzení 18+. */
   containsAgeRestricted: boolean;
+  /** Sleva ze slevových kódů (coupons.ts); 0 = bez slevy. totalKc = subtotal − discount + shipping. */
+  discountKc: number;
+  /** Uplatněné slevové kódy (malými písmeny) a sleva každého z nich. */
+  coupons: AppliedCoupon[];
 };
 
 export type CartInputLine = { sku: string; quantity: number };
@@ -121,6 +126,28 @@ export function priceCart(
       totalKc: subtotalKc + quote.priceKc,
       weightGrams: quote.weightGrams,
       containsAgeRestricted,
+      discountKc: 0,
+      coupons: [],
     },
+  };
+}
+
+/**
+ * Promítne uplatněné slevové kódy do ceny: sleva ze zboží, případně doprava
+ * zdarma. Jediné místo, kde se mění celková částka — z ní pak vychází
+ * objednávka, QR platba převodem i částka pro platbu kartou.
+ */
+export function withCoupons(
+  priced: PricedCart,
+  result: { applied: AppliedCoupon[]; discountKc: number; freeShipping: boolean }
+): PricedCart {
+  const discountKc = Math.min(result.discountKc, priced.subtotalKc);
+  const shippingKc = result.freeShipping ? 0 : priced.shippingKc;
+  return {
+    ...priced,
+    coupons: result.applied,
+    discountKc,
+    shippingKc,
+    totalKc: priced.subtotalKc - discountKc + shippingKc,
   };
 }

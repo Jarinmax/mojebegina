@@ -115,6 +115,12 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
               <span className="tabular-nums whitespace-nowrap">{formatKc(item.unitPriceKc * item.quantity)}</span>
             </li>
           ))}
+          {order.discountKc > 0 && (
+            <li className="py-2 flex justify-between gap-3">
+              <span>Sleva</span>
+              <span className="tabular-nums whitespace-nowrap">−{formatKc(order.discountKc)}</span>
+            </li>
+          )}
           {order.shippingKc > 0 && (
             <li className="py-2 flex justify-between gap-3">
               <span>{order.shippingMethodLabel ?? "Doprava"}</span>
