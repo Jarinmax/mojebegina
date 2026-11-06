@@ -1,11 +1,16 @@
 import Link from "next/link";
 import LeadStageBadge from "../LeadStageBadge";
+import { formatCzechDate } from "@/lib/format";
 import type { QueueItemCardData } from "@/lib/data/dailyCalls";
 
 // Security Phase 19 (Denní volání 1.0) — sdílená karta kontaktu, stejné
 // minimum jako schválené zadání: jméno, klikací telefon, stav, poslední
 // poznámka, pořadí. `children` je akční slot (kurátorské ovládání a/nebo
 // zápis výsledku) — liší se podle toho, kdo kartu vidí.
+//
+// lastContactedAt (zadání 6. 11. 2026): kdo volá frontu odshora dolů musí
+// hned vidět, že tenhle kontakt už byl nedávno obvolaný — jinak se stávalo,
+// že se mu volalo znovu bez vědomí, že hovor proběhl před pár dny.
 type Props = {
   item: QueueItemCardData;
   orderNumber: number;
@@ -35,6 +40,12 @@ export default function QueueItemCard({ item, orderNumber, children }: Props) {
       {item.notInterested && (
         <p className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
           Nezájem — Jardovi se nezobrazuje. Odeberte ho z fronty.
+        </p>
+      )}
+
+      {item.lastContactedAt && (
+        <p className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 self-start">
+          Naposledy voláno: {formatCzechDate(item.lastContactedAt)}
         </p>
       )}
 
