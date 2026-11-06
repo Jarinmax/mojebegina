@@ -186,7 +186,7 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(blocks).toBe(CURRENT_TERMS.blocks);
     const articles = blocks.slice(0, 13);
     expect(articles.map((b) => [b.heading!.split(".")[0], b.points!.length])).toEqual(
-      POINTS_V1.map(([h, n]) => [h, h === "I" ? 5 : h === "VII" ? 13 : h === "VIII" ? n + 1 : n])
+      POINTS_V1.map(([h, n]) => [h, h === "I" ? 5 : h === "VII" ? 13 : h === "VIII" ? Number(n) + 1 : n])
     );
     // ostatní články beze změny proti dodanému znění (čl. XIII se liší jen datem účinnosti)
     for (const i of [1, 2, 3, 4, 5, 8, 9, 10, 11]) expect(articles[i]).toEqual(LEGACY_TERMS.blocks[i]);
