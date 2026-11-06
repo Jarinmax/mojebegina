@@ -2,6 +2,7 @@ import ShopLink from "./ShopLink";
 import { MapPin } from "lucide-react";
 import { FOOTER_LINKS, OPERATOR } from "@/lib/eshop/infoPages";
 import { PICKUP_PLACE } from "@/lib/eshop/operator";
+import { WITHDRAWAL_PAGE_PATH } from "@/lib/eshop/content/withdrawalForm";
 
 // Patička e-shopu: provozovatel (sídlo, fakturace) a provozovna (osobní
 // odběr) jako dva oddělené bloky (zadání Lucie, 6. 11. 2026) + odkazy na informační stránky
@@ -10,7 +11,7 @@ import { PICKUP_PLACE } from "@/lib/eshop/operator";
 // (třída cky-banner-element) — souhlas jde kdykoli změnit nebo odvolat.
 export default function EshopFooter({ cookieSettings = false }: { cookieSettings?: boolean }) {
   return (
-    <footer className="border-t border-neutral-200 bg-begina-primary-50">
+    <footer className="border-t border-neutral-200 bg-begina-primary-50 print:hidden">
       <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-neutral-600 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
           <section aria-labelledby="paticka-provozovatel">
@@ -62,6 +63,11 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
                 </ShopLink>
               </li>
             ))}
+            <li>
+              <ShopLink href={WITHDRAWAL_PAGE_PATH} className="block py-3 md:inline-block md:py-1.5 hover:underline underline-offset-2">
+                Odstoupení od smlouvy
+              </ShopLink>
+            </li>
             {cookieSettings && (
               <li>
                 <button

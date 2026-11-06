@@ -23,3 +23,17 @@ export const PICKUP_PLACE = {
     "https://www.google.com/maps/search/?api=1&query=" +
     encodeURIComponent("Zahradnictví Jandl, Vitice 119, 281 06 Vitice"),
 } as const;
+
+/**
+ * Doručovací adresa pro odstoupení od smlouvy, reklamace a vrácené zboží
+ * (zadání Lucie, 6. 11. 2026). Sídlo (OPERATOR.address) zůstává adresou
+ * pro identifikaci a fakturaci.
+ */
+export const DELIVERY_ADDRESS = {
+  recipient: `${OPERATOR.name} – ${PICKUP_PLACE.name}`,
+  area: `(${PICKUP_PLACE.area})`,
+  address: PICKUP_PLACE.address,
+  email: OPERATOR.email,
+  /** na jeden řádek: „Jaroslav Viner – Zahradní Bistro Begina (areál …), Vitice 119, …“ */
+  oneLine: `${OPERATOR.name} – ${PICKUP_PLACE.name} (${PICKUP_PLACE.area}), ${PICKUP_PLACE.address}`,
+} as const;

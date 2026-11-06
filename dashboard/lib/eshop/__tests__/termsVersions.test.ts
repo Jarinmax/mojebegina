@@ -13,7 +13,7 @@ import {
   termsVersionForOrder,
 } from "../content/termsVersions";
 import { WITHDRAWAL_FORM_SENTENCE } from "../content/obchodniPodminky";
-import { termsPdf, termsPlainText, termsTextSha256 } from "../legal/termsPdf";
+import { termsPdf, termsPlainText, termsTextSha256, withdrawalFormPlainText } from "../legal/termsPdf";
 import { publicEshopPath, route } from "@/lib/site/routing";
 
 vi.mock("server-only", () => ({}));
@@ -32,6 +32,10 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
   "2026-10-27": {
     text: "a876d0fd64c2e78edcb47de662f5f21cee336bed92ba487d9da6f6bd4260ae85",
     pdf: "3d6697668cfb642afc9873f342c9a5fd028317f3df0ce66b2fb0ab46a0a7ebda",
+  },
+  "2026-11-06": {
+    text: "__V3_TEXT__",
+    pdf: "__V3_PDF__",
   },
 };
 
@@ -61,23 +65,50 @@ describe("znění obchodních podmínek", () => {
     expect(text).not.toContain(WITHDRAWAL_FORM_SENTENCE);
   });
 
-  it("platné znění: věta v čl. VII a formulář podle NV 29/2023 Sb. s nepovinným číslem objednávky", () => {
-    const text = termsPlainText(CURRENT_TERMS);
+  it("2. znění (27. 10. 2026) beze změny: věta v čl. VII a formulář s adresou sídla", () => {
+    const v2 = findTermsVersion("2026-10-27")!;
+    expect(v2.edition).toBe(2);
+    const text = termsPlainText(v2);
     expect(text).toContain(WITHDRAWAL_FORM_SENTENCE);
+    expect(text).toContain("Adresát: Jaroslav Viner, Mostecká 273/21, 118 00 Praha 1, IČO: 74337297, e-mail: info@begina.cz");
+  });
+
+  it("platné znění (3. vydání): sídlo odlišené od doručovací adresy ve Viticích, nový čl. VII, formulář s adresou ve Viticích", () => {
+    expect(CURRENT_TERMS.edition).toBe(3);
+    const text = termsPlainText(CURRENT_TERMS);
     expect(text).toContain(`Tyto obchodní podmínky jsou platné a účinné od ${CURRENT_TERMS.effectiveLabel}.`);
+    // čl. I: sídlo a fakturační adresa vs. doručovací adresa
+    expect(text).toContain("sídlo a fakturační adresa: Mostecká 273/21, 118 00 Praha 1");
+    expect(text).toContain("Adresa pro doručování odstoupení od smlouvy, reklamací a vraceného zboží (provozovna):");
+    expect(text).toContain("Jaroslav Viner – Zahradní Bistro Begina");
+    expect(text).toContain("Vitice 119, 281 06 Vitice (okr. Kolín)");
+    // čl. VII: výjimky podle § 1837, žádný plošný zákaz, odlišení od reklamace
+    expect(text).toContain("§ 1837 písm. e) občanského zákoníku");
+    expect(text).toContain("§ 1837 písm. g) občanského zákoníku");
+    expect(text).toContain("prodávající nevylučuje vrácení všech potravin plošně");
+    expect(text).toContain("Odstoupení od smlouvy bez udání důvodu není reklamace.");
+    expect(text).toContain("Použití formuláře není podmínkou odstoupení od smlouvy.");
+    expect(text).toContain("Zboží nezasílejte na dobírku ani na adresu sídla.");
+    expect(text).not.toContain("písemně na adrese prodávajícího");
+    // čl. VIII: reklamace na doručovací adresu
+    expect(text).toContain(
+      "písemně nebo osobně na doručovací adrese: Jaroslav Viner – Zahradní Bistro Begina (areál Zahradnictví Jandl), Vitice 119, 281 06 Vitice (okr. Kolín)."
+    );
     const form = text.slice(text.indexOf("Příloha: Vzorový formulář pro odstoupení od smlouvy"));
     for (const line of [
       "(vyplňte tento formulář a pošlete jej zpět pouze v případě, že chcete odstoupit od smlouvy)",
       "Oznámení o odstoupení od smlouvy",
-      "Adresát: Jaroslav Viner, Mostecká 273/21, 118 00 Praha 1, IČO: 74337297, e-mail: info@begina.cz",
-      "Oznamuji/oznamujeme (*), že tímto odstupuji/odstupujeme (*) od smlouvy o nákupu tohoto zboží (*)/o poskytnutí těchto služeb (*):",
+      "Adresát: Jaroslav Viner – Zahradní Bistro Begina (areál Zahradnictví Jandl), Vitice 119, 281 06 Vitice (okr. Kolín), e-mail: info@begina.cz; sídlo: Mostecká 273/21, 118 00 Praha 1, IČO: 74337297",
+      "Oznamuji/oznamujeme (*), že tímto odstupuji/odstupujeme (*) od smlouvy o nákupu tohoto zboží (název výrobku, balení, počet kusů):",
       "Číslo objednávky (nepovinné):",
-      "Datum objednání (*)/datum obdržení (*):",
+      "Datum objednání:",
+      "Datum obdržení (převzetí) zboží:",
       "Jméno a příjmení spotřebitele/spotřebitelů:",
       "Adresa spotřebitele/spotřebitelů:",
       "Podpis spotřebitele/spotřebitelů (pouze pokud je tento formulář zasílán na listině):",
       "Datum:",
       "(*) Nehodící se škrtněte nebo údaje doplňte.",
+      "Použití tohoto formuláře není podmínkou odstoupení od smlouvy",
     ]) {
       expect(form, line).toContain(line);
     }
@@ -146,6 +177,25 @@ describe("PDF ke stažení: /obchodni-podminky/<znění>.pdf", () => {
       expect(response.headers.get("cache-control")).toContain("immutable");
       expect(response.headers.get("content-disposition")).toContain(termsPdfFilename(version));
     }
+  });
+
+  it("formulář pro odstoupení: samostatné PDF na jednu stranu A4 s adresou ve Viticích", async () => {
+    const response = await call("formular-pro-odstoupeni-od-smlouvy.pdf");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-disposition")).toContain("formular-pro-odstoupeni-od-smlouvy-begina.pdf");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+    expect(doc.getPageCount()).toBe(1);
+    expect(doc.getTitle()).toBe("Vzorový formulář pro odstoupení od smlouvy — Begina.cz");
+    const text = withdrawalFormPlainText(CURRENT_TERMS);
+    expect(text).toContain("Vitice 119, 281 06 Vitice (okr. Kolín), e-mail: info@begina.cz");
+    expect(text).toContain("Datum obdržení (převzetí) zboží:");
+    expect(text).toContain("Použití tohoto formuláře není podmínkou odstoupení od smlouvy");
+    expect(publicEshopPath("/obchodni-podminky/formular-pro-odstoupeni-od-smlouvy.pdf")).toBe(
+      "/eshop/obchodni-podminky/formular-pro-odstoupeni-od-smlouvy.pdf"
+    );
+    expect(publicEshopPath("/odstoupeni-od-smlouvy")).toBe("/eshop/odstoupeni-od-smlouvy");
   });
 
   it("neznámé znění nebo jiný soubor → 404", async () => {
