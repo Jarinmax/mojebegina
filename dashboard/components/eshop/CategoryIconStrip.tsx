@@ -4,6 +4,7 @@ import { stripCategories, type HomeCategory } from "@/lib/eshop/homeNav";
 
 // Pruh kategorií s kreslenými ikonami pod hero (návrh úvodní stránky).
 // Na počítači kompaktní, aby byl vidět hned po otevření stránky (spolu s hero).
+// Mobil a tablet na výšku: dvě řady po třech; od md jedna řada všech šesti.
 export default function CategoryIconStrip({ id, categories }: { id: string; categories: HomeCategory[] }) {
   return (
     <nav id={id} aria-label="Kategorie" className="bg-[#FBF8F3] scroll-mt-20">
@@ -11,7 +12,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
         {stripCategories(categories).map((category, i) => (
           <li
             key={category.slug}
-            className={`w-1/3 sm:w-auto sm:flex-1 ${i > 0 ? "sm:border-l sm:border-dashed sm:border-[#D9CFBF]" : ""}`}
+            className={`w-1/3 md:w-auto md:flex-1 md:min-w-0 ${i > 0 ? "md:border-l md:border-dashed md:border-[#D9CFBF]" : ""}`}
           >
             <ShopLink
               href={`/kategorie/${category.slug}`}
@@ -26,7 +27,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
                   className="max-h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
-              <span className="text-sm sm:text-base font-medium text-[#5E6B34] group-hover:underline underline-offset-4">
+              <span className="text-sm lg:text-base leading-snug font-medium text-[#5E6B34] group-hover:underline underline-offset-4">
                 {category.stripLabel}
               </span>
             </ShopLink>

@@ -11,8 +11,9 @@ import { createHash } from "node:crypto";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { InfoBlock } from "../infoPages";
-import { OPERATOR } from "../operator";
+import { DELIVERY_ADDRESS, OPERATOR } from "../operator";
 import { termsPdfFilename, type TermsVersion } from "../content/termsVersions";
+import { WITHDRAWAL_FORM_PDF_FILENAME, WITHDRAWAL_FORM_TITLE } from "../content/withdrawalForm";
 import { BEGINA_PDF_SANS_BOLD, BEGINA_PDF_SANS_REGULAR } from "./fonts/beginaPdfSans";
 
 export type TermsPdf = {
@@ -42,22 +43,40 @@ export function termsDocument(version: TermsVersion): DocLine[] {
   const out: DocLine[] = [
     { kind: "text", style: "title", text: TERMS_TITLE, indent: 0 },
     { kind: "text", style: "subtitle", text: `Platné a účinné od ${version.effectiveLabel} (znění ${version.id})`, indent: 0 },
-    {
-      kind: "text",
-      style: "subtitle",
-      text: `Prodávající: ${OPERATOR.name}, IČO ${OPERATOR.ico}, ${OPERATOR.address}, ${OPERATOR.email}, ${OPERATOR.phone}`,
-      indent: 0,
-    },
+    // 1. a 2. vydání: záhlaví beze změny (otisk PDF už platného znění)
+    ...(version.edition >= 3
+      ? ([
+          {
+            kind: "text",
+            style: "subtitle",
+            text: `Prodávající: ${OPERATOR.name}, IČO ${OPERATOR.ico}, sídlo a fakturační adresa: ${OPERATOR.address}, ${OPERATOR.email}, ${OPERATOR.phone}`,
+            indent: 0,
+          },
+          {
+            kind: "text",
+            style: "subtitle",
+            text: `Doručovací adresa (odstoupení, reklamace, vrácené zboží): ${DELIVERY_ADDRESS.oneLine}`,
+            indent: 0,
+          },
+        ] satisfies DocLine[])
+      : ([
+          {
+            kind: "text",
+            style: "subtitle",
+            text: `Prodávající: ${OPERATOR.name}, IČO ${OPERATOR.ico}, ${OPERATOR.address}, ${OPERATOR.email}, ${OPERATOR.phone}`,
+            indent: 0,
+          },
+        ] satisfies DocLine[])),
     { kind: "space", pt: 10 },
   ];
   for (const block of version.blocks) out.push(...blockLines(block));
   return out;
 }
 
-function blockLines(block: InfoBlock): DocLine[] {
-  const form = block.heading?.startsWith(FORM_HEADING) ?? false;
+function blockLines(block: InfoBlock, options: { standaloneForm?: boolean } = {}): DocLine[] {
+  const form = options.standaloneForm === true || (block.heading?.startsWith(FORM_HEADING) ?? false);
   const out: DocLine[] = [];
-  if (form) out.push({ kind: "pageBreak" });
+  if (form && !options.standaloneForm) out.push({ kind: "pageBreak" });
   if (block.heading) out.push({ kind: "space", pt: 6 }, { kind: "text", style: "heading", text: block.heading, indent: 0 });
   if (block.subheading) out.push({ kind: "text", style: "subheading", text: block.subheading, indent: 0 });
   for (const p of block.paragraphs ?? []) out.push({ kind: "text", style: "body", text: p, indent: 0 });
@@ -65,7 +84,10 @@ function blockLines(block: InfoBlock): DocLine[] {
   for (const item of block.items ?? []) {
     out.push({ kind: "text", style: "body", text: item, indent: 14, marker: "–" });
     // formulář: místo na vyplnění u polí končících dvojtečkou (u výčtu zboží víc řádků)
-    if (form && item.endsWith(":")) out.push({ kind: "fill", lines: item.startsWith("Oznamuji") ? 3 : 1 });
+    if (form && item.endsWith(":")) {
+      const lines = item.startsWith("Oznamuji") ? (options.standaloneForm ? 4 : 3) : item.startsWith("Adresa") && options.standaloneForm ? 2 : 1;
+      out.push({ kind: "fill", lines });
+    }
   }
   (block.points ?? []).forEach((point, i) => {
     out.push({ kind: "text", style: "body", text: point.text, indent: 18, marker: `${i + 1}.` });
@@ -79,7 +101,11 @@ function blockLines(block: InfoBlock): DocLine[] {
 
 /** Znění jako prostý text (pro otisk a pro kontrolu obsahu PDF). */
 export function termsPlainText(version: TermsVersion): string {
-  return termsDocument(version)
+  return plainText(termsDocument(version));
+}
+
+function plainText(lines: DocLine[]): string {
+  return lines
     .map((line) => {
       if (line.kind === "text") return `${" ".repeat(line.indent / 6)}${line.marker ? `${line.marker} ` : ""}${line.text}`;
       if (line.kind === "fill") return "____".repeat(line.lines);
@@ -142,7 +168,18 @@ export function missingGlyphs(text: string, font: PDFFont): string[] {
   return [...new Set([...text].filter((ch) => !/\s/.test(ch) && !have.has(ch.codePointAt(0)!)))];
 }
 
+type RenderMeta = { header: string; title: string; subject: string; fixedDate: Date };
+
 async function render(version: TermsVersion): Promise<Uint8Array> {
+  return renderDocument(termsDocument(version), {
+    header: `Begina.cz — obchodní podmínky, znění účinné od ${version.effectiveLabel}`,
+    title: `${TERMS_TITLE} (znění účinné od ${version.effectiveLabel})`,
+    subject: version.withWithdrawalForm ? "Obchodní podmínky včetně vzorového formuláře pro odstoupení od smlouvy" : "Obchodní podmínky",
+    fixedDate: new Date(`${version.id}T00:00:00Z`),
+  });
+}
+
+async function renderDocument(lines: DocLine[], meta: RenderMeta): Promise<Uint8Array> {
   const doc = await PDFDocument.create({ updateMetadata: false });
   doc.registerFontkit(fontkit);
   const regular = await doc.embedFont(Buffer.from(BEGINA_PDF_SANS_REGULAR, "base64"), {
@@ -154,8 +191,7 @@ async function render(version: TermsVersion): Promise<Uint8Array> {
     customName: "BeginaPDFSans-Bold",
   });
 
-  const lines = termsDocument(version);
-  const missing = missingGlyphs(termsPlainText(version), regular);
+  const missing = missingGlyphs(plainText(lines), regular);
   if (missing.length > 0) throw new Error(`Font PDF nemá znaky: ${missing.join(" ")}`);
 
   const black = rgb(0.1, 0.1, 0.1);
@@ -215,7 +251,7 @@ async function render(version: TermsVersion): Promise<Uint8Array> {
   }
 
   // záhlaví a čísla stran
-  const header = `Begina.cz — obchodní podmínky, znění účinné od ${version.effectiveLabel}`;
+  const header = meta.header;
   pages.forEach((p, i) => {
     if (i > 0) p.drawText(header, { x: MARGIN_X, y: A4[1] - 36, size: 7.5, font: regular, color: gray });
     const label = `Strana ${i + 1} z ${pages.length}`;
@@ -228,10 +264,10 @@ async function render(version: TermsVersion): Promise<Uint8Array> {
     });
   });
 
-  const fixedDate = new Date(`${version.id}T00:00:00Z`);
-  doc.setTitle(`${TERMS_TITLE} (znění účinné od ${version.effectiveLabel})`);
+  const fixedDate = meta.fixedDate;
+  doc.setTitle(meta.title);
   doc.setAuthor(`${OPERATOR.name}, Begina.cz`);
-  doc.setSubject(version.withWithdrawalForm ? "Obchodní podmínky včetně vzorového formuláře pro odstoupení od smlouvy" : "Obchodní podmínky");
+  doc.setSubject(meta.subject);
   doc.setLanguage("cs-CZ");
   doc.setCreator("MojeBegina");
   doc.setProducer("MojeBegina (pdf-lib)");
@@ -256,6 +292,53 @@ export function termsPdf(version: TermsVersion): Promise<TermsPdf> {
     // chyba se neukládá — příští pokus to zkusí znovu
     pending.catch(() => cache.delete(version.id));
     cache.set(version.id, pending);
+  }
+  return pending;
+}
+
+// --- Samostatný formulář pro odstoupení (PDF ke stažení a tisku) ----------
+
+/** Formulář z přílohy daného znění (od 3. vydání) jako samostatný dokument na jednu stranu A4. */
+export function withdrawalFormDocument(version: TermsVersion): DocLine[] {
+  const block = version.blocks.find((b) => b.heading?.startsWith(FORM_HEADING));
+  if (!block) throw new Error(`Znění ${version.id} nemá formulář pro odstoupení.`);
+  return [
+    { kind: "text", style: "title", text: WITHDRAWAL_FORM_TITLE, indent: 0 },
+    {
+      kind: "text",
+      style: "subtitle",
+      text: `Begina.cz — příloha obchodních podmínek (znění účinné od ${version.effectiveLabel}). Vzor podle nařízení vlády č. 29/2023 Sb.`,
+      indent: 0,
+    },
+    { kind: "space", pt: 8 },
+    ...blockLines({ ...block, heading: undefined }, { standaloneForm: true }),
+  ];
+}
+
+export function withdrawalFormPlainText(version: TermsVersion): string {
+  return plainText(withdrawalFormDocument(version));
+}
+
+const formCache = new Map<string, Promise<TermsPdf>>();
+
+/** PDF formuláře pro odstoupení k danému znění (deterministické jako PDF podmínek). */
+export function withdrawalFormPdf(version: TermsVersion): Promise<TermsPdf> {
+  let pending = formCache.get(version.id);
+  if (!pending) {
+    pending = renderDocument(withdrawalFormDocument(version), {
+      header: `Begina.cz — ${WITHDRAWAL_FORM_TITLE.toLowerCase()}`,
+      title: `${WITHDRAWAL_FORM_TITLE} — Begina.cz`,
+      subject: "Vzorový formulář pro odstoupení od kupní smlouvy (nařízení vlády č. 29/2023 Sb.)",
+      fixedDate: new Date(`${version.id}T00:00:00Z`),
+    }).then((bytes) => ({
+      versionId: version.id,
+      filename: WITHDRAWAL_FORM_PDF_FILENAME,
+      bytes,
+      contentBase64: Buffer.from(bytes).toString("base64"),
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    }));
+    pending.catch(() => formCache.delete(version.id));
+    formCache.set(version.id, pending);
   }
   return pending;
 }

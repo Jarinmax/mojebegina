@@ -20,7 +20,7 @@
 //
 // NENÍ součástí `npm test` / CI (vitest). Vyžaduje skutečnou, multi-
 // -connection Postgres databázi — v tomhle sandboxu lokální PostgreSQL 16
-// (service postgresql start), migrovanou přes drizzle/0000..0029 *.sql do
+// (service postgresql start), migrovanou přes drizzle/0000..0031 *.sql do
 // databáze "sklad_concurrency_test" (uživatel postgres/testpass,
 // localhost:5432). Skript sám NEPROVÁDÍ žádnou migraci, nesahá na
 // Preview/Production, nevolá žádné AI. Vytvoří si jen svůj vlastní
@@ -166,7 +166,7 @@ async function scenarioEndToEndManualEditDuringAccept(receiptId: string, lineId:
     ok("'převzetí' (accept) čeká na zámek, dokud 'ruční úprava' nedoběhne", outcome === "timeout");
 
     // Teprve TEĎ (zámek stále u 'ruční úpravy') se řádek doopravdy upraví
-    // — trigger goods_receipt_lines_bump_updated_at (migrace 0029) sám
+    // — trigger goods_receipt_lines_bump_updated_at (migrace 0031) sám
     // nastaví updated_at, stejně jako by to udělala appka.
     await manualEdit.query(`UPDATE goods_receipt_lines SET raw_description = 'Ručně upraveno během čekání' WHERE id = $1`, [lineId]);
     await manualEdit.query("COMMIT");
@@ -207,7 +207,7 @@ async function main() {
   try {
     const loc = await setup.query<{ id: string }>(`SELECT id FROM stock_locations LIMIT 1`);
     if (loc.rows.length === 0) {
-      throw new Error("Žádná stock_location v databázi — migrace 0028 neproběhla (chybí seedovaná výchozí lokace).");
+      throw new Error("Žádná stock_location v databázi — migrace 0030 neproběhla (chybí seedovaná výchozí lokace).");
     }
     stockLocationId = loc.rows[0].id;
 

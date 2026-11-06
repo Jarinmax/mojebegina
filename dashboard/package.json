@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/migrate-mcp-production.mjs && node scripts/migrate-work-tasks.mjs && node scripts/migrate-sklad.mjs",
+    "prebuild": "node scripts/migrate-mcp-production.mjs && node scripts/migrate-work-tasks.mjs && node scripts/migrate-eshop-coupons.mjs && node scripts/migrate-order-fulfillment.mjs && node scripts/migrate-sklad.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

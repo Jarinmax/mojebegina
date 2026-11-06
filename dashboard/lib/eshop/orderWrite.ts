@@ -94,7 +94,7 @@ export function buildEshopOrderRows(
         recipientPhone: value.phone,
         recipientAddress: address,
         subtotalKc: pricedCart.subtotalKc,
-        discountKc: 0,
+        discountKc: pricedCart.discountKc,
         shippingKc: pricedCart.shippingKc,
         totalKc: pricedCart.totalKc,
         paymentStatus: "unpaid",
@@ -118,7 +118,19 @@ export function buildEshopOrderRows(
         kind: "created",
         // termsVersion = znění obchodních podmínek, se kterým zákazník souhlasil
         // (content/termsVersions.ts) — podle něj jde PDF v potvrzení
-        metadata: { channel: "eshop", termsVersion: CURRENT_TERMS.id },
+        // coupons = uplatněné slevové kódy — podle nich se počítá jejich použití (couponsServer.ts)
+        metadata: {
+          channel: "eshop",
+          termsVersion: CURRENT_TERMS.id,
+          ...(pricedCart.coupons.length > 0
+            ? { coupons: pricedCart.coupons.map((c) => ({
+                code: c.code,
+                discountKc: c.discountKc,
+                freeShipping: c.freeShipping,
+                ...(c.partnerPercent ? { partnerPercent: c.partnerPercent } : {}),
+              })) }
+            : {}),
+        },
         createdAt: now,
       },
     },

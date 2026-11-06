@@ -1,4 +1,4 @@
--- SKLAD 1.0 — VRÁCENÍ 11_migration.sql (0029 → 0028 → stav před skladem).
+-- SKLAD 1.0 — VRÁCENÍ 11_migration.sql (0031 → 0030 → stav před skladem).
 -- Jen dokud ve skladu nejsou žádná data: dodavatelé, karty, příjemky, fotky,
 -- pohyby, mapování ani jiný sklad než výchozí. Pokud něco existuje, skript
 -- skončí chybou a NIC nezmění (data by se ztratila). Originální fotky ve
@@ -23,11 +23,11 @@ BEGIN
   END IF;
 END $$;
 
--- 0029: „Znovu přečíst doklad“ + trigger updated_at řádků
+-- 0031: „Znovu přečíst doklad“ + trigger updated_at řádků
 DROP TRIGGER goods_receipt_lines_bump_updated_at ON goods_receipt_lines;
 DROP FUNCTION goods_receipt_lines_bump_updated_at();
 
--- 0028: pohled, triggery, tabulky (od závislých k nezávislým)
+-- 0030: pohled, triggery, tabulky (od závislých k nezávislým)
 DROP VIEW stock_item_balances;
 DROP TRIGGER goods_receipt_lines_reset_vat_confirmed ON goods_receipt_lines;
 DROP FUNCTION goods_receipt_lines_reset_vat_confirmed();

@@ -225,6 +225,11 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
     const mail = customerOrderEmail(pickup, { ...CTX, transfer: null, qrContentId: null });
     expect(mail.text).toContain("Vitice 119");
     expect(mail.text).toContain("Osobní vyzvednutí — Zahradní Bistro Begina: zdarma");
+    // zadání Lucie (6. 11. 2026): celé znění včetně podmínky vyzvednutí po domluvě
+    expect(mail.text).toContain(
+      "Osobní odběr – Zahradní Bistro Begina, Vitice 119. Vyzvednutí je možné po předchozí domluvě."
+    );
+    expect(mail.html).toContain("Vyzvednutí je možné po předchozí domluvě.");
   });
 
   it("text od zákazníka se v HTML escapuje", () => {

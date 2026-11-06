@@ -1,5 +1,5 @@
 // Security Phase 22 (Sklad 1.0 — bezpečný základ) — statická kontrola
-// migrace 0028 proti tiché regresi (někdo omylem smaže/pozmění pojistku
+// migrace 0030 proti tiché regresi (někdo omylem smaže/pozmění pojistku
 // při pozdější úpravě souboru). Stejná konvence jako
 // dailyCallsValidation.test.ts ("ověřit na zkompilovaném SQL textu") —
 // NENÍ náhrada za reálné ověření proti živé Postgres databázi (triggery,
@@ -11,16 +11,16 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migrationSql = readFileSync(
-  join(__dirname, "../../../drizzle/0028_sklad_1_0_zaklad.sql"),
+  join(__dirname, "../../../drizzle/0030_sklad_1_0_zaklad.sql"),
   "utf-8"
 );
 
-const migration0029Sql = readFileSync(
-  join(__dirname, "../../../drizzle/0029_sklad_1_0_znovu_precist.sql"),
+const migration0031Sql = readFileSync(
+  join(__dirname, "../../../drizzle/0031_sklad_1_0_znovu_precist.sql"),
   "utf-8"
 );
 
-describe("migrace 0028 — databázové pojistky (revize návrhu)", () => {
+describe("migrace 0030 — databázové pojistky (revize návrhu)", () => {
   it("bod 1: skladové lokace existují a MVP má seedovanou výchozí lokaci", () => {
     expect(migrationSql).toContain('CREATE TABLE "stock_locations"');
     expect(migrationSql).toContain("INSERT INTO stock_locations (code, name) VALUES ('default'");
@@ -112,47 +112,47 @@ describe("migrace 0028 — databázové pojistky (revize návrhu)", () => {
     );
   });
 
-  it("migrace je v journalu zaregistrovaná jako 0028 (první skladová migrace)", () => {
+  it("migrace je v journalu zaregistrovaná jako 0030 (první skladová migrace)", () => {
     const journal = JSON.parse(
       readFileSync(join(__dirname, "../../../drizzle/meta/_journal.json"), "utf-8")
     ) as { entries: Array<{ idx: number; tag: string }> };
-    const entry = journal.entries.find((e) => e.tag === "0028_sklad_1_0_zaklad");
-    expect(entry?.idx).toBe(28);
-    // Od "Znovu přečíst doklad" (migrace 0029) už 0028 není poslední skladová
+    const entry = journal.entries.find((e) => e.tag === "0030_sklad_1_0_zaklad");
+    expect(entry?.idx).toBe(30);
+    // Od "Znovu přečíst doklad" (migrace 0031) už 0030 není poslední skladová
     // migrace v journalu — jen první. Další skladová migrace musí navazovat
-    // bez mezery (idx 29), ne přeskočit/duplikovat index.
-    const next = journal.entries.find((e) => e.idx === 29);
-    expect(next?.tag).toBe("0029_sklad_1_0_znovu_precist");
+    // bez mezery (idx 31), ne přeskočit/duplikovat index.
+    const next = journal.entries.find((e) => e.idx === 31);
+    expect(next?.tag).toBe("0031_sklad_1_0_znovu_precist");
   });
 });
 
-describe("migrace 0029 — „Znovu přečíst doklad“ je zcela oddělená od extraction_status", () => {
+describe("migrace 0031 — „Znovu přečíst doklad“ je zcela oddělená od extraction_status", () => {
   it("nové sloupce nesou vlastní, samostatný stav a nerozšiřují/nenahrazují extraction_status_check", () => {
-    expect(migration0029Sql).toContain('ADD COLUMN "reextraction_status" text DEFAULT \'none\' NOT NULL');
-    expect(migration0029Sql).toContain('ADD COLUMN "reextraction_raw" jsonb');
-    expect(migration0029Sql).toContain('ADD COLUMN "reextraction_claimed_at" timestamp with time zone');
-    expect(migration0029Sql).not.toContain('"goods_receipts_extraction_status_check"');
+    expect(migration0031Sql).toContain('ADD COLUMN "reextraction_status" text DEFAULT \'none\' NOT NULL');
+    expect(migration0031Sql).toContain('ADD COLUMN "reextraction_raw" jsonb');
+    expect(migration0031Sql).toContain('ADD COLUMN "reextraction_claimed_at" timestamp with time zone');
+    expect(migration0031Sql).not.toContain('"goods_receipts_extraction_status_check"');
   });
 
   it("reextraction_status má vlastní CHECK se 4 povolenými hodnotami (none/pending/ready/failed)", () => {
-    expect(migration0029Sql).toContain(
+    expect(migration0031Sql).toContain(
       'CONSTRAINT "goods_receipts_reextraction_status_check" CHECK ("goods_receipts"."reextraction_status" IN (\'none\',\'pending\',\'ready\',\'failed\'))'
     );
   });
 
-  it("nasazení jen hlídaným krokem buildu (scripts/migrate-sklad.mjs), 0028 + 0029 v jedné transakci", () => {
-    expect(migration0029Sql).toContain("scripts/migrate-sklad.mjs");
+  it("nasazení jen hlídaným krokem buildu (scripts/migrate-sklad.mjs), 0030 + 0031 v jedné transakci", () => {
+    expect(migration0031Sql).toContain("scripts/migrate-sklad.mjs");
     const script = readFileSync(join(__dirname, "../../../scripts/migrate-sklad.mjs"), "utf8");
-    expect(script).toContain("0028_sklad_1_0_zaklad.sql");
-    expect(script).toContain("0029_sklad_1_0_znovu_precist.sql");
+    expect(script).toContain("0030_sklad_1_0_zaklad.sql");
+    expect(script).toContain("0031_sklad_1_0_znovu_precist.sql");
     expect(script).toContain("partial schema detected");
     expect(script).toContain("PRODUCTION database — skipped");
   });
 
   it("kontrola před nasazením: updated_at na goods_receipt_lines je DATABÁZOVĚ vynucený triggerem, ne jen aplikační konvencí", () => {
-    expect(migration0029Sql).toContain("CREATE FUNCTION goods_receipt_lines_bump_updated_at()");
-    expect(migration0029Sql).toContain("NEW.updated_at := now();");
-    expect(migration0029Sql).toContain("CREATE TRIGGER goods_receipt_lines_bump_updated_at");
-    expect(migration0029Sql).toContain("BEFORE UPDATE ON goods_receipt_lines");
+    expect(migration0031Sql).toContain("CREATE FUNCTION goods_receipt_lines_bump_updated_at()");
+    expect(migration0031Sql).toContain("NEW.updated_at := now();");
+    expect(migration0031Sql).toContain("CREATE TRIGGER goods_receipt_lines_bump_updated_at");
+    expect(migration0031Sql).toContain("BEFORE UPDATE ON goods_receipt_lines");
   });
 });

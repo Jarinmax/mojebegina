@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listWorkNotifications, listWorkTasks, type WorkTaskView } from "@/lib/data/workTasks";
 import { getWorkerQueueView, type WorkerQueueView } from "@/lib/data/dailyCalls";
+import { getTodayCalls } from "@/lib/data/callHistory";
+import TodayCalls from "./TodayCalls";
 import { WORK_ASSIGNEES } from "@/lib/data/workTasksAuth";
 import { pragueToday } from "@/lib/data/workTasksValidation";
 import TaskCard from "./TaskCard";
@@ -11,9 +13,10 @@ import { fmtDay } from "./workTaskLabels";
 
 export const dynamic = "force-dynamic";
 
-async function loadCalls(): Promise<WorkerQueueView | null> {
+async function loadCalls(): Promise<(WorkerQueueView & { todayCalls: Awaited<ReturnType<typeof getTodayCalls>> }) | null> {
   try {
-    return await getWorkerQueueView();
+    const [queue, todayCalls] = await Promise.all([getWorkerQueueView(), getTodayCalls()]);
+    return { ...queue, todayCalls };
   } catch {
     return null; // Denní volání nemusí být pro tohoto uživatele dostupné — obrazovka úkolů funguje dál
   }
@@ -92,9 +95,15 @@ export default async function PracePage() {
             </Link>
           </div>
           {callItems.length === 0 && <p className="text-sm text-neutral-500">Na dnešek nejsou žádné kontakty k volání.</p>}
+          <Link href="/prace/hovory" className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-blue-700 min-h-11 flex items-center justify-between">
+            <span>Historie hovorů a všechny kontakty</span>
+            <span aria-hidden>›</span>
+          </Link>
           {callItems.map((c) => (
             <div key={c.id} className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 flex items-center justify-between gap-3">
-              <span className="text-sm text-begina-primary-900 min-w-0 truncate">{c.displayName}</span>
+              <Link href={`/rizeni-firmy/obchod/leady/${c.leadId}?zpet=prace`} className="text-sm text-begina-primary-900 min-w-0 truncate underline decoration-neutral-300">
+                {c.displayName}
+              </Link>
               {c.contactPhone && (
                 <a href={`tel:${c.contactPhone.replace(/\s+/g, "")}`} className="shrink-0 text-sm font-medium text-blue-700">
                   {c.contactPhone}
@@ -102,6 +111,7 @@ export default async function PracePage() {
               )}
             </div>
           ))}
+          <TodayCalls calls={calls.todayCalls.calls} showAuthor={calls.todayCalls.allAuthors} back="prace" />
         </section>
       )}
 

@@ -1,7 +1,7 @@
 // Post-implementační audit (druhé kolo, body A a B) — funkční ověření
 // proti REÁLNÉ Postgres databázi (PGlite, stejný vzor jako
 // lib/eshop/__tests__/migrationChain.test.ts: createMigratedDb()
-// aplikuje migraci 0028 tak, jak doopravdy vypadá, žádný mock SQL
+// aplikuje migraci 0030 tak, jak doopravdy vypadá, žádný mock SQL
 // transportu). Dokazuje skutečné chování triggerů/advisory locků, ne jen
 // přítomnost textu v SQL (to hlídá skladMigration.test.ts samostatně).
 //
@@ -23,12 +23,12 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 // Každý test staví NOVOU PGlite instanci a přehrává celý řetězec migrací
-// 0000-0028 (createMigratedDb) — stejně pomalé jako lib/eshop/__tests__/
+// 0000-0030 (createMigratedDb) — stejně pomalé jako lib/eshop/__tests__/
 // migrationChain.test.ts, proto stejný prodloužený timeout (DB_TEST).
 const DB_TEST = { timeout: 60_000 };
 import { createMigratedDb } from "../../eshop/__tests__/helpers/migratedDb";
 
-const LAST_SKLAD_MIGRATION = "0028_sklad_1_0_zaklad";
+const LAST_SKLAD_MIGRATION = "0030_sklad_1_0_zaklad";
 
 async function freshDb() {
   const { pg } = await createMigratedDb(LAST_SKLAD_MIGRATION);

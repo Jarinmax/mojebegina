@@ -10,7 +10,7 @@
 -- (stejný vzor jako extraction_status/updated_at u původního vytěžení).
 --
 -- NASAZENÍ: spouští ji jen build na Vercelu (scripts/migrate-sklad.mjs),
--- hlídaně a v jedné transakci s 0028, teprve po schváleném sloučení do main.
+-- hlídaně a v jedné transakci s 0030, teprve po schváleném sloučení do main.
 ALTER TABLE "goods_receipts" ADD COLUMN "reextraction_status" text DEFAULT 'none' NOT NULL;--> statement-breakpoint
 ALTER TABLE "goods_receipts" ADD COLUMN "reextraction_raw" jsonb;--> statement-breakpoint
 ALTER TABLE "goods_receipts" ADD COLUMN "reextraction_claimed_at" timestamp with time zone;--> statement-breakpoint
@@ -35,7 +35,7 @@ ALTER TABLE "goods_receipts" ADD CONSTRAINT "goods_receipts_reextraction_status_
 -- updated_at, by se tak dal ručně upravit a ochrana by si toho vůbec
 -- nevšimla (count i max(updated_at) by zůstaly stejné). Stejný princip
 -- jako goods_receipt_lines_reset_vat_confirmed níž (a goods_receipt_lines
--- samotný trigger z migrace 0028) — appková konvence bez DB vynucení je
+-- samotný trigger z migrace 0030) — appková konvence bez DB vynucení je
 -- křehká vůči budoucí (nebo přehlédnuté existující) zápisové cestě, co na
 -- ni zapomene; řešení je trigger, co updated_at nastaví VŽDY, bez ohledu
 -- na to, co volající kód nastavil nebo opomněl nastavit. Aplikační

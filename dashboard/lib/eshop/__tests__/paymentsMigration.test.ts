@@ -39,7 +39,6 @@ async function schemaDump(pg: PGlite) {
 
 describe("platby a fakturace — krok A nad daty jako na Preview", DB_TEST, () => {
   let pg: PGlite;
-  let db: Awaited<ReturnType<typeof createMigratedDb>>["db"];
   let before: unknown[];
   const q = async (s: string) => (await pg.query<Record<string, unknown>>(s)).rows;
   const fails = async (s: string) => {
@@ -56,7 +55,7 @@ describe("platby a fakturace — krok A nad daty jako na Preview", DB_TEST, () =
 
   beforeAll(async () => {
     // stav Preview před krokem A: migrace do 0019 (krok A+B je v drizzle 0020)
-    ({ pg, db } = await createMigratedDb("0019_eshop_1_0_orders_guest"));
+    ({ pg } = await createMigratedDb("0019_eshop_1_0_orders_guest"));
     await pg.exec(`
       INSERT INTO organizations (id, ico, name, registered_address) VALUES ('${ORG}', '11935367', 'The Cup s.r.o.', 'Praha');
       INSERT INTO orders (id, buyer_organization_id, subtotal_kc, total_kc, payment_status, channel) VALUES
@@ -76,18 +75,28 @@ describe("platby a fakturace — krok A nad daty jako na Preview", DB_TEST, () =
   });
 
   it("dnešní kód funguje dál (zpětná kompatibilita kroku A)", async () => {
-    // drizzle se současným schema.ts: zápis e-shopové objednávky bez VS a čtení faktur
-    const [row] = await db
+    // Vlastní, NEZÁVISLÁ databáze na celém oficiálním řetězci migrací (ne
+    // sdílené pg/db výš) — tahle kontrola ověřuje "dnešní kód (schema.ts) nad
+    // dnešním schématem", ne krok A izolovaně, a nesmí ovlivnit stav, ze
+    // kterého níž vychází test vrácení (19_rollback.sql).
+    const { pg: today, db: todayDb } = await createMigratedDb();
+    await today.exec(`
+      INSERT INTO organizations (id, ico, name, registered_address) VALUES ('${ORG}', '11935367', 'The Cup s.r.o.', 'Praha');
+      INSERT INTO orders (id, buyer_organization_id, subtotal_kc, total_kc, payment_status, channel) VALUES
+        ('${CUP[0]}', '${ORG}', 758, 758, 'paid', 'import'), ('${CUP[1]}', '${ORG}', 1137, 1137, 'paid', 'import');
+      INSERT INTO invoices (order_id, organization_id, invoice_number, status, total_kc, issued_at, origin) VALUES
+        ('${CUP[0]}', '${ORG}', '20260152', 'paid', 758, '2026-08-30', 'import'), ('${CUP[1]}', '${ORG}', '20260153', 'paid', 1137, '2026-09-03', 'import');`);
+    // drizzle se současným schema.ts: zápis e-shopové objednávky (dnešní schéma VS vyžaduje, krok B) a čtení faktur
+    await todayDb
       .insert(orders)
-      .values({ subtotalKc: 100, totalKc: 100, paymentStatus: "unpaid", channel: "eshop", contactEmail: "kompat@example.cz" })
+      .values({ subtotalKc: 100, totalKc: 100, paymentStatus: "unpaid", channel: "eshop", contactEmail: "kompat@example.cz", paymentVs: "70000001" })
       .returning({ id: orders.id });
-    const joined = await db
+    const joined = await todayDb
       .select({ number: invoices.invoiceNumber })
       .from(orders)
       .leftJoin(invoices, eq(invoices.orderId, orders.id))
       .where(eq(orders.buyerOrganizationId, ORG));
     expect(joined.map((r) => r.number).filter(Boolean).sort()).toEqual(["20260152", "20260153"]);
-    await pg.exec(`DELETE FROM orders WHERE id = '${row.id}'`);
   });
 
   it("VS: řada 7xxxxxxx, unikátní, neměnný", async () => {

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import LeadStageBadge from "../LeadStageBadge";
 import type { QueueItemCardData } from "@/lib/data/dailyCalls";
 
@@ -31,9 +32,22 @@ export default function QueueItemCard({ item, orderNumber, children }: Props) {
         </a>
       )}
 
+      {item.notInterested && (
+        <p className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+          Nezájem — Jardovi se nezobrazuje. Odeberte ho z fronty.
+        </p>
+      )}
+
       {item.lastNote && (
         <p className="text-xs text-neutral-500 line-clamp-2">Poslední poznámka: {item.lastNote}</p>
       )}
+
+      <Link
+        href={`/rizeni-firmy/obchod/leady/${item.leadId}?zpet=dnes`}
+        className="text-sm text-blue-700 underline self-start min-h-8 inline-flex items-center"
+      >
+        Otevřít kontakt a historii ›
+      </Link>
 
       {children}
     </div>

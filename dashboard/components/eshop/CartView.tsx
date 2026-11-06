@@ -1,5 +1,6 @@
 "use client";
 
+import { couponDisplayName } from "@/lib/eshop/coupons";
 import ShopLink from "./ShopLink";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
@@ -10,11 +11,14 @@ import ProductImage from "./ProductImage";
 import QuantityStepper from "./QuantityStepper";
 import { useCart, useHydrated } from "./useCart";
 import PendingOrderNotice from "./PendingOrderNotice";
+import CouponBox from "./CouponBox";
+import { useCoupons } from "./useCoupons";
 
 export default function CartView() {
   const { cart, setQuantity } = useCart();
   const catalog = useCatalog();
   const hydrated = useHydrated();
+  const coupons = useCoupons(cart);
 
   if (!hydrated) {
     return <p className="text-sm text-neutral-500">Načítám košík…</p>;
@@ -95,7 +99,24 @@ export default function CartView() {
           <span className="text-neutral-600">Mezisoučet</span>
           <span className="font-medium tabular-nums">{formatKc(subtotalKc)}</span>
         </div>
-        <p className="text-xs text-neutral-500 mt-1">Doprava se vybírá v dalším kroku.</p>
+        {coupons.preview.discountKc > 0 && (
+          <>
+            <div className="flex justify-between text-sm mt-1.5">
+              <span className="text-neutral-600">
+                Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => couponDisplayName(a)).join(", ")})
+              </span>
+              <span className="font-medium tabular-nums">−{formatKc(coupons.preview.discountKc)}</span>
+            </div>
+            <div className="flex justify-between text-sm mt-1.5 pt-1.5 border-t border-neutral-200 font-semibold">
+              <span>Celkem za zboží</span>
+              <span className="tabular-nums">{formatKc(subtotalKc - coupons.preview.discountKc)}</span>
+            </div>
+          </>
+        )}
+        <p className="text-xs text-neutral-500 mt-1">
+          Doprava se vybírá v dalším kroku{coupons.preview.freeShipping ? " — slevový kód vám dává dopravu zdarma" : ""}.
+        </p>
+        <CouponBox coupons={coupons} partnerHint className="mt-4 pt-4 border-t border-neutral-200" />
         {blocked ? (
           <p className="mt-5 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2">
             Košík obsahuje produkt, který zatím nelze objednat. Odeberte ho prosím.

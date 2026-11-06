@@ -9,7 +9,6 @@ import EshopFooter from "../eshop/EshopFooter";
 import InfoPageView from "../eshop/InfoPageView";
 import { FOOTER_LINKS, INFO_PAGES } from "@/lib/eshop/infoPages";
 import { CURRENT_TERMS, LEGACY_TERMS } from "@/lib/eshop/content/termsVersions";
-import { WITHDRAWAL_FORM_SENTENCE } from "@/lib/eshop/content/obchodniPodminky";
 
 afterEach(() => cleanup());
 
@@ -27,6 +26,7 @@ describe("patička e-shopu", () => {
       ["Doprava", "/eshop/doprava"],
       ["Obchodní podmínky", "/eshop/obchodni-podminky"],
       ["GDPR", "/eshop/ochrana-osobnich-udaju"],
+      ["Odstoupení od smlouvy", "/eshop/odstoupeni-od-smlouvy"],
     ]);
   });
 
@@ -34,6 +34,23 @@ describe("patička e-shopu", () => {
     for (const page of FOOTER_LINKS) {
       expect(existsSync(path.join(ESHOP_APP, page.path, "page.tsx")), page.path).toBe(true);
     }
+  });
+
+  it("dva oddělené bloky: provozovatel (fakturace) a provozovna s mapou (zadání Lucie 6. 11. 2026)", () => {
+    render(<EshopFooter />);
+    const operator = screen.getByRole("region", { name: "Provozovatel a fakturační údaje" });
+    expect(operator.textContent).toContain("Jaroslav Viner");
+    expect(operator.textContent).toContain("Mostecká 273/21, 118 00 Praha 1");
+    expect(operator.textContent).toContain("IČO: 74337297");
+    expect(operator.textContent).toContain("Sídlo a fakturační adresa. Osobní odběr probíhá v provozovně ve Viticích.");
+    const place = screen.getByRole("region", { name: "Provozovna a osobní odběr" });
+    expect(place.textContent).toContain("Zahradní Bistro Begina");
+    expect(place.textContent).toContain("(areál Zahradnictví Jandl)");
+    expect(place.textContent).toContain("Vitice 119, 281 06 Vitice (okr. Kolín)");
+    expect(place.textContent).toContain("Zde najdete naše bistro a výdejní místo objednávek z e-shopu.");
+    const map = screen.getByRole("link", { name: "Zobrazit na mapě" });
+    expect(decodeURIComponent(map.getAttribute("href")!)).toContain("Zahradnictví Jandl, Vitice 119");
+    expect(map.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
   it("kontakt provozovatele zůstává (telefon, e-mail)", () => {
@@ -47,7 +64,7 @@ describe("informační stránky", () => {
   it("Doprava: způsoby doručení a platby z dat pokladny (ceny, splatnost)", () => {
     render(<InfoPageView page={INFO_PAGES.shipping} />);
     expect(screen.getByRole("heading", { level: 1, name: "Doprava a platba" })).toBeTruthy();
-    expect(screen.getByText(/Osobní vyzvednutí — Zahradní Bistro Begina — zdarma\. Areál Zahradnictví Jandl/)).toBeTruthy();
+    expect(screen.getByText(/Osobní odběr – Zahradní Bistro Begina, Vitice 119 — zdarma\. Vyzvednutí je možné po předchozí domluvě\./)).toBeTruthy();
     expect(screen.getByText(/Chlazená přeprava — 99\s+Kč\./)).toBeTruthy();
     expect(screen.getByText(/Splatnost je 5 dní/)).toBeTruthy();
   });
@@ -164,18 +181,16 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(subItems).toEqual([6, 3, 5, 5, 7, 3, 5, 5]);
   });
 
-  it("platné znění = 1. znění + věta o formuláři v čl. VII + příloha s formulářem; nic jiného", () => {
+  it("platné znění (3. vydání) = 1. znění s novým čl. I, VII a VIII + příloha s formulářem; nic jiného", () => {
     const blocks = INFO_PAGES.terms.blocks!;
     expect(blocks).toBe(CURRENT_TERMS.blocks);
     const articles = blocks.slice(0, 13);
     expect(articles.map((b) => [b.heading!.split(".")[0], b.points!.length])).toEqual(
-      POINTS_V1.map(([h, n]) => [h, h === "VII" ? 9 : n])
+      POINTS_V1.map(([h, n]) => [h, h === "I" ? 5 : h === "VII" ? 13 : h === "VIII" ? Number(n) + 1 : n])
     );
-    expect(articles[6].points!.map((p) => p.text)).toEqual([
-      ...LEGACY_TERMS.blocks[6].points!.slice(0, 4).map((p) => p.text),
-      WITHDRAWAL_FORM_SENTENCE,
-      ...LEGACY_TERMS.blocks[6].points!.slice(4).map((p) => p.text),
-    ]);
+    // ostatní články beze změny proti dodanému znění (čl. XIII se liší jen datem účinnosti)
+    for (const i of [1, 2, 3, 4, 5, 8, 9, 10, 11]) expect(articles[i]).toEqual(LEGACY_TERMS.blocks[i]);
+    expect(articles[12].points!.slice(1)).toEqual(LEGACY_TERMS.blocks[12].points!.slice(1));
     expect(blocks[13].heading).toBe("Příloha: Vzorový formulář pro odstoupení od smlouvy");
     expect(blocks).toHaveLength(14);
   });
@@ -187,8 +202,10 @@ describe("obchodní podmínky (text dodaný 3. 10. 2026)", () => {
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(14);
     expect(screen.getByText(/Prodávající není plátcem daně z přidané hodnoty\./)).toBeTruthy();
     expect(screen.getByText(`Tyto obchodní podmínky jsou platné a účinné od ${CURRENT_TERMS.effectiveLabel}.`)).toBeTruthy();
-    expect(screen.getByText(WITHDRAWAL_FORM_SENTENCE)).toBeTruthy();
+    expect(screen.getByText(/Použití formuláře není podmínkou odstoupení od smlouvy\./)).toBeTruthy();
     expect(screen.getByText("Číslo objednávky (nepovinné):")).toBeTruthy();
+    const form = screen.getByRole("link", { name: "Stáhnout formulář pro odstoupení od smlouvy (PDF)" });
+    expect(form.getAttribute("href")).toBe("/eshop/obchodni-podminky/formular-pro-odstoupeni-od-smlouvy.pdf");
     const pdf = screen.getByRole("link", { name: "Stáhnout obchodní podmínky včetně formuláře pro odstoupení (PDF)" });
     // bez EshopBaseProvider = moje.begina.cz (/eshop/…)
     expect(pdf.getAttribute("href")).toBe(`/eshop/obchodni-podminky/${CURRENT_TERMS.id}.pdf`);

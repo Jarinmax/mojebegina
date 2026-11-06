@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { createMigratedDb } from "../../eshop/__tests__/helpers/migratedDb";
 
 const DB_TEST = { timeout: 60_000 };
-const LAST_MIGRATION = "0029_sklad_1_0_znovu_precist";
+const LAST_MIGRATION = "0031_sklad_1_0_znovu_precist";
 
 async function freshDb() {
   const { pg } = await createMigratedDb(LAST_MIGRATION);

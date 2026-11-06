@@ -1,9 +1,9 @@
-// Sklad 1.0 — hlídané migrace 0028 (10 skladových tabulek, pohled zůstatků,
-// triggery, výchozí sklad) a 0029 („Znovu přečíst doklad“ + trigger
+// Sklad 1.0 — hlídané migrace 0030 (10 skladových tabulek, pohled zůstatků,
+// triggery, výchozí sklad) a 0031 („Znovu přečíst doklad“ + trigger
 // updated_at řádků) při buildu na Vercelu. Stejný princip jako
 // migrate-work-tasks.mjs:
-//   • Production: žádná skladová tabulka → 0028 + 0029 v JEDNÉ transakci;
-//     všechny tabulky už jsou → nic (případně jen chybějící 0029);
+//   • Production: žádná skladová tabulka → 0030 + 0031 v JEDNÉ transakci;
+//     všechny tabulky už jsou → nic (případně jen chybějící 0031);
 //     jen část tabulek → STOP (částečné schéma, nic se nezmění, build skončí
 //     a dál běží dosavadní verze).
 //   • Preview: totéž, ale JEN na Neon větvi Preview — pokud by DATABASE_URL
@@ -63,28 +63,28 @@ export async function runSkladMigration() {
     `select table_name from information_schema.tables where table_schema = 'public' and table_name = any($1::text[]) order by table_name`,
     [SKLAD_TABLES],
   );
-  const zaklad = statementsOf(await read("../drizzle/0028_sklad_1_0_zaklad.sql"));
-  const znovuPrecist = statementsOf(await read("../drizzle/0029_sklad_1_0_znovu_precist.sql"));
+  const zaklad = statementsOf(await read("../drizzle/0030_sklad_1_0_zaklad.sql"));
+  const znovuPrecist = statementsOf(await read("../drizzle/0031_sklad_1_0_znovu_precist.sql"));
 
   if (existing.length === 0) {
     await sql.transaction((tx) => [...zaklad, ...znovuPrecist].map((s) => tx.query(s)));
-    console.log(`Sklad migration (${env}): schema 0028 + 0029 applied.`);
+    console.log(`Sklad migration (${env}): schema 0030 + 0031 applied.`);
     return;
   }
   if (existing.length !== SKLAD_TABLES.length) {
     throw new Error(`Sklad migration: partial schema detected (${existing.map((r) => r.table_name).join(", ")}); stopping safely.`);
   }
 
-  // 0029 hotovo = existuje sloupec goods_receipts.reextraction_status.
-  const [{ has0029 }] = await sql.query(
-    `select count(*)::int > 0 as has0029 from information_schema.columns
+  // 0031 hotovo = existuje sloupec goods_receipts.reextraction_status.
+  const [{ has0031 }] = await sql.query(
+    `select count(*)::int > 0 as has0031 from information_schema.columns
       where table_schema = 'public' and table_name = 'goods_receipts' and column_name = 'reextraction_status'`,
   );
-  if (has0029) {
-    console.log(`Sklad migration (${env}): 0028 + 0029 already applied.`);
+  if (has0031) {
+    console.log(`Sklad migration (${env}): 0030 + 0031 already applied.`);
   } else {
     await sql.transaction((tx) => znovuPrecist.map((s) => tx.query(s)));
-    console.log(`Sklad migration (${env}): schema 0029 applied.`);
+    console.log(`Sklad migration (${env}): schema 0031 applied.`);
   }
 }
 

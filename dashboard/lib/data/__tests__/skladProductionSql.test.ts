@@ -1,6 +1,6 @@
 // SKLAD 1.0 — GENERÁLKA produkčního postupu (docs/sklad 10 → 11 → 12, 19)
-// nad PGlite ve stavu dnešní Production (createMigratedDb až po 0027 —
-// e-shop, audit iDokladu, MCP a Práce 2.0; sklad je první další migrace).
+// nad PGlite ve stavu dnešní Production (createMigratedDb až po 0029 —
+// e-shop, audit iDokladu, MCP, Práce 2.0, kupóny a rozvoz; sklad je první další migrace).
 // Spouští PŘESNĚ ty soubory, které se budou vkládat do Neon SQL Editoru.
 // Nic se nepřipojuje k Neonu; skripty se tu jen zkouší, nespouští naostro.
 import { readFileSync } from "node:fs";
@@ -21,7 +21,7 @@ const DB_TEST = { timeout: 180_000 };
 const OTHER_TIMELINE = "00000000000000000000000000000000";
 
 async function productionReplica(timeline: string | null = PRODUCTION_MAIN_TIMELINE_ID): Promise<PGlite> {
-  const { pg } = await createMigratedDb("0027_prace_2_0_photos_approval");
+  const { pg } = await createMigratedDb("0029_objednavky_1_1_rozvoz_carrier_tracking");
   await pg.exec(`
     INSERT INTO organizations (id, ico, name, registered_address) VALUES ('11111111-1111-4111-8111-111111111111', '11935367', 'The Cup s.r.o.', 'Praha');
     INSERT INTO orders (id, buyer_organization_id, subtotal_kc, shipping_kc, total_kc, payment_status, ordered_at)
@@ -51,14 +51,14 @@ async function schemaPrint(pg: PGlite): Promise<string[]> {
 }
 
 describe("docs/sklad — soubory odpovídají generátoru (nikdo je neupravil ručně)", () => {
-  it("11_migration.sql = chráněná verze drizzle 0028 + 0029 jen pro Production main", () => {
+  it("11_migration.sql = chráněná verze drizzle 0030 + 0031 jen pro Production main", () => {
     expect(file("11_migration.sql")).toBe(productionMigrationSql());
     expect(file("11_migration_PREVIEW.sql")).toBe(previewMigrationSql());
   });
 
   it("migrace obsahuje přesně oba drizzle soubory, nic navíc kromě pojistky", () => {
     const sqlText = file("11_migration.sql");
-    for (const tag of ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist"]) {
+    for (const tag of ["0030_sklad_1_0_zaklad", "0031_sklad_1_0_znovu_precist"]) {
       const body = readFileSync(path.join(__dirname, `../../../drizzle/${tag}.sql`), "utf8").replaceAll("--> statement-breakpoint", "").trim();
       expect(sqlText).toContain(body);
     }
@@ -67,7 +67,7 @@ describe("docs/sklad — soubory odpovídají generátoru (nikdo je neupravil ru
   });
 });
 
-describe("generálka na kopii Production (0027): před → migrace → po → vrácení", DB_TEST, () => {
+describe("generálka na kopii Production (0029): před → migrace → po → vrácení", DB_TEST, () => {
   it("10 → 11 → 12 dá přesně stejné schéma jako kód; data e-shopu beze změny; podruhé STOP", async () => {
     const pg = await productionReplica();
     expect(await check(pg, file("10_before.sql"))).toBe("true | 1 | 1 | 0 | 0 | 1 | 0 | 7");
@@ -127,12 +127,12 @@ describe("generálka na kopii Production (0027): před → migrace → po → vr
     expect(await check(pg, file("10_before.sql"))).toBe("true | 1 | 1 | 0 | 0 | 1 | 0 | 7");
   });
 
-  it("migrace při buildu (scripts/migrate-sklad.mjs): 0028 + 0029 v jedné transakci dají stejné schéma jako kód, data beze změny", async () => {
+  it("migrace při buildu (scripts/migrate-sklad.mjs): 0030 + 0031 v jedné transakci dají stejné schéma jako kód, data beze změny", async () => {
     const pg = await productionReplica();
     const orders = (await pg.query(`SELECT * FROM orders ORDER BY id`)).rows;
     const tasks = (await pg.query(`SELECT * FROM work_tasks ORDER BY id`)).rows;
     const drizzleDir = path.join(__dirname, "../../../drizzle");
-    const statements = ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist"].flatMap((tag) =>
+    const statements = ["0030_sklad_1_0_zaklad", "0031_sklad_1_0_znovu_precist"].flatMap((tag) =>
       statementsOf(readFileSync(path.join(drizzleDir, `${tag}.sql`), "utf8"))
     );
     await pg.exec("BEGIN");

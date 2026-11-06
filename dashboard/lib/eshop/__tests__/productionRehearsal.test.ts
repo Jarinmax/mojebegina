@@ -211,7 +211,19 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0]).toEqual({ n: 6, fotky: 0 });
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0027) + pojistka číslování; sklad (0028+) má vlastní generálku", async () => {
+  it("Kupóny — migrace 0028 tak, jak ji pustí build (scripts/migrate-eshop-coupons.mjs): prázdná tabulka, objednávky beze změny", async () => {
+    const before = (await pg.query(`SELECT id, total_kc, discount_kc FROM orders ORDER BY id`)).rows;
+    const statements = readFileSync(path.join(__dirname, "../../../drizzle/0028_eshop_coupons.sql"), "utf8")
+      .split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+    await pg.exec("BEGIN");
+    for (const s of statements) await pg.exec(s);
+    await pg.exec("COMMIT");
+    expect((await pg.query(`SELECT id, total_kc, discount_kc FROM orders ORDER BY id`)).rows).toEqual(before);
+    const { rows } = await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM eshop_coupons`);
+    expect(rows[0].n).toBe(0);
+  });
+
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0028) + pojistka číslování; sklad (0030+) má vlastní generálku", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
@@ -221,7 +233,10 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
           UNION ALL SELECT 'idx', tablename, indexname, '' FROM pg_indexes WHERE schemaname = 'public'
           ORDER BY 1, 2, 3`)
       ).rows;
-    const { pg: reference } = await createMigratedDb("0027_prace_2_0_photos_approval");
+    // Pinováno na 0028 — tahle generálka je o migracích 0000–0028 (viz název
+    // testu); 0029 (objednávky 1.1, carrier/tracking_number) je další,
+    // oddělená migrace s vlastní produkční cestou, ne součást týhle generálky.
+    const { pg: reference } = await createMigratedDb("0028_eshop_coupons");
     const key = (r: unknown) => JSON.stringify(r);
     const a = new Set((await schema(pg)).map(key));
     const b = new Set((await schema(reference)).map(key));

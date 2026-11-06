@@ -12,7 +12,8 @@ import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
 import EshopFooter from "@/components/eshop/EshopFooter";
 import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
-import { availableHomeCategories } from "@/lib/eshop/homeNav";
+import { availableHomeCategories, mainMenu } from "@/lib/eshop/homeNav";
+import MainNav from "@/components/eshop/MainNav";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
@@ -54,52 +55,33 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     console.error("E-shop: katalog z DB se nepodařilo načíst", error);
     return null;
   });
-  // Menu z návrhu úvodní stránky: kategorie z katalogu + O nás, O vodě (jako begina.cz).
-  const menu = [
-    ...availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)).map((c) => ({
-      href: `/kategorie/${c.slug}`,
-      label: c.menuLabel,
-    })),
-    { href: INFO_PAGES.about.path, label: "O nás" },
-    { href: INFO_PAGES.water.path, label: "O vodě" },
-  ];
+  // Menu podle zadání Lucie (6. 11. 2026): kategorie z katalogu, nápoje
+  // v rozbalovací nabídce, za nimi O nás a O vodě.
+  const menu = mainMenu(availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)), [
+    { kind: "link", href: INFO_PAGES.about.path, label: "O nás" },
+    { kind: "link", href: INFO_PAGES.water.path, label: "O vodě" },
+  ]);
   // Cookie lišta a Meta Pixel — jen se zapnutým přepínačem (výchozí vypnuto).
   const marketing = marketingConfig();
   return (
     <EshopBaseProvider base={await eshopBase()}>
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
-    <div className="min-h-screen flex flex-col bg-white text-begina-primary-900">
+    <div data-eshop className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner mode={storeMode()} />
-      <header className="border-b border-neutral-200 bg-white sticky top-0 z-20">
+      <header className="border-b border-neutral-200 bg-white sticky top-0 z-20 print:hidden">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <ShopLink href="/" className="flex items-center gap-2.5" aria-label="Begina.cz — úvod">
+          <ShopLink href="/" className="flex items-center gap-2.5 shrink-0" aria-label="Begina.cz — úvod">
             <Image src={logoMark} alt="" className="h-9 w-auto" priority />
             <span className="flex flex-col leading-tight">
               <span className="font-serif text-lg tracking-wide uppercase">Begina.cz</span>
               <span className="text-[11px] italic text-neutral-500">Když rozhoduje chuť</span>
             </span>
           </ShopLink>
-          <nav aria-label="Hlavní menu" className="hidden md:flex items-center gap-6 lg:gap-8 text-[15px]">
-            {menu.map((item) => (
-              <ShopLink key={item.href} href={item.href} className="hover:underline underline-offset-4">
-                {item.label}
-              </ShopLink>
-            ))}
-          </nav>
+          <MainNav entries={menu} variant="desktop" />
           <CartLink />
         </div>
-        {/* Mobil: stejné menu jako posuvný řádek pod logem. */}
-        <nav aria-label="Hlavní menu (mobil)" className="md:hidden border-t border-neutral-100">
-          <ul className="flex gap-5 overflow-x-auto px-4 py-2 text-sm whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {menu.map((item) => (
-              <li key={item.href}>
-                <ShopLink href={item.href} className="inline-block py-1.5">
-                  {item.label}
-                </ShopLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        {/* Tablet a mobil: stejné menu jako posuvný řádek pod logem. */}
+        <MainNav entries={menu} variant="mobile" />
       </header>
 
       <main className="flex-1">{catalog ? children : <CatalogUnavailable />}</main>

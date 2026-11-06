@@ -121,9 +121,10 @@ function formatCzechDate(date: Date): string {
   return `${date.getUTCDate()}. ${date.getUTCMonth() + 1}. ${date.getUTCFullYear()}`;
 }
 
-function formatMonthKey(date: Date): string {
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${month}`;
+/** Kalendářní měsíc „RRRR-MM“ v Praze (objednávka 31. 10. ve 23:30 patří do října). */
+export function formatMonthKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit" }).formatToParts(date);
+  return `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}`;
 }
 
 export async function getCustomerOrders(
@@ -139,6 +140,8 @@ export async function getCustomerOrders(
       id: orders.id,
       orderedAt: orders.orderedAt,
       totalKc: orders.totalKc,
+      subtotalKc: orders.subtotalKc,
+      discountKc: orders.discountKc,
       invoiceNumber: invoices.invoiceNumber,
     })
     .from(orders)
@@ -165,6 +168,8 @@ export async function getCustomerOrders(
       items,
       products: items.map((item) => `${item.quantity}× ${item.name}`).join(", "),
       totalKc: row.totalKc,
+      // zboží bez dopravy, po slevě (partnerský program)
+      goodsKc: row.subtotalKc - row.discountKc,
       status: "Uhrazeno",
     });
   }
@@ -195,12 +200,13 @@ export async function getCustomerOrders(
 
 // --- Partnerský program: měsíční obrat ------------------------------
 
-// Stejné pravidlo jako dřív v mock/customer.ts: počítá se jen uhrazená
-// hodnota zboží za AKTUÁLNÍ kalendářní měsíc (podle hodin serveru), ne
-// napevno zapsaný měsíc.
-export function getCurrentMonthlyPurchase(customerOrders: Order[]): number {
-  const monthKey = formatMonthKey(new Date());
+// Podmínky programu (mock/partnerProgram.ts): jen UHRAZENÉ objednávky,
+// jen hodnota ZBOŽÍ bez dopravy a dalších poplatků, kalendářní měsíc
+// v Praze. Stejné pravidlo počítá slevu partnerského kódu v e-shopu
+// (lib/eshop/couponsServer.ts) z minulého měsíce.
+export function getCurrentMonthlyPurchase(customerOrders: Order[], now: Date = new Date()): number {
+  const monthKey = formatMonthKey(now);
   return customerOrders
-    .filter((order) => order.monthKey === monthKey)
-    .reduce((sum, order) => sum + order.totalKc, 0);
+    .filter((order) => order.monthKey === monthKey && (order.status === "Uhrazeno" || order.status === "Přeplaceno"))
+    .reduce((sum, order) => sum + (order.goodsKc ?? order.totalKc), 0);
 }

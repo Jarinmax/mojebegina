@@ -91,6 +91,22 @@ function invoiceItems(value: unknown): OrderItem[] {
   return result;
 }
 
+/**
+ * Řádek faktury, který není zboží: doprava, přeprava, poštovné, balné,
+ * dobírka (partnerský program počítá jen hodnotu zboží bez dopravy a
+ * poplatků). Faktury z e-shopu mají dopravu pod názvem způsobu doručení
+ * (lib/eshop/invoicing/draft.ts).
+ */
+export function isShippingOrFeeItem(name: string): boolean {
+  return /doprav|přeprav|poštovn|balné|balne|dobírk|dobirk|osobní (odběr|vyzvednutí)/i.test(name);
+}
+
+/** Hodnota zboží na faktuře = celkem − řádky dopravy a poplatků. */
+export function invoiceGoodsKc(totalKc: number, items: OrderItem[]): number {
+  const fees = items.filter((item) => isShippingOrFeeItem(item.name)).reduce((sum, item) => sum + item.priceKc * item.quantity, 0);
+  return Math.max(0, Math.round(totalKc - fees));
+}
+
 function toOrder(invoice: IdokladInvoice): (Order & { sortTimestamp: number }) | null {
   const id = positiveInteger(invoice.Id);
   const documentNumber =
@@ -111,6 +127,7 @@ function toOrder(invoice: IdokladInvoice): (Order & { sortTimestamp: number }) |
     items,
     products: items.length > 0 ? items.map((item) => `${item.quantity}× ${item.name}`).join(", ") : "Nákup dle faktury",
     totalKc,
+    goodsKc: invoiceGoodsKc(totalKc, items),
     status,
     paymentHref: status === "Neuhrazeno" || status === "Částečně uhrazeno" ? `/faktury/${id}/zaplatit` : undefined,
     sortTimestamp: parts.timestamp,
@@ -212,6 +229,7 @@ export async function loadIdokladPurchaseHistory(
       items: order.items,
       products: order.products,
       totalKc: order.totalKc,
+      goodsKc: order.goodsKc,
       status: order.status,
       paymentHref: order.paymentHref,
     }));
@@ -222,7 +240,7 @@ export async function loadIdokladPurchaseHistory(
 // okamžitě. Klíčem je IČO předané až po serverové autorizaci organizace.
 export const getIdokladPurchaseHistory = unstable_cache(
   loadIdokladPurchaseHistory,
-  ["idoklad-purchase-history-v1"],
+  ["idoklad-purchase-history-v2"],
   { revalidate: 300, tags: ["idoklad-purchase-history"] }
 );
 

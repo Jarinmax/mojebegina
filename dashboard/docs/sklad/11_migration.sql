@@ -1,5 +1,5 @@
--- PRODUCTION main — Sklad 1.0, migrace 0028 + 0029 S POJISTKOU (VYGENEROVÁNO scripts/sklad-production/build-sql.mjs).
--- Obsah = přesně drizzle/0028_sklad_1_0_zaklad.sql a drizzle/0029_sklad_1_0_znovu_precist.sql.
+-- PRODUCTION main — Sklad 1.0, migrace 0030 + 0031 S POJISTKOU (VYGENEROVÁNO scripts/sklad-production/build-sql.mjs).
+-- Obsah = přesně drizzle/0030_sklad_1_0_zaklad.sql a drizzle/0031_sklad_1_0_znovu_precist.sql.
 -- Jako PRVNÍ krok transakce kontrola: větev main (neon.timeline_id 70a96b3677653646e65343cae8e27182), e-shop do 0022
 -- a žádná skladová tabulka. Na jiné větvi nebo podruhé se transakce zastaví a NIC se nezmění.
 -- Jen přidává (10 tabulek, pohled, 4 triggery, výchozí sklad) — stávající data se nemění.
@@ -26,11 +26,11 @@ BEGIN
                                   'goods_receipt_activity', 'stock_movements', 'stock_item_balances')) THEN
     RAISE EXCEPTION 'STOP: skladové tabulky už existují (migrace už běžela?). Nic se nezměnilo.';
   END IF;
-  RAISE NOTICE 'OK: Production main, stav před skladem — pokračuji migracemi 0028–0029.';
+  RAISE NOTICE 'OK: Production main, stav před skladem — pokračuji migracemi 0030–0031.';
 END
 $guard$;
 
--- ===== 0028_sklad_1_0_zaklad.sql =====
+-- ===== 0030_sklad_1_0_zaklad.sql =====
 CREATE TABLE "goods_receipt_activity" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"receipt_id" uuid NOT NULL,
@@ -386,7 +386,7 @@ CREATE TRIGGER goods_receipt_lines_reset_vat_confirmed
   BEFORE UPDATE ON goods_receipt_lines
   FOR EACH ROW EXECUTE FUNCTION goods_receipt_lines_reset_vat_confirmed();
 
--- ===== 0029_sklad_1_0_znovu_precist.sql =====
+-- ===== 0031_sklad_1_0_znovu_precist.sql =====
 -- "Znovu přečíst doklad" — opakované AI vytěžení draft příjemky, co už
 -- může mít goods_receipt_lines (z ruční práce i z dřívějšího úspěšného
 -- vytěžení). Zcela ODDĚLENO od extraction_status/extraction_raw výš v
@@ -399,7 +399,7 @@ CREATE TRIGGER goods_receipt_lines_reset_vat_confirmed
 -- (stejný vzor jako extraction_status/updated_at u původního vytěžení).
 --
 -- NASAZENÍ: spouští ji jen build na Vercelu (scripts/migrate-sklad.mjs),
--- hlídaně a v jedné transakci s 0028, teprve po schváleném sloučení do main.
+-- hlídaně a v jedné transakci s 0030, teprve po schváleném sloučení do main.
 ALTER TABLE "goods_receipts" ADD COLUMN "reextraction_status" text DEFAULT 'none' NOT NULL;
 ALTER TABLE "goods_receipts" ADD COLUMN "reextraction_raw" jsonb;
 ALTER TABLE "goods_receipts" ADD COLUMN "reextraction_claimed_at" timestamp with time zone;
@@ -424,7 +424,7 @@ ALTER TABLE "goods_receipts" ADD CONSTRAINT "goods_receipts_reextraction_status_
 -- updated_at, by se tak dal ručně upravit a ochrana by si toho vůbec
 -- nevšimla (count i max(updated_at) by zůstaly stejné). Stejný princip
 -- jako goods_receipt_lines_reset_vat_confirmed níž (a goods_receipt_lines
--- samotný trigger z migrace 0028) — appková konvence bez DB vynucení je
+-- samotný trigger z migrace 0030) — appková konvence bez DB vynucení je
 -- křehká vůči budoucí (nebo přehlédnuté existující) zápisové cestě, co na
 -- ni zapomene; řešení je trigger, co updated_at nastaví VŽDY, bez ohledu
 -- na to, co volající kód nastavil nebo opomněl nastavit. Aplikační

@@ -14,6 +14,7 @@ const OPTIONS: FulfillmentStatus[] = [
   "preparing",
   "ready",
   "out_for_delivery",
+  "handed_to_carrier",
   "delivered",
   "cancelled",
 ];

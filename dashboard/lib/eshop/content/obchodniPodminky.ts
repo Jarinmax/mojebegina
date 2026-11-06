@@ -7,17 +7,34 @@
 // Změna textu = nové znění v termsVersions.ts (nová verze s vlastním datem
 // účinnosti), nikdy úprava starého.
 import type { InfoBlock } from "../infoPages";
-import { withdrawalFormBlock } from "./withdrawalForm";
+import { DELIVERY_ADDRESS } from "../operator";
+import { withdrawalFormBlock, withdrawalFormBlockV3, WITHDRAWAL_PAGE_URL_TEXT } from "./withdrawalForm";
+
+/**
+ * Vydání textu: 1 = dodané znění (3. 10. 2026), 2 = + vzorový formulář
+ * (26. 10. 2026), 3 = sídlo odlišené od doručovací adresy ve Viticích,
+ * přepracovaný čl. VII (výjimky podle § 1837 OZ, odlišení od reklamace)
+ * a formulář k tisku (zadání Lucie, 6. 11. 2026). Starší vydání se
+ * generují beze změny (otisky v termsVersions.test.ts).
+ */
+export type TermsEdition = 1 | 2 | 3;
 
 /** Věta doplněná do čl. VII od znění s přílohou (schváleno vedením 26. 10. 2026). */
 export const WITHDRAWAL_FORM_SENTENCE =
   "K odstoupení může spotřebitel využít vzorový formulář, který je přílohou těchto obchodních podmínek. Jeho použití není povinné.";
 
 /**
- * Text obchodních podmínek pro dané znění: datum účinnosti (čl. XIII)
- * a od 2. znění věta o vzorovém formuláři v čl. VII a formulář v příloze.
+ * Text obchodních podmínek pro dané znění: datum účinnosti (čl. XIII),
+ * od 2. vydání věta o vzorovém formuláři v čl. VII a formulář v příloze,
+ * od 3. vydání doručovací adresa a nový čl. VII (viz TermsEdition).
  */
-export function termsBlocks(effectiveLabel: string, withWithdrawalForm: boolean): InfoBlock[] {
+export function termsBlocks(effectiveLabel: string, edition: TermsEdition): InfoBlock[] {
+  if (edition >= 3) return termsBlocksV3(effectiveLabel);
+  return baseBlocks(effectiveLabel, edition >= 2);
+}
+
+/** Text 1. a 2. vydání — NEMĚNIT (už platná znění). */
+function baseBlocks(effectiveLabel: string, withWithdrawalForm: boolean): InfoBlock[] {
   return [
   {
     heading: "I. Úvodní ustanovení",
@@ -358,4 +375,127 @@ export function termsBlocks(effectiveLabel: string, withWithdrawalForm: boolean)
   },
   ...(withWithdrawalForm ? [withdrawalFormBlock()] : []),
   ];
+}
+
+// ---------------------------------------------------------------------------
+// 3. vydání (zadání Lucie, 6. 11. 2026)
+// ---------------------------------------------------------------------------
+
+/** Odstavec o doručovací adrese v čl. I (3. vydání). */
+export const DELIVERY_ADDRESS_HEADING =
+  "Adresa pro doručování odstoupení od smlouvy, reklamací a vraceného zboží (provozovna):";
+
+const deliveryLines = [DELIVERY_ADDRESS.recipient, DELIVERY_ADDRESS.area, DELIVERY_ADDRESS.address, `e-mail: ${DELIVERY_ADDRESS.email}`];
+
+const articleI: InfoBlock = {
+  heading: "I. Úvodní ustanovení",
+  points: [
+    {
+      text: "Tyto obchodní podmínky upravují vzájemná práva a povinnosti mezi prodávajícím:",
+      lines: [
+        "Jaroslav Viner",
+        "IČO: 74337297",
+        "sídlo a fakturační adresa: Mostecká 273/21, 118 00 Praha 1",
+        "e-mail: info@begina.cz",
+        "telefon: +420 774 199 975",
+        "dále jen „prodávající“,",
+      ],
+      after: "a kupujícím při prodeji zboží prostřednictvím internetového obchodu na adrese www.begina.cz.",
+    },
+    {
+      text: DELIVERY_ADDRESS_HEADING,
+      lines: deliveryLines,
+      after:
+        "Na tuto adresu prosíme zasílejte listinná oznámení o odstoupení od smlouvy a reklamace a také vracené nebo reklamované zboží. Adresa sídla slouží k identifikaci prodávajícího a k fakturaci; zboží na ni nezasílejte. Písemnost doručená na adresu sídla je však rovněž účinná.",
+    },
+    { text: "Tyto obchodní podmínky jsou nedílnou součástí kupní smlouvy." },
+    {
+      text: "Kupujícím může být spotřebitel nebo podnikatel. Spotřebitelem je fyzická osoba, která mimo rámec své podnikatelské činnosti nebo výkonu povolání uzavírá smlouvu s prodávajícím. Podnikatelem je osoba, která nakupuje zboží v souvislosti se svou podnikatelskou činností.",
+    },
+    {
+      text: "Právní vztahy mezi prodávajícím a kupujícím se řídí právním řádem České republiky, zejména občanským zákoníkem a zákonem o ochraně spotřebitele.",
+    },
+  ],
+};
+
+const articleVII: InfoBlock = {
+  heading: "VII. Odstoupení spotřebitele od kupní smlouvy",
+  points: [
+    {
+      text: "Spotřebitel má právo odstoupit od kupní smlouvy uzavřené prostřednictvím internetového obchodu bez udání důvodu ve lhůtě 14 dnů. Lhůta běží ode dne, kdy zboží převezme spotřebitel nebo jím určená třetí osoba (jiná než dopravce). Je-li objednáno více kusů nebo částí dodávaných zvlášť, běží lhůta od převzetí poslední dodávky.",
+    },
+    { text: "Lhůta pro odstoupení je zachována, pokud spotřebitel oznámení o odstoupení odešle prodávajícímu před jejím uplynutím." },
+    {
+      text: "Odstoupení od smlouvy bez udání důvodu není reklamace. Odstoupením spotřebitel vrací zboží, které vadu nemá. Vadné, poškozené nebo nesprávně dodané zboží spotřebitel reklamuje podle čl. VIII, a to i tehdy, když se na ně právo na odstoupení od smlouvy nevztahuje.",
+    },
+    {
+      text: "Podle § 1837 občanského zákoníku nemůže spotřebitel odstoupit zejména od kupní smlouvy:",
+      items: [
+        "o dodávce zboží, které podléhá rychlé zkáze, nebo zboží s krátkou dobou spotřeby (§ 1837 písm. e) občanského zákoníku); u sortimentu Begina jde zejména o čerstvé polévky a další výrobky, které je nutné od výroby až do spotřeby uchovávat v chladu do 4 °C — u každého výrobku je to uvedeno v údajích o skladování,",
+        "o dodávce zboží v uzavřeném obalu, které spotřebitel z obalu vyňal nebo jehož obal otevřel a z hygienických nebo zdravotních důvodů jej není možné vrátit (§ 1837 písm. g) občanského zákoníku), například otevřené balení bag-in-box nebo otevřená lahev,",
+        "o dodávce zboží vyrobeného podle požadavků spotřebitele nebo přizpůsobeného jeho osobním potřebám (§ 1837 písm. d) občanského zákoníku),",
+        "o dodávce zboží, které bylo po dodání nenávratně smíseno s jiným zbožím, a v dalších případech uvedených v § 1837 občanského zákoníku.",
+      ],
+    },
+    {
+      text: "Na ostatní zboží se právo na odstoupení vztahuje. Jde zejména o výrobky v neporušeném původním obalu, které chlazené skladování nevyžadují, například bylinné sirupy. Výjimka se posuzuje u každého výrobku zvlášť; prodávající nevylučuje vrácení všech potravin plošně.",
+    },
+    {
+      text: "Odstoupení může spotřebitel oznámit jakýmkoli jednoznačným prohlášením, zejména:",
+      items: [
+        "e-mailem na adresu info@begina.cz,",
+        `dopisem na doručovací adresu: ${DELIVERY_ADDRESS.oneLine},`,
+        "osobně v provozovně na téže adrese.",
+      ],
+    },
+    {
+      text: `K odstoupení může spotřebitel využít vzorový formulář, který je přílohou těchto obchodních podmínek a je ke stažení a k vytištění na ${WITHDRAWAL_PAGE_URL_TEXT}. Použití formuláře není podmínkou odstoupení od smlouvy.`,
+    },
+    { text: "Prodávající spotřebiteli přijetí oznámení o odstoupení bez zbytečného odkladu potvrdí e-mailem." },
+    {
+      text: "Spotřebitel zboží zašle nebo předá na doručovací adresu prodávajícího ve Viticích bez zbytečného odkladu, nejpozději do 14 dnů od odstoupení od smlouvy. Lhůta je zachována, pokud spotřebitel zboží v této lhůtě odešle. Zboží nezasílejte na dobírku ani na adresu sídla.",
+    },
+    {
+      text: "Přímé náklady na vrácení zboží nese spotřebitel. Výrobky, které je třeba skladovat v chladu, doporučujeme vracet tak, aby zůstal zachován chladový řetězec.",
+    },
+    {
+      text: "Prodávající vrátí spotřebiteli všechny přijaté peněžní prostředky včetně nákladů na dodání bez zbytečného odkladu, nejpozději do 14 dnů od odstoupení od smlouvy, a to stejným způsobem, jakým je přijal, nedohodne-li se se spotřebitelem jinak. Zvolil-li spotřebitel jiný než nejlevnější nabízený způsob dodání, vrátí mu prodávající náklady na dodání ve výši odpovídající nejlevnějšímu nabízenému způsobu dodání. Prodávající není povinen vrátit peníze dříve, než vrácené zboží obdrží nebo než spotřebitel prokáže, že zboží odeslal.",
+    },
+    {
+      text: "Spotřebitel odpovídá za snížení hodnoty vráceného zboží, které vzniklo v důsledku nakládání se zbožím jiným způsobem, než bylo nutné k seznámení se s jeho povahou a vlastnostmi.",
+    },
+    { text: "Právo na odstoupení podle tohoto článku nemá kupující podnikatel." },
+  ],
+};
+
+/** Čl. VIII 3. vydání: doručovací adresa u reklamace a odlišení od odstoupení. */
+function articleVIII(base: InfoBlock): InfoBlock {
+  const points = (base.points ?? []).flatMap((point) => {
+    if (point.text === "Reklamaci lze uplatnit:") {
+      return [
+        {
+          ...point,
+          items: [
+            "e-mailem: info@begina.cz",
+            "telefonicky: +420 774 199 975",
+            `písemně nebo osobně na doručovací adrese: ${DELIVERY_ADDRESS.oneLine}.`,
+          ],
+        },
+        {
+          text: "Reklamované zboží, pokud je prodávající potřebuje posoudit, kupující zašle nebo předá na doručovací adresu ve Viticích. Reklamaci vadného zboží lze uplatnit i u zboží, na které se nevztahuje právo na odstoupení od smlouvy (čl. VII).",
+        },
+      ];
+    }
+    return [point];
+  });
+  return { ...base, points };
+}
+
+function termsBlocksV3(effectiveLabel: string): InfoBlock[] {
+  return baseBlocks(effectiveLabel, false).map((block) => {
+    if (block.heading?.startsWith("I. ")) return articleI;
+    if (block.heading?.startsWith("VII. ")) return articleVII;
+    if (block.heading?.startsWith("VIII. ")) return articleVIII(block);
+    return block;
+  }).concat(withdrawalFormBlockV3());
 }

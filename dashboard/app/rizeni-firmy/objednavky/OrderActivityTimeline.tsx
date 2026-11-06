@@ -18,7 +18,12 @@ function describeEntry(entry: OrderActivityEntry): string {
       return "upravil(a) poznámku";
     case "fulfillment_status_changed": {
       const to = String(meta.to ?? "") as FulfillmentStatus;
-      return `nastavil(a) stav objednávky na „${FULFILLMENT_LABELS[to] ?? to}“`;
+      // MCP (plánování rozvozů) může u přechodu poslat i přepravce/tracking.
+      const extra = [
+        typeof meta.carrier === "string" && meta.carrier ? String(meta.carrier) : null,
+        typeof meta.trackingNumber === "string" && meta.trackingNumber ? `tracking ${String(meta.trackingNumber)}` : null,
+      ].filter((v): v is string => v !== null);
+      return `nastavil(a) stav objednávky na „${FULFILLMENT_LABELS[to] ?? to}“${extra.length > 0 ? ` (${extra.join(", ")})` : ""}`;
     }
     case "payment_status_changed": {
       const to = String(meta.to ?? "") as PaymentStatus;
@@ -96,7 +101,13 @@ function describeEntry(entry: OrderActivityEntry): string {
 }
 
 // Záznamy, u kterých se ukáže i text (poznámka / jak zákazník souhlasil).
-const CONSENT_NOTE_KINDS = new Set(["note_added", "refund_requested", "payment_transferred_out", "payment_transferred_in"]);
+const CONSENT_NOTE_KINDS = new Set([
+  "note_added",
+  "refund_requested",
+  "payment_transferred_out",
+  "payment_transferred_in",
+  "fulfillment_status_changed",
+]);
 
 function money(hal: unknown): string {
   const value = Number(hal ?? 0);

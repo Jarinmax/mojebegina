@@ -20,6 +20,7 @@ function baseItem(overrides: Partial<QueueItemCardData> = {}): QueueItemCardData
     contactPhone: "+420 777 123 456",
     stage: "new",
     lastNote: null,
+    notInterested: false,
     ...overrides,
   };
 }
@@ -39,14 +40,31 @@ describe("QueueItemCard — Security Phase 19", () => {
     expect(link?.getAttribute("href")).toBe("tel:+420777123456");
   });
 
-  it("bez telefonu se odkaz nezobrazí", () => {
+  it("bez telefonu se odkaz pro volání nezobrazí", () => {
     const { container } = render(<QueueItemCard item={baseItem({ contactPhone: null })} orderNumber={1} />);
-    expect(container.querySelector("a")).toBeNull();
+    expect(container.querySelector('a[href^="tel:"]')).toBeNull();
+  });
+
+  it("kontakt jde kdykoli otevřít i s historií (zpět na Dnešní volání)", () => {
+    const { container } = render(<QueueItemCard item={baseItem({ contactPhone: null })} orderNumber={1} />);
+    const link = screen.getByRole("link", { name: /Otevřít kontakt a historii/ });
+    expect(link.getAttribute("href")).toBe(`/rizeni-firmy/obchod/leady/${baseItem({}).leadId}?zpet=dnes`);
+    expect(container.querySelectorAll("a")).toHaveLength(1);
   });
 
   it("poslední poznámka se zobrazí, pokud existuje", () => {
     render(<QueueItemCard item={baseItem({ lastNote: "Slíbil zavolat zpět." })} orderNumber={1} />);
     expect(screen.getByText(/Slíbil zavolat zpět\./)).toBeTruthy();
+  });
+
+  it("nezájem je pro kurátora výrazně označený, jinak nic", () => {
+    render(<QueueItemCard item={baseItem({ notInterested: true })} orderNumber={1} />);
+    expect(screen.getByText(/Nezájem — Jardovi se nezobrazuje/)).toBeTruthy();
+  });
+
+  it("bez nezájmu se označení nezobrazí", () => {
+    render(<QueueItemCard item={baseItem()} orderNumber={1} />);
+    expect(screen.queryByText(/Nezájem/)).toBeNull();
   });
 
   it("bez poznámky se řádek nezobrazí", () => {

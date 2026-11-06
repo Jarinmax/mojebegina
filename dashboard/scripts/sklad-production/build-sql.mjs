@@ -1,6 +1,6 @@
 // SKLAD 1.0 — sestaví SQL pro Production (a Preview) z HOTOVÝCH migrací
 // v repozitáři, aby se nic nepřepisovalo ručně:
-//   docs/sklad/11_migration.sql         = drizzle 0028 + 0029 S POJISTKOU (jen Production main)
+//   docs/sklad/11_migration.sql         = drizzle 0030 + 0031 S POJISTKOU (jen Production main)
 //   docs/sklad/11_migration_PREVIEW.sql = totéž, ale pojistka naopak ODMÍTNE Production
 // Kontroly 10_before.sql / 12_after.sql a vrácení 19_rollback.sql jsou psané
 // ručně (nic negenerují). Spuštění: node scripts/sklad-production/build-sql.mjs
@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
 
-export const SKLAD_TAGS = ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist"];
+export const SKLAD_TAGS = ["0030_sklad_1_0_zaklad", "0031_sklad_1_0_znovu_precist"];
 
 // Production větev `main` v Neonu (stejná hodnota jako scripts/eshop-production/build-sql.mjs).
 export const PRODUCTION_MAIN_TIMELINE_ID = "70a96b3677653646e65343cae8e27182";
@@ -55,15 +55,15 @@ export function productionMigrationSql(timelineId = PRODUCTION_MAIN_TIMELINE_ID)
     RAISE EXCEPTION 'STOP: tohle NENÍ Production větev main (neon.timeline_id = %). Nic se nezměnilo.', coalesce(timeline, 'neznámý');
   END IF;`;
   return (
-    `-- PRODUCTION main — Sklad 1.0, migrace 0028 + 0029 S POJISTKOU (VYGENEROVÁNO scripts/sklad-production/build-sql.mjs).\n` +
-    `-- Obsah = přesně drizzle/0028_sklad_1_0_zaklad.sql a drizzle/0029_sklad_1_0_znovu_precist.sql.\n` +
+    `-- PRODUCTION main — Sklad 1.0, migrace 0030 + 0031 S POJISTKOU (VYGENEROVÁNO scripts/sklad-production/build-sql.mjs).\n` +
+    `-- Obsah = přesně drizzle/0030_sklad_1_0_zaklad.sql a drizzle/0031_sklad_1_0_znovu_precist.sql.\n` +
     `-- Jako PRVNÍ krok transakce kontrola: větev main (neon.timeline_id ${timelineId}), e-shop do 0022\n` +
     `-- a žádná skladová tabulka. Na jiné větvi nebo podruhé se transakce zastaví a NIC se nezmění.\n` +
     `-- Jen přidává (10 tabulek, pohled, 4 triggery, výchozí sklad) — stávající data se nemění.\n` +
     `-- Před: 10_before.sql · po: 12_after.sql · vrácení: 19_rollback.sql.\n` +
     `-- Spouštět CELÉ najednou v Neon SQL Editoru (jedna transakce), JEN po výslovném schválení.\n\n` +
     `BEGIN;\n\n-- ===== POJISTKA: jen Production main, jen jednou =====\n` +
-    `${guard(branchCheck, "OK: Production main, stav před skladem — pokračuji migracemi 0028–0029.")}\n\n` +
+    `${guard(branchCheck, "OK: Production main, stav před skladem — pokračuji migracemi 0030–0031.")}\n\n` +
     `${migrationBody()}\nCOMMIT;\n`
   );
 }
@@ -73,11 +73,11 @@ export function previewMigrationSql(productionTimelineId = PRODUCTION_MAIN_TIMEL
     RAISE EXCEPTION 'STOP: tohle je Production větev main — pro Production slouží 11_migration.sql. Nic se nezměnilo.';
   END IF;`;
   return (
-    `-- PREVIEW — Sklad 1.0, migrace 0028 + 0029 (VYGENEROVÁNO scripts/sklad-production/build-sql.mjs).\n` +
+    `-- PREVIEW — Sklad 1.0, migrace 0030 + 0031 (VYGENEROVÁNO scripts/sklad-production/build-sql.mjs).\n` +
     `-- Stejný obsah jako 11_migration.sql, ale pojistka naopak ODMÍTNE Production větev main.\n` +
     `-- Spouštět CELÉ najednou v Neon SQL Editoru na Preview větvi (jedna transakce).\n\n` +
     `BEGIN;\n\n-- ===== POJISTKA: nikdy Production, jen jednou =====\n` +
-    `${guard(branchCheck, "OK: ne-produkční větev, stav před skladem — pokračuji migracemi 0028–0029.")}\n\n` +
+    `${guard(branchCheck, "OK: ne-produkční větev, stav před skladem — pokračuji migracemi 0030–0031.")}\n\n` +
     `${migrationBody()}\nCOMMIT;\n`
   );
 }

@@ -1,6 +1,6 @@
 // Řetězec migrací Drizzle (drizzle/ + drizzle/meta): po sloučení main
 // (0011 = CEO přehled, 0012 = Denní volání) jsou e-shopové migrace
-// 0013–0022, za nimi audit iDokladu, MCP a Práce (0023–0027) a Sklad 1.0 (0028–0029). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
+// 0013–0022, za nimi audit iDokladu, MCP Práce (0023–0027), kupóny (0028), rozvoz (0029) a Sklad 1.0 (0030–0031). Hlídá, že journal, názvy souborů a snapshoty (id → prevId)
 // tvoří souvislý řetězec bez mezer a že každý snapshot popisuje úplné
 // schéma — jinak by drizzle-kit generate vyrobil špatnou další migraci.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -40,15 +40,17 @@ const ESHOP = [
   "0021_eshop_1_0_variant_weight",
   "0022_eshop_1_0_company_invoicing",
 ];
-/** Za e-shopem: audit čtení iDokladu a produkční MCP/OAuth, Práce 1.0–2.0. */
+/** Za e-shopem: audit čtení iDokladu a produkční MCP/OAuth, Práce 1.0–2.0, kupóny a rozvoz. */
 const AFTER_ESHOP = [
   "0023_idoklad_read_log",
   "0024_gpt_mcp_production",
   "0025_prace_1_0_work_tasks",
   "0026_prace_1_1_task_management",
   "0027_prace_2_0_photos_approval",
+  "0028_eshop_coupons",
+  "0029_objednavky_1_1_rozvoz_carrier_tracking",
 ];
-const SKLAD = ["0028_sklad_1_0_zaklad", "0029_sklad_1_0_znovu_precist"];
+const SKLAD = ["0030_sklad_1_0_zaklad", "0031_sklad_1_0_znovu_precist"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 const SKLAD_TABLES = [
@@ -79,14 +81,14 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, sklad 0028–0029", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029 a sklad 0030–0031", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
     expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP, ...SKLAD]);
   });
 
-  it("sklad: 0028 přidá právě 10 skladových tabulek, 0029 žádnou; nic jiného se nezmění", () => {
+  it("sklad: 0030 přidá právě 10 skladových tabulek, 0031 žádnou; nic jiného se nezmění", () => {
     const before = snapshot(FIRST_SKLAD_IDX - 1).tables;
     const after = snapshot(FIRST_SKLAD_IDX).tables;
     const added = Object.keys(after).filter((t) => !(t in before)).sort();

@@ -1,5 +1,6 @@
 "use client";
 
+import { couponDisplayName } from "@/lib/eshop/coupons";
 import { useActionState, useEffect, useRef, useState } from "react";
 import ShopLink from "@/components/eshop/ShopLink";
 import { useEshopHref } from "@/components/eshop/EshopBase";
@@ -9,6 +10,8 @@ import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
+  PICKUP_METHOD_ID,
+  PICKUP_NOTICE,
   paymentMethodsFor,
   defaultPaymentMethodId,
   quoteLabel,
@@ -20,6 +23,8 @@ import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
+import CouponBox from "@/components/eshop/CouponBox";
+import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
 import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
 import { rememberPendingOrder } from "@/components/eshop/usePendingOrder";
 
@@ -78,6 +83,19 @@ export default function CheckoutForm({
     ...emptyValues,
     paymentMethodId: defaultPaymentMethodId(cardPaymentAvailable),
   }));
+  // Slevové kódy z košíku (localStorage) — e-mail se k ověření omezení
+  // předá až chvíli po dopsání, ne po každém písmenu.
+  const [couponEmail, setCouponEmail] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const email = values.email.trim();
+    const timer = setTimeout(() => setCouponEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : undefined), 600);
+    return () => clearTimeout(timer);
+  }, [values.email]);
+  const coupons = useCoupons(cart, couponEmail);
+  // e-mail si prohlížeč zapamatuje, aby příště nabídl partnerskou slevu už v košíku
+  useEffect(() => {
+    if (couponEmail) rememberCheckoutEmail(couponEmail);
+  }, [couponEmail]);
   // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
   // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
   const [orderToken] = useState(() =>
@@ -109,6 +127,7 @@ export default function CheckoutForm({
   useEffect(() => {
     if (confirmation) {
       clear();
+      clearStoredCoupons();
     }
   }, [confirmation, clear]);
 
@@ -120,6 +139,7 @@ export default function CheckoutForm({
     if (redirect) {
       rememberPendingOrder(redirect.orderId, redirect.orderNumber);
       clear();
+      clearStoredCoupons();
       window.location.assign(redirect.redirectTo);
     }
   }, [redirect, clear]);
@@ -180,6 +200,12 @@ export default function CheckoutForm({
                 <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
               </li>
             ))}
+            {confirmation.pricedCart.discountKc > 0 && (
+              <li className="py-2 flex justify-between gap-3">
+                <span>Sleva ({confirmation.pricedCart.coupons.map((c) => couponDisplayName(c)).join(", ")})</span>
+                <span className="tabular-nums whitespace-nowrap">−{formatKc(confirmation.pricedCart.discountKc)}</span>
+              </li>
+            )}
             <li className="py-2 flex justify-between gap-3">
               <span>{confirmation.pricedCart.shipping.label}</span>
               <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.shippingKc)}</span>
@@ -198,7 +224,9 @@ export default function CheckoutForm({
             <dd className="text-begina-primary-900">
               {confirmation.address
                 ? `${confirmation.address.street}, ${confirmation.address.zip} ${confirmation.address.city}`
-                : confirmation.pricedCart.shipping.label}
+                : confirmation.pricedCart.shipping.id === PICKUP_METHOD_ID
+                  ? PICKUP_NOTICE
+                  : confirmation.pricedCart.shipping.label}
             </dd>
             <dt>Platba</dt>
             <dd className="text-begina-primary-900">{confirmation.payment.label}</dd>
@@ -261,8 +289,12 @@ export default function CheckoutForm({
   );
   const shipping = shippingMethods.find((method) => method.id === values.shippingMethodId) ?? shippingMethods[0];
   const quote = quotes.get(shipping.id)!;
-  const shippingKc = quote.available ? quote.priceKc : 0;
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
+  // Sleva a doprava zdarma ze slevových kódů (ověřené serverem; při
+  // odeslání je server spočítá znovu).
+  const discountKc = Math.min(coupons.preview.discountKc, subtotalKc);
+  const shippingKc = quote.available && !coupons.preview.freeShipping ? quote.priceKc : 0;
+  const appliedCodes = coupons.preview.applied.map((a) => a.code);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -273,6 +305,7 @@ export default function CheckoutForm({
     <PendingOrderNotice />
     <form action={formAction} onSubmitCapture={fillMetaSignals} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
+      <input type="hidden" name="couponCodes" value={JSON.stringify(appliedCodes)} />
       <input type="hidden" name="orderToken" value={orderToken} />
       <input type="hidden" name="adConsent" defaultValue="0" />
       <input type="hidden" name="fbp" defaultValue="" />
@@ -408,15 +441,25 @@ export default function CheckoutForm({
               <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
             </li>
           ))}
+          {discountKc > 0 && (
+            <li className="py-2 flex justify-between gap-3">
+              <span>Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => couponDisplayName(a)).join(", ")})</span>
+              <span className="tabular-nums whitespace-nowrap">−{formatKc(discountKc)}</span>
+            </li>
+          )}
           <li className="py-2 flex justify-between gap-3 text-neutral-600">
             <span>{shipping.label}</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(shippingKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">
+              {coupons.preview.freeShipping && quote.available && quote.priceKc > 0 ? "zdarma (slevový kód)" : formatKc(shippingKc)}
+            </span>
           </li>
           <li className="pt-3 flex justify-between gap-3 font-semibold">
             <span>Celkem</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc + shippingKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc - discountKc + shippingKc)}</span>
           </li>
         </ul>
+
+        <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-neutral-200" />
 
         {containsAgeRestricted && (
           <label className="mt-5 flex items-start gap-2 text-xs text-neutral-600">

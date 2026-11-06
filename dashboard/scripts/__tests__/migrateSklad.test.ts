@@ -1,4 +1,4 @@
-// scripts/migrate-sklad.mjs — hlídané migrace 0028/0029 při buildu na
+// scripts/migrate-sklad.mjs — hlídané migrace 0030/0031 při buildu na
 // Vercelu (Preview i Production). Tohle je PRÁVĚ TA cesta, kterou žádný
 // jiný test v repozitáři nespouští — docs/sklad/skladProductionSql.test.ts
 // ověřuje jen ruční SQL vložené najednou (Neon SQL Editor), kde na
@@ -8,12 +8,12 @@
 // jdoucími příkazy tu spadne s "cannot insert multiple commands into a
 // prepared statement", zatímco ve 12/skladProductionSql.test.ts projde bez
 // povšimnutí. Přesně tahle mezera pustila do PR #56 reálně rozbitý Preview
-// build (Vercel status "Error") — viz oprava v 0028_sklad_1_0_zaklad.sql.
+// build (Vercel status "Error") — viz oprava v 0030_sklad_1_0_zaklad.sql.
 //
 // Nad PGlite, stejný princip přesměrování @neondatabase/serverless na
 // PGlite jako scripts/eshop-e2e/neon-http-pglite.mjs, ale se stavem
 // zaseknutým PŘESNĚ na zvolené migraci (ne vždy na poslední), aby šlo
-// otestovat "od nuly", "0028 bez 0029" i "obojí už hotovo" zvlášť.
+// otestovat "od nuly", "0030 bez 0031" i "obojí už hotovo" zvlášť.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -132,8 +132,8 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
     await expect(runSkladMigration()).rejects.toThrow(/DATABASE_URL/);
   });
 
-  it("čerstvá větev (schéma Production 0027, bez skladu): 0028+0029 se aplikují v JEDNÉ transakci; podruhé beze změny", async () => {
-    const pg = await seedPg(27);
+  it("čerstvá větev (schéma Production 0029, bez skladu): 0030+0031 se aplikují v JEDNÉ transakci; podruhé beze změny", async () => {
+    const pg = await seedPg(29);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "preview";
     process.env.DATABASE_URL = DATABASE_URL;
@@ -157,7 +157,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
   });
 
   it("Preview, co ukazuje na PRODUKČNÍ databázi (timeline produkce) — nic se nezmění", async () => {
-    const pg = await seedPg(27);
+    const pg = await seedPg(29);
     await pg.exec(`SET neon.timeline_id = '${PRODUCTION_TIMELINE}'`);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "preview";
@@ -173,7 +173,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
   });
 
   it("částečné schéma (jen jedna skladová tabulka) → STOP, chyba, nic dalšího se neaplikuje", async () => {
-    const pg = await seedPg(27);
+    const pg = await seedPg(29);
     await pg.exec(`CREATE TABLE suppliers (id text primary key, name text not null)`);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "production";
@@ -188,7 +188,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
     expect(rows.map((r) => r.table_name)).toEqual(["suppliers"]);
   });
 
-  it("0028 i 0029 už hotové (plný řetězec) — spuštění nic nemění a nehlásí jako nové", async () => {
+  it("0030 i 0031 už hotové (plný řetězec) — spuštění nic nemění a nehlásí jako nové", async () => {
     const pg = await seedPg(undefined);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "production";
@@ -197,7 +197,7 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
     await expect(runSkladMigration()).resolves.toBeUndefined();
   });
 
-  it("jen 0028 hotovo (starší nasazení bez 0029) → doplní jen chybějící 0029", async () => {
+  it("jen 0030 hotovo (starší nasazení bez 0031) → doplní jen chybějící 0031", async () => {
     const pg = await seedPg(28);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "production";
@@ -205,12 +205,12 @@ describe("scripts/migrate-sklad.mjs — hlídané migrace při Vercel buildu", {
 
     await runSkladMigration();
 
-    const [{ has0029 }] = (
-      await pg.query<{ has0029: boolean }>(
-        `select count(*)::int > 0 as has0029 from information_schema.columns
+    const [{ has0031 }] = (
+      await pg.query<{ has0031: boolean }>(
+        `select count(*)::int > 0 as has0031 from information_schema.columns
            where table_schema = 'public' and table_name = 'goods_receipts' and column_name = 'reextraction_status'`
       )
     ).rows;
-    expect(has0029).toBe(true);
+    expect(has0031).toBe(true);
   });
 });
