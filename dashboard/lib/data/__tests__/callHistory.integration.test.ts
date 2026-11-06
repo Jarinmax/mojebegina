@@ -96,11 +96,37 @@ describe("Hovory a kontakty nad DB", { timeout: 120_000 }, () => {
     expect(kavarna.contactName).toBe("Petr Novák");
   });
 
+  it("Dnes zavoláno: dnešní hovory, každý kontakt jednou (poslední hovor), nejnovější nahoře", async () => {
+    const db = holder.db as import("drizzle-orm/neon-http").NeonHttpDatabase<typeof import("@/lib/db/schema")>;
+    await db.execute(sql.raw(`
+      INSERT INTO lead_activity (lead_id, author_user_id, author_name, kind, body, metadata, created_at) VALUES
+        ('${L2}', '${BLAHOUT}', 'Jaroslav Blahout', 'call_logged', 'Nezvedá', '{"callResult":"no_answer"}', now()),
+        ('${L2}', '${BLAHOUT}', 'Jaroslav Blahout', 'call_logged', 'Druhý pokus – domluveno', '{"callResult":"reached_interested"}', now() + interval '1 second'),
+        ('${L1}', '${BLAHOUT}', 'Jaroslav Blahout', 'call_logged', 'Dnes ráno', '{"callResult":"call_back_later"}', now()),
+        ('${L3}', '${VINER}', 'Jaroslav Viner', 'call_logged', 'Vinerův dnešní', '{}', now()),
+        ('${L3}', '${BLAHOUT}', 'Jaroslav Blahout', 'call_logged', 'Předevčírem', '{}', now() - interval '2 days')`));
+
+    asBlahout();
+    const mine = await ch.getTodayCalls();
+    expect(mine.allAuthors).toBe(false);
+    expect(mine.calls.map((c) => [c.displayName, c.note, c.resultLabel])).toEqual([
+      ["Bistro 100% Bio", "Druhý pokus – domluveno", "Dovoláno – zájem"],
+      ["Kavárna U Mostu", "Dnes ráno", "Zavolat později"],
+    ]);
+    expect(mine.calls[0]).toMatchObject({ leadId: L2, contactPhone: "602 111 222" });
+
+    asViner();
+    const all = await ch.getTodayCalls();
+    expect(all.allAuthors).toBe(true);
+    expect(all.calls.map((c) => c.displayName).sort()).toEqual(["Bistro 100% Bio", "Jana Malá", "Kavárna U Mostu"]);
+  });
+
   it("bez oprávnění Denního volání nic: jiný EXECUTIVE, Blahout v roli zákazníka, nepřihlášený", async () => {
     for (const as of [asStrelec, asBlahoutCustomer, () => (holder.ctx = null)]) {
       as();
       await expect(ch.getCallHistory(0)).rejects.toThrow();
       await expect(ch.searchContacts(v.parseContactSearch("most")!)).rejects.toThrow();
+      await expect(ch.getTodayCalls()).rejects.toThrow();
     }
   });
 });

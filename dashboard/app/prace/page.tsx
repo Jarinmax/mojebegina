@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listWorkNotifications, listWorkTasks, type WorkTaskView } from "@/lib/data/workTasks";
 import { getWorkerQueueView, type WorkerQueueView } from "@/lib/data/dailyCalls";
+import { getTodayCalls } from "@/lib/data/callHistory";
+import TodayCalls from "./TodayCalls";
 import { WORK_ASSIGNEES } from "@/lib/data/workTasksAuth";
 import { pragueToday } from "@/lib/data/workTasksValidation";
 import TaskCard from "./TaskCard";
@@ -11,9 +13,10 @@ import { fmtDay } from "./workTaskLabels";
 
 export const dynamic = "force-dynamic";
 
-async function loadCalls(): Promise<WorkerQueueView | null> {
+async function loadCalls(): Promise<(WorkerQueueView & { todayCalls: Awaited<ReturnType<typeof getTodayCalls>> }) | null> {
   try {
-    return await getWorkerQueueView();
+    const [queue, todayCalls] = await Promise.all([getWorkerQueueView(), getTodayCalls()]);
+    return { ...queue, todayCalls };
   } catch {
     return null; // Denní volání nemusí být pro tohoto uživatele dostupné — obrazovka úkolů funguje dál
   }
@@ -108,6 +111,7 @@ export default async function PracePage() {
               )}
             </div>
           ))}
+          <TodayCalls calls={calls.todayCalls.calls} showAuthor={calls.todayCalls.allAuthors} back="prace" />
         </section>
       )}
 
