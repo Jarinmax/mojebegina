@@ -146,7 +146,7 @@ describe("partnerský program — osobní kód podle úrovně", () => {
 
   it("nízký obrat: kód je platný, ale slevu zatím nedává — srozumitelně proč", () => {
     const r = evaluate(["maly"], [KULAJDA]);
-    expect(r.ok ? null : r.error).toBe(
+    expect(r.ok ? null : r.error.replaceAll("\u00a0", " ")).toBe(
       "Partnerský kód „MALY“ tento měsíc slevu nedává — za minulý měsíc evidujeme uhrazené nákupy zboží za 1 200 Kč a sleva 3 % začíná od 5 001 Kč."
     );
   });
