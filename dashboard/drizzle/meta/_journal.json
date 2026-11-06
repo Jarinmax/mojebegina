@@ -211,6 +211,20 @@
       "when": 1793979307665,
       "tag": "0029_objednavky_1_1_rozvoz_carrier_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793990045783,
+      "tag": "0030_sklad_1_0_zaklad",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793990046914,
+      "tag": "0031_sklad_1_0_znovu_precist",
+      "breakpoints": true
     }
   ]
 }

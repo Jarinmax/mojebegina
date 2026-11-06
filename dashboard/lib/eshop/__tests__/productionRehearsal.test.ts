@@ -223,7 +223,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     expect(rows[0].n).toBe(0);
   });
 
-  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0028) + pojistka číslování", async () => {
+  it("výsledné schéma = schéma kódu na větvi (migrace 0000–0028) + pojistka číslování; sklad (0030+) má vlastní generálku", async () => {
     const schema = async (db: PGlite) =>
       (
         await db.query(`
