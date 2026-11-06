@@ -5,7 +5,7 @@
 // to nastavuje až ověřený webhook Stripe).
 // Begina: stručné interní upozornění s odkazem na detail v MojeBegina.
 import { formatKc } from "@/lib/format";
-import { getShippingMethod } from "../shipping";
+import { getShippingMethod, PICKUP_METHOD_ID, PICKUP_NOTICE } from "../shipping";
 import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer";
 import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
 
@@ -66,6 +66,8 @@ function escapeHtml(value: string): string {
 }
 
 function deliveryText(order: EmailOrder): string {
+  // Osobní odběr: vždy aktuální znění včetně podmínky vyzvednutí po domluvě.
+  if (order.shippingMethodCode === PICKUP_METHOD_ID && !order.recipientAddress) return PICKUP_NOTICE;
   const method = order.shippingMethodLabel ?? "Doprava";
   if (order.recipientAddress) return `${method} — ${order.recipientAddress}`;
   const description = order.shippingMethodCode ? getShippingMethod(order.shippingMethodCode)?.description : undefined;

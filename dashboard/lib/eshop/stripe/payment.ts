@@ -46,6 +46,8 @@ export type PaymentOrder = {
   shippingKc: number;
   totalKc: number;
   shippingMethodLabel: string | null;
+  /** kód dopravy („osobni-odber“ = osobní odběr ve Viticích) */
+  shippingMethodCode?: string | null;
   items: { name: string; quantity: number; unitPriceKc: number }[];
 };
 
@@ -141,6 +143,7 @@ export async function loadPaymentOrder(db: Db, orderId: string): Promise<Payment
       shippingKc: orders.shippingKc,
       totalKc: orders.totalKc,
       shippingMethodLabel: orders.shippingMethodLabel,
+      shippingMethodCode: orders.shippingMethodCode,
     })
     .from(orders)
     .where(eq(orders.id, orderId))

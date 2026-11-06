@@ -20,9 +20,10 @@ const PIECES: Piece[] = [
   { src: "/eshop/hero/listky-3.webp", w: 151, h: 51, left: 72.9, top: 90.3, width: 16.7, z: 4 },
 ];
 
+// Menší, decentní srdíčko v barvě červeného kohoutku krabice (vzorek z bag-in-box.webp).
 function Heart() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="inline-block w-[0.8em] h-[0.8em] ml-3 align-[-0.05em] fill-[#E4382F]">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="inline-block w-[0.5em] h-[0.5em] ml-[0.22em] align-[0.02em] fill-[#B5261E]">
       <path d="M12 21.6 10.6 20.3C5.4 15.6 2 12.5 2 8.7 2 5.6 4.4 3.2 7.5 3.2c1.7 0 3.4.8 4.5 2.1 1.1-1.3 2.8-2.1 4.5-2.1 3.1 0 5.5 2.4 5.5 5.5 0 3.8-3.4 6.9-8.6 11.6L12 21.6Z" />
     </svg>
   );
@@ -43,10 +44,12 @@ export default function HomeHero({ ctaHref }: { ctaHref?: string }) {
       {/* Na počítači se hero přizpůsobí výšce okna, aby pod ním byl hned vidět pruh kategorií. */}
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-8 sm:pt-14 lg:py-[clamp(1.25rem,3.5vh,3rem)] grid gap-8 lg:gap-6 lg:grid-cols-2 items-center">
         <div className="relative z-10 lg:pl-6">
-          <h1 className="font-serif text-[2.6rem] leading-[1.08] sm:text-6xl lg:text-[clamp(2.4rem,6.4vh,3.75rem)] lg:leading-[1.05] tracking-tight text-[#2A2622] text-balance">
-            <span className="block">Čerstvé polévky a&nbsp;nápoje.</span>
-            <span className="block">
-              Připravené s&nbsp;láskou
+          {/* Zadání Lucie (6. 11. 2026). Srdíčko je s posledním slovem v jednom
+              nezalomitelném celku, takže nikdy nezůstane samo na řádku. */}
+          <h1 className="font-serif text-[2.15rem] leading-[1.1] sm:text-5xl lg:text-[clamp(2.1rem,5.4vh,3.25rem)] lg:leading-[1.08] tracking-tight text-[#2A2622] text-balance">
+            Čerstvé polévky, bylinné sirupy, nápoje a{"\u00a0"}
+            <span className="whitespace-nowrap">
+              zmrzliny.
               <Heart />
             </span>
           </h1>
