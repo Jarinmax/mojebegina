@@ -10,6 +10,7 @@ export const FULFILLMENT_CLASSES: Record<FulfillmentStatus, string> = {
   preparing: "bg-sky-50 text-sky-700 border-sky-200",
   ready: "bg-begina-primary-50 text-begina-primary-800 border-begina-primary-200",
   out_for_delivery: "bg-begina-primary-50 text-begina-primary-800 border-begina-primary-200",
+  handed_to_carrier: "bg-indigo-50 text-indigo-700 border-indigo-200",
   delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
   cancelled: "bg-neutral-100 text-neutral-500 border-neutral-200 line-through",
 };

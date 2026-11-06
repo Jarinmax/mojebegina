@@ -8,6 +8,7 @@ export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   preparing: "V přípravě/výrobě",
   ready: "Připravená",
   out_for_delivery: "Na rozvozu",
+  handed_to_carrier: "Předáno přepravci",
   delivered: "Doručená",
   cancelled: "Stornovaná",
 };
