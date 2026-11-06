@@ -75,7 +75,11 @@ describe("generálka na kopii Production (0027): před → migrace → po → vr
     await pg.exec(file("11_migration.sql"));
     expect(await check(pg, file("12_after.sql"))).toBe("10 | 1 | 4 | 1 | 0 | 0 | 0 | 0 | 4 | 1 | 1 | 1 | 0 | 7");
 
-    const { pg: code } = await createMigratedDb();
+    // 11_migration.sql = jen 0028 + 0029 (Sklad 1.0); další migrace (0030,
+    // hotové výrobky) přibyla v jiném, oddíleném rozsahu — porovnání se musí
+    // zastavit přesně na 0029, jinak by tenhle test Sklad 1.0 generálky
+    // závisel na obsahu pozdější, nesouvisející migrace.
+    const { pg: code } = await createMigratedDb("0029_sklad_1_0_znovu_precist");
     expect(await schemaPrint(pg)).toEqual(await schemaPrint(code));
 
     const before = await schemaPrint(pg);
@@ -139,7 +143,7 @@ describe("generálka na kopii Production (0027): před → migrace → po → vr
     for (const s of statements) await pg.exec(s);
     await pg.exec("COMMIT");
 
-    const { pg: code } = await createMigratedDb();
+    const { pg: code } = await createMigratedDb("0029_sklad_1_0_znovu_precist");
     expect(await schemaPrint(pg)).toEqual(await schemaPrint(code));
     expect(await check(pg, file("12_after.sql"))).toBe("10 | 1 | 4 | 1 | 0 | 0 | 0 | 0 | 4 | 1 | 1 | 1 | 0 | 7");
     expect((await pg.query(`SELECT * FROM orders ORDER BY id`)).rows).toEqual(orders);

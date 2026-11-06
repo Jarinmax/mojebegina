@@ -1006,8 +1006,8 @@ export async function confirmGoodsReceipt(receiptId: string, input: ConfirmRecei
           RETURNING id, stock_location_id
         ),
         movements AS (
-          INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id)
-          SELECT l.stock_item_id, c.stock_location_id, c.id, l.id, 'in', l.normalized_quantity, ${ctx.userId}
+          INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id, kind)
+          SELECT l.stock_item_id, c.stock_location_id, c.id, l.id, 'in', l.normalized_quantity, ${ctx.userId}, 'goods_receipt_in'
           FROM claimed c
           JOIN goods_receipt_lines l ON l.receipt_id = c.id
           WHERE l.line_kind <> 'non_stock_private'
@@ -1132,10 +1132,10 @@ export async function voidGoodsReceipt(receiptId: string, reason: string): Promi
         RETURNING id
       ),
       corrections AS (
-        INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id, corrects_movement_id, reason)
+        INSERT INTO stock_movements (stock_item_id, stock_location_id, receipt_id, receipt_line_id, direction, quantity, recorded_by_user_id, corrects_movement_id, reason, kind)
         SELECT m.stock_item_id, m.stock_location_id, m.receipt_id, m.receipt_line_id,
                CASE WHEN m.direction = 'in' THEN 'out' ELSE 'in' END,
-               m.quantity, ${ctx.userId}, m.id, ${trimmedReason}
+               m.quantity, ${ctx.userId}, m.id, ${trimmedReason}, 'void_reversal'
         FROM claimed c
         JOIN stock_movements m ON m.receipt_id = c.id
         WHERE m.corrects_movement_id IS NULL
