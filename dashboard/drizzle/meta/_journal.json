@@ -225,6 +225,13 @@
       "when": 1793990046914,
       "tag": "0031_sklad_1_0_znovu_precist",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794059696860,
+      "tag": "0032_spolupracovnici_1_0",
+      "breakpoints": true
     }
   ]
 }
