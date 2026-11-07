@@ -49,7 +49,10 @@ describe("patička e-shopu", () => {
     expect(place.textContent).toContain("Vitice 119, 281 06 Vitice (okr. Kolín)");
     expect(place.textContent).toContain("Zde najdete naše bistro a výdejní místo objednávek z e-shopu.");
     const map = screen.getByRole("link", { name: "Zobrazit na mapě" });
-    expect(decodeURIComponent(map.getAttribute("href")!)).toContain("Zahradnictví Jandl, Vitice 119");
+    // přímo záznam bistra v Google Mapách, ne areál zahradnictví (7. 11. 2026)
+    expect(decodeURIComponent(map.getAttribute("href")!)).toContain("query=Zahradní Bistro Begina, Vitice");
+    expect(map.getAttribute("href")).toContain("query_place_id=ChIJHxHJWwZzDEcRemk96mp2U24");
+    expect(decodeURIComponent(map.getAttribute("href")!)).not.toContain("Zahradnictví Jandl");
     expect(map.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
