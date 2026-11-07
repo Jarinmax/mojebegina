@@ -20,11 +20,17 @@ import {
   getCustomerOrders,
   getCurrentMonthlyPurchase,
 } from "@/lib/data/dashboard";
+import { getCurrentCollaboratorLanding } from "@/lib/data/collaboratorCards";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { ctx, organizationId } = await requireCustomerContext();
+
+  const collaboratorLanding = await getCurrentCollaboratorLanding(ctx.userId);
+  if (collaboratorLanding && ctx.systemRole !== "ADMIN" && ctx.systemRole !== "EXECUTIVE") {
+    redirect(collaboratorLanding);
+  }
 
   // Security Phase 5 UX fix — role-aware redirect po loginu. `ctx.systemRole`
   // pochází ze server-side session (viz getAuthContext), nikdy od klienta,

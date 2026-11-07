@@ -1255,6 +1255,109 @@ export const workTaskPhotos = pgTable(
   ]
 );
 
+// Karty spolupracovníků 1.0 — samostatná provozní karta člověka, který
+// kombinuje práci placenou za výkon a provizní prodej svěřeného sortimentu.
+// Není to zákaznická organizace ani strategický uzel Živé mapy firmy.
+export const collaboratorCards = pgTable(
+  "collaborator_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    displayName: text("display_name").notNull(),
+    assigneeUserId: text("assignee_user_id").unique(),
+    supplierContactName: text("supplier_contact_name"),
+    defaultCommissionPercent: integer("default_commission_percent").notNull().default(20),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "collaborator_cards_commission_percent_check",
+      sql`${table.defaultCommissionPercent} BETWEEN 0 AND 100`
+    ),
+  ]
+);
+
+export const collaboratorWorkEntries = pgTable(
+  "collaborator_work_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id").notNull().references(() => collaboratorCards.id),
+    description: text("description").notNull(),
+    postCount: integer("post_count").notNull().default(1),
+    durationMinutes: integer("duration_minutes").notNull(),
+    earnedKc: integer("earned_kc").notNull().default(0),
+    occurredOn: date("occurred_on", { mode: "string" }).notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("collaborator_work_entries_card_date_idx").on(table.cardId, table.occurredOn),
+    check("collaborator_work_entries_post_count_check", sql`${table.postCount} >= 0`),
+    check("collaborator_work_entries_duration_check", sql`${table.durationMinutes} >= 0`),
+    check("collaborator_work_entries_earned_check", sql`${table.earnedKc} >= 0`),
+  ]
+);
+
+export const collaboratorProducts = pgTable(
+  "collaborator_products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id").notNull().references(() => collaboratorCards.id),
+    name: text("name").notNull(),
+    commissionPercent: integer("commission_percent").notNull().default(20),
+    lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("collaborator_products_card_name_idx").on(table.cardId, table.name),
+    check("collaborator_products_commission_check", sql`${table.commissionPercent} BETWEEN 0 AND 100`),
+    check("collaborator_products_low_stock_check", sql`${table.lowStockThreshold} >= 0`),
+  ]
+);
+
+export const collaboratorProductMovements = pgTable(
+  "collaborator_product_movements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id").notNull().references(() => collaboratorProducts.id),
+    kind: text("kind").notNull(), // "stock_in" | "sale" | "adjustment"
+    quantity: integer("quantity").notNull(),
+    unitSalePriceKc: integer("unit_sale_price_kc"),
+    commissionPercentSnapshot: integer("commission_percent_snapshot"),
+    commissionKc: integer("commission_kc").notNull().default(0),
+    note: text("note"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("collaborator_product_movements_product_date_idx").on(table.productId, table.occurredAt),
+    check("collaborator_product_movements_kind_check", sql`${table.kind} IN ('stock_in','sale','adjustment')`),
+    check("collaborator_product_movements_quantity_check", sql`${table.quantity} <> 0`),
+    check("collaborator_product_movements_price_check", sql`${table.unitSalePriceKc} IS NULL OR ${table.unitSalePriceKc} >= 0`),
+    check("collaborator_product_movements_commission_check", sql`${table.commissionKc} >= 0`),
+  ]
+);
+
+export const collaboratorPayouts = pgTable(
+  "collaborator_payouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id").notNull().references(() => collaboratorCards.id),
+    amountKc: integer("amount_kc").notNull(),
+    note: text("note"),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("collaborator_payouts_card_date_idx").on(table.cardId, table.paidAt),
+    check("collaborator_payouts_amount_check", sql`${table.amountKc} > 0`),
+  ]
+);
+
 
 // Security Phase 22 (Sklad 1.0 — bezpečný základ) — schváleno vedením
 // 9.–10. 10. 2026, viz audit "MojeBegina – skladové hospodářství 1.0".
