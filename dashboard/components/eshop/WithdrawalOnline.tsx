@@ -79,9 +79,13 @@ export default function WithdrawalOnline({ prefill }: { prefill: { contract?: st
           required
           defaultValue={prefill.contract}
           aria-invalid={invalid("contract")}
-          placeholder="např. 9260010 — nebo datum nákupu a co jste objednali"
+          aria-describedby="contract-hint"
+          placeholder="např. 9260010"
           className={input}
         />
+        <span id="contract-hint" className="text-xs text-neutral-500">
+          Číslo nenajdete? Napište datum nákupu a co jste objednali.
+        </span>
       </label>
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">
