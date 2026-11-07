@@ -377,7 +377,7 @@ describe("Sklad 1.0 — nahrání → vytěžení → ruční oprava → potvrze
 // --- Přímé založení příjemky do DB pro kontroly potvrzení -----------------
 
 async function seedReceipt(opts: {
-  supplierId: string;
+  supplierId: string | null;
   number: string | null;
   date: string | null;
   documentTotalHal: number | null;
@@ -524,5 +524,166 @@ describe("Sklad 1.0 — kontroly před potvrzením (součet, jednotky, duplicity
       ok: false,
       error: "Hlavičku lze upravit jen u návrhu příjemky.",
     });
+  });
+});
+
+// --- Dodavatel volitelný: appka ho pozná/založí z fotky -------------------
+
+describe("Sklad 1.0 — dodavatel nepovinný, appka ho pozná/založí z fotky", DB_TEST, () => {
+  it("bez dodavatele: draft se založí s placeholder jménem; první vytěžení s neznámým IČO založí nového dodavatele samo", async () => {
+    const { createDraftGoodsReceipt, DRAFT_SUPPLIER_PLACEHOLDER } = await import("../sklad");
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const [location] = await rows<{ id: string }>(`SELECT id FROM stock_locations WHERE code = 'default'`);
+    const draft = (await createDraftGoodsReceipt({
+      supplierId: "",
+      stockLocationId: location.id,
+      documentNumber: null,
+      documentDate: null,
+      dueDate: null,
+      paymentMethod: null,
+    })) as { ok: true; receiptId: string };
+    expect(draft.ok).toBe(true);
+
+    const [beforeExtraction] = await rows<{ supplier_id: string | null; supplier_name_snapshot: string }>(
+      `SELECT supplier_id, supplier_name_snapshot FROM goods_receipts WHERE id = $1`,
+      [draft.receiptId]
+    );
+    expect(beforeExtraction).toEqual({ supplier_id: null, supplier_name_snapshot: DRAFT_SUPPLIER_PLACEHOLDER });
+
+    expect(await uploadPage(draft.receiptId, 20)).toMatchObject({ ok: true });
+    ai.ocr.mockResolvedValueOnce("Nový Dodavatel s.r.o. … IČO 99998888 … Sůl 1 kg … celkem 22,40 Kč".padEnd(60, "."));
+    ai.structure.mockResolvedValueOnce({
+      supplierName: "Nový Dodavatel s.r.o.",
+      supplierIco: "99998888",
+      supplierDic: null,
+      documentNumber: "ND-1",
+      documentDate: "2026-10-20",
+      paymentMethod: null,
+      lines: [rawLine({ description: "Sůl", totalWithoutVat: 20, totalWithVat: 22.4 })],
+      totalWithoutVat: 20,
+      totalVat: 2.4,
+      totalWithVat: 22.4,
+    });
+    expect(await triggerGoodsReceiptExtraction(draft.receiptId)).toEqual({ ok: true });
+
+    const [afterExtraction] = await rows<{ supplier_id: string | null; supplier_name_snapshot: string }>(
+      `SELECT supplier_id, supplier_name_snapshot FROM goods_receipts WHERE id = $1`,
+      [draft.receiptId]
+    );
+    expect(afterExtraction.supplier_id).not.toBeNull();
+    expect(afterExtraction.supplier_name_snapshot).toBe("Nový Dodavatel s.r.o.");
+    const newSuppliers = await rows<{ ico: string }>(`SELECT ico FROM suppliers WHERE id = $1`, [afterExtraction.supplier_id]);
+    expect(newSuppliers).toEqual([{ ico: "99998888" }]);
+  });
+
+  it("bez dodavatele: vytěžení s IČO existujícího dodavatele ho jen dohledá, nezaloží duplicitu", async () => {
+    const { createDraftGoodsReceipt, createSupplier } = await import("../sklad");
+    const { triggerGoodsReceiptExtraction } = await import("../skladExtraction");
+    const existing = (await createSupplier({ name: "Globus ČR", ico: "63473291", dic: "" })) as { ok: true; supplierId: string };
+    const [location] = await rows<{ id: string }>(`SELECT id FROM stock_locations WHERE code = 'default'`);
+    const draft = (await createDraftGoodsReceipt({
+      supplierId: "",
+      stockLocationId: location.id,
+      documentNumber: null,
+      documentDate: null,
+      dueDate: null,
+      paymentMethod: null,
+    })) as { ok: true; receiptId: string };
+
+    expect(await uploadPage(draft.receiptId, 21)).toMatchObject({ ok: true });
+    const [{ count: suppliersBefore }] = await rows<{ count: string }>(`SELECT count(*)::text AS count FROM suppliers`);
+    ai.ocr.mockResolvedValueOnce("Globus … IČO 63473291 … Chléb … celkem 33,60 Kč".padEnd(60, "."));
+    ai.structure.mockResolvedValueOnce({
+      supplierName: "Globus ČR",
+      supplierIco: "63473291",
+      supplierDic: null,
+      documentNumber: "G-1",
+      documentDate: "2026-10-21",
+      paymentMethod: null,
+      lines: [rawLine({ description: "Chléb", totalWithoutVat: 30, totalWithVat: 33.6 })],
+      totalWithoutVat: 30,
+      totalVat: 3.6,
+      totalWithVat: 33.6,
+    });
+    expect(await triggerGoodsReceiptExtraction(draft.receiptId)).toEqual({ ok: true });
+
+    const [afterExtraction] = await rows<{ supplier_id: string }>(`SELECT supplier_id FROM goods_receipts WHERE id = $1`, [draft.receiptId]);
+    expect(afterExtraction.supplier_id).toBe(existing.supplierId);
+    const [{ count: suppliersAfter }] = await rows<{ count: string }>(`SELECT count(*)::text AS count FROM suppliers`);
+    expect(suppliersAfter).toBe(suppliersBefore);
+  });
+
+  it("no_supplier: příjemka bez dodavatele se nedá potvrdit, dokud se dodavatel ručně nedoplní (DodavatelForm)", async () => {
+    const sklad = await import("../sklad");
+    const [{ id: cardId }] = await rows<{ id: string }>(
+      `INSERT INTO stock_items (name, canonical_unit, kind) VALUES ('Ocet', 'l', 'stock_material') RETURNING id`
+    );
+    const receiptId = await seedReceipt({ supplierId: null, number: "O-1", date: "2026-10-22", documentTotalHal: 1000, lines: [{ grossHal: 1000, unit: "l", cardId }] });
+
+    const checks = (await sklad.getGoodsReceiptConfirmationCheck(receiptId))!;
+    expect(checks.blockers.map((b) => b.code)).toEqual(["no_supplier"]);
+    expect(checks.blockers[0].message).toBe("Dodavatel není určen — appka ho z fotky nerozpoznala, doplňte ho ručně.");
+    expect(await sklad.confirmGoodsReceipt(receiptId, { acknowledgedWarnings: [] })).toMatchObject({ ok: false });
+
+    const newSupplier = (await sklad.createSupplier({ name: "Ruční dodavatel", ico: "", dic: "" })) as { ok: true; supplierId: string };
+    expect(await sklad.updateGoodsReceiptSupplier(receiptId, newSupplier.supplierId)).toEqual({ ok: true });
+
+    const afterFix = (await sklad.getGoodsReceiptConfirmationCheck(receiptId))!;
+    expect(afterFix.blockers).toEqual([]);
+    expect(await sklad.confirmGoodsReceipt(receiptId, { acknowledgedWarnings: [] })).toEqual({ ok: true, movements: 1 });
+  });
+
+  it("'Znovu přečíst doklad' nikdy nezaloží nového dodavatele, i když najde neznámé IČO — jen nabídne existující shodu", async () => {
+    const { createDraftGoodsReceipt } = await import("../sklad");
+    const { triggerGoodsReceiptExtraction, triggerGoodsReceiptReextraction } = await import("../skladExtraction");
+    const [location] = await rows<{ id: string }>(`SELECT id FROM stock_locations WHERE code = 'default'`);
+    const draft = (await createDraftGoodsReceipt({
+      supplierId: "",
+      stockLocationId: location.id,
+      documentNumber: null,
+      documentDate: null,
+      dueDate: null,
+      paymentMethod: null,
+    })) as { ok: true; receiptId: string };
+
+    // první vytěžení beze shody dodavatele (prázdný doklad bez IČO/názvu) — zůstane bez dodavatele
+    expect(await uploadPage(draft.receiptId, 22)).toMatchObject({ ok: true });
+    ai.ocr.mockResolvedValueOnce("Nečitelný doklad … Houska … celkem 11,20 Kč".padEnd(60, "."));
+    ai.structure.mockResolvedValueOnce({
+      supplierName: null,
+      supplierIco: null,
+      supplierDic: null,
+      documentNumber: null,
+      documentDate: null,
+      paymentMethod: null,
+      lines: [rawLine({ description: "Houska", totalWithoutVat: 10, totalWithVat: 11.2 })],
+      totalWithoutVat: 10,
+      totalVat: 1.2,
+      totalWithVat: 11.2,
+    });
+    expect(await triggerGoodsReceiptExtraction(draft.receiptId)).toEqual({ ok: true });
+
+    const [{ count: suppliersBefore }] = await rows<{ count: string }>(`SELECT count(*)::text AS count FROM suppliers`);
+
+    // "Znovu přečíst doklad" teď najde neznámé IČO — i tak nesmí nic založit
+    ai.ocr.mockResolvedValueOnce("Doklad … Neznámá Firma s.r.o. IČO 11112222 … Houska … celkem 11,20 Kč".padEnd(60, "."));
+    ai.structure.mockResolvedValueOnce({
+      supplierName: "Neznámá Firma s.r.o.",
+      supplierIco: "11112222",
+      supplierDic: null,
+      documentNumber: "N-1",
+      documentDate: "2026-10-23",
+      paymentMethod: null,
+      lines: [rawLine({ description: "Houska", totalWithoutVat: 10, totalWithVat: 11.2 })],
+      totalWithoutVat: 10,
+      totalVat: 1.2,
+      totalWithVat: 11.2,
+    });
+    expect(await triggerGoodsReceiptReextraction(draft.receiptId)).toEqual({ ok: true });
+
+    const [{ count: suppliersAfter }] = await rows<{ count: string }>(`SELECT count(*)::text AS count FROM suppliers`);
+    expect(suppliersAfter).toBe(suppliersBefore);
+    const [stillUnresolved] = await rows<{ supplier_id: string | null }>(`SELECT supplier_id FROM goods_receipts WHERE id = $1`, [draft.receiptId]);
+    expect(stillUnresolved.supplier_id).toBeNull();
   });
 });
