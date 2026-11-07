@@ -12,16 +12,20 @@ export const OPERATOR = {
 
 /**
  * Provozovna a výdejní místo e-shopu (zadání Lucie, 6. 11. 2026).
- * Odkaz na mapu hledá přímo areál Zahradnictví Jandl, Vitice 119
- * (Zahradnictví Jandl s.r.o. má sídlo na téže adrese).
+ * Odkaz „Zobrazit na mapě“ otevře přímo záznam Zahradní Bistro Begina
+ * v Google Mapách (place_id ověřeno 7. 11. 2026, telefon +420 774 199 975),
+ * ne areál Zahradnictví Jandl. Adresu v panelu ukazuje Google ze svého
+ * profilu firmy (Firma na Googlu) — ta se mění tam, ne tady.
  */
 export const PICKUP_PLACE = {
   name: "Zahradní Bistro Begina",
   area: "areál Zahradnictví Jandl",
   address: "Vitice 119, 281 06 Vitice (okr. Kolín)",
+  googlePlaceId: "ChIJHxHJWwZzDEcRemk96mp2U24",
   mapHref:
     "https://www.google.com/maps/search/?api=1&query=" +
-    encodeURIComponent("Zahradnictví Jandl, Vitice 119, 281 06 Vitice"),
+    encodeURIComponent("Zahradní Bistro Begina, Vitice") +
+    "&query_place_id=ChIJHxHJWwZzDEcRemk96mp2U24",
 } as const;
 
 /**
