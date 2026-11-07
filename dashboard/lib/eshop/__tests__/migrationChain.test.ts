@@ -51,6 +51,8 @@ const AFTER_ESHOP = [
   "0029_objednavky_1_1_rozvoz_carrier_tracking",
 ];
 const SKLAD = ["0030_sklad_1_0_zaklad", "0031_sklad_1_0_znovu_precist"];
+/** Za skladem: karta spolupracovnice (práce, provize, sklad). */
+const AFTER_SKLAD = ["0032_spolupracovnici_1_0"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 const SKLAD_TABLES = [
@@ -81,11 +83,11 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029 a sklad 0030–0031", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031 a spolupracovníci 0032", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP, ...SKLAD]);
+    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP, ...SKLAD, ...AFTER_SKLAD]);
   });
 
   it("sklad: 0030 přidá právě 10 skladových tabulek, 0031 žádnou; nic jiného se nezmění", () => {
