@@ -36,15 +36,42 @@ const SUPPLIERS = [{ id: "s-1", name: "Existující dodavatel", ico: null, dic: 
 const LOCATIONS = [{ id: "loc-1", code: "default", name: "Výchozí sklad" }];
 
 describe("NovaPrijemkaForm — '+ Založit dodavatele' (mobilní blokér)", () => {
-  it("bez dodavatelů se zobrazí hláška i tlačítko pro založení; formulář pro dodavatele je skrytý, dokud se na tlačítko neklikne", () => {
+  // Nahlášený blokér 7. 11. 2026: bez dodavatele nabízel výběr jen
+  // zakázanou placeholder možnost ("required" select bez jediné platné
+  // položky) a tlačítko "+ Založit dodavatele" šlo snadno přehlédnout —
+  // na mobilu (iOS Safari) to uživatele uzamklo na nativní hlášce
+  // "Vyberte položku ze seznamu" bez cesty ven. Výběr se proto bez
+  // dodavatele vůbec nevykresluje a formulář pro založení je rovnou
+  // rozbalený, žádné tlačítko ho nejde schovat.
+  it("bez dodavatelů se výběr nezobrazí, sub-formulář pro založení je rovnou rozbalený a odeslání příjemky je zablokované", () => {
     render(<NovaPrijemkaForm suppliers={[]} stockLocations={LOCATIONS} />);
-    expect(screen.getByText("Zatím žádný dodavatel není založen.")).toBeTruthy();
-    expect(screen.queryByLabelText("Název *")).toBeNull();
+    expect(screen.getByText("Zatím žádný dodavatel není založen — nejdřív ho založte níže.")).toBeTruthy();
+    expect(screen.queryByLabelText("Dodavatel")).toBeNull();
+    expect(screen.queryByText("+ Založit dodavatele")).toBeNull();
+    expect(screen.queryByText("Zrušit zakládání dodavatele")).toBeNull();
 
-    fireEvent.click(screen.getByText("+ Založit dodavatele"));
     expect(screen.getByLabelText("Název *")).toBeTruthy();
     expect(screen.getByLabelText("IČO (nepovinné)")).toBeTruthy();
     expect(screen.getByLabelText("DIČ (nepovinné)")).toBeTruthy();
+
+    expect((screen.getByText("Založit příjemku") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("po založení prvního dodavatele se objeví výběr (s novým dodavatelem rovnou vybraným) a odeslání příjemky se odblokuje", async () => {
+    calls.createSupplierResult = { ok: true, supplierId: "s-new" };
+    render(<NovaPrijemkaForm suppliers={[]} stockLocations={LOCATIONS} />);
+
+    fireEvent.change(screen.getByLabelText("Název *"), { target: { value: "První dodavatel s.r.o." } });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Uložit dodavatele"));
+    });
+
+    const select = screen.getByLabelText("Dodavatel") as HTMLSelectElement;
+    expect(select.value).toBe("s-new");
+    expect((screen.getByText("Založit příjemku") as HTMLButtonElement).disabled).toBe(false);
+    // Teď už existuje dodavatel, takže se vrátil normální (schovatelný) tok.
+    expect(screen.getByText("+ Založit dodavatele")).toBeTruthy();
+    expect(screen.queryByLabelText("Název *")).toBeNull();
   });
 
   it("tlačítko lze znovu skrýt ('Zrušit zakládání dodavatele')", () => {

@@ -69,41 +69,53 @@ export default function NovaPrijemkaForm({
         <label htmlFor="supplierId" className="text-xs text-neutral-500 mb-1 block">
           Dodavatel
         </label>
-        <select
-          id="supplierId"
-          name="supplierId"
-          required
-          value={selectedSupplierId}
-          onChange={(event) => setSelectedSupplierId(event.target.value)}
-          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
-        >
-          <option value="" disabled>
-            Vyberte dodavatele…
-          </option>
-          {suppliers.map((supplier) => (
-            <option key={supplier.id} value={supplier.id}>
-              {supplier.name}
+
+        {suppliers.length > 0 && (
+          <select
+            id="supplierId"
+            name="supplierId"
+            required
+            value={selectedSupplierId}
+            onChange={(event) => setSelectedSupplierId(event.target.value)}
+            className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
+          >
+            <option value="" disabled>
+              Vyberte dodavatele…
             </option>
-          ))}
-        </select>
-        {suppliers.length === 0 && !showSupplierForm && (
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {suppliers.length === 0 && (
           <p className="text-xs text-begina-accent-700 mt-1">
-            Zatím žádný dodavatel není založen.
+            Zatím žádný dodavatel není založen — nejdřív ho založte níže.
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setShowSupplierForm((prev) => !prev);
-            setSupplierError(null);
-          }}
-          className="text-xs font-medium text-begina-primary-900 underline mt-2"
-        >
-          {showSupplierForm ? "Zrušit zakládání dodavatele" : "+ Založit dodavatele"}
-        </button>
+        {/* Bez jediného dodavatele nemá výběr co nabídnout (jen zakázaná
+            placeholder možnost) — na mobilu to uživatele uzamklo na
+            nativní "Vyberte položku ze seznamu" hlášce prohlížeče bez
+            cesty ven. Dokud žádný dodavatel neexistuje, je proto tenhle
+            přepínač skrytý a sub-formulář je vždy rovnou rozbalený
+            (nahlášený blokér 7. 11. 2026). */}
+        {suppliers.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowSupplierForm((prev) => !prev);
+              setSupplierError(null);
+            }}
+            className="text-xs font-medium text-begina-primary-900 underline mt-2"
+          >
+            {showSupplierForm ? "Zrušit zakládání dodavatele" : "+ Založit dodavatele"}
+          </button>
+        )}
 
-        {showSupplierForm && (
+        {(showSupplierForm || suppliers.length === 0) && (
           <div className="mt-3 border border-neutral-200 rounded-lg p-3 flex flex-col gap-3 bg-neutral-50">
             <div>
               <label htmlFor="newSupplierName" className="text-xs text-neutral-500 mb-1 block">
@@ -237,7 +249,7 @@ export default function NovaPrijemkaForm({
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || suppliers.length === 0}
         className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2.5 disabled:opacity-50"
       >
         {pending ? "Ukládám…" : "Založit příjemku"}
