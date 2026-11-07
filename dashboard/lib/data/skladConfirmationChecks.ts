@@ -15,6 +15,7 @@ import { parseHaler } from "./skladValidation";
 
 export type ConfirmationChecksRow = {
   status: string;
+  supplier_id: string | null;
   line_count: number;
   lines_total_hal: number;
   document_total_hal: number | null;
@@ -63,6 +64,7 @@ function describeOther(other: OtherReceipt): string {
 
 const BLOCKER_MESSAGES: Record<string, (row: ConfirmationChecksRow) => string> = {
   not_draft: () => "Příjemka už byla potvrzena nebo stornována.",
+  no_supplier: () => "Dodavatel není určen — appka ho z fotky nerozpoznala, doplňte ho ručně.",
   no_lines: () => "Příjemka nemá žádné řádky.",
   vat_unconfirmed: (row) => `Chybí potvrzení DPH u: ${list(row.vat_unconfirmed)}.`,
   unmapped: (row) => `Chybí skladová karta u: ${list(row.unmapped)}.`,
