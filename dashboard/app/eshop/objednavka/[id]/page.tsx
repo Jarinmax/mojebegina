@@ -12,6 +12,8 @@ import { canPayByCard, loadPaymentOrder } from "@/lib/eshop/stripe/payment";
 import { bankConfig, formatPragueDate, isTransferOverdue, transferInfo } from "@/lib/eshop/bankTransfer";
 import { qrSvg } from "@/lib/eshop/qr";
 import { PICKUP_METHOD_ID, PICKUP_NOTICE } from "@/lib/eshop/shipping";
+import { WITHDRAWAL_PAGE_PATH } from "@/lib/eshop/content/withdrawalForm";
+import { WITHDRAW_BUTTON_LABEL } from "@/lib/eshop/withdrawal";
 import PayAgainButton from "./PayAgainButton";
 import TransferPayment from "./TransferPayment";
 import ForgetPendingOrder from "./ForgetPendingOrder";
@@ -157,6 +159,17 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
       <ShopLink href="/" className="text-sm font-medium underline underline-offset-2">
         Zpět do e-shopu
       </ShopLink>
+      {/* online odstoupení (§ 1830a OZ) — s předvyplněným číslem objednávky */}
+      {!cancelled && order.orderNumber !== null && (
+        <p className="mt-8 pt-4 border-t border-neutral-200 text-sm">
+          <ShopLink
+            href={`${WITHDRAWAL_PAGE_PATH}?objednavka=${order.orderNumber}`}
+            className="font-medium underline underline-offset-2"
+          >
+            {WITHDRAW_BUTTON_LABEL}
+          </ShopLink>
+        </p>
+      )}
     </div>
   );
 }

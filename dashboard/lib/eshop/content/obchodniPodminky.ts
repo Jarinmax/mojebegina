@@ -14,10 +14,11 @@ import { withdrawalFormBlock, withdrawalFormBlockV3, WITHDRAWAL_PAGE_URL_TEXT } 
  * Vydání textu: 1 = dodané znění (3. 10. 2026), 2 = + vzorový formulář
  * (26. 10. 2026), 3 = sídlo odlišené od doručovací adresy ve Viticích,
  * přepracovaný čl. VII (výjimky podle § 1837 OZ, odlišení od reklamace)
- * a formulář k tisku (zadání Lucie, 6. 11. 2026). Starší vydání se
+ * a formulář k tisku (zadání Lucie, 6. 11. 2026), 4 = + online odstoupení
+ * tlačítkem „Odstoupit od smlouvy“ (§ 1830a OZ). Starší vydání se
  * generují beze změny (otisky v termsVersions.test.ts).
  */
-export type TermsEdition = 1 | 2 | 3;
+export type TermsEdition = 1 | 2 | 3 | 4;
 
 /** Věta doplněná do čl. VII od znění s přílohou (schváleno vedením 26. 10. 2026). */
 export const WITHDRAWAL_FORM_SENTENCE =
@@ -29,7 +30,7 @@ export const WITHDRAWAL_FORM_SENTENCE =
  * od 3. vydání doručovací adresa a nový čl. VII (viz TermsEdition).
  */
 export function termsBlocks(effectiveLabel: string, edition: TermsEdition): InfoBlock[] {
-  if (edition >= 3) return termsBlocksV3(effectiveLabel);
+  if (edition >= 3) return termsBlocksV3(effectiveLabel, edition);
   return baseBlocks(effectiveLabel, edition >= 2);
 }
 
@@ -491,10 +492,26 @@ function articleVIII(base: InfoBlock): InfoBlock {
   return { ...base, points };
 }
 
-function termsBlocksV3(effectiveLabel: string): InfoBlock[] {
+/** Čl. VII 4. vydání: první způsob oznámení = online tlačítko (§ 1830a OZ). */
+const articleVIIv4: InfoBlock = {
+  ...articleVII,
+  points: articleVII.points!.map((point) =>
+    point.text === "Odstoupení může spotřebitel oznámit jakýmkoli jednoznačným prohlášením, zejména:"
+      ? {
+          ...point,
+          items: [
+            `online tlačítkem „Odstoupit od smlouvy“ na stránce ${WITHDRAWAL_PAGE_URL_TEXT} (odkaz je v patičce každé stránky e-shopu a na stránce objednávky); spotřebitel vyplní nebo potvrdí jméno, údaje o objednávce a e-mail a odstoupení potvrdí tlačítkem „Potvrdit odstoupení od smlouvy“; prodávající mu bez zbytečného odkladu e-mailem potvrdí přijetí prohlášení s jeho obsahem a datem a časem odeslání,`,
+            ...(point.items ?? []),
+          ],
+        }
+      : point
+  ),
+};
+
+function termsBlocksV3(effectiveLabel: string, edition: TermsEdition): InfoBlock[] {
   return baseBlocks(effectiveLabel, false).map((block) => {
     if (block.heading?.startsWith("I. ")) return articleI;
-    if (block.heading?.startsWith("VII. ")) return articleVII;
+    if (block.heading?.startsWith("VII. ")) return edition >= 4 ? articleVIIv4 : articleVII;
     if (block.heading?.startsWith("VIII. ")) return articleVIII(block);
     return block;
   }).concat(withdrawalFormBlockV3());

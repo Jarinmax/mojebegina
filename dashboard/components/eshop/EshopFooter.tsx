@@ -65,7 +65,7 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
             ))}
             <li>
               <ShopLink href={WITHDRAWAL_PAGE_PATH} className="block py-3 md:inline-block md:py-1.5 hover:underline underline-offset-2">
-                Odstoupení od smlouvy
+                Odstoupit od smlouvy
               </ShopLink>
             </li>
             {cookieSettings && (
