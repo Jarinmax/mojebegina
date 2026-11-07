@@ -8,14 +8,19 @@ import {
   collaboratorProductMovements,
   collaboratorProducts,
   collaboratorWorkEntries,
+  userActivations,
   userProfiles,
   userRoles,
 } from "@/lib/db/schema";
+import { auth } from "@/lib/auth/server";
+import { inviteCustomer } from "./admin";
+import { upsertUserProfile, upsertUserProfileStatement } from "./userProfiles";
 import { getAuthContext } from "./authContext";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import {
   assignmentInputSchema,
   calculateCommissionKc,
+  inviteCollaboratorInputSchema,
   LUCIE_COLLABORATOR_CARD_ID,
   payoutInputSchema,
   productMovementInputSchema,
@@ -183,5 +188,84 @@ export async function assignLucieCardByEmail(input: unknown) {
   if (roles.length === 0) return { ok: false as const, error: "Účet nemá povolenou roli pro MojeBegina." };
   await db.update(collaboratorCards).set({ assigneeUserId: profile.userId, updatedAt: new Date() }).where(eq(collaboratorCards.id, LUCIE_COLLABORATOR_CARD_ID));
   return { ok: true as const, profile };
+}
+
+// Pozvání nové spolupracovnice do appky — dřív šlo kartu jen PŘIŘADIT k už
+// existujícímu účtu (assignLucieCardByEmail), žádná cesta appkou neuměla
+// účet vůbec založit (appka je zvaná, žádná samoobslužná registrace).
+// Stejný vzor jako addOrganizationMember/createCustomerOrganization
+// (admin.ts): Neon Auth účet BEZ hesla (auth.admin.createUser), role
+// EMPLOYEE (uživatel vidí appku stejně jako jiný zaměstnanecký přístup),
+// user_activations řádek a profil atomicky v jednom db.batch, pak rovnou
+// přiřazení karty — ušetří druhý krok přes AssignCardForm, protože e-mail
+// už máme ověřený z téhle akce. Odeslání pozvánky (reset hesla) je ta samá
+// funkce jako "Pozvat zákazníka" (inviteCustomer) — negeneruje ani nezná
+// heslo, jen pošle odkaz na /nastavit-heslo.
+export async function inviteLucieCollaborator(input: unknown) {
+  const access = await requireCardAccess(LUCIE_COLLABORATOR_CARD_ID, true);
+  if (!access.isAdmin) throw new ForbiddenError();
+  const parsed = inviteCollaboratorInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Zadejte jméno a platný e-mail." };
+
+  const { data: existingUsers, error: lookupError } = await auth.admin.listUsers({
+    query: { filterField: "email", filterOperator: "eq", filterValue: parsed.data.email, limit: 1 },
+  });
+  if (lookupError) return { ok: false as const, error: "Nepodařilo se ověřit e-mail. Zkuste to prosím znovu." };
+  const existing = existingUsers?.users?.[0] ?? null;
+
+  let userId: string;
+  let created = false;
+  if (existing) {
+    userId = existing.id;
+  } else {
+    // Neon Auth uživatel BEZ hesla — ten appka nikdy nezadává ani nezná,
+    // Lucie si ho sama nastaví přes odkaz z pozvánky.
+    const { data: createdUser, error: createUserError } = await auth.admin.createUser({
+      email: parsed.data.email,
+      name: parsed.data.name,
+    });
+    if (createUserError || !createdUser) {
+      return { ok: false as const, error: "Nepodařilo se založit uživatelský účet. Zkuste to prosím znovu." };
+    }
+    userId = createdUser.user.id;
+    created = true;
+  }
+
+  try {
+    if (created) {
+      await db.batch([
+        db.insert(userRoles).values({ userId, systemRole: "EMPLOYEE" }),
+        db.insert(userActivations).values({ userId }),
+        upsertUserProfileStatement(userId, parsed.data.name, parsed.data.email),
+        db.update(collaboratorCards).set({ assigneeUserId: userId, updatedAt: new Date() }).where(eq(collaboratorCards.id, LUCIE_COLLABORATOR_CARD_ID)),
+      ]);
+    } else {
+      // Existující identita (např. už je zákazník) — jen přidá EMPLOYEE
+      // mezi role, žádná stávající role/data se nemění. userActivations
+      // může už existovat (jiná role ji dřív založila) — onConflictDoNothing.
+      await db.insert(userRoles).values({ userId, systemRole: "EMPLOYEE" }).onConflictDoNothing();
+      await db.insert(userActivations).values({ userId }).onConflictDoNothing();
+      await upsertUserProfile(userId, existing?.name ?? parsed.data.name, existing?.email ?? parsed.data.email).catch(() => {});
+      await db.update(collaboratorCards).set({ assigneeUserId: userId, updatedAt: new Date() }).where(eq(collaboratorCards.id, LUCIE_COLLABORATOR_CARD_ID));
+    }
+  } catch {
+    if (created) {
+      // Best-effort úklid — nový auth účet vznikl jen kvůli týhle pozvánce.
+      try {
+        await auth.admin.removeUser({ userId });
+      } catch {
+        return {
+          ok: false as const,
+          error: `Nepodařilo se pozvat spolupracovnici a automatický úklid uživatelského účtu (${parsed.data.email}) selhal — smažte ho prosím ručně v Neon Console.`,
+        };
+      }
+    }
+    return { ok: false as const, error: "Nepodařilo se pozvat spolupracovnici. Zkuste to prosím znovu." };
+  }
+
+  const invited = await inviteCustomer(userId);
+  if (!invited.ok) return { ok: false as const, error: invited.error };
+
+  return { ok: true as const, email: parsed.data.email };
 }
 

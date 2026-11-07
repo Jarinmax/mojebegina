@@ -6,6 +6,7 @@ import {
   addCollaboratorProductMovement,
   addCollaboratorWorkEntry,
   assignLucieCardByEmail,
+  inviteLucieCollaborator,
 } from "@/lib/data/collaboratorCards";
 
 export type CollaboratorActionState = { error: string } | { success: string } | null;
@@ -69,6 +70,18 @@ export async function assignCardAction(_prev: CollaboratorActionState, formData:
   } catch (error) {
     console.error("assignCardAction", error);
     return { error: "Kartu se nepodařilo přiřadit." };
+  }
+}
+
+export async function inviteCollaboratorAction(_prev: CollaboratorActionState, formData: FormData): Promise<CollaboratorActionState> {
+  try {
+    const result = await inviteLucieCollaborator({ name: formData.get("name"), email: formData.get("email") });
+    if (!result.ok) return { error: result.error };
+    revalidatePath(path);
+    return { success: `Pozvánka byla odeslána na ${result.email}.` };
+  } catch (error) {
+    console.error("inviteCollaboratorAction", error);
+    return { error: "Spolupracovnici se nepodařilo pozvat." };
   }
 }
 

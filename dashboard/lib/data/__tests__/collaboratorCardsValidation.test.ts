@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateCommissionKc,
+  inviteCollaboratorInputSchema,
   productMovementInputSchema,
   workEntryInputSchema,
 } from "../collaboratorCardsValidation";
@@ -39,6 +40,14 @@ describe("karta spolupracovnice", () => {
       earnedKc: -10,
       occurredOn: "dnes",
     }).success).toBe(false);
+  });
+
+  it("pozvání spolupracovnice vyžaduje jméno a platný e-mail; e-mail se ořízne a dá na malá písmena", () => {
+    const parsed = inviteCollaboratorInputSchema.safeParse({ name: "Lucie Nováková", email: " Lucie@Example.cz " });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.email).toBe("lucie@example.cz");
+    expect(inviteCollaboratorInputSchema.safeParse({ name: "", email: "lucie@example.cz" }).success).toBe(false);
+    expect(inviteCollaboratorInputSchema.safeParse({ name: "Lucie", email: "neplatny-email" }).success).toBe(false);
   });
 });
 

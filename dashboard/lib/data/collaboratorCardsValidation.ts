@@ -33,6 +33,11 @@ export const assignmentInputSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
 });
 
+export const inviteCollaboratorInputSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  email: z.string().trim().toLowerCase().email().max(320),
+});
+
 export function calculateCommissionKc(quantity: number, unitPriceKc: number, percent: number): number {
   return Math.round((quantity * unitPriceKc * percent) / 100);
 }
