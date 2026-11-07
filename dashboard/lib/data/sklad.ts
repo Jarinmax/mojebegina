@@ -88,7 +88,7 @@ import {
 // .cause řetězec, ne jen message na vrchní chybě (ověřeno reálným
 // vyhozením chyby přes zmockovaný transport, ne jen odhadem — viz
 // skladUpload.test.ts).
-function messageIncludes(error: unknown, needle: string): boolean {
+export function messageIncludes(error: unknown, needle: string): boolean {
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current; depth += 1) {
     if (current instanceof Error) {
@@ -228,6 +228,9 @@ export async function createStockItem(rawInput: StockItemInput): Promise<CreateS
 // --- Draft příjemky a ruční zadání řádků --------------------------------
 
 export type CreateDraftReceiptInput = {
+  // "" = dodavatel se zatím nevybírá — appka ho dohledá/založí podle
+  // vytěžení fotky (resolveSupplierId, skladExtraction.ts). Draft bez
+  // dodavatele nejde potvrdit, dá se ale založit a vyfotit.
   supplierId: string;
   stockLocationId: string;
   documentNumber: string | null;
@@ -238,6 +241,12 @@ export type CreateDraftReceiptInput = {
 
 export type CreateDraftReceiptResult = { ok: true; receiptId: string } | { ok: false; error: string };
 
+// Zobrazí se místo jména dodavatele, dokud ho AI vytěžení nedohledá nebo
+// nezaloží (nebo dokud ho člověk ručně nedoplní na kontrolní obrazovce).
+// Sloupec supplier_name_snapshot zůstává NOT NULL — žádné zobrazení
+// příjemky tak nemusí nově řešit null.
+export const DRAFT_SUPPLIER_PLACEHOLDER = "Dodavatel se určí z fotky";
+
 // Založení příjemky odpovídá kroku "nahrání dokladu" i bez skutečného
 // souboru (tahle etapa je bez uploadu/AI, viz zadání) — proto
 // requireUploadAccess, ne requireReviewAccess: budoucí skladník
@@ -246,13 +255,22 @@ export type CreateDraftReceiptResult = { ok: true; receiptId: string } | { ok: f
 export async function createDraftGoodsReceipt(input: CreateDraftReceiptInput): Promise<CreateDraftReceiptResult> {
   const ctx = requireUploadAccess(await getAuthContext());
 
-  const [supplier] = await db
-    .select({ name: suppliers.name })
-    .from(suppliers)
-    .where(eq(suppliers.id, input.supplierId))
-    .limit(1);
-  if (!supplier) {
-    return { ok: false, error: "Dodavatel nebyl nalezen." };
+  let supplierId: string | null = null;
+  let supplierNameSnapshot = DRAFT_SUPPLIER_PLACEHOLDER;
+  if (input.supplierId) {
+    const [supplier] = await db
+      .select({ name: suppliers.name })
+      .from(suppliers)
+      .where(eq(suppliers.id, input.supplierId))
+      .limit(1);
+    if (!supplier) {
+      return { ok: false, error: "Dodavatel nebyl nalezen." };
+    }
+    supplierId = input.supplierId;
+    // Snapshot jména PŘESNĚ jak zní teď — pozdější přejmenování
+    // dodavatele se do existujících příjemek nepromítne (revize
+    // návrhu, bod 2).
+    supplierNameSnapshot = supplier.name;
   }
   const [location] = await db
     .select({ id: stockLocations.id })
@@ -266,11 +284,8 @@ export async function createDraftGoodsReceipt(input: CreateDraftReceiptInput): P
   const [receipt] = await db
     .insert(goodsReceipts)
     .values({
-      supplierId: input.supplierId,
-      // Snapshot jména PŘESNĚ jak zní teď — pozdější přejmenování
-      // dodavatele se do existujících příjemek nepromítne (revize
-      // návrhu, bod 2).
-      supplierNameSnapshot: supplier.name,
+      supplierId,
+      supplierNameSnapshot,
       stockLocationId: input.stockLocationId,
       documentNumber: input.documentNumber,
       documentDate: input.documentDate,
@@ -295,7 +310,7 @@ export async function createDraftGoodsReceipt(input: CreateDraftReceiptInput): P
 
 export type GoodsReceiptSummary = {
   id: string;
-  supplierId: string;
+  supplierId: string | null;
   supplierNameSnapshot: string;
   stockLocationId: string;
   documentNumber: string | null;
@@ -367,7 +382,7 @@ export type GoodsReceiptLineRow = {
 
 async function fetchReceiptForMutation(
   receiptId: string
-): Promise<{ id: string; status: string; supplierId: string; documentNumber: string | null; stockLocationId: string } | null> {
+): Promise<{ id: string; status: string; supplierId: string | null; documentNumber: string | null; stockLocationId: string } | null> {
   const [receipt] = await db
     .select({
       id: goodsReceipts.id,
@@ -917,7 +932,7 @@ function confirmationChecksCtes(receiptId: string) {
       WHERE o.status = 'confirmed' AND o.supplier_id = r.supplier_id AND o.id <> r.id
     ),
     checks AS (
-      SELECT r.status, l.line_count, l.lines_total_hal, l.vat_unconfirmed, l.unmapped, l.kind_mismatch, l.unit_mismatch,
+      SELECT r.status, r.supplier_id, l.line_count, l.lines_total_hal, l.vat_unconfirmed, l.unmapped, l.kind_mismatch, l.unit_mismatch,
              r.document_total_with_vat_hal::float8 AS document_total_hal,
              r.document_number, r.document_date::text AS document_date,
              ${otherReceiptsJson(sql`same_number AND same_date AND same_total`)} AS duplicates,
@@ -929,6 +944,7 @@ function confirmationChecksCtes(receiptId: string) {
       SELECT c.*,
         array_remove(ARRAY[
           CASE WHEN c.status <> 'draft' THEN 'not_draft' END,
+          CASE WHEN c.supplier_id IS NULL THEN 'no_supplier' END,
           CASE WHEN c.line_count = 0 THEN 'no_lines' END,
           CASE WHEN jsonb_array_length(c.vat_unconfirmed) > 0 THEN 'vat_unconfirmed' END,
           CASE WHEN jsonb_array_length(c.unmapped) > 0 THEN 'unmapped' END,
@@ -1094,6 +1110,46 @@ export async function updateGoodsReceiptHeader(receiptId: string, rawInput: Rece
   ]);
   if (result.rows.length === 0) {
     return { ok: false, error: "Hlavičku lze upravit jen u návrhu příjemky." };
+  }
+  return { ok: true };
+}
+
+export type UpdateReceiptSupplierResult = { ok: true } | { ok: false; error: string };
+
+// Ruční doplnění/oprava dodavatele na kontrolní obrazovce — pro případ, kdy
+// AI vytěžení dodavatele nerozpoznalo (draft zůstal na
+// DRAFT_SUPPLIER_PLACEHOLDER, blocker "no_supplier") nebo ho dohledalo/
+// založilo špatně. Stejný vzor jako updateGoodsReceiptHeader (jen draft, za
+// zámkem příjemky, záznam do historie).
+export async function updateGoodsReceiptSupplier(receiptId: string, supplierId: string): Promise<UpdateReceiptSupplierResult> {
+  const ctx = requireReviewAccess(await getAuthContext());
+  if (!supplierId) {
+    return { ok: false, error: "Vyberte dodavatele." };
+  }
+  const [supplier] = await db.select({ name: suppliers.name }).from(suppliers).where(eq(suppliers.id, supplierId)).limit(1);
+  if (!supplier) {
+    return { ok: false, error: "Dodavatel nebyl nalezen." };
+  }
+
+  const [, result] = await db.batch([
+    buildGoodsReceiptAdvisoryLockQuery(receiptId),
+    db.execute<{ id: string }>(sql`
+      WITH updated AS (
+        UPDATE goods_receipts
+        SET supplier_id = ${supplierId},
+            supplier_name_snapshot = ${supplier.name},
+            updated_at = now()
+        WHERE id = ${receiptId} AND status = 'draft'
+        RETURNING id
+      )
+      INSERT INTO goods_receipt_activity (receipt_id, actor_type, author_user_id, author_name, kind, metadata)
+      SELECT id, 'user', ${ctx.userId}, ${ctx.name}, 'supplier_updated', jsonb_build_object('supplierId', ${supplierId}::text, 'supplierName', ${supplier.name}::text)
+      FROM updated
+      RETURNING id
+    `),
+  ]);
+  if (result.rows.length === 0) {
+    return { ok: false, error: "Dodavatele lze upravit jen u návrhu příjemky." };
   }
   return { ok: true };
 }
