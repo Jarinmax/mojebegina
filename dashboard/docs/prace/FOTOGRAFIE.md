@@ -35,7 +35,7 @@ Po uložení proměnných je potřeba nové nasazení (Redeploy).
 
 ## Jak je to zabezpečené
 
-- **Nahrávání:** fotka se v telefonu zmenší (max. 1600 px) a překóduje. Tím zmizí EXIF
+- **Nahrávání:** fotka (i printscreen) se v telefonu či počítači zmenší (max. 2400 px) a překóduje. Tím zmizí EXIF
   a GPS. Server ji pak znovu kontroluje:
   - přijme jen JPEG do 4 MB a 4096 px;
   - projde strukturu souboru;

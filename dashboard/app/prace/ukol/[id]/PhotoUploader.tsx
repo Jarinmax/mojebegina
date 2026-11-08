@@ -26,7 +26,7 @@ export default function PhotoUploader({ taskId, remaining }: { taskId: string; r
       try {
         blob = await compressPhoto(file);
       } catch {
-        return fail("Tento formát fotky se nepodařilo zpracovat. Zkuste fotku z fotoaparátu nebo JPEG.");
+        return fail("Tento formát se nepodařilo zpracovat. Zkuste fotku z fotoaparátu, JPEG nebo PNG (printscreen).");
       }
       const form = new FormData();
       form.set("taskId", taskId);
