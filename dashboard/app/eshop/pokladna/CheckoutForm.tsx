@@ -130,8 +130,8 @@ export default function CheckoutForm({
     if (couponEmail) rememberCheckoutEmail(couponEmail);
   }, [couponEmail]);
   // Nákup za kartu z MojeBegina („Objednat znovu“): údaje karty se načtou
-  // ze serveru podle podepsaného pasu a předvyplní se. Firma, IČO a DIČ
-  // jsou pak jen z karty (server je při odeslání vezme znovu z karty).
+  // ze serveru podle podepsaného pasu a předvyplní se. Zákazník je může
+  // upravit — faktura se vystaví podle toho, co v pokladně potvrdí.
   const handoff = useCustomerHandoff();
   const [prefill, setPrefill] = useState<HandoffPrefill | null>(null);
   const [locationId, setLocationId] = useState<string>("");
@@ -431,7 +431,7 @@ export default function CheckoutForm({
                 Nakupujete za <strong>{prefill.company.name}</strong> (IČO {prefill.company.ico}) — údaje z MojeBegina.
               </p>
               <p className="text-xs text-neutral-600 mt-0.5">
-                Firmu, IČO a DIČ bereme z vaší karty; změnu nám prosím napište na {OPERATOR.email}.{" "}
+                Údaje jsme předvyplnili z vaší karty — pokud je něco jinak, opravte to přímo zde, faktura se vystaví podle formuláře.{" "}
                 <button type="button" onClick={leaveHandoff} className="underline">Nakupovat bez údajů firmy</button>
               </p>
             </div>
@@ -440,34 +440,30 @@ export default function CheckoutForm({
             <label htmlFor="name" className={labelClass}>Jméno a příjmení</label>
             <input id="name" name="name" autoComplete="billing name" required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
           </div>
-          {prefill ? (
-            <input type="hidden" name="companyPurchase" value="on" />
-          ) : (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="companyPurchase"
-                checked={values.companyPurchase}
-                onChange={(e) => set("companyPurchase", e.target.checked)}
-                className="accent-begina-primary-900"
-              />
-              Nakupuji na firmu
-            </label>
-          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="companyPurchase"
+              checked={values.companyPurchase}
+              onChange={(e) => set("companyPurchase", e.target.checked)}
+              className="accent-begina-primary-900"
+            />
+            Nakupuji na firmu
+          </label>
           {values.companyPurchase && (
             <div className="flex flex-col gap-3">
               <div>
                 <label htmlFor="billingCompany" className={labelClass}>Název firmy</label>
-                <input id="billingCompany" name="billingCompany" autoComplete="billing organization" required value={values.billingCompany} onChange={(e) => set("billingCompany", e.target.value)} readOnly={prefill !== null} className={`${inputClass} ${prefill ? "bg-neutral-50" : ""}`} />
+                <input id="billingCompany" name="billingCompany" autoComplete="billing organization" required value={values.billingCompany} onChange={(e) => set("billingCompany", e.target.value)} className={inputClass} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="billingIco" className={labelClass}>IČO</label>
-                  <input id="billingIco" name="billingIco" inputMode="numeric" required value={values.billingIco} onChange={(e) => set("billingIco", e.target.value)} readOnly={prefill !== null} className={`${inputClass} ${prefill ? "bg-neutral-50" : ""}`} />
+                  <input id="billingIco" name="billingIco" inputMode="numeric" required value={values.billingIco} onChange={(e) => set("billingIco", e.target.value)} className={inputClass} />
                 </div>
                 <div>
                   <label htmlFor="billingDic" className={labelClass}>DIČ (nepovinné)</label>
-                  <input id="billingDic" name="billingDic" placeholder="CZ12345678" value={values.billingDic} onChange={(e) => set("billingDic", e.target.value)} readOnly={prefill !== null} className={`${inputClass} ${prefill ? "bg-neutral-50" : ""}`} />
+                  <input id="billingDic" name="billingDic" placeholder="CZ12345678" value={values.billingDic} onChange={(e) => set("billingDic", e.target.value)} className={inputClass} />
                 </div>
               </div>
             </div>

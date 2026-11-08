@@ -9,11 +9,11 @@
 //   - naplní košík položkami té objednávky (jen to, co jde dnes koupit),
 //   - předvyplní pokladnu údaji z karty (firma, IČO, DIČ, sídlo, provozovny),
 //   - novou objednávku přiřadí ke kartě (buyer_organization_id).
-// Přiřazení ke kartě se NIKDY neodvozuje z IČO ani e-mailu ve formuláři —
-// jen z pasu, a při každém použití se znovu ověří, že uživatel na kartě
-// pořád je (odebraný člen pas nevyužije).
+// Pas se při každém použití znovu ověří (odebraný člen ho nevyužije).
+// Bez pasu se objednávka ke kartě přiřadí podle e-mailu člena karty
+// (findCardByMemberEmail) — údaje karty se ale bez pasu nikdy neukážou.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import type { CatalogIndex } from "./catalogIndex";
@@ -257,4 +257,21 @@ export async function loadReorderItems(db: Db, organizationId: string, orderId: 
     .where(eq(schema.orderItems.orderId, orderId))
     .orderBy(asc(schema.orderItems.name));
   return rows.map((r) => ({ name: r.name, quantity: r.quantity, unitPriceKc: r.unitPriceKc, sku: r.variantSku ?? r.skuSnapshot }));
+}
+
+/**
+ * Karta podle e-mailu objednávky: e-mail patří členovi (účet zakládá
+ * Begina) právě jedné karty → id karty; žádná nebo víc karet → null
+ * (nic se nedohaduje). Samotné IČO kartu nikdy nepřiřadí.
+ */
+export async function findCardByMemberEmail(db: Db, email: string): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+  const rows = await db
+    .selectDistinct({ organizationId: schema.organizationMemberships.organizationId })
+    .from(schema.organizationMemberships)
+    .innerJoin(schema.userProfiles, eq(schema.userProfiles.userId, schema.organizationMemberships.userId))
+    .where(sql`lower(${schema.userProfiles.email}) = ${normalized}`)
+    .limit(2);
+  return rows.length === 1 ? rows[0].organizationId : null;
 }

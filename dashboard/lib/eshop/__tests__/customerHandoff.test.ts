@@ -1,7 +1,8 @@
 // Opakované objednávání z MojeBegina (8. 11. 2026): podepsaný pas, převod
-// položek staré objednávky do košíku a pokladna nad DB (neon-http → PGlite)
-// — karta se k objednávce přiřadí JEN s platným pasem člena karty, nikdy
-// podle IČO nebo e-mailu ve formuláři.
+// položek staré objednávky do košíku a pokladna nad DB (neon-http → PGlite).
+// Karta se k objednávce přiřadí s pasem člena karty, nebo podle e-mailu
+// člena (právě jedné) karty — samotné IČO nikdy. Fakturační údaje jsou
+// vždy ty z formuláře (zákazník je může opravit).
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import {
@@ -168,16 +169,35 @@ describe("pokladna s pasem nad DB", { timeout: 60_000 }, () => {
     });
   });
 
-  it("objednávka s pasem: karta přiřazená, firma/IČO/DIČ z karty (ne z formuláře)", async () => {
+  it("objednávka s pasem: karta přiřazená, fakturační údaje podle formuláře (zákazník je opravil)", async () => {
     const ID = "b1b1b1b1-1111-4111-8111-111111111111";
-    const result = await submitCheckoutAction(null, form(ID, { handoff: await token("u-adelka", ORG), billingCompany: "Podvrh s.r.o.", billingIco: "27082440" }));
+    const result = await submitCheckoutAction(
+      null,
+      form(ID, { handoff: await token("u-adelka", ORG), email: "jina@example.cz", companyPurchase: "on", billingCompany: "Lenka Odrazilová", billingIco: "74797921", billingDic: "CZ7557210705" })
+    );
     expect(result).toMatchObject({ savedOrderId: ID });
-    expect(await order(ID)).toEqual({ buyer_organization_id: ORG, billing_company: "Cukrárna Kavárna Adélka (Lenka Odrazilová)", billing_ico: "74797921", billing_dic: "CZ7557210705" });
+    expect(await order(ID)).toEqual({ buyer_organization_id: ORG, billing_company: "Lenka Odrazilová", billing_ico: "74797921", billing_dic: "CZ7557210705" });
   });
 
-  it("bez pasu: IČO karty ve formuláři kartu NEPŘIŘADÍ", async () => {
+  it("bez pasu, z jiného počítače: e-mail člena karty → zapíše se ke kartě", async () => {
+    const ID = "e1e1e1e1-1111-4111-8111-111111111111";
+    const result = await submitCheckoutAction(null, form(ID, { email: "Kavarna@Example.cz" }));
+    expect(result).toMatchObject({ savedOrderId: ID });
+    expect((await order(ID)).buyer_organization_id).toBe(ORG);
+  });
+
+  it("bez pasu: samotné IČO karty ani neznámý e-mail kartu nepřiřadí", async () => {
     const ID = "c1c1c1c1-1111-4111-8111-111111111111";
-    const result = await submitCheckoutAction(null, form(ID, { companyPurchase: "on", billingCompany: "Adélka", billingIco: "74797921" }));
+    const result = await submitCheckoutAction(null, form(ID, { email: "nekdo@example.cz", companyPurchase: "on", billingCompany: "Adélka", billingIco: "74797921" }));
+    expect(result).toMatchObject({ savedOrderId: ID });
+    expect((await order(ID)).buyer_organization_id).toBeNull();
+  });
+
+  it("e-mail člena dvou karet → nehádáme, bez karty", async () => {
+    await db.execute(sql`INSERT INTO user_profiles (user_id, name, email) VALUES ('u-dva', 'Dvojí', 'dva@example.cz')`);
+    await db.execute(sql`INSERT INTO organization_memberships (user_id, organization_id, role) VALUES ('u-dva', ${ORG}, 'owner'), ('u-dva', ${OTHER_ORG}, 'owner')`);
+    const ID = "f1f1f1f1-1111-4111-8111-111111111111";
+    const result = await submitCheckoutAction(null, form(ID, { email: "dva@example.cz" }));
     expect(result).toMatchObject({ savedOrderId: ID });
     expect((await order(ID)).buyer_organization_id).toBeNull();
   });

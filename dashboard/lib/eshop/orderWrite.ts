@@ -91,7 +91,7 @@ export function buildEshopOrderRows(
       order: {
         id: orderId,
         channel: "eshop",
-        // jen z ověřeného pasu MojeBegina (pokladna/actions.ts), jinak bez karty
+        // karta: pas MojeBegina nebo e-mail člena karty (pokladna/actions.ts)
         buyerOrganizationId: value.buyerOrganizationId ?? null,
         contactName: value.name,
         contactPhone: value.phone,
