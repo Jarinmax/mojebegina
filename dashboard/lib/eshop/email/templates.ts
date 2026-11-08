@@ -20,6 +20,7 @@ import {
   type PartyBlock,
 } from "../orderParties";
 import { displayItemName } from "../packageLabel";
+import { customerGreeting } from "./greeting";
 
 export type EmailOrder = {
   id: string;
@@ -297,7 +298,7 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
   if (order.customerNote) details.push(["Vaše poznámka", order.customerNote]);
   const instructions = paymentInstructions(order, ctx.transfer, ctx.qrContentId);
   const blocks = orderPartyBlocks(parties(order));
-  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const greeting = customerGreeting(order.contactName);
   const termsUrl = ctx.terms ? eshopAbsoluteUrl(ctx.baseUrl, ctx.terms.path) : null;
   const termsHtml =
     ctx.terms && termsUrl
@@ -407,7 +408,7 @@ export function customerPaymentReceivedEmail(
     ["Doprava", deliveryText(order)],
     ["Doručení", deliveryAddressText(order)],
   ];
-  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const greeting = customerGreeting(order.contactName);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
@@ -455,7 +456,7 @@ export function customerCancellationEmail(order: EmailOrder, ctx: Context & { he
     ["Stav", "Zrušená"],
     ["Částka objednávky", formatKc(order.totalKc)],
   ];
-  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const greeting = customerGreeting(order.contactName);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
@@ -520,7 +521,7 @@ export function customerReplacementEmail(
   ];
   const instructions =
     remainingHal > 0 ? paymentInstructions(order, ctx.transfer, ctx.qrContentId) : { html: "", text: "" };
-  const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
+  const greeting = customerGreeting(order.contactName);
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
