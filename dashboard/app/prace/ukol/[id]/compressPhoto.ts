@@ -1,9 +1,11 @@
 // Práce 2.0 — zmenšení a překódování fotky v telefonu před odesláním.
 // Kreslením do canvasu vznikne nový JPEG BEZ metadat (EXIF/GPS se nepřenesou)
-// a se správnou orientací; zároveň se zmenší objem dat (max. 1600 px).
+// a se správnou orientací; zároveň se zmenší objem dat (max. 2400 px —
+// od 9. 11. 2026, aby byly čitelné i printscreeny obrazovky; server
+// přijme až 4096 px a 4 MB).
 // Server fotku i tak kontroluje a čistí znovu (lib/prace/jpeg.ts).
-const MAX_SIDE = 1600;
-const QUALITY = 0.82;
+const MAX_SIDE = 2400;
+const QUALITY = 0.85;
 
 async function decode(file: Blob): Promise<{ source: CanvasImageSource; width: number; height: number; close: () => void }> {
   if (typeof createImageBitmap === "function") {
