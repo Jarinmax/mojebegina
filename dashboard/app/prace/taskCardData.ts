@@ -3,6 +3,7 @@ import type { WorkTaskView } from "@/lib/data/workTasks";
 import { workTaskTone, type WorkTaskTone } from "@/lib/data/workTasksValidation";
 import type { TaskCardAction, TaskCardData } from "./TaskCard";
 import { fmtDateTime, fmtDay, historyText, PHOTO_REQUIREMENT_LABEL } from "./workTaskLabels";
+import { ESHOP_CHECK_STATUS_LABEL, isEshopCheckTask, parseEshopCheckHeader } from "@/lib/data/eshopCheckRules";
 
 function shift(day: string, n: number) {
   const d = new Date(`${day}T00:00:00Z`);
@@ -36,6 +37,8 @@ export function toneLabel(tone: WorkTaskTone, t: WorkTaskView): string {
 }
 
 function cardAction(t: WorkTaskView, isManager: boolean, place: "list" | "detail"): TaskCardAction {
+  // karta registru „Kontrola e-shopu – Lucie“: rozhodnutí jen v detailu (schválit / vrátit)
+  if (isEshopCheckTask(t.title)) return "none";
   if (t.status === "cancelled" || t.status === "submitted") return "none";
   if (t.status === "done") return isManager || !t.requiresApproval ? "reopen" : "none";
   if (place === "detail") return "none"; // na detailu má dokončení vlastní tlačítko s fotkami
@@ -62,7 +65,8 @@ export function toCard(t: WorkTaskView, today: string, isManager: boolean, place
   return {
     id: t.id,
     title: t.title,
-    description: t.description,
+    // detail karty registru ukazuje celý popis zvlášť (kontrolní body, odkazy)
+    description: place === "detail" && isEshopCheckTask(t.title) ? null : t.description,
     assigneeName: t.assigneeName,
     dueLabel: dueLabel(t.dueDate, today),
     urgent: t.priority === "urgent",
@@ -70,7 +74,9 @@ export function toCard(t: WorkTaskView, today: string, isManager: boolean, place
     cancelled: t.status === "cancelled",
     doneLabel,
     tone,
-    toneLabel: toneLabel(tone, t),
+    toneLabel: isEshopCheckTask(t.title)
+      ? `${parseEshopCheckHeader(t.description).priority ?? ""} · ${ESHOP_CHECK_STATUS_LABEL[t.status] ?? t.status}`.replace(/^ · /, "")
+      : toneLabel(tone, t),
     history: place === "list" ? t.history.map(historyText) : [],
     action: cardAction(t, isManager, place),
     alert: t.status === "returned" && t.returnReason ? `Vráceno k opravě: ${t.returnReason}` : null,

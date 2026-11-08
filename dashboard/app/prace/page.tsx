@@ -60,6 +60,13 @@ export default async function PracePage() {
 
       <NotificationsPanel items={notifications} />
 
+      {(isManager || tasks.some((t) => /^BEG-\d{2}/.test(t.title))) && (
+        <Link href="/prace/kontrola-eshopu" className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900">
+          <span>Kontrola e-shopu – Lucie</span>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
+
       {isManager && (
         <>
           <Section title="Ke kontrole" tasks={waiting} today={today} isManager={isManager} />
