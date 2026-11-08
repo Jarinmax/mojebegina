@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getLucieCollaboratorCard } from "@/lib/data/collaboratorCards";
-import { AssignCardForm, PayoutForm, ProductMovementForm, WorkEntryForm } from "./Forms";
+import { InviteCollaboratorForm, PayoutForm, ProductMovementForm, WorkEntryForm } from "./Forms";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export default async function LucieCollaboratorPage() {
         {view.assignee && <p className="mt-1 text-sm text-emerald-700">Připojeno: {view.assignee.name ?? view.assignee.email}</p>}
       </div>
 
-      {view.access.isAdmin && !view.assignee && <div className="mb-4"><AssignCardForm /></div>}
+      {view.access.isAdmin && !view.assignee && <div className="mb-4"><InviteCollaboratorForm /></div>}
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[

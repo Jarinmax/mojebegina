@@ -6,6 +6,7 @@ import {
   addProductMovementAction,
   addWorkEntryAction,
   assignCardAction,
+  inviteCollaboratorAction,
   type CollaboratorActionState,
 } from "./actions";
 
@@ -68,13 +69,32 @@ export function PayoutForm({ remainingKc }: { remainingKc: number }) {
   </details>;
 }
 
+export function InviteCollaboratorForm() {
+  const [state, action, pending] = useActionState(inviteCollaboratorAction, null);
+  return <div className="grid gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <div>
+      <p className="font-medium text-begina-primary-900">Luciin účet zatím není připojený</p>
+      <p className="mt-1 text-sm text-neutral-600">Appka založí účet a rovnou pošle Lucii e-mail s odkazem na nastavení hesla. Karta se jí propojí sama.</p>
+    </div>
+    <form action={action} className="grid gap-3">
+      <input name="name" required maxLength={200} placeholder="Jméno Lucie" className={input} />
+      <input name="email" type="email" required placeholder="E-mail Lucie" className={input} />
+      <Result state={state} />
+      <button disabled={pending} className="min-h-11 rounded-lg bg-begina-primary-900 px-4 text-sm font-medium text-white disabled:opacity-50">{pending ? "Posílám pozvánku…" : "Pozvat spolupracovnici"}</button>
+    </form>
+    <details>
+      <summary className="cursor-pointer text-sm text-neutral-600">Lucie už má účet pod jiným e-mailem?</summary>
+      <AssignCardForm />
+    </details>
+  </div>;
+}
+
 export function AssignCardForm() {
   const [state, action, pending] = useActionState(assignCardAction, null);
-  return <form action={action} className="grid gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-    <div><p className="font-medium text-begina-primary-900">Luciin účet zatím není připojený</p><p className="mt-1 text-sm text-neutral-600">Po pozvání zadejte stejný e-mail a karta se jí zobrazí po přihlášení.</p></div>
-    <input name="email" type="email" required placeholder="E-mail Lucie" className={input} />
+  return <form action={action} className="mt-3 grid gap-3">
+    <input name="email" type="email" required placeholder="E-mail existujícího účtu" className={input} />
     <Result state={state} />
-    <button disabled={pending} className="min-h-11 rounded-lg bg-begina-primary-900 px-4 text-sm font-medium text-white disabled:opacity-50">{pending ? "Přiřazuji…" : "Přiřadit pozvaný účet"}</button>
+    <button disabled={pending} className="min-h-11 rounded-lg border border-begina-primary-900 px-4 text-sm font-medium text-begina-primary-900 disabled:opacity-50">{pending ? "Přiřazuji…" : "Přiřadit existující účet"}</button>
   </form>;
 }
 
