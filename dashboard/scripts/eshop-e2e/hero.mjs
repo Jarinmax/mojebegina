@@ -43,7 +43,7 @@ for (const [name, viewport] of viewports) {
   else check(`${name}: text nad fotografií`, h.y + h.height <= i.y, `h1 ${h.y}+${h.height} img ${i.y}`);
   const fs = await h1.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   check(`${name}: nadpis není přehnaně velký`, fs <= 52, `${fs}px`);
-  await page.screenshot({ path: `${OUT}/hero-${name}.png`, fullPage: false });
+  await page.screenshot({ path: `${OUT}/hero-${name}.jpg`, type: "jpeg", quality: 70, fullPage: false });
 
   for (const [label, path, heading] of [
     ["Vybrat polévku", "/kategorie/polevky", /polévky/i],
