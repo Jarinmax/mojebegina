@@ -367,3 +367,27 @@ describe("faktura podle fakturačních údajů", () => {
     expect(problems.map((p) => p.code)).toContain("billing_country_unsupported");
   });
 });
+
+// Náhled e-mailů pro kontrolu na mobilu (jen s RENDER_MAIL_DIR, jinak nic):
+// soukromá osoba, firma s jiným příjemcem, osobní odběr, starší objednávka.
+describe.runIf(Boolean(process.env.RENDER_MAIL_DIR))("náhled e-mailů", () => {
+  it("zapíše HTML", async () => {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const dir = process.env.RENDER_MAIL_DIR!;
+    mkdirSync(dir, { recursive: true });
+    const person: EmailOrder = { ...emailOrder, ...base, items: emailOrder.items };
+    const pickup: EmailOrder = { ...person, shippingMethodCode: "osobni-odber", shippingMethodLabel: "Osobní odběr – Zahradní Bistro Begina, Vitice 119", recipientAddress: null, deliverySameAsBilling: null, shippingKc: 0, totalKc: 2495 };
+    const legacy: EmailOrder = {
+      ...person,
+      orderNumber: 70000009,
+      billingName: null, billingCompany: null, billingIco: null, billingDic: null, billingStreet: null, billingCity: null, billingZip: null, billingCountry: null,
+      deliverySameAsBilling: null,
+      contactName: "Lenka Odrazilová", recipientName: "Lenka Odrazilová", recipientAddress: "Matúškova 831/1, 149 00 Praha 4-Háje",
+    };
+    const cases: [string, EmailOrder][] = [["1-osoba", person], ["2-firma-jiny-prijemce", emailOrder], ["3-osobni-odber", pickup], ["4-starsi-70000009", legacy]];
+    for (const [name, order] of cases) {
+      writeFileSync(`${dir}/${name}-interni.html`, internalOrderEmail(order, ctx).html);
+      writeFileSync(`${dir}/${name}-zakaznik.html`, customerOrderEmail(order, { ...ctx, transfer: null, qrContentId: null }).html);
+    }
+  });
+});

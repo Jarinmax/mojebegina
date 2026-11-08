@@ -29,3 +29,7 @@ jobs:
         run: npx tsc --noEmit 2>&1 | grep -v "PageProps\|RouteContext\|LayoutProps\|logo-begina-mark" || true
       - name: Testy
         run: npx vitest run 2>&1 | tail -150
+      - name: Náhled e-mailů
+        run: |
+          RENDER_MAIL_DIR=/tmp/mails npx vitest run lib/eshop/__tests__/fakturacniUdaje.test.ts >/dev/null 2>&1 || true
+          tar czf /tmp/mails.tgz -C /tmp mails && echo "=====BEGIN MAILS" && base64 -w0 /tmp/mails.tgz && echo && echo "=====END MAILS"
