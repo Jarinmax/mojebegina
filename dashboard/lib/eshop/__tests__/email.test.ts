@@ -367,7 +367,8 @@ describe("e-maily — potvrzení zrušení objednávky (storno)", () => {
     expect(mail.text).toContain("Objednávku už prosím nehraďte.");
     expect(mail.text).toContain("Stav: Zrušená");
     expect(mail.text).not.toMatch(/Variabilní symbol|Číslo účtu|IBAN|Splatnost|QR/);
-    expect(mail.html).toContain("Jana &lt;b&gt;Nováková&lt;/b&gt;");
+    // jméno s HTML není jméno osoby → neutrální oslovení, žádné HTML ze jména
+    expect(mail.text).toContain("Dobrý den,\n");
     expect(mail.html).not.toContain("<b>Nováková</b>");
   });
 

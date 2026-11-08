@@ -58,7 +58,8 @@ export function customerGreeting(fullName: string | null | undefined): string {
   const surname = words[words.length - 1];
   const surnameLower = surname.toLocaleLowerCase("cs");
   const firstLower = first.toLocaleLowerCase("cs");
-  if (!/^\p{L}/u.test(surname) || surname.length < 2) return NEUTRAL_GREETING;
+  // jméno i příjmení jen z písmen (pomlčka, apostrof) — jinak nejde o jméno osoby
+  if (!words.every((w) => /^\p{L}[\p{L}'-]*$/u.test(w)) || surname.length < 2) return NEUTRAL_GREETING;
   // název provozovny / firmy místo jména osoby
   if (words.some((w) => BUSINESS_WORDS.test(w))) return NEUTRAL_GREETING;
 
