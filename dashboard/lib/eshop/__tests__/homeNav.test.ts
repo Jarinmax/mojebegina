@@ -60,10 +60,11 @@ describe("úvodní stránka — kategorie z návrhu", () => {
     expect(availableHomeCategories(["caje", "polevky", "neexistuje"]).map((c) => c.slug)).toEqual(["polevky", "caje"]);
   });
 
-  it("každá ikona i obrázek ilustrace existuje v public/", () => {
+  it("každá ikona i fotografie úvodu existuje v public/", () => {
     const pub = path.join(__dirname, "../../../public");
     for (const c of stripCategories(HOME_CATEGORIES)) expect(existsSync(path.join(pub, c.icon)), c.icon).toBe(true);
-    for (const f of ["bag-in-box", "kelimek-dynova", "miska-polevka", "dyne", "listky-1", "listky-2", "listky-3", "vetvicka"]) {
+    // úvod od 8. 11. 2026: jedna skutečná fotografie (bez krabice)
+    for (const f of ["polevka-a-bylinny-napoj"]) {
       expect(existsSync(path.join(pub, `eshop/hero/${f}.webp`)), f).toBe(true);
     }
   });
