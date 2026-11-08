@@ -25,3 +25,4 @@ jobs:
           npx vitest run > /tmp/v.txt 2>&1 || true
           grep -E "FAIL |Test Files|Tests  " /tmp/v.txt | sort -u | head -80
           grep -nE "AssertionError|Error:" /tmp/v.txt | head -60
+          npx vitest run lib/eshop/__tests__/objednavka70000009Sql.test.ts 2>&1 | tail -80
