@@ -19,6 +19,7 @@ import {
   type OrderPartiesSource,
   type PartyBlock,
 } from "../orderParties";
+import { displayItemName } from "../packageLabel";
 
 export type EmailOrder = {
   id: string;
@@ -166,7 +167,7 @@ function itemsTable(order: EmailOrder): string {
     `<tr><td style="padding:6px 0;border-bottom:1px solid #EDEDED;${bold ? "font-weight:600;" : ""}">${left}</td>` +
     `<td style="padding:6px 0;border-bottom:1px solid #EDEDED;text-align:right;white-space:nowrap;${bold ? "font-weight:600;" : ""}">${right}</td></tr>`;
   const lines = order.items.map((item) =>
-    row(`${item.quantity}× ${escapeHtml(item.name)}`, escapeHtml(formatKc(item.lineTotalKc)))
+    row(`${item.quantity}× ${escapeHtml(displayItemName(item.name))}`, escapeHtml(formatKc(item.lineTotalKc)))
   );
   if (order.discountKc > 0) lines.push(row("Sleva", escapeHtml(`−${formatKc(order.discountKc)}`)));
   lines.push(row(escapeHtml(order.shippingMethodLabel ?? "Doprava"), escapeHtml(order.shippingKc > 0 ? formatKc(order.shippingKc) : "zdarma")));
@@ -175,7 +176,7 @@ function itemsTable(order: EmailOrder): string {
 }
 
 function itemsText(order: EmailOrder): string {
-  const lines = order.items.map((item) => `- ${item.quantity}× ${item.name}: ${formatKc(item.lineTotalKc)}`);
+  const lines = order.items.map((item) => `- ${item.quantity}× ${displayItemName(item.name)}: ${formatKc(item.lineTotalKc)}`);
   if (order.discountKc > 0) lines.push(`- Sleva: −${formatKc(order.discountKc)}`);
   lines.push(`- ${order.shippingMethodLabel ?? "Doprava"}: ${order.shippingKc > 0 ? formatKc(order.shippingKc) : "zdarma"}`);
   lines.push(`Celkem: ${formatKc(order.totalKc)}`);

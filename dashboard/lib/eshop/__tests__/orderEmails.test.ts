@@ -186,7 +186,7 @@ describe("e-maily k objednávce — pokladna a Stripe nad DB (neon-http → PGli
     expect(internal.to).toEqual(INTERNAL);
     // Preview: odpověď na [TEST] upozornění nesmí jít na adresu z objednávky.
     expect(internal.replyTo).toBeNull();
-    expect(internal.text).toContain("Zákazník: Jana Nováková");
+    expect(internal.text).toContain("Fakturační údaje\nJana Nováková");
     expect(internal.text).toContain("Poznámka zákazníka: Prosím zvonit dvakrát");
     expect(internal.text).toContain(`https://preview.example/rizeni-firmy/objednavky/${ID}`);
 
@@ -208,7 +208,8 @@ describe("e-maily k objednávce — pokladna a Stripe nad DB (neon-http → PGli
     const ID = "b2b2b2b2-2222-4222-8222-222222222222";
     await submitCheckoutAction(null, form(ID));
     const [customer, internal] = mail.sent;
-    expect(customer.text).toContain("Chlazená přeprava — Prvního pluku 14, 186 00 Praha");
+    expect(customer.text).toContain("Doprava: Chlazená přeprava\n");
+    expect(customer.text).toContain("Doručovací údaje\nJana Nováková\nPrvního pluku 14\n186 00 Praha\nČeská republika");
     expect(customer.text).toContain(`Celkem: ${new Intl.NumberFormat("cs-CZ").format(await total(ID))} Kč`);
     expect(customer.text).toContain("Platební údaje pro převod vám pošleme");
     expect(internal.subject).toContain("Čeká na platbu převodem");

@@ -441,7 +441,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body, "base64url").toString()), orderId: other.id })).toString("base64url");
     expect(await issue(other.id, `${v}.${forged}.${token.split(".")[2]}`)).toMatchObject({ isError: true, text: expect.stringMatching(/neplatný/) });
 
-    await db.execute(sql`UPDATE orders SET contact_name = 'Jana Nováková-Malá' WHERE id = ${order.id}`);
+    await db.execute(sql`UPDATE orders SET contact_name = 'Jana Nováková-Malá', billing_name = 'Jana Nováková-Malá' WHERE id = ${order.id}`);
     expect(await issue(order.id, token)).toMatchObject({ isError: true, text: expect.stringMatching(/změnily/) });
     expect(route.fake.calls).toEqual([]);
     expect(await linkState(order.id)).toMatchObject({ doc_state: "draft", external_id: null });

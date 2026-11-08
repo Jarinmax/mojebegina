@@ -63,14 +63,14 @@ describe("označení balení", () => {
     expect(displayItemName("Polévka dne")).toBe("Polévka dne");
   });
 
-  it("nová objednávka ukládá název „Kulajda – Begina 3 l“, cena a množství beze změny", () => {
-    const result = validate(input());
+  it("nová objednávka ukládá název „Svařák Deluxe – Begina 3 l“, cena a množství beze změny", () => {
+    const result = validate(input({ cart: JSON.stringify([{ sku: "svarak-deluxe-3l", quantity: 5 }, { sku: "svarak-deluxe-500ml", quantity: 1 }]), ageConfirmed: true }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const line = result.value.pricedCart.lines[0];
-    expect(line.name).toBe("Kulajda – Begina 3 l");
-    expect(line.name).not.toMatch(/Rodinná|bag-in-box|Praktické/i);
-    expect(line.quantity).toBe(2);
+    expect(result.value.pricedCart.lines.map((l) => [l.sku, l.name, l.quantity])).toEqual([
+      ["svarak-deluxe-3l", "Svařák Deluxe – Begina 3 l", 5],
+      ["svarak-deluxe-500ml", "Svařák Deluxe – 500 ml", 1],
+    ]);
   });
 });
 

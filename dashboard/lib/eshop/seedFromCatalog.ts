@@ -6,6 +6,7 @@
 
 import { categories as seedCategories, products as seedProducts } from "./catalog";
 import type { Catalog } from "./types";
+import { simplePackageLabel } from "./packageLabel";
 
 // Objem a počet nápojů nejsou v catalog.ts samostatně — odvozují se
 // z názvu balení ("3 l …", "500 ml …") a poznámky ("Až 15 nápojů …").
@@ -106,7 +107,8 @@ export function expectedCatalogAfterSeed(): Catalog {
       image: product.image,
       variants: product.variants.map((variant) => ({
         sku: variant.sku,
-        label: variant.label,
+        // katalog z DB zobrazuje balení jednotně („Begina 3 l“, „500 ml“) — packageLabel.ts
+        label: variant.label === null ? null : simplePackageLabel(variant.label),
         detail: variant.detail,
         description: variant.description,
         priceKc: variant.priceKc,
