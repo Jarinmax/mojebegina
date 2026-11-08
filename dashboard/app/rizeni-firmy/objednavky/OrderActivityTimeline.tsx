@@ -16,6 +16,9 @@ function describeEntry(entry: OrderActivityEntry): string {
           : `založil(a) objednávku${typeof meta.termsVersion === "string" ? ` (souhlas s obchodními podmínkami ve znění ${meta.termsVersion})` : ""}`;
     case "note_added":
       return "upravil(a) poznámku";
+    // ruční doplnění fakturačních údajů z ověřených podkladů (např. dřívějších faktur)
+    case "billing_details_completed":
+      return `doplnil(a) fakturační údaje${typeof meta.source === "string" ? ` — zdroj: ${meta.source}` : ""}`;
     case "fulfillment_status_changed": {
       const to = String(meta.to ?? "") as FulfillmentStatus;
       // MCP (plánování rozvozů) může u přechodu poslat i přepravce/tracking.

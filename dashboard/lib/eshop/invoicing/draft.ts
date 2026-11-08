@@ -246,8 +246,11 @@ export function buildInvoiceDraft(
   const billingAddressLine = billingStreet
     ? `${billingStreet}, ${(order.billingZip ?? "").trim()} ${(order.billingCity ?? "").trim()}`
     : null;
+  // Fakturační údaje objednávky (z pokladny, nebo ověřené z dřívějších faktur)
+  // mají přednost před CRM kartou — karta je jen výchozí hodnota u ručních
+  // B2B objednávek bez vlastních fakturačních údajů.
   const billingCompany =
-    !order.company && billingStreet && order.billingCompany?.trim() && order.billingIco?.trim()
+    billingStreet && order.billingCompany?.trim() && order.billingIco?.trim()
       ? {
           name: order.billingCompany.trim(),
           ico: order.billingIco.trim(),
@@ -256,9 +259,9 @@ export function buildInvoiceDraft(
         }
       : null;
   const contactName = (billingStreet ? order.billingName?.trim() : null) || order.contactName?.trim() || null;
-  const company = order.company ?? billingCompany;
+  const company = billingStreet ? billingCompany : (order.company ?? null);
   const billingCountry = order.billingCountry?.trim() || null;
-  if (!order.company && billingStreet && billingCountry && billingCountry !== "Česká republika") {
+  if (billingStreet && billingCountry && billingCountry !== "Česká republika") {
     add(
       "billing_country_unsupported",
       "error",

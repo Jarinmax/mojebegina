@@ -1,0 +1,27 @@
+# DOČASNÉ — ověření větve lucie/adelka-fakturacni-udaje (lokálně nejdou nainstalovat
+# balíčky). Před sloučením do main se smaže.
+name: docasne-testy
+on:
+  push:
+    branches: [lucie/adelka-fakturacni-udaje]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Typy (jen nové chyby)
+        run: npx tsc --noEmit 2>&1 | grep -v "PageProps\|RouteContext\|LayoutProps\|logo-begina-mark" || true
+      - name: Testy
+        run: |
+          npx vitest run > /tmp/v.txt 2>&1 || true
+          grep -E "FAIL |Test Files|Tests  " /tmp/v.txt | sort -u | head -80
+          grep -nE "AssertionError|Error:" /tmp/v.txt | head -60

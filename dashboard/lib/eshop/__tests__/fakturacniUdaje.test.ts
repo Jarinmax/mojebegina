@@ -366,6 +366,29 @@ describe("faktura podle fakturačních údajů", () => {
     expect(problems.filter((p) => p.severity === "error")).toEqual([]);
   });
 
+  it("ověřené fakturační údaje mají přednost před CRM kartou (Adélka, 70000009)", () => {
+    const { draft } = buildInvoiceDraft(
+      {
+        ...order,
+        company: { name: "Cukrárna Kavárna Adélka (Lenka Odrazilová)", ico: "74797921", dic: null, registeredAddress: "Dlouhá 113, 254 01 Radlík-Jílové" },
+        billingName: "Lenka Odrazilová",
+        billingCompany: "Lenka Odrazilová",
+        billingIco: "74797921",
+        billingDic: "CZ7557210705",
+        billingStreet: "Dlouhá 113",
+        billingCity: "Jílové u Prahy",
+        billingZip: "254 01",
+      },
+      items,
+      payments,
+      { numberSeriesId: null }
+    );
+    expect(draft.customer).toMatchObject({ kind: "company", name: "Lenka Odrazilová", ico: "74797921", dic: "CZ7557210705", address: { street: "Dlouhá 113", zip: "25401", city: "Jílové u Prahy" } });
+    // bez fakturačních údajů (ruční B2B) zůstává karta
+    const manual = buildInvoiceDraft({ ...order, billingStreet: null, company: { name: "Bistro s.r.o.", ico: "74337297", dic: null, registeredAddress: "Prvního pluku 14, 186 00 Praha" } }, items, payments, { numberSeriesId: null });
+    expect(manual.draft.customer).toMatchObject({ kind: "company", name: "Bistro s.r.o." });
+  });
+
   it("slovenská adresa: faktura se automaticky nevystaví", () => {
     const { problems } = buildInvoiceDraft({ ...order, billingCountry: "Slovensko", billingZip: "811 01", billingCity: "Bratislava" }, items, payments, { numberSeriesId: null });
     expect(problems.map((p) => p.code)).toContain("billing_country_unsupported");

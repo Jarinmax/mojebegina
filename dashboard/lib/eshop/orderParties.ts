@@ -82,7 +82,8 @@ export function billingBlock(order: OrderPartiesSource): PartyBlock {
     const company = clean(order.billingCompany);
     const name = clean(order.billingName) ?? clean(order.contactName);
     if (company) lines.push(company);
-    if (name) lines.push(company ? `Kontaktní osoba: ${name}` : name);
+    // u živnostníka je „firma“ jeho jméno — kontaktní osobu pak neopakujeme
+    if (name && name !== company) lines.push(company ? `Kontaktní osoba: ${name}` : name);
     lines.push(clean(order.billingStreet)!);
     const zip = clean(order.billingZip);
     const city = clean(order.billingCity);
