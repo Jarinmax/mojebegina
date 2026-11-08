@@ -49,7 +49,9 @@ export function deliveryText(draft: InvoiceDraft): string | null {
   const delivery = draft.delivery;
   if (!delivery || delivery.kind !== "shipment" || !delivery.address || !delivery.name) return null;
   const a = delivery.address;
-  return `Dodací adresa: ${delivery.name}, ${a.street}, ${czZip(a.zip)} ${a.city}`;
+  // provozovna příjemce první (jako na dřívějších fakturách: „Cukrárna Kavárna Adélka, …“)
+  const who = [delivery.company, delivery.name].filter((v, i, all) => v && all.indexOf(v) === i).join(", ");
+  return `Dodací adresa: ${who}, ${a.street}, ${czZip(a.zip)} ${a.city}`;
 }
 
 /**

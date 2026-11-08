@@ -33,6 +33,9 @@ describe("Production: bez výslovného zapnutí nic", () => {
   it("po zapnutí e-mailů: ostrý provoz, seznam testovacích adres se ignoruje → žádné [TEST] ani přesměrování", () => {
     const config = emailConfig({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_EMAIL_LIVE: "on" });
     expect(config?.testRecipients).toBeNull();
+    // kopie faktur a interní upozornění bez nastavení → info@begina.cz (chodí majiteli i Lucii)
+    expect(config?.invoiceCopyTo).toEqual(["info@begina.cz"]);
+    expect(emailConfig({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_EMAIL_LIVE: "on", ESHOP_EMAIL_INTERNAL_TO: "" })?.internalTo).toEqual(["info@begina.cz"]);
     expect(resolveRecipients(["jana@example.cz"], config!)).toEqual({ to: ["jana@example.cz"], withheld: [] });
   });
 

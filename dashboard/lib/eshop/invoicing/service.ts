@@ -56,6 +56,7 @@ async function loadInputs(db: Db, orderId: string) {
       contactEmail: orders.contactEmail,
       contactPhone: orders.contactPhone,
       recipientName: orders.recipientName,
+      recipientCompany: orders.recipientCompany,
       recipientAddress: orders.recipientAddress,
       shippingMethodCode: orders.shippingMethodCode,
       billingName: orders.billingName,

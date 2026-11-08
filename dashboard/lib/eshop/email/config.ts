@@ -7,8 +7,11 @@
 //     Preview neposílá nic — testovací objednávka tak nikdy neodejde
 //     skutečnému zákazníkovi.
 //   - ESHOP_EMAIL_INVOICE_COPY_TO: skrytá kopie (Bcc) každého e-mailu
-//     s fakturou (např. Jaroslav Viner a Lucie Königsbergová); prázdné =
-//     bez kopie. V testovacím režimu jen adresy z testovacího seznamu.
+//     s fakturou. Nenastavené = info@begina.cz (BEG-11, 8. 11. 2026:
+//     info@ chodí majiteli i Lucii). V testovacím režimu jen adresy
+//     z testovacího seznamu.
+//   - ESHOP_EMAIL_INTERNAL_TO: interní upozornění na novou objednávku.
+//     Nenastavené = info@begina.cz.
 import { isOrderWriteEnabled } from "../orderWrite";
 
 type Env = Record<string, string | undefined>;
@@ -37,6 +40,15 @@ export function parseEmailList(raw: string | undefined): string[] {
   return [...seen];
 }
 
+/** Společná schránka Beginy — dostávají ji majitel i Lucie. */
+export const DEFAULT_INTERNAL_EMAIL = "info@begina.cz";
+
+/** Seznam adres z proměnné; nenastavená/prázdná = info@begina.cz. */
+function listOrDefault(raw: string | undefined): string[] {
+  const list = parseEmailList(raw);
+  return list.length > 0 ? list : [DEFAULT_INTERNAL_EMAIL];
+}
+
 export function emailConfig(env: Env = process.env): EmailConfig | null {
   if (!isOrderWriteEnabled(env)) return null;
   const apiKey = env.RESEND_API_KEY?.trim() ?? "";
@@ -57,8 +69,8 @@ export function emailConfig(env: Env = process.env): EmailConfig | null {
     apiKey,
     from,
     replyTo,
-    internalTo: parseEmailList(env.ESHOP_EMAIL_INTERNAL_TO),
-    invoiceCopyTo: parseEmailList(env.ESHOP_EMAIL_INVOICE_COPY_TO),
+    internalTo: listOrDefault(env.ESHOP_EMAIL_INTERNAL_TO),
+    invoiceCopyTo: listOrDefault(env.ESHOP_EMAIL_INVOICE_COPY_TO),
     testRecipients,
   };
 }
