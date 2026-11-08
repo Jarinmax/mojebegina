@@ -418,3 +418,14 @@ describe.runIf(Boolean(process.env.RENDER_MAIL_DIR))("náhled e-mailů", () => {
     }
   });
 });
+
+describe("faktura: dodací adresa s provozovnou příjemce", () => {
+  it("„Cukrárna Kavárna Adélka, Lenka Odrazilová, Matúškova 831/1, …“", async () => {
+    const { deliveryText } = await import("../invoicing/idoklad");
+    const base = { kind: "shipment" as const, name: "Lenka Odrazilová", method: "Chlazená přeprava", address: { street: "Matúškova 831/1", zip: "14900", city: "Praha 4-Háje", country: "CZ" as const } };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const draft = (delivery: any) => ({ delivery }) as any;
+    expect(deliveryText(draft({ ...base, company: "Cukrárna Kavárna Adélka" }))).toBe("Dodací adresa: Cukrárna Kavárna Adélka, Lenka Odrazilová, Matúškova 831/1, 149 00 Praha 4-Háje");
+    expect(deliveryText(draft({ ...base, company: null }))).toBe("Dodací adresa: Lenka Odrazilová, Matúškova 831/1, 149 00 Praha 4-Háje");
+  });
+});

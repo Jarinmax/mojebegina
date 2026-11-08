@@ -33,7 +33,8 @@ describe("e-maily — kdy se vůbec posílají (pojistky)", () => {
       from: "Begina <objednavky@begina.cz>",
       replyTo: null,
       internalTo: ["jaroslav@begina.test", "lucie@begina.test"],
-      invoiceCopyTo: [],
+      // nenastavené = společná schránka info@begina.cz (BEG-11)
+      invoiceCopyTo: ["info@begina.cz"],
       testRecipients: ["jaroslav@begina.test", "lucie@begina.test"],
     });
   });

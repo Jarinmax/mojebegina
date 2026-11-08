@@ -49,6 +49,7 @@ export type DraftOrder = {
   contactPhone: string | null;
   /** příjemce zásilky (doručovací adresa) — může se lišit od odběratele */
   recipientName?: string | null;
+  recipientCompany?: string | null;
   recipientAddress: string | null;
   /** kód dopravy; jen „osobni-odber“ = bez zásilky (import z WooCommerce: null = zásilka) */
   shippingMethodCode?: string | null;
@@ -79,6 +80,8 @@ export type DraftDelivery = {
   kind: "pickup" | "shipment";
   /** příjemce zásilky (recipient_name) */
   name: string | null;
+  /** firma / provozovna příjemce (recipient_company), např. „Cukrárna Kavárna Adélka“ */
+  company?: string | null;
   /** ověřená dodací adresa (recipient_address); null = osobní odběr nebo chyba */
   address: DraftAddress | null;
   method: string | null;
@@ -347,6 +350,7 @@ export function buildInvoiceDraft(
       delivery: {
         kind: pickup ? "pickup" : "shipment",
         name: recipientName,
+        company: order.recipientCompany?.trim() || null,
         address: verifiedDelivery,
         method: order.shippingMethodLabel?.trim() || null,
       },
