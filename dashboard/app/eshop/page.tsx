@@ -6,9 +6,9 @@ import type { Metadata } from "next";
 import ShopLink from "@/components/eshop/ShopLink";
 import { INFO_PAGES, filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 
-// Úvodní stránka podle návrhu „Hero e-shopu Begina.cz“ (2. 10. 2026): hero
-// s ilustrací, pruh kategorií s ikonami a „Proč Begina“ (texty doslova
-// z begina.cz). Dlaždice kategorií s fotkami odebrány (3. 10. 2026) — úvod
+// Úvodní stránka: hero podle návrhu z 8. 11. 2026 (fotografie polévky
+// s bylinným nápojem, tlačítka Vybrat polévku / Objevit sirupy), pruh
+// kategorií s ikonami a „Proč Begina“ (texty doslova z begina.cz). Dlaždice kategorií s fotkami odebrány (3. 10. 2026) — úvod
 // má zůstat jednoduchý a čistý.
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,6 @@ export default async function EshopPage() {
   const { categories } = await getCatalog();
   return (
     <>
-      {/* Tlačítko „Vybrat si“ dočasně skryté (14. 10. 2026) — vrátí se s odkazem na jinou stránku. */}
       <HomeHero />
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
       <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">

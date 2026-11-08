@@ -1,93 +1,76 @@
 import Image from "next/image";
-import Link from "next/link";
-import { Snowflake } from "lucide-react";
+import { ArrowRight, Snowflake } from "lucide-react";
+import ShopLink from "./ShopLink";
 
-// Úvod e-shopu podle návrhu „Hero e-shopu Begina.cz“ (2. 10. 2026).
-// Ilustrace je složená z výřezů návrhu (public/eshop/hero); krabice
-// bag-in-box je oproti návrhu vyšší — obdélník na výšku (docs/eshop-design/tall_box.py).
-// Pozice prvků = jejich rozmístění v návrhu; oblast 930 × 690 bodů (návrh
-// 930 × 570 + 120 bodů nahoře pro vyšší krabici, ostatní prvky posunuté dolů).
+// Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
+// detaily, výrazné červené hlavní tlačítko a skutečná fotografie čerstvé
+// polévky s bylinným nápojem (žádné krabice ani vymyšlené obaly).
+// Texty a tlačítka jsou webové prvky; logo a menu zůstávají z hlavičky webu.
+//
+// Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
+// pod nimi přes celou šířku; počítač = text vlevo, fotografie vpravo.
+// Fotografie se nikdy neořezává ani nedeformuje (vždy celá v poměru 3 : 2),
+// velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
-type Piece = { src: string; w: number; h: number; left: number; top: number; width: number; z: number };
+export const HERO_PHOTO = {
+  src: "/eshop/hero/polevka-a-bylinny-napoj.webp",
+  width: 1536,
+  height: 1024,
+  alt: "Čerstvá dýňová polévka v misce a sklenice bylinného nápoje s meduňkou",
+};
 
-const PIECES: Piece[] = [
-  { src: "/eshop/hero/bag-in-box.webp", w: 479, h: 700, left: 43.4, top: 0, width: 44.4, z: 1 },
-  { src: "/eshop/hero/kelimek-dynova.webp", w: 217, h: 284, left: 54.5, top: 56.1, width: 22.3, z: 2 },
-  { src: "/eshop/hero/miska-polevka.webp", w: 413, h: 297, left: 19.5, top: 58.5, width: 38.8, z: 3 },
-  { src: "/eshop/hero/dyne.webp", w: 168, h: 148, left: 6.6, top: 70.8, width: 16.8, z: 4 },
-  { src: "/eshop/hero/listky-1.webp", w: 152, h: 55, left: 1.1, top: 87.9, width: 16.7, z: 4 },
-  { src: "/eshop/hero/listky-2.webp", w: 199, h: 93, left: 80.3, top: 78.1, width: 18.5, z: 4 },
-  { src: "/eshop/hero/listky-3.webp", w: 151, h: 51, left: 72.9, top: 90.3, width: 16.7, z: 4 },
-];
+export const HERO_LINKS = {
+  soups: "/kategorie/polevky",
+  syrups: "/kategorie/sirupy",
+};
 
-// Menší, decentní srdíčko v barvě červeného kohoutku krabice (vzorek z bag-in-box.webp).
-function Heart() {
+export default function HomeHero() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="inline-block w-[0.5em] h-[0.5em] ml-[0.22em] align-[0.02em] fill-[#B5261E]">
-      <path d="M12 21.6 10.6 20.3C5.4 15.6 2 12.5 2 8.7 2 5.6 4.4 3.2 7.5 3.2c1.7 0 3.4.8 4.5 2.1 1.1-1.3 2.8-2.1 4.5-2.1 3.1 0 5.5 2.4 5.5 5.5 0 3.8-3.4 6.9-8.6 11.6L12 21.6Z" />
-    </svg>
-  );
-}
-
-// Tlačítko „Vybrat si“ jen s odkazem (ctaHref) — 14. 10. 2026 dočasně
-// skryté, později povede na jinou stránku.
-export default function HomeHero({ ctaHref }: { ctaHref?: string }) {
-  return (
-    <section className="relative overflow-hidden bg-[#FAF6EF] bg-[radial-gradient(ellipse_42%_60%_at_72%_62%,rgba(214,190,150,0.26),transparent_70%)] border-b border-[#EDE5D8]">
-      <Image
-        src="/eshop/hero/vetvicka.webp"
-        alt=""
-        width={72}
-        height={332}
-        className="hidden lg:block absolute left-0 top-[38%] w-[52px] h-auto opacity-80"
-      />
-      {/* Na počítači se hero přizpůsobí výšce okna, aby pod ním byl hned vidět pruh kategorií. */}
-      <div className="max-w-6xl mx-auto px-4 pt-10 pb-8 sm:pt-14 lg:py-[clamp(1.25rem,3.5vh,3rem)] grid gap-8 lg:gap-6 lg:grid-cols-2 items-center">
-        <div className="relative z-10 lg:pl-6">
-          {/* Zadání Lucie (6. 11. 2026). Srdíčko je s posledním slovem v jednom
-              nezalomitelném celku, takže nikdy nezůstane samo na řádku. */}
-          <h1 className="font-serif text-[2.15rem] leading-[1.1] sm:text-5xl lg:text-[clamp(2.1rem,5.4vh,3.25rem)] lg:leading-[1.08] tracking-tight text-[#2A2622] text-balance">
-            Čerstvé polévky, bylinné sirupy, nápoje a{"\u00a0"}
-            <span className="whitespace-nowrap">
-              zmrzliny.
-              <Heart />
-            </span>
-          </h1>
-          <p className="mt-6 lg:mt-[clamp(0.75rem,2.2vh,1.5rem)] text-base sm:text-lg text-[#3B3631] max-w-md leading-relaxed">
-            Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje z pečlivě vybraných surovin a čisté filtrované vody.
+    <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
+      <div className="max-w-6xl mx-auto lg:px-4 lg:py-[clamp(1.5rem,4vh,3.5rem)] grid items-center lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-10">
+        <div className="relative z-10 px-4 pt-9 pb-6 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
+          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
+            Čerstvě. Jednoduše. S&nbsp;chutí.
           </p>
-          {ctaHref && (
-          <Link
-            href={ctaHref}
-            className="mt-7 lg:mt-[clamp(1rem,2.6vh,1.75rem)] inline-flex items-center justify-center rounded-full bg-[#E2702C] hover:bg-[#C95F20] transition-colors px-12 py-3.5 lg:py-3 text-lg text-white shadow-md shadow-[#E2702C]/25"
-          >
-            Vybrat si
-          </Link>
-          )}
-          <p className="mt-6 lg:mt-[clamp(0.75rem,2.2vh,1.5rem)] flex items-center gap-2 text-sm text-[#5E6B34]">
-            <Snowflake className="w-4 h-4" aria-hidden="true" />
-            Doručujeme chlazenou přepravou
+          <h1 className="mt-4 font-serif text-[2.1rem] leading-[1.1] sm:text-[2.6rem] lg:text-[clamp(2.3rem,4.6vh,3.1rem)] tracking-tight text-[#2A2622] text-balance">
+            Čerstvé polévky a&nbsp;bylinné sirupy
+          </h1>
+          <p className="mt-4 text-base sm:text-lg text-[#3B3631] leading-relaxed max-w-md mx-auto lg:mx-0 text-balance">
+            Z pečlivě vybraných surovin a&nbsp;čisté filtrované vody.
+          </p>
+          <div className="mt-7 flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 max-w-xs sm:max-w-none mx-auto lg:mx-0">
+            <ShopLink
+              href={HERO_LINKS.soups}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-7 py-3.5 text-lg font-medium text-white shadow-md shadow-[#A51C1C]/20"
+            >
+              Vybrat polévku
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </ShopLink>
+            <ShopLink
+              href={HERO_LINKS.syrups}
+              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5E6B34] transition-colors px-7 py-3 text-lg font-medium text-[#4A5527]"
+            >
+              Objevit sirupy
+            </ShopLink>
+          </div>
+          <p className="mt-6 flex items-center justify-center lg:justify-start gap-2 text-sm sm:text-base text-[#5E6B34]">
+            <Snowflake className="w-5 h-5" aria-hidden="true" />
+            Doručujeme chlazenou přepravou.
           </p>
         </div>
 
-        <div
-          className="relative w-full aspect-[930/690] sm:max-w-[30rem] sm:mx-auto lg:max-w-none lg:w-auto lg:h-[clamp(17rem,min(calc(100svh_-_21rem),calc((min(100vw,72rem)_-_3.5rem)_*_0.37)),26rem)] lg:mx-auto"
-          role="img"
-          aria-label="Polévka v misce, kelímek Dýňové polévky a balení bag-in-box Begina"
-        >
-          {PIECES.map((piece, i) => (
-            <Image
-              key={piece.src}
-              src={piece.src}
-              alt=""
-              width={piece.w}
-              height={piece.h}
-              priority={i < 3}
-              sizes={`(min-width: 1152px) ${Math.round((piece.width / 100) * 650)}px, ${Math.round(piece.width)}vw`}
-              className="absolute h-auto drop-shadow-[0_14px_14px_rgba(90,65,30,0.16)]"
-              style={{ left: `${piece.left}%`, top: `${piece.top}%`, width: `${piece.width}%`, zIndex: piece.z }}
-            />
-          ))}
+        <div className="relative w-full sm:max-w-3xl sm:mx-auto lg:max-w-none">
+          {/* jemný přechod fotografie do krémového podkladu (mobil, tablet) */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#FAF6EF] to-transparent z-10 lg:hidden" />
+          <Image
+            src={HERO_PHOTO.src}
+            alt={HERO_PHOTO.alt}
+            width={HERO_PHOTO.width}
+            height={HERO_PHOTO.height}
+            priority
+            sizes="(min-width: 1152px) 600px, (min-width: 1024px) 52vw, (min-width: 768px) 48rem, 100vw"
+            className="block w-full h-auto lg:rounded-2xl lg:shadow-[0_18px_40px_-18px_rgba(90,65,30,0.35)]"
+          />
         </div>
       </div>
     </section>
