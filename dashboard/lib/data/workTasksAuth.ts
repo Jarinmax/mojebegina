@@ -4,6 +4,9 @@
 // Königsbergová) sem tím automaticky přístup NEDOSTANOU.
 //   • vedoucí (Viner, ADMIN) — zadává a přiděluje úkoly, vidí práci všech,
 //   • pracovník (Blahout, EXECUTIVE) — vidí a plní JEN svoje úkoly.
+//   • Königsbergová (EXECUTIVE, 8. 11. 2026) — stejně jako pracovník vidí
+//     JEN své úkoly: kontrolní karty registru „Kontrola e-shopu – Lucie“
+//     (BEG-01…), u nich opravu schválí nebo vrátí. Žádná práva vedoucí.
 import { isAdmin, isAdminOrExecutive } from "./adminAuth";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import type { AuthContext } from "./types";
@@ -12,9 +15,13 @@ export const WORK_MANAGER_USER_ID = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c"; // J
 // Práce 1.1 — oprávnění vedoucí (zadávají, upravují, ruší). Další vedoucí se
 // přidá sem; role ADMIN zůstává druhou nezávislou podmínkou.
 export const WORK_MANAGER_USER_IDS: readonly string[] = [WORK_MANAGER_USER_ID];
+export const LUCIE_USER_ID = "f9f93f03-92b0-4724-becd-c0a3576b5275"; // Lucie Königsbergová
 export const WORK_ASSIGNEES: ReadonlyArray<{ userId: string; name: string }> = [
   { userId: "06240ac4-c050-47ea-998c-6c81389edf9f", name: "Jaroslav Blahout" },
+  { userId: LUCIE_USER_ID, name: "Lucie Königsbergová" },
 ];
+/** Po přihlášení rovnou na /prace (Denní volání, úkoly) — Lucie dál přistává na /executive. */
+const LANDS_ON_PRACE: readonly string[] = ["06240ac4-c050-47ea-998c-6c81389edf9f"];
 
 export function isWorkManager(ctx: AuthContext): boolean {
   return ctx !== null && WORK_MANAGER_USER_IDS.includes(ctx.userId) && isAdmin(ctx);
@@ -38,5 +45,5 @@ export function requireWorkManager(ctx: AuthContext): NonNullable<AuthContext> {
 
 /** Pracovník po přihlášení (role EXECUTIVE) přistane rovnou na /prace. */
 export function landingForExecutive(userId: string): string {
-  return WORK_ASSIGNEES.some((a) => a.userId === userId) ? "/prace" : "/executive";
+  return LANDS_ON_PRACE.includes(userId) ? "/prace" : "/executive";
 }

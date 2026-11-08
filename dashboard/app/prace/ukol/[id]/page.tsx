@@ -12,6 +12,8 @@ import PhotoGallery from "./PhotoGallery";
 import PhotoUploader from "./PhotoUploader";
 import CompleteTaskButton from "./CompleteTaskButton";
 import ReviewPanel from "./ReviewPanel";
+import EshopCheckReviewPanel from "./EshopCheckReviewPanel";
+import { ESHOP_CHECK_PATH, ESHOP_CHECK_REGISTER_NAME, ESHOP_CHECK_STATUS_LABEL, isEshopCheckTask } from "@/lib/data/eshopCheck";
 
 export const dynamic = "force-dynamic";
 
@@ -37,15 +39,25 @@ export default async function WorkTaskDetailPage(props: PageProps<"/prace/ukol/[
   await markWorkNotificationsRead(`/prace/ukol/${task.id}`);
 
   const workable = task.status === "open" || task.status === "returned";
+  // karta registru „Kontrola e-shopu – Lucie“ — rozhoduje jen přidělená Lucie
+  const eshopCheck = isEshopCheckTask(task.title);
   const canWork = workable && (isAssignee || isManager);
   const photosAllowed = task.photoRequirement !== "none";
   const missingRequiredPhoto = task.photoRequirement === "required" && task.photos.length === 0;
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/prace" className="text-sm text-neutral-500 min-h-8">← Zpět na úkoly</Link>
+      <Link href={eshopCheck ? ESHOP_CHECK_PATH : "/prace"} className="text-sm text-neutral-500 min-h-8">
+        ← {eshopCheck ? ESHOP_CHECK_REGISTER_NAME : "Zpět na úkoly"}
+      </Link>
 
       <TaskCard showAssignee task={toCard(task, today, isManager, "detail")} />
+
+      {eshopCheck && task.description && (
+        <section className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
+          <p className="text-sm text-begina-primary-900 whitespace-pre-wrap break-words">{linkify(task.description)}</p>
+        </section>
+      )}
 
       {task.status === "returned" && task.returnReason && (
         <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3">
@@ -56,7 +68,7 @@ export default async function WorkTaskDetailPage(props: PageProps<"/prace/ukol/[
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm rounded-xl border border-neutral-200 bg-white px-4 py-3">
         <dt className="text-neutral-500">Stav</dt>
-        <dd className="text-begina-primary-900">{STATUS_LABEL[task.status] ?? task.status}</dd>
+        <dd className="text-begina-primary-900">{(eshopCheck ? ESHOP_CHECK_STATUS_LABEL : STATUS_LABEL)[task.status] ?? task.status}</dd>
         <dt className="text-neutral-500">Komu</dt>
         <dd className="text-begina-primary-900">{task.assigneeName}</dd>
         <dt className="text-neutral-500">Termín</dt>
@@ -70,6 +82,8 @@ export default async function WorkTaskDetailPage(props: PageProps<"/prace/ukol/[
       </dl>
 
       {isManager && task.status === "submitted" && <ReviewPanel taskId={task.id} />}
+
+      {eshopCheck && isAssignee && workable && <EshopCheckReviewPanel taskId={task.id} returned={task.status === "returned"} />}
 
       {(photosAllowed || task.photos.length > 0) && (
         <section className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
@@ -93,7 +107,7 @@ export default async function WorkTaskDetailPage(props: PageProps<"/prace/ukol/[
         </section>
       )}
 
-      {canWork && (
+      {canWork && !eshopCheck && (
         <CompleteTaskButton
           taskId={task.id}
           requiresApproval={task.requiresApproval}
@@ -134,5 +148,18 @@ export default async function WorkTaskDetailPage(props: PageProps<"/prace/ukol/[
         </ul>
       </section>
     </div>
+  );
+}
+
+/** Odkazy v popisu karty (PR, produkční stránky) klikací. */
+function linkify(text: string) {
+  return text.split(/(https?:\/\/[^\s)]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noreferrer" className="text-blue-700 underline break-all">
+        {part}
+      </a>
+    ) : (
+      part
+    )
   );
 }

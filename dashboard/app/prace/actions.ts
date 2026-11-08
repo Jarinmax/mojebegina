@@ -12,6 +12,7 @@ import {
   setWorkTaskDone,
   updateWorkTask,
 } from "@/lib/data/workTasks";
+import { reviewEshopCheck } from "@/lib/data/eshopCheck";
 
 export type PraceActionState = { error: string } | { success: string } | null;
 
@@ -95,6 +96,21 @@ export async function reviewWorkTaskAction(taskId: string, approve: boolean, _pr
     return { success: approve ? "Úkol byl schválen." : "Úkol byl vrácen k opravě." };
   } catch (error) {
     console.error("reviewWorkTaskAction", error);
+    return { error: "Rozhodnutí se nepodařilo uložit. Zkuste to prosím znovu." };
+  }
+}
+
+// Registr „Kontrola e-shopu – Lucie“: Lucie schválí opravu, nebo ji vrátí.
+export async function reviewEshopCheckAction(taskId: string, approve: boolean, _prev: PraceActionState, formData: FormData): Promise<PraceActionState> {
+  try {
+    const result = await reviewEshopCheck(taskId, approve, String(formData.get(approve ? "note" : "reason") ?? ""));
+    if (!result.ok) return { error: result.error };
+    revalidatePath("/prace");
+    revalidatePath("/prace/kontrola-eshopu");
+    revalidatePath(`/prace/ukol/${taskId}`);
+    return { success: approve ? "Oprava je schválená." : "Vráceno k opravě." };
+  } catch (error) {
+    console.error("reviewEshopCheckAction", error);
     return { error: "Rozhodnutí se nepodařilo uložit. Zkuste to prosím znovu." };
   }
 }

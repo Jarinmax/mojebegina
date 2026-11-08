@@ -68,7 +68,7 @@ export function historyText(h: WorkTaskHistoryEntry): string {
       what = `odesláno ke kontrole${typeof meta.photos === "number" && meta.photos > 0 ? ` (${meta.photos} fot.)` : ""}`;
       break;
     case "approved":
-      what = "schváleno";
+      what = typeof meta.note === "string" && meta.note ? `schváleno (poznámka: ${meta.note})` : "schváleno";
       break;
     case "returned":
       what = `vráceno k opravě (důvod: ${String(meta.reason ?? "—")})`;
