@@ -1376,11 +1376,27 @@ export async function createReplacementFromCancelled(
   const newOrderId = parseOrderToken(input.token);
   if (!newOrderId) return { ok: false, error: "Formulář vypršel — obnovte prosím stránku." };
   const [original] = await db
-    .select({ name: orders.contactName, email: orders.contactEmail, phone: orders.contactPhone })
+    .select({
+      name: orders.contactName,
+      email: orders.contactEmail,
+      phone: orders.contactPhone,
+      billingName: orders.billingName,
+      billingCompany: orders.billingCompany,
+      billingIco: orders.billingIco,
+      billingDic: orders.billingDic,
+      billingStreet: orders.billingStreet,
+      billingCity: orders.billingCity,
+      billingZip: orders.billingZip,
+      billingCountry: orders.billingCountry,
+    })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
   if (!original) return { ok: false, error: "Objednávka nebyla nalezena." };
+  // Fakturační údaje převezme náhradní objednávka z původní. Starší původní
+  // objednávka je nemá — kontrola pokladny proběhne s doručovací adresou,
+  // ale do náhradní objednávky se fakturační údaje NEuloží (nic se nedohaduje).
+  const billingKnown = Boolean(original.billingStreet);
   const validated = validateCheckoutInput(
     {
       cart: input.cart,
@@ -1390,9 +1406,22 @@ export async function createReplacementFromCancelled(
       shippingMethodId: input.shippingMethodId,
       // doplatek (je-li) jen převodem — QR na zbytek; karta by účtovala celou částku
       paymentMethodId: "prevod",
+      billingStreet: billingKnown ? (original.billingStreet ?? "") : input.street,
+      billingCity: billingKnown ? (original.billingCity ?? "") : input.city,
+      billingZip: billingKnown ? (original.billingZip ?? "") : input.zip,
+      billingCountry: billingKnown ? (original.billingCountry ?? "") : "Česká republika",
+      companyPurchase: billingKnown && Boolean(original.billingIco),
+      billingCompany: original.billingCompany ?? "",
+      billingIco: original.billingIco ?? "",
+      billingDic: original.billingDic ?? "",
+      // náhradní zásilka jde na adresu zadanou v MojeBegina, příjemce = zákazník
+      deliverySameAsBilling: false,
+      recipientName: original.name ?? "",
+      recipientCompany: "",
       street: input.street,
       city: input.city,
       zip: input.zip,
+      recipientPhone: original.phone ?? "",
       note: "",
       // obchodní podmínky: přijaté u původní objednávky (createReplacementOrder)
       termsAccepted: true,
@@ -1413,7 +1442,7 @@ export async function createReplacementFromCancelled(
   const created = await createReplacementOrder(db, {
     fromOrderId: orderId,
     newOrderId,
-    value: validated.value,
+    value: billingKnown ? validated.value : { ...validated.value, billingUnknown: true },
     consentNote: consent.note,
     user: actor,
   });

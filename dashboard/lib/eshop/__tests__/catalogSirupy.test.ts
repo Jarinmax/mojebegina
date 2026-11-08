@@ -65,8 +65,8 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       SYRUPS.map(([name, price3l]) => [
         name,
         [
-          ["3 l Rodinná zásoba (bag-in-box)", "Až 150 nápojů", price3l],
-          ["750 g Praktické balení", "Až 37 nápojů", 199],
+          ["Begina 3 l", "Až 150 nápojů", price3l],
+          ["750 g", "Až 37 nápojů", 199],
         ],
       ])
     );

@@ -78,7 +78,11 @@ export function buildEshopOrderRows(
     });
   }
 
-  const { billing, delivery } = value;
+  const { delivery } = value;
+  // náhradní objednávka ke starší objednávce: fakturační údaje nejsou známé
+  const billing = value.billingUnknown
+    ? { name: null, company: null, street: null, city: null, zip: null, country: null }
+    : value.billing;
   const address = delivery ? `${delivery.street}, ${delivery.zip} ${delivery.city}` : null;
 
   return {

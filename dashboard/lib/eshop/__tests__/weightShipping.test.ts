@@ -227,7 +227,7 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     const result = priceCart([{ sku: "kulajda", quantity: 1 }, { sku: "lipovy-caj-3l", quantity: 1 }], "rozvoz", withoutWeight, {
       shippingMode: "weight",
     });
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/^U položky Kulajda — 3 l .* zatím neznáme hmotnost.*individuálně/) });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/^U položky Kulajda – Begina 3 l .* zatím neznáme hmotnost.*individuálně/) });
   });
 
   it("osobní odběr ve Viticích zdarma vždy — i nad 150 kg a bez hmotnosti", () => {

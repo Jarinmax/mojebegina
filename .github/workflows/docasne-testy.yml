@@ -28,7 +28,10 @@ jobs:
       - name: Typy (jen nové chyby)
         run: npx tsc --noEmit 2>&1 | grep -v "PageProps\|RouteContext\|LayoutProps\|logo-begina-mark" || true
       - name: Testy
-        run: npx vitest run 2>&1 | tail -150
+        run: |
+          npx vitest run > /tmp/v.txt 2>&1 || true
+          grep -E "FAIL |Test Files|Tests  " /tmp/v.txt | sort -u | head -80
+          grep -nE "AssertionError|Error:" /tmp/v.txt | head -60
       - name: Náhled e-mailů
         run: |
           RENDER_MAIL_DIR=/tmp/mails npx vitest run lib/eshop/__tests__/fakturacniUdaje.test.ts >/dev/null 2>&1 || true

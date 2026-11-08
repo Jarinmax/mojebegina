@@ -97,7 +97,7 @@ describe("orderWrite — čisté funkce", () => {
         orderId: ORDER_ID,
         productVariantId: "v-svarak",
         skuSnapshot: "svarak-deluxe-3l",
-        name: "Svařák Deluxe — 3 l Rodinná zásoba (bag-in-box)",
+        name: "Svařák Deluxe – Begina 3 l",
         quantity: 2,
         unitPriceKc: 499,
         lineTotalKc: 998,
@@ -196,7 +196,7 @@ describe("orderWrite — skutečný zápis přes neon-http (db.batch) nad PGlite
       {
         sku_snapshot: "svarak-deluxe-3l",
         sku: "svarak-deluxe-3l",
-        name: "Svařák Deluxe — 3 l Rodinná zásoba (bag-in-box)",
+        name: "Svařák Deluxe – Begina 3 l",
         quantity: 2,
         unit_price_kc: 499,
         line_total_kc: 998,

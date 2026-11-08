@@ -74,7 +74,7 @@ describe("resolveCartLines — dohledání v katalogu z DB", () => {
       catalogIndex
     );
     expect(lines.map((line) => [line.sku, line.name, line.lineTotalKc])).toEqual([
-      ["svarak-deluxe-500ml", "Svařák Deluxe — 500 ml Praktické balení", 258],
+      ["svarak-deluxe-500ml", "Svařák Deluxe – 500 ml", 258],
     ]);
   });
 });
