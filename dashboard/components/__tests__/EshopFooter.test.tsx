@@ -85,7 +85,7 @@ describe("informační stránky", () => {
       "postavili značku Begina.",
       "že když něco chutná dobře, poznáš to hned.",
       "v praktickém balení pro každodenní použití.",
-      "Bag-in-Box balení o objemu 3 litry.",
+      "plníme je do třílitrových sáčků s kohoutkem.",
       "✔ profesionální příprava",
       "✔ bez lepku",
       "Jednoduchý způsob, jak mít čerstvou polévku nebo nápoj vždy po ruce.",

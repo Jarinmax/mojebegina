@@ -49,8 +49,8 @@ describe("priceCart — E-shop 1.0", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.lines.map((line) => [line.name, line.lineTotalKc])).toEqual([
-        ["Svařák Deluxe — 3 l Rodinná zásoba (bag-in-box)", 499],
-        ["Svařák Deluxe — 500 ml Praktické balení", 258],
+        ["Svařák Deluxe – Begina 3 l", 499],
+        ["Svařák Deluxe – 500 ml", 258],
       ]);
       expect(result.value.totalKc).toBe(757);
       expect(result.value.containsAgeRestricted).toBe(true);

@@ -16,6 +16,7 @@ import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { recordStripeAttempt } from "../payments";
 import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
+import { displayItemName } from "../packageLabel";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -154,7 +155,7 @@ export async function loadPaymentOrder(db: Db, orderId: string): Promise<Payment
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId))
     .orderBy(asc(orderItems.name));
-  return { ...order, items };
+  return { ...order, items: items.map((item) => ({ ...item, name: displayItemName(item.name) })) };
 }
 
 export type StartPaymentResult = { ok: true; url: string; reused: boolean } | { ok: false; error: string };

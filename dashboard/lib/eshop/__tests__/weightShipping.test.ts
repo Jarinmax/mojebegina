@@ -227,7 +227,7 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     const result = priceCart([{ sku: "kulajda", quantity: 1 }, { sku: "lipovy-caj-3l", quantity: 1 }], "rozvoz", withoutWeight, {
       shippingMode: "weight",
     });
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/^U položky Kulajda — 3 l .* zatím neznáme hmotnost.*individuálně/) });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/^U položky Kulajda – Begina 3 l zatím neznáme hmotnost.*individuálně/) });
   });
 
   it("osobní odběr ve Viticích zdarma vždy — i nad 150 kg a bez hmotnosti", () => {
@@ -256,6 +256,18 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
       phone: "+420 777 123 456",
       shippingMethodId: "rozvoz",
       paymentMethodId: "prevod",
+      billingStreet: "Prvního pluku 14",
+      billingCity: "Praha",
+      billingZip: "18600",
+      billingCountry: "Česká republika",
+      companyPurchase: false,
+      billingCompany: "",
+      billingIco: "",
+      billingDic: "",
+      deliverySameAsBilling: false,
+      recipientName: "Jana Nováková",
+      recipientCompany: "",
+      recipientPhone: "+420 777 123 456",
       street: "Prvního pluku 14",
       city: "Praha",
       zip: "186 00",
@@ -460,6 +472,18 @@ describe("uložená objednávka = cena dopravy spočtená serverem", { timeout: 
         phone: "+420 777 123 456",
         shippingMethodId: "rozvoz",
         paymentMethodId: "prevod",
+        billingStreet: "Prvního pluku 14",
+        billingCity: "Praha",
+        billingZip: "18600",
+        billingCountry: "Česká republika",
+        companyPurchase: false,
+        billingCompany: "",
+        billingIco: "",
+        billingDic: "",
+        deliverySameAsBilling: false,
+        recipientName: "Jana Nováková",
+        recipientCompany: "",
+        recipientPhone: "+420 777 123 456",
         street: "Prvního pluku 14",
         city: "Praha",
         zip: "18600",

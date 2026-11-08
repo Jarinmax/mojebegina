@@ -79,6 +79,7 @@ import {
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "./orderLabels";
 import { isAllowedFulfillmentTransition, type ValidatedUpdateOrderFulfillment } from "./orderFulfillmentAgentValidation";
 import type { AuthContext } from "./types";
+import { displayItemName } from "@/lib/eshop/packageLabel";
 
 export async function requireOrderContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -201,7 +202,7 @@ export async function buildOrderCards(
   const itemsByOrder = new Map<string, string[]>();
   for (const item of itemRows) {
     const list = itemsByOrder.get(item.orderId) ?? [];
-    list.push(`${item.quantity}× ${item.name}`);
+    list.push(`${item.quantity}× ${displayItemName(item.name)}`);
     itemsByOrder.set(item.orderId, list);
   }
 
@@ -294,6 +295,18 @@ export type OrderDetail = {
     recipientAddress: string | null;
     recipientPhone: string | null;
     shippingMethodLabel: string | null;
+    shippingMethodCode: string | null;
+    recipientCompany: string | null;
+    deliverySameAsBilling: boolean | null;
+    /** fakturační údaje z pokladny (migrace 0034); starší objednávky null */
+    billingName: string | null;
+    billingCompany: string | null;
+    billingIco: string | null;
+    billingDic: string | null;
+    billingStreet: string | null;
+    billingCity: string | null;
+    billingZip: string | null;
+    billingCountry: string | null;
     paymentMethodLabel: string | null;
     customerNote: string | null;
     ageConfirmedAt: Date | null;
@@ -362,6 +375,17 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       recipientAddress: row.recipientAddress,
       recipientPhone: row.recipientPhone,
       shippingMethodLabel: row.shippingMethodLabel,
+      shippingMethodCode: row.shippingMethodCode,
+      recipientCompany: row.recipientCompany,
+      deliverySameAsBilling: row.deliverySameAsBilling,
+      billingName: row.billingName,
+      billingCompany: row.billingCompany,
+      billingIco: row.billingIco,
+      billingDic: row.billingDic,
+      billingStreet: row.billingStreet,
+      billingCity: row.billingCity,
+      billingZip: row.billingZip,
+      billingCountry: row.billingCountry,
       paymentMethodLabel: row.paymentMethodLabel,
       customerNote: row.customerNote,
       ageConfirmedAt: row.ageConfirmedAt,
@@ -371,7 +395,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       externalWooCommerceId: row.externalWooCommerceId,
       invoiceable,
     },
-    items,
+    items: items.map((item) => ({ ...item, name: displayItemName(item.name) })),
     payments: invoiceable ? await loadOrderPayments(db, orderId) : null,
     invoice: invoiceable ? await loadOrderInvoice(db, orderId) : null,
     activity: activityRows.map((r) => ({
@@ -1352,11 +1376,27 @@ export async function createReplacementFromCancelled(
   const newOrderId = parseOrderToken(input.token);
   if (!newOrderId) return { ok: false, error: "Formulář vypršel — obnovte prosím stránku." };
   const [original] = await db
-    .select({ name: orders.contactName, email: orders.contactEmail, phone: orders.contactPhone })
+    .select({
+      name: orders.contactName,
+      email: orders.contactEmail,
+      phone: orders.contactPhone,
+      billingName: orders.billingName,
+      billingCompany: orders.billingCompany,
+      billingIco: orders.billingIco,
+      billingDic: orders.billingDic,
+      billingStreet: orders.billingStreet,
+      billingCity: orders.billingCity,
+      billingZip: orders.billingZip,
+      billingCountry: orders.billingCountry,
+    })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
   if (!original) return { ok: false, error: "Objednávka nebyla nalezena." };
+  // Fakturační údaje převezme náhradní objednávka z původní. Starší původní
+  // objednávka je nemá — kontrola pokladny proběhne s doručovací adresou,
+  // ale do náhradní objednávky se fakturační údaje NEuloží (nic se nedohaduje).
+  const billingKnown = Boolean(original.billingStreet);
   const validated = validateCheckoutInput(
     {
       cart: input.cart,
@@ -1366,9 +1406,22 @@ export async function createReplacementFromCancelled(
       shippingMethodId: input.shippingMethodId,
       // doplatek (je-li) jen převodem — QR na zbytek; karta by účtovala celou částku
       paymentMethodId: "prevod",
+      billingStreet: billingKnown ? (original.billingStreet ?? "") : input.street,
+      billingCity: billingKnown ? (original.billingCity ?? "") : input.city,
+      billingZip: billingKnown ? (original.billingZip ?? "") : input.zip,
+      billingCountry: billingKnown ? (original.billingCountry ?? "") : "Česká republika",
+      companyPurchase: billingKnown && Boolean(original.billingIco),
+      billingCompany: original.billingCompany ?? "",
+      billingIco: original.billingIco ?? "",
+      billingDic: original.billingDic ?? "",
+      // náhradní zásilka jde na adresu zadanou v MojeBegina, příjemce = zákazník
+      deliverySameAsBilling: false,
+      recipientName: original.name ?? "",
+      recipientCompany: "",
       street: input.street,
       city: input.city,
       zip: input.zip,
+      recipientPhone: original.phone ?? "",
       note: "",
       // obchodní podmínky: přijaté u původní objednávky (createReplacementOrder)
       termsAccepted: true,
@@ -1389,7 +1442,7 @@ export async function createReplacementFromCancelled(
   const created = await createReplacementOrder(db, {
     fromOrderId: orderId,
     newOrderId,
-    value: validated.value,
+    value: billingKnown ? validated.value : { ...validated.value, billingUnknown: true },
     consentNote: consent.note,
     user: actor,
   });

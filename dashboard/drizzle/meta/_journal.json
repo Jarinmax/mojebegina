@@ -239,6 +239,13 @@
       "when": 1794066186141,
       "tag": "0033_sklad_1_0_dodavatel_volitelny",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794144212884,
+      "tag": "0034_eshop_fakturacni_udaje",
+      "breakpoints": true
     }
   ]
 }

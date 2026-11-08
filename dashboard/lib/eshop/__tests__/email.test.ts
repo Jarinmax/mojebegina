@@ -163,7 +163,10 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
       "2× Kulajda",
       kc(758),
       "1× Dýňová polévka",
-      "Chlazená přeprava — Prvního pluku 14, 18600 Praha",
+      // doprava zvlášť, adresa ve vlastním bloku (zadání Lucie 8. 11. 2026)
+      "Doprava: Chlazená přeprava\n",
+      "Doručovací údaje\n",
+      "Prvního pluku 14\n18600 Praha\nČeská republika",
       `Celkem: ${kc(1236)}`,
       "Způsob platby: Bankovní převod — platba předem",
       "Stav platby: Čeká na platbu převodem",
@@ -226,9 +229,9 @@ describe("e-maily — obsah potvrzení pro zákazníka", () => {
     expect(mail.text).toContain("Vitice 119");
     expect(mail.text).toContain("Osobní vyzvednutí — Zahradní Bistro Begina: zdarma");
     // zadání Lucie (6. 11. 2026): celé znění včetně podmínky vyzvednutí po domluvě
-    expect(mail.text).toContain(
-      "Osobní odběr – Zahradní Bistro Begina, Vitice 119. Vyzvednutí je možné po předchozí domluvě."
-    );
+    // doručovací údaje = provozovna + vyzvednutí po předchozí domluvě (8. 11. 2026)
+    expect(mail.text).toContain("Doručovací údaje\nOsobní odběr – Zahradní Bistro Begina\nVitice 119, 281 06 Vitice");
+    expect(mail.text).toContain("Vyzvednutí je možné po předchozí domluvě.");
     expect(mail.html).toContain("Vyzvednutí je možné po předchozí domluvě.");
   });
 
@@ -274,10 +277,11 @@ describe("e-maily — interní upozornění pro Beginu", () => {
     const mail = internalOrderEmail(ORDER, CTX);
     expect(mail.subject).toBe(`Nová objednávka 11348d18 — ${kc(1236)} — Čeká na platbu převodem`);
     for (const part of [
-      "Zákazník: Jana <b>Nováková</b>",
+      "Fakturační údaje\nJana <b>Nováková</b>",
       `Částka: ${kc(1236)}`,
       "2× Kulajda",
-      "Doprava: Chlazená přeprava — Prvního pluku 14, 18600 Praha",
+      "Doprava: Chlazená přeprava\n",
+      "Prvního pluku 14\n18600 Praha\nČeská republika",
       "Platba: Bankovní převod — platba předem — Čeká na platbu převodem",
       "Poznámka zákazníka: Prosím zvonit <2×>",
       "https://preview.example/rizeni-firmy/objednavky/11348d18-506f-45b8-b65d-65df779471c7",

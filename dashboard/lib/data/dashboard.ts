@@ -15,6 +15,7 @@ import { assertOrgAccess } from "./organizations";
 import type { AuthContext } from "./types";
 import type { CustomerAccount, Order } from "@/mock/customer";
 import { getIdokladPurchaseHistory } from "./idokladPurchaseHistory";
+import { displayItemName } from "@/lib/eshop/packageLabel";
 
 type NonNullAuthContext = NonNullable<AuthContext>;
 
@@ -151,14 +152,16 @@ export async function getCustomerOrders(
 
   const result: Order[] = [];
   for (const row of orderRows) {
-    const items = await db
-      .select({
-        name: orderItems.name,
-        quantity: orderItems.quantity,
-        priceKc: orderItems.unitPriceKc,
-      })
-      .from(orderItems)
-      .where(eq(orderItems.orderId, row.id));
+    const items = (
+      await db
+        .select({
+          name: orderItems.name,
+          quantity: orderItems.quantity,
+          priceKc: orderItems.unitPriceKc,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, row.id))
+    ).map((item) => ({ ...item, name: displayItemName(item.name) }));
 
     result.push({
       id: row.id,
