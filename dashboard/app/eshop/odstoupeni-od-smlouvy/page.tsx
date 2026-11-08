@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Download, Mail } from "lucide-react";
 import EshopFileLink from "@/components/eshop/EshopFileLink";
 import PrintButton from "@/components/eshop/PrintButton";
+import WithdrawalOnline from "@/components/eshop/WithdrawalOnline";
 import ShopLink from "@/components/eshop/ShopLink";
 import { linkify } from "@/components/eshop/InfoPageView";
 import { CURRENT_TERMS } from "@/lib/eshop/content/termsVersions";
@@ -18,12 +19,12 @@ import { DELIVERY_ADDRESS, OPERATOR } from "@/lib/eshop/operator";
 // Odstoupení od smlouvy (zadání Lucie, 6. 11. 2026): jak odstoupit, vzorový
 // formulář k tisku a ke stažení (PDF) a e-mail s předvyplněnou osnovou.
 // Formulář = příloha platného znění obchodních podmínek (withdrawalForm.ts).
-// Online funkce pro odstoupení (zákon č. 159/2026 Sb., od 1. 1. 2027) to
-// není — jen e-mail, dopis nebo osobní předání.
+// Nahoře online odstoupení — tlačítko podle zákona č. 159/2026 Sb.
+// (§ 1830a OZ, povinné od 1. 1. 2027), komponenta WithdrawalOnline.
 
 export const metadata: Metadata = {
-  title: "Odstoupení od smlouvy",
-  description: "Jak odstoupit od kupní smlouvy v e-shopu Begina.cz — vzorový formulář k tisku a ke stažení.",
+  title: "Odstoupit od smlouvy",
+  description: "Odstupte od kupní smlouvy v e-shopu Begina.cz online tlačítkem, nebo vzorovým formulářem k tisku a ke stažení.",
   alternates: { canonical: "/odstoupeni-od-smlouvy" },
 };
 
@@ -52,7 +53,10 @@ function fillLines(field: string): number {
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-lg px-4 h-11 text-sm font-medium border border-begina-primary-900";
 
-export default function WithdrawalPage() {
+export default async function WithdrawalPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const one = (v: string | string[] | undefined) => (typeof v === "string" ? v.slice(0, 200) : undefined);
+  const prefill = { contract: one(params.objednavka), email: one(params.email) };
   return (
     <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
       {/* Tisk: jen formulář — záhlaví, patička a návod se netisknou. */}
@@ -60,6 +64,10 @@ export default function WithdrawalPage() {
 
       <div data-print-hide>
         <h1 className="text-2xl font-semibold tracking-tight">Odstoupení od smlouvy</h1>
+        <div className="mt-5 mb-8">
+          <WithdrawalOnline prefill={prefill} />
+        </div>
+        <h2 className="text-lg font-semibold">Jak jinak odstoupit</h2>
         <div className="mt-4 flex flex-col gap-3 text-neutral-700 leading-relaxed">
           <p>
             Jako spotřebitel můžete od kupní smlouvy odstoupit bez udání důvodu do 14 dnů od převzetí zboží. Výjimky
@@ -72,6 +80,7 @@ export default function WithdrawalPage() {
           </p>
           <p className="font-medium text-begina-primary-900">Odstoupení nám můžete oznámit:</p>
           <ul className="flex flex-col gap-1.5 list-disc pl-5">
+            <li>online tlačítkem „Odstoupit od smlouvy“ výše — potvrzení vám přijde hned e-mailem,</li>
             <li>{linkify(`e-mailem na ${OPERATOR.email},`)}</li>
             <li>dopisem na doručovací adresu: {DELIVERY_ADDRESS.oneLine},</li>
             <li>osobně v provozovně na téže adrese.</li>

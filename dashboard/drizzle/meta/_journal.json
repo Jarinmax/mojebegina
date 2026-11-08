@@ -232,6 +232,13 @@
       "when": 1794059696860,
       "tag": "0032_spolupracovnici_1_0",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794066186141,
+      "tag": "0033_sklad_1_0_dodavatel_volitelny",
+      "breakpoints": true
     }
   ]
 }

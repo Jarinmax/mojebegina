@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
-import { getGoodsReceipt, getGoodsReceiptConfirmationCheck, listGoodsReceiptLines, listStockItems } from "@/lib/data/sklad";
+import { getGoodsReceipt, getGoodsReceiptConfirmationCheck, listGoodsReceiptLines, listStockItems, listSuppliers } from "@/lib/data/sklad";
 import { canConfirmGoodsReceipt, canReviewExtractedData } from "@/lib/data/skladAuth";
 import { getGoodsReceiptExtractionSuggestions } from "@/lib/data/skladExtraction";
+import DodavatelForm from "./DodavatelForm";
 import HlavickaForm from "./HlavickaForm";
 import KontrolaForm from "./KontrolaForm";
 import PotvrzeniPanel from "./PotvrzeniPanel";
@@ -18,11 +19,12 @@ export default async function KontrolaPage({ params }: { params: Promise<{ id: s
 
   const ctx = await getAuthContext();
   const canReview = canReviewExtractedData(ctx);
-  const [lines, suggestions, stockItems, checks] = await Promise.all([
+  const [lines, suggestions, stockItems, checks, suppliers] = await Promise.all([
     listGoodsReceiptLines(id),
     canReview ? getGoodsReceiptExtractionSuggestions(id) : Promise.resolve([]),
     listStockItems(),
     getGoodsReceiptConfirmationCheck(id),
+    canReview ? listSuppliers() : Promise.resolve([]),
   ]);
 
   return (
@@ -43,6 +45,14 @@ export default async function KontrolaPage({ params }: { params: Promise<{ id: s
         <p className="text-sm text-neutral-500">Příjemka už není návrh — kontrola ani potvrzení nejsou možné.</p>
       ) : (
         <div className="flex flex-col gap-4">
+          {canReview && (
+            <DodavatelForm
+              receiptId={id}
+              suppliers={suppliers}
+              currentSupplierId={receipt.supplierId}
+              currentSupplierName={receipt.supplierNameSnapshot}
+            />
+          )}
           {canReview && (
             <HlavickaForm
               receiptId={id}

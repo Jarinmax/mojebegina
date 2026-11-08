@@ -9,6 +9,7 @@
 // finalizace zápisu do DB (samostatný POST, ne onUploadCompleted webhook —
 // ten by vyžadoval veřejně dostupnou URL navíc).
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { uploadPresigned } from "@vercel/blob/client";
 import { prepareImageForUpload } from "@/lib/sklad/clientUpload";
 import { buildDocumentPagePathname } from "@/lib/data/skladValidation";
@@ -66,6 +67,7 @@ export default function FotoCapture({
   // bump po každém úspěšném nahrazení vynutí nové stažení náhledu.
   const [refreshToken, setRefreshToken] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   async function handleFile(file: File) {
     setBusy(true);
@@ -96,6 +98,11 @@ export default function FotoCapture({
         setSavedMessage(`${next.length}. strana úspěšně uložena.`);
         return next;
       });
+      // "Načíst údaje z dokladu" (NacistUdajeButton) je disabled podle počtu
+      // stran spočítaného na serveru při načtení stránky — bez refresh by
+      // tlačítko zůstalo navždy zablokované i po úspěšném nahrání fotky
+      // (mobilní test 7. 11. 2026).
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nahrání fotky selhalo.");
     } finally {

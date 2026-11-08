@@ -15,6 +15,7 @@ import {
   reviewGoodsReceiptLineVat,
   updateGoodsReceiptHeader,
   updateGoodsReceiptLine,
+  updateGoodsReceiptSupplier,
   voidGoodsReceipt,
   type ConfirmReceiptResult,
 } from "@/lib/data/sklad";
@@ -209,6 +210,17 @@ export async function updateGoodsReceiptHeaderAction(receiptId: string, input: R
     return await updateGoodsReceiptHeader(receiptId, input);
   } catch (error) {
     return translateAuthError(error, "Nemáte oprávnění upravit hlavičku této příjemky.");
+  }
+}
+
+// Ruční doplnění/oprava dodavatele — pro případ, kdy AI vytěžení dodavatele
+// z fotky nerozpoznalo (blocker "no_supplier") nebo ho dohledalo/založilo
+// špatně.
+export async function updateGoodsReceiptSupplierAction(receiptId: string, supplierId: string): Promise<SimpleActionResult> {
+  try {
+    return await updateGoodsReceiptSupplier(receiptId, supplierId);
+  } catch (error) {
+    return translateAuthError(error, "Nemáte oprávnění upravit dodavatele této příjemky.");
   }
 }
 
