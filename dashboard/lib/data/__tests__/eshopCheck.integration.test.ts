@@ -61,15 +61,15 @@ describe("Kontrola e-shopu – Lucie", { timeout: 120_000 }, () => {
 
   it("Lucie má přístup jen jako přidělená osoba (žádná práva vedoucí), přistává dál na /executive", async () => {
     asLucie();
-    expect(auth.isWorkAssignee(holder.ctx)).toBe(true);
-    expect(auth.isWorkManager(holder.ctx)).toBe(false);
+    expect(auth.isWorkAssignee(holder.ctx as never)).toBe(true);
+    expect(auth.isWorkManager(holder.ctx as never)).toBe(false);
     expect(auth.landingForExecutive(LUCIE)).toBe("/executive");
     expect(auth.landingForExecutive(BLAHOUT)).toBe("/prace");
     const { rows, isManager } = await ec.listEshopChecks();
     expect(isManager).toBe(false);
     expect(rows).toHaveLength(16);
     expect(rows[0]).toMatchObject({ code: "BEG-01", status: "open", header: { priority: "P0", technical: "NASAZENO – ČEKÁ NA KONTROLU LUCIE" } });
-    await expect(wt.createWorkTask({ title: "x", description: "", assigneeUserId: LUCIE, dueDate: null, priority: "normal", photoRequirement: "none", requiresApproval: false })).rejects.toThrow();
+    await expect(wt.createWorkTask({ title: "x", description: "", assigneeUserId: LUCIE, dueDate: "2099-12-31", priority: "normal", photoRequirement: "none", requiresApproval: false })).rejects.toThrow();
     asBlahout();
     expect((await ec.listEshopChecks()).rows).toHaveLength(0);
   });
