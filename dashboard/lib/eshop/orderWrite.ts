@@ -78,7 +78,8 @@ export function buildEshopOrderRows(
     });
   }
 
-  const address = value.address ? `${value.address.street}, ${value.address.zip} ${value.address.city}` : null;
+  const { billing, delivery } = value;
+  const address = delivery ? `${delivery.street}, ${delivery.zip} ${delivery.city}` : null;
 
   return {
     ok: true,
@@ -90,9 +91,21 @@ export function buildEshopOrderRows(
         contactName: value.name,
         contactPhone: value.phone,
         contactEmail: value.email,
-        recipientName: value.name,
-        recipientPhone: value.phone,
+        // zásilka: příjemce (stejný jako fakturační, nebo jiný); osobní odběr: objednávající
+        recipientName: delivery?.name ?? value.name,
+        recipientPhone: delivery?.phone ?? value.phone,
         recipientAddress: address,
+        recipientCompany: delivery?.company ?? null,
+        deliverySameAsBilling: delivery ? delivery.sameAsBilling : null,
+        // komu vystavit fakturu (migrace 0034)
+        billingName: billing.name,
+        billingCompany: billing.company?.name ?? null,
+        billingIco: billing.company?.ico ?? null,
+        billingDic: billing.company?.dic ?? null,
+        billingStreet: billing.street,
+        billingCity: billing.city,
+        billingZip: billing.zip,
+        billingCountry: billing.country,
         subtotalKc: pricedCart.subtotalKc,
         discountKc: pricedCart.discountKc,
         shippingKc: pricedCart.shippingKc,

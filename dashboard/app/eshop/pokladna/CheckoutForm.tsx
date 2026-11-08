@@ -10,8 +10,6 @@ import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
-  PICKUP_METHOD_ID,
-  PICKUP_NOTICE,
   paymentMethodsFor,
   defaultPaymentMethodId,
   quoteLabel,
@@ -27,6 +25,14 @@ import CouponBox from "@/components/eshop/CouponBox";
 import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
 import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
 import { rememberPendingOrder } from "@/components/eshop/usePendingOrder";
+import type { CheckoutValue } from "@/lib/eshop/checkout";
+import {
+  BILLING_COUNTRIES,
+  DELIVERY_COUNTRY,
+  orderPartyBlocks,
+  shippingMethodText,
+  type PartyBlock,
+} from "@/lib/eshop/orderParties";
 
 const initialState: CheckoutState = null;
 
@@ -41,9 +47,21 @@ type Values = {
   name: string;
   email: string;
   phone: string;
+  companyPurchase: boolean;
+  billingCompany: string;
+  billingIco: string;
+  billingDic: string;
+  billingStreet: string;
+  billingCity: string;
+  billingZip: string;
+  billingCountry: string;
+  deliverySameAsBilling: boolean;
+  recipientName: string;
+  recipientCompany: string;
   street: string;
   city: string;
   zip: string;
+  recipientPhone: string;
   note: string;
   shippingMethodId: string;
   paymentMethodId: string;
@@ -55,9 +73,21 @@ const emptyValues: Values = {
   name: "",
   email: "",
   phone: "",
+  companyPurchase: false,
+  billingCompany: "",
+  billingIco: "",
+  billingDic: "",
+  billingStreet: "",
+  billingCity: "",
+  billingZip: "",
+  billingCountry: BILLING_COUNTRIES[0],
+  deliverySameAsBilling: true,
+  recipientName: "",
+  recipientCompany: "",
   street: "",
   city: "",
   zip: "",
+  recipientPhone: "",
   note: "",
   shippingMethodId: "osobni-odber",
   paymentMethodId: "prevod",
@@ -215,19 +245,14 @@ export default function CheckoutForm({
               <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.totalKc)}</span>
             </li>
           </ul>
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {orderPartyBlocks(partiesFromCheckout(confirmation)).map((block) => (
+              <PartyCard key={block.title} block={block} />
+            ))}
+          </div>
           <dl className="mt-5 grid grid-cols-[7rem_1fr] gap-y-1.5 text-neutral-600">
-            <dt>Zákazník</dt>
-            <dd className="text-begina-primary-900">
-              {confirmation.name}, {confirmation.phone}
-            </dd>
-            <dt>Doručení</dt>
-            <dd className="text-begina-primary-900">
-              {confirmation.address
-                ? `${confirmation.address.street}, ${confirmation.address.zip} ${confirmation.address.city}`
-                : confirmation.pricedCart.shipping.id === PICKUP_METHOD_ID
-                  ? PICKUP_NOTICE
-                  : confirmation.pricedCart.shipping.label}
-            </dd>
+            <dt>Doprava</dt>
+            <dd className="text-begina-primary-900">{shippingMethodText(partiesFromCheckout(confirmation))}</dd>
             <dt>Platba</dt>
             <dd className="text-begina-primary-900">{confirmation.payment.label}</dd>
             {confirmation.note && (
@@ -321,10 +346,6 @@ export default function CheckoutForm({
 
         <fieldset className="flex flex-col gap-3">
           <legend className="font-medium mb-3">Kontaktní údaje</legend>
-          <div>
-            <label htmlFor="name" className={labelClass}>Jméno a příjmení</label>
-            <input id="name" name="name" autoComplete="name" required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
-          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="email" className={labelClass}>E-mail</label>
@@ -334,6 +355,65 @@ export default function CheckoutForm({
               <label htmlFor="phone" className={labelClass}>Telefon</label>
               <input id="phone" name="phone" type="tel" autoComplete="tel" required value={values.phone} onChange={(e) => set("phone", e.target.value)} className={inputClass} />
             </div>
+          </div>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-3">
+          <legend className="font-medium mb-1">Fakturační údaje</legend>
+          <p className="text-xs text-neutral-500 -mt-1">Na tyto údaje vystavíme fakturu.</p>
+          <div>
+            <label htmlFor="name" className={labelClass}>Jméno a příjmení</label>
+            <input id="name" name="name" autoComplete="billing name" required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="companyPurchase"
+              checked={values.companyPurchase}
+              onChange={(e) => set("companyPurchase", e.target.checked)}
+              className="accent-begina-primary-900"
+            />
+            Nakupuji na firmu
+          </label>
+          {values.companyPurchase && (
+            <div className="flex flex-col gap-3">
+              <div>
+                <label htmlFor="billingCompany" className={labelClass}>Název firmy</label>
+                <input id="billingCompany" name="billingCompany" autoComplete="billing organization" required value={values.billingCompany} onChange={(e) => set("billingCompany", e.target.value)} className={inputClass} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="billingIco" className={labelClass}>IČO</label>
+                  <input id="billingIco" name="billingIco" inputMode="numeric" required value={values.billingIco} onChange={(e) => set("billingIco", e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="billingDic" className={labelClass}>DIČ (nepovinné)</label>
+                  <input id="billingDic" name="billingDic" placeholder="CZ12345678" value={values.billingDic} onChange={(e) => set("billingDic", e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            </div>
+          )}
+          <div>
+            <label htmlFor="billingStreet" className={labelClass}>Ulice a číslo domu</label>
+            <input id="billingStreet" name="billingStreet" autoComplete="billing street-address" required value={values.billingStreet} onChange={(e) => set("billingStreet", e.target.value)} className={inputClass} />
+          </div>
+          <div className="grid grid-cols-[1fr_8rem] gap-3">
+            <div>
+              <label htmlFor="billingCity" className={labelClass}>Město</label>
+              <input id="billingCity" name="billingCity" autoComplete="billing address-level2" required value={values.billingCity} onChange={(e) => set("billingCity", e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="billingZip" className={labelClass}>PSČ</label>
+              <input id="billingZip" name="billingZip" autoComplete="billing postal-code" inputMode="numeric" required value={values.billingZip} onChange={(e) => set("billingZip", e.target.value)} className={inputClass} />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="billingCountry" className={labelClass}>Země</label>
+            <select id="billingCountry" name="billingCountry" autoComplete="billing country-name" value={values.billingCountry} onChange={(e) => set("billingCountry", e.target.value)} className={inputClass}>
+              {BILLING_COUNTRIES.map((country) => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
           </div>
         </fieldset>
 
@@ -377,20 +457,56 @@ export default function CheckoutForm({
 
           {shipping.requiresAddress && (
             <div className="mt-4 flex flex-col gap-3">
-              <div>
-                <label htmlFor="street" className={labelClass}>Ulice a číslo</label>
-                <input id="street" name="street" autoComplete="street-address" required value={values.street} onChange={(e) => set("street", e.target.value)} className={inputClass} />
-              </div>
-              <div className="grid grid-cols-[1fr_8rem] gap-3">
-                <div>
-                  <label htmlFor="city" className={labelClass}>Město</label>
-                  <input id="city" name="city" autoComplete="address-level2" required value={values.city} onChange={(e) => set("city", e.target.value)} className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="zip" className={labelClass}>PSČ</label>
-                  <input id="zip" name="zip" autoComplete="postal-code" inputMode="numeric" required value={values.zip} onChange={(e) => set("zip", e.target.value)} className={inputClass} />
-                </div>
-              </div>
+              <p className="font-medium text-sm">Doručovací údaje</p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="deliverySameAsBilling"
+                  checked={values.deliverySameAsBilling}
+                  onChange={(e) => set("deliverySameAsBilling", e.target.checked)}
+                  className="accent-begina-primary-900"
+                />
+                Doručit na fakturační údaje
+              </label>
+              {values.deliverySameAsBilling ? (
+                <p className="text-xs text-neutral-500">
+                  Zásilku doručíme na jméno a adresu z fakturačních údajů, telefon pro doručení je váš kontaktní telefon.
+                  {values.billingCountry !== DELIVERY_COUNTRY && " Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu."}
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="recipientName" className={labelClass}>Jméno a příjmení příjemce</label>
+                    <input id="recipientName" name="recipientName" autoComplete="shipping name" required value={values.recipientName} onChange={(e) => set("recipientName", e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label htmlFor="recipientCompany" className={labelClass}>Firma (nepovinné)</label>
+                    <input id="recipientCompany" name="recipientCompany" autoComplete="shipping organization" value={values.recipientCompany} onChange={(e) => set("recipientCompany", e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label htmlFor="street" className={labelClass}>Ulice a číslo domu</label>
+                    <input id="street" name="street" autoComplete="shipping street-address" required value={values.street} onChange={(e) => set("street", e.target.value)} className={inputClass} />
+                  </div>
+                  <div className="grid grid-cols-[1fr_8rem] gap-3">
+                    <div>
+                      <label htmlFor="city" className={labelClass}>Město</label>
+                      <input id="city" name="city" autoComplete="shipping address-level2" required value={values.city} onChange={(e) => set("city", e.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <label htmlFor="zip" className={labelClass}>PSČ</label>
+                      <input id="zip" name="zip" autoComplete="shipping postal-code" inputMode="numeric" required value={values.zip} onChange={(e) => set("zip", e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="deliveryCountry" className={labelClass}>Země</label>
+                    <input id="deliveryCountry" value={DELIVERY_COUNTRY} readOnly className={`${inputClass} bg-neutral-50 text-neutral-500`} />
+                  </div>
+                  <div>
+                    <label htmlFor="recipientPhone" className={labelClass}>Telefon pro doručení</label>
+                    <input id="recipientPhone" name="recipientPhone" type="tel" autoComplete="shipping tel" required value={values.recipientPhone} onChange={(e) => set("recipientPhone", e.target.value)} className={inputClass} />
+                  </div>
+                </>
+              )}
               <p className="text-xs text-neutral-500">Doručujeme jen v České republice.</p>
             </div>
           )}
@@ -524,5 +640,42 @@ export default function CheckoutForm({
       </aside>
     </form>
     </>
+  );
+}
+
+/** Potvrzení v pokladně: stejné bloky jako v e-mailech a v MojeBegina. */
+function partiesFromCheckout(value: CheckoutValue) {
+  const { billing, delivery } = value;
+  return {
+    contactName: value.name,
+    contactEmail: value.email,
+    contactPhone: value.phone,
+    recipientName: delivery?.name ?? value.name,
+    recipientCompany: delivery?.company ?? null,
+    recipientAddress: delivery ? `${delivery.street}, ${delivery.zip} ${delivery.city}` : null,
+    recipientPhone: delivery?.phone ?? value.phone,
+    shippingMethodCode: value.pricedCart.shipping.id,
+    shippingMethodLabel: value.pricedCart.shipping.label,
+    billingName: billing.name,
+    billingCompany: billing.company?.name ?? null,
+    billingIco: billing.company?.ico ?? null,
+    billingDic: billing.company?.dic ?? null,
+    billingStreet: billing.street,
+    billingCity: billing.city,
+    billingZip: billing.zip,
+    billingCountry: billing.country,
+    deliverySameAsBilling: delivery ? delivery.sameAsBilling : null,
+  };
+}
+
+function PartyCard({ block }: { block: PartyBlock }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">{block.title}</p>
+      {block.lines.map((line, i) => (
+        <p key={i} className="text-begina-primary-900">{line}</p>
+      ))}
+      {block.note && <p className="text-xs text-neutral-500 mt-1">{block.note}</p>}
+    </div>
   );
 }

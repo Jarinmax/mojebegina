@@ -16,6 +16,7 @@ import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
 import CancelledMoneyPanel from "../CancelledMoneyPanel";
 import CancelledMoneyBadge from "../CancelledMoneyBadge";
+import { hasBillingDetails, orderPartyBlocks, shippingMethodText } from "@/lib/eshop/orderParties";
 
 // Security Phase 15 (Objednávky 1.0) — detail objednávky. Autorizace (ADMIN
 // nebo EXECUTIVE) řeší app/rizeni-firmy/layout.tsx nad touto stránkou,
@@ -124,18 +125,45 @@ export default async function OrderDetailPage(
           <p className="text-xs text-neutral-400">Zapsal(a) do systému: {order.enteredByName}</p>
         )}
         {order.channel === "eshop" && <p className="text-xs text-neutral-400">Objednávka z e-shopu</p>}
+        {order.channel === "eshop" && hasBillingDetails(order) === false && (
+          <p className="text-xs text-neutral-400">Starší objednávka — pokladna se tehdy na fakturační údaje neptala.</p>
+        )}
         {order.externalWooCommerceId && (
           <p className="text-xs text-neutral-400">Objednávka z WooCommerce (begina.cz) č. {order.externalWooCommerceId}</p>
         )}
       </div>
 
+      {order.channel === "eshop" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          {orderPartyBlocks(order).map((block) => (
+            <div key={block.title} className="bg-white border border-neutral-200 rounded-xl p-4">
+              <p className="text-xs text-neutral-500 mb-1">{block.title}</p>
+              {block.lines.map((line, i) => (
+                <p key={i} className="text-sm text-begina-primary-900 break-words">{line}</p>
+              ))}
+              {block.note && <p className="text-xs text-neutral-500 mt-1">{block.note}</p>}
+              {block.missing.length > 0 && (
+                <p className="text-xs text-red-700 mt-1">
+                  <span className="font-medium">Chybí:</span> {block.missing.join("; ")}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {(order.shippingMethodLabel || order.paymentMethodLabel || order.recipientAddress || order.customerNote) && (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
           {order.shippingMethodLabel && (
             <div>
-              <p className="text-xs text-neutral-500 mb-0.5">Doručení</p>
-              <p className="text-sm text-begina-primary-900">{order.shippingMethodLabel}</p>
-              {order.recipientAddress && <p className="text-xs text-neutral-500">{order.recipientAddress}</p>}
+              <p className="text-xs text-neutral-500 mb-0.5">Způsob dopravy</p>
+              <p className="text-sm text-begina-primary-900">
+                {order.channel === "eshop" ? shippingMethodText(order) : order.shippingMethodLabel}
+              </p>
+              {/* e-shop: adresa je v bloku Doručovací údaje výše */}
+              {order.channel !== "eshop" && order.recipientAddress && (
+                <p className="text-xs text-neutral-500">{order.recipientAddress}</p>
+              )}
             </div>
           )}
           {order.paymentMethodLabel && (

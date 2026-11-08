@@ -19,6 +19,7 @@ import { invoiceProviderLinks, invoices, orderItems, orders, organizations, paym
 import { buildInvoiceDraft, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft, type InvoiceProblem } from "./draft";
 import { IDOKLAD_ISSUE_STEPS, IDOKLAD_PROVIDER, idokladRequests, type IdokladRequests } from "./idoklad";
 import { invoiceNumberSeries, invoicingMode } from "./mode";
+import { displayItemName } from "../packageLabel";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
@@ -57,6 +58,14 @@ async function loadInputs(db: Db, orderId: string) {
       recipientName: orders.recipientName,
       recipientAddress: orders.recipientAddress,
       shippingMethodCode: orders.shippingMethodCode,
+      billingName: orders.billingName,
+      billingCompany: orders.billingCompany,
+      billingIco: orders.billingIco,
+      billingDic: orders.billingDic,
+      billingStreet: orders.billingStreet,
+      billingCity: orders.billingCity,
+      billingZip: orders.billingZip,
+      billingCountry: orders.billingCountry,
       shippingMethodLabel: orders.shippingMethodLabel,
       subtotalKc: orders.subtotalKc,
       discountKc: orders.discountKc,
@@ -83,7 +92,7 @@ async function loadInputs(db: Db, orderId: string) {
         .limit(1)
     : [];
   const order = { ...row, company: company ?? null };
-  const items = await db
+  const itemRows = await db
     .select({
       name: orderItems.name,
       quantity: orderItems.quantity,
@@ -94,6 +103,8 @@ async function loadInputs(db: Db, orderId: string) {
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId))
     .orderBy(asc(orderItems.name));
+  // název balení jen množstvím („Kulajda – 3 l“), i když objednávka vznikla se starým názvem
+  const items = itemRows.map((item) => ({ ...item, name: displayItemName(item.name) }));
   const paymentRows = await db
     .select({
       id: payments.id,

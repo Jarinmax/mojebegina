@@ -1,5 +1,6 @@
 // ESHOP 1.0 — čistá pravidla nad produktem (bez DB, bez Reactu).
 
+import { PACKAGE_SEPARATOR, simplePackageLabel } from "./packageLabel";
 import type { Product, Variant } from "./types";
 
 export const AGE_RESTRICTION_NOTICE = "Prodej alkoholických nápojů osobám mladším 18 let je zakázán.";
@@ -10,7 +11,7 @@ export function lowestPriceKc(product: Product): number {
 
 /** Název řádku do košíku/objednávky — snapshot jako order_items.name. */
 export function lineName(product: Product, variant: Variant): string {
-  return variant.label ? `${product.name} — ${variant.label}` : product.name;
+  return variant.label ? `${product.name}${PACKAGE_SEPARATOR}${simplePackageLabel(variant.label)}` : product.name;
 }
 
 /**

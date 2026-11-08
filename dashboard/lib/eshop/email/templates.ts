@@ -5,11 +5,20 @@
 // to nastavuje až ověřený webhook Stripe).
 // Begina: stručné interní upozornění s odkazem na detail v MojeBegina.
 import { formatKc } from "@/lib/format";
-import { getShippingMethod, PICKUP_METHOD_ID, PICKUP_NOTICE } from "../shipping";
 import { formatIban, formatPragueDate, type TransferInfo } from "../bankTransfer";
 import { formatSubmittedAt, statementLines, type WithdrawalStatement } from "../withdrawal";
 import { WITHDRAWAL_PAGE_PATH } from "../content/withdrawalForm";
 import { eshopAbsoluteUrl, orderStatusPath } from "../paths";
+import {
+  billingBlock,
+  contactBlock,
+  deliveryBlock,
+  orderPartyBlocks,
+  partyBlockText,
+  shippingMethodText,
+  type OrderPartiesSource,
+  type PartyBlock,
+} from "../orderParties";
 
 export type EmailOrder = {
   id: string;
@@ -19,7 +28,20 @@ export type EmailOrder = {
   externalWooCommerceId?: string | null;
   contactName: string | null;
   contactEmail: string | null;
+  contactPhone?: string | null;
+  recipientName?: string | null;
+  recipientCompany?: string | null;
   recipientAddress: string | null;
+  recipientPhone?: string | null;
+  billingName?: string | null;
+  billingCompany?: string | null;
+  billingIco?: string | null;
+  billingDic?: string | null;
+  billingStreet?: string | null;
+  billingCity?: string | null;
+  billingZip?: string | null;
+  billingCountry?: string | null;
+  deliverySameAsBilling?: boolean | null;
   shippingMethodCode: string | null;
   shippingMethodLabel: string | null;
   paymentMethodCode: string | null;
@@ -67,13 +89,55 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+/** Sloupce objednávky pro bloky Fakturační / Doručovací / Kontakt (orderParties.ts). */
+function parties(order: EmailOrder): OrderPartiesSource {
+  return {
+    ...order,
+    contactPhone: order.contactPhone ?? null,
+    recipientName: order.recipientName ?? null,
+    recipientPhone: order.recipientPhone ?? null,
+  };
+}
+
+/** Způsob dopravy samostatně — adresa je ve vlastním bloku / řádku. */
 function deliveryText(order: EmailOrder): string {
-  // Osobní odběr: vždy aktuální znění včetně podmínky vyzvednutí po domluvě.
-  if (order.shippingMethodCode === PICKUP_METHOD_ID && !order.recipientAddress) return PICKUP_NOTICE;
-  const method = order.shippingMethodLabel ?? "Doprava";
-  if (order.recipientAddress) return `${method} — ${order.recipientAddress}`;
-  const description = order.shippingMethodCode ? getShippingMethod(order.shippingMethodCode)?.description : undefined;
-  return description ? `${method} — ${description}` : method;
+  return shippingMethodText(order);
+}
+
+/** Doručení na jeden řádek pro kratší e-maily (platba přijata, náhradní objednávka). */
+function deliveryAddressText(order: EmailOrder): string {
+  const block = deliveryBlock(parties(order));
+  return block.lines.length > 0 ? block.lines.join(", ") : "—";
+}
+
+/**
+ * Bloky údajů pod sebou (jedna kolona — dobře čitelné i na mobilu):
+ * nadpis, řádky jako na obálce, poznámka a výslovně, co chybí.
+ */
+function partyBlocksHtml(blocks: PartyBlock[]): string {
+  return blocks
+    .map((block) => {
+      const lines = block.lines.map((line) => `<div>${escapeHtml(line)}</div>`).join("");
+      const note = block.note ? `<div style="color:#404040;font-size:13px;margin-top:2px;">${escapeHtml(block.note)}</div>` : "";
+      const missing =
+        block.missing.length > 0
+          ? `<div style="color:#B40001;font-size:13px;margin-top:4px;"><strong>Chybí:</strong> ${escapeHtml(block.missing.join("; "))}</div>`
+          : "";
+      return (
+        `<tr><td style="padding:10px 12px;border:1px solid #EDEDED;border-radius:8px;font-size:14px;line-height:1.45;color:#1A1A1A;word-break:break-word;">` +
+        `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#404040;margin-bottom:4px;">${escapeHtml(block.title)}</div>` +
+        `${lines || "<div>—</div>"}${note}${missing}</td></tr><tr><td style="height:8px"></td></tr>`
+      );
+    })
+    .join("");
+}
+
+function partyBlocksTable(blocks: PartyBlock[]): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;">${partyBlocksHtml(blocks)}</table>`;
+}
+
+function partyBlocksText(blocks: PartyBlock[]): string {
+  return blocks.map(partyBlockText).join("\n\n");
 }
 
 function subjectPrefix(ctx: Context): string {
@@ -231,6 +295,7 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
   ];
   if (order.customerNote) details.push(["Vaše poznámka", order.customerNote]);
   const instructions = paymentInstructions(order, ctx.transfer, ctx.qrContentId);
+  const blocks = orderPartyBlocks(parties(order));
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
   const termsUrl = ctx.terms ? eshopAbsoluteUrl(ctx.baseUrl, ctx.terms.path) : null;
   const termsHtml =
@@ -253,6 +318,8 @@ ${itemsTable(order)}
 <div style="height:16px"></div>
 ${detailsTable(details)}
 <div style="height:16px"></div>
+${partyBlocksTable(blocks)}
+<div style="height:8px"></div>
 ${instructions.html}
 <p style="margin:0 0 16px;">${button(statusUrl, "Stav objednávky")}</p>
 ${termsHtml}<p style="margin:0 0 16px;color:#404040;font-size:13px;">Odstoupit od smlouvy můžete online: <a href="${escapeHtml(withdrawUrl)}" style="color:#404040;">${escapeHtml(withdrawUrl)}</a></p>
@@ -263,6 +330,7 @@ ${termsHtml}<p style="margin:0 0 16px;color:#404040;font-size:13px;">Odstoupit o
     testBannerText(ctx) +
     `${greeting}\n\n${intro}\n\n${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${partyBlocksText(blocks)}` +
     `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\n${termsText}Odstoupit od smlouvy můžete online: ${withdrawUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }
@@ -275,16 +343,17 @@ export function internalOrderEmail(order: EmailOrder, ctx: Context & { transfer?
   const subject = `${subjectPrefix(ctx)}Nová objednávka ${reference} — ${formatKc(order.totalKc)} — ${payment}`;
   const adminUrl = `${ctx.baseUrl}/rizeni-firmy/objednavky/${order.id}`;
   const details: [string, string][] = [
-    ["Zákazník", order.contactName ?? "—"],
     ["Částka", formatKc(order.totalKc)],
     ["Doprava", deliveryText(order)],
     ["Platba", `${order.paymentMethodLabel ?? "—"} — ${payment}`],
     ["Poznámka zákazníka", order.customerNote ?? "—"],
   ];
   if (ctx.transfer) {
-    details.splice(4, 0, ["Splatnost", formatPragueDate(ctx.transfer.dueAt)]);
-    if (ctx.transfer.variableSymbol) details.splice(4, 0, ["Variabilní symbol", ctx.transfer.variableSymbol]);
+    details.splice(3, 0, ["Splatnost", formatPragueDate(ctx.transfer.dueAt)]);
+    if (ctx.transfer.variableSymbol) details.splice(3, 0, ["Variabilní symbol", ctx.transfer.variableSymbol]);
   }
+  // komu fakturu, komu a kam zásilku, jak zákazníka zastihnout
+  const blocks = [billingBlock(parties(order)), deliveryBlock(parties(order)), contactBlock(parties(order))];
   const reminder =
     order.paymentStatus !== "paid" && order.paymentMethodCode !== "karta" && !ctx.transfer
       ? "Zákazník čeká na platební údaje k převodu — v potvrzení je neměl (chybí nastavený účet)."
@@ -296,6 +365,8 @@ export function internalOrderEmail(order: EmailOrder, ctx: Context & { transfer?
 <p style="margin:0 0 16px;font-weight:600;">Nová objednávka z e-shopu (${escapeHtml(reference)})</p>
 ${detailsTable(details)}
 <div style="height:16px"></div>
+${partyBlocksTable(blocks)}
+<div style="height:8px"></div>
 ${itemsTable(order)}
 <div style="height:16px"></div>
 ${reminder ? `<p style="margin:0 0 16px;color:#404040;">${escapeHtml(reminder)}</p>` : ""}
@@ -306,6 +377,7 @@ ${reminder ? `<p style="margin:0 0 16px;color:#404040;">${escapeHtml(reminder)}<
     testBannerText(ctx) +
     `Nová objednávka z e-shopu (${reference})\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${partyBlocksText(blocks)}` +
     `\n\n${itemsText(order)}\n\n${reminder ? `${reminder}\n\n` : ""}Detail v MojeBegina: ${adminUrl}\n`;
   return { subject, html, text };
 }
@@ -332,6 +404,7 @@ export function customerPaymentReceivedEmail(
     ["Objednávka", reference],
     ["Přijatá částka", formatKc(order.totalKc)],
     ["Doprava", deliveryText(order)],
+    ["Doručení", deliveryAddressText(order)],
   ];
   const greeting = order.contactName ? `Dobrý den, ${order.contactName},` : "Dobrý den,";
   const html = layout(
@@ -442,6 +515,7 @@ export function customerReplacementEmail(
     ["Cena náhradní objednávky", formatKc(order.totalKc)],
     ["Použitá platba", formatHalKc(ctx.receivedHal)],
     ["Doprava", deliveryText(order)],
+    ["Doručení", deliveryAddressText(order)],
   ];
   const instructions =
     remainingHal > 0 ? paymentInstructions(order, ctx.transfer, ctx.qrContentId) : { html: "", text: "" };

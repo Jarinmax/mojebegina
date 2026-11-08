@@ -32,6 +32,18 @@ export type DraftOrder = {
   /** číslo objednávky ve WooCommerce (import z begina.cz), jinak null */
   externalWooCommerceId?: string | null;
   company?: DraftCompany | null;
+  /**
+   * Fakturační údaje zadané v pokladně (od 8. 11. 2026, migrace 0034).
+   * Mají přednost před adresou zásilky; firma s IČO = faktura na firmu.
+   */
+  billingName?: string | null;
+  billingCompany?: string | null;
+  billingIco?: string | null;
+  billingDic?: string | null;
+  billingStreet?: string | null;
+  billingCity?: string | null;
+  billingZip?: string | null;
+  billingCountry?: string | null;
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -228,9 +240,31 @@ export function buildInvoiceDraft(
 
   const vs = invoiceVsFor(order);
   if (!vs) add("no_vs", "error", "Objednávka nemá variabilní symbol (payment_vs, u importu číslo objednávky z WooCommerce).");
-  const contactName = order.contactName?.trim() || null;
   const email = order.contactEmail?.trim().toLowerCase() || null;
-  const company = order.company ?? null;
+  // fakturační údaje z pokladny: firma (název, IČO, DIČ, adresa) nebo osoba
+  const billingStreet = order.billingStreet?.trim() || null;
+  const billingAddressLine = billingStreet
+    ? `${billingStreet}, ${(order.billingZip ?? "").trim()} ${(order.billingCity ?? "").trim()}`
+    : null;
+  const billingCompany =
+    !order.company && billingStreet && order.billingCompany?.trim() && order.billingIco?.trim()
+      ? {
+          name: order.billingCompany.trim(),
+          ico: order.billingIco.trim(),
+          dic: order.billingDic?.trim() || null,
+          registeredAddress: billingAddressLine,
+        }
+      : null;
+  const contactName = (billingStreet ? order.billingName?.trim() : null) || order.contactName?.trim() || null;
+  const company = order.company ?? billingCompany;
+  const billingCountry = order.billingCountry?.trim() || null;
+  if (!order.company && billingStreet && billingCountry && billingCountry !== "Česká republika") {
+    add(
+      "billing_country_unsupported",
+      "error",
+      `Fakturační adresa je v zemi ${billingCountry} — automatická faktura umí jen Českou republiku, vystavit ručně v iDokladu.`
+    );
+  }
   const name = company ? company.name.trim() || null : contactName;
   if (!name) add("no_customer_name", "error", company ? "Chybí název firmy." : "Chybí jméno zákazníka.");
   if (company && !/^[0-9]{8}$/.test(company.ico)) add("company_ico_invalid", "error", `IČO firmy „${company.ico}“ nemá 8 číslic.`);
@@ -254,8 +288,9 @@ export function buildInvoiceDraft(
   }
   const verifiedDelivery = deliveryAddress && /\p{L}/u.test(deliveryAddress.street) ? deliveryAddress : null;
 
-  // firma: fakturační adresa = sídlo; osoba: adresa z pokladny
-  const rawAddress = company ? company.registeredAddress : order.recipientAddress;
+  // firma: fakturační adresa = sídlo (u nákupu na firmu z pokladny adresa z fakturačních údajů);
+  // osoba: fakturační adresa z pokladny, u starších objednávek adresa zásilky
+  const rawAddress = company ? company.registeredAddress : (billingAddressLine ?? order.recipientAddress);
   const address = parseCheckoutAddress(rawAddress);
   if (company && !address) {
     add("company_address_unparsed", "error", `Sídlo firmy „${rawAddress ?? "—"}“ nejde rozdělit na ulici, PSČ a město — opravit u firmy.`);

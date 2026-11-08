@@ -15,6 +15,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { allergenLabel } from "./allergens";
 import { formatNutrition } from "./nutrition";
+import { simplePackageLabel } from "./packageLabel";
 import type { Catalog, Category, DetailSection, Product, Variant } from "./types";
 
 type CatalogDb = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -101,7 +102,8 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
     const list = variantsByProduct.get(row.productId) ?? [];
     list.push({
       sku: row.sku,
-      label: row.label,
+      // jen množství s jednotkou („3 l“, „750 g“) — packageLabel.ts
+      label: row.label === null ? null : simplePackageLabel(row.label),
       detail: row.shortNote,
       description: row.packageDescription,
       priceKc: row.priceB2cKc,

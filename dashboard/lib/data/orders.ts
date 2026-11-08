@@ -79,6 +79,7 @@ import {
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "./orderLabels";
 import { isAllowedFulfillmentTransition, type ValidatedUpdateOrderFulfillment } from "./orderFulfillmentAgentValidation";
 import type { AuthContext } from "./types";
+import { displayItemName } from "@/lib/eshop/packageLabel";
 
 export async function requireOrderContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -201,7 +202,7 @@ export async function buildOrderCards(
   const itemsByOrder = new Map<string, string[]>();
   for (const item of itemRows) {
     const list = itemsByOrder.get(item.orderId) ?? [];
-    list.push(`${item.quantity}× ${item.name}`);
+    list.push(`${item.quantity}× ${displayItemName(item.name)}`);
     itemsByOrder.set(item.orderId, list);
   }
 
@@ -294,6 +295,18 @@ export type OrderDetail = {
     recipientAddress: string | null;
     recipientPhone: string | null;
     shippingMethodLabel: string | null;
+    shippingMethodCode: string | null;
+    recipientCompany: string | null;
+    deliverySameAsBilling: boolean | null;
+    /** fakturační údaje z pokladny (migrace 0034); starší objednávky null */
+    billingName: string | null;
+    billingCompany: string | null;
+    billingIco: string | null;
+    billingDic: string | null;
+    billingStreet: string | null;
+    billingCity: string | null;
+    billingZip: string | null;
+    billingCountry: string | null;
     paymentMethodLabel: string | null;
     customerNote: string | null;
     ageConfirmedAt: Date | null;
@@ -362,6 +375,17 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       recipientAddress: row.recipientAddress,
       recipientPhone: row.recipientPhone,
       shippingMethodLabel: row.shippingMethodLabel,
+      shippingMethodCode: row.shippingMethodCode,
+      recipientCompany: row.recipientCompany,
+      deliverySameAsBilling: row.deliverySameAsBilling,
+      billingName: row.billingName,
+      billingCompany: row.billingCompany,
+      billingIco: row.billingIco,
+      billingDic: row.billingDic,
+      billingStreet: row.billingStreet,
+      billingCity: row.billingCity,
+      billingZip: row.billingZip,
+      billingCountry: row.billingCountry,
       paymentMethodLabel: row.paymentMethodLabel,
       customerNote: row.customerNote,
       ageConfirmedAt: row.ageConfirmedAt,
@@ -371,7 +395,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       externalWooCommerceId: row.externalWooCommerceId,
       invoiceable,
     },
-    items,
+    items: items.map((item) => ({ ...item, name: displayItemName(item.name) })),
     payments: invoiceable ? await loadOrderPayments(db, orderId) : null,
     invoice: invoiceable ? await loadOrderInvoice(db, orderId) : null,
     activity: activityRows.map((r) => ({

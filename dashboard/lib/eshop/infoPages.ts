@@ -94,14 +94,14 @@ const aboutPage: InfoPage = {
     },
     {
       paragraphs: [
-        "Naše beginy připravujeme z čisté filtrované vody a plníme je do Bag-in-Box balení o objemu 3 litry.",
+        "Naše beginy připravujeme z čisté filtrované vody a plníme je do třílitrových sáčků s kohoutkem.",
         "Kromě toho nabízíme i další varianty balení podle typu produktu.",
         "Použitý systém chrání obsah a umožňuje jeho postupnou spotřebu.",
       ],
       itemStyle: "check",
       items: [
         "profesionální příprava",
-        "praktické bag-in-box balení s kohoutkem",
+        "praktický sáček s kohoutkem",
         "ochrana obsahu bez přístupu vzduchu",
         "bez lepku",
       ],

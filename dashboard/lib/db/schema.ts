@@ -193,6 +193,22 @@ export const orders = pgTable("orders", {
   // (handedToCarrier→delivered si je typicky ponechá).
   carrier: text("carrier"),
   trackingNumber: text("tracking_number"),
+  // Fakturační a doručovací údaje z pokladny (migrace 0034, zadání Lucie
+  // 8. 11. 2026). Fakturační = komu vystavit fakturu (osoba, nebo firma
+  // s IČO/DIČ), vždy úplná adresa. Doručovací = recipient_* výše
+  // (+ recipient_company); delivery_same_as_billing říká, zda zákazník
+  // nechal doručit na fakturační údaje. Starší objednávky mají NULL —
+  // tehdy se pokladna na fakturační údaje neptala (nic se nedoplňuje).
+  billingName: text("billing_name"),
+  billingCompany: text("billing_company"),
+  billingIco: text("billing_ico"),
+  billingDic: text("billing_dic"),
+  billingStreet: text("billing_street"),
+  billingCity: text("billing_city"),
+  billingZip: text("billing_zip"),
+  billingCountry: text("billing_country"),
+  recipientCompany: text("recipient_company"),
+  deliverySameAsBilling: boolean("delivery_same_as_billing"),
 }, (table) => [
   uniqueIndex("orders_order_number_key").on(table.orderNumber),
   // jedna objednávka z WooCommerce = nejvýš jeden záznam (migrace 0022)
@@ -202,6 +218,9 @@ export const orders = pgTable("orders", {
   check("orders_eshop_requires_vs", sql`${table.channel} <> 'eshop' OR ${table.paymentVs} IS NOT NULL`),
   check("orders_channel_check", sql`${table.channel} IN ('manual', 'eshop', 'import')`),
   check("orders_discount_nonnegative", sql`${table.discountKc} >= 0`),
+  check("orders_billing_ico_format", sql`${table.billingIco} IS NULL OR ${table.billingIco} ~ '^[0-9]{8}$'`),
+  // firma na faktuře = vždy s IČO
+  check("orders_billing_company_has_ico", sql`(${table.billingCompany} IS NULL) = (${table.billingIco} IS NULL)`),
   check(
     "orders_total_consistent",
     sql`${table.totalKc} = ${table.subtotalKc} - ${table.discountKc} + ${table.shippingKc}`

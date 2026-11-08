@@ -71,6 +71,7 @@ import type { Attachment, InlineImage } from "./resend";
 import type { InvoicePdf } from "../invoicing/issue";
 import { termsPdfPath, termsVersionForOrder, type TermsVersion } from "../content/termsVersions";
 import { termsPdf as defaultTermsPdf, type TermsPdf } from "../legal/termsPdf";
+import { displayItemName } from "../packageLabel";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -144,7 +145,20 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
       externalWooCommerceId: orders.externalWooCommerceId,
       contactName: orders.contactName,
       contactEmail: orders.contactEmail,
+      contactPhone: orders.contactPhone,
+      recipientName: orders.recipientName,
+      recipientCompany: orders.recipientCompany,
       recipientAddress: orders.recipientAddress,
+      recipientPhone: orders.recipientPhone,
+      billingName: orders.billingName,
+      billingCompany: orders.billingCompany,
+      billingIco: orders.billingIco,
+      billingDic: orders.billingDic,
+      billingStreet: orders.billingStreet,
+      billingCity: orders.billingCity,
+      billingZip: orders.billingZip,
+      billingCountry: orders.billingCountry,
+      deliverySameAsBilling: orders.deliverySameAsBilling,
       shippingMethodCode: orders.shippingMethodCode,
       shippingMethodLabel: orders.shippingMethodLabel,
       paymentMethodCode: orders.paymentMethodCode,
@@ -178,7 +192,8 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId))
     .orderBy(asc(orderItems.name));
-  return { ...order, items };
+  // název balení jen množstvím („Kulajda – 3 l“) i u starších objednávek
+  return { ...order, items: items.map((item) => ({ ...item, name: displayItemName(item.name) })) };
 }
 
 async function sentTemplates(db: Db, orderId: string): Promise<Set<string>> {
