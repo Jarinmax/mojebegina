@@ -6,12 +6,13 @@
 //     jen tyto adresy (testovací režim, viz resolveRecipients). Bez seznamu
 //     Preview neposílá nic — testovací objednávka tak nikdy neodejde
 //     skutečnému zákazníkovi.
-//   - ESHOP_EMAIL_INVOICE_COPY_TO: skrytá kopie (Bcc) každého e-mailu
-//     s fakturou. Nenastavené = info@begina.cz (BEG-11, 8. 11. 2026:
-//     info@ chodí majiteli i Lucii). V testovacím režimu jen adresy
-//     z testovacího seznamu.
-//   - ESHOP_EMAIL_INTERNAL_TO: interní upozornění na novou objednávku.
-//     Nenastavené = info@begina.cz.
+//   - Begina dostává VŠECHNO na info@begina.cz (rozhodnutí majitele
+//     8. 11. 2026; info@ chodí majiteli i Lucii): interní upozornění (nová
+//     objednávka, odstoupení) přímo a každý e-mail zákazníkovi (potvrzení,
+//     platba, faktura, storno, náhradní objednávka…) jako skrytou kopii.
+//     V Production se to nedá přepsat proměnnými; mimo Production (testy,
+//     Preview) platí ESHOP_EMAIL_INTERNAL_TO / ESHOP_EMAIL_INVOICE_COPY_TO,
+//     jinak také info@, a navíc jen adresy z testovacího seznamu.
 import { isOrderWriteEnabled } from "../orderWrite";
 
 type Env = Record<string, string | undefined>;
@@ -22,7 +23,7 @@ export type EmailConfig = {
   replyTo: string | null;
   /** Interní upozornění pro Beginu; prázdné = neposílá se. */
   internalTo: string[];
-  /** Skrytá kopie e-mailů s fakturou (PDF); prázdné = bez kopie. */
+  /** Skrytá kopie KAŽDÉHO e-mailu zákazníkovi (v Production info@begina.cz). */
   invoiceCopyTo?: string[];
   /** null = ostrý provoz (Production); jinak jediné povolené adresy. */
   testRecipients: string[] | null;
@@ -69,8 +70,8 @@ export function emailConfig(env: Env = process.env): EmailConfig | null {
     apiKey,
     from,
     replyTo,
-    internalTo: listOrDefault(env.ESHOP_EMAIL_INTERNAL_TO),
-    invoiceCopyTo: listOrDefault(env.ESHOP_EMAIL_INVOICE_COPY_TO),
+    internalTo: env.VERCEL_ENV === "production" ? [DEFAULT_INTERNAL_EMAIL] : listOrDefault(env.ESHOP_EMAIL_INTERNAL_TO),
+    invoiceCopyTo: env.VERCEL_ENV === "production" ? [DEFAULT_INTERNAL_EMAIL] : listOrDefault(env.ESHOP_EMAIL_INVOICE_COPY_TO),
     testRecipients,
   };
 }
@@ -96,10 +97,10 @@ export function resolveRecipients(intended: string[], config: Pick<EmailConfig, 
 }
 
 /**
- * Skrytá kopie e-mailu s fakturou: v ostrém provozu všechny adresy
- * z ESHOP_EMAIL_INVOICE_COPY_TO, v testovacím režimu jen ty z testovacího
- * seznamu (ostatní se vynechají, nic se nenahrazuje). Bez adres, které už
- * e-mail dostávají v „Komu“.
+ * Skrytá kopie e-mailu zákazníkovi pro Beginu (info@begina.cz): v ostrém
+ * provozu vždy, v testovacím režimu jen adresy z testovacího seznamu
+ * (ostatní se vynechají, nic se nenahrazuje). Bez adres, které už e-mail
+ * dostávají v „Komu“.
  */
 export function invoiceCopyRecipients(config: Pick<EmailConfig, "invoiceCopyTo" | "testRecipients">, to: string[]): string[] {
   const already = new Set(to.map((email) => email.toLowerCase()));

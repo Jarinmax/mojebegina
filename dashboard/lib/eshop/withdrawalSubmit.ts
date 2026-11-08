@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
-import { emailConfig, resolveRecipients, type EmailConfig } from "./email/config";
+import { emailConfig, invoiceCopyRecipients, resolveRecipients, type EmailConfig } from "./email/config";
 import { resendTransport, type EmailTransport } from "./email/resend";
 import { withdrawalAcknowledgementEmail, withdrawalInternalEmail } from "./email/templates";
 import { DELIVERY_ADDRESS, OPERATOR } from "./operator";
@@ -77,7 +77,16 @@ export async function submitWithdrawal<T extends PgQueryResultHKT>(
     returnAddress: DELIVERY_ADDRESS.oneLine,
   });
   const sent = await transport(
-    { from: config.from, to: customer.to, replyTo: config.replyTo, subject: ack.subject, html: ack.html, text: ack.text },
+    {
+      from: config.from,
+      to: customer.to,
+      // skrytá kopie Begině (info@begina.cz) — vidí i potvrzení zákazníkovi
+      ...(invoiceCopyRecipients(config, customer.to).length ? { bcc: invoiceCopyRecipients(config, customer.to) } : {}),
+      replyTo: config.replyTo,
+      subject: ack.subject,
+      html: ack.html,
+      text: ack.text,
+    },
     `withdrawal-ack-${key}`
   );
   if (!sent.ok) {
@@ -86,7 +95,7 @@ export async function submitWithdrawal<T extends PgQueryResultHKT>(
   }
 
   // 2) upozornění pro Beginu (interní adresy, jinak info@)
-  const internal = resolveRecipients(config.internalTo.length > 0 ? config.internalTo : [OPERATOR.email], config);
+  const internal = resolveRecipients(config.internalTo, config);
   const notice = withdrawalInternalEmail(statement, {
     baseUrl: options.baseUrl,
     withheld: internal.withheld,

@@ -34,7 +34,7 @@ import {
 import { INVOICE_ISSUER_NAMES } from "@/lib/data/invoiceAuth";
 import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
-import { emailConfig, resolveRecipients } from "@/lib/eshop/email/config";
+import { emailConfig, resolveRecipients, invoiceCopyRecipients } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
@@ -322,6 +322,8 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
         {
           from: config.from,
           to: resolved.to,
+          // skrytá kopie Begině (info@begina.cz)
+          ...(invoiceCopyRecipients(config, resolved.to).length ? { bcc: invoiceCopyRecipients(config, resolved.to) } : {}),
           replyTo: config.replyTo,
           subject: `${test ? "[TEST] " : ""}Faktura ${invoiceNumber} – Begina`,
           text,

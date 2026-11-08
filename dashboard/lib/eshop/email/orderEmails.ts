@@ -369,8 +369,8 @@ export async function sendOrderEmails(
           ? customerReply.to[0]
           : config.replyTo;
 
-      // e-mail s fakturou: skrytá kopie Begině (ESHOP_EMAIL_INVOICE_COPY_TO)
-      const bcc = invoiceNumber ? invoiceCopyRecipients(config, to) : [];
+      // každý e-mail zákazníkovi: skrytá kopie Begině (info@begina.cz)
+      const bcc = customer ? invoiceCopyRecipients(config, to) : [];
       const result = await transport(
         { from: config.from, to, ...(bcc.length ? { bcc } : {}), replyTo, ...rendered, inlineImages, attachments },
         `eshop-${template}-${orderId}`

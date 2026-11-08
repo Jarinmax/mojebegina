@@ -2,7 +2,7 @@
 // nesmí projevit v ostrém provozu a naopak.
 import { describe, expect, it } from "vitest";
 import { isEshopPublic, storeMode } from "../storeMode";
-import { emailConfig, resolveRecipients } from "../email/config";
+import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "../email/config";
 import { stripeConfig } from "../stripe/config";
 import { isOrderWriteEnabled } from "../orderWrite";
 
@@ -36,6 +36,11 @@ describe("Production: bez výslovného zapnutí nic", () => {
     // kopie faktur a interní upozornění bez nastavení → info@begina.cz (chodí majiteli i Lucii)
     expect(config?.invoiceCopyTo).toEqual(["info@begina.cz"]);
     expect(emailConfig({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_EMAIL_LIVE: "on", ESHOP_EMAIL_INTERNAL_TO: "" })?.internalTo).toEqual(["info@begina.cz"]);
+    // v Production VŽDY info@begina.cz — osobní adresy v proměnných to nepřepíšou (rozhodnutí 8. 11. 2026)
+    const personal = emailConfig({ ...prod, ESHOP_ORDER_WRITE: "on", ESHOP_EMAIL_LIVE: "on", ESHOP_EMAIL_INTERNAL_TO: "a@gmail.com, b@seznam.cz", ESHOP_EMAIL_INVOICE_COPY_TO: "a@gmail.com" });
+    expect(personal?.internalTo).toEqual(["info@begina.cz"]);
+    expect(personal?.invoiceCopyTo).toEqual(["info@begina.cz"]);
+    expect(invoiceCopyRecipients(personal!, ["zakaznik@example.cz"])).toEqual(["info@begina.cz"]);
     expect(resolveRecipients(["jana@example.cz"], config!)).toEqual({ to: ["jana@example.cz"], withheld: [] });
   });
 
