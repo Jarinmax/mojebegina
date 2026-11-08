@@ -19,9 +19,11 @@ afterEach(() => cleanup());
 describe("úvod e-shopu", () => {
   it("texty z návrhu", () => {
     render(<HomeHero />);
-    expect(screen.getByText("Čerstvě. Jednoduše. S chutí.")).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Čerstvé polévky a bylinné sirupy");
-    expect(screen.getByText("Z pečlivě vybraných surovin a čisté filtrované vody.")).toBeTruthy();
+    // nezalomitelné mezery (a&nbsp;bylinné) porovnáváme jako obyčejné
+    const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
+    expect(text(document.body.textContent)).toContain("Čerstvě. Jednoduše. S chutí.");
+    expect(text(screen.getByRole("heading", { level: 1 }).textContent)).toBe("Čerstvé polévky a bylinné sirupy");
+    expect(text(document.body.textContent)).toContain("Z pečlivě vybraných surovin a čisté filtrované vody.");
     expect(screen.getByText("Doručujeme chlazenou přepravou.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
