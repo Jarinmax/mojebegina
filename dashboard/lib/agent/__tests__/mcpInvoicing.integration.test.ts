@@ -52,6 +52,7 @@ const BASE = {
   ESHOP_EMAIL_FROM: "Begina <objednavky@begina.cz>",
   ESHOP_EMAIL_INTERNAL_TO: "jaroslav@begina.test",
   ESHOP_EMAIL_TEST_RECIPIENTS: "jaroslav@begina.test",
+  // v Production se nepoužije — kopie jde vždy na info@begina.cz (8. 11. 2026)
   ESHOP_EMAIL_INVOICE_COPY_TO: "faktury@begina.test",
   ESHOP_BANK_ACCOUNT: "19-2000145399/0800",
   ESHOP_BANK_IBAN: "CZ65 0800 0000 1920 0014 5399",
@@ -297,7 +298,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
       numberSeries: { id: "7277293", expected: "7277293" },
       orderStatus: { paidForInvoice: true },
       blocking: [],
-      email: { enabled: true, to: [order.contact_email], withheld: [], bcc: ["faktury@begina.test"] },
+      email: { enabled: true, to: [order.contact_email], withheld: [], bcc: ["info@begina.cz"] },
       draft: { customer: { name: "Jana Nováková", email: order.contact_email }, vs: expect.any(String) },
     });
     // náhled je jen čtení: žádný požadavek na iDoklad, žádná změna v DB, žádný e-mail
@@ -357,9 +358,9 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     expect(await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: false, idempotency_key: randomUUID() })).toMatchObject({ isError: true });
     expect(mail.sent).toEqual([]);
     const sent = await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
-    expect(sent.data).toMatchObject({ emailed: true, invoiceNumber: next.number, recipients: { to: [order.contact_email], bcc: ["faktury@begina.test"] } });
+    expect(sent.data).toMatchObject({ emailed: true, invoiceNumber: next.number, recipients: { to: [order.contact_email], bcc: ["info@begina.cz"] } });
     expect(invoiceMails()).toHaveLength(1);
-    expect(invoiceMails()[0]).toMatchObject({ to: [order.contact_email], bcc: ["faktury@begina.test"] });
+    expect(invoiceMails()[0]).toMatchObject({ to: [order.contact_email], bcc: ["info@begina.cz"] });
     expect(invoiceMails()[0].attachments?.[0].filename).toBe(`faktura-${next.number}.pdf`);
     const resend = await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
     expect(resend.data).toMatchObject({ emailed: false, alreadySentAt: expect.any(String) });
