@@ -25,11 +25,12 @@ describe("73: objednávka 70000009 — fakturační údaje z ověřených faktur
       INSERT INTO organizations (id, ico, name, registered_address, status) VALUES ('${ORG}', '74797921', 'Cukrárna Kavárna Adélka (Lenka Odrazilová)', 'Dlouhá 113, 254 01 Radlík-Jílové', 'Zákazník Begina');
       INSERT INTO user_profiles (user_id, name, email) VALUES ('u-adelka', 'Lenka', 'kavarna@example.cz');
       INSERT INTO organization_memberships (user_id, organization_id, role) VALUES ('u-adelka', '${ORG}', 'owner');
-      INSERT INTO orders (id, channel, contact_name, contact_email, recipient_name, recipient_address, shipping_method_code, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs)
-      VALUES ('${ORDER}', 'eshop', 'Lenka Odrazilová', 'Kavarna@Example.cz', 'Lenka Odrazilová', 'Matúškova 831/1, 149 00 Praha 4-Háje', 'rozvoz', 7085, 0, 99, 7184, 'unpaid', 'new', '2026-11-08T12:44:08Z', '70000009');
+      INSERT INTO orders (id, order_number, channel, contact_name, contact_email, recipient_name, recipient_address, shipping_method_code, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs)
+      VALUES ('${ORDER}', 70000009, 'eshop', 'Lenka Odrazilová', 'Kavarna@Example.cz', 'Lenka Odrazilová', 'Matúškova 831/1, 149 00 Praha 4-Háje', 'rozvoz', 7085, 0, 99, 7184, 'unpaid', 'new', '2026-11-08T12:44:08Z', '70000009');
     `);
     const { rows } = await pg.query<{ n: number }>(`SELECT order_number AS n FROM orders WHERE id = '${ORDER}'`);
-    script = RAW.replaceAll("70000009", String(rows[0].n));
+    expect(Number(rows[0].n)).toBe(70000009);
+    script = RAW;
   }, 120_000);
 
   it("doplní údaje a kartu, platba a částky beze změny", async () => {
