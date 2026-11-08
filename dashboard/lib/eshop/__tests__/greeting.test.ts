@@ -1,5 +1,5 @@
-// Oslovení zákazníka v e-mailech: „pane Průcho“ / „paní Průchová“,
-// při nejistotě jen „Dobrý den,“.
+// Oslovení zákazníka v e-mailech: vždy „pane Průcho“ / „paní Průchová“;
+// neutrálně jen u názvu firmy nebo jednoho slova.
 import { describe, expect, it } from "vitest";
 import { customerGreeting, maleSurnameVocative } from "../email/greeting";
 import { customerOrderEmail, type EmailOrder } from "../email/templates";
@@ -19,11 +19,13 @@ describe("oslovení zákazníka", () => {
     ["Eva Malá", "Dobrý den, paní Malá,"],
     ["Honza Kučera", "Dobrý den, pane Kučero,"],
     ["jiří průcha", "Dobrý den, pane Průcho,"],
-    // nejisté → neutrálně
-    ["Jana Novák", "Dobrý den,"],
-    ["Josef Němec", "Dobrý den,"],
-    ["Václav Havel", "Dobrý den,"],
+    ["Jana Novák", "Dobrý den, paní Novák,"],
+    ["Josef Němec", "Dobrý den, pane Němče,"],
+    ["Václav Havel", "Dobrý den, pane Havle,"],
+    ["Karel Moravec", "Dobrý den, pane Moravče,"],
+    // ne jméno osoby → neutrálně
     ["Cukrárna Kavárna Adélka", "Dobrý den,"],
+    ["Bistro U Lípy", "Dobrý den,"],
     ["Průcha", "Dobrý den,"],
     ["", "Dobrý den,"],
     [null, "Dobrý den,"],
@@ -35,7 +37,8 @@ describe("oslovení zákazníka", () => {
     expect(maleSurnameVocative("Sedláček")).toBe("Sedláčku");
     expect(maleSurnameVocative("Kříž")).toBe("Kříži");
     expect(maleSurnameVocative("Krejčí")).toBe("Krejčí");
-    expect(maleSurnameVocative("Moravec")).toBeNull();
+    expect(maleSurnameVocative("Moravec")).toBe("Moravče");
+    expect(maleSurnameVocative("Hugo")).toBe("Hugo");
   });
 
   it("v e-mailu zákazníkovi", () => {
