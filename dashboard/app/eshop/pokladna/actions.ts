@@ -28,6 +28,7 @@ import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
 import { isAgentRequest } from "@/lib/site/hosts";
+import { handoffSecret, loadHandoffPrefill, verifyHandoff } from "@/lib/eshop/customerHandoff";
 
 export type CheckoutState =
   | { error: string }
@@ -83,6 +84,16 @@ export async function submitCheckoutAction(
   const stripe = stripeConfig();
   const couponCodes = field("couponCodes");
   const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes), new Date(), { email: field("email").trim() || null });
+  // Nákup za kartu z MojeBegina: pas se ověří znovu (podpis, platnost,
+  // členství). Firma, IČO a DIČ se berou z karty, ne z formuláře, a karta
+  // se k objednávce přiřadí jen tudy — nikdy podle IČO/e-mailu ve formuláři.
+  const handoffToken = field("handoff");
+  const secret = handoffToken ? handoffSecret() : null;
+  const handoffPayload = secret ? verifyHandoff(handoffToken, secret) : null;
+  const card = handoffPayload ? await loadHandoffPrefill(db, handoffPayload) : null;
+  if (handoffToken && !card) {
+    return { error: "Odkaz z MojeBegina už neplatí. Otevřete prosím „Objednat znovu“ v MojeBegina ještě jednou, nebo zvolte „Nakupovat bez údajů firmy“." };
+  }
   const result = validateCheckoutInput(
     {
       cart: field("cart"),
@@ -95,10 +106,10 @@ export async function submitCheckoutAction(
       billingCity: field("billingCity"),
       billingZip: field("billingZip"),
       billingCountry: field("billingCountry"),
-      companyPurchase: formData.get("companyPurchase") === "on",
-      billingCompany: field("billingCompany"),
-      billingIco: field("billingIco"),
-      billingDic: field("billingDic"),
+      companyPurchase: card !== null || formData.get("companyPurchase") === "on",
+      billingCompany: card ? card.company.name : field("billingCompany"),
+      billingIco: card ? card.company.ico : field("billingIco"),
+      billingDic: card ? (card.company.dic ?? "") : field("billingDic"),
       // zaškrtnuté „Doručit na fakturační údaje“ (výchozí); jiný příjemce = vlastní údaje
       deliverySameAsBilling: formData.get("deliverySameAsBilling") === "on",
       recipientName: field("recipientName"),
@@ -119,6 +130,7 @@ export async function submitCheckoutAction(
   if (!result.ok) {
     return { error: result.error };
   }
+  if (card) result.value.buyerOrganizationId = card.organizationId;
 
   if (!isOrderWriteEnabled()) {
     return { confirmation: result.value, savedOrderId: null, orderNumber: null, email: "off" };

@@ -32,8 +32,16 @@ export default async function Page() {
       <div className="max-w-[380px] mx-auto px-3 pt-1 pb-24 relative z-10">
         <PageHeader title="Historie objednávek" />
 
+        {/* nový nákup v e-shopu s předvyplněnými údaji karty (app/objednat-znovu) */}
+        <a
+          href="/objednat-znovu/novy"
+          className="block text-center text-sm font-medium text-white bg-begina-primary-900 rounded-lg py-2.5 mb-3"
+        >
+          Nový nákup v e-shopu
+        </a>
+
         {customerOrders.map((order) => (
-          <OrderCard key={order.id} order={order} showPaymentAction />
+          <OrderCard key={order.id} order={order} showPaymentAction showReorder />
         ))}
       </div>
 

@@ -109,7 +109,7 @@ export default async function Page() {
         />
         <PerksCarousel perks={[partnerPerk, ...mockPerks]} />
         {lastOrder && (
-          <ReorderCard summary={lastOrder.products} href={`/objednavky#${lastOrder.id}`} />
+          <ReorderCard summary={lastOrder.products} href={`/objednat-znovu/${lastOrder.id}`} />
         )}
         <QuickLinksList links={quickLinks} />
       </div>

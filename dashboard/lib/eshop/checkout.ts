@@ -76,6 +76,8 @@ export type CheckoutValue = {
     country: typeof DELIVERY_COUNTRY;
     phone: string;
   } | null;
+  /** karta zákazníka z ověřeného pasu MojeBegina (nikdy z formuláře) */
+  buyerOrganizationId?: string | null;
   /** náhradní objednávka ke starší objednávce bez fakturačních údajů — neukládat je */
   billingUnknown?: boolean;
   /** doručovací adresa (= delivery bez příjemce); null u osobního odběru */
