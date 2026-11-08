@@ -59,9 +59,9 @@ export default function HomeHero() {
           </p>
         </div>
 
-        <div className="relative w-full sm:max-w-3xl sm:mx-auto lg:max-w-none">
+        <div className="relative w-full sm:max-w-3xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-none">
           {/* jemný přechod fotografie do krémového podkladu (mobil, tablet) */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#FAF6EF] to-transparent z-10 lg:hidden" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#FAF6EF] to-transparent z-10 sm:hidden" />
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
@@ -69,7 +69,7 @@ export default function HomeHero() {
             height={HERO_PHOTO.height}
             priority
             sizes="(min-width: 1152px) 600px, (min-width: 1024px) 52vw, (min-width: 768px) 48rem, 100vw"
-            className="block w-full h-auto lg:rounded-2xl lg:shadow-[0_18px_40px_-18px_rgba(90,65,30,0.35)]"
+            className="block w-full h-auto sm:rounded-2xl sm:shadow-[0_18px_40px_-18px_rgba(90,65,30,0.35)]"
           />
         </div>
       </div>
