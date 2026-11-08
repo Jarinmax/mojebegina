@@ -1,5 +1,5 @@
 // docs/eshop-production/72_oznaceni_baleni_MAIN.sql nad PGlite se všemi
-// migracemi a katalogy: štítky balení jen „3 l“ / „500 ml“ / „750 g“, text
+// migracemi a katalogy: štítky balení „Begina 3 l“ / „500 ml“ / „750 g“, text
 // kategorií bez „bag-in-box“, ceny a SKU beze změny, opakované spuštění nic
 // nezmění (pojistka).
 import { readFileSync } from "node:fs";
@@ -29,8 +29,8 @@ describe("72: označení balení jen množstvím", { timeout: 120_000 }, () => {
     expect((await pg.query(`SELECT 1 FROM "product_variants" WHERE "label" ~* 'bag-in-box|praktické balení'`)).rows.length).toBeGreaterThan(0);
     await pg.exec(SCRIPT);
     const labels = await pg.query<{ label: string }>(`SELECT DISTINCT "label" FROM "product_variants" WHERE "label" IS NOT NULL ORDER BY 1`);
-    for (const { label } of labels.rows) expect(label).toMatch(/^\d+(,\d+)? (ml|l|kg|g)$/);
-    expect(labels.rows.map((r) => r.label)).toEqual(expect.arrayContaining(["3 l", "750 g"]));
+    for (const { label } of labels.rows) expect(label).toMatch(/^(Begina 3 l|\d+(,\d+)? (ml|kg|g))$/);
+    expect(labels.rows.map((r) => r.label)).toEqual(expect.arrayContaining(["Begina 3 l", "750 g"]));
     const after = await pg.query<{ sku: string; price: number }>(`SELECT "sku", "price_b2c_kc" AS price FROM "product_variants" ORDER BY "sku"`);
     expect(after.rows).toEqual(before.rows);
     const box = await pg.query(`SELECT 1 FROM "product_categories" WHERE "detail_sections"::text ILIKE '%bag-in-box%'`);

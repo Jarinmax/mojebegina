@@ -1,6 +1,6 @@
--- Označení balení jen množstvím (zadání Lucie, 8. 11. 2026).
+-- Jednotné označení balení (zadání Lucie a majitele, 8. 11. 2026).
 --
---   „3 l Rodinná zásoba (bag-in-box)“ → „3 l“    (Production: 28 balení)
+--   „3 l Rodinná zásoba (bag-in-box)“ → „Begina 3 l“ (Production: 28 balení)
 --   „500 ml Praktické balení“          → „500 ml“ (Production: 4 balení)
 --   „750 g Praktické balení“           → „750 g“  (Production: 7 balení)
 -- Třílitrová balení dodáváme v sáčcích — krabici neslibujeme, proto i text
@@ -28,7 +28,9 @@ DECLARE
   sections int;
 BEGIN
   UPDATE "product_variants"
-  SET "label" = substring("label" FROM '^(\d+(?:[.,]\d+)?\s*(?:ml|l|kg|g))\M'), "updated_at" = now()
+  SET "label" = CASE WHEN "label" ~* '^3\s*l\M' THEN 'Begina 3 l'
+                     ELSE substring("label" FROM '^(\d+(?:[.,]\d+)?\s*(?:ml|l|kg|g))\M') END,
+      "updated_at" = now()
   WHERE "label" ~* '^\d+(?:[.,]\d+)?\s*(ml|l|kg|g)\M\s*(Rodinná zásoba|Praktické balení)';
   GET DIAGNOSTICS labels = ROW_COUNT;
 
@@ -40,16 +42,16 @@ BEGIN
   IF labels = 0 AND sections = 0 THEN
     RAISE EXCEPTION 'Nic k úpravě (skript už běžel?) — zastavuji, nic se nezměnilo.';
   END IF;
-  IF EXISTS (SELECT 1 FROM "product_variants" WHERE "label" ~* 'bag-in-box|rodinná zásoba|praktické balení') THEN
+  IF EXISTS (SELECT 1 FROM "product_variants" WHERE "label" ~* 'bag-in-box|begina box|rodinná zásoba|praktické balení') THEN
     RAISE EXCEPTION 'Zůstal štítek se starým označením — zastavuji, nic se nezměnilo.';
   END IF;
-  IF EXISTS (SELECT 1 FROM "product_variants" WHERE "label" IS NOT NULL AND "label" !~ '^\d+(,\d+)?\s(ml|l|kg|g)$') THEN
-    RAISE EXCEPTION 'Některý štítek není ve tvaru „3 l“ / „500 ml“ / „750 g“ — zastavuji, nic se nezměnilo.';
+  IF EXISTS (SELECT 1 FROM "product_variants" WHERE "label" IS NOT NULL AND "label" !~ '^(Begina 3 l|\d+(,\d+)?\s(ml|kg|g))$') THEN
+    RAISE EXCEPTION 'Některý štítek není ve tvaru „Begina 3 l“ / „500 ml“ / „750 g“ — zastavuji, nic se nezměnilo.';
   END IF;
   RAISE NOTICE 'Hotovo: % štítků balení, % kategorií.', labels, sections;
 END $$;
 
 COMMIT;
 
--- Kontrola po (spustit zvlášť; Production: 3 l | 28, 500 ml | 4, 750 g | 7):
+-- Kontrola po (spustit zvlášť; Production: Begina 3 l | 28, 500 ml | 4, 750 g | 7):
 -- SELECT "label", count(*) FROM "product_variants" GROUP BY "label" ORDER BY 2 DESC;
