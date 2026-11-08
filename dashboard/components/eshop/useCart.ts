@@ -83,6 +83,11 @@ export function useCart() {
   return { cart, add, setQuantity, clear };
 }
 
+/** Celý košík najednou (Objednat znovu z MojeBegina). */
+export function replaceCart(lines: CartLine[]) {
+  writeCart(lines);
+}
+
 const noopSubscribe = () => () => {};
 
 /** false při server renderu a hydrataci, true po ní — aby prázdný košík

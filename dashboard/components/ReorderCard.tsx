@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { RefreshCw, ChevronRight } from "lucide-react";
 
 type ReorderCardProps = {
@@ -8,7 +7,8 @@ type ReorderCardProps = {
 
 export default function ReorderCard({ summary, href }: ReorderCardProps) {
   return (
-    <Link
+    // obyčejný odkaz — pas pro e-shop se vydá až po kliknutí (app/objednat-znovu)
+    <a
       href={href}
       className="flex items-center gap-3 bg-white border border-begina-primary-700 rounded-xl p-3.5 mb-4"
     >
@@ -22,6 +22,6 @@ export default function ReorderCard({ summary, href }: ReorderCardProps) {
       <span className="text-neutral-400">
         <ChevronRight className="w-4 h-4" />
       </span>
-    </Link>
+    </a>
   );
 }

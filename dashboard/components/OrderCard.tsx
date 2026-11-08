@@ -6,6 +6,8 @@ import type { Order } from "@/mock/customer";
 type OrderCardProps = {
   order: Order;
   showPaymentAction?: boolean;
+  /** „Objednat znovu“ jen v zákaznické části (člen karty), ne v řízení firmy */
+  showReorder?: boolean;
 };
 
 const STATUS_STYLE: Record<Order["status"], string> = {
@@ -15,7 +17,7 @@ const STATUS_STYLE: Record<Order["status"], string> = {
   Přeplaceno: "bg-violet-100 text-violet-800",
 };
 
-export default function OrderCard({ order, showPaymentAction = false }: OrderCardProps) {
+export default function OrderCard({ order, showPaymentAction = false, showReorder = false }: OrderCardProps) {
   const canPay = showPaymentAction && order.paymentHref && (order.status === "Neuhrazeno" || order.status === "Částečně uhrazeno");
   return (
     <div
@@ -50,13 +52,18 @@ export default function OrderCard({ order, showPaymentAction = false }: OrderCar
           Zaplatit
         </Link>
       )}
-      <button
-        type="button"
+      {/* MojeBegina ověří členství a pošle zákazníka do e-shopu s naplněným
+          košíkem a předvyplněnými údaji karty (app/objednat-znovu). Obyčejný
+          odkaz, ne <Link> — žádné přednačítání, pas se vydá až na kliknutí. */}
+      {showReorder && (
+      <a
+        href={`/objednat-znovu/${order.id}`}
         className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-begina-primary-900 border border-begina-primary-700 rounded-lg py-2"
       >
         <RefreshCw className="w-4 h-4" />
         Objednat znovu
-      </button>
+      </a>
+      )}
     </div>
   );
 }

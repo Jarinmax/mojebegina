@@ -25,6 +25,9 @@ import CouponBox from "@/components/eshop/CouponBox";
 import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
 import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
 import { rememberPendingOrder } from "@/components/eshop/usePendingOrder";
+import { storeHandoff, useCustomerHandoff } from "@/components/eshop/useCustomerHandoff";
+import { handoffPrefillAction } from "@/app/eshop/kosik/handoffActions";
+import type { HandoffPrefill } from "@/lib/eshop/customerHandoff";
 import type { CheckoutValue } from "@/lib/eshop/checkout";
 import {
   BILLING_COUNTRIES,
@@ -126,6 +129,66 @@ export default function CheckoutForm({
   useEffect(() => {
     if (couponEmail) rememberCheckoutEmail(couponEmail);
   }, [couponEmail]);
+  // Nákup za kartu z MojeBegina („Objednat znovu“): údaje karty se načtou
+  // ze serveru podle podepsaného pasu a předvyplní se. Firma, IČO a DIČ
+  // jsou pak jen z karty (server je při odeslání vezme znovu z karty).
+  const handoff = useCustomerHandoff();
+  const [prefill, setPrefill] = useState<HandoffPrefill | null>(null);
+  const [locationId, setLocationId] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    if (!handoff) {
+      setPrefill(null);
+      return;
+    }
+    handoffPrefillAction(handoff)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          storeHandoff(null);
+          setPrefill(null);
+          return;
+        }
+        const p = result.prefill;
+        setPrefill(p);
+        const location = p.locations[0] ?? null;
+        setLocationId(location?.id ?? "");
+        setValues((prev) => ({
+          ...prev,
+          name: prev.name || p.contact.name || "",
+          email: prev.email || p.contact.email || "",
+          phone: prev.phone || p.contact.phone || location?.contactPhone || "",
+          companyPurchase: true,
+          billingCompany: p.company.name,
+          billingIco: p.company.ico,
+          billingDic: p.company.dic ?? "",
+          billingStreet: prev.billingStreet || p.registered?.street || "",
+          billingCity: prev.billingCity || p.registered?.city || "",
+          billingZip: prev.billingZip || p.registered?.zip || "",
+          billingCountry: "Česká republika",
+          ...(location ? locationValues(location, p) : {}),
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setPrefill(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [handoff]);
+
+  function chooseLocation(id: string) {
+    setLocationId(id);
+    const location = prefill?.locations.find((l) => l.id === id);
+    if (location && prefill) setValues((prev) => ({ ...prev, ...locationValues(location, prefill) }));
+  }
+
+  function leaveHandoff() {
+    storeHandoff(null);
+    setPrefill(null);
+    setValues((prev) => ({ ...prev, companyPurchase: false, billingCompany: "", billingIco: "", billingDic: "", deliverySameAsBilling: true }));
+  }
+
   // Token = budoucí id objednávky. Dvojí odeslání (dvojklik, opakování po
   // výpadku sítě) tak na serveru nevytvoří dvě objednávky.
   const [orderToken] = useState(() =>
@@ -332,6 +395,7 @@ export default function CheckoutForm({
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
       <input type="hidden" name="couponCodes" value={JSON.stringify(appliedCodes)} />
       <input type="hidden" name="orderToken" value={orderToken} />
+      {prefill && handoff && <input type="hidden" name="handoff" value={handoff} />}
       <input type="hidden" name="adConsent" defaultValue="0" />
       <input type="hidden" name="fbp" defaultValue="" />
       <input type="hidden" name="fbc" defaultValue="" />
@@ -361,34 +425,49 @@ export default function CheckoutForm({
         <fieldset className="flex flex-col gap-3">
           <legend className="font-medium mb-1">Fakturační údaje</legend>
           <p className="text-xs text-neutral-500 -mt-1">Na tyto údaje vystavíme fakturu.</p>
+          {prefill && (
+            <div className="rounded-lg border border-begina-primary-700/30 bg-begina-primary-50 px-3 py-2 text-sm">
+              <p className="text-begina-primary-900">
+                Nakupujete za <strong>{prefill.company.name}</strong> (IČO {prefill.company.ico}) — údaje z MojeBegina.
+              </p>
+              <p className="text-xs text-neutral-600 mt-0.5">
+                Firmu, IČO a DIČ bereme z vaší karty; změnu nám prosím napište na {OPERATOR.email}.{" "}
+                <button type="button" onClick={leaveHandoff} className="underline">Nakupovat bez údajů firmy</button>
+              </p>
+            </div>
+          )}
           <div>
             <label htmlFor="name" className={labelClass}>Jméno a příjmení</label>
             <input id="name" name="name" autoComplete="billing name" required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="companyPurchase"
-              checked={values.companyPurchase}
-              onChange={(e) => set("companyPurchase", e.target.checked)}
-              className="accent-begina-primary-900"
-            />
-            Nakupuji na firmu
-          </label>
+          {prefill ? (
+            <input type="hidden" name="companyPurchase" value="on" />
+          ) : (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="companyPurchase"
+                checked={values.companyPurchase}
+                onChange={(e) => set("companyPurchase", e.target.checked)}
+                className="accent-begina-primary-900"
+              />
+              Nakupuji na firmu
+            </label>
+          )}
           {values.companyPurchase && (
             <div className="flex flex-col gap-3">
               <div>
                 <label htmlFor="billingCompany" className={labelClass}>Název firmy</label>
-                <input id="billingCompany" name="billingCompany" autoComplete="billing organization" required value={values.billingCompany} onChange={(e) => set("billingCompany", e.target.value)} className={inputClass} />
+                <input id="billingCompany" name="billingCompany" autoComplete="billing organization" required value={values.billingCompany} onChange={(e) => set("billingCompany", e.target.value)} readOnly={prefill !== null} className={`${inputClass} ${prefill ? "bg-neutral-50" : ""}`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="billingIco" className={labelClass}>IČO</label>
-                  <input id="billingIco" name="billingIco" inputMode="numeric" required value={values.billingIco} onChange={(e) => set("billingIco", e.target.value)} className={inputClass} />
+                  <input id="billingIco" name="billingIco" inputMode="numeric" required value={values.billingIco} onChange={(e) => set("billingIco", e.target.value)} readOnly={prefill !== null} className={`${inputClass} ${prefill ? "bg-neutral-50" : ""}`} />
                 </div>
                 <div>
                   <label htmlFor="billingDic" className={labelClass}>DIČ (nepovinné)</label>
-                  <input id="billingDic" name="billingDic" placeholder="CZ12345678" value={values.billingDic} onChange={(e) => set("billingDic", e.target.value)} className={inputClass} />
+                  <input id="billingDic" name="billingDic" placeholder="CZ12345678" value={values.billingDic} onChange={(e) => set("billingDic", e.target.value)} readOnly={prefill !== null} className={`${inputClass} ${prefill ? "bg-neutral-50" : ""}`} />
                 </div>
               </div>
             </div>
@@ -468,6 +547,18 @@ export default function CheckoutForm({
                 />
                 Doručit na fakturační údaje
               </label>
+              {prefill && prefill.locations.length > 0 && (
+                <div>
+                  <label htmlFor="handoffLocation" className={labelClass}>Provozovna z MojeBegina</label>
+                  <select id="handoffLocation" value={locationId} onChange={(e) => chooseLocation(e.target.value)} className={inputClass}>
+                    {prefill.locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.label} — {location.street}, {location.zip} {location.city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {values.deliverySameAsBilling ? (
                 <p className="text-xs text-neutral-500">
                   Zásilku doručíme na jméno a adresu z fakturačních údajů, telefon pro doručení je váš kontaktní telefon.
@@ -678,4 +769,17 @@ function PartyCard({ block }: { block: PartyBlock }) {
       {block.note && <p className="text-xs text-neutral-500 mt-1">{block.note}</p>}
     </div>
   );
+}
+
+/** Provozovna z karty → doručovací údaje (jiný příjemce než fakturační). */
+function locationValues(location: HandoffPrefill["locations"][number], prefill: HandoffPrefill) {
+  return {
+    deliverySameAsBilling: false,
+    recipientName: location.contactName ?? prefill.contact.name ?? "",
+    recipientCompany: location.label,
+    street: location.street,
+    city: location.city,
+    zip: location.zip,
+    recipientPhone: location.contactPhone ?? prefill.contact.phone ?? "",
+  };
 }
