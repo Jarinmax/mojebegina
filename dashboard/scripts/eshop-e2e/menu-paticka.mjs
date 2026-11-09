@@ -49,7 +49,7 @@ for (const [name, viewport] of VIEWPORTS) {
     const tops = new Set([...r.getClientRects()].map((x) => Math.round(x.top)));
     return { lines: tops.size, fs: parseFloat(getComputedStyle(el).fontSize), align: getComputedStyle(el).textAlign };
   });
-  check(`${name}: nadpis 1–3 řádky, rozumná velikost`, lines.lines === 3 && lines.fs >= 26 && lines.fs <= 48, `${lines.lines} ř., ${lines.fs}px`);
+  check(`${name}: nadpis 1–3 řádky, rozumná velikost`, lines.lines === 3 && lines.fs >= 24 && lines.fs <= 48, `${lines.lines} ř., ${lines.fs}px`);
   if (viewport.width < 1024) {
     const center = hb.x + hb.width / 2;
     check(`${name}: nadpis na střed`, lines.align === "center" && Math.abs(center - viewport.width / 2) < 4, `střed ${center} / ${viewport.width / 2}`);

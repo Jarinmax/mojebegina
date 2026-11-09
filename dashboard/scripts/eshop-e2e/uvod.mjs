@@ -107,9 +107,11 @@ for (const [name, device] of CASES) {
       headerSW: header.scrollWidth, headerW: header.clientWidth,
     };
   });
-  const parts = [hd.logo, hd.nav, hd.cart, hd.burger].filter(Boolean).sort((a, b) => a.l - b.l);
+  // logo | menu | [košík ☰] — košík a ☰ tvoří skupinu (mezi nimi se jen nesmí překrývat)
+  const parts = [hd.logo, hd.nav, hd.cart].filter(Boolean).sort((a, b) => a.l - b.l);
   const gaps = parts.slice(1).map((p, i) => Math.round(p.l - parts[i].r));
-  check(`${name}: hlavička bez překrývání`, gaps.every((g) => g >= 12) && hd.headerSW <= hd.headerW && parts.every((p) => p.r <= vw && p.l >= 0), `mezery ${gaps.join("/")} px`);
+  const burgerOk = !hd.burger || hd.burger.l >= hd.cart.r;
+  check(`${name}: hlavička bez překrývání`, gaps.every((g) => g >= 12) && burgerOk && hd.headerSW <= hd.headerW && [...parts, hd.burger].filter(Boolean).every((p) => p.r <= vw && p.l >= 0), `mezery ${gaps.join("/")} px${hd.burger ? `, košík–☰ ${Math.round(hd.burger.l - hd.cart.r)} px` : ""}`);
   if (hd.nav) {
     check(`${name}: počítač — logo o 20 % větší, menu 17 px na jednom řádku`, Math.abs(hd.logoImg - 43.2) < 1 && Math.abs(hd.brand - 21.6) < 0.5 && hd.navFont === 17 && hd.navH < 32, `logo ${hd.logoImg}px, nápis ${hd.brand}px, menu ${hd.navFont}px, výška menu ${hd.navH}`);
   } else {
