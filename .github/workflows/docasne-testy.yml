@@ -1,0 +1,21 @@
+# DOČASNÉ — před sloučením se smaže.
+name: docasne-testy
+on:
+  push:
+    branches: [kokosove-mleko-85]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Testy
+        run: npx vitest run 2>&1 | tee /tmp/t.log | tail -30; grep -E "FAIL|✗|×" /tmp/t.log | head -40; ! grep -q "Test Files .*failed" /tmp/t.log

@@ -70,7 +70,7 @@ export const SOUPS = [
     taste:
       "Základ tvoří kvalitní dýně, kterou doplňují brambory a pečlivě zvolené koření. Kokosové mléko zjemňuje strukturu a dodává krémovost. Chuť je vyvážená, plná a přirozeně harmonická.",
     ingredients:
-      "čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 % (kokosový extrakt 70 %, voda, emulgátor E435), brambory 9 %, cibule 4 %, olivový olej, dýňový olej, petržel kořen, mořská sůl, třtinový cukr, zázvor, lahůdkové droždí, grepová šťáva, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      "čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 9 %, cibule 4 %, olivový olej, dýňový olej, petržel kořen, mořská sůl, třtinový cukr, zázvor, lahůdkové droždí, grepová šťáva, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     nutrition: { energy_kj: 283, energy_kcal: 68, fat: 4.0, saturates: 2.7, carbohydrate: 7.6, sugars: 2.0, protein: 1.0, salt: 0.8, fibre: 1.1 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
@@ -97,7 +97,7 @@ export const SOUPS = [
     taste:
       "Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.",
     ingredients:
-      "čistá filtrovaná voda, brambory 20 %, kokosové mléko 15 % (kokosový extrakt 70 %, voda, emulgátor E435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, brambory 20 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 187, energy_kcal: 45, fat: 2.9, saturates: 2.6, carbohydrate: 4.1, sugars: 0.5, protein: 0.7, salt: 0.7, fibre: 0.5 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
@@ -124,7 +124,7 @@ export const SOUPS = [
     taste:
       "Základ tvoří kvalitní rajčata, která dávají polévce výraz a hloubku. Pečlivě zvolené koření doplňuje celkovou harmonii a podtrhuje plnost chuti. Struktura je jemná, chuť vyvážená a přirozeně plná.",
     ingredients:
-      "čistá filtrovaná voda, pasírovaná rajčata 27 %, rajčatový protlak 7 %, brambory 7 %, kokosové mléko 7 % (kokosový extrakt 70 %, voda, emulgátor E435), cibule 5 %, petržel kořen, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, pepř černý, kardamom, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      "čistá filtrovaná voda, pasírovaná rajčata 27 %, rajčatový protlak 7 %, brambory 7 %, kokosové mléko 7 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), cibule 5 %, petržel kořen, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, pepř černý, kardamom, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     nutrition: { energy_kj: 255, energy_kcal: 61, fat: 4.4, saturates: 1.6, carbohydrate: 5.1, sugars: 1.6, protein: 0.9, salt: 0.8, fibre: 0.7 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
@@ -151,7 +151,7 @@ export const SOUPS = [
     taste:
       "Je jemná, kulatá a vyvážená. Rajčatový základ doplňuje červená řepa, která chuť přirozeně uhlazuje a propojuje do hladkého celku. Výsledkem je hebká struktura a příjemně plný charakter.",
     ingredients:
-      "čistá filtrovaná voda, pasírovaná rajčata 17 %, brambory 13 %, kokosové mléko 13 % (kokosový extrakt 70 %, voda, emulgátor E435), červená řepa 9 %, rajčatový protlak 3 %, cibule, petržel kořen, mořská sůl, třtinový cukr, olivový olej, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      "čistá filtrovaná voda, pasírovaná rajčata 17 %, brambory 13 %, kokosové mléko 13 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), červená řepa 9 %, rajčatový protlak 3 %, cibule, petržel kořen, mořská sůl, třtinový cukr, olivový olej, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     nutrition: { energy_kj: 189, energy_kcal: 45, fat: 2.9, saturates: 2.4, carbohydrate: 3.9, sugars: 2.6, protein: 0.9, salt: 0.8, fibre: 0.9 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
@@ -206,7 +206,7 @@ export const SOUPS = [
     taste:
       "Špenát tvoří výrazný zeleninový základ, který doplňují brambory a pečlivě zvolené koření. Struktura je krémová, chuť vyvážená a čistá. Polévka působí svěže a harmonicky.",
     ingredients:
-      "čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 % (70 % kokosový extrakt, voda, emulgátor E435), brambory 13 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 13 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 210, energy_kcal: 50, fat: 3.2, saturates: 1.7, carbohydrate: 4.1, sugars: 0.7, protein: 1.1, salt: 0.7, fibre: 0.8 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
