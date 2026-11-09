@@ -1,0 +1,23 @@
+name: docasne-testy
+on:
+  push:
+    branches: [prace-fotky-blob]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Blob zdroj
+        run: |
+          cd node_modules/@vercel/blob/dist; ls
+          grep -n "resolveBlobAuth\|getReadWriteBlobTokenFromOptionsOrEnv\|BLOB_STORE_ID\|getVercelOidcToken" *.js | head -60
+          grep -n "function createPutMethod\|async function put\|requestApi(" index.js chunk-*.js 2>/dev/null | head -30
