@@ -38,9 +38,8 @@ for (const [name, device] of CASES) {
     }
     const body = await page.evaluate(() => document.querySelector("main").innerText);
     check(`${name} ${slug}: bez „Doplníme“ u trvanlivosti, bez starých textů`, !/25 °C|dobře uzavřeném|Zlaté pravidlo|20 ml sirupu|Begina 3 l|750 g|750 ml|bag-in-box|zavodn|zavír/i.test(body), (body.match(/25 °C|dobře uzavřeném|Zlaté pravidlo|20 ml sirupu|Begina 3 l|750 g|750 ml|bag-in-box/gi) ?? []).join(", "));
-    const variants = await page.getByRole("radio").allInnerTexts().catch(() => []);
-    const vtext = variants.join(" | ") || body;
-    check(`${name} ${slug}: varianty 3 l a 700 ml`, /\b3 l\b/.test(vtext) && /700 ml/.test(vtext), variants.join(" | "));
+    const pick = body.match(/(^|\n)(3 l|700 ml)(?=\n|\s)/g) ?? [];
+    check(`${name} ${slug}: varianty 3 l a 700 ml`, /(^|\n)3 l/.test(body) && /700 ml/.test(body), pick.map((x) => x.trim()).join(" | "));
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);
     check(`${name} ${slug}: bez vodorovného přetékání`, sw <= vw, `${sw}/${vw}`);
   }
