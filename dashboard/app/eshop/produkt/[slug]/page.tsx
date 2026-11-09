@@ -60,15 +60,16 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
     // Typografie (10. 11. 2026): seznamy a věty velkým písmenem s tečkou,
     // samostatné hodnoty (balení, obsah alkoholu, „Ověřujeme“) beze změny.
     { label: "Složení", value: asSentence(info.ingredients) },
-    {
-      label: "Alergeny",
-      value:
-        info.allergens === null
-          ? ALLERGENS_UNVERIFIED
-          : info.allergens.length
-            ? asSentence(info.allergens.join(", "))
-            : "Neobsahuje žádný z alergenů, které se povinně uvádějí.",
-    },
+    // Alergeny (10. 11. 2026): veřejně jen skutečně přítomné alergeny. Prázdný
+    // seznam v DB (interně „ověřeno, receptura bez povinných alergenů“) se už
+    // nezobrazuje jako „Neobsahuje žádný z alergenů…“ — výroba je ve společném
+    // prostoru s lepkem a mlékem, takže to tvrzení není podložené; řádek
+    // se pak vynechá. Interní údaj i kontrola úplnosti dat zůstávají.
+    ...(info.allergens === null
+      ? [{ label: "Alergeny", value: ALLERGENS_UNVERIFIED }]
+      : info.allergens.length
+        ? [{ label: "Alergeny", value: asSentence(info.allergens.join(", ")) }]
+        : []),
     ...(product.isAgeRestricted
       ? [
           {

@@ -44,6 +44,11 @@ for (const [name, device] of [["pocitac", { viewport: { width: 1440, height: 900
     }
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);
     if (sw > vw) problems.push(`${href} přetéká ${sw}/${vw}`);
+    // 10. 11. 2026: žádné nepodložené „Neobsahuje žádný z alergenů…“
+    const main = await page.locator("main").innerText();
+    if (/Neobsahuje žádný|povinně uvádějí|bez alergenů/i.test(main)) problems.push(`${href} tvrzení o nepřítomnosti alergenů`);
+    // řádek Alergeny jen se skutečnými alergeny (testovací DB je má prázdné → řádek nesmí být)
+    if (rows.some((r) => r.dt === "Alergeny" && !r.missing && r.dd !== "Ověřujeme" && !/\p{Lu}/u.test(r.dd))) problems.push(`${href} prázdný řádek Alergeny`);
   }
   check(`${name}: typografie u ${slugs.size} produktů`, problems.length === 0, problems.slice(0, 15).join(" ‖ "));
   for (const href of ["/produkt/dynova-polevka", "/produkt/svarak-deluxe"]) {
