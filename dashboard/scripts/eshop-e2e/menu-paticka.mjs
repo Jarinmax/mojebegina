@@ -70,7 +70,7 @@ for (const [name, viewport] of VIEWPORTS) {
   // rozložení patičky
   await page.goto(url("/"), { waitUntil: "networkidle" });
   const boxes = await page.locator("footer section").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })));
-  if (viewport.width >= 768) check(`${name}: patička vedle sebe zleva doprava`, boxes[0].x < boxes[1].x && boxes[1].x < boxes[2].x && Math.abs(boxes[0].y - boxes[2].y) < 2, JSON.stringify(boxes));
+  if (viewport.width >= 1024) check(`${name}: patička vedle sebe zleva doprava`, boxes[0].x < boxes[1].x && boxes[1].x < boxes[2].x && Math.abs(boxes[0].y - boxes[2].y) < 2, JSON.stringify(boxes));
   else check(`${name}: patička pod sebou`, boxes[0].y < boxes[1].y && boxes[1].y < boxes[2].y, JSON.stringify(boxes));
   const tel = page.locator('footer a[href^="tel:"]');
   const mail = page.locator('footer a[href^="mailto:"]');

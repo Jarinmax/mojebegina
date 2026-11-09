@@ -14,23 +14,25 @@ import { WITHDRAWAL_PAGE_PATH } from "@/lib/eshop/content/withdrawalForm";
 // (třída cky-banner-element) — souhlas jde kdykoli změnit nebo odvolat.
 
 export default function EshopFooter({ cookieSettings = false }: { cookieSettings?: boolean }) {
-  const heading = "font-medium text-begina-primary-900 mb-1.5";
-  const block = "border-t border-neutral-200 pt-6 first:border-t-0 first:pt-0 md:border-t-0 md:pt-0 md:pl-8 md:border-l md:first:border-l-0 md:first:pl-0";
-  const linkClass = "block py-3 sm:inline-block sm:py-1.5 hover:underline underline-offset-2";
+  // Čitelnost (9. 11. 2026): nadpisy bloků 18 px výraznějším řezem, texty
+  // a odkazy 16 px, řádkování 1,5, tmavší šedá pro kontrast.
+  const heading = "text-[17px] sm:text-lg font-semibold text-begina-primary-900 mb-2";
+  const block = "border-t border-neutral-200 pt-6 first:border-t-0 first:pt-0 lg:border-t-0 lg:pt-0 lg:pl-10 lg:border-l lg:first:border-l-0 lg:first:pl-0";
+  const linkClass = "block py-3 sm:inline-block sm:py-1.5 text-base hover:underline underline-offset-2";
   return (
     <footer className="border-t border-neutral-200 bg-begina-primary-50 print:hidden">
-      <div className="max-w-5xl mx-auto px-4 py-8 text-sm text-neutral-600">
-        <div className="grid grid-cols-1 md:grid-cols-3">
+      <div className="max-w-6xl mx-auto px-4 py-10 text-base leading-normal text-neutral-700">
+        <div className="grid grid-cols-1 lg:grid-cols-3">
           <section aria-labelledby="paticka-provozovna" className={block}>
             <h2 id="paticka-provozovna" className={heading}>
               Provozovna a osobní odběr
             </h2>
-            <address className="not-italic flex flex-col gap-0.5">
+            <address className="not-italic flex flex-col gap-1">
               <span>{PICKUP_PLACE.name}</span>
               <span>({PICKUP_PLACE.area})</span>
               <span>{PICKUP_PLACE.address}</span>
             </address>
-            <p className="mt-2 text-xs text-neutral-500">Zde najdete naše bistro a výdejní místo objednávek z e-shopu.</p>
+            <p className="mt-3 text-base text-neutral-700">Zde najdete naše bistro a výdejní místo objednávek z e-shopu.</p>
             <a
               href={PICKUP_PLACE.mapHref}
               target="_blank"
@@ -47,7 +49,7 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
             </h2>
             <ul className="flex flex-col gap-1">
               <li className="flex items-center gap-2">
-                <Phone aria-hidden="true" className="w-4 h-4 shrink-0 text-begina-primary-700" strokeWidth={1.75} />
+                <Phone aria-hidden="true" className="w-[18px] h-[18px] shrink-0 text-begina-primary-700" strokeWidth={1.75} />
                 <span>
                   Telefon:{" "}
                   <a href={OPERATOR.phoneHref} className="inline-block py-1 text-begina-primary-900 hover:underline underline-offset-2 whitespace-nowrap">
@@ -56,7 +58,7 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
                 </span>
               </li>
               <li className="flex items-center gap-2">
-                <Mail aria-hidden="true" className="w-4 h-4 shrink-0 text-begina-primary-700" strokeWidth={1.75} />
+                <Mail aria-hidden="true" className="w-[18px] h-[18px] shrink-0 text-begina-primary-700" strokeWidth={1.75} />
                 <span>
                   E-mail:{" "}
                   <a href={`mailto:${OPERATOR.email}`} className="inline-block py-1 text-begina-primary-900 hover:underline underline-offset-2">
@@ -70,18 +72,18 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
             <h2 id="paticka-provozovatel" className={heading}>
               Provozovatel a fakturační údaje
             </h2>
-            <address className="not-italic flex flex-col gap-0.5">
+            <address className="not-italic flex flex-col gap-1">
               <span>{OPERATOR.name}</span>
               <span>{OPERATOR.address}</span>
               <span>IČO: {OPERATOR.ico}</span>
             </address>
-            <p className="mt-2 text-xs text-neutral-500">
+            <p className="mt-3 text-base text-neutral-700">
               Sídlo a fakturační adresa. Osobní odběr probíhá v provozovně ve Viticích.
             </p>
           </section>
         </div>
-        <nav aria-label="Informace" className="mt-8 border-t border-neutral-200 pt-4">
-          <ul className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-x-6">
+        <nav aria-label="Informace" className="mt-10 border-t border-neutral-200 pt-5">
+          <ul className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-x-8">
             {FOOTER_LINKS.map((page) => (
               <li key={page.path}>
                 <ShopLink href={page.path} className={linkClass}>

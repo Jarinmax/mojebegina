@@ -30,7 +30,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
                   className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
-              <span className="text-sm lg:text-base leading-snug font-medium text-[#5E6B34] group-hover:underline underline-offset-4">
+              <span className="text-base leading-[1.35] font-medium text-[#4F5B2B] group-hover:underline underline-offset-4">
                 {category.stripLabel}
               </span>
             </ShopLink>

@@ -24,7 +24,7 @@ export const HOME_CATEGORIES: HomeCategory[] = [
     slug: "ovocne-napoje",
     menuLabel: "Ovocné nápoje",
     stripLabel: "Ovocné nápoje",
-    icon: "/eshop/hero/ikona-ovocne-napoje-2026-11.webp", iconSize: [235, 240],
+    icon: "/eshop/hero/ikona-ovocne-napoje-2026-11b.webp", iconSize: [235, 240],
     group: "napoje",
   },
   {
@@ -34,7 +34,7 @@ export const HOME_CATEGORIES: HomeCategory[] = [
     icon: "/eshop/hero/ikona-koktejly-2026-11.webp", iconSize: [167, 240],
     group: "napoje",
   },
-  { slug: "zmrzliny", menuLabel: "Zmrzliny", stripLabel: "Zmrzliny", icon: "/eshop/hero/ikona-zmrzliny-2026-11.webp", iconSize: [201, 240] },
+  { slug: "zmrzliny", menuLabel: "Zmrzliny", stripLabel: "Zmrzliny", icon: "/eshop/hero/ikona-zmrzliny-2026-11b.webp", iconSize: [210, 240] },
 ];
 
 export const DRINKS_MENU_LABEL = "Nápoje";
