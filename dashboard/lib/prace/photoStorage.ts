@@ -1,4 +1,11 @@
-// Práce 2.0 — soukromé úložiště fotografií úkolů (Cloudflare R2, EU).
+// Práce 2.0 — soukromé úložiště fotografií úkolů.
+//
+// Dvě možnosti (první nastavená vyhrává):
+//  1) Cloudflare R2 (EU) — env R2_* níže; prohlížení přes podepsaný odkaz.
+//  2) Vercel Blob (privátní store, který projekt už používá pro sklad) —
+//     BLOB_STORE_ID + OIDC na Vercelu, nebo BLOB_READ_WRITE_TOKEN. Fotku
+//     streamuje server (/api/prace/foto/[id]) po ověření oprávnění, klient
+//     nikdy nevidí adresu v úložišti.
 //
 // • Bucket je SOUKROMÝ (bez veřejného přístupu a bez r2.dev domény).
 // • Nahrává jen server (po kontrole a vyčištění), klient do úložiště nikdy
@@ -9,12 +16,16 @@
 //     R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 //     R2_JURISDICTION (výchozí "eu" → https://<účet>.eu.r2.cloudflarestorage.com)
 import { AwsClient } from "aws4fetch";
+import { del as blobDel, get as blobGet, put as blobPut } from "@vercel/blob";
 
 export const PHOTO_LINK_TTL_SECONDS = 300;
 
 export interface PhotoStorage {
   put(key: string, bytes: Uint8Array): Promise<void>;
-  signedGetUrl(key: string): Promise<string>;
+  /** R2: podepsaný odkaz (route přesměruje). */
+  signedGetUrl?(key: string): Promise<string>;
+  /** Blob: obsah fotky streamuje server (null = nenalezena). */
+  read?(key: string): Promise<ReadableStream<Uint8Array> | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -70,6 +81,32 @@ export function createR2Storage(config: R2Config): PhotoStorage {
   };
 }
 
+/** Vercel Blob je k dispozici (privátní store přes OIDC, nebo token). */
+export function blobConfiguredFromEnv(env: Record<string, string | undefined> = process.env): boolean {
+  return Boolean(env.BLOB_STORE_ID?.trim() || env.BLOB_READ_WRITE_TOKEN?.trim());
+}
+
+export function createBlobStorage(): PhotoStorage {
+  return {
+    async put(key, bytes) {
+      await blobPut(key, Buffer.from(bytes), {
+        access: "private",
+        contentType: "image/jpeg",
+        addRandomSuffix: false,
+        allowOverwrite: false,
+      });
+    },
+    async read(key) {
+      const blob = await blobGet(key, { access: "private" });
+      if (!blob || blob.statusCode !== 200 || !blob.stream) return null;
+      return blob.stream as ReadableStream<Uint8Array>;
+    },
+    async delete(key) {
+      await blobDel(key);
+    },
+  };
+}
+
 // Testy si podstrčí úložiště v paměti; v aplikaci se vždy čte z env.
 let override: PhotoStorage | null | undefined;
 export function setPhotoStorageForTests(storage: PhotoStorage | null | undefined): void {
@@ -80,7 +117,8 @@ export function setPhotoStorageForTests(storage: PhotoStorage | null | undefined
 export function getPhotoStorage(): PhotoStorage | null {
   if (override !== undefined) return override;
   const config = r2ConfigFromEnv();
-  return config ? createR2Storage(config) : null;
+  if (config) return createR2Storage(config);
+  return blobConfiguredFromEnv() ? createBlobStorage() : null;
 }
 
 export function isPhotoStorageConfigured(): boolean {

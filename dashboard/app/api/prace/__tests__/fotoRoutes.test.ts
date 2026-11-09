@@ -68,6 +68,26 @@ describe("GET /api/prace/foto/[id]", () => {
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");
   });
 
+  it("Vercel Blob (privátní): fotku streamuje server jako JPEG, bez cache; chybějící = 404", async () => {
+    const prev = mocks.storage;
+    const read = vi.fn(async (key: string) =>
+      key === "prace/t/p.jpg" ? new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array([0xff, 0xd8, 0xff])); c.close(); } }) : null
+    );
+    mocks.storage = { read };
+    try {
+      mocks.resolveWorkTaskPhoto.mockResolvedValue({ storageKey: "prace/t/p.jpg" });
+      const res = await get("p");
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/jpeg");
+      expect(res.headers.get("cache-control")).toBe("private, no-store");
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([0xff, 0xd8, 0xff]));
+      mocks.resolveWorkTaskPhoto.mockResolvedValue({ storageKey: "prace/t/jina.jpg" });
+      expect((await get("p")).status).toBe(404);
+    } finally {
+      mocks.storage = prev;
+    }
+  });
+
   it("bez oprávnění nebo neexistující fotka = 404 (neprozradí, že existuje)", async () => {
     mocks.resolveWorkTaskPhoto.mockResolvedValueOnce(null);
     expect((await get("x")).status).toBe(404);

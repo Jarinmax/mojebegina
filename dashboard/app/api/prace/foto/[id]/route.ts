@@ -1,6 +1,6 @@
 // Práce 2.0 — zobrazení fotografie: ověří oprávnění (zaměstnanec, kterému
-// úkol patří, nebo vedoucí) a přesměruje na podepsaný odkaz do soukromého
-// úložiště platný 5 minut. Odkaz se nikde neukládá ani nesdílí.
+// úkol patří, nebo vedoucí). R2: přesměruje na podepsaný odkaz platný
+// 5 minut. Vercel Blob (privátní): fotku streamuje přímo server.
 import { NextResponse } from "next/server";
 import { resolveWorkTaskPhoto } from "@/lib/data/workTasks";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
@@ -16,6 +16,15 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/prace/foto/
     const photo = await resolveWorkTaskPhoto(id);
     const storage = getPhotoStorage();
     if (!photo || !storage) return new NextResponse("Fotografie nebyla nalezena.", { status: 404, headers: noStore });
+    if (storage.read) {
+      const stream = await storage.read(photo.storageKey);
+      if (!stream) return new NextResponse("Fotografie nebyla nalezena.", { status: 404, headers: noStore });
+      return new NextResponse(stream, {
+        status: 200,
+        headers: { ...noStore, "Content-Type": "image/jpeg", "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff" },
+      });
+    }
+    if (!storage.signedGetUrl) return new NextResponse("Fotografie nebyla nalezena.", { status: 404, headers: noStore });
     const url = await storage.signedGetUrl(photo.storageKey);
     return NextResponse.redirect(url, { status: 302, headers: noStore });
   } catch (error) {

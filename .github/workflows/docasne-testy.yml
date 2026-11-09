@@ -16,8 +16,7 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
-      - name: Blob zdroj
-        run: |
-          cd node_modules/@vercel/blob/dist; ls
-          grep -n "resolveBlobAuth\|getReadWriteBlobTokenFromOptionsOrEnv\|BLOB_STORE_ID\|getVercelOidcToken" *.js | head -60
-          grep -n "function createPutMethod\|async function put\|requestApi(" index.js chunk-*.js 2>/dev/null | head -30
+      - name: Typy
+        run: npx tsc --noEmit 2>&1 | grep -E "photoStorage|prace/foto|fotoRoutes" || echo "typy OK"
+      - name: Testy
+        run: npx vitest run lib/prace app/api/prace lib/data/__tests__/workTasksPhotos 2>&1 | tail -40
