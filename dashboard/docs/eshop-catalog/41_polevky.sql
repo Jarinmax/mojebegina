@@ -1,4 +1,4 @@
--- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Kulajda, Rajčatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka)
+-- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Kulajda, Tomatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka)
 -- a společná sekce detailu polévek. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-polevky.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -70,8 +70,8 @@ AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = 
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
-VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'rajcatova-polevka', 'Rajčatová polévka',
-  'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky rajčatových polévek', '- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'přirozeně bezlepková', 'z čisté filtrované vody']::text[],
+VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'rajcatova-polevka', 'Tomatová polévka',
+  'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Tomatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky tomatových polévek', '- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'přirozeně bezlepková', 'z čisté filtrované vody']::text[],
   'Základ tvoří kvalitní rajčata, která dávají polévce výraz a hloubku. Pečlivě zvolené koření doplňuje celkovou harmonii a podtrhuje plnost chuti. Struktura je jemná, chuť vyvážená a přirozeně plná.', 'čistá filtrovaná voda, pasírovaná rajčata 27 %, rajčatový protlak 7 %, brambory 7 %, kokosové mléko 7 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), cibule 5 %, petržel kořen, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, pepř černý, kardamom, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma', '{"energy_kj":255,"energy_kcal":61,"fat":4.4,"saturates":1.6,"carbohydrate":5.1,"sugars":1.6,"protein":0.9,"salt":0.8,"fibre":0.7}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při skladování do 4 °C, nejpozději však do data ‚Spotřebujte do‘ uvedeného na obalu.', 30)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
@@ -90,7 +90,7 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/rajcatova-polevka.jpg', 'Rajčatová polévka', 0 FROM "products" WHERE "slug" = 'rajcatova-polevka'
+SELECT "id", '/eshop/rajcatova-polevka.jpg', 'Tomatová polévka', 0 FROM "products" WHERE "slug" = 'rajcatova-polevka'
 AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
   WHERE p."slug" = 'rajcatova-polevka' AND pi."url" = '/eshop/rajcatova-polevka.jpg');
 

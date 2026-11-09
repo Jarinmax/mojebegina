@@ -48,7 +48,7 @@ const SOUP_COMMON = {
 };
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
-// Pořadí (sortOrder) jako v migraci 0014: Dýňová 10, Kulajda 20, Rajčatová 30.
+// Pořadí (sortOrder) jako v migraci 0014: Dýňová 10, Kulajda 20, Rajčatová (od 9. 11. 2026 Tomatová) 30.
 export const SOUPS = [
   {
     ...SOUP_COMMON,
@@ -106,17 +106,17 @@ export const SOUPS = [
   },
   {
     ...SOUP_COMMON,
-    slug: "rajcatova-polevka",
-    name: "Rajčatová polévka",
+    slug: "rajcatova-polevka", // adresa a SKU beze změny (QR kódy, odkazy); název od 9. 11. 2026 Tomatová
+    name: "Tomatová polévka",
     sortOrder: 30,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
     description: [
-      "Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.",
+      "Tomatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
       "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
       "## Pro koho je vhodná",
-      "- pro milovníky rajčatových polévek",
+      "- pro milovníky tomatových polévek",
       "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
       "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
       "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
