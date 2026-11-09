@@ -70,12 +70,13 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     <div data-eshop className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner mode={storeMode()} />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20 print:hidden">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <ShopLink href="/" className="flex items-center gap-2.5 shrink-0" aria-label="Begina.cz — úvod">
-            <Image src={logoMark} alt="" className="h-9 w-auto" priority />
+        <div className="max-w-6xl mx-auto px-4 h-16 xl:h-20 flex items-center justify-between gap-4 xl:gap-6">
+          {/* Počítač (xl+): celé logo o 20 % větší (9. 11. 2026); mobil a tablet beze změny. */}
+          <ShopLink href="/" className="flex items-center gap-2.5 xl:gap-3 shrink-0" aria-label="Begina.cz — úvod">
+            <Image src={logoMark} alt="" className="h-9 xl:h-[2.7rem] w-auto" priority />
             <span className="flex flex-col leading-tight">
-              <span className="font-serif text-lg tracking-wide uppercase">Begina.cz</span>
-              <span className="text-[11px] italic text-neutral-500">Když rozhoduje chuť</span>
+              <span className="font-serif text-lg xl:text-[1.35rem] tracking-wide uppercase">Begina.cz</span>
+              <span className="text-[11px] xl:text-[13px] italic text-neutral-500">Když rozhoduje chuť</span>
             </span>
           </ShopLink>
           <MainNav entries={menu} variant="desktop" />

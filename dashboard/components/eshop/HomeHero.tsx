@@ -35,9 +35,12 @@ export default function HomeHero() {
           <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
             Čerstvě. Jednoduše. S&nbsp;chutí.
           </p>
-          {/* Přesně tři řádky (majitel 9. 11. 2026), žádný se dál neláme; mezery
+          {/* Velikost: mobil o 10 % menší než dřív (na výšku i na šířku — telefon
+              na šířku pozná nízká výška okna), tablet na výšku 40 px, tablet na
+              šířku a počítač podle šířky (beze změny).
+              Přesně tři řádky (majitel 9. 11. 2026), žádný se dál neláme; mezery
               mezi řádky kvůli čtečkám a vyhledávačům („… polévky Bylinné …“). */}
-          <h1 className="mt-4 font-serif text-[1.8rem] leading-[1.15] min-[400px]:text-[2rem] sm:text-[2.5rem] lg:text-[clamp(2.15rem,3.4vw,2.75rem)] tracking-tight text-[#2A2622]">
+          <h1 className="mt-4 font-serif text-[1.62rem] leading-[1.15] min-[400px]:text-[1.8rem] sm:text-[2.5rem] sm:[@media(max-height:500px)]:text-[2.25rem] lg:text-[clamp(2.15rem,3.4vw,2.75rem)] tracking-tight text-[#2A2622]">
             <span className="block whitespace-nowrap">Čerstvé polévky</span>{" "}
             <span className="block whitespace-nowrap">Bylinné sirupy</span>{" "}
             <span className="block whitespace-nowrap">Nápoje a&nbsp;zmrzliny</span>
