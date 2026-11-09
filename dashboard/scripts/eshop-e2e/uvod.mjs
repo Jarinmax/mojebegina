@@ -113,7 +113,7 @@ for (const [name, device] of CASES) {
   const burgerOk = !hd.burger || hd.burger.l >= hd.cart.r;
   check(`${name}: hlavička bez překrývání`, gaps.every((g) => g >= 12) && burgerOk && hd.headerSW <= hd.headerW && [...parts, hd.burger].filter(Boolean).every((p) => p.r <= vw && p.l >= 0), `mezery ${gaps.join("/")} px${hd.burger ? `, košík–☰ ${Math.round(hd.burger.l - hd.cart.r)} px` : ""}`);
   if (hd.nav) {
-    check(`${name}: počítač — logo o 20 % větší, menu 17 px na jednom řádku`, Math.abs(hd.logoImg - 43.2) < 1 && Math.abs(hd.brand - 21.6) < 0.5 && hd.navFont === 17 && hd.navH < 32, `logo ${hd.logoImg}px, nápis ${hd.brand}px, menu ${hd.navFont}px, výška menu ${hd.navH}`);
+    check(`${name}: počítač — logo (značka 49,6 px), menu 18 px na jednom řádku`, Math.abs(hd.logoImg - 49.6) < 1 && Math.abs(hd.brand - 24.8) < 0.5 && hd.navFont === 18 && hd.navH < 34, `logo ${hd.logoImg}px, nápis ${hd.brand}px, menu ${hd.navFont}px, výška menu ${hd.navH}`);
   } else {
     check(`${name}: mobil/tablet — logo beze změny`, hd.logoImg === 36 && hd.brand === 18, `logo ${hd.logoImg}px, nápis ${hd.brand}px`);
   }

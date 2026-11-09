@@ -1,6 +1,6 @@
-// begina.cz — pruh kategorií na úvodu: ikona Alkoholické koktejly
-// (Cosmopolitan, 9. 11. 2026) se načte, má průhledné pozadí, podobnou
-// velikost jako ostatní ikony a vede na kategorii. Počítač, iPad, mobil.
+// begina.cz — pruh kategorií na úvodu (jednotná sada ikon 9. 11. 2026):
+// každá ikona se načte, má průhledné pozadí a stejnou výšku i zem jako
+// ostatní; názvy a odkazy kategorií beze změny. Počítač, iPad, mobil.
 //   node scripts/eshop-e2e/ikony.mjs 3100
 import { mkdirSync } from "node:fs";
 
@@ -27,30 +27,29 @@ for (const [name, device] of CASES) {
   await page.goto(url("/"), { waitUntil: "networkidle" });
   const strip = page.locator('nav[aria-label="Kategorie"]');
   await strip.scrollIntoViewIfNeeded();
-  const link = strip.getByRole("link", { name: "Alkoholické koktejly" });
-  check(`${name}: odkaz a název zachované`, (await link.getAttribute("href")) === "/kategorie/koktejly" && (await link.isVisible()));
   const info = await strip.evaluate((nav) =>
-    [...nav.querySelectorAll("img")].map((img) => {
+    [...nav.querySelectorAll("a")].map((a) => {
+      const img = a.querySelector("img");
       const b = img.getBoundingClientRect();
-      return { src: img.currentSrc || img.src, ok: img.complete && img.naturalWidth > 0, h: b.height, w: b.width, label: img.closest("a").textContent.trim() };
+      const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+      return { label: a.textContent.trim(), href: a.getAttribute("href"), src: decodeURIComponent(img.currentSrc || img.src), ok: img.complete && img.naturalWidth > 0,
+        h: Math.round(b.height), bottom: Math.round(b.bottom), alpha: [...g.getImageData(1, 1, 1, 1).data][3] };
     })
   );
-  const k = info.find((i) => i.label === "Alkoholické koktejly");
-  check(`${name}: nová ikona Cosmopolitan načtená`, k && k.ok && /ikona-koktejly-cosmopolitan/.test(decodeURIComponent(k.src)), k?.src);
-  const others = info.filter((i) => i !== k).map((i) => i.h);
-  const avg = others.reduce((a, b) => a + b, 0) / others.length;
-  check(`${name}: velikost podobná ostatním`, Math.abs(k.h - avg) / avg < 0.2 && k.h > 40, `koktejl ${Math.round(k.w)}×${Math.round(k.h)}, ostatní výška ⌀ ${Math.round(avg)}`);
-  // průhledné pozadí: roh ikony má barvu lišty
-  const corner = await strip.evaluate(async (nav) => {
-    const img = [...nav.querySelectorAll("img")].find((i) => i.closest("a").textContent.includes("koktejly"));
-    const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
-    const g = c.getContext("2d"); g.drawImage(img, 0, 0);
-    return [...g.getImageData(1, 1, 1, 1).data];
-  });
-  check(`${name}: průhledné pozadí`, corner[3] <= 8, `roh ${corner}`);
+  const EXPECT = { "Čerstvé polévky": "polevky", "Bylinné sirupy": "sirupy", "Čaje": "caje", "Ovocné nápoje": "ovocne-napoje", "Alkoholické koktejly": "koktejly", "Zmrzliny": "zmrzliny" };
+  for (const i of info) {
+    const slug = EXPECT[i.label];
+    check(`${name}: ${i.label} — odkaz, nová ikona, průhledné pozadí`, slug && i.href === `/kategorie/${slug}` && i.ok && i.src.includes(`ikona-${slug}-2026-11`) && i.alpha <= 8, `${i.href} ${i.ok ? "načtená" : "NENAČTENÁ"} alfa ${i.alpha}`);
+  }
+  const hs = [...new Set(info.map((i) => i.h))];
+  const rows = {};
+  for (const i of info) (rows[i.bottom] ??= []).push(i.label);
+  check(`${name}: stejná výška a zarovnání ikon`, hs.length === 1 && hs[0] >= 50, `výška ${hs.join("/")} px, řady podle spodní hrany: ${Object.values(rows).map((r) => r.length).join("+")}`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth);
   check(`${name}: bez vodorovného přetékání`, sw <= vw, `${sw}/${vw}`);
   await strip.screenshot({ path: `${OUT}/lista-${name}.jpg`, type: "jpeg", quality: 70 });
+  const link = strip.getByRole("link", { name: "Alkoholické koktejly" });
   await Promise.all([page.waitForURL(url("/kategorie/koktejly")), link.click()]);
   check(`${name}: klik → kategorie`, /Alkoholické koktejly/.test(await page.locator("h1").first().textContent()));
   await ctx.close();
