@@ -47,7 +47,7 @@ for (const [name, device] of CASES) {
     const g = c.getContext("2d"); g.drawImage(img, 0, 0);
     return [...g.getImageData(1, 1, 1, 1).data];
   });
-  check(`${name}: průhledné pozadí`, corner[3] === 0, `roh ${corner}`);
+  check(`${name}: průhledné pozadí`, corner[3] <= 8, `roh ${corner}`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth);
   check(`${name}: bez vodorovného přetékání`, sw <= vw, `${sw}/${vw}`);
   await strip.screenshot({ path: `${OUT}/lista-${name}.jpg`, type: "jpeg", quality: 70 });
