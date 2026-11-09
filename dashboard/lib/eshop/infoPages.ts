@@ -94,7 +94,7 @@ const aboutPage: InfoPage = {
 const waterPage: InfoPage = {
   path: "/o-vode",
   footerLabel: "O vodě",
-  title: "Čistá filtrovaná voda v našich recepturách",
+  title: "Čistá filtrovaná voda",
   description: "Proč Begina používá čistou filtrovanou vodu.",
   hideOperatorLine: true,
   blocks: [

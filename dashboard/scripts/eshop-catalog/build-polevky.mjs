@@ -44,7 +44,7 @@ const bagInBox = (slug, price, servings) => ({
 const SOUP_COMMON = {
   allergens: [],
   shelfLifeDays: 14,
-  shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při skladování do 4 °C, nejpozději však do data ‚Spotřebujte do‘ uvedeného na obalu.",
+  shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
 };
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).

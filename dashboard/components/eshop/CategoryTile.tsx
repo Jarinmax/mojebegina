@@ -3,7 +3,14 @@ import Image from "next/image";
 import type { Category } from "@/lib/eshop/types";
 import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
 
-// Dlaždice kategorie (úvod e-shopu, kolotoč pod stránkami).
+// Karta kategorie v posuvném přehledu (O nás, O vodě, O balení, Doprava…).
+// Od 10. 11. 2026: fotografie souvisle nahoře, název pod ní na bílém
+// podkladu; celá karta je jeden odkaz do kategorie.
+//
+// Současné fotografie kategorií mají název i bílý pruh přímo zapečené
+// v obrázku (řádky 222–283 z 494 px). Než dorazí nové fotografie bez textu,
+// ukazuje karta jen spodní část fotky pod pruhem (poměr 3 : 2, zarovnání
+// dolů) — pruh ani zdvojený světlý název tak nejsou vidět.
 export default function CategoryTile({
   category,
   sizes,
@@ -19,27 +26,28 @@ export default function CategoryTile({
       href={`/kategorie/${category.slug}`}
       tabIndex={tabIndex}
       draggable={false}
-      className="group block relative aspect-[5/8] overflow-hidden shadow-md shadow-neutral-400/50 bg-begina-primary-50"
+      className="group flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-md shadow-neutral-400/40 ring-1 ring-neutral-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-begina-primary-900"
     >
-      {category.image ? (
-        <Image
-          src={category.image}
-          alt=""
-          fill
-          sizes={sizes}
-          draggable={false}
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-      ) : (
-        // kategorie zatím bez fotky (Zmrzliny): ikona z pruhu na úvodu nad názvem
-        icon && (
-          <span className="absolute inset-x-[12%] top-[10%] h-[30%]">
-            <Image src={icon} alt="" fill sizes="160px" draggable={false} className="object-contain transition-transform duration-300 group-hover:scale-105" />
-          </span>
-        )
-      )}
-      {/* Překrývá název zapečený v obrázku (viz Category.image). */}
-      <span className="absolute inset-x-0 top-[44%] h-[14%] bg-white/95 flex items-center justify-center text-center text-sm sm:text-base text-begina-primary-900 px-1">
+      <span className="relative block aspect-[3/2] overflow-hidden bg-begina-primary-50">
+        {category.image ? (
+          <Image
+            src={category.image}
+            alt=""
+            fill
+            sizes={sizes}
+            draggable={false}
+            className="object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          // kategorie zatím bez fotky (Zmrzliny): ikona z pruhu na úvodu
+          icon && (
+            <span className="absolute inset-[10%]">
+              <Image src={icon} alt="" fill sizes="200px" draggable={false} className="object-contain transition-transform duration-300 group-hover:scale-105" />
+            </span>
+          )
+        )}
+      </span>
+      <span className="flex flex-1 items-center justify-center px-3 py-3 text-center text-base font-medium leading-snug text-begina-primary-900 group-hover:underline underline-offset-4">
         {category.name}
       </span>
     </ShopLink>

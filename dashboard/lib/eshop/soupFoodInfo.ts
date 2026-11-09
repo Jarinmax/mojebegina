@@ -8,7 +8,7 @@ export const SOUP_CATEGORY = "polevky";
 export const SOUP_STORAGE = "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.";
 
 export const SOUP_SHELF_LIFE =
-  "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při skladování do 4 °C, nejpozději však do data ‚Spotřebujte do‘ uvedeného na obalu.";
+  "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 
 /** Pokyn k ohřátí — samostatně (dřív jen v popisu „Stačí ohřát a servírovat“). */
 export const SOUP_PREPARATION = "Stačí ohřát a servírovat.";

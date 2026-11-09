@@ -19,6 +19,7 @@ import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 import Marketing from "@/components/eshop/Marketing";
 import { marketingConfig } from "@/lib/eshop/marketing";
+import { SHARE_DESCRIPTION, SHARE_TITLE, brandShareMeta } from "@/lib/eshop/shareMeta";
 
 // E-shop — veřejná část bez přihlášení. Žádná stránka pod /eshop nevolá
 // requireCustomerContext ani nečte session. Na begina.cz běží tytéž stránky
@@ -29,10 +30,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(PUBLIC_ORIGIN),
     title: {
-      default: "E-shop Begina",
+      default: SHARE_TITLE,
       template: "%s | E-shop Begina",
     },
-    description: "Polévky Begina s doručením.",
+    description: SHARE_DESCRIPTION,
+    // náhled při sdílení: logo Begina (lib/eshop/shareMeta.ts); produkty mají vlastní
+    ...brandShareMeta(),
     robots: index ? { index: true, follow: true } : { index: false, follow: false },
   };
 }

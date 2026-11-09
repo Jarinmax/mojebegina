@@ -44,6 +44,13 @@ export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[sl
       url: `/produkt/${product.slug}`,
       ...(product.image ? { images: [product.image] } : {}),
     },
+    // vlastní náhled produktu i na X/Twitteru (jinak by se zdědilo logo z layoutu)
+    twitter: {
+      card: product.image ? "summary_large_image" : "summary",
+      title: product.name,
+      description,
+      ...(product.image ? { images: [product.image] } : {}),
+    },
   };
 }
 

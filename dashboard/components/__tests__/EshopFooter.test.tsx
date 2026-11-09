@@ -105,7 +105,7 @@ describe("informační stránky", () => {
 
   it("O vodě: text dodaný 9. 11. 2026, bez řádku Provozovatel", () => {
     render(<InfoPageView page={INFO_PAGES.water} />);
-    expect(screen.getByRole("heading", { level: 1, name: "Čistá filtrovaná voda v našich recepturách" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Čistá filtrovaná voda" })).toBeTruthy();
     const text = document.querySelector("article")!.textContent!;
     expect(text).toContain("Je pro nás stejně důležitou součástí receptury jako zelenina, ovoce, bylinky a koření.");
     expect(text).toContain("Proto věnujeme pozornost také vodě, kterou při výrobě používáme.");

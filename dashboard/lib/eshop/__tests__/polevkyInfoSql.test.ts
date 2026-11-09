@@ -14,6 +14,8 @@ const script = (name: string) =>
 const catalog = (name: string) => readFileSync(path.join(ROOT, "docs/eshop-catalog", name), "utf8");
 const OLD_STORAGE =
   "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, proto se na něj nevztahuje právo na odstoupení od smlouvy (čl. VII obchodních podmínek). Reklamace vadného zboží tím není dotčena.";
+const SHELF_77 =
+  "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při skladování do 4 °C, nejpozději však do data ‚Spotřebujte do‘ uvedeného na obalu.";
 const OLD_SHELF = "Do 14 dnů při zachování správného uskladnění (do 4 °C).";
 
 describe("76 + 77 nad stavem Production", { timeout: 120_000 }, () => {
@@ -33,7 +35,11 @@ describe("76 + 77 nad stavem Production", { timeout: 120_000 }, () => {
     await pg.exec(script("77_polevky_skladovani_trvanlivost_MAIN.sql"));
     const rows = (await pg.query<{ s: string; t: string }>(`SELECT p.storage_instructions s, p.shelf_life_note t FROM products p JOIN product_categories c ON c.id = p.category_id WHERE c.slug = 'polevky'`)).rows;
     expect(rows).toHaveLength(6);
-    for (const r of rows) expect(r).toEqual({ s: SOUP_STORAGE, t: SOUP_SHELF_LIFE });
+    // skript 77 zapsal tehdejší znění; od 10. 11. 2026 platí SOUP_SHELF_LIFE (skript 82)
+    for (const r of rows) expect(r).toEqual({ s: SOUP_STORAGE, t: SHELF_77 });
+    await pg.exec(readFileSync(path.join(ROOT, "docs/eshop-production/82_polevky_trvanlivost_MAIN.sql"), "utf8").replace("IS DISTINCT FROM '70a96b3677653646e65343cae8e27182'", "IS NOT NULL AND false"));
+    const after82 = (await pg.query<{ s: string; t: string }>(`SELECT p.storage_instructions s, p.shelf_life_note t FROM products p JOIN product_categories c ON c.id = p.category_id WHERE c.slug = 'polevky'`)).rows;
+    for (const r of after82) expect(r).toEqual({ s: SOUP_STORAGE, t: SOUP_SHELF_LIFE });
     expect((await pg.query<{ s: string }>(`SELECT storage_instructions s FROM products WHERE slug = 'lipovy-caj'`)).rows[0].s).toBe(teaBefore);
   });
 
