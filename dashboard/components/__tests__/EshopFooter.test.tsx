@@ -56,10 +56,22 @@ describe("patička e-shopu", () => {
     expect(map.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
-  it("kontakt provozovatele zůstává (telefon, e-mail)", () => {
+  it("pořadí bloků: provozovna → kontakt → fakturační údaje (zadání majitele 9. 11. 2026)", () => {
     render(<EshopFooter />);
+    const names = screen.getAllByRole("region").map((r) => r.getAttribute("aria-labelledby"));
+    expect(names).toEqual(["paticka-provozovna", "paticka-kontakt", "paticka-provozovatel"]);
+  });
+
+  it("Kontakt: Telefon a E-mail s ikonou, klikací tel: a mailto:; ve fakturačních údajích se neopakují", () => {
+    render(<EshopFooter />);
+    const contact = screen.getByRole("region", { name: "Kontakt" });
+    expect(contact.textContent).toContain("Telefon: +420 774 199 975");
+    expect(contact.textContent).toContain("E-mail: info@begina.cz");
+    expect(contact.querySelectorAll("svg")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "+420 774 199 975" }).getAttribute("href")).toBe("tel:+420774199975");
     expect(screen.getByRole("link", { name: "info@begina.cz" }).getAttribute("href")).toBe("mailto:info@begina.cz");
+    const operator = screen.getByRole("region", { name: "Provozovatel a fakturační údaje" });
+    expect(operator.textContent).not.toMatch(/774|info@begina/);
   });
 });
 

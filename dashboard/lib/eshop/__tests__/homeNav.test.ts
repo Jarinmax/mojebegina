@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { availableHomeCategories, HOME_CATEGORIES, mainMenu, stripCategories } from "../homeNav";
+import { availableHomeCategories, HOME_CATEGORIES, mainMenu, stripCategories, MOJE_BEGINA_LINK } from "../homeNav";
 
 describe("úvodní stránka — kategorie z návrhu", () => {
   it("plné názvy kategorií podle zadání Lucie (6. 11. 2026)", () => {
@@ -36,9 +36,12 @@ describe("úvodní stránka — kategorie z návrhu", () => {
       [
         { kind: "link", href: "/o-nas", label: "O nás" },
         { kind: "link", href: "/o-vode", label: "O vodě" },
+        MOJE_BEGINA_LINK,
       ]
     );
-    expect(menu.map((e) => e.label)).toEqual(["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě"]);
+    // pořadí podle zadání majitele 9. 11. 2026 (MojeBegina = zákaznická část aplikace)
+    expect(menu.map((e) => e.label)).toEqual(["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě", "MojeBegina"]);
+    expect(menu[6]).toEqual({ kind: "link", href: "https://moje.begina.cz/", label: "MojeBegina", external: true });
     const drinks = menu[2];
     expect(drinks.kind).toBe("group");
     if (drinks.kind !== "group") return;
@@ -64,7 +67,7 @@ describe("úvodní stránka — kategorie z návrhu", () => {
     const pub = path.join(__dirname, "../../../public");
     for (const c of stripCategories(HOME_CATEGORIES)) expect(existsSync(path.join(pub, c.icon)), c.icon).toBe(true);
     // úvod od 8. 11. 2026: jedna skutečná fotografie (bez krabice)
-    for (const f of ["polevka-a-bylinny-napoj"]) {
+    for (const f of ["polevka-a-horky-caj"]) {
       expect(existsSync(path.join(pub, `eshop/hero/${f}.webp`)), f).toBe(true);
     }
   });

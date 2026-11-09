@@ -38,7 +38,7 @@ for (const [name, viewport] of viewports) {
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
   check(`${name}: bez vodorovného posuvníku`, scrollW <= viewport.width, `scrollWidth ${scrollW}`);
   check(`${name}: fotografie načtená`, natural.w > 0, `${natural.w}×${natural.h}`);
-  check(`${name}: fotografie nedeformovaná (3 : 2)`, Math.abs(natural.cw / natural.ch - 1.5) < 0.02, `${natural.cw}×${natural.ch} ${natural.fit}`);
+  check(`${name}: fotografie nedeformovaná`, Math.abs(natural.cw / natural.ch - 1672 / 941) < 0.02, `${natural.cw}×${natural.ch} ${natural.fit}`);
   if (name === "pocitac") check(`${name}: text vlevo, fotografie vpravo`, h.x + h.width <= i.x + 1 && Math.abs(h.y + h.height / 2 - (i.y + i.height / 2)) < i.height, `h1 x=${h.x} img x=${i.x}`);
   else check(`${name}: text nad fotografií`, h.y + h.height <= i.y, `h1 ${h.y}+${h.height} img ${i.y}`);
   const fs = await h1.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));

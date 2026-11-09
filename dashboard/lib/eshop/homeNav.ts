@@ -45,14 +45,17 @@ export function stripCategories(categories: HomeCategory[]): (HomeCategory & { i
   return categories.filter((c): c is HomeCategory & { icon: string } => c.icon !== null);
 }
 
-export type MenuLink = { kind: "link"; href: string; label: string };
+export type MenuLink = { kind: "link"; href: string; label: string; /** absolutní odkaz mimo e-shop (MojeBegina) */ external?: boolean };
 export type MenuGroup = { kind: "group"; label: string; items: MenuLink[] };
 export type MenuEntry = MenuLink | MenuGroup;
+
+/** Zákaznická část aplikace (zadání majitele 9. 11. 2026: poslední položka menu). */
+export const MOJE_BEGINA_LINK: MenuLink = { kind: "link", href: "https://moje.begina.cz/", label: "MojeBegina", external: true };
 
 /**
  * Horní menu: kategorie v pořadí HOME_CATEGORIES, nápojové kategorie
  * sloučené do jedné rozbalovací položky na místě první z nich, za nimi
- * `extra` (O nás, O vodě). Bez nápojových kategorií se „Nápoje“ nezobrazí.
+ * `extra` (O nás, O vodě, MojeBegina). Bez nápojových kategorií se „Nápoje“ nezobrazí.
  */
 export function mainMenu(categories: HomeCategory[], extra: MenuLink[] = []): MenuEntry[] {
   const entries: MenuEntry[] = [];
