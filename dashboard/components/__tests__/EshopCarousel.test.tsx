@@ -156,10 +156,11 @@ describe("co ukazuje kolotoč na stránkách", () => {
   it("kolotoč je na informačních stránkách a u produktu; ne na úvodu, v kategorii, košíku, pokladně a objednávce", () => {
     const APP = path.join(__dirname, "../../app/eshop");
     const source = (route: string) => readFileSync(path.join(APP, route, "page.tsx"), "utf8");
-    for (const route of ["o-nas", "o-vode", "doprava", "obchodni-podminky", "ochrana-osobnich-udaju", "produkt/[slug]"]) {
+    for (const route of ["o-nas", "o-vode", "o-baleni", "doprava", "obchodni-podminky", "ochrana-osobnich-udaju", "produkt/[slug]"]) {
       expect(source(route), route).toContain("<PageCarousel");
     }
-    expect(source("o-vode")).toContain('<PageCarousel content="water" />');
+    // O vodě od 9. 11. 2026 stejný kolotoč kategorií jako O nás
+    expect(source("o-vode")).toContain("<PageCarousel />");
     for (const route of ["kategorie/[slug]", "kosik", "pokladna", "objednavka/[id]"]) {
       expect(existsSync(path.join(APP, route, "page.tsx")), route).toBe(true);
       expect(source(route), route).not.toContain("PageCarousel");

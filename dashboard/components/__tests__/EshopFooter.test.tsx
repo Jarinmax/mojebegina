@@ -84,48 +84,53 @@ describe("informační stránky", () => {
     expect(screen.getByText(/Splatnost je 5 dní/)).toBeTruthy();
   });
 
-  it("O nás: text z begina.cz/o-nas (dodaný 4. 10. 2026), celý a v pořadí", () => {
+  it("O nás: text dodaný 9. 11. 2026, celý a v pořadí, bez řádku Provozovatel", () => {
     render(<InfoPageView page={INFO_PAGES.about} />);
     expect(screen.getByRole("heading", { level: 1, name: "O nás" })).toBeTruthy();
     const text = document.querySelector("article")!.textContent!;
     const order = [
-      "Chuť je pro mě základ.",
-      "v roce 2018",
-      "Bag-in-Box systém",
-      "V roce 2023 jsem potkal Lucii",
-      "Simon Gallery",
-      "postavili značku Begina.",
-      "že když něco chutná dobře, poznáš to hned.",
-      "v praktickém balení pro každodenní použití.",
-      "plníme je do třílitrových sáčků s kohoutkem.",
-      "✔ profesionální příprava",
-      "✔ bez lepku",
-      "Jednoduchý způsob, jak mít čerstvou polévku nebo nápoj vždy po ruce.",
+      "Za Beginou stojíme my dva – Jarin a Lucie.",
+      "Receptury a kombinace chutí vznikají v Jarinově kuchyni, o Beginu a její rozvoj se staráme společně.",
+      "V roce 2023 jsme začali tvořit společně.",
+      "Na tuto zkušenost jsme později navázali značkou Begina.",
+      "alkoholické koktejly a zmrzliny.",
+      "Polévku stačí ohřát, sirup naředit a nápoj podávat.",
+      "Begina. Když rozhoduje chuť.",
     ];
     const positions = order.map((part) => text.indexOf(part));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(INFO_PAGES.about.pendingNote).toBeUndefined();
+    expect(text).not.toMatch(/Provozovatel:|Bag-in-Box|Chuť je pro mě základ/);
   });
 
-  it("O vodě: text z begina.cz/o-vode (dodaný 3. 10. 2026), celý a v pořadí", () => {
+  it("O vodě: text dodaný 9. 11. 2026, bez řádku Provozovatel", () => {
     render(<InfoPageView page={INFO_PAGES.water} />);
-    expect(screen.getByRole("heading", { level: 1, name: "Voda je základ" })).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 2, name: "Kvalita vody je pro nás důležitá" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Čistá filtrovaná voda v našich recepturách" })).toBeTruthy();
     const text = document.querySelector("article")!.textContent!;
-    const order = [
-      "Voda je nezbytnou součástí života.",
-      "přibližně 71 % povrchu Země",
-      "hydrataci buněk, trávení a vstřebávání živin.",
-      "součástí zdravého životního stylu.",
-      "Kvalita vody je pro nás důležitá",
-      "konzistentní kvality napříč celou výrobou.",
-      "nechat vyniknout chuť použitých surovin.",
-    ];
-    const positions = order.map((part) => text.indexOf(part));
-    expect(positions.every((p) => p >= 0)).toBe(true);
-    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(text).toContain("Je pro nás stejně důležitou součástí receptury jako zelenina, ovoce, bylinky a koření.");
+    expect(text).toContain("Proto věnujeme pozornost také vodě, kterou při výrobě používáme.");
+    expect(text).not.toMatch(/Provozovatel:|71 %/);
     expect(existsSync(path.join(ESHOP_APP, INFO_PAGES.water.path, "page.tsx"))).toBe(true);
+  });
+
+  it("O balení: nová stránka, název Begina, sekce v pořadí, bez řádku Provozovatel", () => {
+    render(<InfoPageView page={INFO_PAGES.packaging} />);
+    expect(screen.getByRole("heading", { level: 1, name: "O balení" })).toBeTruthy();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "Snadné dávkování", "Třílitrové balení", "Menší balení", "Skladování a spotřeba",
+    ]);
+    const text = document.querySelector("article")!.textContent!;
+    expect(text).toContain("Našemu třílitrovému balení s kohoutkem říkáme Begina.");
+    expect(text).toContain("Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek.");
+    expect(text).toContain("Sirupy nabízíme také v balení 700 ml ve stříbrném sáčku se šroubovacím uzávěrem.");
+    expect(text).toContain("Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.");
+    expect(text).not.toMatch(/bagina|Provozovatel:/i);
+    expect(existsSync(path.join(ESHOP_APP, INFO_PAGES.packaging.path, "page.tsx"))).toBe(true);
+  });
+
+  it("ostatní informační stránky řádek Provozovatel dál mají", () => {
+    render(<InfoPageView page={INFO_PAGES.shipping} />);
+    expect(document.querySelector("article")!.textContent).toMatch(/Provozovatel: Jaroslav Viner/);
   });
 
   it("GDPR: text dodaný 8. 10. 2026, celý a v pořadí (články I–XIII, odrážky, odstavce za nimi)", () => {

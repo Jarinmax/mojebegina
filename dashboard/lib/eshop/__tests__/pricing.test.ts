@@ -49,7 +49,7 @@ describe("priceCart — E-shop 1.0", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.lines.map((line) => [line.name, line.lineTotalKc])).toEqual([
-        ["Svařák Deluxe – Begina 3 l", 499],
+        ["Svařák Deluxe – 3 l", 499],
         ["Svařák Deluxe – 500 ml", 258],
       ]);
       expect(result.value.totalKc).toBe(757);
