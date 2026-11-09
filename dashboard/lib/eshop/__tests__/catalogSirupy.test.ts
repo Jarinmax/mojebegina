@@ -1,6 +1,7 @@
 // ESHOP 1.0 — katalogový skript Bylinné sirupy (docs/eshop-catalog/3x_*)
 // nad PGlite se všemi migracemi: přesně ty soubory, které vedení spustí
 // v Neon SQL Editoru (Preview, později Production).
+import { SYRUP_PREPARATION, SYRUP_SHELF_LIFE, SYRUP_STORAGE } from "../syrupFoodInfo";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -58,15 +59,15 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
   });
 
-  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 750 g, fotky existují; text kategorie", async () => {
+  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 700 ml (9. 11. 2026), fotky existují; text kategorie", async () => {
     const catalog = await loadCatalog(db);
     const syrups = catalog.products.filter((p) => p.category === "sirupy");
     expect(syrups.map((p) => [p.name, p.variants.map((v) => [v.label, v.detail, v.priceKc])])).toEqual(
       SYRUPS.map(([name, price3l]) => [
         name,
         [
-          ["Begina 3 l", "Až 150 nápojů", price3l],
-          ["750 g", "Až 37 nápojů", 199],
+          ["3 l", "Až 150 nápojů", price3l],
+          ["700 ml", "Až 35 nápojů", 199],
         ],
       ])
     );
@@ -79,7 +80,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(parseDescription(saman.description).intro).toHaveLength(3);
     expect(parseDescription(saman.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
-      ["Jak jej používat", ["ul", "p", "p"]],
+      ["Jak jej používat", ["ul"]],
     ]);
     expect(saman.taste!.split("\n\n")).toHaveLength(2);
     expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen pravý \(Panax ginseng\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
@@ -95,13 +96,14 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(zazvor.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 1\u00a0105 kJ / 260 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 65 g (z toho cukry 64 g), bílkoviny 0 g, sůl 0 g"
     );
-    expect(zazvor.foodInfo.storage).toMatch(/spotřebujte do 3 měsíců od otevření/);
+    expect(zazvor.foodInfo.storage).toBe(SYRUP_STORAGE);
     expect(parseDescription(zazvor.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
-      ["Jak sirup používat", ["ul", "p", "p"]],
+      ["Jak sirup používat", ["ul"]],
     ]);
-    // Co na begina.cz není (alergeny, trvanlivost; u ostatních vše) → „Doplníme“, nic vymyšleného.
-    expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === null)).toBe(true);
+    // Alergeny na begina.cz nejsou → „Doplníme“; trvanlivost, příprava a vrácení od 9. 11. 2026 u všech sirupů.
+    expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === SYRUP_SHELF_LIFE)).toBe(true);
+    expect(syrups.every((p) => p.foodInfo.preparation === SYRUP_PREPARATION && p.foodInfo.returns?.linkText === "obchodních podmínkách")).toBe(true);
     expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["bylinny-sirup-saman", "zazvorovy-sirup", "lipovy-sirup", "ibiskovy-sirup", "sipkovy-sirup", "hermankovy-sirup", "medunkovy-sirup-s-levanduli"]);
     // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
@@ -111,7 +113,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
     expect(lipa.foodInfo.ingredients).toMatch(/lipový květ \(Tiliae flos\)/);
     expect(lipa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 1\u00a0105 kJ \/ 260 kcal/);
-    expect(lipa.foodInfo.storage).toMatch(/v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců\./);
+    expect(lipa.foodInfo.storage).toBe(SYRUP_STORAGE);
     expect(parseDescription(lipa.description).sections.map((x) => x.title)).toEqual(["Pro koho je vhodný", "Jak sirup používat"]);
     expect(parseDescription(lipa.description).sections[0].blocks).toEqual([
       { type: "ul", items: expect.arrayContaining(["**Pro děti i dospělé:** díky své jemnosti a přirozeně nasládlému profilu chutná celé rodině."]) },
@@ -124,7 +126,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(sipek.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
     expect(parseDescription(sipek.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
-      ["Jak sirup používat", ["ul", "p", "p"]],
+      ["Jak sirup používat", ["ul"]],
     ]);
     // Ibiškový: 41 % výluhu, citronová šťáva 8 %, nadpis „Pro koho vhodný“ doslova
     const ibisek = syrups[3];

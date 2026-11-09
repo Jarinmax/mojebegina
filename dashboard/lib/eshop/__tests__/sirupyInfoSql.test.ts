@@ -53,7 +53,7 @@ describe("80 sirupy nad stavem Production", { timeout: 120_000 }, () => {
       expect(p.s).toBe(SYRUP_STORAGE);
       expect(p.t).toBe(SYRUP_SHELF_LIFE);
       expect(p.d.join(" ")).not.toMatch(/Zlaté pravidlo|20 ml sirupu/);
-      expect(p.d.join(" ")).toMatch(/Jak sirup používat/);
+      expect(p.d.join(" ")).toMatch(/## Jak (sirup|jej) používat/);
     }
     expect((await pg.query(`SELECT p.*, v.label, v.weight_g FROM products p JOIN product_variants v ON v.product_id = p.id WHERE p.slug = 'lipovy-caj'`)).rows).toEqual(teaBefore);
     await expect(pg.exec(script)).rejects.toThrow(/Čekal jsem 7 \+ 7 variant/);
