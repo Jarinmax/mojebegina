@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { AwsClient } from "aws4fetch";
-import { PHOTO_LINK_TTL_SECONDS, createR2Storage, r2ConfigFromEnv, r2ObjectUrl } from "../photoStorage";
+import { PHOTO_LINK_TTL_SECONDS, blobConfiguredFromEnv, createBlobStorage, createR2Storage, r2ConfigFromEnv, r2ObjectUrl } from "../photoStorage";
+
+describe("Vercel Blob jako úložiště fotografií", () => {
+  it("zapne se s privátním store projektu (BLOB_STORE_ID přes OIDC) nebo s tokenem; jinak ne", () => {
+    expect(blobConfiguredFromEnv({})).toBe(false);
+    expect(blobConfiguredFromEnv({ BLOB_STORE_ID: " " })).toBe(false);
+    expect(blobConfiguredFromEnv({ BLOB_STORE_ID: "store_abc" })).toBe(true);
+    expect(blobConfiguredFromEnv({ BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_x" })).toBe(true);
+  });
+  it("fotky se čtou přes server (žádný veřejný odkaz)", () => {
+    const s = createBlobStorage();
+    expect(s.read).toBeTypeOf("function");
+    expect(s.signedGetUrl).toBeUndefined();
+  });
+});
 
 describe("R2 úložiště fotografií", () => {
   it("bez kompletních env proměnných není úložiště nastavené (žádné výchozí klíče v kódu)", () => {
@@ -17,7 +31,7 @@ describe("R2 úložiště fotografií", () => {
 
   it("odkaz na fotku je podepsaný, platí 5 minut a vynucuje image/jpeg", async () => {
     const storage = createR2Storage({ accountId: "acc", accessKeyId: "AK", secretAccessKey: "SK", bucket: "fotky", jurisdiction: "eu" });
-    const url = new URL(await storage.signedGetUrl("prace/t/x.jpg"));
+    const url = new URL(await storage.signedGetUrl!("prace/t/x.jpg"));
     expect(url.host).toBe("acc.eu.r2.cloudflarestorage.com");
     expect(url.pathname).toBe("/fotky/prace/t/x.jpg");
     expect(url.searchParams.get("X-Amz-Expires")).toBe(String(PHOTO_LINK_TTL_SECONDS));
