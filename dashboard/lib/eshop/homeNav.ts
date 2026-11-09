@@ -27,7 +27,7 @@ export const HOME_CATEGORIES: HomeCategory[] = [
     slug: "koktejly",
     menuLabel: "Alkoholické koktejly",
     stripLabel: "Alkoholické koktejly",
-    icon: "/eshop/hero/ikona-koktejly.webp",
+    icon: "/eshop/hero/ikona-koktejly-cosmopolitan.webp", // Cosmopolitan (9. 11. 2026)
     group: "napoje",
   },
   { slug: "zmrzliny", menuLabel: "Zmrzliny", stripLabel: "Zmrzliny", icon: "/eshop/hero/ikona-zmrzliny.webp" },
