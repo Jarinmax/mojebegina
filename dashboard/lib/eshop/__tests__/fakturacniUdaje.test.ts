@@ -47,7 +47,9 @@ describe("označení balení", () => {
     expect(simplePackageLabel("500 ml Praktické balení")).toBe("500 ml");
     expect(simplePackageLabel("750 g Praktické balení")).toBe("750 g");
     expect(simplePackageLabel("750 ml")).toBe("750 ml");
-    expect(simplePackageLabel("3 l")).toBe("Begina 3 l");
+    // sirupy od 9. 11. 2026: přesné „3 l“ zůstává
+    expect(simplePackageLabel("3 l")).toBe("3 l");
+    expect(simplePackageLabel("700 ml")).toBe("700 ml");
     expect(simplePackageLabel("Begina 3 l")).toBe("Begina 3 l");
     expect(simplePackageLabel("Dárkové balení")).toBe("Dárkové balení");
   });
@@ -56,7 +58,8 @@ describe("označení balení", () => {
     expect(displayItemName("Dýňová polévka — 3 l Rodinná zásoba (bag-in-box)")).toBe("Dýňová polévka – Begina 3 l");
     expect(displayItemName("Svařák Deluxe — 500 ml Praktické balení")).toBe("Svařák Deluxe – 500 ml");
     expect(displayItemName("Šípkový sirup — 750 g Praktické balení")).toBe("Šípkový sirup – 750 g");
-    expect(displayItemName("Kulajda – 3 l")).toBe("Kulajda – Begina 3 l");
+    expect(displayItemName("Lipový sirup – 3 l")).toBe("Lipový sirup – 3 l");
+    expect(displayItemName("Lipový sirup – 3 l Rodinná zásoba")).toBe("Lipový sirup – Begina 3 l"); // historická objednávka beze změny
     expect(displayItemName("Kulajda – Begina 3 l")).toBe("Kulajda – Begina 3 l");
     // ruční / B2B položky bez balení zůstávají
     expect(displayItemName("Rozvoz — Praha 4")).toBe("Rozvoz — Praha 4");

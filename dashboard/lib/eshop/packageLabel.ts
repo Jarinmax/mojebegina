@@ -1,6 +1,6 @@
 // Označení balení (zadání Lucie a majitele, 8. 11. 2026): třílitrové
-// balení je vždy „Begina 3 l“, ostatní jen skutečné množství s jednotkou —
-// „500 ml“, „750 g“. Bez „Rodinná zásoba“, „bag-in-box“, „Begina box“ ani
+// balení polévek a nápojů je „Begina 3 l“, ostatní jen skutečné množství
+// s jednotkou — „500 ml“; bylinné sirupy od 9. 11. 2026 „3 l“ a „700 ml“. Bez „Rodinná zásoba“, „bag-in-box“, „Begina box“ ani
 // „Praktické balení“ (3 l se dodávají v sáčcích, krabici neslibujeme).
 //
 // TOTO je jediné místo, kde se označení balení určuje: katalog e-shopu
@@ -21,8 +21,15 @@ const LEADING_QUANTITY = /^\s*(\d+(?:[.,]\d+)?)\s*(ml|l|kg|g)(?=$|[\s(),.;–—
 /** Třílitrové balení Begina. */
 export const BEGINA_3L = "Begina 3 l";
 
-/** Štítek balení → „Begina 3 l“ / množství s jednotkou; jiný štítek zůstane, jak je. */
+/**
+ * Štítek balení → množství s jednotkou; jiný štítek zůstane, jak je.
+ * Přesně „3 l“ zůstává „3 l“ (sirupy od 9. 11. 2026: „3 l“ a „700 ml“);
+ * starší dlouhé štítky „3 l Rodinná zásoba…“ se dál zobrazují jako
+ * „Begina 3 l“ (historické objednávky, polévky a nápoje mají „Begina 3 l“
+ * přímo ve štítku).
+ */
 export function simplePackageLabel(label: string): string {
+  if (/^\s*3\s*l\s*$/i.test(label)) return "3 l";
   const match = LEADING_QUANTITY.exec(label);
   if (!match) return label.trim();
   const quantity = `${match[1].replace(".", ",")} ${match[2].toLowerCase()}`;

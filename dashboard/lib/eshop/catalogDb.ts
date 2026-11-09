@@ -17,7 +17,7 @@ import { allergenLabel } from "./allergens";
 import { formatNutrition } from "./nutrition";
 import { simplePackageLabel } from "./packageLabel";
 import type { Catalog, Category, DetailSection, Product, Variant } from "./types";
-import { SOUP_CATEGORY, SOUP_PREPARATION } from "./soupFoodInfo";
+import { categoryFoodExtras } from "./categoryFoodInfo";
 
 type CatalogDb = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -148,8 +148,8 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
           nutritionPer100g: formatNutrition(row.nutrition, row.nutritionBasis),
           storage: row.storageInstructions,
           shelfLife: row.shelfLifeNote,
-          // polévky: společná šablona (soupFoodInfo.ts) — příprava a vrácení/reklamace
-          ...(category === SOUP_CATEGORY ? { preparation: SOUP_PREPARATION, returnsNotice: true } : {}),
+          // polévky a sirupy: společná šablona — příprava a vrácení/reklamace (categoryFoodInfo.ts)
+          ...categoryFoodExtras(category),
         },
       },
     ];

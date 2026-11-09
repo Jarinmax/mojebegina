@@ -21,18 +21,20 @@ export const CATEGORY = {
       title: "Vhodné také pro gastro provozy a kanceláře",
       paragraphs: [
         "Sirupy Begina jsou praktické řešení pro:",
-        "Stačí zalít horkou nebo studenou perlivou vodou. Díky bag-in-box balení lze sirup jednoduše dávkovat bez přístupu vzduchu a zbytečného odpadu.",
+        "Stačí zalít horkou nebo studenou perlivou vodou. Díky balení s kohoutkem lze sirup jednoduše dávkovat bez přístupu vzduchu a zbytečného odpadu.",
       ],
       bullets: ["kavárny", "bistra", "menší restaurace", "kanceláře", "catering"],
     },
   ],
 };
 
-// Balení — stejná u všech sirupů (cena 3 l podle produktu).
+// Balení — stejná u všech sirupů (cena 3 l podle produktu). Označení od
+// 9. 11. 2026 „3 l“ a „700 ml“ (dříve „Begina 3 l“ a „750 g“); hmotnosti pro
+// dopravu (weight_g) se nemění.
 export const VARIANTS = [
   {
     suffix: "3l",
-    label: "3 l Rodinná zásoba (bag-in-box)",
+    label: "3 l",
     note: "Až 150 nápojů",
     description:
       "Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.",
@@ -41,25 +43,26 @@ export const VARIANTS = [
     price: (product) => product.price3l,
   },
   {
-    // Balení 750 g (rozhodnutí vedení 3. 10. 2026; dříve „750 ml“). SKU zůstává
+    // Balení 700 ml (9. 11. 2026; dříve „750 g“ a „750 ml“). SKU zůstává
     // beze změny, aby opakované spuštění skriptu přepsalo stávající balení.
     suffix: "750ml",
-    label: "750 g Praktické balení",
-    note: "Až 37 nápojů",
+    label: "700 ml",
+    note: "Až 35 nápojů",
     description: "Lehké a nerozbitné balení vhodné na cesty, do práce nebo pro menší spotřebu.",
-    volumeMl: null, // hmotnost, ne objem
-    servings: 37,
+    volumeMl: 700,
+    servings: 35, // 700 ml : 20 ml sirupu na nápoj (ředění 1 : 10)
     price: () => 199,
   },
 ];
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 const MIX = "**Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.**";
-// Závěr sekce „Jak sirup používat“ — u všech sirupů na begina.cz stejný.
-const GOLDEN_RULE = [
-  "**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**",
-  "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
-];
+// Ředění je od 9. 11. 2026 jen v řádku „Příprava“ (Informace o potravině),
+// v popisu se neopakuje (dřív „Zlaté pravidlo Beginy … 20 ml na 200 ml“).
+const GOLDEN_RULE = [];
+// Skladování a trvanlivost — společné pro všechny sirupy (lib/eshop/syrupFoodInfo.ts).
+const STORAGE = "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.";
+const SHELF_LIFE = "Minimální trvanlivost do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 const highlights = (extractPercent) => [
   `${extractPercent} % bylinného výluhu`,
   "z čisté filtrované vody",
@@ -110,8 +113,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale)), citronová šťáva 10 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
     warnings: ["Není vhodné pro děti do 3 let, těhotné a kojící ženy."],
   },
   {
@@ -140,8 +143,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), citronová šťáva 12 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
   },
   {
     ...EMPTY,
@@ -168,8 +171,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, lipový květ (Tiliae flos)), citronová šťáva 12 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
   },
   {
     ...EMPTY,
@@ -197,8 +200,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 41 % (čistá filtrovaná voda, květ ibišku (Hibiscus sabdariffa)), citronová šťáva 8 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
   },
   {
     ...EMPTY,
@@ -226,8 +229,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina)), citronová šťáva 9 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
   },
   {
     ...EMPTY,
@@ -255,8 +258,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 36 % (čistá filtrovaná voda, květ heřmánku (Matricaria chamomilla)), citronová šťáva 16 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
   },
   {
     ...EMPTY,
@@ -284,8 +287,8 @@ export const SYRUPS = [
     ingredients:
       "třtinový cukr, bylinný výluh 36 % (čistá filtrovaná voda, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia)), citronová šťáva 16 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
-    storage:
-      "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v chladu a dobře uzavřeném obalu a spotřebujte do 3 měsíců od otevření. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.",
+    storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
   },
 ];
 

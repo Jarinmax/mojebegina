@@ -22,7 +22,7 @@ import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
-import { SOUP_RETURNS_AFTER, SOUP_RETURNS_BEFORE, SOUP_RETURNS_LINK_TEXT, TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
+import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 
 export const dynamic = "force-dynamic";
 
@@ -80,17 +80,17 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
     { label: "Skladování", value: info.storage },
     { label: "Trvanlivost", value: info.shelfLife },
     ...(info.preparation ? [{ label: "Příprava", value: info.preparation }] : []),
-    ...(info.returnsNotice
+    ...(info.returns
       ? [
           {
             label: "Vrácení a reklamace",
             value: (
               <>
-                {SOUP_RETURNS_BEFORE}
+                {info.returns.before}
                 <ShopLink href={TERMS_PATH} className="underline text-begina-primary-900 hover:no-underline">
-                  {SOUP_RETURNS_LINK_TEXT}
+                  {info.returns.linkText}
                 </ShopLink>
-                {SOUP_RETURNS_AFTER}
+                {info.returns.after}
               </>
             ),
           },
