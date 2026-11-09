@@ -37,9 +37,9 @@ for (const [name, device] of CASES) {
     const pick = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getBoundingClientRect().width > 0).map((e) => ({ ...st(e), bg: bg(e), text: e.textContent.trim().slice(0, 30), box: e.getBoundingClientRect().toJSON() }));
     return {
       labels: pick('nav[aria-label="Kategorie"] a > span:last-child'),
-      h2: pick("main section h2"),
-      li: pick("main section li"),
-      more: pick("main section a"),
+      h2: pick("main section:has(h2) h2"),
+      li: pick("main section:has(h2) li"),
+      more: pick("main section:has(h2) a"),
       fh2: pick("footer section h2"),
       ftext: [...pick("footer address span"), ...pick("footer section p"), ...pick("footer section li span"), ...pick('footer nav[aria-label="Informace"] a')],
       fsections: pick("footer section").map((s) => s.box),
@@ -55,8 +55,9 @@ for (const [name, device] of CASES) {
   check(`${name}: texty a odkazy patičky 16 px`, rng(m.ftext, 16, 16), sizes(m.ftext));
   const all = [...m.h2, ...m.li, ...m.ftext];
   check(`${name}: řádkování ~1,5 u odstavců a bodů`, [...m.li, ...m.ftext].every((e) => e.lh >= 1.4 && e.lh <= 1.65), [...new Set([...m.li, ...m.ftext].map((e) => e.lh.toFixed(2)))].join("/"));
-  const minC = Math.min(...[...m.labels, ...all, ...m.fh2].map((e) => contrast(e.color, e.bg)));
-  check(`${name}: kontrast textu ≥ 4,5 : 1`, minC >= 4.5, `nejnižší ${minC.toFixed(1)} : 1`);
+  const cs = [...m.labels, ...all, ...m.fh2].map((e) => ({ c: contrast(e.color, e.bg), t: e.text }));
+  const worst = cs.reduce((a, b) => (b.c < a.c ? b : a));
+  check(`${name}: kontrast textu ≥ 4,5 : 1`, worst.c >= 4.5, `nejnižší ${worst.c.toFixed(1)} : 1 („${worst.t}“)`);
   const s = m.fsections;
   const overlap = s.some((a, i) => s.some((b, j) => i < j && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));
   check(`${name}: bloky patičky se nepřekrývají, pořadí zachované`, !overlap && (s[0].left < s[1].left && s[1].left < s[2].left || s[0].top < s[1].top && s[1].top < s[2].top), JSON.stringify(s.map((b) => [Math.round(b.left), Math.round(b.top)])));
@@ -65,7 +66,7 @@ for (const [name, device] of CASES) {
   check(`${name}: názvy kategorií se nepřekrývají`, !lo);
   check(`${name}: bez vodorovného přetékání`, m.sw <= vw, `${m.sw}/${vw}`);
   await page.locator('nav[aria-label="Kategorie"]').screenshot({ path: `${OUT}/${name}-ikony.jpg`, type: "jpeg", quality: 70 });
-  await page.locator("main section").first().screenshot({ path: `${OUT}/${name}-proc.jpg`, type: "jpeg", quality: 70 });
+  await page.locator("main section:has(h2)").first().screenshot({ path: `${OUT}/${name}-proc.jpg`, type: "jpeg", quality: 70 });
   await page.locator("footer").screenshot({ path: `${OUT}/${name}-paticka.jpg`, type: "jpeg", quality: 70 });
   await ctx.close();
 }
