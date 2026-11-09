@@ -38,7 +38,7 @@ for (const [name, device] of [["pocitac", { viewport: { width: 1440, height: 900
       }
       if (r.dt === "Výživové hodnoty" && !/^Na 100 (ml|g): /.test(r.dd)) problems.push(`${href} výživa nezačíná „Na 100 …:“`);
       if (r.dt === "Balení" && /\.$/.test(r.dd)) problems.push(`${href} balení s tečkou`);
-      if (r.dt === "Obsah alkoholu" && !/^\d+(,\d+)? % obj\.$/.test(r.dd)) problems.push(`${href} alkohol „${r.dd}“`);
+      if (r.dt === "Obsah alkoholu" && !/^\d+(,\d+)?\u00a0% obj\.$/.test(r.dd)) problems.push(`${href} alkohol „${r.dd}“`);
       if (/E 435/.test(r.dd)) problems.push(`${href} E 435 bez nezalomitelné mezery`);
       if (/\d %/.test(r.dd)) problems.push(`${href} ${r.dt}: obyčejná mezera před %`);
     }

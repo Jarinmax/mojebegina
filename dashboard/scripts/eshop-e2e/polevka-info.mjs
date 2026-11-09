@@ -20,7 +20,7 @@ for (const [name, viewport] of [["mobil", { width: 390, height: 844 }], ["pocita
   const section = page.locator("section[aria-labelledby=food-info]");
   const labels = await section.locator("dt").allTextContents();
   check(`${name}: řádky`, ["Skladování", "Trvanlivost", "Příprava", "Vrácení a reklamace"].every((l) => labels.includes(l)), labels.join(" | "));
-  const returns = await section.locator("dt:text-is('Vrácení a reklamace') + dd").textContent();
+  const returns = (await section.locator("dt:text-is('Vrácení a reklamace') + dd").textContent())?.replaceAll("\u00a0", " ");
   check(`${name}: text vrácení`, /nelze odstoupit od smlouvy bez udání důvodu/.test(returns ?? "") && /čl\. VII a VIII obchodních podmínek\./.test(returns ?? ""), returns ?? "");
   const storage = await section.locator("dt:text-is('Skladování') + dd").textContent();
   check(`${name}: skladování bez právní věty`, !/odstoupení|nelze jej vrátit/.test(storage ?? ""), storage ?? "");

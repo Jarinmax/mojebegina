@@ -33,7 +33,7 @@ for (const [name, device] of CASES) {
     await page.goto(url(`/produkt/${slug}`), { waitUntil: "networkidle" });
     const section = page.locator("section[aria-labelledby=food-info]");
     for (const [label, text] of Object.entries(T)) {
-      const dd = (await section.locator(`dt:text-is('${label}') + dd`).textContent().catch(() => null))?.trim();
+      const dd = (await section.locator(`dt:text-is('${label}') + dd`).textContent().catch(() => null))?.replaceAll("\u00a0", " ").trim();
       check(`${name} ${slug}: ${label}`, dd === text, dd ?? "chybí");
     }
     const body = await page.evaluate(() => document.querySelector("main").innerText);

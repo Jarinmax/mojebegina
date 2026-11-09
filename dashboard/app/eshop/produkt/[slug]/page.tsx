@@ -76,7 +76,7 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
             value:
               product.alcoholPercent === null
                 ? null
-                : `${new Intl.NumberFormat("cs-CZ").format(product.alcoholPercent)} % obj.`,
+                : `${new Intl.NumberFormat("cs-CZ").format(product.alcoholPercent)}\u00a0% obj.`,
           },
         ]
       : []),
