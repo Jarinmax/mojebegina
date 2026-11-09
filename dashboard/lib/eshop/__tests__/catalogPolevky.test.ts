@@ -10,6 +10,7 @@ import { parseDescription } from "../productDescription";
 import { expectedCatalogAfterSeed } from "../seedFromCatalog";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { polevkyRollbackSql, polevkySql } from "../../../scripts/eshop-catalog/build-polevky.mjs";
+import { SOUP_SHELF_LIFE, SOUP_STORAGE } from "../soupFoodInfo";
 
 const DB_TEST = { timeout: 120_000 };
 const DIR = path.join(__dirname, "../../../docs/eshop-catalog");
@@ -63,11 +64,15 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
       "na 100 ml: energie 283 kJ / 68 kcal, tuky 4 g (z toho nasycené 2,7 g), sacharidy 7,6 g (z toho cukry 2 g), bílkoviny 1 g, sůl 0,8 g, vláknina 1,1 g"
     );
     expect(dyne.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 %/);
-    expect(dyne.foodInfo.storage).toMatch(/Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení\.$/);
+    // právní upozornění už není ve Skladování (samostatný řádek Vrácení a reklamace)
+    expect(dyne.foodInfo.storage).not.toMatch(/odstoupení|nelze jej vrátit/);
     // všechny polévky: bez alergenů, trvanlivost 14 dnů (údaje vedení)
     for (const soup of list) {
       expect(soup.foodInfo.allergens, soup.slug).toEqual([]);
-      expect(soup.foodInfo.shelfLife, soup.slug).toBe("Do 14 dnů při zachování správného uskladnění (do 4 °C).");
+      expect(soup.foodInfo.shelfLife, soup.slug).toBe(SOUP_SHELF_LIFE);
+      expect(soup.foodInfo.storage, soup.slug).toBe(SOUP_STORAGE);
+      expect(soup.foodInfo.preparation, soup.slug).toBe("Stačí ohřát a servírovat.");
+      expect(soup.foodInfo.returnsNotice, soup.slug).toBe(true);
     }
     const parsed = parseDescription(dyne.description);
     expect(parsed.intro).toHaveLength(3);

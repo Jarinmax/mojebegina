@@ -84,7 +84,7 @@ export const DRINKS = [
     taste:
       "Jablečno-malinový nápoj Červánkové nebe má šťavnatý, harmonický charakter. Jablečno-malinová plnost se přirozeně propojuje s jemnou citrusovou linkou a vytváří hladký, vyvážený dojem. Chuť je kulatá, ovocně hluboká a mimořádně pitelná. Je to ten typ nápoje, který si nalijete znovu dřív, než si uvědomíte, že sklenka je prázdná.",
     ingredients:
-      "čistá filtrovaná voda, jablečno-malinová šťáva, citronová šťáva, regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      "čistá filtrovaná voda, jablečno-malinová šťáva, citronová šťáva, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     nutrition: { energy_kj: 86, energy_kcal: 20, fat: 0, saturates: 0, carbohydrate: 5.1, sugars: 5, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
@@ -113,7 +113,7 @@ export const DRINKS = [
     taste:
       "Grepový nápoj dům u jezera má výrazný, osvěžující charakter. Grepová svěžest se přirozeně propojuje s jemnou jablečnou plností a vytváří lehký, čistý dojem. Chuť připomíná letní střik nebo dobře vychlazenou sklenku vína a působí svěže a energicky.",
     ingredients:
-      "čistá filtrovaná voda, grepová šťáva, jablečná šťáva, citronová šťáva, regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      "čistá filtrovaná voda, grepová šťáva, jablečná šťáva, citronová šťáva, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     nutrition: { energy_kj: 52, energy_kcal: 12, fat: 0, saturates: 0, carbohydrate: 2.9, sugars: 2.9, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
@@ -135,7 +135,7 @@ export const DRINKS = [
     taste:
       "Malinový svařák nealko má jemně ovocný, plný a hřejivý charakter. Sladké maliny a jablka se přirozeně doplňují s citrusovým tónem pomeranče, zatímco hřebíček, skořice a badyán dodávají nápoji jeho typickou, příjemně kořeněnou hloubku. Chuť je harmonická, vyvážená a působí příjemným a hřejivým dojmem.",
     ingredients:
-      "čistá filtrovaná voda, jablečná šťáva, malinová šťáva, pomerančová šťáva, hřebíček, skořice, badyán, regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, jablečná šťáva, malinová šťáva, pomerančová šťáva, hřebíček, skořice, badyán, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 128, energy_kcal: 30, fat: 0, saturates: 0, carbohydrate: 7.3, sugars: 7.1, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
