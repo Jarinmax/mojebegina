@@ -143,7 +143,7 @@ for (const [name, viewport] of VIEWPORTS) {
     ...(hasDrinks ? DRINKS : []).map((d) => [d, "Nápoje"]),
     ...ABOUT.map((d) => [d, "O nás"]),
   ]) {
-    await page.goto(url("/"), { waitUntil: "networkidle" });
+    await page.goto(url("/"), { waitUntil: "load" });
     await page.getByRole("button", { name: "Otevřít menu" }).tap();
     if (sub) await panel.getByRole("button", { name: sub }).tap();
     const link = panel.getByRole("link", { name: label, exact: true });
