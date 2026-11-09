@@ -99,4 +99,30 @@ describe("Kontrola e-shopu – Lucie", { timeout: 120_000 }, () => {
     // schválenou už znovu neschvaluje
     expect((await ec.reviewEshopCheck(id, true, "")).ok).toBe(false);
   });
+
+  it("poznámka bez rozhodnutí (Lucie i vedoucí), stav se nemění; schválení jde zrušit", async () => {
+    const id = (await db.execute<{ id: string }>(sql`SELECT id FROM work_tasks WHERE title LIKE 'BEG-03%'`)).rows[0].id;
+    asLucie();
+    expect(await ec.addEshopCheckNote(id, " ")).toEqual({ ok: false, error: "Napište poznámku." });
+    expect(await ec.addEshopCheckNote(id, "Šarže bez kyseliny citronové platí od listopadu")).toEqual({ ok: true });
+    asViner();
+    expect(await ec.addEshopCheckNote(id, "Díky, upravím složení")).toEqual({ ok: true });
+    asBlahout();
+    expect((await ec.addEshopCheckNote(id, "cizí")).ok).toBe(false);
+    const row = (await db.execute<{ status: string }>(sql`SELECT status FROM work_tasks WHERE id = ${id}`)).rows[0];
+    expect(row.status).toBe("open");
+    const acts = (await db.execute<{ kind: string; metadata: Record<string, string> | null }>(sql`SELECT kind, metadata FROM work_task_activity WHERE task_id = ${id} AND kind = 'updated' ORDER BY created_at`)).rows;
+    expect(acts.map((a) => a.metadata?.note)).toEqual(["Šarže bez kyseliny citronové platí od listopadu", "Díky, upravím složení"]);
+    const notes = (await db.execute<{ user_id: string; type: string }>(sql`SELECT user_id, type FROM notifications WHERE href = ${`/prace/ukol/${id}`} ORDER BY created_at`)).rows;
+    expect(notes).toEqual([
+      { user_id: VINER, type: "work_task_note" },
+      { user_id: LUCIE, type: "work_task_note" },
+    ]);
+    // omylem schválená karta → Lucie (nebo vedoucí) schválení zruší
+    asLucie();
+    expect(await ec.reviewEshopCheck(id, true, "")).toEqual({ ok: true });
+    expect(await wt.setWorkTaskDone(id, false)).toEqual({ ok: true });
+    const after = (await db.execute<Record<string, unknown>>(sql`SELECT status, approved_by FROM work_tasks WHERE id = ${id}`)).rows[0];
+    expect(after).toEqual({ status: "open", approved_by: null });
+  });
 });

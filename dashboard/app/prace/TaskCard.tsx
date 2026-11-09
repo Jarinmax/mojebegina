@@ -56,6 +56,7 @@ const BUTTON_LABEL: Record<TaskCardAction, string> = {
 };
 
 export default function TaskCard({ task, showAssignee }: { task: TaskCardData; showAssignee: boolean }) {
+  const eshopCheck = /^BEG-\d{2}/.test(task.title);
   const action: TaskCardAction = task.action ?? (task.cancelled ? "none" : task.done ? "reopen" : "done");
   const formAction = setWorkTaskDoneAction.bind(null, task.id, action !== "reopen");
   const [state, dispatch, pending] = useActionState<PraceActionState, FormData>(formAction, null);
@@ -98,7 +99,7 @@ export default function TaskCard({ task, showAssignee }: { task: TaskCardData; s
                   : `${primary} ${action === "submit" ? "bg-slate-700" : "bg-emerald-600"}`
               }
             >
-              {pending ? "Ukládám…" : BUTTON_LABEL[action]}
+              {pending ? "Ukládám…" : eshopCheck && action === "reopen" ? "Zrušit schválení" : BUTTON_LABEL[action]}
             </button>
           </form>
         )}

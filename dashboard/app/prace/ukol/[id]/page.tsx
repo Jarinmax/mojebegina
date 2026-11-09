@@ -13,6 +13,7 @@ import PhotoUploader from "./PhotoUploader";
 import CompleteTaskButton from "./CompleteTaskButton";
 import ReviewPanel from "./ReviewPanel";
 import EshopCheckReviewPanel from "./EshopCheckReviewPanel";
+import EshopCheckNoteForm from "./EshopCheckNoteForm";
 import { ESHOP_CHECK_PATH, ESHOP_CHECK_REGISTER_NAME, ESHOP_CHECK_STATUS_LABEL, isEshopCheckTask } from "@/lib/data/eshopCheck";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +85,8 @@ export default async function WorkTaskDetailPage(props: PageProps<"/prace/ukol/[
       {isManager && task.status === "submitted" && <ReviewPanel taskId={task.id} />}
 
       {eshopCheck && isAssignee && workable && <EshopCheckReviewPanel taskId={task.id} returned={task.status === "returned"} />}
+
+      {eshopCheck && (isAssignee || isManager) && task.status !== "cancelled" && <EshopCheckNoteForm taskId={task.id} />}
 
       {(photosAllowed || task.photos.length > 0) && (
         <section className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">

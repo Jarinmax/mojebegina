@@ -104,3 +104,39 @@ export async function reviewEshopCheck(taskId: string, approve: boolean, rawNote
     SELECT id FROM upd`);
   return result.rows.length === 0 ? { ok: false, error: "Kartu teď nejde zkontrolovat (není vaše, nebo už je schválená)." } : { ok: true };
 }
+
+/**
+ * Poznámka ke kartě registru BEZ rozhodnutí (odpověď na otázku, upřesnění,
+ * připomínka). Smí Lucie (přidělená) i vedoucí; druhá strana dostane
+ * upozornění. Uloží se do historie karty (work_task_activity „updated“
+ * s metadata.note — bez nové migrace). Stav kontroly se nemění.
+ */
+export async function addEshopCheckNote(taskId: string, rawNote: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ctx = requireWorkAccess(await getAuthContext());
+  const manager = isWorkManager(ctx);
+  const actorName = ctx.name ?? ctx.email;
+  const note = rawNote.trim().slice(0, 2000);
+  if (note.length < 2) return { ok: false, error: "Napište poznámku." };
+  if (!/^[0-9a-f-]{36}$/i.test(taskId)) return { ok: false, error: "Úkol nebyl nalezen." };
+  const result = await db.execute<{ id: string }>(sql`
+    WITH task AS (
+      UPDATE work_tasks SET updated_at = now()
+       WHERE id = ${taskId}
+         AND title ~ '^BEG-[0-9]{2}'
+         AND status <> 'cancelled'
+         AND (${manager}::boolean OR assignee_user_id = ${ctx.userId})
+      RETURNING id, title, assignee_user_id
+    ),
+    act AS (
+      INSERT INTO work_task_activity (task_id, actor_user_id, actor_name, kind, metadata)
+      SELECT id, ${ctx.userId}, ${actorName}, 'updated', ${JSON.stringify({ note })}::jsonb FROM task
+    ),
+    notif AS (
+      INSERT INTO notifications (user_id, type, title, body, href)
+      SELECT r, 'work_task_note', 'Kontrola e-shopu: poznámka', ${actorName}::text || ': ' || task.title || ${` — ${note}`}::text, '/prace/ukol/' || task.id
+        FROM task CROSS JOIN unnest(CASE WHEN ${manager}::boolean THEN ARRAY[task.assignee_user_id] ELSE ${managersArray()} END) AS r
+       WHERE r <> ${ctx.userId}
+    )
+    SELECT id FROM task`);
+  return result.rows.length === 0 ? { ok: false, error: "Poznámku teď nejde uložit." } : { ok: true };
+}
