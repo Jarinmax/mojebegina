@@ -56,10 +56,18 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     return null;
   });
   // Menu podle zadání Lucie (6. 11. 2026): kategorie z katalogu, nápoje
-  // v rozbalovací nabídce, za nimi O nás, O vodě a MojeBegina (9. 11. 2026).
+  // v rozbalovací nabídce, za nimi rozbalovací „O nás“ (Náš příběh, O vodě,
+  // O balení) a MojeBegina (9. 11. 2026).
   const menu = mainMenu(availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)), [
-    { kind: "link", href: INFO_PAGES.about.path, label: "O nás" },
-    { kind: "link", href: INFO_PAGES.water.path, label: "O vodě" },
+    {
+      kind: "group",
+      label: "O nás",
+      items: [
+        { kind: "link", href: INFO_PAGES.about.path, label: "Náš příběh" },
+        { kind: "link", href: INFO_PAGES.water.path, label: "O vodě" },
+        { kind: "link", href: INFO_PAGES.packaging.path, label: "O balení" },
+      ],
+    },
     MOJE_BEGINA_LINK,
   ]);
   // Cookie lišta a Meta Pixel — jen se zapnutým přepínačem (výchozí vypnuto).

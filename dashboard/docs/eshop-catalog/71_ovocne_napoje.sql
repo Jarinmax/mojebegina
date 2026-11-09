@@ -24,8 +24,8 @@ ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'cervankove-nebe'), 'cervankove-nebe-3l', '3 l Rodinná zásoba (bag-in-box)', 'Ideální pro sdílení nebo více příležitostí.',
-  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 349, 10)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'cervankove-nebe'), 'cervankove-nebe-3l', '3 l', 'Ideální pro sdílení nebo více příležitostí.',
+  '3 l – praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete.', 3000, 12, 349, 10)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -50,8 +50,8 @@ ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'dum-u-jezera'), 'dum-u-jezera-3l', '3 l Rodinná zásoba (bag-in-box)', 'Ideální pro sdílení nebo více příležitostí.',
-  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 12, 349, 10)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'dum-u-jezera'), 'dum-u-jezera-3l', '3 l', 'Ideální pro sdílení nebo více příležitostí.',
+  '3 l – praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete.', 3000, 12, 349, 10)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -76,8 +76,8 @@ ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'malinovy-svarak-nealko'), 'malinovy-svarak-nealko-3l', '3 l Rodinná zásoba (bag-in-box)', 'Ideální pro sdílení nebo více příležitostí.',
-  'Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.', 3000, 15, 399, 10)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'malinovy-svarak-nealko'), 'malinovy-svarak-nealko-3l', '3 l', 'Ideální pro sdílení nebo více příležitostí.',
+  '3 l – praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete.', 3000, 15, 399, 10)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",

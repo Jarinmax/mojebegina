@@ -25,6 +25,8 @@ describe("72: označení balení jen množstvím", { timeout: 120_000 }, () => {
     // stav před skriptem 72 (8. 11. 2026): sirupy ještě s dlouhými štítky — katalog
     // 31 má od 9. 11. 2026 rovnou „3 l“ / „700 ml“ (skript 80)
     await pg.query(`UPDATE "product_variants" SET "label" = CASE WHEN "sku" LIKE '%-3l' THEN '3 l Rodinná zásoba (bag-in-box)' ELSE '750 g Praktické balení' END WHERE "sku" LIKE '%sirup%'`);
+    // katalogy mají od 9. 11. 2026 rovnou „3 l“ (skript 81) — stav před 72
+    await pg.query(`UPDATE "product_variants" SET "label" = '3 l Rodinná zásoba (bag-in-box)' WHERE "label" = '3 l'`);
   }, 120_000);
 
   it("přepíše jen štítky a větu o bag-in-box, ceny a SKU zůstanou", async () => {

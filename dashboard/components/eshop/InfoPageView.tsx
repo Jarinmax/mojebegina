@@ -152,9 +152,11 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
 
       {children}
 
-      <p className="mt-8 text-sm text-neutral-500">
-        Provozovatel: {OPERATOR.name}, sídlo {OPERATOR.address}, IČO {OPERATOR.ico}
-      </p>
+      {!page.hideOperatorLine && (
+        <p className="mt-8 text-sm text-neutral-500">
+          Provozovatel: {OPERATOR.name}, sídlo {OPERATOR.address}, IČO {OPERATOR.ico}
+        </p>
+      )}
       <ShopLink href="/" className="mt-4 inline-block text-sm font-medium underline underline-offset-2">
         Zpět do e-shopu
       </ShopLink>

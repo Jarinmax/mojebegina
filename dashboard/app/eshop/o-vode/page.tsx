@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <InfoPageView page={page}>
-      <PageCarousel content="water" />
+      <PageCarousel />
     </InfoPageView>
   );
 }

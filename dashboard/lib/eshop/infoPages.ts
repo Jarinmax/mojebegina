@@ -11,6 +11,7 @@ import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethodsFor, type ShippingMode } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { OPERATOR } from "./operator";
+import { PACKAGING_PAGE_PATH } from "./packaging";
 import { CURRENT_TERMS, termsPdfPath } from "./content/termsVersions";
 import { WITHDRAWAL_FORM_DOWNLOAD_LABEL, WITHDRAWAL_FORM_PDF_PATH } from "./content/withdrawalForm";
 import { PRIVACY_BLOCKS, PRIVACY_EFFECTIVE } from "./content/ochranaOsobnichUdaju";
@@ -49,6 +50,8 @@ export type InfoPage = {
   download?: { path: string; label: string };
   /** Další soubor ke stažení (např. samostatný formulář pro odstoupení). */
   secondaryDownload?: { path: string; label: string };
+  /** true = bez řádku „Provozovatel: …“ pod obsahem (údaje jsou v patičce) */
+  hideOperatorLine?: boolean;
 };
 
 export { OPERATOR };
@@ -67,72 +70,81 @@ export const filteredWater = [
   "pomáhá zachovat čistý a vyvážený chuťový profil",
 ];
 
-// Text stránky O nás z begina.cz (www.begina.cz/o-nas/), dodaný vedením
-// 4. 10. 2026 jako snímky obrazovky; přepsaný doslova v pořadí na stránce.
+// Text stránky O nás (dodaný 9. 11. 2026, nahrazuje text ze starého webu).
 const aboutPage: InfoPage = {
   path: "/o-nas",
   footerLabel: "O nás",
   title: "O nás",
-  description: "Begina — čerstvé polévky, sirupy a nápoje z čisté filtrované vody v praktickém balení.",
+  description: "Za Beginou stojí Jarin a Lucie — čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
+  hideOperatorLine: true,
   blocks: [
     {
       paragraphs: [
-        "Chuť je pro mě základ.",
-        "Gastronomii se věnuji dlouhodobě, ale v roce 2018 jsem si začal víc všímat rozdílu mezi tím, kdy se jídlo jen připravuje, a kdy se skutečně tvoří s důrazem na kvalitu a chuť.",
-        "Hledal jsem způsob, jak ji zachovat i v čase.",
-        "Tehdy jsem narazil na Bag-in-Box systém, který dokáže chránit obsah bez přístupu vzduchu.",
-        "V roce 2023 jsem potkal Lucii a začali jsme tvořit společně.",
-        "V Českém Krumlově jsme otevřeli Simon Gallery. Právě tam vznikly první čaje a nápoje z čisté filtrované vody – jednoduché, poctivé a postavené na chuti.",
-        "Po návratu do Prahy jsme na tomhle základu postavili značku Begina.",
-        "Produkty připravuji z čisté filtrované vody a používám systém, který zachovává jejich chuť i při postupném používání.",
-        "Begina stojí na jedné věci –",
-        "že když něco chutná dobře, poznáš to hned.",
+        "Za Beginou stojíme my dva – Jarin a Lucie. Spojuje nás chuť vytvářet něco vlastního a nabídnout Vám dobré jídlo a nápoje pro každý den. Receptury a kombinace chutí vznikají v Jarinově kuchyni, o Beginu a její rozvoj se staráme společně.",
+        "V roce 2023 jsme začali tvořit společně. V Českém Krumlově jsme otevřeli Simon Gallery, kde vznikaly naše první čaje a ovocné nápoje z čisté filtrované vody. Na tuto zkušenost jsme později navázali značkou Begina.",
+        "Dnes v naší nabídce najdete čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
+        "Chceme Vám usnadnit každodenní přípravu i chvíle, kdy se u stolu sejde více lidí. Polévku stačí ohřát, sirup naředit a nápoj podávat.",
+        "Begina. Když rozhoduje chuť.",
       ],
-    },
-    {
-      paragraphs: ["Čerstvé polévky, sirupy a nápoje z čisté filtrované vody v praktickém balení pro každodenní použití."],
-    },
-    {
-      paragraphs: [
-        "Naše beginy připravujeme z čisté filtrované vody a plníme je do třílitrových sáčků s kohoutkem.",
-        "Kromě toho nabízíme i další varianty balení podle typu produktu.",
-        "Použitý systém chrání obsah a umožňuje jeho postupnou spotřebu.",
-      ],
-      itemStyle: "check",
-      items: [
-        "profesionální příprava",
-        "praktický sáček s kohoutkem",
-        "ochrana obsahu bez přístupu vzduchu",
-        "bez lepku",
-      ],
-    },
-    {
-      paragraphs: ["Jednoduchý způsob, jak mít čerstvou polévku nebo nápoj vždy po ruce."],
     },
   ],
 };
 
-// Text stránky O vodě z begina.cz (www.begina.cz/o-vode/), dodaný vedením
-// 3. 10. 2026 jako snímek obrazovky; přepsaný doslova (nadpisy jako na webu).
+// Text stránky O vodě (dodaný 9. 11. 2026, nahrazuje text ze starého webu).
 const waterPage: InfoPage = {
   path: "/o-vode",
   footerLabel: "O vodě",
-  title: "Voda je základ",
+  title: "Čistá filtrovaná voda v našich recepturách",
   description: "Proč Begina používá čistou filtrovanou vodu.",
+  hideOperatorLine: true,
   blocks: [
     {
       paragraphs: [
-        "Voda je nezbytnou součástí života.",
-        "Pokrývá přibližně 71 % povrchu Země a tvoří významnou část lidského těla.",
-        "Podílí se na transportu živin, odvádění odpadních látek a regulaci tělesné teploty. Současně je důležitá pro hydrataci buněk, trávení a vstřebávání živin.",
-        "Dostatečný příjem tekutin je součástí zdravého životního stylu.",
+        "Při přípravě našich polévek, sirupů a nápojů používáme čistou filtrovanou vodu. Je pro nás stejně důležitou součástí receptury jako zelenina, ovoce, bylinky a koření.",
+        "Záleží nám na výsledné chuti i pečlivém výběru surovin. Proto věnujeme pozornost také vodě, kterou při výrobě používáme.",
+      ],
+    },
+  ],
+};
+
+// Stránka O balení (text dodaný 9. 11. 2026). Třílitrové balení s kohoutkem
+// se jmenuje Begina (nikoli „bagina“).
+const packagingPage: InfoPage = {
+  path: PACKAGING_PAGE_PATH,
+  footerLabel: "O balení",
+  title: "O balení",
+  description: "Třílitrové balení Begina s kohoutkem a menší balení 700 ml a 500 ml.",
+  hideOperatorLine: true,
+  blocks: [
+    {
+      paragraphs: [
+        "Našemu třílitrovému balení s kohoutkem říkáme Begina. Polévku, sirup nebo nápoj si z něj snadno odčepujete podle potřeby a zbytek necháte na příště.",
       ],
     },
     {
-      heading: "Kvalita vody je pro nás důležitá",
+      heading: "Snadné dávkování",
       paragraphs: [
-        "Voda tvoří převážnou část našich nápojů, a proto její kvalitě věnujeme mimořádnou pozornost. Používáme čistou filtrovanou vodu, která nám umožňuje dosahovat stabilní chuti a konzistentní kvality napříč celou výrobou.",
-        "Díky důkladné filtraci pracujeme s vodou, jejíž složení máme pod kontrolou. To nám umožňuje zachovat charakter jednotlivých receptur a nechat vyniknout chuť použitých surovin.",
+        "Kohoutek umožňuje pohodlné dávkování po porcích. Sáček se při čepování postupně stahuje a omezuje kontakt obsahu se vzduchem. Tím pomáhá chránit chuť i kvalitu výrobku během jeho postupné spotřeby.",
+      ],
+    },
+    {
+      heading: "Třílitrové balení",
+      paragraphs: [
+        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek.",
+      ],
+    },
+    {
+      heading: "Menší balení",
+      paragraphs: [
+        "Sirupy nabízíme také v balení 700 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
+        "Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.",
+        "Dostupné velikosti najdete vždy u konkrétního produktu.",
+      ],
+    },
+    {
+      heading: "Skladování a spotřeba",
+      paragraphs: [
+        "Podmínky skladování a dobu spotřeby před otevřením i po otevření najdete u konkrétního výrobku a na jeho obalu.",
       ],
     },
   ],
@@ -223,6 +235,7 @@ const privacyPage: InfoPage = {
 export const INFO_PAGES = {
   about: aboutPage,
   water: waterPage,
+  packaging: packagingPage,
   shipping: shippingPage,
   terms: termsPage,
   privacy: privacyPage,
