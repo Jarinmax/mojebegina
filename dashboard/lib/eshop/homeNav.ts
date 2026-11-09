@@ -17,7 +17,7 @@ export type HomeCategory = {
 };
 
 export const HOME_CATEGORIES: HomeCategory[] = [
-  { slug: "polevky", menuLabel: "Čerstvé polévky", stripLabel: "Čerstvé polévky", icon: "/eshop/hero/ikona-polevky-2026-11.webp", iconSize: [213, 240] },
+  { slug: "polevky", menuLabel: "Čerstvé polévky", stripLabel: "Čerstvé polévky", icon: "/eshop/hero/ikona-polevky-2026-11.webp", iconSize: [224, 240] },
   { slug: "sirupy", menuLabel: "Bylinné sirupy", stripLabel: "Bylinné sirupy", icon: "/eshop/hero/ikona-sirupy-2026-11.webp", iconSize: [147, 240] },
   { slug: "caje", menuLabel: "Čaje", stripLabel: "Čaje", icon: "/eshop/hero/ikona-caje-2026-11.webp", iconSize: [198, 240], group: "napoje" },
   {
