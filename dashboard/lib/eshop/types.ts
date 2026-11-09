@@ -38,10 +38,10 @@ export type FoodInfo = {
   nutritionPer100g: string | null;
   storage: string | null;
   shelfLife: string | null;
-  /** příprava (polévky: „Stačí ohřát a servírovat.“) — soupFoodInfo.ts */
+  /** příprava (polévky, sirupy) — categoryFoodInfo.ts */
   preparation?: string | null;
-  /** řádek „Vrácení a reklamace“ s odkazem na obchodní podmínky (polévky) */
-  returnsNotice?: boolean;
+  /** řádek „Vrácení a reklamace“; linkText je odkaz na obchodní podmínky */
+  returns?: { before: string; linkText: string; after: string } | null;
 };
 
 export type Product = {

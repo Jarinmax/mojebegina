@@ -1,0 +1,22 @@
+name: docasne-testy
+on:
+  push:
+    branches: [sirupy-informace]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Typy
+        run: npx tsc --noEmit 2>&1 | grep -v "PageProps\|RouteContext\|LayoutProps\|logo-begina-mark" | head -20 || true
+      - name: Testy
+        run: npx vitest run 2>&1 | tee /tmp/t.log | grep -E "Test Files|Tests |FAIL|×|AssertionError|Expected|Received|^\s+[-+] " | head -80; ! grep -q "Test Files .*failed" /tmp/t.log

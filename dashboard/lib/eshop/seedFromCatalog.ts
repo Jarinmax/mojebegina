@@ -7,7 +7,7 @@
 import { categories as seedCategories, products as seedProducts } from "./catalog";
 import type { Catalog } from "./types";
 import { simplePackageLabel } from "./packageLabel";
-import { SOUP_CATEGORY, SOUP_PREPARATION } from "./soupFoodInfo";
+import { categoryFoodExtras } from "./categoryFoodInfo";
 
 // Objem a počet nápojů nejsou v catalog.ts samostatně — odvozují se
 // z názvu balení ("3 l …", "500 ml …") a poznámky ("Až 15 nápojů …").
@@ -120,8 +120,8 @@ export function expectedCatalogAfterSeed(): Catalog {
       })),
       alcoholPercent: product.alcoholPercent,
       isAgeRestricted: row.isAgeRestricted,
-      // polévky: společná šablona přípravy a vrácení/reklamace (soupFoodInfo.ts)
-      foodInfo: { ...product.foodInfo, ...(product.category === SOUP_CATEGORY ? { preparation: SOUP_PREPARATION, returnsNotice: true } : {}) },
+      // polévky a sirupy: společná šablona přípravy a vrácení/reklamace (categoryFoodInfo.ts)
+      foodInfo: { ...product.foodInfo, ...categoryFoodExtras(product.category) },
     };
   });
   return {

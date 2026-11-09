@@ -72,7 +72,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
       expect(soup.foodInfo.shelfLife, soup.slug).toBe(SOUP_SHELF_LIFE);
       expect(soup.foodInfo.storage, soup.slug).toBe(SOUP_STORAGE);
       expect(soup.foodInfo.preparation, soup.slug).toBe("Stačí ohřát a servírovat.");
-      expect(soup.foodInfo.returnsNotice, soup.slug).toBe(true);
+      expect(soup.foodInfo.returns?.linkText, soup.slug).toBe("obchodních podmínek");
     }
     const parsed = parseDescription(dyne.description);
     expect(parsed.intro).toHaveLength(3);
