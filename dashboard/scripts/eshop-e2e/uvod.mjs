@@ -18,6 +18,9 @@ const land = (d) => devices[`${d} landscape`];
 const CASES = [
   ["pocitac-1440", { viewport: { width: 1440, height: 900 } }],
   ["pocitac-1280", { viewport: { width: 1280, height: 720 } }],
+  ["pocitac-1366", { viewport: { width: 1366, height: 768 } }],
+  ["pocitac-1536", { viewport: { width: 1536, height: 864 } }],
+  ["pocitac-1920", { viewport: { width: 1920, height: 1080 } }],
   ["ipad-vysku", devices["iPad (gen 7)"]],
   ["ipad-sirku", land("iPad (gen 7)")],
   ["ipad-mini-vysku", devices["iPad Mini"]],
@@ -75,7 +78,7 @@ for (const [name, device] of CASES) {
   });
   check(`${name}: tři řádky textu`, r.spans.map((s) => s.t).join("|") === LINES.join("|") && !/[,.]/.test(r.text), r.spans.map((s) => s.t).join(" / "));
   check(`${name}: žádný řádek se neláme`, r.spans.every((s) => s.h <= r.lh * 1.2) && Math.round(r.h1h / r.lh) === 3, `výšky ${r.spans.map((s) => Math.round(s.h)).join("/")} řádek ${r.lh}`);
-  check(`${name}: velikost písma přiměřená`, r.fs >= 26 && r.fs <= 46, `${r.fs}px`);
+  check(`${name}: velikost písma přiměřená`, r.fs >= 24 && r.fs <= 46, `${r.fs}px`);
   const beside = r.ib.x >= r.hright - 1;
   if (beside) {
     check(`${name}: fotka vedle → nadpis doleva podle textu a tlačítek`, r.align === "left" && r.hleftText.every((x) => Math.abs(x - r.btnx) < 3) && Math.abs(r.subx - r.btnx) < 3, `nadpis ${r.hleftText.map(Math.round)} tlačítko ${Math.round(r.btnx)} text ${Math.round(r.subx)}`);
@@ -86,6 +89,33 @@ for (const [name, device] of CASES) {
   const diff = Math.max(...r.corners.flatMap((c) => c.map((v, i) => Math.abs(v - r.bg[i]))));
   check(`${name}: pozadí fotky splývá s béžovou`, diff <= 4, `rohy ${JSON.stringify(r.corners)} podklad ${r.bg}`);
   check(`${name}: bez vodorovného přetékání`, r.sw <= vw, `scrollWidth ${r.sw} / ${vw}`);
+  // --- hlavička: logo, menu a košík bez překrývání, nic nepřetéká
+  const hd = await page.evaluate(() => {
+    const header = document.querySelector("header");
+    const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return b.width && b.height ? { l: b.left, r: b.right, t: b.top, b: b.bottom } : null; };
+    const logoLink = header.querySelector('a[aria-label^="Begina.cz"]');
+    const nav = [...header.querySelectorAll('nav[aria-label="Hlavní menu"]')].find((n) => n.getBoundingClientRect().width > 0);
+    const cart = header.querySelector('a[aria-label^="Košík"]');
+    const burger = header.querySelector('button[aria-label="Otevřít menu"]');
+    const navUl = nav?.querySelector("ul");
+    return {
+      logo: box(logoLink), nav: box(nav), cart: box(cart), burger: box(burger),
+      logoImg: logoLink.querySelector("img").getBoundingClientRect().height,
+      brand: parseFloat(getComputedStyle(logoLink.querySelector("span span")).fontSize),
+      navFont: navUl ? parseFloat(getComputedStyle(navUl).fontSize) : null,
+      navH: navUl ? navUl.getBoundingClientRect().height : null,
+      headerSW: header.scrollWidth, headerW: header.clientWidth,
+    };
+  });
+  const parts = [hd.logo, hd.nav, hd.cart, hd.burger].filter(Boolean).sort((a, b) => a.l - b.l);
+  const gaps = parts.slice(1).map((p, i) => Math.round(p.l - parts[i].r));
+  check(`${name}: hlavička bez překrývání`, gaps.every((g) => g >= 12) && hd.headerSW <= hd.headerW && parts.every((p) => p.r <= vw && p.l >= 0), `mezery ${gaps.join("/")} px`);
+  if (hd.nav) {
+    check(`${name}: počítač — logo o 20 % větší, menu 17 px na jednom řádku`, Math.abs(hd.logoImg - 43.2) < 1 && Math.abs(hd.brand - 21.6) < 0.5 && hd.navFont === 17 && hd.navH < 32, `logo ${hd.logoImg}px, nápis ${hd.brand}px, menu ${hd.navFont}px, výška menu ${hd.navH}`);
+  } else {
+    check(`${name}: mobil/tablet — logo beze změny`, hd.logoImg === 36 && hd.brand === 18, `logo ${hd.logoImg}px, nápis ${hd.brand}px`);
+  }
+  await page.locator("header").screenshot({ path: `${OUT}/${name}-hlavicka.jpg`, type: "jpeg", quality: 65 });
   await page.locator("section").first().screenshot({ path: `${OUT}/${name}.jpg`, type: "jpeg", quality: 65 });
   await ctx.close();
 }

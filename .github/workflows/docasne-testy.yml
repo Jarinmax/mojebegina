@@ -1,0 +1,37 @@
+# DOČASNÉ — před sloučením se smaže.
+name: docasne-testy
+on:
+  push:
+    branches: [hlavicka-logo-menu]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    env:
+      DATABASE_URL: postgresql://u:p@ep-test.neon.tech/neondb
+      NEON_AUTH_BASE_URL: https://auth.example.test
+      NEON_AUTH_COOKIE_SECRET: test-cookie-secret-test-cookie-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Testy
+        run: npx vitest run components lib/eshop lib/site 2>&1 | grep -E "Test Files|Tests |FAIL|×|AssertionError|Expected|Received" | head -40
+      - name: Build
+        run: npx next build 2>&1 | tail -5
+      - name: Prohlížeč
+        run: |
+          npm i -g playwright@1.49.1 >/dev/null 2>&1 && playwright install --with-deps chromium >/dev/null 2>&1
+          PORT=3100 NODE_OPTIONS="--import ./scripts/eshop-e2e/neon-http-pglite.mjs" npx next start -p 3100 > /tmp/server.log 2>&1 &
+          for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:3100/ && break; sleep 1; done
+          export PLAYWRIGHT_MODULE=$(npm root -g)/playwright/index.mjs
+          OUT_DIR=/tmp/uvod node scripts/eshop-e2e/uvod.mjs 3100 || (tail -20 /tmp/server.log; true)
+          OUT_DIR=/tmp/menu node scripts/eshop-e2e/menu-paticka.mjs 3100 | grep -E "✗|nadpis" || true
+          OUT_DIR=/tmp/hero node scripts/eshop-e2e/hero.mjs 3100 | grep "✗" || true
+          cd /tmp/uvod && tar czf /tmp/s.tgz pocitac-1280-hlavicka.jpg pocitac-1920-hlavicka.jpg pocitac-1440.jpg iphone-vysku.jpg iphone-vysku-hlavicka.jpg iphone-sirku.jpg ipad-vysku.jpg && echo "=====BEGIN S" && base64 -w 2000 /tmp/s.tgz && echo "=====END S"

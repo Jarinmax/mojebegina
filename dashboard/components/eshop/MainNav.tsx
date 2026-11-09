@@ -86,7 +86,7 @@ function DesktopNav({ entries }: { entries: MenuEntry[] }) {
   return (
     <div ref={rootRef} className="hidden xl:block min-w-0">
       <nav aria-label="Hlavní menu">
-        <ul className="flex items-center gap-5 xl:gap-8 text-[15px]">
+        <ul className="flex items-center gap-6 2xl:gap-9 text-[17px]">
           {entries.map((entry) =>
             entry.kind === "link" ? (
               <li key={entry.href}>
