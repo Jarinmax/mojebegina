@@ -12,7 +12,7 @@ import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
 import EshopFooter from "@/components/eshop/EshopFooter";
 import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
-import { availableHomeCategories, mainMenu } from "@/lib/eshop/homeNav";
+import { MOJE_BEGINA_LINK, availableHomeCategories, mainMenu } from "@/lib/eshop/homeNav";
 import MainNav from "@/components/eshop/MainNav";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { getCatalog } from "@/lib/eshop/catalogServer";
@@ -56,10 +56,11 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     return null;
   });
   // Menu podle zadání Lucie (6. 11. 2026): kategorie z katalogu, nápoje
-  // v rozbalovací nabídce, za nimi O nás a O vodě.
+  // v rozbalovací nabídce, za nimi O nás, O vodě a MojeBegina (9. 11. 2026).
   const menu = mainMenu(availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)), [
     { kind: "link", href: INFO_PAGES.about.path, label: "O nás" },
     { kind: "link", href: INFO_PAGES.water.path, label: "O vodě" },
+    MOJE_BEGINA_LINK,
   ]);
   // Cookie lišta a Meta Pixel — jen se zapnutým přepínačem (výchozí vypnuto).
   const marketing = marketingConfig();
@@ -78,10 +79,12 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
             </span>
           </ShopLink>
           <MainNav entries={menu} variant="desktop" />
-          <CartLink />
+          <div className="flex items-center gap-1 shrink-0">
+            <CartLink />
+            {/* Mobil a tablet: menu pod ikonou ☰ (košík zůstává v záhlaví). */}
+            <MainNav entries={menu} variant="mobile" />
+          </div>
         </div>
-        {/* Tablet a mobil: stejné menu jako posuvný řádek pod logem. */}
-        <MainNav entries={menu} variant="mobile" />
       </header>
 
       <main className="flex-1">{catalog ? children : <CatalogUnavailable />}</main>

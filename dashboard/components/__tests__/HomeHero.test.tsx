@@ -22,7 +22,7 @@ describe("úvod e-shopu", () => {
     // nezalomitelné mezery (a&nbsp;bylinné) porovnáváme jako obyčejné
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
     expect(text(document.body.textContent)).toContain("Čerstvě. Jednoduše. S chutí.");
-    expect(text(screen.getByRole("heading", { level: 1 }).textContent)).toBe("Čerstvé polévky a bylinné sirupy");
+    expect(text(screen.getByRole("heading", { level: 1 }).textContent)).toBe("Čerstvé polévky, bylinné sirupy, nápoje a zmrzliny");
     expect(text(document.body.textContent)).toContain("Z pečlivě vybraných surovin a čisté filtrované vody.");
     expect(screen.getByText("Doručujeme chlazenou přepravou.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
@@ -38,11 +38,11 @@ describe("úvod e-shopu", () => {
     expect(existsSync(path.join(__dirname, "../../app/eshop/kategorie/[slug]/page.tsx"))).toBe(true);
   });
 
-  it("skutečná fotografie v plném poměru 3 : 2, existuje v public", () => {
+  it("skutečná fotografie (polévka a horký čaj, 9. 11. 2026) v plném poměru, existuje v public", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
-    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-a-bylinny-napoj.webp");
-    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1.5);
+    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-a-horky-caj.webp");
+    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1672 / 941);
     expect(img.className).toContain("h-auto");
     expect(img.className).not.toMatch(/object-cover/);
     expect(existsSync(path.join(__dirname, "../../public", HERO_PHOTO.src))).toBe(true);
