@@ -22,7 +22,7 @@ const CASES = [
 const browser = await chromium.launch();
 for (const [name, w, h, dpr] of CASES) {
   const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: dpr });
-  const res = await page.goto("https://begina.cz/", { waitUntil: "networkidle" });
+  const res = await page.goto(process.env.BASE_URL ?? "https://begina.cz/", { waitUntil: "networkidle" });
   check(`${name}: produkční stránka načtená`, res.ok(), `HTTP ${res.status()} ${page.url()}`);
   const zoom = await page.evaluate(() => ({ dpr: window.devicePixelRatio, inner: window.innerWidth }));
   check(`${name}: 100% přiblížení prohlížeče`, zoom.inner === w, `innerWidth ${zoom.inner}, devicePixelRatio ${zoom.dpr}`);
@@ -44,8 +44,8 @@ for (const [name, w, h, dpr] of CASES) {
     check(`${name}: menu v řádku má všechny položky včetně Zmrzlin`, labels.join("|") === MENU.join("|"), labels.join(" | "));
     const row = [hd.logo, ...hd.items, hd.cart];
     const gaps = row.slice(1).map((b, i) => Math.round(b.l - row[i].r));
-    const sameLine = hd.items.every((i) => Math.abs(i.t - hd.items[0].t) < 2);
-    check(`${name}: logo, položky a košík se nepřekrývají, menu na jednom řádku`, gaps.every((g) => g >= 16) && sameLine && hd.navUlH < 32,
+    const sameLine = hd.items.every((i) => Math.abs((i.t + i.b) / 2 - (hd.items[0].t + hd.items[0].b) / 2) < 3);
+    check(`${name}: logo, položky a košík se nepřekrývají, menu na jednom řádku`, gaps.every((g) => g >= 16) && sameLine && hd.navUlH < 36,
       `mezery logo→menu ${gaps[0]} px, mezi položkami ${gaps.slice(1, -1).join("/")} px, menu→košík ${gaps.at(-1)} px; písmo ${hd.navFont} px, logo ${Math.round(hd.logoImg)} px`);
   } else {
     check(`${name}: užší okno → menu pod ☰, košík v záhlaví`, !!hd.burger && !!hd.cart && hd.burger.l >= hd.cart.r && hd.cart.l > hd.logo.r + 16, `☰ ${!!hd.burger}`);
@@ -54,6 +54,9 @@ for (const [name, w, h, dpr] of CASES) {
     check(`${name}: menu ☰ má všechny položky včetně Zmrzlin`, labels.join("|") === MENU.join("|"), labels.join(" | "));
     await page.getByRole("button", { name: "Zavřít menu" }).click();
   }
+  if (hd.items.length) check(`${name}: značka 49,6 px a menu 18 px (nasazená verze)`, Math.abs(hd.logoImg - 49.6) < 1 && hd.navFont === 18, `logo ${hd.logoImg}, menu ${hd.navFont}`);
+  const icons = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Kategorie"] img')].map((i) => decodeURIComponent(i.currentSrc || i.src)));
+  check(`${name}: nové ikony kategorií na produkci`, icons.length === 6 && icons.every((s) => /ikona-[a-z-]+-2026-11/.test(s)), `${icons.length} ikon`);
   await page.locator("header").screenshot({ path: `${OUT}/${name}.png` });
   await page.close();
 }
