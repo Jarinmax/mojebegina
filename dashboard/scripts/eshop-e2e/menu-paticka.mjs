@@ -35,7 +35,7 @@ const DRINKS = ["Čaje", "Ovocné nápoje", "Alkoholické koktejly"];
 
 for (const [name, viewport] of VIEWPORTS) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: name.startsWith("mobil") ? 2 : 1, hasTouch: name !== "pocitac" });
-  const mobileMenu = viewport.width < 1024;
+  const mobileMenu = viewport.width < 1280;
 
   // --- nadpis úvodu
   await page.goto(url("/"), { waitUntil: "networkidle" });

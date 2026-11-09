@@ -2,10 +2,10 @@
 
 // Horní menu e-shopu.
 //
-// Počítač (lg+): řádek v záhlaví; „Nápoje“ je tlačítko s rozbalovacím
+// Počítač (xl+, od 1280 px): řádek v záhlaví; „Nápoje“ je tlačítko s rozbalovacím
 // panelem (kliknutí, dotyk i najetí myší; Esc / klepnutí mimo zavře).
 //
-// Mobil a tablet (do lg) — zadání majitele 9. 11. 2026: místo vodorovného
+// Mobil a tablet (do 1280 px, celé menu se do řádku nevejde) — zadání majitele 9. 11. 2026: místo vodorovného
 // řádku, který přetékal mimo obrazovku, ikona ☰ vedle košíku. Otevře panel
 // pod záhlavím se všemi položkami pod sebou (velké dotykové plochy, min.
 // 48 px); „Nápoje“ se rozbalí na místě (Čaje, Ovocné nápoje, Alkoholické
@@ -84,7 +84,7 @@ function DesktopNav({ entries }: { entries: MenuEntry[] }) {
   // Myš nabídku otevírá už najetím — kliknutí ji pak nesmí hned zavřít.
   const hoveredByMouse = useRef(false);
   return (
-    <div ref={rootRef} className="hidden lg:block min-w-0">
+    <div ref={rootRef} className="hidden xl:block min-w-0">
       <nav aria-label="Hlavní menu">
         <ul className="flex items-center gap-5 xl:gap-8 text-[15px]">
           {entries.map((entry) =>
@@ -183,7 +183,7 @@ function MobileNav({ entries }: { entries: MenuEntry[] }) {
   const row = "flex w-full items-center justify-between min-h-12 px-5 py-3 text-base text-begina-primary-900 active:bg-begina-primary-50";
 
   return (
-    <div className="lg:hidden">
+    <div className="xl:hidden">
       <button
         ref={buttonRef}
         type="button"
