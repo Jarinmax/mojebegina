@@ -12,7 +12,7 @@ import {
   setWorkTaskDone,
   updateWorkTask,
 } from "@/lib/data/workTasks";
-import { reviewEshopCheck } from "@/lib/data/eshopCheck";
+import { addEshopCheckNote, reviewEshopCheck } from "@/lib/data/eshopCheck";
 
 export type PraceActionState = { error: string } | { success: string } | null;
 
@@ -112,6 +112,20 @@ export async function reviewEshopCheckAction(taskId: string, approve: boolean, _
   } catch (error) {
     console.error("reviewEshopCheckAction", error);
     return { error: "Rozhodnutí se nepodařilo uložit. Zkuste to prosím znovu." };
+  }
+}
+
+// Registr „Kontrola e-shopu – Lucie“: poznámka bez rozhodnutí (Lucie i vedoucí).
+export async function addEshopCheckNoteAction(taskId: string, _prev: PraceActionState, formData: FormData): Promise<PraceActionState> {
+  try {
+    const result = await addEshopCheckNote(taskId, String(formData.get("note") ?? ""));
+    if (!result.ok) return { error: result.error };
+    revalidatePath(`/prace/ukol/${taskId}`);
+    revalidatePath("/prace/kontrola-eshopu");
+    return { success: "Poznámka je uložená." };
+  } catch (error) {
+    console.error("addEshopCheckNoteAction", error);
+    return { error: "Poznámku se nepodařilo uložit. Zkuste to prosím znovu." };
   }
 }
 

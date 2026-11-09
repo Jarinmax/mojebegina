@@ -74,6 +74,11 @@ export function historyText(h: WorkTaskHistoryEntry): string {
       what = `vráceno k opravě (důvod: ${String(meta.reason ?? "—")})`;
       break;
     case "updated": {
+      // poznámka ke kartě registru „Kontrola e-shopu – Lucie“ (bez rozhodnutí)
+      if (typeof meta.note === "string" && meta.note) {
+        what = `poznámka: ${meta.note}`;
+        break;
+      }
       const changes = (meta.changes ?? {}) as Record<string, { from: unknown; to: unknown }>;
       const parts = Object.entries(changes).map(([field, c]) =>
         field === "description" ? "popis změněn" : `${FIELD_LABEL[field] ?? field} ${fieldValue(field, c.from)} → ${fieldValue(field, c.to)}`

@@ -14,6 +14,9 @@ export default function EshopCheckReviewPanel({ taskId, returned }: { taskId: st
     <div className="flex flex-col gap-3 rounded-xl border border-slate-300 bg-slate-50 p-3">
       <p className="text-sm font-medium text-slate-800">
         {returned ? "Vrátila jste k opravě. Až bude opraveno, zkontrolujte znovu." : "Vaše kontrola: projděte body výše a rozhodněte."}
+        <span className="block text-xs font-normal text-slate-600 mt-0.5">
+          Schvalte jen opravu, která je hotová a funguje. Na otázku nebo upřesnění odpovězte poznámkou níže.
+        </span>
       </p>
       {!returning && (
         <form action={approve} className="flex flex-col gap-2">

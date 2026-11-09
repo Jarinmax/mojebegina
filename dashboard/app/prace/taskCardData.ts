@@ -37,8 +37,9 @@ export function toneLabel(tone: WorkTaskTone, t: WorkTaskView): string {
 }
 
 function cardAction(t: WorkTaskView, isManager: boolean, place: "list" | "detail"): TaskCardAction {
-  // karta registru „Kontrola e-shopu – Lucie“: rozhodnutí jen v detailu (schválit / vrátit)
-  if (isEshopCheckTask(t.title)) return "none";
+  // karta registru „Kontrola e-shopu – Lucie“: rozhodnutí jen v detailu (schválit / vrátit);
+  // schválenou kartu lze vrátit mezi čekající („Zrušit schválení“) — Lucie i vedoucí
+  if (isEshopCheckTask(t.title)) return t.status === "done" ? "reopen" : "none";
   if (t.status === "cancelled" || t.status === "submitted") return "none";
   if (t.status === "done") return isManager || !t.requiresApproval ? "reopen" : "none";
   if (place === "detail") return "none"; // na detailu má dokončení vlastní tlačítko s fotkami
@@ -54,7 +55,9 @@ export function toCard(t: WorkTaskView, today: string, isManager: boolean, place
   }
   if (t.requiresApproval) notes.push("Vyžaduje schválení");
   let doneLabel: string | null = null;
-  if (t.doneAt) {
+  if (t.doneAt && isEshopCheckTask(t.title)) {
+    doneLabel = `Schválila ${t.approvedByName ?? t.doneByName ?? "—"} · ${fmtDateTime(t.doneAt)}`;
+  } else if (t.doneAt) {
     doneLabel = `Splnil(a) ${t.doneByName ?? "—"} · ${fmtDateTime(t.doneAt)}`;
     if (t.approvedAt) doneLabel += ` · schválil(a) ${t.approvedByName ?? "—"}`;
   } else if (t.cancelledAt) {
