@@ -23,7 +23,7 @@ describe("80 sirupy nad stavem Production", { timeout: 120_000 }, () => {
     for (const f of ["31_sirupy.sql", "41_polevky.sql", "51_caje.sql"]) await pg.exec(catalog(f));
     // stav Production před úpravou
     await pg.query(`UPDATE products p SET storage_instructions = $1, shelf_life_note = NULL,
-      description = description || ARRAY['**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**', 'Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.']
+      description = ARRAY(SELECT d FROM unnest(description) d WHERE d NOT LIKE '%Zlaté pravidlo%' AND d NOT LIKE '%20 ml sirupu%') || ARRAY['**Zlaté pravidlo Beginy:** doporučený poměr je **1:10**', 'Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.']
       FROM product_categories c WHERE c.id = p.category_id AND c.slug = 'sirupy'`, [OLD_STORAGE]);
     await pg.query(`UPDATE product_variants SET label = 'Begina 3 l', weight_g = 3000 WHERE sku LIKE '%sirup%-3l'`);
     await pg.query(`UPDATE product_variants SET label = '750 g', volume_ml = NULL, servings = 37, short_note = 'Až 37 nápojů', weight_g = 750 WHERE sku LIKE '%sirup%-750ml'`);
@@ -31,7 +31,9 @@ describe("80 sirupy nad stavem Production", { timeout: 120_000 }, () => {
 
   it("generátor katalogu už má nové hodnoty", () => {
     const sql = catalog("31_sirupy.sql");
-    expect(sql).not.toMatch(/Begina 3 l|750 g|Zlaté pravidlo|20 ml sirupu|25 °C/);
+    expect(sql).not.toMatch(/Begina 3 l|750 g|25 °C/);
+    // Zlaté pravidlo je od 9. 11. 2026 (večer) v popisu zpět v novém znění (skript 81)
+    expect(sql).toContain("doporučený poměr ředění je **1 : 10**.");
     expect(sql).toContain(SYRUP_STORAGE);
     expect(sql).toContain(SYRUP_SHELF_LIFE);
   });

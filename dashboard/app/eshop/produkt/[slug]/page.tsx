@@ -23,6 +23,7 @@ import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
+import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +114,10 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const hasChoice = product.variants.length > 1;
   // Úvodní odstavce = „Popis“; sekce „## …“ (Pro koho je vhodný, Jak sirup používat…) až pod chutí, jako na begina.cz.
   const description = parseDescription(product.description);
+  const packagingItems = product.variants.flatMap((variant) => {
+    const copy = packagingCopy(product.category, variant.label);
+    return copy ? [{ sku: variant.sku, copy }] : [];
+  });
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
@@ -208,17 +213,21 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             </section>
           ))}
 
-          {product.variants.some((variant) => variant.description) && (
+          {/* Balení (9. 11. 2026): jen varianty, které produkt nabízí; objem tučně,
+              pomlčka, popis malým písmenem; odkaz na stránku O balení. */}
+          {packagingItems.length > 0 && (
             <section className="mt-8 border-t border-neutral-200 pt-6 text-neutral-700">
               <h2 className="font-medium text-begina-primary-900 mb-3">Balení</h2>
               <ul className="flex flex-col gap-3">
-                {product.variants.map((variant) => (
-                  <li key={variant.sku}>
-                    <span className="font-medium text-begina-primary-900">{variant.label}.</span>{" "}
-                    {variant.description}
+                {packagingItems.map(({ sku, copy }) => (
+                  <li key={sku}>
+                    <strong className="font-semibold text-begina-primary-900">{copy.volume}</strong> – {copy.text}
                   </li>
                 ))}
               </ul>
+              <ShopLink href={PACKAGING_PAGE_PATH} className="mt-3 inline-block font-medium underline underline-offset-4 text-begina-primary-900">
+                {PACKAGING_MORE_LABEL}
+              </ShopLink>
             </section>
           )}
 

@@ -37,7 +37,7 @@ export const VARIANTS = [
     label: "3 l",
     note: "Až 150 nápojů",
     description:
-      "Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.",
+      "3 l – praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete. Dodáváme v kartonové krabici.", // lib/eshop/packaging.ts
     volumeMl: 3000,
     servings: 150,
     price: (product) => product.price3l,
@@ -48,7 +48,7 @@ export const VARIANTS = [
     suffix: "750ml",
     label: "700 ml",
     note: "Až 35 nápojů",
-    description: "Lehké a nerozbitné balení vhodné na cesty, do práce nebo pro menší spotřebu.",
+    description: "700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.", // objem obsahu; sáček má kapacitu 750 ml
     volumeMl: 700,
     servings: 35, // 700 ml : 20 ml sirupu na nápoj (ředění 1 : 10)
     price: () => 199,
@@ -57,9 +57,11 @@ export const VARIANTS = [
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 const MIX = "**Stačí smíchat s vodou a během chvíle vznikne poctivá domácí limonáda nebo hřejivý bylinný nápoj.**";
-// Ředění je od 9. 11. 2026 jen v řádku „Příprava“ (Informace o potravině),
-// v popisu se neopakuje (dřív „Zlaté pravidlo Beginy … 20 ml na 200 ml“).
-const GOLDEN_RULE = [];
+// Závěr sekce „Jak sirup používat“ — u všech sirupů stejný (znění 9. 11. 2026).
+const GOLDEN_RULE = [
+  "**Zlaté pravidlo Beginy:** doporučený poměr ředění je **1 : 10**.",
+  "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
+];
 // Skladování a trvanlivost — společné pro všechny sirupy (lib/eshop/syrupFoodInfo.ts).
 const STORAGE = "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.";
 const SHELF_LIFE = "Minimální trvanlivost do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";

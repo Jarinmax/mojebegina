@@ -59,9 +59,10 @@ export const MOJE_BEGINA_LINK: MenuLink = { kind: "link", href: "https://moje.be
 /**
  * Horní menu: kategorie v pořadí HOME_CATEGORIES, nápojové kategorie
  * sloučené do jedné rozbalovací položky na místě první z nich, za nimi
- * `extra` (O nás, O vodě, MojeBegina). Bez nápojových kategorií se „Nápoje“ nezobrazí.
+ * `extra` (od 9. 11. 2026 skupina „O nás“ — Náš příběh, O vodě, O balení —
+ * a MojeBegina). Bez nápojových kategorií se „Nápoje“ nezobrazí.
  */
-export function mainMenu(categories: HomeCategory[], extra: MenuLink[] = []): MenuEntry[] {
+export function mainMenu(categories: HomeCategory[], extra: MenuEntry[] = []): MenuEntry[] {
   const entries: MenuEntry[] = [];
   let drinks: MenuGroup | null = null;
   for (const c of categories) {

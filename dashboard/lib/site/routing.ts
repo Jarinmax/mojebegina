@@ -61,6 +61,7 @@ const ESHOP_PAGES = new Set([
   "/doprava",
   "/o-nas",
   "/o-vode",
+  "/o-baleni",
   "/obchodni-podminky",
   "/odstoupeni-od-smlouvy",
   "/ochrana-osobnich-udaju",

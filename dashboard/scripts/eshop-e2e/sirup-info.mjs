@@ -37,7 +37,7 @@ for (const [name, device] of CASES) {
       check(`${name} ${slug}: ${label}`, dd === text, dd ?? "chybí");
     }
     const body = await page.evaluate(() => document.querySelector("main").innerText);
-    check(`${name} ${slug}: bez „Doplníme“ u trvanlivosti, bez starých textů`, !/25 °C|dobře uzavřeném|Zlaté pravidlo|20 ml sirupu|Begina 3 l|750 g|750 ml|bag-in-box|zavodn|zavír/i.test(body), (body.match(/25 °C|dobře uzavřeném|Zlaté pravidlo|20 ml sirupu|Begina 3 l|750 g|750 ml|bag-in-box/gi) ?? []).join(", "));
+    check(`${name} ${slug}: bez „Doplníme“ u trvanlivosti, bez starých textů`, !/25 °C|dobře uzavřeném|Begina 3 l|750 g|750 ml|bag-in-box|zavodn|zavír/i.test(body), (body.match(/25 °C|dobře uzavřeném|Begina 3 l|750 g|750 ml|bag-in-box/gi) ?? []).join(", "));
     const pick = body.match(/(^|\n)(3 l|700 ml)(?=\n|\s)/g) ?? [];
     check(`${name} ${slug}: varianty 3 l a 700 ml`, /(^|\n)3 l/.test(body) && /700 ml/.test(body), pick.map((x) => x.trim()).join(" | "));
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);

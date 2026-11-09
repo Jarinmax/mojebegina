@@ -60,7 +60,7 @@ describe("katalog — Ovocné nápoje", DB_TEST, () => {
   it("před, 71, po: produkty vzniknou SKRYTÉ — nejsou na webu a nejdou objednat; opakování nic nezdvojí", async () => {
     expect(await check(pg, "70_ovocne_napoje_before.sql")).toBe("1 | 0 | 0 | 25");
     await pg.exec(file("71_ovocne_napoje.sql"));
-    const after = "3 | 0 | 3 | 3 l Rodinná zásoba (bag-in-box), 349 Kč | 399 Kč, 15 nápojů | 3";
+    const after = "3 | 0 | 3 | 3 l, 349 Kč | 399 Kč, 15 nápojů | 3";
     expect(await check(pg, "72_ovocne_napoje_after.sql")).toBe(after);
     await pg.exec(file("71_ovocne_napoje.sql"));
     expect(await check(pg, "72_ovocne_napoje_after.sql")).toBe(after);

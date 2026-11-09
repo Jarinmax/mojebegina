@@ -45,11 +45,15 @@ function categoryTile(category: Pick<Category, "slug" | "name" | "image">): Caro
   };
 }
 
-/** Výchozí kolotoč: kategorie s fotkou (volitelně bez té, na jejíž stránce právě jsme). */
+/**
+ * Výchozí kolotoč: všechny kategorie (volitelně bez té, na jejíž stránce
+ * právě jsme). Od 9. 11. 2026 i kategorie bez fotky (Zmrzliny) — dlaždice
+ * pak ukáže ikonu kategorie z pruhu na úvodu (CategoryTile).
+ */
 export function categoryCarousel(catalog: Catalog, exceptSlug?: string): PageCarouselContent {
   return {
     label: "Naše produkty",
-    tiles: catalog.categories.filter((c) => c.image && c.slug !== exceptSlug).map(categoryTile),
+    tiles: catalog.categories.filter((c) => c.slug !== exceptSlug).map(categoryTile),
   };
 }
 

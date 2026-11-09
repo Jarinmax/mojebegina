@@ -43,35 +43,35 @@ function input(overrides: Partial<CheckoutInput> = {}): CheckoutInput {
 
 describe("označení balení", () => {
   it("štítek = jen množství s jednotkou, jednotky se nezamění", () => {
-    expect(simplePackageLabel("3 l Rodinná zásoba (bag-in-box)")).toBe("Begina 3 l");
+    expect(simplePackageLabel("3 l Rodinná zásoba (bag-in-box)")).toBe("3 l");
     expect(simplePackageLabel("500 ml Praktické balení")).toBe("500 ml");
     expect(simplePackageLabel("750 g Praktické balení")).toBe("750 g");
     expect(simplePackageLabel("750 ml")).toBe("750 ml");
     // sirupy od 9. 11. 2026: přesné „3 l“ zůstává
     expect(simplePackageLabel("3 l")).toBe("3 l");
     expect(simplePackageLabel("700 ml")).toBe("700 ml");
-    expect(simplePackageLabel("Begina 3 l")).toBe("Begina 3 l");
+    expect(simplePackageLabel("Begina 3 l")).toBe("3 l"); // od 9. 11. 2026 jen objem
     expect(simplePackageLabel("Dárkové balení")).toBe("Dárkové balení");
   });
 
   it("názvy položek starších objednávek se zobrazí zkráceně", () => {
-    expect(displayItemName("Dýňová polévka — 3 l Rodinná zásoba (bag-in-box)")).toBe("Dýňová polévka – Begina 3 l");
+    expect(displayItemName("Dýňová polévka — 3 l Rodinná zásoba (bag-in-box)")).toBe("Dýňová polévka – 3 l");
     expect(displayItemName("Svařák Deluxe — 500 ml Praktické balení")).toBe("Svařák Deluxe – 500 ml");
     expect(displayItemName("Šípkový sirup — 750 g Praktické balení")).toBe("Šípkový sirup – 750 g");
     expect(displayItemName("Lipový sirup – 3 l")).toBe("Lipový sirup – 3 l");
-    expect(displayItemName("Lipový sirup – 3 l Rodinná zásoba")).toBe("Lipový sirup – Begina 3 l"); // historická objednávka beze změny
+    expect(displayItemName("Lipový sirup – 3 l Rodinná zásoba")).toBe("Lipový sirup – 3 l");
     expect(displayItemName("Kulajda – Begina 3 l")).toBe("Kulajda – Begina 3 l");
     // ruční / B2B položky bez balení zůstávají
     expect(displayItemName("Rozvoz — Praha 4")).toBe("Rozvoz — Praha 4");
     expect(displayItemName("Polévka dne")).toBe("Polévka dne");
   });
 
-  it("nová objednávka ukládá název „Svařák Deluxe – Begina 3 l“, cena a množství beze změny", () => {
+  it("nová objednávka ukládá název „Svařák Deluxe – 3 l“, cena a množství beze změny", () => {
     const result = validate(input({ cart: JSON.stringify([{ sku: "svarak-deluxe-3l", quantity: 5 }, { sku: "svarak-deluxe-500ml", quantity: 1 }]), ageConfirmed: true }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.pricedCart.lines.map((l) => [l.sku, l.name, l.quantity])).toEqual([
-      ["svarak-deluxe-3l", "Svařák Deluxe – Begina 3 l", 5],
+      ["svarak-deluxe-3l", "Svařák Deluxe – 3 l", 5],
       ["svarak-deluxe-500ml", "Svařák Deluxe – 500 ml", 1],
     ]);
   });
@@ -307,7 +307,7 @@ const ctx = { baseUrl: "https://begina.cz", withheld: [], test: false };
 describe("e-maily: oddělené bloky", () => {
   it("interní oznámení: Fakturační / Doručovací / Kontakt, doprava zvlášť bez adresy", () => {
     const mail = internalOrderEmail(emailOrder, ctx);
-    expect(mail.text).toContain("5× Dýňová polévka – Begina 3 l");
+    expect(mail.text).toContain("5× Dýňová polévka – 3 l");
     expect(mail.html).not.toMatch(/bag-in-box|Rodinná zásoba/);
     for (const part of ["Fakturační údaje", "Doručovací údaje", "Kontakt zákazníka", "Bistro s.r.o.", "IČO: 74337297", "Petr Novák", "Kancelář Praha", "Tel.: +420 608 000 111", "E-mail: jana@example.cz"]) {
       expect(mail.html, part).toContain(part);

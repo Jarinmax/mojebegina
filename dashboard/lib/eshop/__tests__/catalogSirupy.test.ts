@@ -80,7 +80,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(parseDescription(saman.description).intro).toHaveLength(3);
     expect(parseDescription(saman.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
-      ["Jak jej používat", ["ul"]],
+      ["Jak jej používat", ["ul", "p", "p"]],
     ]);
     expect(saman.taste!.split("\n\n")).toHaveLength(2);
     expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen pravý \(Panax ginseng\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
@@ -99,7 +99,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(zazvor.foodInfo.storage).toBe(SYRUP_STORAGE);
     expect(parseDescription(zazvor.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
-      ["Jak sirup používat", ["ul"]],
+      ["Jak sirup používat", ["ul", "p", "p"]],
     ]);
     // Alergeny na begina.cz nejsou → „Doplníme“; trvanlivost, příprava a vrácení od 9. 11. 2026 u všech sirupů.
     expect(syrups.every((p) => p.foodInfo.allergens === null && p.foodInfo.shelfLife === SYRUP_SHELF_LIFE)).toBe(true);
@@ -126,7 +126,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(sipek.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
     expect(parseDescription(sipek.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
-      ["Jak sirup používat", ["ul"]],
+      ["Jak sirup používat", ["ul", "p", "p"]],
     ]);
     // Ibiškový: 41 % výluhu, citronová šťáva 8 %, nadpis „Pro koho vhodný“ doslova
     const ibisek = syrups[3];
@@ -149,7 +149,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       expect([p.slug, parsed.intro.length, parsed.sections.length, p.highlights.length, p.taste !== null, p.foodInfo.nutritionPer100g !== null, p.foodInfo.storage !== null]).toEqual([p.slug, 3, 2, 4, true, true, true]);
     }
     // Balení: popis u všech sirupů
-    expect(syrups.every((p) => p.variants[0].description!.startsWith("Pro snadnou manipulaci") && p.variants[1].description!.startsWith("Lehké a nerozbitné"))).toBe(true);
+    expect(syrups.every((p) => p.variants[0].description!.startsWith("3 l – praktické balení") && p.variants[0].description!.endsWith("Dodáváme v kartonové krabici.") && p.variants[1].description!.startsWith("700 ml – lehké balení ve stříbrném sáčku"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;
     // společná sekce detailu (i pro Šamana)
     expect(category.detailSections).toEqual([

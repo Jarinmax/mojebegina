@@ -21,7 +21,8 @@ const VIEWPORTS = [
   ["pocitac", { width: 1440, height: 900 }],
 ];
 const PAGES = ["/", "/kategorie/polevky", "/kategorie/sirupy", "/o-nas", "/o-vode", "/doprava", "/obchodni-podminky", "/kosik"];
-const MENU = ["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě", "MojeBegina"];
+const MENU = ["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "MojeBegina"];
+const ABOUT = ["Náš příběh", "O vodě", "O balení"];
 const DRINKS = ["Čaje", "Ovocné nápoje", "Alkoholické koktejly"];
 
 // první produkt pro kontrolu stránky produktu
@@ -137,10 +138,14 @@ for (const [name, viewport] of VIEWPORTS) {
   if (stillOpen) await page.keyboard.press("Escape");
   check(`${name}: zavře klepnutí mimo / Esc`, !(await panel.isVisible()));
   // každá položka e-shopu vede na existující stránku
-  for (const [label, sub] of [...expected.filter((m) => m !== "Nápoje" && m !== "MojeBegina").map((m) => [m, false]), ...(hasDrinks ? DRINKS : []).map((d) => [d, true])]) {
-    await page.goto(url("/"), { waitUntil: "networkidle" });
+  for (const [label, sub] of [
+    ...expected.filter((m) => !["Nápoje", "O nás", "MojeBegina"].includes(m)).map((m) => [m, null]),
+    ...(hasDrinks ? DRINKS : []).map((d) => [d, "Nápoje"]),
+    ...ABOUT.map((d) => [d, "O nás"]),
+  ]) {
+    await page.goto(url("/"), { waitUntil: "load" });
     await page.getByRole("button", { name: "Otevřít menu" }).tap();
-    if (sub) await panel.getByRole("button", { name: "Nápoje" }).tap();
+    if (sub) await panel.getByRole("button", { name: sub }).tap();
     const link = panel.getByRole("link", { name: label, exact: true });
     await link.scrollIntoViewIfNeeded();
     const href = await link.getAttribute("href");

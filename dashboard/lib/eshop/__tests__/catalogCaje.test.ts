@@ -40,9 +40,9 @@ describe("katalog — Čaje", DB_TEST, () => {
   it("před, skript, po; opakované spuštění nic nezdvojí", async () => {
     expect(await check(pg, "50_caje_before.sql")).toBe("1 | 0 | 0 | 17");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů");
+    expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l, 289 Kč | 8 | 249 Kč, 12 nápojů");
     await pg.exec(file("51_caje.sql"));
-    expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l Rodinná zásoba (bag-in-box), 289 Kč | 8 | 249 Kč, 12 nápojů");
+    expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l, 289 Kč | 8 | 249 Kč, 12 nápojů");
   });
 
   it("e-shop: Bylinný čaj Šaman z begina.cz", async () => {

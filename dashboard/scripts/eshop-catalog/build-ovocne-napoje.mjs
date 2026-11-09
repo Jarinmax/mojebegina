@@ -47,10 +47,10 @@ export const CATEGORY = {
 
 const bagInBox = (slug, price, servings) => ({
   sku: `${slug}-3l`,
-  label: "3 l Rodinná zásoba (bag-in-box)",
+  label: "3 l", // od 9. 11. 2026 jen objem (lib/eshop/packageLabel.ts)
   note: "Ideální pro sdílení nebo více příležitostí.",
   description:
-    "Pro snadnou manipulaci a bezpečné uložení. Speciální balení bez přístupu vzduchu pomáhá chránit chuť i kvalitu produktu během skladování i po otevření. Zároveň umožňuje snadné dávkování přímo z kohoutku.",
+    "3 l – praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete.", // lib/eshop/packaging.ts
   volumeMl: 3000,
   servings,
   price,
