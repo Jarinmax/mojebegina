@@ -32,8 +32,11 @@ for (const [name, device] of CASES) {
   const vw = page.viewportSize().width;
   await page.goto(url("/"), { waitUntil: "networkidle" });
   const m = await page.evaluate(() => {
-    const st = (el) => { const s = getComputedStyle(el); const fs = parseFloat(s.fontSize); const lh = s.lineHeight === "normal" ? fs * 1.2 : parseFloat(s.lineHeight); return { fs, lh: lh / fs, color: s.color.match(/\d+/g).slice(0, 3).map(Number), w: s.fontWeight }; };
-    const bg = (el) => { while (el) { const c = getComputedStyle(el).backgroundColor; const m = c.match(/\d+(\.\d+)?/g); if (m && (m.length < 4 || Number(m[3]) > 0.5)) return m.slice(0, 3).map(Number); el = el.parentElement; } return [255, 255, 255]; };
+    // barvy převést přes canvas na RGB (Tailwind 4 používá oklch())
+    const cv = document.createElement("canvas"); cv.width = cv.height = 1; const cx = cv.getContext("2d", { willReadFrequently: true });
+    const rgb = (c) => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = "#000"; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3]]; };
+    const st = (el) => { const s = getComputedStyle(el); const fs = parseFloat(s.fontSize); const lh = s.lineHeight === "normal" ? fs * 1.2 : parseFloat(s.lineHeight); return { fs, lh: lh / fs, color: rgb(s.color).slice(0, 3), w: s.fontWeight }; };
+    const bg = (el) => { while (el) { const c = getComputedStyle(el).backgroundColor; const v = rgb(c); if (c !== "transparent" && v[3] > 128) return v.slice(0, 3); el = el.parentElement; } return [255, 255, 255]; };
     const pick = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getBoundingClientRect().width > 0).map((e) => ({ ...st(e), bg: bg(e), text: e.textContent.trim().slice(0, 30), box: e.getBoundingClientRect().toJSON() }));
     return {
       labels: pick('nav[aria-label="Kategorie"] a > span:last-child'),
