@@ -64,7 +64,8 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
       "na 100 ml: energie 283 kJ / 68 kcal, tuky 4 g (z toho nasycené 2,7 g), sacharidy 7,6 g (z toho cukry 2 g), bílkoviny 1 g, sůl 0,8 g, vláknina 1,1 g"
     );
     expect(dyne.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 %/);
-    expect(dyne.foodInfo.storage).toMatch(/Výrobek podléhá rychlé zkáze, a nelze jej vrátit po zakoupení\.$/);
+    // právní upozornění už není ve Skladování (samostatný řádek Vrácení a reklamace)
+    expect(dyne.foodInfo.storage).not.toMatch(/odstoupení|nelze jej vrátit/);
     // všechny polévky: bez alergenů, trvanlivost 14 dnů (údaje vedení)
     for (const soup of list) {
       expect(soup.foodInfo.allergens, soup.slug).toEqual([]);
