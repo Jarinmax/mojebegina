@@ -149,7 +149,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       expect([p.slug, parsed.intro.length, parsed.sections.length, p.highlights.length, p.taste !== null, p.foodInfo.nutritionPer100g !== null, p.foodInfo.storage !== null]).toEqual([p.slug, 3, 2, 4, true, true, true]);
     }
     // Balení: popis u všech sirupů
-    expect(syrups.every((p) => p.variants[0].description!.startsWith("Pro snadnou manipulaci") && p.variants[1].description!.startsWith("Lehké a nerozbitné"))).toBe(true);
+    expect(syrups.every((p) => p.variants[0].description!.startsWith("3 l – praktické balení") && p.variants[0].description!.endsWith("Dodáváme v kartonové krabici.") && p.variants[1].description!.startsWith("700 ml – lehké balení ve stříbrném sáčku"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;
     // společná sekce detailu (i pro Šamana)
     expect(category.detailSections).toEqual([
