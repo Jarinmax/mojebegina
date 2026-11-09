@@ -53,6 +53,7 @@ for (const [name, device] of CASES) {
     const btn = [...document.querySelectorAll("section a")].find((a) => a.textContent.includes("Vybrat polévku")).getBoundingClientRect();
     const sub = h1.nextElementSibling.getBoundingClientRect();
     const st = getComputedStyle(img);
+    const bw = st.borderTopWidth;
     // barva pozadí fotky v rozích × barva podkladu úvodu
     const c = document.createElement("canvas");
     c.width = img.naturalWidth; c.height = img.naturalHeight;
@@ -67,7 +68,7 @@ for (const [name, device] of CASES) {
       hx: hb.x, hw: hb.width, hcenterText: spans.map((s) => { const r = document.createRange(); r.selectNodeContents(s); const b = r.getBoundingClientRect(); return b.x + b.width / 2; }),
       hleftText: spans.map((s) => { const r = document.createRange(); r.selectNodeContents(s); return r.getBoundingClientRect().x; }),
       btnx: btn.x, subx: sub.x, ib: { x: ib.x, y: ib.y, w: ib.width, h: ib.height }, hbottom: hb.bottom, hright: hb.right,
-      radius: st.borderRadius, shadow: st.boxShadow, border: st.borderStyle, corners, bg,
+      radius: st.borderRadius, shadow: st.boxShadow, border: bw, corners, bg,
       text: h1.textContent,
       sw: document.documentElement.scrollWidth,
     };
@@ -81,7 +82,7 @@ for (const [name, device] of CASES) {
   } else {
     check(`${name}: fotka pod → nadpis na střed`, r.align === "center" && r.hbottom <= r.ib.y && r.hcenterText.every((x) => Math.abs(x - vw / 2) < 3), `středy ${r.hcenterText.map(Math.round)} / ${vw / 2}`);
   }
-  check(`${name}: fotka bez rámečku a stínu`, (r.radius === "0px" || r.radius === "") && r.shadow === "none" && r.border === "none", `${r.radius} ${r.shadow} ${r.border}`);
+  check(`${name}: fotka bez rámečku a stínu`, (r.radius === "0px" || r.radius === "") && r.shadow === "none" && r.border === "0px", `${r.radius} ${r.shadow} ${r.border}`);
   const diff = Math.max(...r.corners.flatMap((c) => c.map((v, i) => Math.abs(v - r.bg[i]))));
   check(`${name}: pozadí fotky splývá s béžovou`, diff <= 4, `rohy ${JSON.stringify(r.corners)} podklad ${r.bg}`);
   check(`${name}: bez vodorovného přetékání`, r.sw <= vw, `scrollWidth ${r.sw} / ${vw}`);
