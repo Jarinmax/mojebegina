@@ -201,7 +201,7 @@ function MobileNav({ entries }: { entries: MenuEntry[] }) {
           <div aria-hidden="true" onClick={close} style={{ top }} className="fixed inset-x-0 bottom-0 z-20 bg-black/30" />
           <nav
             id={panelId}
-            aria-label="Hlavní menu"
+            aria-label="Menu"
             style={{ top, maxHeight: `calc(100dvh - ${top}px)` }}
             className="fixed inset-x-0 z-30 overflow-y-auto overscroll-contain border-t border-neutral-200 bg-white shadow-lg"
           >

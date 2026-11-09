@@ -104,7 +104,7 @@ for (const [name, viewport] of VIEWPORTS) {
   }
   check(`${name}: ikona ☰ viditelná, plocha min. 44 px`, (await burger.isVisible()) && (await burger.boundingBox()).width >= 44);
   await burger.tap();
-  const panel = page.locator('header nav[aria-label="Hlavní menu"]');
+  const panel = page.locator('header nav[aria-label="Menu"]');
   await panel.waitFor({ state: "visible" });
   const top = await panel.locator(":scope > ul > li").allInnerTexts();
   check(`${name}: menu má všechny položky v pořadí`, top.map((s) => s.trim()).join("|") === MENU.join("|"), top.join("|"));
