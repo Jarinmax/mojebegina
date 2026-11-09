@@ -51,7 +51,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
 
   it("e-shop: Dýňová polévka z begina.cz (vláknina, sekce Pro koho, fotka); ostatní polévky beze změny", async () => {
     const list = await soups();
-    expect(list.map((p) => p.name)).toEqual(["Dýňová polévka", "Kulajda", "Rajčatová polévka", "Rajčatová polévka s červenou řepou", "Gulášová polévka z hlívy ústřičné", "Špenátová polévka"]);
+    expect(list.map((p) => p.name)).toEqual(["Dýňová polévka", "Kulajda", "Tomatová polévka", "Rajčatová polévka s červenou řepou", "Gulášová polévka z hlívy ústřičné", "Špenátová polévka"]);
     const dyne = list[0];
     expect(dyne.shortDescription).toBe("Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.");
     expect(dyne.highlights).toEqual(["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"]);
