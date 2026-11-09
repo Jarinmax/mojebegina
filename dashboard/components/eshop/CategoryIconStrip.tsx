@@ -18,13 +18,16 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
               href={`/kategorie/${category.slug}`}
               className="group flex flex-col items-center gap-2 px-2 text-center"
             >
-              <span className="h-20 sm:h-24 lg:h-[clamp(3.5rem,9vh,5.5rem)] flex items-end">
+              {/* Všechny ikony mají stejné plátno (stejná zem i výška), takže
+                  je stačí zobrazit ve stejné výšce — optická velikost sedí. */}
+              <span className="h-[4.5rem] sm:h-20 lg:h-[clamp(4.5rem,11.5vh,6.5rem)] flex items-end">
                 <Image
                   src={category.icon}
                   alt=""
-                  width={140}
-                  height={110}
-                  className="max-h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
+                  width={category.iconSize?.[0] ?? 200}
+                  height={category.iconSize?.[1] ?? 240}
+                  sizes="(min-width: 1024px) 110px, 80px"
+                  className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
               <span className="text-sm lg:text-base leading-snug font-medium text-[#5E6B34] group-hover:underline underline-offset-4">

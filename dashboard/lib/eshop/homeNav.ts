@@ -2,35 +2,39 @@
 // plné názvy kategorií, Čaje / Ovocné nápoje / Alkoholické koktejly pod
 // rozbalovací položkou „Nápoje“, Zmrzliny s vlastní ilustrací v pruhu.
 // Zobrazí se jen kategorie, které v katalogu (DB) opravdu jsou.
+// Ikony od 9. 11. 2026: jednotná sada podle schválené ikony koktejlu
+// (Cosmopolitan) — sytější barvy, stejné plátno, zem a výška.
 
 export type HomeCategory = {
   slug: string;
   menuLabel: string;
   stripLabel: string;
   icon: string | null;
+  /** rozměry souboru ikony (px) — všechny ikony mají stejné plátno a výšku */
+  iconSize?: [number, number];
   /** "napoje" = položka v rozbalovací nabídce Nápoje, ne samostatně v menu */
   group?: "napoje";
 };
 
 export const HOME_CATEGORIES: HomeCategory[] = [
-  { slug: "polevky", menuLabel: "Čerstvé polévky", stripLabel: "Čerstvé polévky", icon: "/eshop/hero/ikona-polevky.webp" },
-  { slug: "sirupy", menuLabel: "Bylinné sirupy", stripLabel: "Bylinné sirupy", icon: "/eshop/hero/ikona-sirupy.webp" },
-  { slug: "caje", menuLabel: "Čaje", stripLabel: "Čaje", icon: "/eshop/hero/ikona-caje.webp", group: "napoje" },
+  { slug: "polevky", menuLabel: "Čerstvé polévky", stripLabel: "Čerstvé polévky", icon: "/eshop/hero/ikona-polevky-2026-11.webp", iconSize: [224, 240] },
+  { slug: "sirupy", menuLabel: "Bylinné sirupy", stripLabel: "Bylinné sirupy", icon: "/eshop/hero/ikona-sirupy-2026-11.webp", iconSize: [147, 240] },
+  { slug: "caje", menuLabel: "Čaje", stripLabel: "Čaje", icon: "/eshop/hero/ikona-caje-2026-11.webp", iconSize: [198, 240], group: "napoje" },
   {
     slug: "ovocne-napoje",
     menuLabel: "Ovocné nápoje",
     stripLabel: "Ovocné nápoje",
-    icon: "/eshop/hero/ikona-ovocne-napoje.webp",
+    icon: "/eshop/hero/ikona-ovocne-napoje-2026-11.webp", iconSize: [235, 240],
     group: "napoje",
   },
   {
     slug: "koktejly",
     menuLabel: "Alkoholické koktejly",
     stripLabel: "Alkoholické koktejly",
-    icon: "/eshop/hero/ikona-koktejly-cosmopolitan.webp", // Cosmopolitan (9. 11. 2026)
+    icon: "/eshop/hero/ikona-koktejly-2026-11.webp", iconSize: [167, 240],
     group: "napoje",
   },
-  { slug: "zmrzliny", menuLabel: "Zmrzliny", stripLabel: "Zmrzliny", icon: "/eshop/hero/ikona-zmrzliny.webp" },
+  { slug: "zmrzliny", menuLabel: "Zmrzliny", stripLabel: "Zmrzliny", icon: "/eshop/hero/ikona-zmrzliny-2026-11.webp", iconSize: [201, 240] },
 ];
 
 export const DRINKS_MENU_LABEL = "Nápoje";
