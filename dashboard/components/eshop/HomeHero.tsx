@@ -10,11 +10,13 @@ import ShopLink from "./ShopLink";
 //
 // Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
 // pod nimi přes celou šířku; počítač = text vlevo, fotografie vpravo.
-// Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru),
+// Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
+// Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
+// rámečku a stínu — splývá s podkladem (9. 11. 2026).
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-horky-caj.webp",
+  src: "/eshop/hero/polevka-a-caj-bezove-pozadi.webp",
   width: 1672,
   height: 941,
   alt: "Čerstvá dýňová polévka v misce a hrnek horkého bylinného čaje s heřmánkem a meduňkou",
@@ -33,8 +35,12 @@ export default function HomeHero() {
           <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
             Čerstvě. Jednoduše. S&nbsp;chutí.
           </p>
-          <h1 className="mt-4 font-serif text-[1.85rem] leading-[1.12] sm:text-[2.4rem] lg:text-[clamp(2.1rem,4.2vh,2.8rem)] tracking-tight text-[#2A2622] text-balance max-w-[22ch] mx-auto lg:mx-0">
-            Čerstvé polévky, bylinné sirupy, nápoje a&nbsp;zmrzliny
+          {/* Přesně tři řádky (majitel 9. 11. 2026), žádný se dál neláme; mezery
+              mezi řádky kvůli čtečkám a vyhledávačům („… polévky Bylinné …“). */}
+          <h1 className="mt-4 font-serif text-[1.8rem] leading-[1.15] min-[400px]:text-[2rem] sm:text-[2.5rem] lg:text-[clamp(2.15rem,3.4vw,2.75rem)] tracking-tight text-[#2A2622]">
+            <span className="block whitespace-nowrap">Čerstvé polévky</span>{" "}
+            <span className="block whitespace-nowrap">Bylinné sirupy</span>{" "}
+            <span className="block whitespace-nowrap">Nápoje a&nbsp;zmrzliny</span>
           </h1>
           <p className="mt-4 text-base sm:text-lg text-[#3B3631] leading-relaxed max-w-md mx-auto lg:mx-0 text-balance">
             Z pečlivě vybraných surovin a&nbsp;čisté filtrované vody.
@@ -61,8 +67,6 @@ export default function HomeHero() {
         </div>
 
         <div className="relative w-full sm:max-w-3xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-none">
-          {/* jemný přechod fotografie do krémového podkladu (mobil, tablet) */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#FAF6EF] to-transparent z-10 sm:hidden" />
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
@@ -70,7 +74,7 @@ export default function HomeHero() {
             height={HERO_PHOTO.height}
             priority
             sizes="(min-width: 1152px) 600px, (min-width: 1024px) 52vw, (min-width: 768px) 48rem, 100vw"
-            className="block w-full h-auto sm:rounded-2xl sm:shadow-[0_18px_40px_-18px_rgba(90,65,30,0.35)]"
+            className="block w-full h-auto"
           />
         </div>
       </div>
