@@ -1,4 +1,4 @@
--- ESHOP 1.0 — vrácení 41_polevky.sql: polévky Dýňová polévka, Kulajda, Rajčatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka
+-- ESHOP 1.0 — vrácení 41_polevky.sql: polévky Dýňová polévka, Kulajda, Tomatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka
 -- zpět do stavu z migrace 0014 (krátký popis, balení bez názvu, cena), bez
 -- nových textů, výživy a fotky; nově přidané polévky se skryjí; společná
 -- sekce kategorie se odebere. Nic
