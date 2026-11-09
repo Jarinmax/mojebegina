@@ -30,7 +30,7 @@ for (const [name, w, h, dpr] of CASES) {
     const header = document.querySelector("header");
     const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return b.width && b.height ? { l: b.left, r: b.right, t: b.top, b: b.bottom } : null; };
     const nav = [...header.querySelectorAll('nav[aria-label="Hlavní menu"]')].find((n) => n.getBoundingClientRect().width > 0);
-    const items = nav ? [...nav.querySelectorAll(":scope > ul > li > a, :scope > ul > li > button")].map((el) => ({ t: el.textContent.trim(), ...box(el) })) : [];
+    const items = nav ? [...nav.querySelectorAll(":scope > ul > li > a, :scope > ul > li > button")].map((el) => ({ ...box(el), label: el.textContent.trim() })) : [];
     const logo = header.querySelector('a[aria-label^="Begina.cz"]');
     const cart = header.querySelector('a[aria-label^="Košík"]');
     const burger = header.querySelector('button[aria-label="Otevřít menu"]');
@@ -40,7 +40,7 @@ for (const [name, w, h, dpr] of CASES) {
   });
   check(`${name}: hlavička ani stránka nepřetéká`, hd.headerSW <= hd.headerW && hd.docSW <= w, `hlavička ${hd.headerSW}/${hd.headerW}, stránka ${hd.docSW}/${w}`);
   if (hd.items.length) {
-    const labels = hd.items.map((i) => i.t);
+    const labels = hd.items.map((i) => i.label);
     check(`${name}: menu v řádku má všechny položky včetně Zmrzlin`, labels.join("|") === MENU.join("|"), labels.join(" | "));
     const row = [hd.logo, ...hd.items, hd.cart];
     const gaps = row.slice(1).map((b, i) => Math.round(b.l - row[i].r));
