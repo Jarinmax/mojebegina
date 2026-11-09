@@ -23,6 +23,7 @@ import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
+import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
 
 export const dynamic = "force-dynamic";
@@ -56,15 +57,17 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
     : null;
   return [
     { label: "Balení", value: packages },
-    { label: "Složení", value: info.ingredients },
+    // Typografie (10. 11. 2026): seznamy a věty velkým písmenem s tečkou,
+    // samostatné hodnoty (balení, obsah alkoholu, „Ověřujeme“) beze změny.
+    { label: "Složení", value: asSentence(info.ingredients) },
     {
       label: "Alergeny",
       value:
         info.allergens === null
           ? ALLERGENS_UNVERIFIED
           : info.allergens.length
-            ? info.allergens.join(", ")
-            : "Neobsahuje žádný z alergenů, které se povinně uvádějí",
+            ? asSentence(info.allergens.join(", "))
+            : "Neobsahuje žádný z alergenů, které se povinně uvádějí.",
     },
     ...(product.isAgeRestricted
       ? [
@@ -77,17 +80,17 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
           },
         ]
       : []),
-    { label: "Výživové hodnoty", value: info.nutritionPer100g },
-    { label: "Skladování", value: info.storage },
-    { label: "Trvanlivost", value: info.shelfLife },
-    ...(info.preparation ? [{ label: "Příprava", value: info.preparation }] : []),
+    { label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) },
+    { label: "Skladování", value: asSentence(info.storage) },
+    { label: "Trvanlivost", value: asSentence(info.shelfLife) },
+    ...(info.preparation ? [{ label: "Příprava", value: asSentence(info.preparation) }] : []),
     ...(info.returns
       ? [
           {
             label: "Vrácení a reklamace",
             value: (
               <>
-                {info.returns.before}
+                {keepTogether(info.returns.before)}
                 <ShopLink href={TERMS_PATH} className="underline text-begina-primary-900 hover:no-underline">
                   {info.returns.linkText}
                 </ShopLink>
