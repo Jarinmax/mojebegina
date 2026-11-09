@@ -70,7 +70,7 @@ export const TEAS = [
     taste:
       "Bylinný čaj Šaman má plnou, harmonickou chuť s výraznou hloubkou. V úvodu se objevuje jemná ovocnost šípku, která přechází do zemitých tónů čagy a ženšenu. Závěr doplňuje hřejivý nádech zázvoru, který chuť uzavírá do vyváženého, soustředěného celku.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 98, energy_kcal: 23, fat: 0, saturates: 0, carbohydrate: 5.7, sugars: 5.7, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: ["Není vhodné pro děti do 3 let, těhotné a kojící ženy."],
@@ -91,7 +91,7 @@ export const TEAS = [
     ],
     taste: "Výrazná chuť zázvoru se svěžím nádechem citronu působí vyváženě a příjemně zahřívajícím dojmem.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, zázvor (Zingiber officinale), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, zázvor (Zingiber officinale), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
@@ -113,7 +113,7 @@ export const TEAS = [
     taste:
       "Lipový čaj má jemnou, hladkou chuť s lehce nasládlým charakterem a typickým květinovým nádechem. Chuť působí čistě, vyváženě a harmonicky.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, lipový květ (Tiliae flos), regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, lipový květ (Tiliae flos), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
@@ -135,7 +135,7 @@ export const TEAS = [
     taste:
       "Heřmánkový čaj má jemnou, hladkou chuť s lehce nasládlým charakterem a příjemně uklidňujícím dozvukem. Chuť působí čistě, vyváženě a harmonicky.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, květ heřmánku (Matricaria chamomilla), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, květ heřmánku (Matricaria chamomilla), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
@@ -157,7 +157,7 @@ export const TEAS = [
     taste:
       "Plná a výrazná chuť černého čaje Golden Nepal se svěží citronovou jiskrou působí vyváženě a příjemně osvěžujícím dojmem.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, černý čaj Golden Nepal (Camellia assamica), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, černý čaj Golden Nepal (Camellia assamica), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: ["Obsahuje kofein – není vhodné pro děti, těhotné a kojící ženy."],
@@ -179,7 +179,7 @@ export const TEAS = [
     taste:
       "Jemná, svěží chuť zeleného čaje Sencha s květinovou vůní jasmínu a lehkým citrusovým nádechem. Působí čistě, lehce a osvěžujícím dojmem.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citrónová šťáva, zelený čaj Sencha (Camellia sinensis), květ jasmínu (Jasminum officinale), regulátor kyselosti: kyselina citronová; antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citrónová šťáva, zelený čaj Sencha (Camellia sinensis), květ jasmínu (Jasminum officinale), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 95, energy_kcal: 23, fat: 0, saturates: 0, carbohydrate: 5.7, sugars: 5.7, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: ["Obsahuje kofein – není vhodné pro děti, těhotné a kojící ženy."],
@@ -200,7 +200,7 @@ export const TEAS = [
     ],
     taste: "Ibiškový čaj má výraznou, svěží chuť s plným a osvěžujícím dozvukem.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, ibišek (Hibiscus), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, ibišek (Hibiscus), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 113, energy_kcal: 27, fat: 0, saturates: 0, carbohydrate: 6.7, sugars: 6.7, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],
@@ -221,7 +221,7 @@ export const TEAS = [
     ],
     taste: "Jemná, harmonická chuť meduňky s lehkým květinovým nádechem levandule působí svěže a vyváženě.",
     ingredients:
-      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia), regulátor kyselosti: kyselina citronová, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, třtinový cukr, citronová šťáva, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia), antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 94, energy_kcal: 22, fat: 0, saturates: 0, carbohydrate: 5.6, sugars: 5.6, protein: 0, salt: 0 },
     storage: STORAGE,
     warnings: [],

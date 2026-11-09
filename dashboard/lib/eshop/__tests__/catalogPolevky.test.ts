@@ -10,6 +10,7 @@ import { parseDescription } from "../productDescription";
 import { expectedCatalogAfterSeed } from "../seedFromCatalog";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { polevkyRollbackSql, polevkySql } from "../../../scripts/eshop-catalog/build-polevky.mjs";
+import { SOUP_SHELF_LIFE, SOUP_STORAGE } from "../soupFoodInfo";
 
 const DB_TEST = { timeout: 120_000 };
 const DIR = path.join(__dirname, "../../../docs/eshop-catalog");
@@ -67,7 +68,10 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     // všechny polévky: bez alergenů, trvanlivost 14 dnů (údaje vedení)
     for (const soup of list) {
       expect(soup.foodInfo.allergens, soup.slug).toEqual([]);
-      expect(soup.foodInfo.shelfLife, soup.slug).toBe("Do 14 dnů při zachování správného uskladnění (do 4 °C).");
+      expect(soup.foodInfo.shelfLife, soup.slug).toBe(SOUP_SHELF_LIFE);
+      expect(soup.foodInfo.storage, soup.slug).toBe(SOUP_STORAGE);
+      expect(soup.foodInfo.preparation, soup.slug).toBe("Stačí ohřát a servírovat.");
+      expect(soup.foodInfo.returnsNotice, soup.slug).toBe(true);
     }
     const parsed = parseDescription(dyne.description);
     expect(parsed.intro).toHaveLength(3);

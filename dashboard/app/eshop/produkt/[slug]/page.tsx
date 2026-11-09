@@ -21,6 +21,8 @@ import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
+import type { ReactNode } from "react";
+import { SOUP_RETURNS_AFTER, SOUP_RETURNS_BEFORE, SOUP_RETURNS_LINK_TEXT, TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,7 @@ export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[sl
 const MISSING = "Doplníme";
 const ALLERGENS_UNVERIFIED = "Ověřujeme";
 
-function foodInfoRows(product: Product): { label: string; value: string | null }[] {
+function foodInfoRows(product: Product): { label: string; value: ReactNode | null }[] {
   const info = product.foodInfo;
   const packages = product.variants.every((variant) => variant.label)
     ? product.variants.map((variant) => variant.label).join(", ")
@@ -77,6 +79,23 @@ function foodInfoRows(product: Product): { label: string; value: string | null }
     { label: "Výživové hodnoty", value: info.nutritionPer100g },
     { label: "Skladování", value: info.storage },
     { label: "Trvanlivost", value: info.shelfLife },
+    ...(info.preparation ? [{ label: "Příprava", value: info.preparation }] : []),
+    ...(info.returnsNotice
+      ? [
+          {
+            label: "Vrácení a reklamace",
+            value: (
+              <>
+                {SOUP_RETURNS_BEFORE}
+                <ShopLink href={TERMS_PATH} className="underline text-begina-primary-900 hover:no-underline">
+                  {SOUP_RETURNS_LINK_TEXT}
+                </ShopLink>
+                {SOUP_RETURNS_AFTER}
+              </>
+            ),
+          },
+        ]
+      : []),
   ];
 }
 
