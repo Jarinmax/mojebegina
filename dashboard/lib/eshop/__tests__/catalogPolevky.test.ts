@@ -113,8 +113,10 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(spenat.image).toBe("/eshop/polevky/spenatova-polevka-miska.jpg");
     expect(spenat.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/spenatova-polevka-miska.jpg", "/eshop/polevky/spenatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, spenat.image!))).toBe(true);
-    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 %/);
-    expect(spenat.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 210 kJ \/ 50 kcal.*vláknina 0,8 g$/);
+    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule, olivový olej/);
+    expect(spenat.foodInfo.nutritionPer100g).toBe(
+      "na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g"
+    );
     expect(parseDescription(gulas.description).sections[0].blocks[0]).toEqual(expect.objectContaining({ items: expect.arrayContaining(["pro vegany i vegetariány"]) }));
   });
 

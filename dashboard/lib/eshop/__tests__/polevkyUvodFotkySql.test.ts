@@ -59,6 +59,21 @@ describe("83 + 84 + 85 nad stavem Production", { timeout: 120_000 }, () => {
     await pg.exec("ROLLBACK");
   });
 
+  it("86: Špenátová — nové složení a výživa, ostatní polévky beze změny", async () => {
+    await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = 'spenatova-polevka'`, [
+      "čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 13 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)",
+      JSON.stringify({ fat: 3.2, salt: 0.7, fibre: 0.8, sugars: 0.7, protein: 1.1, energy_kj: 210, saturates: 1.7, energy_kcal: 50, carbohydrate: 4.1 }),
+    ]);
+    const others = (await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug <> 'spenatova-polevka' ORDER BY slug`)).rows;
+    await pg.exec(script("86_spenatova_slozeni_vyziva_MAIN.sql"));
+    const s = (await loadCatalog(db)).products.find((p) => p.slug === "spenatova-polevka")!;
+    expect(s.foodInfo.ingredients).toMatch(/kokosové mléko 14 % .*brambory 14 %, cibule, olivový olej/);
+    expect(s.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g");
+    expect((await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug <> 'spenatova-polevka' ORDER BY slug`)).rows).toEqual(others);
+    await expect(pg.exec(script("86_spenatova_slozeni_vyziva_MAIN.sql"))).rejects.toThrow(/nemá očekávané původní/);
+    await pg.exec("ROLLBACK");
+  });
+
   it("84: Kosmopolitan nejde objednat, ostatní ano", async () => {
     const has = (await pg.query(`SELECT 1 FROM products WHERE slug = 'kosmopolitan'`)).rows.length;
     if (!has) return; // testovací katalog bez koktejlů — ověří se jen syntaxe níže
