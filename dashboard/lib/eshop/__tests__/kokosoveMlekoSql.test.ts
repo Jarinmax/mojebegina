@@ -46,7 +46,7 @@ describe("78 kokosové mléko nad stavem Production", { timeout: 120_000 }, () =
     }
     const dyne = rows.find((r) => r.slug === "dynova-polevka")!.i;
     expect(dyne).toContain(`kokosové mléko 15 % ${NEW}, brambory 9 %`);
-    expect(rows.find((r) => r.slug === "rajcatova-polevka")!.i).toContain(`kokosové mléko 7 % ${NEW}`);
+    expect(rows.find((r) => r.slug === "rajcatova-polevka")!.i).toContain(`kokosové mléko 6 % ${NEW}`);
     await expect(pg.exec(script)).rejects.toThrow(/Čekal jsem 5 produktů/);
     await pg.exec("ROLLBACK");
   });

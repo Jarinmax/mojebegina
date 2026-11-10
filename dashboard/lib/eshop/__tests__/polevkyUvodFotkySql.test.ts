@@ -59,6 +59,27 @@ describe("83 + 84 + 85 nad stavem Production", { timeout: 120_000 }, () => {
     await pg.exec("ROLLBACK");
   });
 
+  it("86: Kulajda, Špenátová, Tomatová — nové složení a výživa, ostatní beze změny", async () => {
+    const prod: [string, string, object][] = [
+      ["kulajda", "čistá filtrovaná voda, brambory 20 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)", { fat: 2.9, salt: 0.7, fibre: 0.5, sugars: 0.5, protein: 0.7, energy_kj: 187, saturates: 2.6, energy_kcal: 45, carbohydrate: 4.1 }],
+      ["spenatova-polevka", "čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 13 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)", { fat: 3.2, salt: 0.7, fibre: 0.8, sugars: 0.7, protein: 1.1, energy_kj: 210, saturates: 1.7, energy_kcal: 50, carbohydrate: 4.1 }],
+      ["rajcatova-polevka", "čistá filtrovaná voda, pasírovaná rajčata 27 %, rajčatový protlak 7 %, brambory 7 %, kokosové mléko 7 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), cibule 5 %, petržel kořen, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, pepř černý, kardamom, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma", { fat: 4.4, salt: 0.8, fibre: 0.7, sugars: 1.6, protein: 0.9, energy_kj: 255, saturates: 1.6, energy_kcal: 61, carbohydrate: 5.1 }],
+    ];
+    for (const [slug, ing, nut] of prod) await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = $3`, [ing, JSON.stringify(nut), slug]);
+    const others = (await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('kulajda','spenatova-polevka','rajcatova-polevka') ORDER BY slug`)).rows;
+    await pg.exec(script("86_polevky_slozeni_vyziva_MAIN.sql"));
+    const list = (await loadCatalog(db)).products;
+    const get = (slug: string) => list.find((p) => p.slug === slug)!;
+    expect(get("spenatova-polevka").foodInfo.ingredients).toMatch(/kokosové mléko 14 % .*brambory 14 %, cibule 4,3 %, olivový olej/);
+    expect(get("spenatova-polevka").foodInfo.nutritionPer100g).toBe("na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g");
+    expect(get("kulajda").foodInfo.nutritionTable?.rows.at(-1)?.value).toBe("0,76\u00a0g");
+    expect(get("rajcatova-polevka").foodInfo.ingredients).toMatch(/kyselina citronová\), rajčatový protlak 7 %/);
+    expect(get("rajcatova-polevka").foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 229 kJ \/ 54 kcal.*sůl 0,86 g$/);
+    expect((await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('kulajda','spenatova-polevka','rajcatova-polevka') ORDER BY slug`)).rows).toEqual(others);
+    await expect(pg.exec(script("86_polevky_slozeni_vyziva_MAIN.sql"))).rejects.toThrow(/nemá očekávané původní/);
+    await pg.exec("ROLLBACK");
+  });
+
   it("84: Kosmopolitan nejde objednat, ostatní ano", async () => {
     const has = (await pg.query(`SELECT 1 FROM products WHERE slug = 'kosmopolitan'`)).rows.length;
     if (!has) return; // testovací katalog bez koktejlů — ověří se jen syntaxe níže

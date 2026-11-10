@@ -26,11 +26,11 @@ for (const [name, device] of [["pocitac", { viewport: { width: 1440, height: 900
   for (const href of slugs) {
     await page.goto(url(href), { waitUntil: "load" });
     const rows = await page.locator("section[aria-labelledby=food-info] dl > div").evaluateAll((divs) =>
-      divs.map((d) => ({ dt: d.querySelector("dt").textContent, dd: d.querySelector("dd").textContent.trim(), missing: d.querySelector("dd").className.includes("italic") }))
+      divs.map((d) => ({ dt: d.querySelector("dt").textContent, dd: d.querySelector("dd").textContent.trim(), missing: d.querySelector("dd").className.includes("italic"), table: !!d.querySelector("dd table") }))
     );
     for (const r of rows) {
       if (/[.:]$/.test(r.dt)) problems.push(`${href} název řádku „${r.dt}“`);
-      if (r.missing) continue;
+      if (r.missing || r.table) continue; // tabulka výživy (polevky-vyziva.mjs) — bez větné typografie
       if (SENTENCE.includes(r.dt)) {
         if (!/^\p{Lu}/u.test(r.dd)) problems.push(`${href} ${r.dt}: malé písmeno`);
         if (!/[.!?]$/.test(r.dd)) problems.push(`${href} ${r.dt}: bez tečky`);
