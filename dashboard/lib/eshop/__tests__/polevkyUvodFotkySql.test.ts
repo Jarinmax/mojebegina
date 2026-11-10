@@ -80,6 +80,31 @@ describe("83 + 84 + 85 nad stavem Production", { timeout: 120_000 }, () => {
     await pg.exec("ROLLBACK");
   });
 
+  it("88: Dýňová + Rajčatová s řepou — nové složení a výživa, bez vlákniny, ostatní beze změny", async () => {
+    await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = 'dynova-polevka'`, [
+      "čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 9 %, cibule 4 %, olivový olej, dýňový olej, petržel kořen, mořská sůl, třtinový cukr, zázvor, lahůdkové droždí, grepová šťáva, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      JSON.stringify({ fat: 4, salt: 0.8, fibre: 1.1, sugars: 2, protein: 1, energy_kj: 283, saturates: 2.7, energy_kcal: 68, carbohydrate: 7.6 }),
+    ]);
+    await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = 'rajcatova-polevka-s-cervenou-repou'`, [
+      "čistá filtrovaná voda, pasírovaná rajčata 17 %, brambory 13 %, kokosové mléko 13 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), červená řepa 9 %, rajčatový protlak 3 %, cibule, petržel kořen, mořská sůl, třtinový cukr, olivový olej, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      JSON.stringify({ fat: 2.9, salt: 0.8, fibre: 0.9, sugars: 2.6, protein: 0.9, energy_kj: 189, saturates: 2.4, energy_kcal: 45, carbohydrate: 3.9 }),
+    ]);
+    const others = (await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('dynova-polevka','rajcatova-polevka-s-cervenou-repou') ORDER BY slug`)).rows;
+    await pg.exec(script("88_polevky_dynova_repa_MAIN.sql"));
+    const d = (await loadCatalog(db)).products.find((p) => p.slug === "dynova-polevka")!;
+    expect(d.foodInfo.ingredients).toMatch(/^dýně 41 %, čistá filtrovaná voda, kokosové mléko 14 %/);
+    expect(d.foodInfo.nutritionTable?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
+      "Energetická hodnota: 250\u00a0kJ / 60\u00a0kcal", "Tuky: 3,9\u00a0g", "z toho nasycené mastné kyseliny: 2,5\u00a0g", "Sacharidy: 4,7\u00a0g", "z toho cukry: 3,1\u00a0g", "Bílkoviny: 1,0\u00a0g", "Sůl: 0,78\u00a0g",
+    ]);
+    const r = (await loadCatalog(db)).products.find((p) => p.slug === "rajcatova-polevka-s-cervenou-repou")!;
+    expect(r.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, pasírovaná rajčata 17 % \(rajčata 99,9 %, regulátor kyselosti: kyselina citronová\), brambory 14 %, kokosové mléko 12 %/);
+    expect(r.foodInfo.nutritionTable?.rows.at(-1)?.value).toBe("0,84\u00a0g");
+    expect(r.foodInfo.nutritionTable?.rows.map((x) => x.label)).not.toContain("Vláknina");
+    expect((await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('dynova-polevka','rajcatova-polevka-s-cervenou-repou') ORDER BY slug`)).rows).toEqual(others);
+    await expect(pg.exec(script("88_polevky_dynova_repa_MAIN.sql"))).rejects.toThrow(/nemá očekávané původní/);
+    await pg.exec("ROLLBACK");
+  });
+
   it("84: Kosmopolitan nejde objednat, ostatní ano", async () => {
     const has = (await pg.query(`SELECT 1 FROM products WHERE slug = 'kosmopolitan'`)).rows.length;
     if (!has) return; // testovací katalog bez koktejlů — ověří se jen syntaxe níže
