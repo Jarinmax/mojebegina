@@ -86,7 +86,9 @@ Důvody ke zkoušce (hypotézy, neověřeno měřením): askorbová může urych
 rozklad antokyanů (Granátový, Kosmopolitan) a blednutí azobarviv E 110/E 124
 (Lady Carneval); u svařáku vztah k siřičitanům vína a zahřívání.
 
-Před zavedením změny změřit u hotových výrobků A i B (stejná šarže surovin):
+PŘEDBĚŽNÝ NÁVRH — konkrétní mikroorganismy, počet vzorků a termíny určí laboratoř
+nebo potravinářský technolog podle složení, postupu, obalu, skladování a zamýšlené
+trvanlivosti včetně doby po otevření. Před zavedením změny u hotových výrobků A i B:
 1. pH a titrační kyselost hned po výrobě;
 2. skutečný obsah alkoholu;
 3. mikrobiologická zkouška trvanlivosti v akreditované laboratoři při
@@ -97,14 +99,13 @@ Před zavedením změny změřit u hotových výrobků A i B (stejná šarže su
 5. svařák: volný a celkový SO₂ v hotovém výrobku.
 Změnu zapsat do HACCP/výrobní dokumentace až po vyhodnocení.
 
-## Kategorie výrobků podle nař. 1333/2008 — stav ověření (10. 11. 2026)
-- Granátový bond, Kosmopolitan, Lady Carneval: vodka (Aperol) + šťávy + voda,
-  6,3–7,2 % obj. → pravděpodobně kat. 14.2.8 (jiné alkoholické nápoje vč. směsí
-  s nealkoholickými nápoji, < 15 % obj.). NEOVĚŘENO: znění přílohy II části E
-  pro kat. 14.2.8 (EUR-Lex nešel načíst) — zda je tam skupina I / E 300 / E 330.
-- Svařák Deluxe: víno 2 000 ml + šťávy + koření → kandidát kat. 14.2.7.2
-  (aromatizovaný nápoj na bázi vína, nař. 251/2014: 4,5–14,5 % obj.) nebo 14.2.8.
-  Chybí: skutečný konečný obsah alkoholu, podíl vína v hotovém výrobku, postup
-  louhování koření, znění přílohy I nař. 251/2014 a přílohy II části E nař.
-  1333/2008 pro 14.2.7.2 (podle nař. 59/2014 tam jsou siřičitany; zda E 300 —
-  neověřeno).
+## Kategorie výrobků — stav ověření (10. 11. 2026)
+- Granátový bond, Kosmopolitan, Lady Carneval: kat. 14.2.8 nař. 1333/2008 (jiné
+  alkoholické nápoje vč. směsí s nealkoholickými, < 15 % obj.). Skupina I uvedena
+  v konsolidovaném znění z 12. 2. 2024 (sdělení vedení); řádky části E a jejich
+  poznámky jsem nezávisle nenačetl (EUR-Lex blokuje automatický přístup).
+- Svařák Deluxe: víno 2 000 ml (≥ 50 % objemu), koření, cukr, ~8 % obj. →
+  aromatizovaný nápoj na bázi vína (čl. 3 odst. 3 nař. 251/2014: ≥ 50 % produktů
+  z révy, bez přidaného alkoholu, 4,5–< 14,5 % obj.) → kat. 14.2.7.2. Ne „Glühwein“
+  (příloha II: výhradně z vína) — obsahuje šťávy. Podmínka: skutečný alkohol a podíl
+  vína v hotovém výrobku. Prodejní označení podle nař. 251/2014 k doplnění.

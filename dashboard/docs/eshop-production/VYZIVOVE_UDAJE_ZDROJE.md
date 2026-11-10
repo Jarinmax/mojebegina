@@ -96,15 +96,18 @@ nemůže vážit víc než suroviny (2 963 g). Procenta ve složení sedí na 2 
 100 g = 3,4 %); kdyby skutečná čistá hmotnost byla ≤ 2 608 g, byla by vyšší
 (brambory ≈ 22 %, hlíva ≈ 8 %). Ověřit množství vody v receptuře „(3)“.
 
-## Bylinný sirup Šaman — návrh výživových údajů (NEZVEŘEJNĚNO, 10. 11. 2026)
-Výpočtový odhad na 100 ml, receptura Sirupy_kalkulace-5 (3 000 ml):
-- třtinový cukr 2 000 g, sacharóza min. 98 % (etiketa Riopaila) → 1 960 g × 17 kJ = 33 320 kJ
-- citronová šťáva 400 ml × 95 kJ/100 ml (etiketa Naturalne Tłoczone) = 380 kJ; sacharidy 6,4 g; bílkoviny 1,2 g
-- kyselina askorbová 2 g × 13 kJ (organická kyselina, příloha XIV nař. 1169/2011) = 26 kJ
-- výluh (šípek, čaga, ženšen, zázvor): rozpustné látky NEJSOU nulové, množství nedoloženo;
-  horní mez = 95 g sušiny celkem → nejvýš +3,2 g/100 ml (+54 kJ); doložit °Bx přecezeného výluhu
-Celkem 33 726 kJ / 30 = **1 124 kJ**; kcal 7 840 + 92 + 6 = 7 938 / 30 = **265 kcal**.
-Sacharidy 66 g, z toho cukry 66 g; tuky 0 g, nasycené 0 g, bílkoviny 0 g (0,04 g), sůl 0 g.
-Při 100% sacharóze by vyšlo 66,9 g a 1 147 kJ / 270 kcal.
-Předpoklady k potvrzení: 3 000 ml = skutečný konečný objem; použitý cukr = Riopaila
-(„Sucrose 98 % Min.“ na pytli). NEZVEŘEJŇOVAT do potvrzení.
+## Bylinný sirup Šaman — ODHAD výživových údajů (NEZVEŘEJNĚNO, 10. 11. 2026)
+Výpočtový odhad na 100 ml, receptura Sirupy_kalkulace-5 (3 000 ml — konečný objem k potvrzení).
+- Třtinový cukr 2 000 g: pytel Riopaila uvádí jen „Sucrose 98 % Min.“ (minimum, ne přesná
+  hodnota); zbytek může obsahovat i jiné cukry. Výživové údaje cukru (sacharidy, cukry)
+  NEMÁME → cukr 98–100 g sacharidů/100 g = odhad.
+- Citronová šťáva 400 ml: 95 kJ, sacharidy 1,6 g, bílkoviny 0,3 g na 100 ml (etiketa
+  Naturalne Tłoczone) → 380 kJ; 6,4 g; 1,2 g.
+- Kyselina askorbová 2 g × 13 kJ (organická kyselina, příloha XIV nař. 1169/2011) = 26 kJ.
+- Výluh: rozpustné látky nejsou nulové, jejich složení ani množství nedoloženo — v odhadu
+  NEZAHRNUTY. Hypotetický scénář (ne skutečný příspěvek): kdyby se celých 95 g sušiny
+  rozpustilo jako sacharidy, +3,2 g a +54 kJ na 100 ml. °Bx výluhu samo neurčuje sacharidy
+  ani energii (zahrnuje i jiné rozpuštěné látky) — doložit laboratorním rozborem nebo
+  doloženými údaji surovin.
+Odhad bez výluhu: sacharidy = cukry 65,5–66,9 g → 66 g; energie 1 124–1 147 kJ /
+265–270 kcal; tuky 0, nasycené 0, bílkoviny 0 (0,04 g), sůl 0.
