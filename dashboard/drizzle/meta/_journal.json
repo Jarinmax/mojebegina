@@ -246,6 +246,20 @@
       "when": 1794144212884,
       "tag": "0034_eshop_fakturacni_udaje",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794311054329,
+      "tag": "0035_google_kalendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794311055756,
+      "tag": "0036_denni_volani_1_1_historie",
+      "breakpoints": true
     }
   ]
 }

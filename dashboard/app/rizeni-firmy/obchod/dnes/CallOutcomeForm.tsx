@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { logDailyCallOutcomeAction, type ActionState } from "./actions";
+import { useActionState, useEffect, useState } from "react";
+import { logDailyCallOutcomeAction, type LogCallOutcomeActionState } from "./actions";
+import { useDailyCallOutcomeContext } from "./DailyCallOutcomeContext";
 import { CALL_RESULTS } from "@/lib/data/dailyCallsValidation";
 import { CALL_RESULT_LABELS } from "./dailyCallLabels";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
@@ -9,7 +10,7 @@ import { STAGE_LABELS } from "../leadLabels";
 import type { CallResult } from "@/lib/data/dailyCallsValidation";
 import type { LeadStage } from "@/lib/data/leadValidation";
 
-const initialState: ActionState = null;
+const initialState: LogCallOutcomeActionState = { status: "idle" };
 
 // Security Phase 19 (Denní volání 1.0) — zápis výsledku hovoru. Výsledek
 // (CALL_RESULTS) i poznámka jsou povinné (žádná prázdná/"beze změny"
@@ -18,11 +19,27 @@ const initialState: ActionState = null;
 // neměnit" — stejná konvence jako CallLogForm. Datum dalšího kontaktu je
 // nepovinné, KROMĚ výsledku "Zavolat později" — vynucení je na serveru
 // (validateDailyCallOutcomeInput), UI to jen napovídá.
+//
+// Etapa 0 (rozhodnutí 3 a 6): čas je nepovinný (bez času = 09:00
+// Europe/Prague), nevyplněný termín zachová stávající a smazání je
+// výslovná volba "Smazat naplánovaný kontakt".
 export default function CallOutcomeForm({ itemId }: { itemId: string }) {
   const boundAction = logDailyCallOutcomeAction.bind(null, itemId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
   const [expanded, setExpanded] = useState(false);
   const [result, setResult] = useState("");
+  const outcomeCtx = useDailyCallOutcomeContext();
+
+  // Security Phase 21 (Denní volání 1.1) — bod 3 schváleného zadání:
+  // potvrzení musí žít MIMO tuhle komponentu (karta i tenhle formulář
+  // samy zmizí ze serverových dat, jakmile revalidace uvidí položku jako
+  // `done`), proto se úspěch jen OZNÁMÍ nahoru přes Context, nevykresluje
+  // se tady lokálně.
+  useEffect(() => {
+    if (state.status === "saved") {
+      outcomeCtx?.notifySaved(state);
+    }
+  }, [state, outcomeCtx]);
 
   if (!expanded) {
     return (
@@ -87,21 +104,37 @@ export default function CallOutcomeForm({ itemId }: { itemId: string }) {
           </select>
         </div>
         <div>
-          <label htmlFor={`nextFollowUpAt-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
+          <label htmlFor={`nextFollowUpAtDate-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
             Další kontakt{result === "call_back_later" ? " (povinné)" : ""}
           </label>
-          <input
-            id={`nextFollowUpAt-${itemId}`}
-            name="nextFollowUpAt"
-            type="date"
-            required={result === "call_back_later"}
-            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-          />
+          <div className="flex gap-2">
+            <input
+              id={`nextFollowUpAtDate-${itemId}`}
+              name="nextFollowUpAtDate"
+              type="date"
+              required={result === "call_back_later"}
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+            <input
+              id={`nextFollowUpAtTime-${itemId}`}
+              name="nextFollowUpAtTime"
+              type="time"
+              aria-label="Čas dalšího kontaktu"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+            />
+          </div>
+          <p className="text-xs text-neutral-400 mt-1">Bez času = 9:00. Nevyplněno = termín zůstane beze změny.</p>
         </div>
       </div>
 
-      {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
-      {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
+      {result !== "call_back_later" && (
+        <label className="flex items-center gap-2 text-sm text-neutral-600">
+          <input type="checkbox" name="clearFollowUp" className="h-4 w-4" />
+          Smazat naplánovaný další kontakt
+        </label>
+      )}
+
+      {state.status === "error" && <p className="text-sm text-begina-accent-700">{state.error}</p>}
 
       <div className="flex gap-2">
         <button
