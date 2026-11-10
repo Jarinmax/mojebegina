@@ -18,7 +18,10 @@ Do dokončení: žádné „bez lepku“, „přirozeně bezlepková“ ani obec
 
 | Produkt | Co chybí | Úkol | Stav na e-shopu |
 |---|---|---|---|
-| Kosmopolitan | potvrzení dodavatele, zda brusinková šťáva obsahuje siřičitany | BEG-02 | po spuštění skriptu 84 „Připravujeme“, nejde objednat |
+| Kosmopolitan | etiketa jablečné šťávy (složení, siřičitany); specifikace grepového esenciálního oleje (potravinářské použití) | BEG-02 | „Připravujeme“, nejde objednat |
+
+Brusinková šťáva vyřešena 10. 11. 2026: etiketa Naturalne Tłoczone,
+„100% sok z żurawiny“, NFC, pasterizovaná, siřičitany neuvedeny.
 
 Mechanismus: `allergens = NULL` → `isOrderable()` = false (karta, košík,
 pokladna i serverová kontrola v `lib/eshop/pricing.ts`). Řádek Alergeny se
@@ -33,12 +36,25 @@ Bez nich nelze potvrdit „bez barviv“ ani „bez přidaného glutamátu“ a 
 plně uzavřít kontrolu alergenů v podsložkách:
 
 - přírodní aroma (Dýňová, Tomatová, Tomatová s červenou řepou, Kosmopolitan)
-- grepová šťáva (Dýňová, Svařák, Lady Carneval), pomerančová a citronová šťáva
 - pasírovaná rajčata, rajčatový protlak
 - paprika uzená, paprika sladká, chilli, další koření a směsi
 - hlíva ústřičná (zpracovaná?), žampiony
 - lahůdkové droždí — technický list (podíl volného glutamátu)
-- brusinková, jablečná šťáva a šťáva z granátového jablka (siřičitany)
+- jablečná šťáva, šťáva z granátového jablka (složení, siřičitany)
+- třtinový cukr (etiketa)
+
+### Vyřešené podklady (etikety dodány 10. 11. 2026)
+
+| Surovina | Výrobce | Etiketa | Alergeny |
+|---|---|---|---|
+| brusinková šťáva | Naturalne Tłoczone | 100% šťáva z brusinek, NFC, lisovaná za studena, pasterizovaná | žádné uvedeny |
+| citronová šťáva | Naturalne Tłoczone | 100% šťáva z citronů, NFC, pasterizovaná | žádné uvedeny |
+| grapefruitová šťáva | Naturalne Tłoczone | 100% šťáva z grapefruitů, NFC, pasterizovaná | žádné uvedeny |
+| pomerančová šťáva | Belfood (Jurajskie Wzgórza) | 100% pomerančová šťáva **z koncentrátu**, pasterizovaná | žádné uvedeny |
+
+Pomerančová šťáva je z koncentrátu (vyhl. 248/2018 Sb. § 2 písm. i)) —
+doporučení: ve složení Svařáku Deluxe uvádět „pomerančová šťáva
+z koncentrátu“ (zatím neměněno, čeká na rozhodnutí).
 
 ## 4. Tvrzení — rozhodnutí
 
@@ -51,6 +67,7 @@ plně uzavřít kontrolu alergenů v podsložkách:
 | „bez přidaného glutamátu“ | nezveřejňovat — lahůdkové droždí je přirozený zdroj glutamátu; riziko zavádějícího tvrzení (čl. 7 nař. 1169/2011) |
 | „bez konzervantů“ | nepoužívat |
 | „bez přídatných látek“, „bez éček“ | nikdy (polévky obsahují E 435 a kyselinu askorbovou) |
+| „čistá filtrovaná voda“ | PONECHAT (rozhodnutí vedení 10. 11. 2026) u výrobků, které ji obsahují; podmínka vyhl. 417/2016 Sb. § 2 odst. 4 písm. b): mít doložitelnou filtraci (typ filtru, údržba, rozbor vody) |
 | „bez mléčných výrobků“ (úvod kategorie) | odpovídá recepturám; riziko kvůli sdílené výrobě s mlékem — viz bod 1 |
 
 ## 5. Ke kontrole (mimo polévky, zatím neměněno)
