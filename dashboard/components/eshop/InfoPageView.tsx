@@ -36,7 +36,7 @@ export function linkify(text: string): ReactNode[] {
 export default function InfoPageView({ page, children }: { page: InfoPage; children?: ReactNode }) {
   return (
     <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-balance">{page.title}</h1>
+      <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{page.title}</h1>
       {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
       {page.download && (
         <p className="mt-3 text-sm">

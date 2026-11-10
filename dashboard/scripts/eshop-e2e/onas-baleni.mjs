@@ -12,7 +12,7 @@ const fails = [], ok = [];
 const check = (n, c, d = "") => (c ? ok : fails).push(`${n}${d ? ` — ${d}` : ""}`);
 const browser = await chromium.launch({ args: ["--host-resolver-rules=MAP begina.cz 127.0.0.1"] });
 const url = (p) => `http://begina.cz:${PORT}${p}`;
-const ABOUT = [["Náš příběh", "/o-nas", "O nás"], ["O vodě", "/o-vode", "Čistá filtrovaná voda v našich recepturách"], ["O balení", "/o-baleni", "O balení"]];
+const ABOUT = [["Náš příběh", "/o-nas", "O nás"], ["O vodě", "/o-vode", "Čistá filtrovaná voda"], ["O balení", "/o-baleni", "O balení"]];
 const CASES = [
   ["pocitac", { viewport: { width: 1440, height: 900 } }],
   ["notebook-1280", { viewport: { width: 1280, height: 720 } }],

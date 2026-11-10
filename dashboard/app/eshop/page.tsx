@@ -3,6 +3,7 @@ import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
+import { SHARE_DESCRIPTION, SHARE_TITLE, brandShareMeta } from "@/lib/eshop/shareMeta";
 import ShopLink from "@/components/eshop/ShopLink";
 import { INFO_PAGES, filteredWater, whyBegina } from "@/lib/eshop/infoPages";
 
@@ -15,7 +16,13 @@ export const dynamic = "force-dynamic";
 
 const STRIP_ID = "nabidka";
 
-export const metadata: Metadata = { alternates: { canonical: "/" } };
+// Úvodní stránka — nadpis, popis a náhled při sdílení (10. 11. 2026).
+export const metadata: Metadata = {
+  title: { absolute: SHARE_TITLE },
+  description: SHARE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  ...brandShareMeta("/"),
+};
 
 export default async function EshopPage() {
   const { categories } = await getCatalog();

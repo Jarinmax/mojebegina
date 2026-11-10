@@ -52,7 +52,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Statické soubory e-shopu (public/eshop/…) — fotky produktů, ikony, hero. */
 const ESHOP_ASSET = /^\/eshop\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:jpe?g|png|webp|avif|gif|svg|ico)$/;
 /** Soubory z kořene public/ a app/, které e-shop používá. */
-const ROOT_ASSETS = new Set(["/favicon.ico", "/logo-begina-mark.png"]);
+const ROOT_ASSETS = new Set(["/favicon.ico", "/logo-begina-mark.png", "/og-begina.png", "/og-begina-ctverec.png", "/icon.png", "/apple-icon.png"]);
 
 /** Stránky e-shopu bez parametru — na begina.cz stejná cesta bez /eshop. */
 const ESHOP_PAGES = new Set([
