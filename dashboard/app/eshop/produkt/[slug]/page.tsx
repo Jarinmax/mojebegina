@@ -8,6 +8,7 @@ import { eshopHref } from "@/lib/eshop/paths";
 import { eshopBase } from "@/lib/eshop/siteServer";
 import {
   AGE_RESTRICTION_NOTICE,
+  nutritionNotRequired,
   isOrderable,
   lowestPriceKc,
   NOT_ORDERABLE_LABEL,
@@ -116,9 +117,14 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
           },
         ]
       : []),
-    info.nutritionTable
-      ? { label: "Výživové hodnoty", value: <NutritionTableView table={info.nutritionTable} />, wide: true }
-      : { label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) },
+    // Nápoje nad 1,2 % obj. alkoholu nemusí výživu uvádět (čl. 16 odst. 4
+    // nař. 1169/2011): bez údajů se řádek vynechá místo „Doplníme“
+    // (koktejly, 10. 11. 2026). Kde údaje jsou (Svařák), zobrazí se.
+    ...(info.nutritionTable
+      ? [{ label: "Výživové hodnoty", value: <NutritionTableView table={info.nutritionTable} />, wide: true }]
+      : info.nutritionPer100g === null && nutritionNotRequired(product)
+        ? []
+        : [{ label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) }]),
     { label: "Skladování", value: asSentence(info.storage) },
     { label: "Trvanlivost", value: asSentence(info.shelfLife) },
     ...(info.preparation ? [{ label: "Příprava", value: asSentence(info.preparation) }] : []),

@@ -44,3 +44,12 @@ export function isFoodInfoComplete(product: Product): boolean {
     info.shelfLife !== null
   );
 }
+
+/**
+ * Výživové údaje nejsou povinné u nápojů s obsahem alkoholu nad 1,2 % obj.
+ * (čl. 16 odst. 4 nař. 1169/2011). Jen pro zobrazení: chybějící výživa se
+ * u nich neoznačuje „Doplníme“. Hodnoty se nedopočítávají.
+ */
+export function nutritionNotRequired(product: Pick<Product, "alcoholPercent">): boolean {
+  return product.alcoholPercent !== null && product.alcoholPercent > 1.2;
+}
