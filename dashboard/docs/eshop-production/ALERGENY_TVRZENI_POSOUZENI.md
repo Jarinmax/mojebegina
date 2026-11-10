@@ -18,7 +18,7 @@ Do dokončení: žádné „bez lepku“, „přirozeně bezlepková“ ani obec
 
 | Produkt | Co chybí | Úkol | Stav na e-shopu |
 |---|---|---|---|
-| Kosmopolitan | specifikace grepového esenciálního oleje (potravinářské použití); alergeny šťáv a cukru ověřeny | BEG-02 | „Připravujeme“, nejde objednat |
+| Kosmopolitan | — vše doloženo 10. 11. 2026 (šťávy, cukr, grepový olej Terpenic: potravinářské aroma) | BEG-02 | odblokuje skript 92 |
 
 Brusinková šťáva vyřešena 10. 11. 2026: etiketa Naturalne Tłoczone,
 „100% sok z żurawiny“, NFC, pasterizovaná, siřičitany neuvedeny.
@@ -35,7 +35,10 @@ k doložení specifikace (BEG-02), objednání se neblokuje.
 Bez nich nelze potvrdit „bez barviv“ ani „bez přidaného glutamátu“ a nelze
 plně uzavřít kontrolu alergenů v podsložkách:
 
-- přírodní aroma (Dýňová, Tomatová, Tomatová s červenou řepou, Kosmopolitan)
+- přírodní aroma (Dýňová, Tomatová, Tomatová s červenou řepou, Dům u jezera,
+  Červánkové nebe) — po dodání specifikace ověřit název: aroma z jediného zdroje
+  = „přírodní X aroma“, samotné „přírodní aroma“ jen pro více zdrojů
+  (čl. 16 odst. 4 a 6 nař. 1334/2008)
 - pasírovaná rajčata, rajčatový protlak
 - paprika uzená, paprika sladká, chilli, další koření a směsi
 - hlíva ústřičná (zpracovaná?), žampiony
@@ -51,6 +54,7 @@ plně uzavřít kontrolu alergenů v podsložkách:
 | grapefruitová šťáva | Naturalne Tłoczone | 100% šťáva z grapefruitů, NFC, pasterizovaná | žádné uvedeny |
 | jablečná šťáva | Naturalne Tłoczone | 100% šťáva z jablek, NFC, pasterizovaná | žádné uvedeny |
 | třtinový cukr | Riopaila Castilla (Kolumbie), balí Obchody Milota | tmavý třtinový cukr Demerara, sacharóza min. 98 % | žádné uvedeny |
+| grepový esenciální olej | Terpenic lab S.L. (prodejce aromatics.cz) | Citrus paradisi, kůra, lisování za studena, „potravinářské aroma“, vnitřní užití; na krabičce španělsky „pomelo“ = grapefruit | žádné |
 | pomerančová šťáva | Belfood (Jurajskie Wzgórza) | 100% pomerančová šťáva **z koncentrátu**, pasterizovaná | žádné uvedeny |
 
 Pomerančová šťáva je z koncentrátu (vyhl. 248/2018 Sb. § 2 písm. i)) —
