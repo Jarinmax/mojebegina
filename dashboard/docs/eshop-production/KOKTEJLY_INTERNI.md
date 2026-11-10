@@ -21,13 +21,21 @@ obj. přibližně 0,95 g/ml (fyzikální hodnota, ne údaj dodavatele).
   povinný. Chybí hmotnost 500 ml použité šťávy a celková hmotnost várky;
   16,7 % je objemový podíl a nesmí se uvést jako hmotnostní.
 - Specifikace šťávy (100% šťáva / z koncentrátu / nektar) — ovlivňuje název
-  složky.
+  složky; etiketa šťávy z granátového jablka zatím nedodána.
+- Receptura (kalkulace koktejlů): granátová šťáva 500 ml, vodka 500 ml,
+  citronová šťáva 180 ml, voda 1 820 ml, třtinový cukr 220 g, kyselina
+  askorbová 1 g. Hmotnostní podíl nelze spočítat bez hmotnosti šťávy
+  a celkové hmotnosti — obojí zvážit při výrobě (neodhadovat hustoty).
 
 ## Kosmopolitan (zadání 10. 11. 2026, kalkulace(4).xlsx nebyla přiložena)
 Alkohol: 500 ml vodky 37,5 % / 3 000 ml = 6,25 → 6,3 % obj. (bez ztrát).
-Složení podle zadání (shodné s dosavadním). Neověřeno: pořadí brusinková /
-jablečná šťáva / vodka (chybí objemy), specifikace „přírodní aroma“,
-siřičitany v brusinkové šťávě (BEG-02) → objednání zůstává blokované.
+Receptura (kalkulace koktejlů): voda 900 ml, brusinková šťáva 800 ml,
+jablečná šťáva 600 ml, vodka 500 ml, citronová šťáva 200 ml, třtinový cukr
+120 g, kyselina askorbová 1 g, grepový esenciální olej 3 kapky.
+Brusinková a citronová šťáva ověřeny etiketou (10. 11. 2026, bez siřičitanů).
+Blokace trvá: chybí etiketa jablečné šťávy a specifikace grepového
+esenciálního oleje (doklad potravinářského použití, název „přírodní aroma“
+podle nař. 1334/2008).
 
 ## Výživové údaje
 Granátový bond, Kosmopolitan, Lady Carneval: nad 1,2 % obj. alkoholu →
