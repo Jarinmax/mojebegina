@@ -90,7 +90,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(kulajda.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/kulajda-miska.jpg", "/eshop/polevky/kulajda-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, kulajda.image!))).toBe(true);
     expect(kulajda.foodInfo.ingredients).toMatch(/žampiony 7 %/);
-    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
+    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 5 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
     expect(kulajda.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 219 kJ / 53 kcal, tuky 3,5 g (z toho nasycené 2,4 g), sacharidy 3,9 g (z toho cukry 0,8 g), bílkoviny 1 g, sůl 0,76 g");
     expect(kulajda.foodInfo.nutritionTable?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
       "Energetická hodnota: 219\u00a0kJ / 53\u00a0kcal", "Tuky: 3,5\u00a0g", "z toho nasycené mastné kyseliny: 2,4\u00a0g", "Sacharidy: 3,9\u00a0g", "z toho cukry: 0,8\u00a0g", "Bílkoviny: 1,0\u00a0g", "Sůl: 0,76\u00a0g",
