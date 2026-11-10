@@ -11,6 +11,7 @@ import "server-only";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
+import { IdokladApiError, IdokladBlockedError } from "@/lib/eshop/invoicing/idokladHttp";
 import { runAsAgent } from "../context";
 import { READ_LIMIT_PER_HOUR, WRITE_LIMIT_PER_HOUR, type AgentConfig } from "../config";
 import { canInvoice, canWrite } from "../oauthCore";
@@ -37,6 +38,14 @@ async function runTool(
   } catch (error) {
     if (error instanceof ForbiddenError || error instanceof UnauthenticatedError) {
       return { status: "denied", outcome: { ok: false, error: DENIED_MESSAGE } };
+    }
+    // IdokladApiError/IdokladBlockedError nesou vlastní zprávu bez tajných údajů
+    // (EshopIdokladClient.redact) a nejde o chybu Drizzle s parametry dotazu —
+    // bezpečné vrátit přímo, aby bylo vidět, proč iDoklad nebo naše pojistka
+    // zápis odmítly, místo obecné hlášky.
+    if (error instanceof IdokladApiError || error instanceof IdokladBlockedError) {
+      console.error("MCP nástroj selhal (iDoklad)", tool.definition.name, error.name, error.message);
+      return { status: "error", outcome: { ok: false, error: error.message } };
     }
     // Jen typ chyby, ne její text: hláška Drizzle obsahuje parametry dotazu
     // (text poznámky, jména) — do logů Vercelu obsah CRM nepatří.
