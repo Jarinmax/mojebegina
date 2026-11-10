@@ -56,7 +56,7 @@ for (const [name, viewport] of [["mobil", { width: 390, height: 844 }], ["pocita
   }
   // ostatní polévky beze změny (text)
   await page.goto(`${BASE}/produkt/dynova-polevka?t=${Date.now()}`, { waitUntil: "networkidle" });
-  check(`${name}: Dýňová také tabulka (i s vlákninou)`, (await page.locator("section[aria-labelledby=food-info] table tbody tr").filter({ hasText: "Vláknina" }).count()) === 1);
+  check(`${name}: Dýňová tabulka bez vlákniny`, (await page.locator("section[aria-labelledby=food-info] table tbody tr").count()) === 7);
   await page.close();
 }
 await browser.close();
