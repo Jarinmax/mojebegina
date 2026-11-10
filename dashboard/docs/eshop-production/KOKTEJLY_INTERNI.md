@@ -34,9 +34,9 @@ jablečná šťáva 600 ml, vodka 500 ml, citronová šťáva 200 ml, třtinový
 120 g, kyselina askorbová 1 g, grepový esenciální olej 3 kapky.
 Brusinková a citronová šťáva ověřeny etiketou (10. 11. 2026, bez siřičitanů).
 Jablečná šťáva a třtinový cukr ověřeny etiketou (10. 11. 2026).
-Alergenová blokace vyřešena; zbývá specifikace grepového
-esenciálního oleje (doklad potravinářského použití, název „přírodní aroma“
-podle nař. 1334/2008).
+Alergenová blokace vyřešena; grepový olej Terpenic doložen jako potravinářské
+aroma → ve složení „přírodní grapefruitové aroma“ (čl. 16 odst. 4 nař.
+1334/2008). Odblokování a oprava názvu: skript 92.
 
 ## Výživové údaje
 Granátový bond, Kosmopolitan, Lady Carneval: nad 1,2 % obj. alkoholu →
