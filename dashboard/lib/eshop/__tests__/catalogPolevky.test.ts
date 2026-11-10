@@ -105,7 +105,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(rajce.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 229 kJ / 54 kcal, tuky 2,9 g (z toho nasycené 1,3 g), sacharidy 5,5 g (z toho cukry 4,4 g), bílkoviny 1,2 g, sůl 0,86 g");
     expect(rajce.foodInfo.nutritionTable?.rows).toHaveLength(7);
     // tabulka u všech produktů s úplnými údaji, vláknina zachována
-    expect(list.find((p) => p.slug === "gulasova-polevka-z-hlivy-ustricne")!.foodInfo.nutritionTable?.rows.map((r) => r.label)).toContain("Vláknina");
+    expect(list.every((p) => !p.foodInfo.nutritionTable?.rows.some((r) => r.label === "Vláknina"))).toBe(true);
     const repa = list[3];
     expect(repa.foodInfo.ingredients).toMatch(/červená řepa 9 %/);
     expect(repa.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 219 kJ / 52 kcal, tuky 2,8 g (z toho nasycené 2,1 g), sacharidy 5,1 g (z toho cukry 3,1 g), bílkoviny 1,1 g, sůl 0,84 g");
@@ -118,8 +118,8 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(gulas.image).toBe("/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg");
     expect(gulas.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg", "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, gulas.image!))).toBe(true);
-    expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 8 %/);
-    expect(gulas.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 149 kJ \/ 36 kcal.*vláknina 1,1 g$/);
+    expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 7 %/);
+    expect(gulas.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 125 kJ / 30 kcal, tuky 0,9 g (z toho nasycené 0,1 g), sacharidy 4 g (z toho cukry 1,1 g), bílkoviny 0,9 g, sůl 0,86 g");
     const spenat = list[5];
     expect(spenat.image).toBe("/eshop/polevky/spenatova-polevka-miska.jpg");
     expect(spenat.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/spenatova-polevka-miska.jpg", "/eshop/polevky/spenatova-polevka-sacek.jpg"]);

@@ -230,8 +230,11 @@ export const SOUPS = [
     taste:
       "Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.",
     ingredients:
-      "čistá filtrovaná voda, brambory 22 %, hlíva ústřičná (Pleurotus ostreatus) 8 %, cibule 5 %, rajčatový protlak 4 %, mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, paprika uzená, paprika sladká, chilli, pepř černý, skořice",
-    nutrition: { energy_kj: 149, energy_kcal: 36, fat: 0.7, saturates: 0.1, carbohydrate: 5.4, sugars: 1.7, protein: 1.2, salt: 0.8, fibre: 1.1 },
+      "čistá filtrovaná voda, brambory 19 %, hlíva ústřičná (Pleurotus ostreatus) 7 %, cibule 4 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, uzená paprika, sladká paprika, chilli, černý pepř, antioxidant: kyselina askorbová (vitamin C), skořice",
+    // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový průměr podle receptury
+    // (Polevky_kalkulace(3).xlsx, čistá hmotnost 3 l = 2 963 g), dodavatelských údajů
+    // a databází, u koření i zástupné hodnoty; na 100 ml (3 l). Vláknina nepotvrzena.
+    nutrition: { energy_kj: 125, energy_kcal: 30, fat: 0.9, saturates: 0.1, carbohydrate: 4.0, sugars: 1.1, protein: 0.9, salt: 0.86 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
     warnings: [],

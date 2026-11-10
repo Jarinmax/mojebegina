@@ -9,6 +9,7 @@ laboratorní rozbor. Skript 86, 10. 11. 2026. Podklady dodal Jarin.
 | Špenátová polévka | Polevky_kalkulace(2).xlsx, receptura na 3 l | neuvedena | u olejů průměrné hodnoty |
 | Dýňová polévka | Polevky_kalkulace(3).xlsx, receptura na 3 l + dodavatelské a databázové údaje (skript 88) | 2 855 g (bez sáčku a kohoutku) | dýně = zástupný databázový profil Hokkaido, poměr druhů dýní není stanoven; vláknina výpočtem nepotvrzena |
 | Rajčatová polévka s červenou řepou | Polevky_kalkulace(3).xlsx, list rajčatové s řepou + dodavatelské údaje a databáze (skript 88) | 2 940 g (bez obalu a kohoutku) | kokosové mléko 400 ml = 359 g (vážení Jarin); vláknina výpočtem nepotvrzena |
+| Gulášová polévka z hlívy ústřičné | Polevky_kalkulace(3).xlsx, list gulášové z hlívy + dodavatelské údaje a databáze (skript 88) | 2 963 g (bez sáčku a kohoutku) | u koření i zástupné databázové hodnoty; výživa přepočtená na 3 l; vláknina nepotvrzena |
 | Tomatová polévka | Polevky_kalkulace(2).xlsx, receptura na 3 l | 3 015 g | kokosové mléko 200 ml = 181 g (vážení Jarin); u olejů průměrné hodnoty |
 
 Vláknina: původní údaje neověřené → u těchto tří polévek se neuvádí.
@@ -76,3 +77,15 @@ brambory 403 g → 13,7 %, kokosové mléko 359 g → 12,2 %, červená řepa 25
 8,7 %, cibule 150 g → 5,1 %, protlak 100 g → 3,4 %, kořen petržele 62 g →
 2,1 % (nad 2 % → správně za protlakem). Součet surovin 2 961 g ≥ 2 940 g ✓.
 Aroma v receptuře: „bazalka EO“ (3 kapky) — specifikace chybí.
+
+## Gulášová polévka z hlívy ústřičné (10. 11. 2026)
+Výpočtový průměr podle receptury, dodavatelských údajů a potravinových
+databází, ne laboratorní rozbor; u koření i zástupné databázové hodnoty.
+Výživa přepočtená na konečný objem 3 l, procenta složení na 2 963 g.
+
+**Rozpor k ověření:** v dostupné kalkulaci v6 (soubor „(3)“ nebyl přiložen)
+dávají suroviny dohromady jen 2 608 g (voda 1 534 ml). Hotová polévka
+nemůže vážit víc než suroviny (2 963 g). Procenta ve složení sedí na 2 963 g
+(brambory 567 g = 19,1 %, hlíva 200 g = 6,8 %, cibule 125 g = 4,2 %, protlak
+100 g = 3,4 %); kdyby skutečná čistá hmotnost byla ≤ 2 608 g, byla by vyšší
+(brambory ≈ 22 %, hlíva ≈ 8 %). Ověřit množství vody v receptuře „(3)“.
