@@ -48,3 +48,17 @@ Lady Carneval (E 110, E 124 z Aperolu): upozornění „může nepříznivě
 ovlivňovat činnost a pozornost dětí“ není u nápojů nad 1,2 % obj. povinné
 (příloha V nař. 1333/2008 ve znění nař. 238/2010, výjimka písm. b).
 Odstraněno skriptem 87; barviva ve složení zůstávají.
+
+## Svařák Deluxe — podklady k dokončení (Jarin, 10. 11. 2026)
+- Pomerančová šťáva: dodaná 100% šťáva **z koncentrátu** (Belfood) → ve složení
+  „pomerančová šťáva z koncentrátu“ (zatím neměněno).
+- Víno: běžně španělské Tempranillo 12 % obj.; ostatní vyfocená vína jsou
+  náhradní. Všechna uvádějí siřičitany (na webu „obsahuje SIŘIČITANY“ — sedí).
+- Alkohol hotového svařáku určit z receptury a výroby, ne z procenta vína:
+  2 000 ml × 12 % = 240 ml ethanolu; % obj. = 240 / konečný objem várky (ml)
+  × 100. Konečný objem není doložen (3 000 ml tekutin + 130 g cukru + koření;
+  voda 0 ml) a není doloženo, zda se při výrobě zahřívá (ztráty alkoholu) →
+  změřit konečný objem várky, případně alkohol hotového výrobku.
+- Rozpor podílu pomerančové šťávy: kalkulace 500 ml (≈ 16 %) × web 13 %.
+- K ověření: zařazení podle nař. 1308/2013 / 251/2014 (aromatizovaný nápoj na
+  bázi vína?) — ovlivňuje název a pravidla pro alkohol.
