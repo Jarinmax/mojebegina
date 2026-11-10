@@ -20,7 +20,7 @@ for (const [name, viewport] of [["mobil", { width: 390, height: 844 }], ["pocita
   for (const slug of SYR) {
     await page.goto(`${BASE}/produkt/${slug}?t=${Date.now()}`, { waitUntil: "networkidle" });
     const g = page.locator("div.md\\:sticky").first();
-    const exp = ["hlavni", "sacek", ...(slug.startsWith("medunkovy") ? [] : ["doypack"])].map((k) => `/eshop/sirupy/${slug}-${k}.jpg`);
+    const exp = ["hlavni", "sacek", "doypack"].map((k) => `/eshop/sirupy/${slug}-${k}.jpg`);
     const thumbs = g.locator("ul button");
     check(`${name} ${slug}: ${exp.length} náhledy`, (await thumbs.count()) === exp.length, String(await thumbs.count()));
     for (let i = 0; i < exp.length; i++) {

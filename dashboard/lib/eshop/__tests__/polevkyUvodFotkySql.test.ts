@@ -139,6 +139,12 @@ describe("83 + 84 + 85 nad stavem Production", { timeout: 120_000 }, () => {
     }
     await expect(pg.exec(script("89_sirupy_fotky_MAIN.sql"))).rejects.toThrow(/Čekal jsem 7 původních/);
     await pg.exec("ROLLBACK");
+    await pg.exec(script("91_medunkovy_doypack_MAIN.sql"));
+    const m = (await loadCatalog(db)).products.find((p) => p.slug === "medunkovy-sirup-s-levanduli")!;
+    expect(m.gallery!.map((x) => x.url).at(-1)).toBe("/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg");
+    expect(m.gallery).toHaveLength(3);
+    await expect(pg.exec(script("91_medunkovy_doypack_MAIN.sql"))).rejects.toThrow(/nemá přesně 2 fotky/);
+    await pg.exec("ROLLBACK");
   });
 
   it("84: Kosmopolitan nejde objednat, ostatní ano", async () => {

@@ -28,7 +28,7 @@ END
 $guard$;
 
 -- ===== docs/eshop-catalog/31_sirupy.sql =====
--- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 20 fotek),
+-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 21 fotek),
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -341,7 +341,7 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
-DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" NOT IN ('/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg');
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" NOT IN ('/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg', '/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
 SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', 'Meduňkový sirup s levandulí – sklenice a hrnek se surovinami', 0
 WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg');
@@ -350,6 +350,10 @@ INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
 SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg', 'Meduňkový sirup s levandulí v průhledném sáčku s kohoutkem', 1
 WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg');
 UPDATE "product_images" SET "alt" = 'Meduňkový sirup s levandulí v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg', 'Meduňkový sirup s levandulí ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Meduňkový sirup s levandulí ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg';
 
 -- ===== docs/eshop-catalog/41_polevky.sql =====
 -- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Kulajda, Tomatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka)

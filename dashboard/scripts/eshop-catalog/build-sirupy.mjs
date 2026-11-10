@@ -297,7 +297,7 @@ export const SYRUPS = [
 export function sirupySql() {
   const out = [];
   const w = (s) => out.push(s);
-  w(`-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 20 fotek),
+  w(`-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 21 fotek),
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -325,9 +325,8 @@ BEGIN;
 
 // Fotografie sirupů (10. 11. 2026, bílý podklad, public/eshop/sirupy/):
 // 1. sklenice a hrnek se surovinami (hlavní), 2. průhledný sáček
-// s kohoutkem, 3. stříbrný doypack. Meduňkový zatím bez doypacku (fotka
-// nedodána). Původní fotky public/eshop/<slug>.jpg zůstávají v kódu.
-const NO_DOYPACK = new Set(["medunkovy-sirup-s-levanduli"]);
+// s kohoutkem, 3. stříbrný doypack (Meduňkový doplněn skriptem 91). Původní fotky public/eshop/<slug>.jpg zůstávají v kódu.
+const NO_DOYPACK = new Set();
 export const syrupPhotos = (p) => [
   { url: `/eshop/sirupy/${p.slug}-hlavni.jpg`, alt: `${p.name} – sklenice a hrnek se surovinami` },
   { url: `/eshop/sirupy/${p.slug}-sacek.jpg`, alt: `${p.name} v průhledném sáčku s kohoutkem` },

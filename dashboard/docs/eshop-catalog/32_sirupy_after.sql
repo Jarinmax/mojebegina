@@ -1,7 +1,7 @@
 -- ESHOP 1.0 — kontrola PO 31_sirupy.sql (jen čtení).
 -- Očekáváno:
 --   text_kategorie | sirupy | aktivni | baleni | fotky | za_199 | za_499 | za_549 | produkty | baleni_celkem
---   3              | 7      | 7       | 14     | 20    | 7      | 3      | 4      | 14       | 25
+--   3              | 7      | 7       | 14     | 21    | 7      | 3      | 4      | 14       | 25
 SELECT
   (SELECT cardinality("intro") FROM "product_categories" WHERE "slug" = 'sirupy') AS text_kategorie,
   (SELECT count(*) FROM "products" p JOIN "product_categories" c ON c."id" = p."category_id" WHERE c."slug" = 'sirupy') AS sirupy,
