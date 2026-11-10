@@ -49,14 +49,14 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(await check(pg, "30_sirupy_before.sql")).toBe("1 | 0 | 0 | 0 | 0 | 7 | 11");
   });
 
-  it("skript: 7 sirupů, 14 balení, 7 fotek; po kontrole přesně podle komentáře", async () => {
+  it("skript: 7 sirupů, 14 balení, 20 fotek; po kontrole přesně podle komentáře", async () => {
     await pg.exec(file("31_sirupy.sql"));
-    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
+    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 20 | 7 | 3 | 4 | 14 | 25");
   });
 
   it("opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("31_sirupy.sql"));
-    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
+    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 20 | 7 | 3 | 4 | 14 | 25");
   });
 
   it("e-shop: sirupy v pořadí z begina.cz, 3 l a 700 ml (9. 11. 2026), fotky existují; text kategorie", async () => {

@@ -7,7 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { categorySql, imageSql, productSql, variantSql } from "./sql.mjs";
+import { categorySql, productSql, q, variantSql } from "./sql.mjs";
 
 export const CATEGORY = {
   intro: [
@@ -297,7 +297,7 @@ export const SYRUPS = [
 export function sirupySql() {
   const out = [];
   const w = (s) => out.push(s);
-  w(`-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 7 fotek),
+  w(`-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 20 fotek),
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -317,10 +317,36 @@ BEGIN;
     VARIANTS.forEach((v, j) => {
       w(variantSql(p.slug, { ...v, sku: `${p.slug}-${v.suffix}`, price: v.price(p) }, (j + 1) * 10));
     });
-    w(imageSql(p));
+    w(syrupPhotosSql(p));
   });
   w("COMMIT;\n");
   return out.join("\n");
+}
+
+// Fotografie sirupů (10. 11. 2026, bílý podklad, public/eshop/sirupy/):
+// 1. sklenice a hrnek se surovinami (hlavní), 2. průhledný sáček
+// s kohoutkem, 3. stříbrný doypack. Meduňkový zatím bez doypacku (fotka
+// nedodána). Původní fotky public/eshop/<slug>.jpg zůstávají v kódu.
+const NO_DOYPACK = new Set(["medunkovy-sirup-s-levanduli"]);
+export const syrupPhotos = (p) => [
+  { url: `/eshop/sirupy/${p.slug}-hlavni.jpg`, alt: `${p.name} – sklenice a hrnek se surovinami` },
+  { url: `/eshop/sirupy/${p.slug}-sacek.jpg`, alt: `${p.name} v průhledném sáčku s kohoutkem` },
+  ...(NO_DOYPACK.has(p.slug) ? [] : [{ url: `/eshop/sirupy/${p.slug}-doypack.jpg`, alt: `${p.name} ve stříbrném doypacku` }]),
+];
+
+function syrupPhotosSql(p) {
+  const photos = syrupPhotos(p);
+  const product = `(SELECT "id" FROM "products" WHERE "slug" = ${q(p.slug)})`;
+  return [
+    `DELETE FROM "product_images" WHERE "product_id" = ${product} AND "url" NOT IN (${photos.map((ph) => q(ph.url)).join(", ")});`,
+    ...photos.map(
+      (ph, i) => `INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT ${product}, ${q(ph.url)}, ${q(ph.alt)}, ${i}
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = ${product} AND "url" = ${q(ph.url)});
+UPDATE "product_images" SET "alt" = ${q(ph.alt)}, "sort_order" = ${i} WHERE "product_id" = ${product} AND "url" = ${q(ph.url)};`
+    ),
+    "",
+  ].join("\n");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

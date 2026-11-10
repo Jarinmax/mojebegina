@@ -116,6 +116,22 @@ describe("83 + 84 + 85 nad stavem Production", { timeout: 120_000 }, () => {
     await pg.exec("ROLLBACK");
   });
 
+  it("89: sirupy — 3 fotky v pořadí (Meduňkový 2), ostatní beze změny", async () => {
+    const SYR = ["bylinny-sirup-saman", "zazvorovy-sirup", "lipovy-sirup", "ibiskovy-sirup", "sipkovy-sirup", "hermankovy-sirup", "medunkovy-sirup-s-levanduli"];
+    await pg.query(`DELETE FROM product_images WHERE url LIKE '/eshop/sirupy/%'`);
+    for (const slug of SYR) await pg.query(`INSERT INTO product_images (product_id, url, alt, sort_order) SELECT id, $1, name, 0 FROM products WHERE slug = $2 AND NOT EXISTS (SELECT 1 FROM product_images WHERE url = $1)`, [`/eshop/${slug}.jpg`, slug]);
+    await pg.exec(script("89_sirupy_fotky_MAIN.sql"));
+    const list = (await loadCatalog(db)).products;
+    for (const slug of SYR) {
+      const g = list.find((p) => p.slug === slug)!.gallery!.map((x) => x.url);
+      const exp = [`/eshop/sirupy/${slug}-hlavni.jpg`, `/eshop/sirupy/${slug}-sacek.jpg`, ...(slug.startsWith("medunkovy") ? [] : [`/eshop/sirupy/${slug}-doypack.jpg`])];
+      expect(g).toEqual(exp);
+      expect(list.find((p) => p.slug === slug)!.image).toBe(exp[0]);
+    }
+    await expect(pg.exec(script("89_sirupy_fotky_MAIN.sql"))).rejects.toThrow(/Čekal jsem 7 původních/);
+    await pg.exec("ROLLBACK");
+  });
+
   it("84: Kosmopolitan nejde objednat, ostatní ano", async () => {
     const has = (await pg.query(`SELECT 1 FROM products WHERE slug = 'kosmopolitan'`)).rows.length;
     if (!has) return; // testovací katalog bez koktejlů — ověří se jen syntaxe níže

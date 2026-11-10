@@ -1,4 +1,4 @@
-// Fotografie na bílém podkladu (polévky od 10. 11. 2026). Zobrazují se celé
+// Fotografie na bílém podkladu (polévky a sirupy od 10. 11. 2026). Zobrazují se celé
 // (object-contain) — žádné ořezání misky ani sáčku. Volné místo kolem
 // fotky v nečtvercových rámečcích (karta kategorie, posuvný přehled) má barvu
 // okraje dané fotografie, aby nevznikl viditelný rámeček ani bílý pruh.
@@ -20,6 +20,26 @@ const BACKDROP: Record<string, string> = {
   "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg": "#fdfcfd",
   "/eshop/polevky/spenatova-polevka-miska.jpg": "#f9f7f9",
   "/eshop/polevky/spenatova-polevka-sacek.jpg": "#f8f6f7",
+  "/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg": "#fdfdfd",
+  "/eshop/sirupy/bylinny-sirup-saman-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/bylinny-sirup-saman-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/zazvorovy-sirup-hlavni.jpg": "#fefefe",
+  "/eshop/sirupy/zazvorovy-sirup-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/zazvorovy-sirup-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/lipovy-sirup-hlavni.jpg": "#fefefe",
+  "/eshop/sirupy/lipovy-sirup-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/lipovy-sirup-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/ibiskovy-sirup-hlavni.jpg": "#fefefe",
+  "/eshop/sirupy/ibiskovy-sirup-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/ibiskovy-sirup-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/sipkovy-sirup-hlavni.jpg": "#fefefe",
+  "/eshop/sirupy/sipkovy-sirup-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/sipkovy-sirup-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/hermankovy-sirup-hlavni.jpg": "#fefefe",
+  "/eshop/sirupy/hermankovy-sirup-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/hermankovy-sirup-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg": "#fefefe",
+  "/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
