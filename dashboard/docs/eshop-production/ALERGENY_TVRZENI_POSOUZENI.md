@@ -18,7 +18,7 @@ Do dokončení: žádné „bez lepku“, „přirozeně bezlepková“ ani obec
 
 | Produkt | Co chybí | Úkol | Stav na e-shopu |
 |---|---|---|---|
-| Kosmopolitan | etiketa jablečné šťávy (složení, siřičitany); specifikace grepového esenciálního oleje (potravinářské použití) | BEG-02 | „Připravujeme“, nejde objednat |
+| Kosmopolitan | specifikace grepového esenciálního oleje (potravinářské použití); alergeny šťáv a cukru ověřeny | BEG-02 | „Připravujeme“, nejde objednat |
 
 Brusinková šťáva vyřešena 10. 11. 2026: etiketa Naturalne Tłoczone,
 „100% sok z żurawiny“, NFC, pasterizovaná, siřičitany neuvedeny.
@@ -40,8 +40,7 @@ plně uzavřít kontrolu alergenů v podsložkách:
 - paprika uzená, paprika sladká, chilli, další koření a směsi
 - hlíva ústřičná (zpracovaná?), žampiony
 - lahůdkové droždí — technický list (podíl volného glutamátu)
-- jablečná šťáva, šťáva z granátového jablka (složení, siřičitany)
-- třtinový cukr (etiketa)
+- šťáva z granátového jablka (složení, siřičitany)
 
 ### Vyřešené podklady (etikety dodány 10. 11. 2026)
 
@@ -50,6 +49,8 @@ plně uzavřít kontrolu alergenů v podsložkách:
 | brusinková šťáva | Naturalne Tłoczone | 100% šťáva z brusinek, NFC, lisovaná za studena, pasterizovaná | žádné uvedeny |
 | citronová šťáva | Naturalne Tłoczone | 100% šťáva z citronů, NFC, pasterizovaná | žádné uvedeny |
 | grapefruitová šťáva | Naturalne Tłoczone | 100% šťáva z grapefruitů, NFC, pasterizovaná | žádné uvedeny |
+| jablečná šťáva | Naturalne Tłoczone | 100% šťáva z jablek, NFC, pasterizovaná | žádné uvedeny |
+| třtinový cukr | Riopaila Castilla (Kolumbie), balí Obchody Milota | tmavý třtinový cukr Demerara, sacharóza min. 98 % | žádné uvedeny |
 | pomerančová šťáva | Belfood (Jurajskie Wzgórza) | 100% pomerančová šťáva **z koncentrátu**, pasterizovaná | žádné uvedeny |
 
 Pomerančová šťáva je z koncentrátu (vyhl. 248/2018 Sb. § 2 písm. i)) —
