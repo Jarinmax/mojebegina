@@ -682,7 +682,7 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
       const blocked = randomUUID();
       expect(
         await submitCheckoutAction(null, form(blocked, { cart: JSON.stringify([{ sku: "lady-carneval-500ml", quantity: 1 }]), ageConfirmed: "on" }))
-      ).toEqual({ error: expect.stringMatching(/Lady Carneval.*zatím nelze objednat.*alergeny/) });
+      ).toEqual({ error: expect.stringMatching(/Lady Carneval.*zatím nelze objednat.*povinné údaje/) });
       // ani když je v košíku vedle objednatelného produktu
       expect(
         await submitCheckoutAction(
