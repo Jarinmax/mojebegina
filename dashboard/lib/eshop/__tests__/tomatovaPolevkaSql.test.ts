@@ -49,7 +49,7 @@ describe("79 Tomatová polévka nad stavem Production", { timeout: 120_000 }, ()
     expect(JSON.stringify(after.description)).not.toMatch(/Rajčatov|rajčatových polévek/);
     expect(after.alts).toEqual(["Tomatová polévka"]);
     for (const k of ["ingredients", "taste_description", "short_description", "is_active", "variants"]) expect(after[k], k).toEqual(before[k]);
-    expect(after.ingredients).toMatch(/pasírovaná rajčata 27 %, rajčatový protlak 7 %/);
+    expect(after.ingredients).toMatch(/pasírovaná rajčata 27 % \(rajčata 99,9 %, regulátor kyselosti: kyselina citronová\), rajčatový protlak 7 %/);
     expect((await pg.query(snapshot, ["rajcatova-polevka-s-cervenou-repou"])).rows[0]).toEqual(repaBefore);
     await expect(pg.exec(script)).rejects.toThrow(/nenalezen/);
     await pg.exec("ROLLBACK");

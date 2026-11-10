@@ -25,6 +25,8 @@ describe("76 + 77 nad stavem Production", { timeout: 120_000 }, () => {
     for (const f of ["31_sirupy.sql", "41_polevky.sql", "51_caje.sql", "71_ovocne_napoje.sql"]) await pg.exec(catalog(f));
     // stav Production: 19 aktivních produktů se samostatnou kyselinou citronovou, polévky se starými texty
     await pg.query(`UPDATE products SET is_active = true WHERE slug IN ('cervankove-nebe','dum-u-jezera','malinovy-svarak-nealko')`);
+    // Tomatová v tehdejším zápisu (bez podsložek pasírovaných rajčat — kyselina citronová v nich přibyla až skriptem 86)
+    await pg.query(`UPDATE products SET ingredients = replace(replace(ingredients, ' (rajčata 99,9 %, regulátor kyselosti: kyselina citronová)', ''), ' (rajčatový protlak, jedlá sůl 1 %)', '') WHERE slug = 'rajcatova-polevka'`);
     await pg.query(`UPDATE products SET ingredients = ingredients || ', regulátor kyselosti: kyselina citronová, antioxidant: E300' WHERE is_active AND slug IN (SELECT p.slug FROM products p JOIN product_categories c ON c.id = p.category_id WHERE c.slug IN ('polevky','caje','ovocne-napoje') AND p.slug <> 'gulasova-polevka-z-hlivy-ustricne')`);
     await pg.query(`UPDATE products SET ingredients = ingredients || '; regulátor kyselosti: kyselina citronová; x' WHERE slug IN (SELECT slug FROM products WHERE is_active AND ingredients NOT LIKE '%regulátor%' AND slug IN ('granatovy-bond','kosmopolitan','lady-carneval'))`);
     await pg.query(`UPDATE products p SET storage_instructions = $1, shelf_life_note = $2 FROM product_categories c WHERE c.id = p.category_id AND c.slug = 'polevky'`, [OLD_STORAGE, OLD_SHELF]);
@@ -47,7 +49,7 @@ describe("76 + 77 nad stavem Production", { timeout: 120_000 }, () => {
     const count = Number((await pg.query<{ n: number }>(`SELECT count(*) n FROM products WHERE is_active AND ingredients ~ 'regulátor kyselosti: kyselina citronová[,;] '`)).rows[0].n);
     // v testovací DB nemusí být přesně 19 — pojistka na počet se nastaví podle stavu
     await pg.exec(script("76_bez_kyseliny_citronove_MAIN.sql").replace("IF n <> 19 THEN", `IF n <> ${count} THEN`));
-    const left = (await pg.query(`SELECT 1 FROM products WHERE is_active AND replace(ingredients, 'regulátor kyselosti: kyselina citronová)', '') ILIKE '%kyselina citronová%'`)).rows;
+    const left = (await pg.query(`SELECT 1 FROM products WHERE is_active AND ingredients ILIKE '%kyselina citronová%'`)).rows;
     expect(left).toEqual([]);
     const dyne = (await pg.query<{ i: string }>(`SELECT ingredients i FROM products WHERE slug = 'dynova-polevka'`)).rows[0].i;
     expect(dyne).toMatch(/^čistá filtrovaná voda, dýně 39 %/);
