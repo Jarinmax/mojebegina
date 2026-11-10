@@ -122,3 +122,12 @@ describe("alergeny — objednatelnost (tři stavy)", () => {
     expect(priceCart([{ sku: NONE, quantity: 1 }], "osobni-odber", seeded).ok).toBe(false);
   });
 });
+
+import { nutritionNotRequired } from "../productRules";
+describe("nutritionNotRequired (čl. 16 odst. 4)", () => {
+  it("nad 1,2 % obj. ano, jinak ne", () => {
+    expect(nutritionNotRequired({ alcoholPercent: 6.7 })).toBe(true);
+    expect(nutritionNotRequired({ alcoholPercent: 1.2 })).toBe(false);
+    expect(nutritionNotRequired({ alcoholPercent: null })).toBe(false);
+  });
+});
