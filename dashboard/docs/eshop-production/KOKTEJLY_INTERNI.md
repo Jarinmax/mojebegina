@@ -109,3 +109,22 @@ Změnu zapsat do HACCP/výrobní dokumentace až po vyhodnocení.
   z révy, bez přidaného alkoholu, 4,5–< 14,5 % obj.) → kat. 14.2.7.2. Ne „Glühwein“
   (příloha II: výhradně z vína) — obsahuje šťávy. Podmínka: skutečný alkohol a podíl
   vína v hotovém výrobku. Prodejní označení podle nař. 251/2014 k doplnění.
+
+## Kyseliny — předběžné doporučení po výrobcích (10. 11. 2026, receptury beze změny)
+Legislativa (nař. 1333/2008): E 300 a E 330 ve skupině I (quantum satis = jen
+v množství nezbytném pro účel). Kat. 14.2.8 (Granátový, Kosmopolitan, Lady
+Carneval) a 14.2.7.2 (Svařák) — skupina I podle konsolidovaného znění z 12. 2. 2024
+(sdělení vedení); znění řádků a poznámek jsem nezávisle nenačetl = NEOVĚŘENO.
+Pravidla pro samotné víno (nař. 2019/934) se na hotový svařák nevztahují.
+Povolení nepotvrzuje dávku ani trvanlivost.
+
+| Výrobek | Předběžně | 1 g askorbové / 3 l posoudit? | Brání konečnému doporučení |
+|---|---|---|---|
+| Granátový bond | zkouška A × B, kandidát B (bez přidané kyseliny) | ne — chybí doložený účel a výsledek zkoušky | barva/chuť A×B v čase, pH, titrační kyselost, mikrobiologie (laboratoř) |
+| Kosmopolitan | zkouška A × B, kandidát B | ne — dtto | dtto |
+| Lady Carneval | zkouška A × B, bez preference | ne — dtto | dtto + blednutí E 110/E 124, aroma grapefruitu |
+| Svařák Deluxe | kandidát B | ne — chybí i postup a SO₂ | dtto + volný/celkový SO₂, skutečný alkohol, objem, zahřívání |
+
+Požadavky pro laboratoř (k ověření, ne prokázaná trvanlivost): skladování do 4 °C
+před i po otevření; neotevřené do data na obalu; po otevření „co nejdříve“ —
+počet dní pro datum na obalu a pro dobu po otevření doplnit z výrobních listů.
