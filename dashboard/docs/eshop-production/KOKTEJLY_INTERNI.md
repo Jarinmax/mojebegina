@@ -23,6 +23,12 @@ obj. přibližně 0,95 g/ml (fyzikální hodnota, ne údaj dodavatele).
 - Specifikace šťávy (100% šťáva / z koncentrátu / nektar) — ovlivňuje název
   složky.
 
+## Kosmopolitan (zadání 10. 11. 2026, kalkulace(4).xlsx nebyla přiložena)
+Alkohol: 500 ml vodky 37,5 % / 3 000 ml = 6,25 → 6,3 % obj. (bez ztrát).
+Složení podle zadání (shodné s dosavadním). Neověřeno: pořadí brusinková /
+jablečná šťáva / vodka (chybí objemy), specifikace „přírodní aroma“,
+siřičitany v brusinkové šťávě (BEG-02) → objednání zůstává blokované.
+
 ## Výživové údaje
 Granátový bond, Kosmopolitan, Lady Carneval: nad 1,2 % obj. alkoholu →
 výživové údaje nepovinné (čl. 16 odst. 4 nař. 1169/2011); na webu se řádek

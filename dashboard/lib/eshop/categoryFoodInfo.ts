@@ -1,6 +1,6 @@
 // Řádky „Příprava“ a „Vrácení a reklamace“ v tabulce Informace o potravině
 // podle kategorie (polévky, sirupy) a u vybraných produktů podle zadání
-// (koktejly Svařák Deluxe, Lady Carneval a Granátový bond, 10. 11. 2026). Ostatní je nemají.
+// (koktejly Svařák Deluxe, Lady Carneval, Granátový bond a Kosmopolitan, 10. 11. 2026). Ostatní je nemají.
 import type { FoodInfo } from "./types";
 import { SOUP_CATEGORY, SOUP_PREPARATION, SOUP_RETURNS_AFTER, SOUP_RETURNS_BEFORE, SOUP_RETURNS_LINK_TEXT } from "./soupFoodInfo";
 import { SYRUP_CATEGORY, SYRUP_PREPARATION, SYRUP_RETURNS_AFTER, SYRUP_RETURNS_BEFORE, SYRUP_RETURNS_LINK_TEXT } from "./syrupFoodInfo";
@@ -30,6 +30,10 @@ const PRODUCT_EXTRAS: Record<string, Pick<FoodInfo, "preparation" | "returns">> 
     returns: COCKTAIL_RETURNS,
   },
   "granatovy-bond": {
+    preparation: "Podávejte vychlazené, případně s ledem. Nápoj je připravený k podávání, neředí se.",
+    returns: COCKTAIL_RETURNS,
+  },
+  kosmopolitan: {
     preparation: "Podávejte vychlazené, případně s ledem. Nápoj je připravený k podávání, neředí se.",
     returns: COCKTAIL_RETURNS,
   },

@@ -1,5 +1,6 @@
--- Svařák Deluxe, Lady Carneval a Granátový bond (10. 11. 2026): skladování
--- a trvanlivost; u Granátového bondu složení (šťáva před vodkou — řazení
+-- Svařák Deluxe, Lady Carneval, Granátový bond a Kosmopolitan (10. 11. 2026):
+-- skladování a trvanlivost (Kosmopolitan jen to — složení a 6,3 % obj.
+-- už odpovídají zadání; blokace objednání skriptem 84 zůstává); u Granátového bondu složení (šťáva před vodkou — řazení
 -- podle hmotnosti) a obsah alkoholu 6,3 % obj. (dříve 6,7 %);
 -- u Lady Carneval navíc složení (grapefruitová šťáva, „E 110, E 124“) a
 -- odstranění upozornění „E110, E124: může nepříznivě ovlivňovat činnost
@@ -31,7 +32,7 @@ BEGIN
     RAISE EXCEPTION 'Toto není Production main — zastavuji, nic se nezměnilo.';
   END IF;
   SELECT md5(string_agg(concat_ws('|', slug, ingredients, storage_instructions, shelf_life_note, warnings::text, alcohol_percent::text, allergens::text, nutrition::text), '#' ORDER BY slug))
-    INTO rest_before FROM products WHERE slug NOT IN ('svarak-deluxe', 'lady-carneval', 'granatovy-bond');
+    INTO rest_before FROM products WHERE slug NOT IN ('svarak-deluxe', 'lady-carneval', 'granatovy-bond', 'kosmopolitan');
 
   UPDATE products
      SET storage_instructions = 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.',
@@ -73,11 +74,24 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 1 THEN RAISE EXCEPTION 'Granátový bond nemá očekávané původní údaje — zastavuji, nic se nezměnilo.'; END IF;
 
+  UPDATE products
+     SET storage_instructions = 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.',
+         shelf_life_note = 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte co nejdříve při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.',
+         updated_at = now()
+   WHERE slug = 'kosmopolitan'
+     AND ingredients = 'čistá filtrovaná voda, brusinková šťáva, jablečná šťáva, vodka, citronová šťáva, třtinový cukr, antioxidant: kyselina askorbová (vitamin C), přírodní aroma'
+     AND alcohol_percent = 6.3
+     AND storage_instructions = 'Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě.'
+     AND shelf_life_note IS NULL
+     AND warnings = ARRAY['Není určeno pro děti, těhotné a kojící ženy.'];
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'Kosmopolitan nemá očekávané původní údaje — zastavuji, nic se nezměnilo.'; END IF;
+
   IF rest_before IS DISTINCT FROM (SELECT md5(string_agg(concat_ws('|', slug, ingredients, storage_instructions, shelf_life_note, warnings::text, alcohol_percent::text, allergens::text, nutrition::text), '#' ORDER BY slug))
-    FROM products WHERE slug NOT IN ('svarak-deluxe', 'lady-carneval', 'granatovy-bond')) THEN
+    FROM products WHERE slug NOT IN ('svarak-deluxe', 'lady-carneval', 'granatovy-bond', 'kosmopolitan')) THEN
     RAISE EXCEPTION 'Změnil by se jiný produkt — zastavuji, nic se nezměnilo.';
   END IF;
-  RAISE NOTICE 'Hotovo: Svařák Deluxe, Lady Carneval a Granátový bond mají nové údaje.';
+  RAISE NOTICE 'Hotovo: Svařák Deluxe, Lady Carneval, Granátový bond a Kosmopolitan mají nové údaje.';
 END $$;
 
 COMMIT;
