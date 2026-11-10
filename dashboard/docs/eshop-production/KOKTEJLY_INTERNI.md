@@ -56,7 +56,7 @@ Odstraněno skriptem 87; barviva ve složení zůstávají.
   náhradní. Všechna uvádějí siřičitany (na webu „obsahuje SIŘIČITANY“ — sedí).
 - Alkohol hotového svařáku určit z receptury a výroby, ne z procenta vína:
   2 000 ml × 12 % = 240 ml ethanolu; % obj. = 240 / konečný objem várky (ml)
-  × 100. Konečný objem není doložen (3 000 ml tekutin + 130 g cukru + koření;
+  × 100. 8,0 % obj. = jen orientačně pro přesně 3 000 ml bez ztrát. Konečný objem není doložen (3 000 ml tekutin + 130 g cukru + koření;
   voda 0 ml) a není doloženo, zda se při výrobě zahřívá (ztráty alkoholu) →
   změřit konečný objem várky, případně alkohol hotového výrobku.
 - Rozpor podílu pomerančové šťávy: kalkulace 500 ml (≈ 16 %) × web 13 %.
@@ -69,19 +69,42 @@ pasterizovaná, bez přísad. Fotografie produktu a popisu zatím nedorazily
 (v příloze byla jen kalkulace) → doložit. Tvrzení prodejce „neobsahuje cukr“
 NEPŘEBÍRAT (přirozené cukry šťávy). Čeká se na zvážení 500 ml šťávy a celé dávky.
 
-## Přidané kyseliny — doporučení (kalkulace koktejlů (5), 10. 11. 2026)
-Ve všech čtyřech: kyselina askorbová 1 g / 3 l (≈ 0,33 g/l), citronová ne.
-Všechny obsahují citronovou šťávu (180–200 ml / 3 l) → přidaná kyselina
-citronová jako okyselující látka není potřeba.
-- Granátový bond, Kosmopolitan: barva z antokyanů (granátové jablko,
-  brusinky) — kyselina askorbová může rozklad antokyanů urychlovat →
-  doporučeno vynechat, nebo ponechat jen po srovnávací zkoušce barvy.
-- Lady Carneval: azobarviva E 110, E 124 (z Aperolu) — askorbová může jejich
-  blednutí urychlovat; grapefruitová a citronová šťáva → doporučeno vynechat,
-  nebo ponechat po zkoušce barvy a chuti.
-- Svařák Deluxe: víno se siřičitany; askorbová bez dostatku volného SO₂ může
-  působit prooxidačně, zahříváním se rozkládá → doporučeno vynechat.
-  Zařazení (nař. 251/2014, aromatizovaný nápoj na bázi vína?) a povolené
-  přídatné látky v kat. 14.2.7.x přílohy II nař. 1333/2008 neověřeny.
-Zkouška: dvě dávky (s / bez askorbové), skladovat jako výrobek, porovnat
-barvu a chuť v čase; u svařáku navíc volný a celkový SO₂ v hotovém výrobku.
+## Přidané kyseliny — NÁVRH zkoušek (neověřeno, receptury beze změny; 10. 11. 2026)
+Platná receptura (kalkulace koktejlů (5)): ve všech čtyřech kyselina askorbová
+1 g / dávku 3 l; kyselina citronová přidaná není. Askorbovou automaticky
+nenahrazovat citronovou. Podíl citronové šťávy NENÍ doklad dostatečného okyselení.
+
+Zkušební varianty (vše ostatní shodné se současnou recepturou):
+| Výrobek | A = současná receptura | B = zkušební varianta |
+|---|---|---|
+| Granátový bond | askorbová 1 g / 3 l | bez přidané askorbové |
+| Kosmopolitan | askorbová 1 g / 3 l | bez přidané askorbové |
+| Lady Carneval | askorbová 1 g / 3 l | bez přidané askorbové |
+| Svařák Deluxe | askorbová 1 g / 3 l | bez přidané askorbové (po vyjasnění kategorie) |
+
+Důvody ke zkoušce (hypotézy, neověřeno měřením): askorbová může urychlovat
+rozklad antokyanů (Granátový, Kosmopolitan) a blednutí azobarviv E 110/E 124
+(Lady Carneval); u svařáku vztah k siřičitanům vína a zahřívání.
+
+Před zavedením změny změřit u hotových výrobků A i B (stejná šarže surovin):
+1. pH a titrační kyselost hned po výrobě;
+2. skutečný obsah alkoholu;
+3. mikrobiologická zkouška trvanlivosti v akreditované laboratoři při
+   deklarovaném skladování (celkový počet mikroorganismů, kvasinky a plísně,
+   případně bakterie mléčného kvašení) na začátku, v průběhu a na konci
+   deklarované doby + rezerva — porovnání barvy a chuti to NENAHRAZUJE;
+4. barva a smyslové hodnocení v týchž termínech;
+5. svařák: volný a celkový SO₂ v hotovém výrobku.
+Změnu zapsat do HACCP/výrobní dokumentace až po vyhodnocení.
+
+## Kategorie výrobků podle nař. 1333/2008 — stav ověření (10. 11. 2026)
+- Granátový bond, Kosmopolitan, Lady Carneval: vodka (Aperol) + šťávy + voda,
+  6,3–7,2 % obj. → pravděpodobně kat. 14.2.8 (jiné alkoholické nápoje vč. směsí
+  s nealkoholickými nápoji, < 15 % obj.). NEOVĚŘENO: znění přílohy II části E
+  pro kat. 14.2.8 (EUR-Lex nešel načíst) — zda je tam skupina I / E 300 / E 330.
+- Svařák Deluxe: víno 2 000 ml + šťávy + koření → kandidát kat. 14.2.7.2
+  (aromatizovaný nápoj na bázi vína, nař. 251/2014: 4,5–14,5 % obj.) nebo 14.2.8.
+  Chybí: skutečný konečný obsah alkoholu, podíl vína v hotovém výrobku, postup
+  louhování koření, znění přílohy I nař. 251/2014 a přílohy II části E nař.
+  1333/2008 pro 14.2.7.2 (podle nař. 59/2014 tam jsou siřičitany; zda E 300 —
+  neověřeno).
