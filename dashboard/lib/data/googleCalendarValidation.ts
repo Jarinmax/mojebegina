@@ -6,11 +6,8 @@
 // pragueDateTimeToUtc žije v neutrálním pragueTime.ts (sdíleno i s
 // dailyCallsValidation.ts/leadValidation.ts) — reexportováno odsud, aby
 // stávající importy z téhle domény zůstaly beze změny.
-import { DateTime } from "luxon";
 import { ACTIVE_LEAD_STAGES, type LeadStage } from "./leadValidation";
 import { pragueDateTimeToUtc, type PragueDateTimeResult } from "./pragueTime";
-
-const PRAGUE_ZONE = "Europe/Prague";
 
 export { pragueDateTimeToUtc, type PragueDateTimeResult };
 
@@ -76,8 +73,11 @@ export function buildGoogleEventId(leadId: string): string {
 
 export const EVENT_DURATION_MINUTES = 15;
 
-export function buildEventTitle(displayName: string): string {
-  return `Zavolat: ${displayName}`;
+// Zadání 10. 11. 2026: v upozornění na mobilu musí být vidět rovnou i číslo
+// (název události je text upozornění), ne až po otevření události.
+export function buildEventTitle(displayName: string, contactPhone: string | null = null): string {
+  const phone = contactPhone?.trim();
+  return phone ? `📞 Zavolat: ${displayName} · ${phone}` : `📞 Zavolat: ${displayName}`;
 }
 
 export function buildEventDescription(input: {
@@ -86,30 +86,23 @@ export function buildEventDescription(input: {
   leadUrl: string;
 }): string {
   const lines: string[] = [];
+  // Číslo na samostatném řádku — Google Kalendář v Androidu z něj udělá
+  // odkaz, klepnutím se rovnou vytáčí.
   if (input.contactPhone) lines.push(`Telefon: ${input.contactPhone}`);
   if (input.note) lines.push(`Poznámka: ${input.note}`);
   lines.push(input.leadUrl);
   return lines.join("\n");
 }
 
-// Tři kandidátní upozornění (minuty před začátkem): 20 min, 2 h, a do 9:00
-// téhož dne — poslední JEN pokud je hovor v 9:00 nebo později (schváleno
-// explicitně). Shodné hodnoty se deduplikují, aby Google nedostal dvě
-// identická upozornění (např. hovor v 11:00: "9:00" i "2h před" vychází
-// na stejných 120 minut).
-export function buildReminderMinutes(startAt: Date): number[] {
-  const startPrague = DateTime.fromJSDate(startAt, { zone: PRAGUE_ZONE });
-  const candidates: number[] = [20, 120];
+// Upozornění (minuty před začátkem hovoru), zadání 10. 11. 2026:
+//   • 60 — hodinu předem (Jarda: „třeba hodinu předtím“),
+//   • 5  — pět minut předem (vedení: „vyskočí to na mobilu 5 minut předem“),
+//   • 0  — přesně v čas hovoru.
+// Google přijme nejvýš 5 upozornění; posílá je jako notifikaci (popup).
+export const REMINDER_MINUTES: readonly number[] = [0, 5, 60];
 
-  if (startPrague.hour >= 9) {
-    const nineAm = startPrague.set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
-    const minutesUntilNine = Math.round(startPrague.diff(nineAm, "minutes").minutes);
-    if (minutesUntilNine >= 0) {
-      candidates.push(minutesUntilNine);
-    }
-  }
-
-  return [...new Set(candidates)].sort((a, b) => a - b);
+export function buildReminderMinutes(): number[] {
+  return [...REMINDER_MINUTES];
 }
 
 // --- Vytvoření/aktualizace události, injektovaný klient (testovatelné) -----

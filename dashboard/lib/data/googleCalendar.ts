@@ -387,7 +387,8 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
           contactName: lead.contactName,
           contactEmail: lead.contactEmail,
           contactPhone: lead.contactPhone,
-        })
+        }),
+        lead.contactPhone
       ),
       description: buildEventDescription({
         contactPhone: lead.contactPhone,
@@ -396,7 +397,7 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
       }),
       startUtc: current,
       durationMinutes: EVENT_DURATION_MINUTES,
-      reminderMinutes: buildReminderMinutes(current),
+      reminderMinutes: buildReminderMinutes(),
     };
 
     await createOrPatchEvent(client, owner.calendarId, eventId, event);

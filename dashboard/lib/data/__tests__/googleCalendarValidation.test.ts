@@ -7,6 +7,7 @@ import {
   buildEventTitle,
   buildEventDescription,
   buildReminderMinutes,
+  REMINDER_MINUTES,
   createOrPatchEvent,
   GoogleConflictError,
   EVENT_DURATION_MINUTES,
@@ -236,8 +237,13 @@ describe("buildGoogleEventId — Security Phase 20", () => {
 });
 
 describe("obsah události — Security Phase 20", () => {
-  it("buildEventTitle má formát 'Zavolat: <jméno>'", () => {
-    expect(buildEventTitle("Drops Dino")).toBe("Zavolat: Drops Dino");
+  it("název události (= text upozornění v mobilu) obsahuje jméno i telefon", () => {
+    expect(buildEventTitle("Drops Dino", "+420 604 495 505")).toBe("📞 Zavolat: Drops Dino · +420 604 495 505");
+  });
+
+  it("bez telefonu jen jméno", () => {
+    expect(buildEventTitle("Drops Dino", null)).toBe("📞 Zavolat: Drops Dino");
+    expect(buildEventTitle("Drops Dino", "  ")).toBe("📞 Zavolat: Drops Dino");
   });
 
   it("buildEventDescription obsahuje telefon, poznámku a odkaz", () => {
@@ -262,29 +268,13 @@ describe("obsah události — Security Phase 20", () => {
   });
 });
 
-describe("buildReminderMinutes — Security Phase 20", () => {
-  it("hovor ve 20:00 (po 9:00) dá tři odlišná upozornění: 20, 120 a minuty do 9:00", () => {
-    const start = pragueDateTimeToUtc("2026-07-15", "20:00");
-    if (!start.ok) throw new Error("setup failed");
-    expect(buildReminderMinutes(start.value)).toEqual([20, 120, 660]);
+describe("buildReminderMinutes — zadání 10. 11. 2026", () => {
+  it("vždy hodinu předem, 5 minut předem a v čase hovoru", () => {
+    expect(buildReminderMinutes()).toEqual([0, 5, 60]);
   });
 
-  it("hovor v 11:00 dedupuje shodné upozornění (9:00 i 2h před = 120 minut)", () => {
-    const start = pragueDateTimeToUtc("2026-07-15", "11:00");
-    if (!start.ok) throw new Error("setup failed");
-    expect(buildReminderMinutes(start.value)).toEqual([20, 120]);
-  });
-
-  it("hovor před 9:00 nemá upozornění na 9:00", () => {
-    const start = pragueDateTimeToUtc("2026-07-15", "08:30");
-    if (!start.ok) throw new Error("setup failed");
-    expect(buildReminderMinutes(start.value)).toEqual([20, 120]);
-  });
-
-  it("hovor přesně v 9:00 má upozornění 0 minut před (splývá se začátkem)", () => {
-    const start = pragueDateTimeToUtc("2026-07-15", "09:00");
-    if (!start.ok) throw new Error("setup failed");
-    expect(buildReminderMinutes(start.value)).toEqual([0, 20, 120]);
+  it("nejvýš 5 upozornění (limit Google Kalendáře)", () => {
+    expect(REMINDER_MINUTES.length).toBeLessThanOrEqual(5);
   });
 });
 
