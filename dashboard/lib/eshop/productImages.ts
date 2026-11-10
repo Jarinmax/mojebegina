@@ -40,6 +40,7 @@ const BACKDROP: Record<string, string> = {
   "/eshop/sirupy/hermankovy-sirup-doypack.jpg": "#fefefe",
   "/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg": "#fefefe",
   "/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg": "#fefefe",
+  "/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
