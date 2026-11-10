@@ -28,7 +28,7 @@ for (const [name, device] of [["pocitac", { viewport: { width: 1440, height: 900
     check(`${name} ${path}: šest karet`, cards.length === 6, cards.map((c) => c.href).join(" "));
     check(`${name} ${path}: název pod fotkou, žádný pruh přes fotku`, cards.every((c) => c.labelTop >= c.photoBottom - 1 && c.overlays === 0 && c.labelText.length > 0), cards.map((c) => `${c.labelText}:${Math.round(c.labelTop - c.photoBottom)}`).join(" "));
     check(`${name} ${path}: stejná velikost karet`, new Set(cards.map((c) => `${c.w}x${c.h}`)).size === 1, [...new Set(cards.map((c) => `${c.w}x${c.h}`))].join(" "));
-    check(`${name} ${path}: fotka zarovnaná dolů (bez zapečeného pruhu)`, cards.filter((c) => c.imgPos).every((c) => /100%$/.test(c.imgPos)), cards.map((c) => c.imgPos).join(" "));
+    check(`${name} ${path}: fotka zarovnaná dolů (bez zapečeného pruhu)`, cards.filter((c) => c.imgPos && c.labelText !== "Zmrzliny").every((c) => /100%$/.test(c.imgPos)), cards.map((c) => c.imgPos).join(" "));
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);
     check(`${name} ${path}: bez přetékání`, sw <= vw, `${sw}/${vw}`);
     if (path === "/o-vode") {

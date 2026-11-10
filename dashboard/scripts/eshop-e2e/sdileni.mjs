@@ -11,7 +11,7 @@ const check = (n, c, d = "") => (c ? ok : fails).push(`${n}${d ? ` — ${d}` : "
 const browser = await chromium.launch({ args: [`--host-resolver-rules=MAP begina.cz 127.0.0.1`].filter(() => !process.env.SHARE_BASE) });
 const page = await browser.newPage();
 const meta = async (path) => {
-  const res = await page.request.get(`${BASE}${path}`, { headers: { "user-agent": "WhatsApp/2.23.20.0 A" } });
+  const res = await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
   const html = await res.text();
   const get = (attr, key) => html.match(new RegExp(`<meta[^>]+${attr}="${key}"[^>]*content="([^"]*)"`))?.[1]?.replaceAll("&amp;", "&") ?? null;
   const icons = [...html.matchAll(/<link[^>]+rel="(?:icon|apple-touch-icon|shortcut icon)"[^>]*href="([^"]+)"/g)].map((m) => m[1]);
@@ -24,10 +24,10 @@ check("úvod: og:image = logo", /\/og-begina\.png\?v=/.test(home.image ?? ""), h
 check("úvod: twitter:card", home.tw === "summary_large_image" && /og-begina/.test(home.twImg ?? ""), `${home.tw} ${home.twImg}`);
 check("úvod: ikona webu je logo (ne výchozí Next/Vercel)", home.icons.some((i) => /icon\.png|favicon/.test(i)), home.icons.join(" "));
 const imgUrl = home.image.replace("https://begina.cz", BASE);
-const img = await page.request.get(imgUrl);
+const img = await page.goto(imgUrl);
 check("obrázek náhledu veřejně dostupný", img.status() === 200 && /image\/png/.test(img.headers()["content-type"] ?? ""), `${img.status()} ${img.headers()["content-type"]}`);
 for (const p of ["/favicon.ico", "/icon.png", "/apple-icon.png"]) {
-  const r = await page.request.get(`${BASE}${p}`);
+  const r = await page.goto(`${BASE}${p}`);
   check(`${p} dostupná`, r.status() === 200, String(r.status()));
 }
 const prod = await meta("/produkt/kulajda");
