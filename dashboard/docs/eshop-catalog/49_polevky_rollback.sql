@@ -81,7 +81,8 @@ UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "allergens" 
 WHERE "slug" IN ('dynova-polevka', 'kulajda', 'rajcatova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka');
 
 DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN ('dynova-polevka', 'kulajda', 'rajcatova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka'))
-  AND "url" IN ('/eshop/dynova-polevka.jpg', '/eshop/kulajda.jpg', '/eshop/rajcatova-polevka.jpg', '/eshop/rajcatova-polevka-s-cervenou-repou.jpg', '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg', '/eshop/spenatova-polevka.jpg');
+  AND "url" IN ('/eshop/dynova-polevka.jpg', '/eshop/polevky/dynova-polevka-miska.jpg', '/eshop/polevky/dynova-polevka-sacek.jpg', '/eshop/kulajda.jpg', '/eshop/polevky/kulajda-miska.jpg', '/eshop/polevky/kulajda-sacek.jpg', '/eshop/rajcatova-polevka.jpg', '/eshop/polevky/rajcatova-polevka-miska.jpg', '/eshop/polevky/rajcatova-polevka-sacek.jpg', '/eshop/rajcatova-polevka-s-cervenou-repou.jpg', '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg', '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg', '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg', '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg', '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg', '/eshop/spenatova-polevka.jpg', '/eshop/polevky/spenatova-polevka-miska.jpg', '/eshop/polevky/spenatova-polevka-sacek.jpg');
+UPDATE "product_categories" SET "image_url" = '/eshop/kategorie-polevky.jpg', "updated_at" = now() WHERE "slug" = 'polevky';
 
 -- Polévky, které v migraci 0014 nejsou: jen skrýt (objednávky zůstanou v pořádku).
 UPDATE "product_variants" SET "is_active" = false, "updated_at" = now()

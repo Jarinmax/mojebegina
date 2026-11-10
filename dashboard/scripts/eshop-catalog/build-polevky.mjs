@@ -303,7 +303,8 @@ UPDATE "products" SET "nutrition" = NULL, "nutrition_basis" = NULL, "allergens" 
 WHERE "slug" IN (${list});
 
 DELETE FROM "product_images" WHERE "product_id" IN (SELECT "id" FROM "products" WHERE "slug" IN (${list}))
-  AND "url" IN (${SOUPS.map((s) => q(`/eshop/${s.slug}.jpg`)).join(", ")});
+  AND "url" IN (${SOUPS.flatMap((s) => [`/eshop/${s.slug}.jpg`, ...soupPhotos(s).map((ph) => ph.url)]).map(q).join(", ")});
+UPDATE "product_categories" SET "image_url" = '/eshop/kategorie-polevky.jpg', "updated_at" = now() WHERE "slug" = 'polevky';
 
 ${
   added.length
