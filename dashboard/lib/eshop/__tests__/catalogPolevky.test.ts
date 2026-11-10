@@ -87,14 +87,23 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(kulajda.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/kulajda-miska.jpg", "/eshop/polevky/kulajda-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, kulajda.image!))).toBe(true);
     expect(kulajda.foodInfo.ingredients).toMatch(/žampiony 7 %/);
-    expect(kulajda.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 187 kJ \/ 45 kcal.*vláknina 0,5 g$/);
+    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3,4 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
+    expect(kulajda.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 219 kJ / 53 kcal, tuky 3,5 g (z toho nasycené 2,4 g), sacharidy 3,9 g (z toho cukry 0,8 g), bílkoviny 1 g, sůl 0,76 g");
+    expect(kulajda.foodInfo.nutritionTable?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
+      "Energetická hodnota: 219\u00a0kJ / 53\u00a0kcal", "Tuky: 3,5\u00a0g", "z toho nasycené mastné kyseliny: 2,4\u00a0g", "Sacharidy: 3,9\u00a0g", "z toho cukry: 0,8\u00a0g", "Bílkoviny: 1,0\u00a0g", "Sůl: 0,76\u00a0g",
+    ]);
     const rajce = list[2];
     expect(rajce.variants).toEqual([expect.objectContaining({ sku: "rajcatova-polevka", label: "3 l", priceKc: 379 })]);
     expect(rajce.image).toBe("/eshop/polevky/rajcatova-polevka-miska.jpg");
     expect(rajce.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/rajcatova-polevka-miska.jpg", "/eshop/polevky/rajcatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, rajce.image!))).toBe(true);
     expect(rajce.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, pasírovaná rajčata 27 %/);
-    expect(rajce.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 255 kJ \/ 61 kcal.*vláknina 0,7 g$/);
+    expect(rajce.foodInfo.ingredients).toMatch(/pasírovaná rajčata 27 % \(rajčata 99,9 %, regulátor kyselosti: kyselina citronová\), rajčatový protlak 7 % \(rajčatový protlak, jedlá sůl 1 %\), brambory 7 %, kokosové mléko 6 %/);
+    expect(rajce.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 229 kJ / 54 kcal, tuky 2,9 g (z toho nasycené 1,3 g), sacharidy 5,5 g (z toho cukry 4,4 g), bílkoviny 1,2 g, sůl 0,86 g");
+    expect(rajce.foodInfo.nutritionTable?.rows).toHaveLength(7);
+    // ostatní polévky zůstávají jako text
+    expect(list[0].foodInfo.nutritionTable).toBeUndefined();
+    expect(list[3].foodInfo.nutritionTable).toBeUndefined();
     const repa = list[3];
     expect(repa.foodInfo.ingredients).toMatch(/červená řepa 9 %/);
     expect(repa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 189 kJ \/ 45 kcal.*vláknina 0,9 g$/);
@@ -113,7 +122,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(spenat.image).toBe("/eshop/polevky/spenatova-polevka-miska.jpg");
     expect(spenat.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/spenatova-polevka-miska.jpg", "/eshop/polevky/spenatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, spenat.image!))).toBe(true);
-    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule, olivový olej/);
+    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule 4,3 %, olivový olej/);
     expect(spenat.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g"
     );

@@ -56,7 +56,34 @@ export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[sl
 
 const MISSING = "Doplníme";
 
-function foodInfoRows(product: Product): { label: string; value: ReactNode | null }[] {
+// Výživové údaje jako tabulka (vybrané produkty, lib/eshop/nutrition.ts):
+// vlevo název údaje, vpravo hodnota na 100 ml zarovnaná doprava; přes celou
+// šířku sekce, aby se vešla na mobil bez vodorovného posouvání.
+function NutritionTableView({ table }: { table: NonNullable<Product["foodInfo"]["nutritionTable"]> }) {
+  return (
+    <table className="mt-2 w-full border-collapse text-left">
+      <caption className="sr-only">Průměrné výživové hodnoty na {table.basis}</caption>
+      <thead>
+        <tr className="border-b border-neutral-300">
+          <th scope="col" className="py-1.5 pr-3 font-medium">Průměrné výživové hodnoty</th>
+          <th scope="col" className="py-1.5 text-right font-medium whitespace-nowrap">na {table.basis.replace(" ", "\u00a0")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {table.rows.map((row) => (
+          <tr key={row.label} className="border-b border-neutral-200 last:border-b-0">
+            <th scope="row" className={`py-1.5 pr-3 font-normal ${row.sub ? "pl-4 text-neutral-600" : ""}`}>
+              {row.label}
+            </th>
+            <td className="py-1.5 text-right tabular-nums whitespace-nowrap">{row.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function foodInfoRows(product: Product): { label: string; value: ReactNode | null; wide?: boolean }[] {
   const info = product.foodInfo;
   const packages = product.variants.every((variant) => variant.label)
     ? product.variants.map((variant) => variant.label).join(", ")
@@ -87,7 +114,9 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
           },
         ]
       : []),
-    { label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) },
+    info.nutritionTable
+      ? { label: "Výživové hodnoty", value: <NutritionTableView table={info.nutritionTable} />, wide: true }
+      : { label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) },
     { label: "Skladování", value: asSentence(info.storage) },
     { label: "Trvanlivost", value: asSentence(info.shelfLife) },
     ...(info.preparation ? [{ label: "Příprava", value: asSentence(info.preparation) }] : []),
@@ -248,7 +277,10 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             <h2 id="food-info" className="font-medium mb-3">Informace o potravině</h2>
             <dl className="text-sm divide-y divide-neutral-100">
               {foodInfoRows(product).map((row) => (
-                <div key={row.label} className="py-2.5 grid grid-cols-[8.5rem_1fr] sm:grid-cols-[10rem_1fr] gap-3">
+                <div
+                  key={row.label}
+                  className={row.wide ? "py-2.5" : "py-2.5 grid grid-cols-[8.5rem_1fr] sm:grid-cols-[10rem_1fr] gap-3"}
+                >
                   <dt className="text-neutral-500">{row.label}</dt>
                   <dd className={row.value === null ? "text-neutral-400 italic" : ""}>
                     {row.value ?? MISSING}

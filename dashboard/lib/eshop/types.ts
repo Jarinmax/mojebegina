@@ -36,6 +36,8 @@ export type FoodInfo = {
   /** Česky pojmenované alergeny; null = zatím neznámé, [] = bez alergenů. */
   allergens: string[] | null;
   nutritionPer100g: string | null;
+  /** tabulka výživových údajů (jen vybrané produkty, nutrition.ts) */
+  nutritionTable?: import("./nutrition").NutritionTable | null;
   storage: string | null;
   shelfLife: string | null;
   /** příprava (polévky, sirupy) — categoryFoodInfo.ts */

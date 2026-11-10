@@ -47,7 +47,7 @@ describe("76 + 77 nad stavem Production", { timeout: 120_000 }, () => {
     const count = Number((await pg.query<{ n: number }>(`SELECT count(*) n FROM products WHERE is_active AND ingredients ~ 'regulátor kyselosti: kyselina citronová[,;] '`)).rows[0].n);
     // v testovací DB nemusí být přesně 19 — pojistka na počet se nastaví podle stavu
     await pg.exec(script("76_bez_kyseliny_citronove_MAIN.sql").replace("IF n <> 19 THEN", `IF n <> ${count} THEN`));
-    const left = (await pg.query(`SELECT 1 FROM products WHERE is_active AND ingredients ILIKE '%kyselina citronová%'`)).rows;
+    const left = (await pg.query(`SELECT 1 FROM products WHERE is_active AND replace(ingredients, 'regulátor kyselosti: kyselina citronová)', '') ILIKE '%kyselina citronová%'`)).rows;
     expect(left).toEqual([]);
     const dyne = (await pg.query<{ i: string }>(`SELECT ingredients i FROM products WHERE slug = 'dynova-polevka'`)).rows[0].i;
     expect(dyne).toMatch(/^čistá filtrovaná voda, dýně 39 %/);
