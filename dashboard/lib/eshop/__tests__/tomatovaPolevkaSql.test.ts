@@ -28,6 +28,7 @@ describe("79 Tomatová polévka nad stavem Production", { timeout: 120_000 }, ()
       description = array_replace(array_replace(description, 'Tomatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.',
         'Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.'),
         '- pro milovníky tomatových polévek', '- pro milovníky rajčatových polévek') WHERE slug = 'rajcatova-polevka'`);
+    await pg.query(`DELETE FROM product_images WHERE url LIKE '%-sacek.jpg'`); // stav Production před fotkami (skript 85)
     await pg.query(`UPDATE product_images SET alt = 'Rajčatová polévka' WHERE alt = 'Tomatová polévka'`);
   }, 120_000);
 

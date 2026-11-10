@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - name: Testy
         run: npx vitest run 2>&1 | tee /tmp/t.log | grep -E "Test Files|Tests |FAIL|AssertionError" | head -40
+      - name: Detail
+        run: npx vitest run lib/eshop/__tests__/catalogPolevky.test.ts lib/eshop/__tests__/polevkyUvodFotkySql.test.ts 2>&1 | grep -vE "^\s*$" | grep -A30 -E "FAIL|Error" | head -150 || true
       - name: Build
         run: npx next build 2>&1 | tail -5
       - name: Prohlížeč
