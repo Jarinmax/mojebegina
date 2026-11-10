@@ -101,9 +101,8 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(rajce.foodInfo.ingredients).toMatch(/pasírovaná rajčata 27 % \(rajčata 99,9 %, regulátor kyselosti: kyselina citronová\), rajčatový protlak 7 % \(rajčatový protlak, jedlá sůl 1 %\), brambory 7 %, kokosové mléko 6 %/);
     expect(rajce.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 229 kJ / 54 kcal, tuky 2,9 g (z toho nasycené 1,3 g), sacharidy 5,5 g (z toho cukry 4,4 g), bílkoviny 1,2 g, sůl 0,86 g");
     expect(rajce.foodInfo.nutritionTable?.rows).toHaveLength(7);
-    // ostatní polévky zůstávají jako text
-    expect(list[0].foodInfo.nutritionTable).toBeUndefined();
-    expect(list[3].foodInfo.nutritionTable).toBeUndefined();
+    // tabulka u všech produktů s úplnými údaji, vláknina zachována
+    expect(list[0].foodInfo.nutritionTable?.rows.map((r) => r.label)).toContain("Vláknina");
     const repa = list[3];
     expect(repa.foodInfo.ingredients).toMatch(/červená řepa 9 %/);
     expect(repa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 189 kJ \/ 45 kcal.*vláknina 0,9 g$/);

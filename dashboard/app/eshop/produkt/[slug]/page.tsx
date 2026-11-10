@@ -56,26 +56,28 @@ export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[sl
 
 const MISSING = "Doplníme";
 
-// Výživové údaje jako tabulka (vybrané produkty, lib/eshop/nutrition.ts):
-// vlevo název údaje, vpravo hodnota na 100 ml zarovnaná doprava; přes celou
-// šířku sekce, aby se vešla na mobil bez vodorovného posouvání.
+// Výživové údaje jako tabulka (všechny produkty s úplnými údaji,
+// lib/eshop/nutrition.ts): vlevo název, vpravo hodnota zarovnaná doprava;
+// přes celou šířku bloku, bez samostatného nadpisu (záhlaví tabulky ho nese).
 function NutritionTableView({ table }: { table: NonNullable<Product["foodInfo"]["nutritionTable"]> }) {
   return (
-    <table className="mt-2 w-full border-collapse text-left">
+    <table className="w-full border-collapse text-left">
       <caption className="sr-only">Průměrné výživové hodnoty na {table.basis}</caption>
       <thead>
-        <tr className="border-b border-neutral-300">
-          <th scope="col" className="py-1.5 pr-3 font-medium">Průměrné výživové hodnoty</th>
-          <th scope="col" className="py-1.5 text-right font-medium whitespace-nowrap">na {table.basis.replace(" ", "\u00a0")}</th>
+        <tr className="border-b border-neutral-200">
+          <th scope="col" className="pb-2 pr-3 font-normal text-neutral-500">Průměrné výživové hodnoty</th>
+          <th scope="col" className="pb-2 text-right font-normal text-neutral-500 whitespace-nowrap">
+            na {table.basis.replace(" ", "\u00a0")}
+          </th>
         </tr>
       </thead>
-      <tbody>
+      <tbody className="divide-y divide-neutral-100">
         {table.rows.map((row) => (
-          <tr key={row.label} className="border-b border-neutral-200 last:border-b-0">
-            <th scope="row" className={`py-1.5 pr-3 font-normal ${row.sub ? "pl-4 text-neutral-600" : ""}`}>
+          <tr key={row.label}>
+            <th scope="row" className={`py-2 pr-3 font-normal ${row.sub ? "pl-4" : ""}`}>
               {row.label}
             </th>
-            <td className="py-1.5 text-right tabular-nums whitespace-nowrap">{row.value}</td>
+            <td className="py-2 text-right tabular-nums whitespace-nowrap">{row.value}</td>
           </tr>
         ))}
       </tbody>
@@ -276,17 +278,23 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           <section className="mt-8 border-t border-neutral-200 pt-6" aria-labelledby="food-info">
             <h2 id="food-info" className="font-medium mb-3">Informace o potravině</h2>
             <dl className="text-sm divide-y divide-neutral-100">
-              {foodInfoRows(product).map((row) => (
-                <div
-                  key={row.label}
-                  className={row.wide ? "py-2.5" : "py-2.5 grid grid-cols-[8.5rem_1fr] sm:grid-cols-[10rem_1fr] gap-3"}
-                >
-                  <dt className="text-neutral-500">{row.label}</dt>
-                  <dd className={row.value === null ? "text-neutral-400 italic" : ""}>
-                    {row.value ?? MISSING}
-                  </dd>
-                </div>
-              ))}
+              {/* mobil: název nad textem (celá šířka); od sm: název vlevo, obsah vpravo.
+                  Tabulka výživy přes celou šířku, nadpis jen pro čtečky. */}
+              {foodInfoRows(product).map((row) =>
+                row.wide ? (
+                  <div key={row.label} className="py-3">
+                    <dt className="sr-only">{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ) : (
+                  <div key={row.label} className="py-3 grid grid-cols-1 gap-1 sm:grid-cols-[10rem_1fr] sm:gap-3">
+                    <dt className="text-neutral-500">{row.label}</dt>
+                    <dd className={`min-w-0 break-words ${row.value === null ? "text-neutral-400 italic" : ""}`}>
+                      {row.value ?? MISSING}
+                    </dd>
+                  </div>
+                )
+              )}
             </dl>
             {product.warnings.map((warning) => (
               <p key={warning} className="mt-3 text-sm text-neutral-600">
