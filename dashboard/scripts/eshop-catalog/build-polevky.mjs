@@ -8,7 +8,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { categorySql, imageSql, productSql, q, variantSql } from "./sql.mjs";
+import { categorySql, productSql, q, variantSql } from "./sql.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -32,6 +32,32 @@ export const CATEGORY = {
     },
   ],
 };
+
+// Fotografie (od 10. 11. 2026, bílý podklad, public/eshop/polevky/):
+// 1. miska se surovinami = hlavní fotka (katalog, sdílení), 2. sáček
+// s kohoutkem. Původní tmavé fotky s krabicí (public/eshop/<slug>.jpg)
+// zůstávají v kódu, jen se už nezobrazují.
+export const soupPhotos = (soup) => [
+  { url: `/eshop/polevky/${soup.slug}-miska.jpg`, alt: soup.name },
+  { url: `/eshop/polevky/${soup.slug}-sacek.jpg`, alt: `${soup.name} v balení s kohoutkem` },
+];
+// obecná fotka kategorie = hlavní fotka Dýňové polévky
+export const CATEGORY_IMAGE = "/eshop/polevky/dynova-polevka-miska.jpg";
+
+function soupPhotosSql(soup) {
+  const photos = soupPhotos(soup);
+  const product = `(SELECT "id" FROM "products" WHERE "slug" = ${q(soup.slug)})`;
+  return [
+    `DELETE FROM "product_images" WHERE "product_id" = ${product} AND "url" NOT IN (${photos.map((ph) => q(ph.url)).join(", ")});`,
+    ...photos.map(
+      (ph, i) => `INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT ${product}, ${q(ph.url)}, ${q(ph.alt)}, ${i}
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = ${product} AND "url" = ${q(ph.url)});
+UPDATE "product_images" SET "alt" = ${q(ph.alt)}, "sort_order" = ${i} WHERE "product_id" = ${product} AND "url" = ${q(ph.url)};`
+    ),
+    "",
+  ].join("\n");
+}
 
 // Balení 3 l — SKU je u polévek stejné jako slug (z migrace 0014), aby se
 // přepsalo stávající balení a objednávky na něj dál odkazovaly.
@@ -240,15 +266,16 @@ export function polevkySql() {
 -- transakce: chyba = nic se nezmění). Idempotentní — opakované spuštění
 -- nic nezdvojí, jen přepíše texty na aktuální. Kontrola před:
 -- 40_polevky_before.sql, po: 42_polevky_after.sql. Fotky jsou v kódu
--- (public/eshop/<slug>.jpg). Vrácení: 49_polevky_rollback.sql.
+-- (public/eshop/polevky/<slug>-miska.jpg a -sacek.jpg). Vrácení: 49_polevky_rollback.sql.
 BEGIN;
 `);
   w(categorySql("polevky", CATEGORY));
   for (const soup of SOUPS) {
     w(productSql(soup, "polevky", soup.sortOrder));
     soup.variants.forEach((v, j) => w(variantSql(soup.slug, v, (j + 1) * 10)));
-    if (soup.photo !== false) w(imageSql(soup));
+    if (soup.photo !== false) w(soupPhotosSql(soup));
   }
+  w(`UPDATE "product_categories" SET "image_url" = ${q(CATEGORY_IMAGE)}, "updated_at" = now() WHERE "slug" = 'polevky';\n`);
   w("COMMIT;\n");
   return out.join("\n");
 }

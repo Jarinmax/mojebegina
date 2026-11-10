@@ -15,7 +15,7 @@ import {
 } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
-import ProductImage from "@/components/eshop/ProductImage";
+import ProductGallery from "@/components/eshop/ProductGallery";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
@@ -141,7 +141,10 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-start">
         <div className="md:sticky md:top-20">
-          <ProductImage name={product.name} src={product.image} size="lg" />
+          <ProductGallery
+            name={product.name}
+            photos={product.gallery?.length ? product.gallery : product.image ? [{ url: product.image, alt: product.name }] : []}
+          />
         </div>
 
         <div>

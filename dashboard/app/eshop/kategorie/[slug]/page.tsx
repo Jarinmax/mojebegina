@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
+import { imageBackdrop } from "@/lib/eshop/productImages";
+import { SHARE_DESCRIPTION } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +13,21 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const category = (await getCatalogIndex()).findCategory(slug);
-  return category ? { title: category.name, alternates: { canonical: `/kategorie/${category.slug}` } } : {};
+  if (!category) return {};
+  // Náhled při sdílení: vlastní fotka jen u kategorií s čistou fotkou bez
+  // zapečeného textu (polévky = hlavní fotka Dýňové); jinak logo z layoutu.
+  const shareImage = imageBackdrop(category.image) ? category.image : null;
+  const description = category.intro[0] ?? SHARE_DESCRIPTION;
+  return {
+    title: category.name,
+    alternates: { canonical: `/kategorie/${category.slug}` },
+    ...(shareImage
+      ? {
+          openGraph: { type: "website", title: category.name, description, url: `/kategorie/${category.slug}`, images: [shareImage] },
+          twitter: { card: "summary_large_image", title: category.name, description, images: [shareImage] },
+        }
+      : {}),
+  };
 }
 
 export default async function CategoryPage({ params }: PageProps<"/eshop/kategorie/[slug]">) {

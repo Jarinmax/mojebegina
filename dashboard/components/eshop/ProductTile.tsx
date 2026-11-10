@@ -1,5 +1,6 @@
 import ShopLink from "./ShopLink";
 import Image from "next/image";
+import { imageBackdrop } from "@/lib/eshop/productImages";
 
 // Dlaždice produktu v kolotoči (např. vybrané nápoje na stránce O vodě):
 // stejný formát jako dlaždice kategorie, fotka a název pod ní. href = cesta
@@ -15,6 +16,7 @@ export default function ProductTile({
   image: string | null;
   sizes: string;
 }) {
+  const backdrop = imageBackdrop(image);
   return (
     <ShopLink
       href={href}
@@ -22,7 +24,10 @@ export default function ProductTile({
       className="group flex flex-col aspect-[5/8] overflow-hidden shadow-md shadow-neutral-400/50 bg-white"
     >
       {/* Bez fotky zatím jen světlá plocha a název. */}
-      <span className="relative flex-1 bg-begina-primary-50">
+      <span
+        className={`relative flex-1 ${backdrop ? "" : "bg-begina-primary-50"}`}
+        style={backdrop ? { backgroundColor: backdrop } : undefined}
+      >
         {image && (
           <Image
             src={image}
@@ -30,7 +35,7 @@ export default function ProductTile({
             fill
             sizes={sizes}
             draggable={false}
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className={`${backdrop ? "object-contain" : "object-cover"} transition-transform duration-300 group-hover:scale-105`}
           />
         )}
       </span>
