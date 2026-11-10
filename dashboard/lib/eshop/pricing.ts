@@ -75,7 +75,7 @@ export function priceCart(
     if (!isOrderable(product)) {
       return {
         ok: false,
-        error: `Produkt "${product.name}" zatím nelze objednat — ověřujeme u něj alergeny. Odeberte ho prosím z košíku.`,
+        error: `Produkt "${product.name}" zatím nelze objednat — doplňujeme u něj povinné údaje o potravině. Odeberte ho prosím z košíku.`,
       };
     }
     if (seen.has(variant.sku)) {

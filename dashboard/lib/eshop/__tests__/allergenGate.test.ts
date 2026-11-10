@@ -82,7 +82,7 @@ describe("alergeny — objednatelnost (tři stavy)", () => {
     for (const sku of [`${UNVERIFIED}-500ml`, `${UNVERIFIED}-3l`]) {
       expect(priceCart([{ sku, quantity: 1 }], "osobni-odber", index)).toEqual({
         ok: false,
-        error: 'Produkt "Lady Carneval" zatím nelze objednat — ověřujeme u něj alergeny. Odeberte ho prosím z košíku.',
+        error: 'Produkt "Lady Carneval" zatím nelze objednat — doplňujeme u něj povinné údaje o potravině. Odeberte ho prosím z košíku.',
       });
     }
   });
