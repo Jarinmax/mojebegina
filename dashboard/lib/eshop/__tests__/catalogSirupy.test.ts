@@ -72,8 +72,12 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       ])
     );
     for (const product of syrups) {
-      expect(product.image, product.slug).toBe(`/eshop/${product.slug}.jpg`);
-      expect(existsSync(path.join(PUBLIC, product.image!)), product.image!).toBe(true);
+      expect(product.image, product.slug).toBe(`/eshop/sirupy/${product.slug}-hlavni.jpg`);
+      const kinds = product.slug === "medunkovy-sirup-s-levanduli" ? ["hlavni", "sacek"] : ["hlavni", "sacek", "doypack"];
+      expect(product.gallery?.map((g) => g.url), product.slug).toEqual(kinds.map((k) => `/eshop/sirupy/${product.slug}-${k}.jpg`));
+      for (const g of product.gallery!) expect(existsSync(path.join(PUBLIC, g.url)), g.url).toBe(true);
+      // původní fotka zůstává v kódu pro případ návratu
+      expect(existsSync(path.join(PUBLIC, `/eshop/${product.slug}.jpg`))).toBe(true);
     }
     const saman = syrups[0];
     expect(saman.highlights).toEqual(["40 % bylinného výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z jednoho balení"]);
