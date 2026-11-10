@@ -21,7 +21,7 @@ jobs:
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
       - name: Testy
-            run: npx vitest run 2>&1 | tee /tmp/t.log | grep -E "Test Files|Tests |FAIL|AssertionError" | head -40
+        run: npx vitest run 2>&1 | tee /tmp/t.log | grep -E "Test Files|Tests |FAIL|AssertionError" | head -40
       - name: Detail
         run: npx vitest run 2>&1 | grep -A25 -E "FAIL|AssertionError" | head -120 || true
       - name: Build
