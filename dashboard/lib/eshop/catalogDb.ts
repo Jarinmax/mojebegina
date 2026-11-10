@@ -16,7 +16,7 @@ import * as schema from "@/lib/db/schema";
 import { allergenLabel } from "./allergens";
 import { formatNutrition } from "./nutrition";
 import { simplePackageLabel } from "./packageLabel";
-import type { Catalog, Category, DetailSection, Product, Variant } from "./types";
+import type { Catalog, Category, DetailSection, Product, ProductPhoto, Variant } from "./types";
 import { categoryFoodExtras } from "./categoryFoodInfo";
 
 type CatalogDb = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -115,11 +115,12 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
     variantsByProduct.set(row.productId, list);
   }
 
-  const mainImageByProduct = new Map<string, string>();
+  // galerie v pořadí sort_order; první fotka je hlavní (katalog, sdílení)
+  const galleryByProduct = new Map<string, ProductPhoto[]>();
   for (const row of imageRows) {
-    if (!mainImageByProduct.has(row.productId)) {
-      mainImageByProduct.set(row.productId, row.url);
-    }
+    const list = galleryByProduct.get(row.productId) ?? [];
+    list.push({ url: row.url, alt: row.alt });
+    galleryByProduct.set(row.productId, list);
   }
 
   const productList: Product[] = productRows.flatMap((row) => {
@@ -138,7 +139,8 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
         description: row.description,
         taste: row.tasteDescription,
         warnings: row.warnings,
-        image: mainImageByProduct.get(row.id) ?? null,
+        image: galleryByProduct.get(row.id)?.[0]?.url ?? null,
+        gallery: galleryByProduct.get(row.id) ?? [],
         variants,
         alcoholPercent: row.alcoholPercent,
         isAgeRestricted: row.isAgeRestricted,

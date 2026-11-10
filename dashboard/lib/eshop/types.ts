@@ -44,6 +44,8 @@ export type FoodInfo = {
   returns?: { before: string; linkText: string; after: string } | null;
 };
 
+export type ProductPhoto = { url: string; alt: string | null };
+
 export type Product = {
   slug: string;
   name: string;
@@ -54,7 +56,10 @@ export type Product = {
   description: string[];
   taste: string | null;
   warnings: string[];
+  /** hlavní fotografie (katalog, sdílení) = první z galerie */
   image: string | null;
+  /** všechny fotografie v pořadí sort_order; chybí = jen \`image\` */
+  gallery?: ProductPhoto[];
   variants: Variant[];
   alcoholPercent: number | null;
   isAgeRestricted: boolean;

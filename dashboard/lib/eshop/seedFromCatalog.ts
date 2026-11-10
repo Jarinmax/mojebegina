@@ -106,6 +106,7 @@ export function expectedCatalogAfterSeed(): Catalog {
       taste: product.taste,
       warnings: product.warnings,
       image: product.image,
+      gallery: product.image ? [{ url: product.image, alt: product.name }] : [],
       variants: product.variants.map((variant) => ({
         sku: variant.sku,
         // katalog z DB zobrazuje balení jednotně („Begina 3 l“, „500 ml“) — packageLabel.ts

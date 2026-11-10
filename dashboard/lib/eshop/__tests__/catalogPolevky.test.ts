@@ -44,9 +44,9 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
 
   it("skript a kontrola po; opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l | 379 | 12 | 12 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l | 379 | 12 | 12 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 
   it("e-shop: Dýňová polévka z begina.cz (vláknina, sekce Pro koho, fotka); ostatní polévky beze změny", async () => {
@@ -58,7 +58,8 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(dyne.variants).toEqual([
       expect.objectContaining({ sku: "dynova-polevka", label: "3 l", priceKc: 379, servings: 12, volumeMl: 3000 }),
     ]);
-    expect(dyne.image).toBe("/eshop/dynova-polevka.jpg");
+    expect(dyne.image).toBe("/eshop/polevky/dynova-polevka-miska.jpg");
+    expect(dyne.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/dynova-polevka-miska.jpg", "/eshop/polevky/dynova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, dyne.image!))).toBe(true);
     expect(dyne.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 283 kJ / 68 kcal, tuky 4 g (z toho nasycené 2,7 g), sacharidy 7,6 g (z toho cukry 2 g), bílkoviny 1 g, sůl 0,8 g, vláknina 1,1 g"
@@ -82,30 +83,35 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(category.detailSections[0].paragraphs[0]).toBe("Polévky Begina jsou praktické řešení pro:");
     const kulajda = list[1];
     expect(kulajda.variants).toEqual([expect.objectContaining({ sku: "kulajda", label: "3 l", priceKc: 379 })]);
-    expect(kulajda.image).toBe("/eshop/kulajda.jpg");
+    expect(kulajda.image).toBe("/eshop/polevky/kulajda-miska.jpg");
+    expect(kulajda.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/kulajda-miska.jpg", "/eshop/polevky/kulajda-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, kulajda.image!))).toBe(true);
     expect(kulajda.foodInfo.ingredients).toMatch(/žampiony 7 %/);
     expect(kulajda.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 187 kJ \/ 45 kcal.*vláknina 0,5 g$/);
     const rajce = list[2];
     expect(rajce.variants).toEqual([expect.objectContaining({ sku: "rajcatova-polevka", label: "3 l", priceKc: 379 })]);
-    expect(rajce.image).toBe("/eshop/rajcatova-polevka.jpg");
+    expect(rajce.image).toBe("/eshop/polevky/rajcatova-polevka-miska.jpg");
+    expect(rajce.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/rajcatova-polevka-miska.jpg", "/eshop/polevky/rajcatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, rajce.image!))).toBe(true);
     expect(rajce.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, pasírovaná rajčata 27 %/);
     expect(rajce.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 255 kJ \/ 61 kcal.*vláknina 0,7 g$/);
     const repa = list[3];
     expect(repa.foodInfo.ingredients).toMatch(/červená řepa 9 %/);
     expect(repa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 189 kJ \/ 45 kcal.*vláknina 0,9 g$/);
-    expect(repa.image).toBe("/eshop/rajcatova-polevka-s-cervenou-repou.jpg");
+    expect(repa.image).toBe("/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg");
+    expect(repa.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg", "/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, repa.image!))).toBe(true);
     // Gulášová: nová polévka
     const gulas = list[4];
     expect(gulas.variants).toEqual([expect.objectContaining({ sku: "gulasova-polevka-z-hlivy-ustricne", priceKc: 379, servings: 12 })]);
-    expect(gulas.image).toBe("/eshop/gulasova-polevka-z-hlivy-ustricne.jpg");
+    expect(gulas.image).toBe("/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg");
+    expect(gulas.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg", "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, gulas.image!))).toBe(true);
     expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 8 %/);
     expect(gulas.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 149 kJ \/ 36 kcal.*vláknina 1,1 g$/);
     const spenat = list[5];
-    expect(spenat.image).toBe("/eshop/spenatova-polevka.jpg");
+    expect(spenat.image).toBe("/eshop/polevky/spenatova-polevka-miska.jpg");
+    expect(spenat.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/spenatova-polevka-miska.jpg", "/eshop/polevky/spenatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, spenat.image!))).toBe(true);
     expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 15 %/);
     expect(spenat.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 210 kJ \/ 50 kcal.*vláknina 0,8 g$/);
@@ -117,6 +123,6 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(await soups()).toEqual(expectedCatalogAfterSeed().products.filter((p) => p.category === "polevky"));
     expect(await check(pg, "40_polevky_before.sql")).toBe("3 | 0 | Krémová polévka z dýně. | (bez názvu) | 379 | 0");
     await pg.exec(file("41_polevky.sql"));
-    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l | 379 | 12 | 6 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
+    expect(await check(pg, "42_polevky_after.sql")).toBe("6 | 1 | ano | 3 l | 379 | 12 | 12 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí");
   });
 });

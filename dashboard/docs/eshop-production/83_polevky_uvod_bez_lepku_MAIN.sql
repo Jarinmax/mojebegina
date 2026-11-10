@@ -49,7 +49,7 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 6 THEN RAISE EXCEPTION 'Čekal jsem 6 polévek s „přirozeně bezlepková“, změnil bych % — zastavuji, nic se nezměnilo.', n; END IF;
 
-  IF EXISTS (SELECT 1 FROM products WHERE highlights::text ILIKE '%lepk%' OR description ILIKE '%bezlepk%' OR description ILIKE '%bez lepku%') THEN
+  IF EXISTS (SELECT 1 FROM products WHERE highlights::text ILIKE '%lepk%' OR description::text ILIKE '%bezlepk%' OR description::text ILIKE '%bez lepku%') THEN
     RAISE EXCEPTION 'Tvrzení o lepku je ještě jinde v produktech — zastavuji, nic se nezměnilo.';
   END IF;
 

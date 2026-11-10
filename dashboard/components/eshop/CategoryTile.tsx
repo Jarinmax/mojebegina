@@ -1,5 +1,6 @@
 import ShopLink from "./ShopLink";
 import Image from "next/image";
+import { imageBackdrop } from "@/lib/eshop/productImages";
 import type { Category } from "@/lib/eshop/types";
 import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
 
@@ -10,7 +11,8 @@ import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
 // Současné fotografie kategorií mají název i bílý pruh přímo zapečené
 // v obrázku (řádky 222–283 z 494 px). Než dorazí nové fotografie bez textu,
 // ukazuje karta jen spodní část fotky pod pruhem (poměr 3 : 2, zarovnání
-// dolů) — pruh ani zdvojený světlý název tak nejsou vidět.
+// dolů) — pruh ani zdvojený světlý název tak nejsou vidět. Fotky na bílém
+// podkladu (polévky, lib/eshop/productImages.ts) se ukazují celé.
 export default function CategoryTile({
   category,
   sizes,
@@ -20,6 +22,7 @@ export default function CategoryTile({
   sizes: string;
   tabIndex?: number;
 }) {
+  const backdrop = imageBackdrop(category.image);
   const icon = category.image ? null : HOME_CATEGORIES.find((c) => c.slug === category.slug)?.icon ?? null;
   return (
     <ShopLink
@@ -28,7 +31,10 @@ export default function CategoryTile({
       draggable={false}
       className="group flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-md shadow-neutral-400/40 ring-1 ring-neutral-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-begina-primary-900"
     >
-      <span className="relative block aspect-[3/2] overflow-hidden bg-begina-primary-50">
+      <span
+        className={`relative block aspect-[3/2] overflow-hidden ${backdrop ? "" : "bg-begina-primary-50"}`}
+        style={backdrop ? { backgroundColor: backdrop } : undefined}
+      >
         {category.image ? (
           <Image
             src={category.image}
@@ -36,7 +42,7 @@ export default function CategoryTile({
             fill
             sizes={sizes}
             draggable={false}
-            className="object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
+            className={`${backdrop ? "object-contain" : "object-cover object-bottom"} transition-transform duration-300 group-hover:scale-105`}
           />
         ) : (
           // kategorie zatím bez fotky (Zmrzliny): ikona z pruhu na úvodu

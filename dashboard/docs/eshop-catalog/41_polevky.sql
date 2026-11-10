@@ -10,7 +10,7 @@
 -- transakce: chyba = nic se nezmění). Idempotentní — opakované spuštění
 -- nic nezdvojí, jen přepíše texty na aktuální. Kontrola před:
 -- 40_polevky_before.sql, po: 42_polevky_after.sql. Fotky jsou v kódu
--- (public/eshop/<slug>.jpg). Vrácení: 49_polevky_rollback.sql.
+-- (public/eshop/polevky/<slug>-miska.jpg a -sacek.jpg). Vrácení: 49_polevky_rollback.sql.
 BEGIN;
 
 UPDATE "product_categories" SET "intro" = ARRAY['Čerstvé polévky Begina vaříme z čisté filtrované vody, zeleniny, hub, bylinek a koření. Všechny připravujeme z rostlinných surovin, bez masa a mléčných výrobků. Každá receptura má svou vlastní chuť — od jemných zeleninových krémů po výraznou gulášovou z hlívy ústřičné.', 'Dobrou polévku si můžete dopřát i ve dnech, kdy na vaření nezbývá čas. Stačí ohřát a podávat doma, v práci nebo u společného stolu.', 'Z třílitrového balení s kohoutkem odeberete právě tolik, kolik potřebujete. Zbytek uložíte do chladničky a další porci máte po ruce. Méně času u plotny, více času pro Vás.']::text[],
@@ -38,10 +38,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka') AND "url" NOT IN ('/eshop/polevky/dynova-polevka-miska.jpg', '/eshop/polevky/dynova-polevka-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/dynova-polevka.jpg', 'Dýňová polévka', 0 FROM "products" WHERE "slug" = 'dynova-polevka'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'dynova-polevka' AND pi."url" = '/eshop/dynova-polevka.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka'), '/eshop/polevky/dynova-polevka-miska.jpg', 'Dýňová polévka', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka') AND "url" = '/eshop/polevky/dynova-polevka-miska.jpg');
+UPDATE "product_images" SET "alt" = 'Dýňová polévka', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka') AND "url" = '/eshop/polevky/dynova-polevka-miska.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka'), '/eshop/polevky/dynova-polevka-sacek.jpg', 'Dýňová polévka v balení s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka') AND "url" = '/eshop/polevky/dynova-polevka-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Dýňová polévka v balení s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'dynova-polevka') AND "url" = '/eshop/polevky/dynova-polevka-sacek.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
@@ -64,10 +69,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'kulajda') AND "url" NOT IN ('/eshop/polevky/kulajda-miska.jpg', '/eshop/polevky/kulajda-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/kulajda.jpg', 'Kulajda', 0 FROM "products" WHERE "slug" = 'kulajda'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'kulajda' AND pi."url" = '/eshop/kulajda.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'kulajda'), '/eshop/polevky/kulajda-miska.jpg', 'Kulajda', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'kulajda') AND "url" = '/eshop/polevky/kulajda-miska.jpg');
+UPDATE "product_images" SET "alt" = 'Kulajda', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'kulajda') AND "url" = '/eshop/polevky/kulajda-miska.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'kulajda'), '/eshop/polevky/kulajda-sacek.jpg', 'Kulajda v balení s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'kulajda') AND "url" = '/eshop/polevky/kulajda-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Kulajda v balení s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'kulajda') AND "url" = '/eshop/polevky/kulajda-sacek.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
@@ -90,10 +100,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka') AND "url" NOT IN ('/eshop/polevky/rajcatova-polevka-miska.jpg', '/eshop/polevky/rajcatova-polevka-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/rajcatova-polevka.jpg', 'Tomatová polévka', 0 FROM "products" WHERE "slug" = 'rajcatova-polevka'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'rajcatova-polevka' AND pi."url" = '/eshop/rajcatova-polevka.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka'), '/eshop/polevky/rajcatova-polevka-miska.jpg', 'Tomatová polévka', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka') AND "url" = '/eshop/polevky/rajcatova-polevka-miska.jpg');
+UPDATE "product_images" SET "alt" = 'Tomatová polévka', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka') AND "url" = '/eshop/polevky/rajcatova-polevka-miska.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka'), '/eshop/polevky/rajcatova-polevka-sacek.jpg', 'Tomatová polévka v balení s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka') AND "url" = '/eshop/polevky/rajcatova-polevka-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Tomatová polévka v balení s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka') AND "url" = '/eshop/polevky/rajcatova-polevka-sacek.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
@@ -116,10 +131,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou') AND "url" NOT IN ('/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg', '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/rajcatova-polevka-s-cervenou-repou.jpg', 'Rajčatová polévka s červenou řepou', 0 FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'rajcatova-polevka-s-cervenou-repou' AND pi."url" = '/eshop/rajcatova-polevka-s-cervenou-repou.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou'), '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg', 'Rajčatová polévka s červenou řepou', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou') AND "url" = '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg');
+UPDATE "product_images" SET "alt" = 'Rajčatová polévka s červenou řepou', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou') AND "url" = '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou'), '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg', 'Rajčatová polévka s červenou řepou v balení s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou') AND "url" = '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Rajčatová polévka s červenou řepou v balení s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'rajcatova-polevka-s-cervenou-repou') AND "url" = '/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
@@ -142,10 +162,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne') AND "url" NOT IN ('/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg', '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg', 'Gulášová polévka z hlívy ústřičné', 0 FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'gulasova-polevka-z-hlivy-ustricne' AND pi."url" = '/eshop/gulasova-polevka-z-hlivy-ustricne.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne'), '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg', 'Gulášová polévka z hlívy ústřičné', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne') AND "url" = '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg');
+UPDATE "product_images" SET "alt" = 'Gulášová polévka z hlívy ústřičné', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne') AND "url" = '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne'), '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg', 'Gulášová polévka z hlívy ústřičné v balení s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne') AND "url" = '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Gulášová polévka z hlívy ústřičné v balení s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'gulasova-polevka-z-hlivy-ustricne') AND "url" = '/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
@@ -168,9 +193,16 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka') AND "url" NOT IN ('/eshop/polevky/spenatova-polevka-miska.jpg', '/eshop/polevky/spenatova-polevka-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/spenatova-polevka.jpg', 'Špenátová polévka', 0 FROM "products" WHERE "slug" = 'spenatova-polevka'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'spenatova-polevka' AND pi."url" = '/eshop/spenatova-polevka.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka'), '/eshop/polevky/spenatova-polevka-miska.jpg', 'Špenátová polévka', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka') AND "url" = '/eshop/polevky/spenatova-polevka-miska.jpg');
+UPDATE "product_images" SET "alt" = 'Špenátová polévka', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka') AND "url" = '/eshop/polevky/spenatova-polevka-miska.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka'), '/eshop/polevky/spenatova-polevka-sacek.jpg', 'Špenátová polévka v balení s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka') AND "url" = '/eshop/polevky/spenatova-polevka-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Špenátová polévka v balení s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'spenatova-polevka') AND "url" = '/eshop/polevky/spenatova-polevka-sacek.jpg';
+
+UPDATE "product_categories" SET "image_url" = '/eshop/polevky/dynova-polevka-miska.jpg', "updated_at" = now() WHERE "slug" = 'polevky';
 
 COMMIT;
