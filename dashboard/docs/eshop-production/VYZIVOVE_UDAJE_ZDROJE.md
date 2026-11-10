@@ -10,7 +10,7 @@ laboratorní rozbor. Skript 86, 10. 11. 2026. Podklady dodal Jarin.
 | Dýňová polévka | Polevky_kalkulace(3).xlsx, receptura na 3 l + dodavatelské a databázové údaje (skript 88) | 2 855 g (bez sáčku a kohoutku) | dýně = zástupný databázový profil Hokkaido, poměr druhů dýní není stanoven; vláknina výpočtem nepotvrzena |
 | Rajčatová polévka s červenou řepou | Polevky_kalkulace(3).xlsx, list rajčatové s řepou + dodavatelské údaje a databáze (skript 88) | 2 940 g (bez obalu a kohoutku) | kokosové mléko 400 ml = 359 g (vážení Jarin); vláknina výpočtem nepotvrzena |
 | Gulášová polévka z hlívy ústřičné | Polevky_kalkulace(3).xlsx, list gulášové z hlívy + dodavatelské údaje a databáze (skript 88) | 2 963 g (bez sáčku a kohoutku) | u koření i zástupné databázové hodnoty; výživa přepočtená na 3 l; vláknina nepotvrzena |
-| Tomatová polévka | Polevky_kalkulace(2).xlsx, receptura na 3 l | 3 015 g | kokosové mléko 200 ml = 181 g (vážení Jarin); u olejů průměrné hodnoty |
+| Tomatová polévka | Polevky_kalkulace(2).xlsx, receptura na 3 l | 3 000 g (opraveno z 3 015 g) | kokosové mléko 200 ml = 181 g (vážení Jarin); u olejů průměrné hodnoty |
 
 Vláknina: původní údaje neověřené → u těchto tří polévek se neuvádí.
 
@@ -83,7 +83,13 @@ Výpočtový průměr podle receptury, dodavatelských údajů a potravinových
 databází, ne laboratorní rozbor; u koření i zástupné databázové hodnoty.
 Výživa přepočtená na konečný objem 3 l, procenta složení na 2 963 g.
 
-**Rozpor k ověření:** v dostupné kalkulaci v6 (soubor „(3)“ nebyl přiložen)
+**Vyřešeno 10. 11. 2026:** potvrzeno 23 g mořské soli, konečný objem 3 l,
+čistá hmotnost 2 963 g, sůl 0,82 g/100 ml. Voda v receptuře: „čistá
+filtrovaná voda – doplnit na konečný objem hotové polévky 3 litry“. Dříve
+uváděných 1 534 ml byl náš výpočtový odhad, ne měření; dopočtených ≈ 1,89 l je
+voda zbývající v hotovém výrobku, ne množství nalité při vaření.
+
+Původní poznámka: v dostupné kalkulaci v6 (soubor „(3)“ nebyl přiložen)
 dávají suroviny dohromady jen 2 608 g (voda 1 534 ml). Hotová polévka
 nemůže vážit víc než suroviny (2 963 g). Procenta ve složení sedí na 2 963 g
 (brambory 567 g = 19,1 %, hlíva 200 g = 6,8 %, cibule 125 g = 4,2 %, protlak

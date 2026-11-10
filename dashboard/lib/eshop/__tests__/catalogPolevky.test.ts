@@ -90,7 +90,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(kulajda.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/kulajda-miska.jpg", "/eshop/polevky/kulajda-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, kulajda.image!))).toBe(true);
     expect(kulajda.foodInfo.ingredients).toMatch(/žampiony 7 %/);
-    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3,4 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
+    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
     expect(kulajda.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 219 kJ / 53 kcal, tuky 3,5 g (z toho nasycené 2,4 g), sacharidy 3,9 g (z toho cukry 0,8 g), bílkoviny 1 g, sůl 0,76 g");
     expect(kulajda.foodInfo.nutritionTable?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
       "Energetická hodnota: 219\u00a0kJ / 53\u00a0kcal", "Tuky: 3,5\u00a0g", "z toho nasycené mastné kyseliny: 2,4\u00a0g", "Sacharidy: 3,9\u00a0g", "z toho cukry: 0,8\u00a0g", "Bílkoviny: 1,0\u00a0g", "Sůl: 0,76\u00a0g",
@@ -119,12 +119,12 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(gulas.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg", "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, gulas.image!))).toBe(true);
     expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 7 %/);
-    expect(gulas.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 125 kJ / 30 kcal, tuky 0,9 g (z toho nasycené 0,1 g), sacharidy 4 g (z toho cukry 1,1 g), bílkoviny 0,9 g, sůl 0,86 g");
+    expect(gulas.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 125 kJ / 30 kcal, tuky 0,9 g (z toho nasycené 0,1 g), sacharidy 4 g (z toho cukry 1,1 g), bílkoviny 0,9 g, sůl 0,82 g");
     const spenat = list[5];
     expect(spenat.image).toBe("/eshop/polevky/spenatova-polevka-miska.jpg");
     expect(spenat.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/spenatova-polevka-miska.jpg", "/eshop/polevky/spenatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, spenat.image!))).toBe(true);
-    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule 4,3 %, olivový olej/);
+    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule 4 %, olivový olej/);
     expect(spenat.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g"
     );

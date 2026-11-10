@@ -28,7 +28,7 @@ END
 $guard$;
 
 -- ===== docs/eshop-catalog/31_sirupy.sql =====
--- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 7 fotek),
+-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 20 fotek),
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -77,10 +77,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" NOT IN ('/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg', '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg', '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/bylinny-sirup-saman.jpg', 'Bylinný sirup Šaman', 0 FROM "products" WHERE "slug" = 'bylinny-sirup-saman'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'bylinny-sirup-saman' AND pi."url" = '/eshop/bylinny-sirup-saman.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), '/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg', 'Bylinný sirup Šaman – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Bylinný sirup Šaman – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg', 'Bylinný sirup Šaman v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Bylinný sirup Šaman v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg', 'Bylinný sirup Šaman ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Bylinný sirup Šaman ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -112,10 +121,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" NOT IN ('/eshop/sirupy/zazvorovy-sirup-hlavni.jpg', '/eshop/sirupy/zazvorovy-sirup-sacek.jpg', '/eshop/sirupy/zazvorovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/zazvorovy-sirup.jpg', 'Zázvorový sirup', 0 FROM "products" WHERE "slug" = 'zazvorovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'zazvorovy-sirup' AND pi."url" = '/eshop/zazvorovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), '/eshop/sirupy/zazvorovy-sirup-hlavni.jpg', 'Zázvorový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Zázvorový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), '/eshop/sirupy/zazvorovy-sirup-sacek.jpg', 'Zázvorový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Zázvorový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), '/eshop/sirupy/zazvorovy-sirup-doypack.jpg', 'Zázvorový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Zázvorový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -147,10 +165,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" NOT IN ('/eshop/sirupy/lipovy-sirup-hlavni.jpg', '/eshop/sirupy/lipovy-sirup-sacek.jpg', '/eshop/sirupy/lipovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/lipovy-sirup.jpg', 'Lipový sirup', 0 FROM "products" WHERE "slug" = 'lipovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'lipovy-sirup' AND pi."url" = '/eshop/lipovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), '/eshop/sirupy/lipovy-sirup-hlavni.jpg', 'Lipový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Lipový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), '/eshop/sirupy/lipovy-sirup-sacek.jpg', 'Lipový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Lipový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), '/eshop/sirupy/lipovy-sirup-doypack.jpg', 'Lipový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Lipový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -182,10 +209,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" NOT IN ('/eshop/sirupy/ibiskovy-sirup-hlavni.jpg', '/eshop/sirupy/ibiskovy-sirup-sacek.jpg', '/eshop/sirupy/ibiskovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/ibiskovy-sirup.jpg', 'Ibiškový sirup', 0 FROM "products" WHERE "slug" = 'ibiskovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'ibiskovy-sirup' AND pi."url" = '/eshop/ibiskovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), '/eshop/sirupy/ibiskovy-sirup-hlavni.jpg', 'Ibiškový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Ibiškový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), '/eshop/sirupy/ibiskovy-sirup-sacek.jpg', 'Ibiškový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Ibiškový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), '/eshop/sirupy/ibiskovy-sirup-doypack.jpg', 'Ibiškový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Ibiškový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -217,10 +253,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" NOT IN ('/eshop/sirupy/sipkovy-sirup-hlavni.jpg', '/eshop/sirupy/sipkovy-sirup-sacek.jpg', '/eshop/sirupy/sipkovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/sipkovy-sirup.jpg', 'Šípkový sirup', 0 FROM "products" WHERE "slug" = 'sipkovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'sipkovy-sirup' AND pi."url" = '/eshop/sipkovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), '/eshop/sirupy/sipkovy-sirup-hlavni.jpg', 'Šípkový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Šípkový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), '/eshop/sirupy/sipkovy-sirup-sacek.jpg', 'Šípkový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Šípkový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), '/eshop/sirupy/sipkovy-sirup-doypack.jpg', 'Šípkový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Šípkový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -252,10 +297,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" NOT IN ('/eshop/sirupy/hermankovy-sirup-hlavni.jpg', '/eshop/sirupy/hermankovy-sirup-sacek.jpg', '/eshop/sirupy/hermankovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/hermankovy-sirup.jpg', 'Heřmánkový sirup', 0 FROM "products" WHERE "slug" = 'hermankovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'hermankovy-sirup' AND pi."url" = '/eshop/hermankovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), '/eshop/sirupy/hermankovy-sirup-hlavni.jpg', 'Heřmánkový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Heřmánkový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), '/eshop/sirupy/hermankovy-sirup-sacek.jpg', 'Heřmánkový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Heřmánkový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), '/eshop/sirupy/hermankovy-sirup-doypack.jpg', 'Heřmánkový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Heřmánkový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -287,10 +341,15 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" NOT IN ('/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/medunkovy-sirup-s-levanduli.jpg', 'Meduňkový sirup s levandulí', 0 FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'medunkovy-sirup-s-levanduli' AND pi."url" = '/eshop/medunkovy-sirup-s-levanduli.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', 'Meduňkový sirup s levandulí – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Meduňkový sirup s levandulí – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg', 'Meduňkový sirup s levandulí v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Meduňkový sirup s levandulí v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg';
 
 -- ===== docs/eshop-catalog/41_polevky.sql =====
 -- ESHOP 1.0 — katalog: Čerstvé polévky (Dýňová polévka, Kulajda, Tomatová polévka, Rajčatová polévka s červenou řepou, Gulášová polévka z hlívy ústřičné, Špenátová polévka)
@@ -346,7 +405,7 @@ INSERT INTO "products" ("category_id", "slug", "name", "short_description", "des
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'kulajda', 'Kulajda',
   'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Kulajda stojí na plném základu brambor a žampionů. Čerstvý kopr a vyvážené koření vytvářejí harmonickou chuť s čistým charakterem.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky krémových polévek s vyváženým charakterem', '- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'z čisté filtrované vody']::text[],
-  'Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.', 'čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3,4 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":219,"energy_kcal":53,"fat":3.5,"saturates":2.4,"carbohydrate":3.9,"sugars":0.8,"protein":1,"salt":0.76}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 20)
+  'Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.', 'čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":219,"energy_kcal":53,"fat":3.5,"saturates":2.4,"carbohydrate":3.9,"sugars":0.8,"protein":1,"salt":0.76}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 20)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
@@ -439,7 +498,7 @@ INSERT INTO "products" ("category_id", "slug", "name", "short_description", "des
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'gulasova-polevka-z-hlivy-ustricne', 'Gulášová polévka z hlívy ústřičné',
   'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Gulášová polévka z hlívy ústřičné nabízí výraznou a plnou chuť. Hlíva dodává pevnou strukturu, rajčatový základ hloubku a uzená paprika charakteristickou intenzitu.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky výrazných a sytějších chutí', '- pro ty, kteří hledají gulášovou polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro vegany i vegetariány', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'z čisté filtrované vody']::text[],
-  'Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.', 'čistá filtrovaná voda, brambory 19 %, hlíva ústřičná (Pleurotus ostreatus) 7 %, cibule 4 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, uzená paprika, sladká paprika, chilli, černý pepř, antioxidant: kyselina askorbová (vitamin C), skořice', '{"energy_kj":125,"energy_kcal":30,"fat":0.9,"saturates":0.1,"carbohydrate":4,"sugars":1.1,"protein":0.9,"salt":0.86}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 40)
+  'Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.', 'čistá filtrovaná voda, brambory 19 %, hlíva ústřičná (Pleurotus ostreatus) 7 %, cibule 4 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, uzená paprika, sladká paprika, chilli, černý pepř, antioxidant: kyselina askorbová (vitamin C), skořice', '{"energy_kj":125,"energy_kcal":30,"fat":0.9,"saturates":0.1,"carbohydrate":4,"sugars":1.1,"protein":0.9,"salt":0.82}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 40)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
@@ -470,7 +529,7 @@ INSERT INTO "products" ("category_id", "slug", "name", "short_description", "des
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'spenatova-polevka', 'Špenátová polévka',
   'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Špenátová polévka nabízí jemně krémovou a přirozeně plnou chuť. Kvalitní špenát tvoří její výrazný základ, který doplňuje jemná struktura a vyvážené koření.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky zeleninových krémových polévek', '- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'z čisté filtrované vody']::text[],
-  'Špenát tvoří výrazný zeleninový základ, který doplňují brambory a pečlivě zvolené koření. Struktura je krémová, chuť vyvážená a čistá. Polévka působí svěže a harmonicky.', 'čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 14 %, cibule 4,3 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":199,"energy_kcal":48,"fat":3.4,"saturates":2.4,"carbohydrate":2.7,"sugars":0.7,"protein":1.1,"salt":0.76}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 50)
+  'Špenát tvoří výrazný zeleninový základ, který doplňují brambory a pečlivě zvolené koření. Struktura je krémová, chuť vyvážená a čistá. Polévka působí svěže a harmonicky.', 'čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 14 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":199,"energy_kcal":48,"fat":3.4,"saturates":2.4,"carbohydrate":2.7,"sugars":0.7,"protein":1.1,"salt":0.76}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 50)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",

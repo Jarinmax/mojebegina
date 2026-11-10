@@ -1,4 +1,4 @@
--- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 7 fotek),
+-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 20 fotek),
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -48,10 +48,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" NOT IN ('/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg', '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg', '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/bylinny-sirup-saman.jpg', 'Bylinný sirup Šaman', 0 FROM "products" WHERE "slug" = 'bylinny-sirup-saman'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'bylinny-sirup-saman' AND pi."url" = '/eshop/bylinny-sirup-saman.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), '/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg', 'Bylinný sirup Šaman – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Bylinný sirup Šaman – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg', 'Bylinný sirup Šaman v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Bylinný sirup Šaman v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg', 'Bylinný sirup Šaman ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Bylinný sirup Šaman ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman') AND "url" = '/eshop/sirupy/bylinny-sirup-saman-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -83,10 +92,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" NOT IN ('/eshop/sirupy/zazvorovy-sirup-hlavni.jpg', '/eshop/sirupy/zazvorovy-sirup-sacek.jpg', '/eshop/sirupy/zazvorovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/zazvorovy-sirup.jpg', 'Zázvorový sirup', 0 FROM "products" WHERE "slug" = 'zazvorovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'zazvorovy-sirup' AND pi."url" = '/eshop/zazvorovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), '/eshop/sirupy/zazvorovy-sirup-hlavni.jpg', 'Zázvorový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Zázvorový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), '/eshop/sirupy/zazvorovy-sirup-sacek.jpg', 'Zázvorový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Zázvorový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), '/eshop/sirupy/zazvorovy-sirup-doypack.jpg', 'Zázvorový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Zázvorový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup') AND "url" = '/eshop/sirupy/zazvorovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -118,10 +136,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" NOT IN ('/eshop/sirupy/lipovy-sirup-hlavni.jpg', '/eshop/sirupy/lipovy-sirup-sacek.jpg', '/eshop/sirupy/lipovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/lipovy-sirup.jpg', 'Lipový sirup', 0 FROM "products" WHERE "slug" = 'lipovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'lipovy-sirup' AND pi."url" = '/eshop/lipovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), '/eshop/sirupy/lipovy-sirup-hlavni.jpg', 'Lipový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Lipový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), '/eshop/sirupy/lipovy-sirup-sacek.jpg', 'Lipový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Lipový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), '/eshop/sirupy/lipovy-sirup-doypack.jpg', 'Lipový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Lipový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup') AND "url" = '/eshop/sirupy/lipovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -153,10 +180,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" NOT IN ('/eshop/sirupy/ibiskovy-sirup-hlavni.jpg', '/eshop/sirupy/ibiskovy-sirup-sacek.jpg', '/eshop/sirupy/ibiskovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/ibiskovy-sirup.jpg', 'Ibiškový sirup', 0 FROM "products" WHERE "slug" = 'ibiskovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'ibiskovy-sirup' AND pi."url" = '/eshop/ibiskovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), '/eshop/sirupy/ibiskovy-sirup-hlavni.jpg', 'Ibiškový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Ibiškový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), '/eshop/sirupy/ibiskovy-sirup-sacek.jpg', 'Ibiškový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Ibiškový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), '/eshop/sirupy/ibiskovy-sirup-doypack.jpg', 'Ibiškový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Ibiškový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup') AND "url" = '/eshop/sirupy/ibiskovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -188,10 +224,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" NOT IN ('/eshop/sirupy/sipkovy-sirup-hlavni.jpg', '/eshop/sirupy/sipkovy-sirup-sacek.jpg', '/eshop/sirupy/sipkovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/sipkovy-sirup.jpg', 'Šípkový sirup', 0 FROM "products" WHERE "slug" = 'sipkovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'sipkovy-sirup' AND pi."url" = '/eshop/sipkovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), '/eshop/sirupy/sipkovy-sirup-hlavni.jpg', 'Šípkový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Šípkový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), '/eshop/sirupy/sipkovy-sirup-sacek.jpg', 'Šípkový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Šípkový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), '/eshop/sirupy/sipkovy-sirup-doypack.jpg', 'Šípkový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Šípkový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup') AND "url" = '/eshop/sirupy/sipkovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -223,10 +268,19 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" NOT IN ('/eshop/sirupy/hermankovy-sirup-hlavni.jpg', '/eshop/sirupy/hermankovy-sirup-sacek.jpg', '/eshop/sirupy/hermankovy-sirup-doypack.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/hermankovy-sirup.jpg', 'Heřmánkový sirup', 0 FROM "products" WHERE "slug" = 'hermankovy-sirup'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'hermankovy-sirup' AND pi."url" = '/eshop/hermankovy-sirup.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), '/eshop/sirupy/hermankovy-sirup-hlavni.jpg', 'Heřmánkový sirup – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Heřmánkový sirup – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), '/eshop/sirupy/hermankovy-sirup-sacek.jpg', 'Heřmánkový sirup v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Heřmánkový sirup v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-sacek.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), '/eshop/sirupy/hermankovy-sirup-doypack.jpg', 'Heřmánkový sirup ve stříbrném doypacku', 2
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-doypack.jpg');
+UPDATE "product_images" SET "alt" = 'Heřmánkový sirup ve stříbrném doypacku', "sort_order" = 2 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup') AND "url" = '/eshop/sirupy/hermankovy-sirup-doypack.jpg';
 
 INSERT INTO "products" ("category_id", "slug", "name", "short_description", "description", "highlights",
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "shelf_life_note", "sort_order")
@@ -258,9 +312,14 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
   "price_b2c_kc" = EXCLUDED."price_b2c_kc", "sort_order" = EXCLUDED."sort_order", "is_active" = true, "updated_at" = now();
 
+DELETE FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" NOT IN ('/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg');
 INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
-SELECT "id", '/eshop/medunkovy-sirup-s-levanduli.jpg', 'Meduňkový sirup s levandulí', 0 FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'
-AND NOT EXISTS (SELECT 1 FROM "product_images" pi JOIN "products" p ON p."id" = pi."product_id"
-  WHERE p."slug" = 'medunkovy-sirup-s-levanduli' AND pi."url" = '/eshop/medunkovy-sirup-s-levanduli.jpg');
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg', 'Meduňkový sirup s levandulí – sklenice a hrnek se surovinami', 0
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg');
+UPDATE "product_images" SET "alt" = 'Meduňkový sirup s levandulí – sklenice a hrnek se surovinami', "sort_order" = 0 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg';
+INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg', 'Meduňkový sirup s levandulí v průhledném sáčku s kohoutkem', 1
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg');
+UPDATE "product_images" SET "alt" = 'Meduňkový sirup s levandulí v průhledném sáčku s kohoutkem', "sort_order" = 1 WHERE "product_id" = (SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli') AND "url" = '/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg';
 
 COMMIT;
