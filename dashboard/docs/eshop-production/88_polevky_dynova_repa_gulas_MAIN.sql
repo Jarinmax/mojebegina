@@ -22,10 +22,6 @@
 -- na 100 ml (přepočet na 3 l); vláknina se odstraňuje. INTERNĚ: výpočtový
 -- průměr, u koření i zástupné databázové hodnoty, ne laboratorní rozbor.
 --
--- OPRAVY 10. 11. 2026 odpoledne: Gulášová sůl 0,82 g/100 ml (mořská sůl
--- 23 g, voda doplněna na 3 l); procenta cibule na celá čísla — Špenátová
--- 4 % (dříve 4,3 %), Kulajda 3 % (dříve 3,4 %).
---
 -- SPUSTIT CELÝ v Neon SQL Editoru na větvi main (Production). Jedna
 -- transakce: když pojistka nesedí, NEZMĚNÍ SE NIC.
 BEGIN;
@@ -39,7 +35,7 @@ BEGIN
     RAISE EXCEPTION 'Toto není Production main — zastavuji, nic se nezměnilo.';
   END IF;
   SELECT md5(string_agg(concat_ws('|', slug, ingredients, nutrition::text, storage_instructions, shelf_life_note), '#' ORDER BY slug))
-    INTO rest_before FROM products WHERE slug NOT IN ('dynova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka', 'kulajda');
+    INTO rest_before FROM products WHERE slug NOT IN ('dynova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne');
 
   UPDATE products
      SET ingredients = 'dýně 41 %, čistá filtrovaná voda, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 10 %, cibule 5 %, kořen petržele, olivový olej, dýňový olej, mořská sůl, třtinový cukr, grapefruitová šťáva, lahůdkové droždí, sušený mletý zázvor, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma',
@@ -65,7 +61,7 @@ BEGIN
 
   UPDATE products
      SET ingredients = 'čistá filtrovaná voda, brambory 19 %, hlíva ústřičná (Pleurotus ostreatus) 7 %, cibule 4 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, uzená paprika, sladká paprika, chilli, černý pepř, antioxidant: kyselina askorbová (vitamin C), skořice',
-         nutrition = '{"energy_kj": 125, "energy_kcal": 30, "fat": 0.9, "saturates": 0.1, "carbohydrate": 4.0, "sugars": 1.1, "protein": 0.9, "salt": 0.82}'::jsonb,
+         nutrition = '{"energy_kj": 125, "energy_kcal": 30, "fat": 0.9, "saturates": 0.1, "carbohydrate": 4.0, "sugars": 1.1, "protein": 0.9, "salt": 0.86}'::jsonb,
          nutrition_basis = '100ml',
          updated_at = now()
    WHERE slug = 'gulasova-polevka-z-hlivy-ustricne'
@@ -74,23 +70,14 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 1 THEN RAISE EXCEPTION 'Gulášová polévka z hlívy nemá očekávané původní složení a výživu — zastavuji, nic se nezměnilo.'; END IF;
 
-  UPDATE products SET ingredients = replace(ingredients, 'cibule 4,3 %', 'cibule 4 %'), updated_at = now()
-   WHERE slug = 'spenatova-polevka' AND ingredients = 'čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 14 %, cibule 4,3 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)';
-  GET DIAGNOSTICS n = ROW_COUNT;
-  IF n <> 1 THEN RAISE EXCEPTION 'Špenátová nemá očekávané složení (cibule 4,3 %%) — zastavuji, nic se nezměnilo.'; END IF;
-  UPDATE products SET ingredients = replace(ingredients, 'cibule 3,4 %', 'cibule 3 %'), updated_at = now()
-   WHERE slug = 'kulajda' AND ingredients = 'čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3,4 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)';
-  GET DIAGNOSTICS n = ROW_COUNT;
-  IF n <> 1 THEN RAISE EXCEPTION 'Kulajda nemá očekávané složení (cibule 3,4 %%) — zastavuji, nic se nezměnilo.'; END IF;
-
   IF EXISTS (SELECT 1 FROM products p WHERE row_to_json(p)::text ILIKE '%hokkaid%') THEN
     RAISE EXCEPTION 'Někde v produktech zůstalo „Hokkaido“ — zastavuji, nic se nezměnilo.';
   END IF;
   IF rest_before IS DISTINCT FROM (SELECT md5(string_agg(concat_ws('|', slug, ingredients, nutrition::text, storage_instructions, shelf_life_note), '#' ORDER BY slug))
-    FROM products WHERE slug NOT IN ('dynova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne', 'spenatova-polevka', 'kulajda')) THEN
+    FROM products WHERE slug NOT IN ('dynova-polevka', 'rajcatova-polevka-s-cervenou-repou', 'gulasova-polevka-z-hlivy-ustricne')) THEN
     RAISE EXCEPTION 'Změnil by se jiný produkt — zastavuji, nic se nezměnilo.';
   END IF;
-  RAISE NOTICE 'Hotovo: Dýňová, Rajčatová s řepou a Gulášová mají nové složení a výživu; Špenátová a Kulajda cibule na celá procenta.';
+  RAISE NOTICE 'Hotovo: Dýňová, Rajčatová s řepou a Gulášová z hlívy mají nové složení a výživové hodnoty.';
 END $$;
 
 COMMIT;
