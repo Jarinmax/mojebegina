@@ -14,7 +14,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { allergenLabel } from "./allergens";
-import { formatNutrition, NUTRITION_TABLE_PRODUCTS, nutritionTable } from "./nutrition";
+import { formatNutrition, nutritionTable } from "./nutrition";
 import { simplePackageLabel } from "./packageLabel";
 import type { Catalog, Category, DetailSection, Product, ProductPhoto, Variant } from "./types";
 import { categoryFoodExtras } from "./categoryFoodInfo";
@@ -62,8 +62,8 @@ async function loadWeights<T extends PgQueryResultHKT>(
   }
 }
 
-function tableFor(slug: string, raw: unknown, basis: string | null) {
-  const table = NUTRITION_TABLE_PRODUCTS.includes(slug) ? nutritionTable(raw, basis) : null;
+function tableFor(raw: unknown, basis: string | null) {
+  const table = nutritionTable(raw, basis);
   return table ? { nutritionTable: table } : {};
 }
 
@@ -153,7 +153,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
           ingredients: row.ingredients,
           allergens: row.allergens === null ? null : row.allergens.map(allergenLabel),
           nutritionPer100g: formatNutrition(row.nutrition, row.nutritionBasis),
-          ...tableFor(row.slug, row.nutrition, row.nutritionBasis),
+          ...tableFor(row.nutrition, row.nutritionBasis),
           storage: row.storageInstructions,
           shelfLife: row.shelfLifeNote,
           // polévky a sirupy: společná šablona — příprava a vrácení/reklamace (categoryFoodInfo.ts)

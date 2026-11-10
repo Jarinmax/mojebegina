@@ -27,19 +27,18 @@ const KEYS: (keyof Nutrition)[] = [
 // Přesnost podle uložené hodnoty (max. 2 desetinná místa — sůl pod 1 g se
 // podle pokynů Komise k zaokrouhlování uvádí na 0,01 g, např. 0,76 g).
 const fmt = (value: number) => new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(value);
-// gramy v tabulce: aspoň jedno desetinné místo („1,0 g“), sůl jak je uložená
-const fmtG = (value: number) => new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(value);
-
-/**
- * Produkty, u kterých se výživové údaje zobrazují jako tabulka (název údaje
- * | hodnota na 100 ml). Zadání 10. 11. 2026: Kulajda, Špenátová, Tomatová;
- * ostatní produkty zatím beze změny (text).
- */
-export const NUTRITION_TABLE_PRODUCTS = ["kulajda", "spenatova-polevka", "rajcatova-polevka"];
+// gramy v tabulce: aspoň jedno desetinné místo („1,0 g“), sůl jak je uložená;
+// nula zůstává „0 g“ (stejně jako v dosavadním textu)
+const fmtG = (value: number) =>
+  value === 0 ? "0" : new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(value);
 
 export type NutritionTable = { basis: string; rows: { label: string; value: string; sub?: boolean }[] };
 
-/** Tabulka podle přílohy XV nař. 1169/2011 (pořadí a názvy); vláknina jen je-li uvedena. */
+/**
+ * Výživové údaje jako tabulka (od 10. 11. 2026 u všech produktů s úplnými
+ * údaji). Hodnoty přesně podle uložených dat — nic se nedopočítává; neúplné
+ * údaje → null (produkt zůstane u textu / „Doplníme“).
+ * Tabulka podle přílohy XV nař. 1169/2011 (pořadí a názvy); vláknina jen je-li uvedena. */
 export function nutritionTable(raw: unknown, basis: string | null): NutritionTable | null {
   if (typeof raw !== "object" || raw === null) {
     return null;

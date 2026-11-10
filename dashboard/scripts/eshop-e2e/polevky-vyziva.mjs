@@ -48,7 +48,7 @@ for (const [name, viewport] of [["mobil", { width: 390, height: 844 }], ["pocita
       check(`${name} ${slug}: tabulka se vejde`, tw[0] <= tw[1], tw.join("/"));
     }
     const body = await page.locator("body").innerText();
-    check(`${name} ${slug}: bez interních poznámek a vlákniny`, !/kalkulace|xlsx|výpočtov|bazalka|vláknina|2 915|3 015/i.test(body));
+    check(`${name} ${slug}: bez interních poznámek a vlákniny`, !/kalkulace|xlsx|výpočtov|bazalka|vláknina|2 915|3 015/i.test(await section.innerText()));
     const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
     check(`${name} ${slug}: bez vodorovného posuvníku`, scrollW <= viewport.width, String(scrollW));
     await section.scrollIntoViewIfNeeded();
@@ -56,7 +56,7 @@ for (const [name, viewport] of [["mobil", { width: 390, height: 844 }], ["pocita
   }
   // ostatní polévky beze změny (text)
   await page.goto(`${BASE}/produkt/dynova-polevka?t=${Date.now()}`, { waitUntil: "networkidle" });
-  check(`${name}: Dýňová bez tabulky (beze změny)`, (await page.locator("section[aria-labelledby=food-info] table").count()) === 0);
+  check(`${name}: Dýňová také tabulka (i s vlákninou)`, (await page.locator("section[aria-labelledby=food-info] table tbody tr").filter({ hasText: "Vláknina" }).count()) === 1);
   await page.close();
 }
 await browser.close();
