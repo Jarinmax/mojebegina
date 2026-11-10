@@ -15,7 +15,7 @@ const browser = await chromium.launch(process.env.BASE ? {} : { args: ["--host-r
 const norm = (t) => (t ?? "").replaceAll(" ", " ").trim();
 const EXPECT = {
   kulajda: {
-    ing: "Čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C).",
+    ing: "Čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 5 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C).",
     rows: ["Energetická hodnota|219 kJ / 53 kcal", "Tuky|3,5 g", "z toho nasycené mastné kyseliny|2,4 g", "Sacharidy|3,9 g", "z toho cukry|0,8 g", "Bílkoviny|1,0 g", "Sůl|0,76 g"],
   },
   "spenatova-polevka": {
