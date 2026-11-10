@@ -33,7 +33,13 @@ for (const p of ["/favicon.ico", "/icon.png", "/apple-icon.png"]) {
 const prod = await meta("/produkt/kulajda");
 check("produkt: vlastní název a fotka", prod.title === "Kulajda" && /kulajda/.test(prod.image ?? "") && !/og-begina/.test(prod.twImg ?? ""), `${prod.title} ${prod.image} ${prod.twImg}`);
 // ukázka karty jako ve WhatsAppu
-const imgB64 = Buffer.from(await img.body()).toString("base64");
+await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+const imgB64 = await page.evaluate(async (u) => {
+  const b = new Uint8Array(await (await fetch(u)).arrayBuffer());
+  let s = "";
+  for (const x of b) s += String.fromCharCode(x);
+  return btoa(s);
+}, imgUrl);
 await page.setViewportSize({ width: 420, height: 420 });
 await page.setContent(`<body style="margin:0;background:#e5ddd5;font-family:Helvetica,Arial,sans-serif;padding:16px">
   <div style="max-width:360px;margin-left:auto;background:#dcf8c6;border-radius:8px;padding:4px;box-shadow:0 1px 1px rgba(0,0,0,.15)">
