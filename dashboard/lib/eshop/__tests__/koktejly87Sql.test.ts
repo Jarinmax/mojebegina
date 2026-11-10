@@ -8,20 +8,23 @@ import { createMigratedDb } from "./helpers/migratedDb";
 import { loadCatalog } from "../catalogDb";
 
 const ROOT = path.join(__dirname, "../../..");
-const script = readFileSync(path.join(ROOT, "docs/eshop-production/87_koktejly_svarak_lady_granat_MAIN.sql"), "utf8").replace(
+const script = readFileSync(path.join(ROOT, "docs/eshop-production/87_koktejly_MAIN.sql"), "utf8").replace(
   "IS DISTINCT FROM '70a96b3677653646e65343cae8e27182'",
   "IS NOT NULL AND false"
 );
 const STOR_OLD = "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě.";
 
-describe("87 Svařák Deluxe + Lady Carneval + Granátový bond", { timeout: 120_000 }, () => {
+describe("87 koktejly", { timeout: 120_000 }, () => {
   let pg: PGlite;
   let db: Awaited<ReturnType<typeof createMigratedDb>>["db"];
   beforeAll(async () => {
     ({ pg, db } = await createMigratedDb());
-    const has = (await pg.query(`SELECT slug FROM products WHERE slug IN ('svarak-deluxe','lady-carneval','granatovy-bond')`)).rows.length;
-    expect(has).toBe(3);
-    await pg.query(`UPDATE products SET storage_instructions = $1, shelf_life_note = NULL WHERE slug IN ('svarak-deluxe','lady-carneval','granatovy-bond')`, [STOR_OLD]);
+    const has = (await pg.query(`SELECT slug FROM products WHERE slug IN ('svarak-deluxe','lady-carneval','granatovy-bond','kosmopolitan')`)).rows.length;
+    expect(has).toBe(4);
+    await pg.query(`UPDATE products SET storage_instructions = $1, shelf_life_note = NULL WHERE slug IN ('svarak-deluxe','lady-carneval','granatovy-bond','kosmopolitan')`, [STOR_OLD]);
+    await pg.query(`UPDATE products SET ingredients = $1, alcohol_percent = 6.3, allergens = NULL, warnings = ARRAY['Není určeno pro děti, těhotné a kojící ženy.'] WHERE slug = 'kosmopolitan'`, [
+      "čistá filtrovaná voda, brusinková šťáva, jablečná šťáva, vodka, citronová šťáva, třtinový cukr, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    ]);
     await pg.query(`UPDATE products SET ingredients = $1, alcohol_percent = 6.7, warnings = ARRAY['Není určeno pro děti, těhotné a kojící ženy.'] WHERE slug = 'granatovy-bond'`, [
       "čistá filtrovaná voda, vodka, šťáva z granátového jablka, třtinový cukr, citronová šťáva, antioxidant: kyselina askorbová (vitamin C)",
     ]);
@@ -31,7 +34,7 @@ describe("87 Svařák Deluxe + Lady Carneval + Granátový bond", { timeout: 120
   }, 120_000);
 
   it("změní jen zadané údaje, ostatní produkty beze změny", async () => {
-    const others = (await pg.query(`SELECT slug, ingredients, storage_instructions, shelf_life_note, warnings FROM products WHERE slug NOT IN ('svarak-deluxe','lady-carneval','granatovy-bond') ORDER BY slug`)).rows;
+    const others = (await pg.query(`SELECT slug, ingredients, storage_instructions, shelf_life_note, warnings FROM products WHERE slug NOT IN ('svarak-deluxe','lady-carneval','granatovy-bond','kosmopolitan') ORDER BY slug`)).rows;
     const svarakBefore = (await pg.query(`SELECT ingredients, allergens, alcohol_percent, nutrition, warnings FROM products WHERE slug = 'svarak-deluxe'`)).rows;
     await pg.exec(script);
     const list = (await loadCatalog(db)).products;
@@ -54,9 +57,12 @@ describe("87 Svařák Deluxe + Lady Carneval + Granátový bond", { timeout: 120
     expect(gb.foodInfo.storage).toBe(lady.foodInfo.storage);
     expect(gb.warnings).toEqual(["Není určeno pro děti, těhotné a kojící ženy."]);
     expect((await pg.query(`SELECT ingredients, allergens, alcohol_percent, nutrition, warnings FROM products WHERE slug = 'svarak-deluxe'`)).rows).toEqual(svarakBefore);
-    expect((await pg.query(`SELECT slug, ingredients, storage_instructions, shelf_life_note, warnings FROM products WHERE slug NOT IN ('svarak-deluxe','lady-carneval','granatovy-bond') ORDER BY slug`)).rows).toEqual(others);
-    // ostatní koktejly bez přípravy a vrácení
-    expect(list.find((p) => p.slug === "kosmopolitan")?.foodInfo.preparation).toBeUndefined();
+    expect((await pg.query(`SELECT slug, ingredients, storage_instructions, shelf_life_note, warnings FROM products WHERE slug NOT IN ('svarak-deluxe','lady-carneval','granatovy-bond','kosmopolitan') ORDER BY slug`)).rows).toEqual(others);
+    const k = list.find((p) => p.slug === "kosmopolitan")!;
+    expect(k.foodInfo.storage).toBe(lady.foodInfo.storage);
+    expect(k.foodInfo.preparation).toBe(lady.foodInfo.preparation);
+    expect(k.foodInfo.allergens).toBeNull(); // blokace (BEG-02) zůstává
+    expect(k.alcoholPercent).toBe(6.3);
     await expect(pg.exec(script)).rejects.toThrow(/nemá očekávané původní/);
     await pg.exec("ROLLBACK");
   });
