@@ -32,8 +32,8 @@ describe("92 Kosmopolitan odblokování", { timeout: 120_000 }, () => {
     await pg.exec(script);
     const k = (await loadCatalog(db)).products.find((p) => p.slug === "kosmopolitan")!;
     expect(isOrderable(k)).toBe(true);
-    expect(k.allergens).toEqual([]);
-    expect(k.ingredients).toBe(OLD.replace("přírodní aroma", "přírodní grapefruitové aroma"));
+    expect(k.foodInfo?.allergens).toEqual([]);
+    expect(k.foodInfo?.ingredients).toBe(OLD.replace("přírodní aroma", "přírodní grapefruitové aroma"));
     expect((await pg.query(`SELECT slug, ingredients, allergens, nutrition, is_active FROM products WHERE slug <> 'kosmopolitan' ORDER BY slug`)).rows).toEqual(others);
   });
 
