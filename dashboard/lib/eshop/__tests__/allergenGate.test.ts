@@ -104,7 +104,7 @@ describe("alergeny — objednatelnost (tři stavy)", () => {
   it("validateCheckoutInput (pokladna i náhradní objednávka): neověřený produkt neprojde, ověřené ano", () => {
     expect(validateCheckoutInput(checkout([{ sku: `${UNVERIFIED}-500ml`, quantity: 1 }]), index)).toMatchObject({
       ok: false,
-      error: expect.stringMatching(/alergeny/),
+      error: expect.stringMatching(/povinné údaje/),
     });
     const ok = validateCheckoutInput(
       checkout([
