@@ -62,3 +62,26 @@ Odstraněno skriptem 87; barviva ve složení zůstávají.
 - Rozpor podílu pomerančové šťávy: kalkulace 500 ml (≈ 16 %) × web 13 %.
 - K ověření: zařazení podle nař. 1308/2013 / 251/2014 (aromatizovaný nápoj na
   bázi vína?) — ovlivňuje název a pravidla pro alkohol.
+
+## Granátový bond — šťáva z granátového jablka (sdělení Jarina, 10. 11. 2026)
+Dodavatel uvádí: 100% šťáva z granátového jablka, NFC, lisovaná za studena,
+pasterizovaná, bez přísad. Fotografie produktu a popisu zatím nedorazily
+(v příloze byla jen kalkulace) → doložit. Tvrzení prodejce „neobsahuje cukr“
+NEPŘEBÍRAT (přirozené cukry šťávy). Čeká se na zvážení 500 ml šťávy a celé dávky.
+
+## Přidané kyseliny — doporučení (kalkulace koktejlů (5), 10. 11. 2026)
+Ve všech čtyřech: kyselina askorbová 1 g / 3 l (≈ 0,33 g/l), citronová ne.
+Všechny obsahují citronovou šťávu (180–200 ml / 3 l) → přidaná kyselina
+citronová jako okyselující látka není potřeba.
+- Granátový bond, Kosmopolitan: barva z antokyanů (granátové jablko,
+  brusinky) — kyselina askorbová může rozklad antokyanů urychlovat →
+  doporučeno vynechat, nebo ponechat jen po srovnávací zkoušce barvy.
+- Lady Carneval: azobarviva E 110, E 124 (z Aperolu) — askorbová může jejich
+  blednutí urychlovat; grapefruitová a citronová šťáva → doporučeno vynechat,
+  nebo ponechat po zkoušce barvy a chuti.
+- Svařák Deluxe: víno se siřičitany; askorbová bez dostatku volného SO₂ může
+  působit prooxidačně, zahříváním se rozkládá → doporučeno vynechat.
+  Zařazení (nař. 251/2014, aromatizovaný nápoj na bázi vína?) a povolené
+  přídatné látky v kat. 14.2.7.x přílohy II nař. 1333/2008 neověřeny.
+Zkouška: dvě dávky (s / bez askorbové), skladovat jako výrobek, porovnat
+barvu a chuť v čase; u svařáku navíc volný a celkový SO₂ v hotovém výrobku.

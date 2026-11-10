@@ -95,3 +95,13 @@ nemůže vážit víc než suroviny (2 963 g). Procenta ve složení sedí na 2 
 (brambory 567 g = 19,1 %, hlíva 200 g = 6,8 %, cibule 125 g = 4,2 %, protlak
 100 g = 3,4 %); kdyby skutečná čistá hmotnost byla ≤ 2 608 g, byla by vyšší
 (brambory ≈ 22 %, hlíva ≈ 8 %). Ověřit množství vody v receptuře „(3)“.
+
+## Bylinný sirup Šaman — návrh výživových údajů (NEZVEŘEJNĚNO, 10. 11. 2026)
+Výpočtový odhad na 100 ml, receptura Sirupy_kalkulace-5 (3 000 ml):
+- třtinový cukr 2 000 g, sacharóza min. 98 % (etiketa Riopaila) → 1 960 g × 17 kJ = 33 320 kJ
+- citronová šťáva 400 ml × 95 kJ/100 ml (etiketa Naturalne Tłoczone) = 380 kJ; sacharidy 6,4 g; bílkoviny 1,2 g
+- kyselina askorbová 2 g × 13 kJ (organická kyselina, příloha XIV nař. 1169/2011) = 26 kJ
+- výluh (šípek, čaga, ženšen, zázvor): výživové údaje nedoloženy → nezahrnuto
+Celkem 33 726 kJ / 30 = **1 124 kJ**; kcal 7 840 + 92 + 6 = 7 938 / 30 = **265 kcal**.
+Sacharidy 66 g, z toho cukry 66 g; tuky 0 g, nasycené 0 g, bílkoviny 0 g (0,04 g), sůl 0 g.
+Při 100% sacharóze by vyšlo 66,9 g a 1 147 kJ / 270 kcal.
