@@ -122,7 +122,7 @@ export function expectedCatalogAfterSeed(): Catalog {
       alcoholPercent: product.alcoholPercent,
       isAgeRestricted: row.isAgeRestricted,
       // polévky a sirupy: společná šablona přípravy a vrácení/reklamace (categoryFoodInfo.ts)
-      foodInfo: { ...product.foodInfo, ...categoryFoodExtras(product.category) },
+      foodInfo: { ...product.foodInfo, ...categoryFoodExtras(product.category, product.slug) },
     };
   });
   return {

@@ -157,7 +157,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
           storage: row.storageInstructions,
           shelfLife: row.shelfLifeNote,
           // polévky a sirupy: společná šablona — příprava a vrácení/reklamace (categoryFoodInfo.ts)
-          ...categoryFoodExtras(category),
+          ...categoryFoodExtras(category, row.slug),
         },
       },
     ];
