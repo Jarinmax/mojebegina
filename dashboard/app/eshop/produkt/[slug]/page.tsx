@@ -55,7 +55,6 @@ export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[sl
 }
 
 const MISSING = "Doplníme";
-const ALLERGENS_UNVERIFIED = "Ověřujeme";
 
 function foodInfoRows(product: Product): { label: string; value: ReactNode | null }[] {
   const info = product.foodInfo;
@@ -65,18 +64,18 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
   return [
     { label: "Balení", value: packages },
     // Typografie (10. 11. 2026): seznamy a věty velkým písmenem s tečkou,
-    // samostatné hodnoty (balení, obsah alkoholu, „Ověřujeme“) beze změny.
+    // samostatné hodnoty (balení, obsah alkoholu) beze změny.
     { label: "Složení", value: asSentence(info.ingredients) },
     // Alergeny (10. 11. 2026): veřejně jen skutečně přítomné alergeny. Prázdný
     // seznam v DB (interně „ověřeno, receptura bez povinných alergenů“) se už
     // nezobrazuje jako „Neobsahuje žádný z alergenů…“ — výroba je ve společném
     // prostoru s lepkem a mlékem, takže to tvrzení není podložené; řádek
     // se pak vynechá. Interní údaj i kontrola úplnosti dat zůstávají.
-    ...(info.allergens === null
-      ? [{ label: "Alergeny", value: ALLERGENS_UNVERIFIED }]
-      : info.allergens.length
-        ? [{ label: "Alergeny", value: asSentence(info.allergens.join(", ")) }]
-        : []),
+    // Neověřené alergeny (null) se veřejně neoznačují „Ověřujeme“ — řádek se
+    // vynechá a produkt nejde objednat (isOrderable), dokud se údaj nedoplní.
+    ...(info.allergens?.length
+      ? [{ label: "Alergeny", value: asSentence(info.allergens.join(", ")) }]
+      : []),
     ...(product.isAgeRestricted
       ? [
           {

@@ -30,7 +30,7 @@ for (const [name, device] of [["pocitac", { viewport: { width: 1440, height: 900
     );
     for (const r of rows) {
       if (/[.:]$/.test(r.dt)) problems.push(`${href} název řádku „${r.dt}“`);
-      if (r.missing || r.dd === "Ověřujeme") continue;
+      if (r.missing) continue;
       if (SENTENCE.includes(r.dt)) {
         if (!/^\p{Lu}/u.test(r.dd)) problems.push(`${href} ${r.dt}: malé písmeno`);
         if (!/[.!?]$/.test(r.dd)) problems.push(`${href} ${r.dt}: bez tečky`);
@@ -48,7 +48,7 @@ for (const [name, device] of [["pocitac", { viewport: { width: 1440, height: 900
     const main = await page.locator("main").innerText();
     if (/Neobsahuje žádný|povinně uvádějí|bez alergenů/i.test(main)) problems.push(`${href} tvrzení o nepřítomnosti alergenů`);
     // řádek Alergeny jen se skutečnými alergeny (testovací DB je má prázdné → řádek nesmí být)
-    if (rows.some((r) => r.dt === "Alergeny" && !r.missing && r.dd !== "Ověřujeme" && !/\p{Lu}/u.test(r.dd))) problems.push(`${href} prázdný řádek Alergeny`);
+    if (rows.some((r) => r.dt === "Alergeny" && !r.missing && !/\p{Lu}/u.test(r.dd))) problems.push(`${href} prázdný řádek Alergeny`);
   }
   check(`${name}: typografie u ${slugs.size} produktů`, problems.length === 0, problems.slice(0, 15).join(" ‖ "));
   for (const href of ["/produkt/dynova-polevka", "/produkt/svarak-deluxe"]) {

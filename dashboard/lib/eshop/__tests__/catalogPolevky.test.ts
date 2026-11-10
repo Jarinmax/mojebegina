@@ -54,7 +54,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(list.map((p) => p.name)).toEqual(["Dýňová polévka", "Kulajda", "Tomatová polévka", "Rajčatová polévka s červenou řepou", "Gulášová polévka z hlívy ústřičné", "Špenátová polévka"]);
     const dyne = list[0];
     expect(dyne.shortDescription).toBe("Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.");
-    expect(dyne.highlights).toEqual(["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"]);
+    expect(dyne.highlights).toEqual(["rostlinná receptura", "z čisté filtrované vody"]);
     expect(dyne.variants).toEqual([
       expect.objectContaining({ sku: "dynova-polevka", label: "3 l", priceKc: 379, servings: 12, volumeMl: 3000 }),
     ]);

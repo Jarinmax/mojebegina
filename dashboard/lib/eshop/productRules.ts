@@ -29,7 +29,7 @@ export function isOrderable(product: Product): boolean {
 
 /** Text tlačítka místo „Do košíku“ u neobjednatelného produktu. */
 export const NOT_ORDERABLE_LABEL = "Připravujeme";
-export const NOT_ORDERABLE_NOTICE = "Tento produkt zatím nelze objednat — ověřujeme u něj alergeny.";
+export const NOT_ORDERABLE_NOTICE = "Tento produkt zatím nelze objednat — doplňujeme u něj povinné údaje o potravině.";
 
 /** Jsou vyplněné všechny údaje povinné před nákupem (nařízení 1169/2011)? */
 export function isFoodInfoComplete(product: Product): boolean {

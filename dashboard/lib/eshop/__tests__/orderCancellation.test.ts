@@ -682,7 +682,7 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
       const blocked = randomUUID();
       expect(
         await submitCheckoutAction(null, form(blocked, { cart: JSON.stringify([{ sku: "lady-carneval-500ml", quantity: 1 }]), ageConfirmed: "on" }))
-      ).toEqual({ error: expect.stringMatching(/Lady Carneval.*zatím nelze objednat.*alergeny/) });
+      ).toEqual({ error: expect.stringMatching(/Lady Carneval.*zatím nelze objednat.*povinné údaje/) });
       // ani když je v košíku vedle objednatelného produktu
       expect(
         await submitCheckoutAction(
@@ -692,7 +692,7 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
             ageConfirmed: "on",
           })
         )
-      ).toEqual({ error: expect.stringMatching(/alergeny/) });
+      ).toEqual({ error: expect.stringMatching(/povinné údaje/) });
       expect(await count()).toBe(before);
       expect(await rows(sql`SELECT id FROM orders WHERE id = ${blocked}`)).toEqual([]);
       expect(mail.sent).toEqual([]);
@@ -706,7 +706,7 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
       const id = await cancelledPaid("BANK-REPL-ALLERGEN");
       expect(await replace(id, { lines: [{ sku: "lady-carneval-500ml", quantity: 1 }], ageConfirmed: true })).toEqual({
         ok: false,
-        error: expect.stringMatching(/Lady Carneval.*alergeny/),
+        error: expect.stringMatching(/Lady Carneval.*povinné údaje/),
       });
       expect(await money(id)).toEqual({ stage: "contact", heldHal: 75800 });
       expect(await rows(sql`SELECT status FROM payments WHERE external_id = 'tx:BANK-REPL-ALLERGEN'`)).toEqual([{ status: "succeeded" }]);

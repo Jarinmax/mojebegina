@@ -12,8 +12,15 @@ import { categorySql, imageSql, productSql, q, variantSql } from "./sql.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-// Text kategorie (intro) zatím nedodán — zůstává beze změny.
+// Text kategorie dodal Jarin 10. 11. 2026 (doslova). „Bez lepku“, „bez barviv“
+// ani „bez přidaného glutamátu“ tu záměrně nejsou — viz
+// docs/eshop-production/ALERGENY_TVRZENI_POSOUZENI.md.
 export const CATEGORY = {
+  intro: [
+    "Čerstvé polévky Begina vaříme z čisté filtrované vody, zeleniny, hub, bylinek a koření. Všechny připravujeme z rostlinných surovin, bez masa a mléčných výrobků. Každá receptura má svou vlastní chuť — od jemných zeleninových krémů po výraznou gulášovou z hlívy ústřičné.",
+    "Dobrou polévku si můžete dopřát i ve dnech, kdy na vaření nezbývá čas. Stačí ohřát a podávat doma, v práci nebo u společného stolu.",
+    "Z třílitrového balení s kohoutkem odeberete právě tolik, kolik potřebujete. Zbytek uložíte do chladničky a další porci máte po ruce. Méně času u plotny, více času pro Vás.",
+  ],
   detailSections: [
     {
       title: "Vhodné také pro gastro provozy a kanceláře",
@@ -39,7 +46,10 @@ const bagInBox = (slug, price, servings) => ({
   price,
 });
 
-// Údaje vedení 3. 10. 2026: všechny polévky jsou bez alergenů; skladování
+// Údaje vedení 3. 10. 2026: v recepturách není žádná ze složek přílohy II
+// nařízení 1169/2011 (allergens: [] = řádek Alergeny se nezobrazí; žádné
+// veřejné „bez alergenů“). Kontaminace lepkem u lahůdkového droždí — viz
+// docs/eshop-production/ALERGENY_TVRZENI_POSOUZENI.md. Skladování
 // a trvanlivost podle majitele 9. 11. 2026 (lib/eshop/soupFoodInfo.ts).
 const SOUP_COMMON = {
   allergens: [],
@@ -56,7 +66,7 @@ export const SOUPS = [
     name: "Dýňová polévka",
     sortOrder: 10,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
-    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
       "Dýňová polévka s kokosovým mlékem stojí na plném a výrazném základu kvalitní dýně. Krémová struktura, jemnost kokosového mléka a pečlivě zvolené koření vytvářejí harmonickou chuť s přirozeně bohatým charakterem.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
@@ -83,7 +93,7 @@ export const SOUPS = [
     name: "Kulajda",
     sortOrder: 20,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
-    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
       "Kulajda stojí na plném základu brambor a žampionů. Čerstvý kopr a vyvážené koření vytvářejí harmonickou chuť s čistým charakterem.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
@@ -110,7 +120,7 @@ export const SOUPS = [
     name: "Tomatová polévka",
     sortOrder: 30,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
-    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
       "Tomatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
@@ -137,7 +147,7 @@ export const SOUPS = [
     name: "Rajčatová polévka s červenou řepou",
     sortOrder: 35,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
-    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
       "Rajčatová polévka s červenou řepou nabízí jemnou a přirozeně vyváženou chuť. Zralá rajčata tvoří výrazný základ, který červená řepa přirozeně zjemňuje a propojuje do hladkého celku.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
@@ -164,7 +174,7 @@ export const SOUPS = [
     name: "Gulášová polévka z hlívy ústřičné",
     sortOrder: 40,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
-    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
       "Gulášová polévka z hlívy ústřičné nabízí výraznou a plnou chuť. Hlíva dodává pevnou strukturu, rajčatový základ hloubku a uzená paprika charakteristickou intenzitu.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
@@ -192,7 +202,7 @@ export const SOUPS = [
     name: "Špenátová polévka",
     sortOrder: 50,
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
-    highlights: ["rostlinná receptura", "přirozeně bezlepková", "z čisté filtrované vody"],
+    highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
       "Špenátová polévka nabízí jemně krémovou a přirozeně plnou chuť. Kvalitní špenát tvoří její výrazný základ, který doplňuje jemná struktura a vyvážené koření.",
       "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
