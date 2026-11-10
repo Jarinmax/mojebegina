@@ -33,7 +33,8 @@ Receptura (kalkulace koktejlů): voda 900 ml, brusinková šťáva 800 ml,
 jablečná šťáva 600 ml, vodka 500 ml, citronová šťáva 200 ml, třtinový cukr
 120 g, kyselina askorbová 1 g, grepový esenciální olej 3 kapky.
 Brusinková a citronová šťáva ověřeny etiketou (10. 11. 2026, bez siřičitanů).
-Blokace trvá: chybí etiketa jablečné šťávy a specifikace grepového
+Jablečná šťáva a třtinový cukr ověřeny etiketou (10. 11. 2026).
+Alergenová blokace vyřešena; zbývá specifikace grepového
 esenciálního oleje (doklad potravinářského použití, název „přírodní aroma“
 podle nař. 1334/2008).
 
