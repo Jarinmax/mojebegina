@@ -125,6 +125,21 @@ export default async function CompanyOverviewPage() {
         </div>
       )}
 
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Etikety</h2>
+          <Link href="/rizeni-firmy/etikety" className="text-sm font-medium text-begina-primary-900 hover:underline">
+            Otevřít →
+          </Link>
+        </div>
+        <Link
+          href="/rizeni-firmy/etikety"
+          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
+        >
+          Finální etikety k tisku — polévky, sirupy, ovocné nápoje, koktejly, čaje
+        </Link>
+      </div>
+
       {ctx?.systemRole === "ADMIN" ? <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-medium text-begina-primary-900">Spolupracovníci</h2>
