@@ -39,7 +39,7 @@ import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
 import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, paidDayOf, vsSearchFromDay } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
-import { ESHOP_SERIES, liveInvoicingGate } from "./mode";
+import { ESHOP_SERIES, eshopIdokladCredentials, liveInvoicingGate } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
 
@@ -588,4 +588,82 @@ export async function loadIssuedPdf(db: Db, orderId: string, deps: IssueDeps = {
     fetchImpl: deps.fetchImpl,
   });
   return (await fetchPdf(client, row.external_id, row.invoice_number)).pdf;
+}
+
+export type LinkExternalInvoiceResult = { ok: true; invoiceNumber: string } | { ok: false; error: string };
+
+/**
+ * Objednávka má v iDokladu fakturu vystavenou MIMO automat MojeBegina
+ * (nejčastěji ruční Luciina řada 2026xxxx) — VS se proto nenajde přes
+ * findByVs a „Vystavit fakturu“ by založilo druhou, duplicitní fakturu
+ * v řadě E-shop Begina. Propojí existující koncept (musí být „draft“)
+ * s touhle fakturou: ověří ji v iDokladu (jen čtení, částka musí sedět)
+ * a zapíše ji jako vystavenou — žádný zápis do iDokladu.
+ */
+export async function linkExternalInvoice(
+  db: Db,
+  orderId: string,
+  invoiceNumber: string,
+  actor: InvoiceActor,
+  deps: IssueDeps = {}
+): Promise<LinkExternalInvoiceResult> {
+  const env = deps.env ?? process.env;
+  const number = invoiceNumber.trim();
+  if (!number) return { ok: false, error: "Zadejte číslo faktury." };
+
+  const existing = (
+    await db.execute(sql`
+      SELECT i.id AS invoice_id, i.total_kc, i.doc_state, l.id AS link_id
+      FROM invoices i JOIN invoice_provider_links l ON l.invoice_id = i.id AND l.provider = ${IDOKLAD_PROVIDER} AND l.state <> 'void'
+      WHERE i.order_id = ${orderId} AND i.document_type = 'invoice'`)
+  ).rows[0] as { invoice_id: string; total_kc: number; doc_state: string; link_id: string } | undefined;
+  if (!existing) return { ok: false, error: "Objednávka nemá koncept faktury k propojení." };
+  if (existing.doc_state === "issued") return { ok: false, error: "Faktura k objednávce už je vystavená — propojení by ji přepsalo." };
+  if (existing.doc_state === "void") return { ok: false, error: "Faktura k objednávce je zrušená — propojení nejde provést." };
+
+  const credentials = eshopIdokladCredentials(env);
+  if (!credentials) return { ok: false, error: "iDoklad není na tomto prostředí připojený (chybí přístupové údaje)." };
+  const client = new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl: deps.fetchImpl });
+
+  let invoice: IdokladInvoice;
+  try {
+    const found = await client.list<IdokladInvoice>("/IssuedInvoices", issuedInvoiceFilter(eqFilter("DocumentNumber", number)), 5);
+    if (found.Items.length > 1) return { ok: false, error: `V iDokladu je víc faktur s číslem ${number} — nutná ruční kontrola.` };
+    const summary = found.Items[0];
+    if (!summary) return { ok: false, error: `Faktura ${number} v iDokladu nenalezena.` };
+    invoice = await client.get<IdokladInvoice>(`/IssuedInvoices/${summary.Id}`);
+  } catch (error) {
+    return { ok: false, error: error instanceof IdokladApiError || error instanceof IdokladBlockedError ? error.message : `Fakturu se nepodařilo ověřit v iDokladu: ${error instanceof Error ? error.message : String(error)}` };
+  }
+  if (!invoice?.Id || !invoice.DocumentNumber) return { ok: false, error: "iDoklad nevrátil platnou fakturu." };
+  if (!sameAmount(invoice.Prices?.TotalWithVat, existing.total_kc)) {
+    return {
+      ok: false,
+      error: `Faktura ${invoice.DocumentNumber} má v iDokladu celkem ${invoice.Prices?.TotalWithVat ?? "—"} Kč, objednávka ${existing.total_kc} Kč — částky nesedí, nic se nepropojilo.`,
+    };
+  }
+
+  const externalId = String(invoice.Id);
+  const numberSeries = invoice.NumericSequenceId != null ? String(invoice.NumericSequenceId) : "mimo MojeBegina";
+  const done = (
+    await db.execute(sql`
+      WITH link AS (
+        UPDATE invoice_provider_links
+        SET state = 'issued', external_id = ${externalId}, external_number = ${invoice.DocumentNumber}, number_series = ${numberSeries},
+            issued_at = now(), next_attempt_at = NULL, last_error = NULL, last_error_at = NULL, updated_at = now()
+        WHERE id = ${existing.link_id} AND state <> 'issued'
+        RETURNING invoice_id
+      ), inv AS (
+        UPDATE invoices SET doc_state = 'issued', invoice_number = ${invoice.DocumentNumber}, issued_at = now(), paid_at = now(), updated_at = now()
+        WHERE id IN (SELECT invoice_id FROM link) AND doc_state = 'draft'
+        RETURNING id
+      )
+      INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
+      SELECT ${orderId}, ${actor.type}, ${actor.type === "user" ? actor.userId : null}, ${actor.name}, 'invoice_issued',
+             ${JSON.stringify({ invoiceNumber: invoice.DocumentNumber, externalId, adopted: true, linkedManually: true })}::jsonb
+      FROM inv
+      RETURNING id`)
+  ).rows;
+  if (done.length === 0) return { ok: false, error: "Stav faktury se mezitím změnil — propojení se nedokončilo, zkontrolovat." };
+  return { ok: true, invoiceNumber: invoice.DocumentNumber };
 }

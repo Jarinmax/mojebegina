@@ -12,6 +12,7 @@ import {
   recordOrderPayment,
   prepareOrderInvoiceDraft,
   issueOrderInvoice,
+  linkOrderExternalInvoice,
   runEshopIdokladPreflight,
   runEshopNumberingAudit,
   assignResponsible,
@@ -177,6 +178,17 @@ export async function issueInvoiceAction(orderId: string): Promise<ActionState> 
   const result = await issueOrderInvoice(orderId);
   revalidateOrder(orderId);
   return result.ok ? { success: result.message } : { error: result.error };
+}
+
+export async function linkExternalInvoiceAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await linkOrderExternalInvoice(orderId, String(formData.get("invoiceNumber") ?? ""));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return { success: result.message };
 }
 
 /** Kontrola připojení iDokladu — jen čtení, nic se nezapisuje ani neukládá. */

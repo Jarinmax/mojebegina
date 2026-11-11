@@ -17,7 +17,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
-import { issueInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
+import { issueInvoice, linkExternalInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
 import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { validateCheckoutInput } from "@/lib/eshop/checkout";
@@ -914,6 +914,24 @@ export async function issueOrderInvoiceDetailed(
     default:
       return { ok: false, error: result.error };
   }
+}
+
+/**
+ * Objednávka má fakturu vystavenou mimo MojeBegina (ruční řada Lucie
+ * apod.) — propojí koncept v MojeBegina s touhle fakturou místo vystavení
+ * nové (to by v e-shopové řadě 7277293 založilo duplicitu, protože VS
+ * takové faktury se neshoduje s VS objednávky). Jen oprávněný vystavovatel;
+ * samo o sobě nic do iDokladu nezapisuje, jen ověří (čtení) a propojí.
+ */
+export async function linkOrderExternalInvoice(
+  orderId: string,
+  invoiceNumber: string
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const ctx = await requireOrderContext();
+  if (!isInvoiceIssuer(ctx)) return { ok: false, error: `Propojení faktury smí provést jen ${INVOICE_ISSUER_NAMES}.` };
+  const actor = { type: "user" as const, userId: ctx.userId, name: ctx.name ?? ctx.email };
+  const result = await linkExternalInvoice(db, orderId, invoiceNumber, actor);
+  return result.ok ? { ok: true, message: `Faktura ${result.invoiceNumber} je propojená s objednávkou.` } : result;
 }
 
 /**
