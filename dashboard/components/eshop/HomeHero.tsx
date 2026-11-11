@@ -3,9 +3,9 @@ import { ArrowRight, Snowflake } from "lucide-react";
 import ShopLink from "./ShopLink";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
-// detaily, výrazné červené hlavní tlačítko a skutečná fotografie čerstvé
-// polévky s hrnkem horkého bylinného čaje (fotka od majitele 9. 11. 2026;
-// žádné krabice ani vymyšlené obaly).
+// detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
+// (schválil majitel): dýňová polévka, hrnek čaje, limonáda a skutečné
+// balení begina 3 l s kohoutkem (žádné krabice ani vymyšlené obaly).
 // Texty a tlačítka jsou webové prvky; logo a menu zůstávají z hlavičky webu.
 //
 // Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
@@ -16,10 +16,10 @@ import ShopLink from "./ShopLink";
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-caj-bezove-pozadi.webp",
-  width: 1672,
-  height: 941,
-  alt: "Čerstvá dýňová polévka v misce a hrnek horkého bylinného čaje s heřmánkem a meduňkou",
+  src: "/eshop/hero/polevka-begina-caj-limonada.webp",
+  width: 1202,
+  height: 901,
+  alt: "Dýňová polévka v misce, hrnek horkého bylinného čaje, ledová limonáda a třílitrová begina s kohoutkem",
 };
 
 export const HERO_LINKS = {

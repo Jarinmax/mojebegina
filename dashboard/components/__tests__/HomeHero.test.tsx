@@ -42,11 +42,11 @@ describe("úvod e-shopu", () => {
     expect(existsSync(path.join(__dirname, "../../app/eshop/kategorie/[slug]/page.tsx"))).toBe(true);
   });
 
-  it("skutečná fotografie (polévka a horký čaj, 9. 11. 2026) v plném poměru, existuje v public", () => {
+  it("fotografie úvodu (polévka, čaj, limonáda, begina, 11. 11. 2026) v plném poměru, existuje v public", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
-    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-a-caj-bezove-pozadi.webp");
-    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1672 / 941);
+    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-begina-caj-limonada.webp");
+    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1202 / 901);
     expect(img.className).toContain("h-auto");
     expect(img.className).not.toMatch(/object-cover|rounded|shadow|border/);
     expect(existsSync(path.join(__dirname, "../../public", HERO_PHOTO.src))).toBe(true);
