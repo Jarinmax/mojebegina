@@ -7,5 +7,32 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "Rajcatova-polevka-s-cervenou-repou.png",
     "Spenatova-polevka.png",
     "Tomatova-polevka.png"
+  ],
+  "sirupy/100ml": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sirupy/3l": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sirupy/650ml": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
   ]
 };
