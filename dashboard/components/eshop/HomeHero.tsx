@@ -9,7 +9,8 @@ import ShopLink from "./ShopLink";
 // Texty a tlačítka jsou webové prvky; logo a menu zůstávají z hlavičky webu.
 //
 // Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
-// pod nimi přes celou šířku; počítač = text vlevo, fotografie vpravo.
+// pod nimi přes celou šířku; počítač = text vlevo, fotografie vpravo
+// (od 11. 11. 2026 fotka dostává víc místa, poměr sloupců 0,72 : 1,28).
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
 // Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
 // rámečku a stínu — splývá s podkladem (9. 11. 2026).
@@ -30,7 +31,7 @@ export const HERO_LINKS = {
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:py-[clamp(1.5rem,4vh,3.5rem)] grid items-center lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-10">
+      <div className="max-w-[76rem] mx-auto lg:px-4 lg:py-[clamp(1.5rem,4vh,3.5rem)] grid items-center lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:gap-6">
         <div className="relative z-10 px-4 pt-9 pb-6 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
             Čerstvě. Jednoduše. S&nbsp;chutí.
@@ -76,7 +77,7 @@ export default function HomeHero() {
             width={HERO_PHOTO.width}
             height={HERO_PHOTO.height}
             priority
-            sizes="(min-width: 1152px) 600px, (min-width: 1024px) 52vw, (min-width: 768px) 48rem, 100vw"
+            sizes="(min-width: 1216px) 760px, (min-width: 1024px) 62vw, (min-width: 768px) 48rem, 100vw"
             className="block w-full h-auto"
           />
         </div>
