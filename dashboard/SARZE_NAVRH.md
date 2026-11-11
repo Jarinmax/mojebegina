@@ -561,61 +561,22 @@ Migrace podle zvyku repozitáře: `drizzle/0028_vyroba_1_0_sarze.sql`
 
 ---
 
-## 12. Šarže 1.0 — připravené SQL (6. 11. 2026, NESPUŠTĚNO)
+## 12. Šarže hotových výrobků: platí Sklad 1.1
 
-Soubory v `docs/sarze/`; spouští se ručně v Neon Console v tomto pořadí:
+> **Aktualizace 11. 11. 2026.** Šarže hotových výrobků už řeší **Sklad 1.1**
+> (větev `feature/sklad-1-1-hotove-vyrobky`): `stock_batches`,
+> `record_production_batch` (šarže + append-only pohyb `production_in`),
+> rezervace pro objednávky, výdej a inventurní korekce. Samostatná SQL
+> „Šarže 1.0“ z 6. 11. (`docs/sarze/`, tabulky `production_batches`…) by
+> vytvořila druhý, souběžný systém šarží, proto byla **zrušena**
+> (zůstávají v historii gitu, commit 474deef) a **nesmí se spouštět**.
 
-| Soubor | Co dělá |
-|---|---|
-| `10_before.sql` | jen čtení: je Sklad 1.0 nasazený, šarže ještě ne |
-| `11_migration.sql` | tabulky a pravidla šarží (níže) |
-| `20_L-20261106-DYN-01_priprava.sql` | první šarže + **připravený** příjem 38 ks (bez skladových pohybů) |
-| `21_L-20261106-DYN-01_potvrzeni.sql` | potvrzení příjmu → +38 ks skladem, šarže aktivní — **až na pokyn** |
-| `19_rollback.sql` | vrácení migrace; sám se zastaví, pokud už existuje šarže |
+Připravené zápisy jednotlivých várek: `docs/sklad/PRIPRAVENE_ZAPISY_VYROBY.md`.
 
-**Předpoklad: Sklad 1.0** (migrace 0028 + 0029, větev `integrace/sklad-1-0`).
-V produkční DB zatím není žádná skladová tabulka (ověřeno čtením 6. 11.),
-takže pořadí je: nasadit Sklad 1.0 → `10` → `11` → `20` → (pokyn) → `21`.
-
-**Napojení na Sklad 1.0** (místo samostatných tabulek z oddílu 5):
-- hotový výrobek = `stock_items` s novým druhem `finished_product`
-  a vazbou na balení (`linked_product_variant_id`, jedna položka na balení);
-- skladové pohyby = `stock_movements` ze Skladu + sloupce
-  `production_batch_id`, `production_receipt_id`, `production_receipt_line_id`;
-  pohyb hotového výrobku **bez šarže DB nepřijme**;
-- `stock_movements` je nově **append-only i v DB** (UPDATE/DELETE odmítne
-  trigger) — Sklad 1.0 pohyby jen vkládá, takže se jeho chování nemění.
-
-**Nové tabulky:**
-- `production_batches` — šarže = jeden výrobní běh (začátek a konec výroby,
-  datum spotřeby, objem, stav `draft → active → blocked / recalled / closed`,
-  `voided` jen u nepotvrzené);
-- `production_receipts` + `production_receipt_lines` — výrobní příjem
-  (`draft → confirmed`), **nejvýš jeden platný na šarži**; řádek = balení
-  a počet kusů, balení musí patřit k výrobku šarže;
-- `production_batch_activity` — audit: každé založení a změna šarže,
-  příjmu i řádku se zapíše triggerem jako staré → nové hodnoty + kdo
-  (`begina.actor_user_id` v téže transakci, bez něj DB změnu odmítne);
-- pohled `production_batch_balances` — přijato a skladem po šaržích.
-
-**Aktivace šarže:** jen funkcí `confirm_production_receipt(příjem, uživatel)`
-— v jedné transakci vloží skladové pohyby, potvrdí příjem a aktivuje šarži.
-Přímý UPDATE stavu DB odmítne. Po aktivaci se údaje o výrobě a datum
-spotřeby už nemění; nic se nemaže.
-
-**Ověřeno** na PGlite s migracemi 0000–0029 ze `integrace/sklad-1-0`:
-příprava (draft / draft / 38 ks / 0 pohybů / 3 auditní záznamy),
-potvrzení (aktivní / potvrzeno / přijato 38 / skladem 38), opravný pohyb
-−1 → skladem 37, a odmítnutí: změna čísla, cizí kód výrobku, nesedící
-datum v čísle, datum spotřeby po trvanlivosti, přímá aktivace, přímé
-potvrzení, druhý příjem k šarži, změny po potvrzení, mazání šarže,
-řádku, pohybu i auditu, přepis pohybu, změna bez uvedeného uživatele,
-pohyb hotového výrobku bez šarže, rollback s existující šarží.
-
-**Otevřené k první šarži L-20261106-DYN-01:**
-- datum spotřeby připraveno **19. 11. 2026** (začátek výroby 5. 11. + 14 dní).
-  Pokud se trvanlivost počítá od dokončení (6. 11.), bylo by to 20. 11. —
-  rozhodne vedení, DB pozdější než 19. 11. při začátku 5. 11. nepřijme;
-- skladové místo: `default` (Výchozí sklad), dokud nevznikne chladicí sklad;
-- suroviny šarže se doplní, až bude evidence surovin (Sklad 1.0 příjemky
-  → spotřeba do šarže, další etapa).
+Formát označení šarže zůstává `L-RRRRMMDD-KÓD-NN` (oddíl 4). Co ze
+zbytku tohoto návrhu Sklad 1.1 zatím nemá a přijde v dalších etapách:
+- spotřeba šarží surovin do výrobní šarže (karta šarže pro kontrolu: „ze
+  kterých surovin“);
+- výpočet data spotřeby z `shelf_life_days` a hlídání, že ho nejde prodloužit;
+- pojistka „100% rostlinné“ a kontrola alergenů ze surovin (oddíl 6b);
+- vzorky (oddíl 7) a karta šarže s exportem do PDF (oddíl 8).
