@@ -11,6 +11,12 @@ const EXTRAS: Record<string, Pick<FoodInfo, "preparation" | "returns">> = {
     preparation: SOUP_PREPARATION,
     returns: { before: SOUP_RETURNS_BEFORE, linkText: SOUP_RETURNS_LINK_TEXT, after: SOUP_RETURNS_AFTER },
   },
+  // Čaje (11. 11. 2026) — rychle se kazí, proto stejné vrácení jako polévky.
+  caje: {
+    preparation:
+      "Před použitím protřepejte. Podávejte vychlazené nebo teplé (šetrně ohřejte, nepřivádějte k varu). Nápoj je připravený k podávání, neředí se.",
+    returns: { before: SOUP_RETURNS_BEFORE, linkText: SOUP_RETURNS_LINK_TEXT, after: SOUP_RETURNS_AFTER },
+  },
   [SYRUP_CATEGORY]: {
     preparation: SYRUP_PREPARATION,
     returns: { before: SYRUP_RETURNS_BEFORE, linkText: SYRUP_RETURNS_LINK_TEXT, after: SYRUP_RETURNS_AFTER },

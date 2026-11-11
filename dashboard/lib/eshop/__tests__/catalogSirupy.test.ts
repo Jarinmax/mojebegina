@@ -87,7 +87,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       ["Jak jej používat", ["ul", "p", "p"]],
     ]);
     expect(saman.taste!.split("\n\n")).toHaveLength(2);
-    expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen pravý \(Panax ginseng\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
+    expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen sibiřský \(Eleutherococcus senticosus\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
     expect(saman.warnings).toEqual(["Není vhodné pro děti do 3 let, těhotné a kojící ženy."]);
     expect(syrups.slice(1).every((p) => p.warnings.length === 0)).toBe(true);
     expect(saman.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
