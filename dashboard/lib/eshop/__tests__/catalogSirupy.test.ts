@@ -90,10 +90,10 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen sibiřský \(Eleutherococcus senticosus\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
     expect(saman.warnings).toEqual(["Není vhodné pro děti do 3 let, těhotné a kojící ženy."]);
     expect(syrups.slice(1).every((p) => p.warnings.length === 0)).toBe(true);
-    expect(saman.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
+    expect(saman.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,70 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     // Zázvorový: úplné údaje z begina.cz (výživa na 100 ml).
     const zazvor = syrups[1];
-    expect(zazvor.shortDescription).toMatch(/přibližně na 3,30 Kč\.$/);
+    expect(zazvor.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,30 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     expect(zazvor.highlights[0]).toBe("39 % bylinného výluhu");
     expect(zazvor.taste).toMatch(/^Chuť je intenzivní, přímá a autenticky pálivá/);
     expect(zazvor.foodInfo.ingredients).toMatch(/^třtinový cukr, bylinný výluh 39 % \(čistá filtrovaná voda, zázvor/);
@@ -111,7 +111,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["bylinny-sirup-saman", "zazvorovy-sirup", "lipovy-sirup", "ibiskovy-sirup", "sipkovy-sirup", "hermankovy-sirup", "medunkovy-sirup-s-levanduli"]);
     // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
-    expect(lipa.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
+    expect(lipa.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,70 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     expect(lipa.highlights[0]).toBe("39 % bylinného výluhu");
     expect(lipa.description[0]).toMatch(/^Lipový sirup nabízí jemnou, medovou/);
     expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
@@ -125,7 +125,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     // Šípkový: 40 % výluhu, citronová šťáva 9 %, šípek (Rosa canina)
     const sipek = syrups[4];
     expect(sipek.name).toBe("Šípkový sirup");
-    expect(sipek.shortDescription).toMatch(/přibližně na 3,30 Kč\.$/);
+    expect(sipek.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,30 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     expect(sipek.highlights[0]).toBe("40 % bylinného výluhu");
     expect(sipek.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
     expect(parseDescription(sipek.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([

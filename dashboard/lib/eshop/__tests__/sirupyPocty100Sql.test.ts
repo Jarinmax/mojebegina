@@ -36,8 +36,8 @@ describe("100 sirupy počty nápojů", { timeout: 120_000 }, () => {
   });
 
   it("přepíše 7 sirupů, nic jiného; druhé spuštění zastaví", async () => {
-    const others = `SELECT slug, short_description, description, highlights, ingredients, nutrition FROM products p
-      JOIN product_categories c ON c.id = p.category_id WHERE c.slug <> 'sirupy' ORDER BY slug`;
+    const others = `SELECT p.slug, p.short_description, p.description, p.highlights, p.ingredients, p.nutrition FROM products p
+      JOIN product_categories c ON c.id = p.category_id WHERE c.slug <> 'sirupy' ORDER BY p.slug`;
     const before = (await pg.query(others)).rows;
     await pg.exec(script);
     const rows = (await pg.query<{ slug: string; short_description: string; highlights: string[]; description: string[] }>(
