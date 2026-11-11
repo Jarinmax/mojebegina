@@ -29,7 +29,8 @@ export const CATEGORY = {
 };
 
 // Balení — stejná u všech sirupů (cena 3 l podle produktu). Označení od
-// 9. 11. 2026 „3 l“ a „700 ml“ (dříve „Begina 3 l“ a „750 g“); hmotnosti pro
+// 9. 11. 2026 „3 l“ a „700 ml“ (dříve „Begina 3 l“ a „750 g“), od 11. 11. 2026
+// malé balení „650 ml“ (skript 93); hmotnosti pro
 // dopravu (weight_g) se nemění.
 export const VARIANTS = [
   {
@@ -43,14 +44,14 @@ export const VARIANTS = [
     price: (product) => product.price3l,
   },
   {
-    // Balení 700 ml (9. 11. 2026; dříve „750 g“ a „750 ml“). SKU zůstává
+    // Balení 650 ml (11. 11. 2026; dříve „700 ml“, „750 g“, „750 ml“). SKU zůstává
     // beze změny, aby opakované spuštění skriptu přepsalo stávající balení.
     suffix: "750ml",
-    label: "700 ml",
-    note: "Až 35 nápojů",
-    description: "700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.", // objem obsahu; sáček má kapacitu 750 ml
-    volumeMl: 700,
-    servings: 35, // 700 ml : 20 ml sirupu na nápoj (ředění 1 : 10)
+    label: "650 ml",
+    note: "Až 32 nápojů",
+    description: "650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.", // objem obsahu; sáček má kapacitu 750 ml
+    volumeMl: 650,
+    servings: 32, // 650 ml : 20 ml sirupu na nápoj (ředění 1 : 10)
     price: () => 199,
   },
 ];
