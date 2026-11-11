@@ -138,15 +138,15 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(ibisek.highlights[0]).toBe("41 % bylinného výluhu");
     expect(ibisek.foodInfo.ingredients).toMatch(/bylinný výluh 41 % \(čistá filtrovaná voda, květ ibišku \(Hibiscus sabdariffa\)\), citronová šťáva 8 %/);
     expect(parseDescription(ibisek.description).sections.map((x) => x.title)).toEqual(["Pro koho vhodný", "Jak jej používat"]);
-    // Heřmánkový: 36 % výluhu, citronová šťáva 16 %
+    // Heřmánkový: 40 % výluhu, citronová šťáva 10 % (receptury 11. 11. 2026)
     const herm = syrups[5];
     expect(herm.name).toBe("Heřmánkový sirup");
-    expect(herm.highlights[0]).toBe("36 % bylinného výluhu");
-    expect(herm.foodInfo.ingredients).toMatch(/bylinný výluh 36 % \(čistá filtrovaná voda, květ heřmánku \(Matricaria chamomilla\)\), citronová šťáva 16 %/);
+    expect(herm.highlights[0]).toBe("40 % bylinného výluhu");
+    expect(herm.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, květ heřmánku \(Matricaria chamomilla\)\), citronová šťáva 10 %/);
     expect(parseDescription(herm.description).sections.map((x) => x.title)).toEqual(["Pro koho je vhodný", "Jak ho používat"]);
-    // Meduňkový s levandulí: 36 % výluhu, citronová šťáva 16 %
+    // Meduňkový s levandulí: 39 % výluhu, citronová šťáva 13 % (receptury 11. 11. 2026)
     const medunka = syrups[6];
-    expect(medunka.foodInfo.ingredients).toMatch(/meduňka \(Melissa officinalis\), květ levandule \(Lavandula angustifolia\)\), citronová šťáva 16 %/);
+    expect(medunka.foodInfo.ingredients).toMatch(/meduňka \(Melissa officinalis\), květ levandule \(Lavandula angustifolia\)\), citronová šťáva 13 %/);
     // všech 7: úplné texty z begina.cz
     for (const p of syrups) {
       const parsed = parseDescription(p.description);

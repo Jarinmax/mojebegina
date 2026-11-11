@@ -114,7 +114,7 @@ export const SYRUPS = [
       "Chuť tohoto bylinného sirupu je hluboká a přirozeně vyvážená. Základ tvoří šípek, který přináší jemně svěží a plný charakter, doplněný zemitými tóny čagy. Výslednou chuť rozvíjí ženšen a zázvor, které dodávají směsi plnost a lehce kořenitý dozvuk.\n\nVzniká tak kultivovaný bylinný sirup s výrazným charakterem a dlouhým, hřejivým dozvukem na patře.",
     ingredients:
       "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale)), citronová šťáva 10 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    nutrition: { energy_kj: 1096, energy_kcal: 258, fat: 0, saturates: 0, carbohydrate: 64, sugars: 64, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
     warnings: ["Není vhodné pro děti do 3 let, těhotné a kojící ženy."],
@@ -143,8 +143,8 @@ export const SYRUPS = [
     taste:
       "Chuť je intenzivní, přímá a autenticky pálivá, přesně tak, jak to od poctivého zázvoru čekáte. Má plné a výrazné tělo, které v nápoji zůstává krásně čitelné až do posledního doušku. Působí svěže, s jemně zemitým závěrem, který příjemně zahřeje v horkém nápoji a osvěží v ledové limonádě.",
     ingredients:
-      "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), citronová šťáva 12 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+      "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), citronová šťáva 13 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1065, energy_kcal: 251, fat: 0, saturates: 0, carbohydrate: 63, sugars: 62, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
   },
@@ -171,8 +171,8 @@ export const SYRUPS = [
     taste:
       "Chuť je hluboká, medově jemná a přirozeně harmonická. Lípa je tradiční bylinka s konejšivým charakterem, která v nápojích působí velmi lehce a zanechá hebký pocit na patře.",
     ingredients:
-      "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, lipový květ (Tiliae flos)), citronová šťáva 12 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+      "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, lipový květ (Tiliae flos)), citronová šťáva 11 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1080, energy_kcal: 254, fat: 0, saturates: 0, carbohydrate: 64, sugars: 63, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
   },
@@ -201,7 +201,7 @@ export const SYRUPS = [
       "Chuť je výrazná, přirozeně svěží a hluboce harmonická. Ibišek dodává sirupu sytost a charakteristickou barvu, kterou doplňuje svěží tón citronové šťávy. Je to tradiční receptura s čistým a jasným projevem, který zanechá osvěžující pocit na patře.",
     ingredients:
       "třtinový cukr, bylinný výluh 41 % (čistá filtrovaná voda, květ ibišku (Hibiscus sabdariffa)), citronová šťáva 8 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    nutrition: { energy_kj: 1128, energy_kcal: 265, fat: 0, saturates: 0, carbohydrate: 66, sugars: 66, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
   },
@@ -230,7 +230,7 @@ export const SYRUPS = [
       "Chuť je plná, kulatá a přirozeně vyvážená. Šípek vytváří vyzrálý chuťový profil s jemně hlubším dozvukem. V nápojích působí harmonicky a čistě, přesně tak, jak to od řemeslné výroby Begina očekáváte.",
     ingredients:
       "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina)), citronová šťáva 9 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+    nutrition: { energy_kj: 1112, energy_kcal: 262, fat: 0, saturates: 0, carbohydrate: 65, sugars: 65, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
   },
@@ -240,11 +240,11 @@ export const SYRUPS = [
     name: "Heřmánkový sirup",
     price3l: 549,
     shortDescription: shortDescription("3,70"),
-    highlights: highlights(36),
+    highlights: highlights(40),
     description: [
       "Heřmánkový sirup nabízí jemnou, čistou a bylinnou chuť s přirozeně konejšivým charakterem v každé kapce. Tento slunečný dar v sobě nese sílu přírody a poctivost tradičního bylinkářství. Vyniká svou typickou vůní a jemností, která přináší pocit pohody a harmonie.",
       MIX,
-      "Připravujeme jej z mimořádně silného bylinného výluhu (36 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "Připravujeme jej z mimořádně silného bylinného výluhu (40 %), kvalitního třtinového cukru a čisté filtrované vody.",
       "## Pro koho je vhodný",
       "- **Pro rodiny:** přírodní alternativa k běžným limonádám, kterou si oblíbí dospělí i děti.",
       "- **Pro milovníky klidných chvil:** ideální součást večerního rituálu pro chvíle odpočinku.",
@@ -258,8 +258,8 @@ export const SYRUPS = [
     taste:
       "Chuť je čistá, lehká a přirozeně květová. Heřmánek vytváří jemný profil, který v nápojích nepřebíjí, ale krásně doplňuje ostatní chutě. V ústech zanechá příjemně hebký a konejšivý dozvuk.",
     ingredients:
-      "třtinový cukr, bylinný výluh 36 % (čistá filtrovaná voda, květ heřmánku (Matricaria chamomilla)), citronová šťáva 16 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+      "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, květ heřmánku (Matricaria chamomilla)), citronová šťáva 10 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1096, energy_kcal: 258, fat: 0, saturates: 0, carbohydrate: 64, sugars: 64, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
   },
@@ -269,11 +269,11 @@ export const SYRUPS = [
     name: "Meduňkový sirup s levandulí",
     price3l: 549,
     shortDescription: shortDescription("3,70"),
-    highlights: highlights(36),
+    highlights: highlights(39),
     description: [
       "Meduňkový sirup s levandulí nabízí jemnou bylinnou a květinovou chuť. Spojení meduňky a levandule vytváří lehký aromatický profil s příjemnou květinovou vůní a přirozenou jemností, která působí jemně a harmonicky.",
       MIX,
-      "Připravujeme jej z mimořádně silného bylinného výluhu (36 %), kvalitního třtinového cukru a čisté filtrované vody.",
+      "Připravujeme jej z mimořádně silného bylinného výluhu (39 %), kvalitního třtinového cukru a čisté filtrované vody.",
       "## Pro koho je vhodný",
       "- **Pro rodiny:** přírodní alternativa k běžným limonádám, kterou si oblíbí dospělí i děti.",
       "- **Pro milovníky klidných chvil:** ideální součást večerního rituálu pro chvíle odpočinku.",
@@ -287,8 +287,8 @@ export const SYRUPS = [
     taste:
       "Chuť je čistá, lehká a přirozeně květinová. Meduňka s levandulí vytvářejí jemný bylinný profil, který nápoji dodává harmonii a příjemnou hloubku. V ústech zanechává hebký a dlouhý dozvuk s jemně květinovým charakterem.",
     ingredients:
-      "třtinový cukr, bylinný výluh 36 % (čistá filtrovaná voda, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia)), citronová šťáva 16 %, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
+      "třtinový cukr, bylinný výluh 39 % (čistá filtrovaná voda, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia)), citronová šťáva 13 %, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 1065, energy_kcal: 251, fat: 0, saturates: 0, carbohydrate: 63, sugars: 62, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
   },
