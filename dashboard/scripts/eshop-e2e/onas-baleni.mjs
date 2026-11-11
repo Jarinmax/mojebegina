@@ -109,7 +109,7 @@ for (const [name, device] of CASES) {
     check(`${name} ${slug}: Informace o potravině — jen objemy`, dd === expected.map((e) => e[0]).join(", "), dd);
     const body = await page.locator("main").innerText();
     check(`${name} ${slug}: žádné Begina 3 l / 750`, !/Begina 3 l|750 g|750 ml/.test(body));
-    if (slug === "lipovy-sirup") check(`${name} ${slug}: Zlaté pravidlo zpět v popisu`, /Zlaté pravidlo Beginy: doporučený poměr ředění je 1 : 10\./.test(body) && /20 ml sirupu na 200 ml vody/.test(body));
+    if (slug === "lipovy-sirup") check(`${name} ${slug}: Zlaté pravidlo zpět v popisu`, /Zlaté pravidlo Beginy: doporučený poměr ředění je 1 : 10\./.test(body) && /20 ml sirupu a doplňte vodou na 200 ml nápoje/.test(body));
     if (slug === "lipovy-sirup" && name === "pocitac") {
       await Promise.all([page.waitForURL(url("/o-baleni")), more.click()]);
       check(`${name}: klik Více o balení → O balení`, (await page.locator("h1").first().textContent()).trim() === "O balení");

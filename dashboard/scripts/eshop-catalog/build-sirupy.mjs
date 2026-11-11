@@ -61,7 +61,7 @@ const MIX = "**Stačí smíchat s vodou a během chvíle vznikne poctivá domác
 // Závěr sekce „Jak sirup používat“ — u všech sirupů stejný (znění 9. 11. 2026).
 const GOLDEN_RULE = [
   "**Zlaté pravidlo Beginy:** doporučený poměr ředění je **1 : 10**.",
-  "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
+  "Použijte přibližně **20 ml sirupu a doplňte vodou na 200 ml nápoje**. Chuť si můžete upravit podle sebe.",
 ];
 // Skladování a trvanlivost — společné pro všechny sirupy (lib/eshop/syrupFoodInfo.ts).
 const STORAGE = "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.";
@@ -70,10 +70,12 @@ const highlights = (extractPercent) => [
   `${extractPercent} % bylinného výluhu`,
   "z čisté filtrované vody",
   "bez umělých aromat a barviv",
-  "až 150 nápojů z jednoho balení",
+  "až 150 nápojů z balení 3 l",
 ];
+// Krátký popis na kartě (11. 11. 2026): počty nápojů u každého balení zvlášť,
+// cena za nápoj jen u 3 l (nápoj 200 ml = 20 ml sirupu + voda).
 const shortDescription = (pricePerDrink) =>
-  `Až 150 nápojů z jednoho balení (při doporučeném ředění 1:10). 200 ml nápoje při 3l balení vyjde přibližně na ${pricePerDrink} Kč.`;
+  `3 l: až 150 nápojů (cca ${pricePerDrink} Kč za nápoj). 650 ml: až 32 nápojů. Při ředění 1 : 10.`;
 
 const EMPTY = {
   shortDescription: null,
