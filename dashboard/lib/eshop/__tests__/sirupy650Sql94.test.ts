@@ -1,4 +1,4 @@
-// Skript 93 (sirupy: malé balení 700 ml → 650 ml) nad PGlite ve stavu
+// Skript 94 (sirupy: malé balení 700 ml → 650 ml) nad PGlite ve stavu
 // Production 11. 11. 2026 (malé balení „700 ml“, „Až 35 nápojů“).
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -8,14 +8,14 @@ import { createMigratedDb } from "./helpers/migratedDb";
 import { packagingSentence } from "../packaging";
 
 const ROOT = path.join(__dirname, "../../..");
-const script = readFileSync(path.join(ROOT, "docs/eshop-production/93_sirupy_650ml_MAIN.sql"), "utf8").replace(
+const script = readFileSync(path.join(ROOT, "docs/eshop-production/94_sirupy_650ml_MAIN.sql"), "utf8").replace(
   "IS DISTINCT FROM '70a96b3677653646e65343cae8e27182'",
   "IS NOT NULL AND false"
 );
 const catalog = (f: string) => readFileSync(path.join(ROOT, "docs/eshop-catalog", f), "utf8");
 const DESC650 = "650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.";
 
-describe("93 sirupy 650 ml", { timeout: 120_000 }, () => {
+describe("94 sirupy 650 ml", { timeout: 120_000 }, () => {
   let pg: PGlite;
   beforeAll(async () => {
     ({ pg } = await createMigratedDb());

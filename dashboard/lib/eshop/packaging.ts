@@ -21,7 +21,7 @@ export type PackagingCopy = { volume: string; text: string };
 export function packagingCopy(category: string, label: string | null): PackagingCopy | null {
   const volume = (label ?? "").trim();
   if (volume === "3 l") return { volume, text: category === "sirupy" ? `${THREE_L} ${SYRUP_BOX}` : THREE_L };
-  // „700 ml“ jen do spuštění skriptu 93 (přechod na 650 ml).
+  // „700 ml“ jen do spuštění skriptu 94 (přechod na 650 ml).
   if ((volume === "650 ml" || volume === "700 ml") && category === "sirupy") return { volume, text: SYRUP_SMALL };
   if (volume === "500 ml" && category === "koktejly") return { volume, text: ALCOHOL_500 };
   return null;

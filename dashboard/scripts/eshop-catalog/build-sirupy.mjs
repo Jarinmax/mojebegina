@@ -30,7 +30,7 @@ export const CATEGORY = {
 
 // Balení — stejná u všech sirupů (cena 3 l podle produktu). Označení od
 // 9. 11. 2026 „3 l“ a „700 ml“ (dříve „Begina 3 l“ a „750 g“), od 11. 11. 2026
-// malé balení „650 ml“ (skript 93); hmotnosti pro
+// malé balení „650 ml“ (skript 94); hmotnosti pro
 // dopravu (weight_g) se nemění.
 export const VARIANTS = [
   {

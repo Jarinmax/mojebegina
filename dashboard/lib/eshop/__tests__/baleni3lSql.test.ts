@@ -23,7 +23,7 @@ describe("81 balení nad stavem Production", { timeout: 120_000 }, () => {
     // stav Production: „Begina 3 l“ (sirupy už „3 l“), staré popisy, sirupy bez Zlatého pravidla
     await pg.query(`UPDATE product_variants SET label = 'Begina 3 l', package_description = $1 WHERE label = '3 l' AND sku NOT LIKE '%sirup%'`, [OLD3]);
     await pg.query(`UPDATE product_variants SET package_description = $1 WHERE label = '3 l'`, [OLD3]);
-    await pg.query(`UPDATE product_variants SET package_description = 'Lehké a nerozbitné balení vhodné na cesty, do práce nebo pro menší spotřebu.' WHERE sku LIKE '%sirup%-750ml'`);
+    await pg.query(`UPDATE product_variants SET label = '700 ml', volume_ml = 700, servings = 35, short_note = 'Až 35 nápojů', package_description = 'Lehké a nerozbitné balení vhodné na cesty, do práce nebo pro menší spotřebu.' WHERE sku LIKE '%sirup%-750ml'`);
     await pg.query(`UPDATE products p SET description = ARRAY(SELECT d FROM unnest(description) d WHERE d NOT LIKE '%Zlaté pravidlo%' AND d NOT LIKE '%20 ml sirupu%')
       FROM product_categories c WHERE c.id = p.category_id AND c.slug = 'sirupy'`);
   }, 120_000);
