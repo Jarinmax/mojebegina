@@ -1,5 +1,15 @@
 // GENEROVÁNO scripts/fotky-eshop/build-manifest.mjs — neupravovat ručně.
 export const FOTKY_MANIFEST: Record<string, string[]> = {
+  "caje/hlavni": [
+    "bylinny-caj-saman.jpg",
+    "cerny-caj-golden-nepal.jpg",
+    "hermankovy-caj.jpg",
+    "ibiskovy-caj.jpg",
+    "jasminovy-zeleny-caj.jpg",
+    "lipovy-caj.jpg",
+    "medunkovy-caj-s-levanduli.jpg",
+    "zazvorovy-caj.jpg"
+  ],
   "ikonky/kategorie": [
     "ikona-caje.webp",
     "ikona-koktejly.webp",
