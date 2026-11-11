@@ -14,6 +14,7 @@ import {
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
+  ZASILKOVNA_METHOD_ID,
   type ShippingMode,
 } from "@/lib/eshop/shipping";
 import { formatKc } from "@/lib/format";
@@ -628,8 +629,21 @@ export default function CheckoutForm({
         </fieldset>
 
         <div>
-          <label htmlFor="note" className={labelClass}>Poznámka k objednávce (nepovinné)</label>
-          <textarea id="note" name="note" rows={3} value={values.note} onChange={(e) => set("note", e.target.value)} className={inputClass} />
+          <label htmlFor="note" className={labelClass}>
+            {shipping.id === ZASILKOVNA_METHOD_ID
+              ? "Výdejní místo nebo Z-BOX Zásilkovny (povinné)"
+              : "Poznámka k objednávce (nepovinné)"}
+          </label>
+          <textarea
+            id="note"
+            name="note"
+            rows={3}
+            required={shipping.id === ZASILKOVNA_METHOD_ID}
+            placeholder={shipping.id === ZASILKOVNA_METHOD_ID ? "Např. Z-BOX Praha 1, Mostecká 21" : undefined}
+            value={values.note}
+            onChange={(e) => set("note", e.target.value)}
+            className={inputClass}
+          />
         </div>
       </div>
 

@@ -21,7 +21,7 @@ export function shippingModeFromEnv(env: Record<string, string | undefined> = pr
 }
 
 export type ShippingMethod = {
-  id: "osobni-odber" | "rozvoz";
+  id: "osobni-odber" | "rozvoz" | "zasilkovna";
   label: string;
   description: string;
   /** Pevná cena; u chlazené přepravy v režimu "weight" se nepoužije (cena = quoteShipping). */
@@ -63,8 +63,32 @@ const COLD_BY_WEIGHT: ShippingMethod = {
   requiresAddress: true,
 };
 
+// Zásilkovna (11. 11. 2026, zadání Lucie) — jen pro samotný Ochutnávkový
+// set sirupů (sirupy nepotřebují chlazení). Výdejní místo / Z-BOX zákazník
+// napíše do poznámky; zásilku pak zadáme v Zásilkovně ručně.
+export const ZASILKOVNA_METHOD_ID = "zasilkovna";
+export const ZASILKOVNA_PRICE_KC = 89;
+/** SKU, která smějí jet Zásilkovnou (košík musí obsahovat jen je). */
+export const ZASILKOVNA_SKUS: readonly string[] = ["ochutnavkovy-set-sirupu-5x100ml"];
+export const ZASILKOVNA_NOTE_REQUIRED =
+  "U Zásilkovny napište do poznámky k objednávce adresu výdejního místa nebo Z-BOXu, kam vám máme set poslat.";
+
+const ZASILKOVNA: ShippingMethod = {
+  id: "zasilkovna",
+  label: "Zásilkovna – výdejní místo nebo Z-BOX",
+  description:
+    "Jen pro Ochutnávkový set sirupů. Do poznámky k objednávce napište adresu výdejního místa nebo Z-BOXu.",
+  priceKc: ZASILKOVNA_PRICE_KC,
+  requiresAddress: false,
+};
+
 export function shippingMethodsFor(mode: ShippingMode): ShippingMethod[] {
-  return [PICKUP, mode === "weight" ? COLD_BY_WEIGHT : COLD_FLAT];
+  return [PICKUP, mode === "weight" ? COLD_BY_WEIGHT : COLD_FLAT, ZASILKOVNA];
+}
+
+/** Smí košík jet Zásilkovnou? Jen když obsahuje výhradně povolená SKU. */
+export function isZasilkovnaEligible(lines: readonly { sku: string }[]): boolean {
+  return lines.length > 0 && lines.every((line) => ZASILKOVNA_SKUS.includes(line.sku));
 }
 
 /** Dosavadní nabídka (paušál) — výchozí stav. */
@@ -75,7 +99,7 @@ export type ShippingContact = { email: string; phone: string };
 
 export type ShippingQuote =
   | { available: true; priceKc: number; /** null = hmotnost se nepočítala (paušál, osobní odběr) */ weightGrams: number | null }
-  | { available: false; reason: "over_limit" | "missing_weight"; message: string; weightGrams: number | null };
+  | { available: false; reason: "over_limit" | "missing_weight" | "set_only"; message: string; weightGrams: number | null };
 
 export type ShippingQuoteLine = { sku: string; name: string; quantity: number; weightGrams: number | null };
 
@@ -91,6 +115,18 @@ export function quoteShipping(
   mode: ShippingMode,
   contact: ShippingContact
 ): ShippingQuote {
+  if (method.id === "zasilkovna") {
+    if (!isZasilkovnaEligible(lines)) {
+      return {
+        available: false,
+        reason: "set_only",
+        message:
+          "Zásilkovnou posíláme jen samotný Ochutnávkový set sirupů. Pro ostatní zboží zvolte chlazenou přepravu nebo osobní odběr.",
+        weightGrams: null,
+      };
+    }
+    return { available: true, priceKc: method.priceKc, weightGrams: null };
+  }
   if (method.id === "osobni-odber" || mode === "flat") {
     return { available: true, priceKc: method.priceKc, weightGrams: null };
   }
