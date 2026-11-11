@@ -50,4 +50,8 @@ export const ETIKETY_NAMES: Record<string, string> = {
   "dum-u-jezera": "Dům u jezera",
   "cervankove-nebe": "Červánkové nebe",
   "malinovy-svarak-nealko": "Malinový svařák – nealko",
+  "granatovy-bond": "Granátový Bond",
+  kosmopolitan: "Kosmopolitan",
+  "lady-carneval": "Lady Carneval",
+  "svarak-deluxe": "Svařák Deluxe",
 };

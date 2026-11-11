@@ -1,5 +1,17 @@
 // GENEROVÁNO scripts/etikety/build-manifest.mjs — neupravovat ručně.
 export const ETIKETY_MANIFEST: Record<string, string[]> = {
+  "alkoholicke-koktejly/3l": [
+    "granatovy-bond.png",
+    "kosmopolitan.png",
+    "lady-carneval.png",
+    "svarak-deluxe.png"
+  ],
+  "alkoholicke-koktejly/500ml": [
+    "granatovy-bond.png",
+    "kosmopolitan.png",
+    "lady-carneval.png",
+    "svarak-deluxe.png"
+  ],
   "ovocne-napoje": [
     "cervankove-nebe.png",
     "dum-u-jezera.png",
