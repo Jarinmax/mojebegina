@@ -12,16 +12,6 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "lady-carneval.png",
     "svarak-deluxe.png"
   ],
-  "caje": [
-    "bylinny-caj-saman.png",
-    "cerny-caj-golden-nepal.png",
-    "hermankovy-caj.png",
-    "ibiskovy-caj.png",
-    "jasminovy-zeleny-caj.png",
-    "lipovy-caj.png",
-    "medunkovy-caj-s-levanduli.png",
-    "zazvorovy-caj.png"
-  ],
   "ovocne-napoje": [
     "cervankove-nebe.png",
     "dum-u-jezera.png",
