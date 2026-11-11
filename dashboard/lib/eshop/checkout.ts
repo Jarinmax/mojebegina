@@ -7,7 +7,7 @@ import { parseStoredCart } from "./cart";
 import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
-import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
+import { getPaymentMethod, ZASILKOVNA_METHOD_ID, ZASILKOVNA_NOTE_REQUIRED, type PaymentMethod, type ShippingMode } from "./shipping";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
 
 const MAX_TEXT_LENGTH = 200;
@@ -269,6 +269,9 @@ export function validateCheckoutInput(
   const note = input.note.trim();
   if (tooLong(note, MAX_NOTE_LENGTH)) {
     return { ok: false, error: `Poznámka může mít nejvýše ${MAX_NOTE_LENGTH} znaků.` };
+  }
+  if (priced.value.shipping.id === ZASILKOVNA_METHOD_ID && !note) {
+    return { ok: false, error: ZASILKOVNA_NOTE_REQUIRED };
   }
 
   if (priced.value.containsAgeRestricted && !input.ageConfirmed) {
