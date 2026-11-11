@@ -156,16 +156,19 @@ export default async function CompanyOverviewPage() {
       </div>
 
       {ctx?.systemRole === "ADMIN" ? <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
+        <div className="mb-2">
           <h2 className="text-sm font-medium text-begina-primary-900">Spolupracovníci</h2>
-          <Link href="/spoluprace/lucie" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Otevřít Luciinu kartu →
+        </div>
+        <div className="grid gap-3">
+          <Link href="/spoluprace/lucie" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
+            <p className="font-medium text-begina-primary-900">Lucie — sociální sítě, med a medové svíčky</p>
+            <p className="mt-1 text-sm text-neutral-600">Práce, čas, odměny, provize 20 %, sklad a prodeje</p>
+          </Link>
+          <Link href="/vyroba/petr" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
+            <p className="font-medium text-begina-primary-900">Petr — výroba a kuchyně</p>
+            <p className="mt-1 text-sm text-neutral-600">Fronta objednávek, suroviny skladem, žádosti o doplnění</p>
           </Link>
         </div>
-        <Link href="/spoluprace/lucie" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
-          <p className="font-medium text-begina-primary-900">Lucie — sociální sítě, med a medové svíčky</p>
-          <p className="mt-1 text-sm text-neutral-600">Práce, čas, odměny, provize 20 %, sklad a prodeje</p>
-        </Link>
       </div> : null}
 
       <div className="mb-6">
