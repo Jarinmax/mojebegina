@@ -16,5 +16,6 @@ describe("fotky na e-shop", () => {
   it("hezké názvy produktů", () => {
     expect(fotkyDisplayName("bylinny-sirup-saman.jpg")).toBe("Bylinný sirup Šaman");
     expect(fotkyDisplayName("rajcatova-polevka.jpg")).toBe("Tomatová polévka");
+    expect(fotkyDisplayName("ikona-caje.webp")).toBe("Čaje");
   });
 });
