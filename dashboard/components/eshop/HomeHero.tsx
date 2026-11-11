@@ -17,10 +17,10 @@ import ShopLink from "./ShopLink";
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-begina-caj-limonada.webp",
-  width: 1202,
-  height: 901,
-  alt: "Dýňová polévka v misce, hrnek horkého bylinného čaje, ledová limonáda a třílitrová begina s kohoutkem",
+  src: "/eshop/hero/polevka-begina-caj-limonada-v2.webp",
+  width: 1448,
+  height: 1126,
+  alt: "Dýňová polévka v misce, ibišková limonáda, hrnek bylinného čaje a třílitrová begina s kohoutkem",
 };
 
 export const HERO_LINKS = {
