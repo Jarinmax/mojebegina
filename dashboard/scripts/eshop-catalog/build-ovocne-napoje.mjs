@@ -60,8 +60,8 @@ const bagInBox = (slug, price, servings) => ({
 // výroby v lednici, po otevření 5 dnů. Složení a výživa podle receptur
 // (Ovocne napoje_kalkulace) a štítků šťáv (Sadvit jablko-malina 85/15,
 // Naturalne Tłoczone grep/jablko/citron), viz skript 95.
-const STORAGE =
-  "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření. Před použitím protřepejte, usazenina z ovoce je přirozená. Výrobek podléhá rychlé zkáze, proto se na něj nevztahuje právo na odstoupení od smlouvy (čl. VII obchodních podmínek). Reklamace vadného zboží tím není dotčena – vadu zjištěnou při převzetí nám prosím ohlaste ihned, ideálně s fotografií.";
+// Příprava a „Vrácení a reklamace“ jsou samostatné řádky (lib/eshop/categoryFoodInfo.ts).
+const STORAGE = "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.";
 const SHELF_LIFE =
   "Neotevřené balení spotřebujte do data uvedeného na obalu (14 dnů od výroby). Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 
