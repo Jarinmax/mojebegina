@@ -427,7 +427,7 @@ describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
   });
 
   it("nabídka: osobní odběr zdarma v obou režimech; paušál beze změny", () => {
-    expect(shippingMethodsFor("flat").map((m) => [m.id, m.priceKc])).toEqual([["osobni-odber", 0], ["rozvoz", 99], ["zasilkovna", 89]]);
+    expect(shippingMethodsFor("flat").map((m) => [m.id, m.priceKc])).toEqual([["osobni-odber", 0], ["rozvoz", 99], ["zasilkovna", 0]]);
     expect(shippingMethodsFor("weight")[0]).toEqual(shippingMethodsFor("flat")[0]);
     expect(shippingMethodsFor("weight")[1].description).toContain("v České republice");
   });

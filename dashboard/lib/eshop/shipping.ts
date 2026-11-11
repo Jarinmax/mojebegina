@@ -67,7 +67,9 @@ const COLD_BY_WEIGHT: ShippingMethod = {
 // set sirupů (sirupy nepotřebují chlazení). Výdejní místo / Z-BOX zákazník
 // napíše do poznámky; zásilku pak zadáme v Zásilkovně ručně.
 export const ZASILKOVNA_METHOD_ID = "zasilkovna";
-export const ZASILKOVNA_PRICE_KC = 89;
+// Zaváděcí kampaň (11. 11. 2026): poštovné zdarma pro prvních 100 setů.
+// Po skončení kampaně vrátit na 89 (spolu se SQL 97_konec_kampane_set_MAIN.sql).
+export const ZASILKOVNA_PRICE_KC = 0;
 /** SKU, která smějí jet Zásilkovnou (košík musí obsahovat jen je). */
 export const ZASILKOVNA_SKUS: readonly string[] = ["ochutnavkovy-set-sirupu-5x100ml"];
 export const ZASILKOVNA_NOTE_REQUIRED =

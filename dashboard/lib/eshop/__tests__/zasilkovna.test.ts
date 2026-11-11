@@ -15,9 +15,9 @@ const line = (sku: string, quantity = 1) => ({ sku, name: sku, quantity, weightG
 describe("Zásilkovna", () => {
   const method = getShippingMethod("zasilkovna", "flat")!;
 
-  it("je mezi způsoby doručení v obou režimech za 89 Kč, bez adresy", () => {
+  it("je mezi způsoby doručení v obou režimech zdarma (kampaň), bez adresy", () => {
     expect(method.priceKc).toBe(ZASILKOVNA_PRICE_KC);
-    expect(ZASILKOVNA_PRICE_KC).toBe(89);
+    expect(ZASILKOVNA_PRICE_KC).toBe(0);
     expect(method.requiresAddress).toBe(false);
     expect(getShippingMethod("zasilkovna", "weight")).toEqual(method);
   });
@@ -30,9 +30,9 @@ describe("Zásilkovna", () => {
     expect(isZasilkovnaEligible([])).toBe(false);
   });
 
-  it("cena: set = 89 Kč, jiné zboží = nedostupné s vysvětlením", () => {
+  it("cena: set = zdarma (kampaň), jiné zboží = nedostupné s vysvětlením", () => {
     for (const mode of ["flat", "weight"] as const) {
-      expect(quoteShipping(method, [line(SET)], mode, CONTACT)).toEqual({ available: true, priceKc: 89, weightGrams: null });
+      expect(quoteShipping(method, [line(SET)], mode, CONTACT)).toEqual({ available: true, priceKc: 0, weightGrams: null });
       const mixed = quoteShipping(method, [line(SET), line("dynova-polevka-3l")], mode, CONTACT);
       expect(mixed.available).toBe(false);
       if (!mixed.available) {
