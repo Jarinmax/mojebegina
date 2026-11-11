@@ -54,4 +54,12 @@ export const ETIKETY_NAMES: Record<string, string> = {
   kosmopolitan: "Kosmopolitan",
   "lady-carneval": "Lady Carneval",
   "svarak-deluxe": "Svařák Deluxe",
+  "bylinny-caj-saman": "Bylinný čaj Šaman",
+  "cerny-caj-golden-nepal": "Černý čaj Golden Nepal",
+  "hermankovy-caj": "Heřmánkový čaj",
+  "ibiskovy-caj": "Ibiškový čaj",
+  "jasminovy-zeleny-caj": "Jasmínový zelený čaj",
+  "lipovy-caj": "Lipový čaj",
+  "medunkovy-caj-s-levanduli": "Meduňkový čaj s levandulí",
+  "zazvorovy-caj": "Zázvorový čaj",
 };
