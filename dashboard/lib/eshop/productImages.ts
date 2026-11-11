@@ -8,7 +8,15 @@
 // Fotky, které tu nejsou (tmavé snímky ostatních kategorií), zůstávají
 // beze změny: object-cover jako dosud.
 const BACKDROP: Record<string, string> = {
-  // čaje od 11. 11. 2026 (ledový čaj na bílém)
+  // čaje od 11. 11. 2026 (ledový čaj na bílém), druhá fotka s beginou od 12. 11.
+  "/eshop/caje/bylinny-caj-saman-begina.jpg": "#fefefe",
+  "/eshop/caje/lipovy-caj-begina.jpg": "#fefefe",
+  "/eshop/caje/zazvorovy-caj-begina.jpg": "#fefefe",
+  "/eshop/caje/ibiskovy-caj-begina.jpg": "#fefefe",
+  "/eshop/caje/hermankovy-caj-begina.jpg": "#fefefe",
+  "/eshop/caje/medunkovy-caj-s-levanduli-begina.jpg": "#fefefe",
+  "/eshop/caje/cerny-caj-golden-nepal-begina.jpg": "#fefefe",
+  "/eshop/caje/jasminovy-zeleny-caj-begina.jpg": "#fefefe",
   "/eshop/bylinny-caj-saman.jpg": "#fefefe",
   "/eshop/lipovy-caj.jpg": "#fefefe",
   "/eshop/zazvorovy-caj.jpg": "#fefefe",
