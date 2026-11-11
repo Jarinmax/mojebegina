@@ -3,7 +3,7 @@
 
 export const HOME_WHY = [
   { icon: "leaf", title: "100 % rostlinné", text: "Všechny naše produkty jsou bez živočišných surovin." },
-  { icon: "soup", title: "Vydatná třílitrová begina", text: "Polévky až 12 porcí (31,60 Kč za porci), ze sirupu až 150 nápojů." },
+  { icon: "soup", title: "Porce už od 3,30 Kč", text: "Nápoj ze sirupu od 3,30 Kč, porce polévky za 31,60 Kč." },
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
 ] as const;
 
