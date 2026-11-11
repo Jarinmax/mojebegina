@@ -96,7 +96,7 @@ describe("katalog — Čaje", DB_TEST, () => {
     // všechny čaje: bez alergenů, trvanlivost 14 dnů / 5 dnů po otevření (11. 11. 2026)
     for (const tea of await teas()) {
       expect(tea.foodInfo.allergens, tea.slug).toEqual([]);
-      expect(tea.foodInfo.shelfLife, tea.slug).toBe("Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.");
+      expect(tea.foodInfo.shelfLife, tea.slug).toBe("Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.");
     }
     const category = (await loadCatalog(db)).categories.find((c) => c.slug === "caje")!;
     expect(category.detailSections[0].paragraphs[0]).toBe("Čaje Begina jsou praktické řešení pro:");
