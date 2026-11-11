@@ -8,7 +8,7 @@
 // Fotky, které tu nejsou (tmavé snímky ostatních kategorií), zůstávají
 // beze změny: object-cover jako dosud.
 const BACKDROP: Record<string, string> = {
-  "/eshop/polevky/dynova-polevka-miska.jpg": "#f2f3f5",
+  "/eshop/polevky/dynova-polevka-miska.jpg": "#fefefe",
   "/eshop/polevky/dynova-polevka-sacek.jpg": "#fcfbfc",
   "/eshop/polevky/kulajda-miska.jpg": "#fafafb",
   "/eshop/polevky/kulajda-sacek.jpg": "#faf8fb",
@@ -23,7 +23,7 @@ const BACKDROP: Record<string, string> = {
   "/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg": "#fefefe",
   "/eshop/sirupy/bylinny-sirup-saman-sacek.jpg": "#fefefe",
   "/eshop/sirupy/bylinny-sirup-saman-doypack.jpg": "#fefefe",
-  "/eshop/sirupy/zazvorovy-sirup-hlavni.jpg": "#fbfafc",
+  "/eshop/sirupy/zazvorovy-sirup-hlavni.jpg": "#fefefe",
   "/eshop/sirupy/zazvorovy-sirup-sacek.jpg": "#fefefe",
   "/eshop/sirupy/zazvorovy-sirup-doypack.jpg": "#fefefe",
   "/eshop/sirupy/lipovy-sirup-hlavni.jpg": "#fefefe",
