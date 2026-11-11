@@ -1823,3 +1823,48 @@ export const stockItemBalances = pgView("stock_item_balances", {
   stockLocationId: uuid("stock_location_id").notNull(),
   currentQuantity: numeric("current_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
 }).existing();
+
+// Karta výroby (Petr Königsberg — kuchař, výroba) — stejný vzor jako
+// collaboratorCards výš, bez provizních polí (výroba nic neprodává).
+// Fronta k výrobě i stav surovin se čtou ze stávajících dat (orders/
+// order_items, stock_items/stock_item_balances) — jediná nová potřeba
+// zápisu je žádost o doplnění/přípravu suroviny.
+export const productionCards = pgTable(
+  "production_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    displayName: text("display_name").notNull(),
+    assigneeUserId: text("assignee_user_id").unique(),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+// Žádost o doplnění/přípravu suroviny — volitelně na konkrétní skladovou
+// kartu (stock_items, kind "stock_material"); bez ní jde jen o text pro
+// surovinu, která ve skladu ještě není. `resolved*` vyplní jen admin.
+export const productionStockRequests = pgTable(
+  "production_stock_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => productionCards.id),
+    stockItemId: uuid("stock_item_id").references(() => stockItems.id, { onDelete: "set null" }),
+    note: text("note").notNull(),
+    status: text("status").notNull().default("open"), // "open" | "done"
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedBy: text("resolved_by"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("production_stock_requests_card_status_idx").on(table.cardId, table.status, table.createdAt),
+    check("production_stock_requests_status_check", sql`${table.status} IN ('open','done')`),
+    check(
+      "production_stock_requests_resolved_consistent",
+      sql`(${table.status} = 'done') = (${table.resolvedAt} IS NOT NULL)`
+    ),
+  ]
+);
