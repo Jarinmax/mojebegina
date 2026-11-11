@@ -84,7 +84,7 @@ export default async function EshopPage() {
         {bestsellers.length > 0 && (
           <section>
             <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-8">Nejoblíbenější</h2>
-            <ul className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ul className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-4">
               {bestsellers.map((product) => (
                 <ProductCard key={product.slug} product={product} />
               ))}

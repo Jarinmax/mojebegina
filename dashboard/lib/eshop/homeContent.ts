@@ -17,9 +17,7 @@ export const HOME_STEPS = [
 export const HOME_BESTSELLERS = [
   "dynova-polevka",
   "rajcatova-polevka",
-  "gulasova-polevka-z-hlivy-ustricne",
   "bylinny-sirup-saman",
-  "lipovy-sirup",
   "zazvorovy-sirup",
 ] as const;
 
