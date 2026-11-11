@@ -3,14 +3,14 @@
 
 export const HOME_WHY = [
   { icon: "leaf", title: "100 % rostlinné", text: "Všechny naše produkty jsou bez živočišných surovin." },
-  { icon: "soup", title: "Až 12 porcí v jedné begině", text: "Polévka vyjde na 31,60 Kč za porci, ze sirupu je až 150 nápojů." },
+  { icon: "soup", title: "Vydatná třílitrová begina", text: "Polévky až 12 porcí (31,60 Kč za porci), ze sirupu až 150 nápojů." },
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
 ] as const;
 
 export const HOME_STEPS = [
   { title: "Přijde vám chlazená", text: "Beginu doručíme chlazenou přepravou." },
   { title: "Uložíte ji do lednice", text: "Zabere málo místa a obsah zůstane čerstvý." },
-  { title: "Natočíte si porci", text: "Beginu vezmete do ruky a natočíte kohoutkem – polévku ohřejete, sirup zředíte." },
+  { title: "Natočíte si porci", text: "Beginu vezmete do ruky a natočíte kohoutkem – polévku ohřejete, sirup zalijete vodou." },
 ] as const;
 
 /** Nejoblíbenější produkty v pořadí od majitele. */
