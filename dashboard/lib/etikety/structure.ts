@@ -31,3 +31,20 @@ export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
 export function folderKeys(): string[] {
   return ETIKETY_CATEGORIES.flatMap((c) => (c.groups ? c.groups.map((g) => `${c.slug}/${g.slug}`) : [c.slug]));
 }
+
+/** Hezké názvy pro soubory (klíč = název souboru bez přípony, malými písmeny). */
+export const ETIKETY_NAMES: Record<string, string> = {
+  "dynova-polevka": "Dýňová polévka",
+  "gulasova-polevka-z-hlivy-ustricne": "Gulášová polévka z hlívy ústřičné",
+  kulajda: "Kulajda",
+  "rajcatova-polevka-s-cervenou-repou": "Rajčatová polévka s červenou řepou",
+  "spenatova-polevka": "Špenátová polévka",
+  "tomatova-polevka": "Tomatová polévka",
+  "bylinny-sirup-saman": "Bylinný sirup Šaman",
+  "hermankovy-sirup": "Heřmánkový sirup",
+  "ibiskovy-sirup": "Ibiškový sirup",
+  "lipovy-sirup": "Lipový sirup",
+  "medunkovy-sirup-s-levanduli": "Meduňkový sirup s levandulí",
+  "sipkovy-sirup": "Šípkový sirup",
+  "zazvorovy-sirup": "Zázvorový sirup",
+};

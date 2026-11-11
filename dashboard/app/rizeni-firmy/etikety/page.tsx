@@ -2,12 +2,14 @@
 // Přístup: celá sekce /rizeni-firmy (ADMIN + EXECUTIVE, viz layout.tsx).
 // Soubory: public/etikety/…, seznam: lib/etikety/manifest.ts.
 import Link from "next/link";
-import { ETIKETY_CATEGORIES } from "@/lib/etikety/structure";
+import { ETIKETY_CATEGORIES, ETIKETY_NAMES } from "@/lib/etikety/structure";
 import { ETIKETY_MANIFEST } from "@/lib/etikety/manifest";
 
 export const metadata = { title: "Etikety — Řízení firmy" };
 
 function displayName(file: string): string {
+  const key = file.replace(/\.[a-z0-9]+$/i, "").replace(/^(FINAL_)?(Etiketa_)?/i, "").toLowerCase();
+  if (ETIKETY_NAMES[key]) return ETIKETY_NAMES[key];
   return file
     .replace(/\.[a-z0-9]+$/i, "")
     .replace(/^(FINAL_)?(Etiketa_)?/i, "")
