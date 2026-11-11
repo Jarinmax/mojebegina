@@ -18,7 +18,7 @@ import ShopLink from "./ShopLink";
 export const HERO_PHOTO = {
   src: "/eshop/hero/polevka-begina-caj-limonada.webp",
   width: 1202,
-  height: 1091,
+  height: 901,
   alt: "Dýňová polévka v misce, hrnek horkého bylinného čaje, ledová limonáda a třílitrová begina s kohoutkem",
 };
 

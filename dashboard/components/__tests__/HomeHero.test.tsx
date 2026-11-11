@@ -46,7 +46,7 @@ describe("úvod e-shopu", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
     expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-begina-caj-limonada.webp");
-    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1202 / 1091);
+    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1202 / 901);
     expect(img.className).toContain("h-auto");
     expect(img.className).not.toMatch(/object-cover|rounded|shadow|border/);
     expect(existsSync(path.join(__dirname, "../../public", HERO_PHOTO.src))).toBe(true);
