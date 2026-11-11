@@ -113,7 +113,7 @@ const packagingPage: InfoPage = {
   path: PACKAGING_PAGE_PATH,
   footerLabel: "O balení",
   title: "O balení",
-  description: "Třílitrové balení Begina s kohoutkem a menší balení 700 ml a 500 ml.",
+  description: "Třílitrové balení Begina s kohoutkem a menší balení 650 ml a 500 ml.",
   hideOperatorLine: true,
   blocks: [
     {
@@ -136,7 +136,7 @@ const packagingPage: InfoPage = {
     {
       heading: "Menší balení",
       paragraphs: [
-        "Sirupy nabízíme také v balení 700 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
+        "Sirupy nabízíme také v balení 650 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
         "Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.",
         "Dostupné velikosti najdete vždy u konkrétního produktu.",
       ],

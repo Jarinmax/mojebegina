@@ -41,8 +41,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), 'bylinny-sirup-saman-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), 'bylinny-sirup-saman-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -85,8 +85,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), 'zazvorovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), 'zazvorovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -129,8 +129,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), 'lipovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), 'lipovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -173,8 +173,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), 'ibiskovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), 'ibiskovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -217,8 +217,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), 'sipkovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), 'sipkovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -261,8 +261,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), 'hermankovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), 'hermankovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -305,8 +305,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), 'medunkovy-sirup-s-levanduli-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), 'medunkovy-sirup-s-levanduli-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",

@@ -1,4 +1,4 @@
-// Označení balení: jen objem — „3 l“, „700 ml“ (sirupy), „500 ml“
+// Označení balení: jen objem — „3 l“, „650 ml“ (sirupy), „500 ml“
 // (alkoholické nápoje). Od 9. 11. 2026 i třílitrové balení jen „3 l“
 // (dříve „Begina 3 l“). Historické objednávky se v DB nepřepisují: uložený
 // název „… – Begina 3 l“ se zobrazuje tak, jak je. Ve štítku nikdy

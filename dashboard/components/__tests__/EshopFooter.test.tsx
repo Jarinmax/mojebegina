@@ -122,7 +122,7 @@ describe("informační stránky", () => {
     const text = document.querySelector("article")!.textContent!;
     expect(text).toContain("Našemu třílitrovému balení s kohoutkem říkáme Begina.");
     expect(text).toContain("Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek.");
-    expect(text).toContain("Sirupy nabízíme také v balení 700 ml ve stříbrném sáčku se šroubovacím uzávěrem.");
+    expect(text).toContain("Sirupy nabízíme také v balení 650 ml ve stříbrném sáčku se šroubovacím uzávěrem.");
     expect(text).toContain("Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.");
     expect(text).not.toMatch(/bagina|Provozovatel:/i);
     expect(existsSync(path.join(ESHOP_APP, INFO_PAGES.packaging.path, "page.tsx"))).toBe(true);

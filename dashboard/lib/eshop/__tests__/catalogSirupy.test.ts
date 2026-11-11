@@ -59,7 +59,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 21 | 7 | 3 | 4 | 14 | 25");
   });
 
-  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 700 ml (9. 11. 2026), fotky existují; text kategorie", async () => {
+  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 650 ml (11. 11. 2026), fotky existují; text kategorie", async () => {
     const catalog = await loadCatalog(db);
     const syrups = catalog.products.filter((p) => p.category === "sirupy");
     expect(syrups.map((p) => [p.name, p.variants.map((v) => [v.label, v.detail, v.priceKc])])).toEqual(
@@ -67,7 +67,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
         name,
         [
           ["3 l", "Až 150 nápojů", price3l],
-          ["700 ml", "Až 35 nápojů", 199],
+          ["650 ml", "Až 32 nápojů", 199],
         ],
       ])
     );
@@ -153,7 +153,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       expect([p.slug, parsed.intro.length, parsed.sections.length, p.highlights.length, p.taste !== null, p.foodInfo.nutritionPer100g !== null, p.foodInfo.storage !== null]).toEqual([p.slug, 3, 2, 4, true, true, true]);
     }
     // Balení: popis u všech sirupů
-    expect(syrups.every((p) => p.variants[0].description!.startsWith("3 l – praktické balení") && p.variants[0].description!.endsWith("Dodáváme v kartonové krabici.") && p.variants[1].description!.startsWith("700 ml – lehké balení ve stříbrném sáčku"))).toBe(true);
+    expect(syrups.every((p) => p.variants[0].description!.startsWith("3 l – praktické balení") && p.variants[0].description!.endsWith("Dodáváme v kartonové krabici.") && p.variants[1].description!.startsWith("650 ml – lehké balení ve stříbrném sáčku"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;
     // společná sekce detailu (i pro Šamana)
     expect(category.detailSections).toEqual([

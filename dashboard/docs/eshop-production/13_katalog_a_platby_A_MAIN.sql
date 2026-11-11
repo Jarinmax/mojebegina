@@ -70,8 +70,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), 'bylinny-sirup-saman-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'bylinny-sirup-saman'), 'bylinny-sirup-saman-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -114,8 +114,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), 'zazvorovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'zazvorovy-sirup'), 'zazvorovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -158,8 +158,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), 'lipovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'lipovy-sirup'), 'lipovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -202,8 +202,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), 'ibiskovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'ibiskovy-sirup'), 'ibiskovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -246,8 +246,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), 'sipkovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'sipkovy-sirup'), 'sipkovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -290,8 +290,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), 'hermankovy-sirup-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'hermankovy-sirup'), 'hermankovy-sirup-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -334,8 +334,8 @@ ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" 
 
 INSERT INTO "product_variants" ("product_id", "sku", "label", "short_note", "package_description",
   "volume_ml", "servings", "price_b2c_kc", "sort_order")
-VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), 'medunkovy-sirup-s-levanduli-750ml', '700 ml', 'Až 35 nápojů',
-  '700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 700, 35, 199, 20)
+VALUES ((SELECT "id" FROM "products" WHERE "slug" = 'medunkovy-sirup-s-levanduli'), 'medunkovy-sirup-s-levanduli-750ml', '650 ml', 'Až 32 nápojů',
+  '650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.', 650, 32, 199, 20)
 ON CONFLICT ("sku") DO UPDATE SET "product_id" = EXCLUDED."product_id", "label" = EXCLUDED."label",
   "short_note" = EXCLUDED."short_note", "package_description" = EXCLUDED."package_description",
   "volume_ml" = EXCLUDED."volume_ml", "servings" = EXCLUDED."servings",
@@ -409,7 +409,7 @@ INSERT INTO "products" ("category_id", "slug", "name", "short_description", "des
   "taste_description", "ingredients", "nutrition", "nutrition_basis", "storage_instructions", "warnings", "allergens", "shelf_life_days", "shelf_life_note", "sort_order")
 VALUES ((SELECT "id" FROM "product_categories" WHERE "slug" = 'polevky'), 'kulajda', 'Kulajda',
   'Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.', ARRAY['Kulajda stojí na plném základu brambor a žampionů. Čerstvý kopr a vyvážené koření vytvářejí harmonickou chuť s čistým charakterem.', '**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**', 'Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.', '## Pro koho je vhodná', '- pro milovníky krémových polévek s vyváženým charakterem', '- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa', '- pro rodiny, kanceláře i provozy, kde se počítá praktičnost', '- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu']::text[], ARRAY['rostlinná receptura', 'z čisté filtrované vody']::text[],
-  'Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.', 'čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":219,"energy_kcal":53,"fat":3.5,"saturates":2.4,"carbohydrate":3.9,"sugars":0.8,"protein":1,"salt":0.76}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 20)
+  'Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.', 'čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 5 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)', '{"energy_kj":219,"energy_kcal":53,"fat":3.5,"saturates":2.4,"carbohydrate":3.9,"sugars":0.8,"protein":1,"salt":0.76}'::jsonb, '100ml', 'Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.', '{}'::text[], '{}'::text[], 14, 'Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.', 20)
 ON CONFLICT ("slug") DO UPDATE SET "category_id" = EXCLUDED."category_id", "name" = EXCLUDED."name",
   "short_description" = EXCLUDED."short_description", "description" = EXCLUDED."description",
   "highlights" = EXCLUDED."highlights", "taste_description" = EXCLUDED."taste_description",
