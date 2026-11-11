@@ -42,14 +42,13 @@ const bagInBox = (slug, price, servings) => ({
 });
 
 // 11. 11. 2026: složení s procenty podle „Čaje_kalkulace“ (bez kyseliny
-// citronové — nepřidává se), ženšen sibiřský, trvanlivost 14 dnů neotevřené /
-// 5 dnů po otevření (skript 98). Příprava a vrácení: lib/eshop/categoryFoodInfo.ts.
+// citronové — nepřidává se), ženšen sibiřský, po otevření 14 dnů (Jarin) (skript 98). Příprava a vrácení: lib/eshop/categoryFoodInfo.ts.
 const STORAGE = "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.";
 
 const TEA_COMMON = {
   allergens: [],
   shelfLifeDays: 14,
-  shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
+  shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
 };
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
