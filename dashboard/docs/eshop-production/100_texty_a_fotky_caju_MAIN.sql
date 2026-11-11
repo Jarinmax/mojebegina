@@ -3,6 +3,7 @@
 --      etiketě) a chlazenou přepravu.
 --   2) Bylinné sirupy – celý text nahrazen kratším a konkrétním (bez tvrzení
 --      o konzervantech, s návodem na ředění a balením).
+--   3) Čaje – ke každému z 8 čajů přidána druhá fotka (begina 3 l).
 -- Nic jiného se NEMĚNÍ. SPUSTIT CELÝ v Neon SQL Editoru na větvi main
 -- (Production). Jedna transakce: když pojistka nesedí, NEZMĚNÍ SE NIC.
 BEGIN;
@@ -39,7 +40,28 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 1 THEN RAISE EXCEPTION 'Kategorie Sirupy nenalezena — zastavuji, nic se nezměnilo.'; END IF;
 
-  RAISE NOTICE 'Hotovo: texty kategorií Polévky a Bylinné sirupy upraveny.';
+
+  -- 3) Čaje – druhá fotka (begina 3 l, ledový i horký čaj), sort_order 1.
+  IF EXISTS (SELECT 1 FROM product_images WHERE url LIKE '/eshop/caje/%-begina.jpg') THEN
+    RAISE EXCEPTION 'Fotky čajů s beginou už v databázi jsou — zastavuji, nic se nezměnilo.';
+  END IF;
+  INSERT INTO product_images (product_id, url, alt, sort_order)
+  SELECT p.id, v.url, v.alt, 1
+    FROM (VALUES
+    ('bylinny-caj-saman', '/eshop/caje/bylinny-caj-saman-begina.jpg', 'Bylinný čaj Šaman v begině 3 l – ledový i horký'),
+    ('lipovy-caj', '/eshop/caje/lipovy-caj-begina.jpg', 'Lipový čaj v begině 3 l – ledový i horký'),
+    ('zazvorovy-caj', '/eshop/caje/zazvorovy-caj-begina.jpg', 'Zázvorový čaj v begině 3 l – ledový i horký'),
+    ('ibiskovy-caj', '/eshop/caje/ibiskovy-caj-begina.jpg', 'Ibiškový čaj v begině 3 l – ledový i horký'),
+    ('hermankovy-caj', '/eshop/caje/hermankovy-caj-begina.jpg', 'Heřmánkový čaj v begině 3 l – ledový i horký'),
+    ('medunkovy-caj-s-levanduli', '/eshop/caje/medunkovy-caj-s-levanduli-begina.jpg', 'Meduňkový čaj s levandulí v begině 3 l – ledový i horký'),
+    ('cerny-caj-golden-nepal', '/eshop/caje/cerny-caj-golden-nepal-begina.jpg', 'Černý čaj Golden Nepal v begině 3 l – ledový i horký'),
+    ('jasminovy-zeleny-caj', '/eshop/caje/jasminovy-zeleny-caj-begina.jpg', 'Jasmínový zelený čaj v begině 3 l – ledový i horký')
+    ) AS v(slug, url, alt)
+    JOIN products p ON p.slug = v.slug;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 8 THEN RAISE EXCEPTION 'Čekal jsem 8 čajů, přidal bych % — zastavuji, nic se nezměnilo.', n; END IF;
+
+  RAISE NOTICE 'Hotovo: texty Polévek a Sirupů upraveny, 8 čajů má druhou fotku s beginou.';
 END $$;
 
 COMMIT;
