@@ -21,6 +21,7 @@ import {
   getCurrentMonthlyPurchase,
 } from "@/lib/data/dashboard";
 import { getCurrentCollaboratorLanding } from "@/lib/data/collaboratorCards";
+import { getCurrentProductionLanding } from "@/lib/data/productionCard";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,11 @@ export default async function Page() {
   const collaboratorLanding = await getCurrentCollaboratorLanding(ctx.userId);
   if (collaboratorLanding && ctx.systemRole !== "ADMIN" && ctx.systemRole !== "EXECUTIVE") {
     redirect(collaboratorLanding);
+  }
+
+  const productionLanding = await getCurrentProductionLanding(ctx.userId);
+  if (productionLanding && ctx.systemRole !== "ADMIN" && ctx.systemRole !== "EXECUTIVE") {
+    redirect(productionLanding);
   }
 
   // Security Phase 5 UX fix — role-aware redirect po loginu. `ctx.systemRole`
