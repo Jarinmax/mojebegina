@@ -1,5 +1,10 @@
 // GENEROVÁNO scripts/etikety/build-manifest.mjs — neupravovat ručně.
 export const ETIKETY_MANIFEST: Record<string, string[]> = {
+  "ovocne-napoje": [
+    "cervankove-nebe.png",
+    "dum-u-jezera.png",
+    "malinovy-svarak-nealko.png"
+  ],
   "polevky": [
     "Dynova-polevka.png",
     "Gulasova-polevka-z-hlivy-ustricne.png",

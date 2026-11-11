@@ -47,4 +47,7 @@ export const ETIKETY_NAMES: Record<string, string> = {
   "medunkovy-sirup-s-levanduli": "Meduňkový sirup s levandulí",
   "sipkovy-sirup": "Šípkový sirup",
   "zazvorovy-sirup": "Zázvorový sirup",
+  "dum-u-jezera": "Dům u jezera",
+  "cervankove-nebe": "Červánkové nebe",
+  "malinovy-svarak-nealko": "Malinový svařák – nealko",
 };
