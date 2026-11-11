@@ -1,5 +1,13 @@
 // GENEROVÁNO scripts/fotky-eshop/build-manifest.mjs — neupravovat ručně.
 export const FOTKY_MANIFEST: Record<string, string[]> = {
+  "ikonky/kategorie": [
+    "ikona-caje.webp",
+    "ikona-koktejly.webp",
+    "ikona-ovocne-napoje.webp",
+    "ikona-polevky.webp",
+    "ikona-sirupy.webp",
+    "ikona-zmrzliny.webp"
+  ],
   "polevky/begina-3l": [
     "dynova-polevka.jpg",
     "gulasova-polevka-z-hlivy-ustricne.jpg",
@@ -42,5 +50,8 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "medunkovy-sirup-s-levanduli.jpg",
     "sipkovy-sirup.jpg",
     "zazvorovy-sirup.jpg"
+  ],
+  "uvodni-fotka/aktualni": [
+    "uvodni-fotka.webp"
   ]
 };
