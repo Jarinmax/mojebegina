@@ -63,7 +63,7 @@ const bagInBox = (slug, price, servings) => ({
 // Příprava a „Vrácení a reklamace“ jsou samostatné řádky (lib/eshop/categoryFoodInfo.ts).
 const STORAGE = "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.";
 const SHELF_LIFE =
-  "Neotevřené balení spotřebujte do data uvedeného na obalu (14 dnů od výroby). Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
+  "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 export const DRINKS = [

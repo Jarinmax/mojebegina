@@ -14,7 +14,7 @@ export const SYRUP_STORAGE =
   "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.";
 
 export const SYRUP_SHELF_LIFE =
-  "Minimální trvanlivost do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
+  "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 
 export const SYRUP_PREPARATION =
   "Před použitím protřepejte. Doporučené ředění je 1 díl sirupu na 10 dílů vody. Intenzitu chuti upravte podle sebe.";

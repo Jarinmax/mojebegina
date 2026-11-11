@@ -65,7 +65,7 @@ const GOLDEN_RULE = [
 ];
 // Skladování a trvanlivost — společné pro všechny sirupy (lib/eshop/syrupFoodInfo.ts).
 const STORAGE = "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.";
-const SHELF_LIFE = "Minimální trvanlivost do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
+const SHELF_LIFE = "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 const highlights = (extractPercent) => [
   `${extractPercent} % bylinného výluhu`,
   "z čisté filtrované vody",

@@ -49,7 +49,7 @@ const STORAGE = "Skladujte v chladničce při teplotě do 4 °C, a to před otev
 const TEA_COMMON = {
   allergens: [],
   shelfLifeDays: 14,
-  shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu (14 dnů od výroby). Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
+  shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
 };
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
