@@ -33,5 +33,14 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "medunkovy-sirup-s-levanduli.jpg",
     "sipkovy-sirup.jpg",
     "zazvorovy-sirup.jpg"
+  ],
+  "sirupy/sacek-650ml": [
+    "bylinny-sirup-saman.jpg",
+    "hermankovy-sirup.jpg",
+    "ibiskovy-sirup.jpg",
+    "lipovy-sirup.jpg",
+    "medunkovy-sirup-s-levanduli.jpg",
+    "sipkovy-sirup.jpg",
+    "zazvorovy-sirup.jpg"
   ]
 };
