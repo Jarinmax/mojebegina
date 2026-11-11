@@ -7,7 +7,7 @@
 //     (číslo, uhrazeno, PDF odesláno) a při chybě „Vystavit fakturu znovu“.
 import Link from "next/link";
 import { useActionState } from "react";
-import { issueInvoiceAction, prepareInvoiceDraftAction, type ActionState } from "./actions";
+import { issueInvoiceAction, linkExternalInvoiceAction, prepareInvoiceDraftAction, type ActionState } from "./actions";
 import type { OrderInvoiceView } from "@/lib/eshop/invoicing/service";
 import type { InvoiceProblem } from "@/lib/eshop/invoicing/draft";
 import { deliveryText } from "@/lib/eshop/invoicing/idoklad";
@@ -86,6 +86,43 @@ function IssueButton({ orderId, label }: { orderId: string; label: string }) {
       {state && "error" in state && <p className="text-xs text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-xs text-emerald-700">{state.success}</p>}
     </form>
+  );
+}
+
+/**
+ * Faktura k objednávce vznikla mimo MojeBegina (ruční řada Lucie apod.) —
+ * VS takové faktury se neshoduje s VS objednávky, takže ji „Vystavit
+ * fakturu“ nenajde a založilo by druhou, duplicitní. Propojí existující
+ * koncept s touhle fakturou (jen ověří v iDokladu, žádný zápis tam).
+ */
+function LinkExternalInvoiceForm({ orderId }: { orderId: string }) {
+  const boundAction = linkExternalInvoiceAction.bind(null, orderId);
+  const [state, formAction, pending] = useActionState(boundAction, initialState);
+  return (
+    <details className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700">
+      <summary className="cursor-pointer font-medium text-begina-primary-900">
+        Faktura už vznikla mimo MojeBegina (jiná řada) — propojit
+      </summary>
+      <form action={formAction} className="mt-2 flex flex-col gap-2">
+        <input
+          name="invoiceNumber"
+          required
+          placeholder="Číslo faktury, např. 20260211"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-begina-primary-900"
+        />
+        <div>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg border border-begina-primary-900 px-3 py-1.5 text-xs font-medium text-begina-primary-900 disabled:opacity-50"
+          >
+            {pending ? "Ověřuji v iDokladu…" : "Propojit s touto fakturou"}
+          </button>
+        </div>
+        {state && "error" in state && <p className="text-begina-accent-700">{state.error}</p>}
+        {state && "success" in state && <p className="text-emerald-700">{state.success}</p>}
+      </form>
+    </details>
   );
 }
 
@@ -232,6 +269,10 @@ export default function OrderInvoiceDraft({
 
       {(invoice || (live && canIssue && paid)) && (
         <IssueStatus orderId={orderId} invoice={invoice} canIssue={live && canIssue} paid={paid} />
+      )}
+
+      {issuer && invoice && invoice.docState !== "issued" && !invoice.link?.busyUntil && (
+        <LinkExternalInvoiceForm orderId={orderId} />
       )}
 
       {!invoice && (
