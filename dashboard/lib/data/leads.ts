@@ -29,6 +29,7 @@ import {
   validateNextStepInput,
   likePattern,
   isFollowUpOverdue,
+  isScheduledCallToday,
   leadDisplayName,
   compareLeadsForList,
   ACTIVE_LEAD_STAGES,
@@ -88,6 +89,7 @@ export type LeadCardData = {
   ownerName: string | null;
   lastContactedAt: Date | null;
   nextFollowUpAt: Date | null;
+  scheduledCallAt: Date | null;
   nextStepNote: string | null;
   followUpOverdue: boolean;
 };
@@ -117,6 +119,7 @@ async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<Lead
       ownerName: owner?.name ?? owner?.email ?? null,
       lastContactedAt: r.lastContactedAt,
       nextFollowUpAt: r.nextFollowUpAt,
+      scheduledCallAt: r.scheduledCallAt,
       nextStepNote: r.nextStepNote,
       followUpOverdue: isFollowUpOverdue(stage, r.nextFollowUpAt),
     };
@@ -227,6 +230,42 @@ export async function getCockpitCounts(): Promise<CockpitCounts> {
   }
 
   return { toCallToday, followUp7d, negotiating, newCustomers30d };
+}
+
+export type ScheduledCallItem = {
+  leadId: string;
+  displayName: string;
+  contactPhone: string | null;
+  scheduledCallAt: Date;
+};
+
+// Jarda — upozornění na naplánovaný hovor 1.0. Jen MOJE dnešní naplánované
+// hovory (ne celá fronta Dnešní volání — ta je next_follow_up_at, úplně
+// odděleno, viz schema.ts komentář u scheduled_call_at).
+export async function getScheduledCallsToday(): Promise<ScheduledCallItem[]> {
+  const ctx = await requireCrmContext();
+
+  const rows = await db
+    .select({
+      id: leads.id,
+      companyName: leads.companyName,
+      contactName: leads.contactName,
+      contactEmail: leads.contactEmail,
+      contactPhone: leads.contactPhone,
+      scheduledCallAt: leads.scheduledCallAt,
+    })
+    .from(leads)
+    .where(and(eq(leads.ownerUserId, ctx.userId), inArray(leads.stage, ACTIVE_LEAD_STAGES)));
+
+  return rows
+    .filter((r): r is typeof r & { scheduledCallAt: Date } => r.scheduledCallAt !== null && isScheduledCallToday(r.scheduledCallAt))
+    .map((r) => ({
+      leadId: r.id,
+      displayName: leadDisplayName(r),
+      contactPhone: r.contactPhone,
+      scheduledCallAt: r.scheduledCallAt,
+    }))
+    .sort((a, b) => a.scheduledCallAt.getTime() - b.scheduledCallAt.getTime());
 }
 
 // --- Lead detail -----------------------------------------------------------
@@ -355,6 +394,9 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   }
   if (value.nextFollowUpAt !== null) {
     updates.nextFollowUpAt = value.nextFollowUpAt;
+    // Nové datum dalšího kontaktu bez nového času ruší dřív nastavený čas
+    // (jinak by hovor zůstal "naplánovaný" na starý den v novém datu).
+    updates.scheduledCallAt = value.scheduledCallAt;
   }
   if (value.nextStepNote !== null) {
     updates.nextStepNote = value.nextStepNote;
@@ -371,6 +413,7 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
       metadata: {
         stageChangedTo: value.nextStage,
         nextFollowUpAt: value.nextFollowUpAt,
+        scheduledCallAt: value.scheduledCallAt,
         from: current.stage,
       },
     }),

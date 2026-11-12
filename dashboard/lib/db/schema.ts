@@ -766,6 +766,11 @@ export const leads = pgTable("leads", {
   acquiredByUserId: text("acquired_by_user_id"),
   lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
   nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+  // Nepovinný PŘESNÝ čas domluveného hovoru (zadání Jaroslav 12. 11. 2026,
+  // upozornění na telefon) — zcela odděleno od next_follow_up_at (ten řídí
+  // frontu Dnešní volání a je uložený na 12:00 UTC, bez reálného času dne;
+  // tohle pole se nikdy nečte pro řazení fronty, jen pro ranní upozornění).
+  scheduledCallAt: timestamp("scheduled_call_at", { withTimezone: true }),
   nextStepNote: text("next_step_note"),
   convertedOrganizationId: uuid("converted_organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1885,5 +1890,28 @@ export const productionStockRequests = pgTable(
       "production_stock_requests_resolved_consistent",
       sql`(${table.status} = 'done') = (${table.resolvedAt} IS NOT NULL)`
     ),
+  ]
+);
+
+// Předplatná webového push oznámení (zadání Jaroslav 12. 11. 2026 — ranní
+// upozornění na domluvené hovory). Jeden prohlížeč/telefon = jeden řádek;
+// endpoint je od prohlížeče jedinečný, takže opakované přihlášení ze
+// STEJNÉHO telefonu přepíše klíče, ne založí duplicitu. Víc telefonů na
+// jednoho uživatele je v pořádku (víc řádků se stejným user_id).
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("push_subscriptions_endpoint_key").on(table.endpoint),
+    index("push_subscriptions_user_idx").on(table.userId),
   ]
 );

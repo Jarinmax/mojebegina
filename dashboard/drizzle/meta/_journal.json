@@ -260,6 +260,13 @@
       "when": 1794476119087,
       "tag": "0036_lucie_work_entry_edit",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794500021842,
+      "tag": "0037_jarda-call-reminders",
+      "breakpoints": true
     }
   ]
 }
