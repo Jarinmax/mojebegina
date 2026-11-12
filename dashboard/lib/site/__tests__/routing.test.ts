@@ -83,6 +83,7 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
     ["/ochrana-osobnich-udaju", "/eshop/ochrana-osobnich-udaju"],
     ["/robots.txt", "/eshop/robots.txt"],
     ["/sitemap.xml", "/eshop/sitemap.xml"],
+    ["/feed-google.xml", "/eshop/feed-google.xml"],
   ])("%s → %s", (pathname, target) => {
     expect(get("begina.cz", pathname)).toEqual({ kind: "rewrite", path: target });
   });
