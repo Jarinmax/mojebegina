@@ -3,7 +3,11 @@
 // zmizel" (404/410 — prohlížeč/zařízení odběr sám zrušilo) řešilo na
 // jednom místě (volající pak mrtvý odběr smaže, viz pushSubscriptions.ts).
 import "server-only";
-import webpush from "web-push";
+// web-push je čistě ESM balíček BEZ default exportu (jen jmenné exporty) —
+// import webpush from "web-push" projde tsc/vitest (jejich CJS interop to
+// tiše dovolí), ale spadne na produkčním Turbopack buildu ("Export default
+// doesn't exist in target module"), což se projevilo až na Vercelu.
+import { setVapidDetails, sendNotification } from "web-push";
 import { pushConfig } from "./pushConfig";
 
 export type PushTarget = { endpoint: string; p256dh: string; auth: string };
@@ -16,10 +20,10 @@ export async function sendPushNotification(target: PushTarget, payload: PushPayl
     return { ok: false, gone: false, error: "Push notifikace nejsou nastavené (chybí VAPID klíče)." };
   }
 
-  webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+  setVapidDetails(config.subject, config.publicKey, config.privateKey);
 
   try {
-    await webpush.sendNotification(
+    await sendNotification(
       { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
       JSON.stringify(payload)
     );
