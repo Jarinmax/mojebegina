@@ -1297,6 +1297,15 @@ export const collaboratorCards = pgTable(
   ]
 );
 
+// Karta spolupracovnice — úprava/smazání zápisu práce (zadání Lucie
+// Vymyslická přes Jaroslava 12. 11. 2026). `rewardType`/`rateKc` se ukládají
+// NATRVALO k záznamu (sazba se časem mění a liší se příspěvek od
+// příspěvku — žádné jedno pravidlo), aby šel vždy zpětně dohledat výpočet
+// částky. „flat“ = starší záznamy odsud (jen ručně zapsaná částka, bez
+// sazby) — nikdy se nedomýšlí sazba, kterou reálný zápis neměl. Mazání jen
+// „soft“ (deleted_at/by), stejný vzor jako jinde v appce — nikdy hard delete.
+export const WORK_REWARD_TYPES = ["hourly", "per_post", "flat"] as const;
+
 export const collaboratorWorkEntries = pgTable(
   "collaborator_work_entries",
   {
@@ -1305,16 +1314,26 @@ export const collaboratorWorkEntries = pgTable(
     description: text("description").notNull(),
     postCount: integer("post_count").notNull().default(1),
     durationMinutes: integer("duration_minutes").notNull(),
+    rewardType: text("reward_type").notNull().default("flat"),
+    rateKc: integer("rate_kc"),
     earnedKc: integer("earned_kc").notNull().default(0),
     occurredOn: date("occurred_on", { mode: "string" }).notNull(),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedBy: text("deleted_by"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
     index("collaborator_work_entries_card_date_idx").on(table.cardId, table.occurredOn),
     check("collaborator_work_entries_post_count_check", sql`${table.postCount} >= 0`),
     check("collaborator_work_entries_duration_check", sql`${table.durationMinutes} >= 0`),
     check("collaborator_work_entries_earned_check", sql`${table.earnedKc} >= 0`),
+    check("collaborator_work_entries_reward_type_check", sql`${table.rewardType} IN ('hourly','per_post','flat')`),
+    check("collaborator_work_entries_rate_consistent", sql`(${table.rewardType} = 'flat') = (${table.rateKc} IS NULL)`),
+    check("collaborator_work_entries_rate_positive", sql`${table.rateKc} IS NULL OR ${table.rateKc} > 0`),
+    check("collaborator_work_entries_deleted_consistent", sql`(${table.deletedAt} IS NULL) = (${table.deletedBy} IS NULL)`),
   ]
 );
 

@@ -4,13 +4,26 @@ export const LUCIE_COLLABORATOR_CARD_ID = "6c756369-652d-4000-8000-000000000001"
 
 const positiveInt = z.coerce.number().int().min(0).max(1_000_000);
 
-export const workEntryInputSchema = z.object({
+export const WORK_REWARD_TYPES = ["hourly", "per_post"] as const;
+export type WorkRewardType = (typeof WORK_REWARD_TYPES)[number];
+
+/** Částka = vždy sazba × množství — žádný nezávisle zadaný údaj (jde vždy dohledat výpočet). */
+export function calculateWorkEarnedKc(rewardType: WorkRewardType, rateKc: number, postCount: number, durationMinutes: number): number {
+  return rewardType === "hourly" ? Math.round((rateKc * durationMinutes) / 60) : rateKc * postCount;
+}
+
+const workEntryFieldsSchema = z.object({
   description: z.string().trim().min(1).max(500),
   postCount: positiveInt.max(1_000),
   durationMinutes: positiveInt.max(24 * 60),
-  earnedKc: positiveInt,
+  rewardType: z.enum(WORK_REWARD_TYPES),
+  rateKc: z.coerce.number().int().min(1).max(1_000_000),
   occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
+
+export const workEntryInputSchema = workEntryFieldsSchema;
+export const workEntryEditInputSchema = workEntryFieldsSchema.extend({ id: z.string().uuid() });
+export const workEntryDeleteInputSchema = z.object({ id: z.string().uuid() });
 
 export const productMovementInputSchema = z.object({
   productId: z.string().uuid(),
