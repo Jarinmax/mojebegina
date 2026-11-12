@@ -1,0 +1,17 @@
+name: docasne-testy
+on:
+  push:
+    branches: [sirupy-hmotnost-3826]
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci >/dev/null 2>&1
+      - run: npx vitest run lib/eshop/__tests__/sirupyHmotnosti101Sql.test.ts 2>&1 | tail -15
