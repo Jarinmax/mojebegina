@@ -1,0 +1,19 @@
+name: docasne-testy
+on:
+  push:
+    branches: [krabice-v-pokladne]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint app/eshop/pokladna lib/eshop
+      - run: npx vitest run 2>&1 | tee /tmp/vitest.log | tail -80

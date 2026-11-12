@@ -22,6 +22,7 @@ import { orderActivity, orderItems, orders, productVariants } from "@/lib/db/sch
 import type { CheckoutValue } from "./checkout";
 import type { MetaConsent } from "./metaPurchase";
 import { CURRENT_TERMS } from "./content/termsVersions";
+import { packagingKc } from "./pricing";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
 
@@ -78,6 +79,21 @@ export function buildEshopOrderRows(
     });
   }
 
+  // Volitelné krabice: řádek objednávky bez vazby na balení z katalogu.
+  // V databázi patří do mezisoučtu (orders_total_consistent), slevy se z něj nepočítají.
+  const { packaging } = pricedCart;
+  if (packaging) {
+    items.push({
+      orderId,
+      productVariantId: null,
+      skuSnapshot: packaging.sku,
+      name: packaging.name,
+      quantity: packaging.quantity,
+      unitPriceKc: packaging.unitPriceKc,
+      lineTotalKc: packaging.lineTotalKc,
+    });
+  }
+
   const { delivery } = value;
   // náhradní objednávka ke starší objednávce: fakturační údaje nejsou známé
   const billing = value.billingUnknown
@@ -111,7 +127,7 @@ export function buildEshopOrderRows(
         billingCity: billing.city,
         billingZip: billing.zip,
         billingCountry: billing.country,
-        subtotalKc: pricedCart.subtotalKc,
+        subtotalKc: pricedCart.subtotalKc + packagingKc(pricedCart),
         discountKc: pricedCart.discountKc,
         shippingKc: pricedCart.shippingKc,
         totalKc: pricedCart.totalKc,

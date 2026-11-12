@@ -42,6 +42,8 @@ export type CheckoutInput = {
   termsAccepted: boolean;
   /** Potvrzení 18+; vyžaduje se jen, když košík obsahuje alkohol. */
   ageConfirmed: boolean;
+  /** Zabalit balení 3 l do krabice (příplatek, boxOption.ts); nepovinné. */
+  boxed?: boolean;
   /** JSON ["kod", …] — uplatněné slevové kódy (z košíku / pokladny); nepovinné. */
   couponCodes?: string;
 };
@@ -128,7 +130,7 @@ export function validateCheckoutInput(
   options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode });
+  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxed: input.boxed === true });
   if (!priced.ok) {
     return priced;
   }
