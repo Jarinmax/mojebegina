@@ -31,7 +31,7 @@ export default function ProductTile({
         {image && (
           <Image
             src={image}
-            alt=""
+            alt={name}
             fill
             sizes={sizes}
             draggable={false}

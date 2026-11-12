@@ -3,7 +3,8 @@ import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
-import { SHARE_DESCRIPTION, SHARE_TITLE, brandShareMeta } from "@/lib/eshop/shareMeta";
+import { brandShareMeta } from "@/lib/eshop/shareMeta";
+import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
 import { Clock, Leaf, Soup } from "lucide-react";
@@ -25,8 +26,10 @@ const STRIP_ID = "nabidka";
 
 // Úvodní stránka — nadpis, popis a náhled při sdílení (10. 11. 2026).
 export const metadata: Metadata = {
-  title: { absolute: SHARE_TITLE },
-  description: SHARE_DESCRIPTION,
+  // název a popis pro vyhledávače se slovy, která lidé hledají (12. 11. 2026);
+  // náhled při sdílení zůstává „Begina – Když rozhoduje chuť“ (brandShareMeta)
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
   alternates: { canonical: "/" },
   ...brandShareMeta("/"),
 };
@@ -36,6 +39,7 @@ export default async function EshopPage() {
   const bestsellers = HOME_BESTSELLERS.flatMap((slug) => products.filter((p) => p.slug === slug));
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd()) }} />
       <HomeHero />
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
       <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 flex flex-col gap-14 sm:gap-20">

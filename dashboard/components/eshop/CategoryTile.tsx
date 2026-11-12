@@ -41,7 +41,7 @@ export default function CategoryTile({
         {photo ? (
           <Image
             src={photo}
-            alt=""
+            alt={category.name}
             fill
             sizes={sizes}
             draggable={false}

@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(PUBLIC_ORIGIN),
     title: {
       default: SHARE_TITLE,
-      template: "%s | E-shop Begina",
+      template: "%s | Begina",
     },
     description: SHARE_DESCRIPTION,
     // náhled při sdílení: logo Begina (lib/eshop/shareMeta.ts); produkty mají vlastní
