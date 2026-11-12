@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   collaboratorCards,
@@ -20,10 +20,13 @@ import { ForbiddenError, UnauthenticatedError } from "./errors";
 import {
   assignmentInputSchema,
   calculateCommissionKc,
+  calculateWorkEarnedKc,
   inviteCollaboratorInputSchema,
   LUCIE_COLLABORATOR_CARD_ID,
   payoutInputSchema,
   productMovementInputSchema,
+  workEntryDeleteInputSchema,
+  workEntryEditInputSchema,
   workEntryInputSchema,
 } from "./collaboratorCardsValidation";
 
@@ -58,6 +61,26 @@ async function requireCardAccess(cardId: string, write: boolean): Promise<CardAc
 
 export type CollaboratorCardView = Awaited<ReturnType<typeof getLucieCollaboratorCard>>;
 
+/**
+ * Které zápisy práce jsou "už proplacené" (a tedy uzamčené proti úpravě/
+ * smazání) — schváleno 12. 11. 2026: nejstarší zápisy se počítají jako
+ * proplacené první (FIFO), dokud součet jejich částek nedosáhne CELKOVÉ
+ * vyplacené částky z collaborator_payouts. Provize z prodeje do toho
+ * nevstupuje — jen samotné zápisy práce.
+ */
+function lockedWorkEntryIds(entries: { id: string; earnedKc: number; occurredOn: string; createdAt: Date }[], paidKc: number): Set<string> {
+  const sorted = [...entries].sort((a, b) =>
+    a.occurredOn === b.occurredOn ? a.createdAt.getTime() - b.createdAt.getTime() : a.occurredOn.localeCompare(b.occurredOn)
+  );
+  const locked = new Set<string>();
+  let cumulative = 0;
+  for (const entry of sorted) {
+    cumulative += entry.earnedKc;
+    if (cumulative <= paidKc) locked.add(entry.id);
+  }
+  return locked;
+}
+
 export async function getLucieCollaboratorCard() {
   const cardId = LUCIE_COLLABORATOR_CARD_ID;
   const access = await requireCardAccess(cardId, false);
@@ -65,7 +88,9 @@ export async function getLucieCollaboratorCard() {
   if (!card) throw new Error("Karta spolupracovnice nebyla nalezena.");
 
   const [workEntries, products, movements, payouts, assignee] = await Promise.all([
-    db.select().from(collaboratorWorkEntries).where(eq(collaboratorWorkEntries.cardId, cardId)).orderBy(desc(collaboratorWorkEntries.occurredOn), desc(collaboratorWorkEntries.createdAt)),
+    db.select().from(collaboratorWorkEntries)
+      .where(and(eq(collaboratorWorkEntries.cardId, cardId), isNull(collaboratorWorkEntries.deletedAt)))
+      .orderBy(desc(collaboratorWorkEntries.occurredOn), desc(collaboratorWorkEntries.createdAt)),
     db.select().from(collaboratorProducts).where(and(eq(collaboratorProducts.cardId, cardId), eq(collaboratorProducts.active, true))).orderBy(asc(collaboratorProducts.name)),
     db.select({
       id: collaboratorProductMovements.id,
@@ -100,12 +125,14 @@ export async function getLucieCollaboratorCard() {
   const workEarnedKc = workEntries.reduce((sum, entry) => sum + entry.earnedKc, 0);
   const salesCommissionKc = productViews.reduce((sum, product) => sum + product.commissionKc, 0);
   const paidKc = payouts.reduce((sum, payout) => sum + payout.amountKc, 0);
+  const locked = lockedWorkEntryIds(workEntries, paidKc);
+  const workEntryViews = workEntries.map((entry) => ({ ...entry, locked: locked.has(entry.id) }));
 
   return {
     card,
     assignee: assignee[0] ?? null,
     access,
-    workEntries,
+    workEntries: workEntryViews,
     movements,
     payouts,
     products: productViews,
@@ -125,7 +152,47 @@ export async function addCollaboratorWorkEntry(input: unknown) {
   const access = await requireCardAccess(LUCIE_COLLABORATOR_CARD_ID, true);
   const parsed = workEntryInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Neplatné údaje." };
-  await db.insert(collaboratorWorkEntries).values({ cardId: LUCIE_COLLABORATOR_CARD_ID, ...parsed.data, createdBy: access.userId });
+  const { rewardType, rateKc, postCount, durationMinutes } = parsed.data;
+  const earnedKc = calculateWorkEarnedKc(rewardType, rateKc, postCount, durationMinutes);
+  await db.insert(collaboratorWorkEntries).values({ cardId: LUCIE_COLLABORATOR_CARD_ID, ...parsed.data, earnedKc, createdBy: access.userId });
+  return { ok: true as const };
+}
+
+export async function updateCollaboratorWorkEntry(input: unknown) {
+  const access = await requireCardAccess(LUCIE_COLLABORATOR_CARD_ID, true);
+  const parsed = workEntryEditInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Neplatné údaje." };
+  const { id, rewardType, rateKc, postCount, durationMinutes, ...rest } = parsed.data;
+
+  const view = await getLucieCollaboratorCard();
+  const entry = view.workEntries.find((e) => e.id === id);
+  if (!entry) return { ok: false as const, error: "Záznam práce nebyl nalezen." };
+  if (entry.locked) return { ok: false as const, error: "Záznam je už proplacený — nejde běžně upravit." };
+
+  const earnedKc = calculateWorkEarnedKc(rewardType, rateKc, postCount, durationMinutes);
+  const updated = await db.update(collaboratorWorkEntries)
+    .set({ ...rest, rewardType, rateKc, postCount, durationMinutes, earnedKc, updatedBy: access.userId, updatedAt: new Date() })
+    .where(and(eq(collaboratorWorkEntries.id, id), eq(collaboratorWorkEntries.cardId, LUCIE_COLLABORATOR_CARD_ID), isNull(collaboratorWorkEntries.deletedAt)))
+    .returning({ id: collaboratorWorkEntries.id });
+  if (updated.length === 0) return { ok: false as const, error: "Záznam práce nebyl nalezen nebo byl mezitím smazán." };
+  return { ok: true as const };
+}
+
+export async function deleteCollaboratorWorkEntry(input: unknown) {
+  const access = await requireCardAccess(LUCIE_COLLABORATOR_CARD_ID, true);
+  const parsed = workEntryDeleteInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: "Neplatný záznam." };
+
+  const view = await getLucieCollaboratorCard();
+  const entry = view.workEntries.find((e) => e.id === parsed.data.id);
+  if (!entry) return { ok: false as const, error: "Záznam práce nebyl nalezen." };
+  if (entry.locked) return { ok: false as const, error: "Záznam je už proplacený — nejde běžně smazat." };
+
+  const deleted = await db.update(collaboratorWorkEntries)
+    .set({ deletedBy: access.userId, deletedAt: new Date() })
+    .where(and(eq(collaboratorWorkEntries.id, parsed.data.id), eq(collaboratorWorkEntries.cardId, LUCIE_COLLABORATOR_CARD_ID), isNull(collaboratorWorkEntries.deletedAt)))
+    .returning({ id: collaboratorWorkEntries.id });
+  if (deleted.length === 0) return { ok: false as const, error: "Záznam práce nebyl nalezen nebo byl mezitím smazán." };
   return { ok: true as const };
 }
 

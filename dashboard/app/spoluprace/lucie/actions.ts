@@ -6,7 +6,9 @@ import {
   addCollaboratorProductMovement,
   addCollaboratorWorkEntry,
   assignLucieCardByEmail,
+  deleteCollaboratorWorkEntry,
   inviteLucieCollaborator,
+  updateCollaboratorWorkEntry,
 } from "@/lib/data/collaboratorCards";
 
 export type CollaboratorActionState = { error: string } | { success: string } | null;
@@ -19,7 +21,8 @@ export async function addWorkEntryAction(_prev: CollaboratorActionState, formDat
       description: formData.get("description"),
       postCount: formData.get("postCount"),
       durationMinutes: formData.get("durationMinutes"),
-      earnedKc: formData.get("earnedKc"),
+      rewardType: formData.get("rewardType"),
+      rateKc: formData.get("rateKc"),
       occurredOn: formData.get("occurredOn"),
     });
     if (!result.ok) return { error: result.error };
@@ -28,6 +31,38 @@ export async function addWorkEntryAction(_prev: CollaboratorActionState, formDat
   } catch (error) {
     console.error("addWorkEntryAction", error);
     return { error: "Práci se nepodařilo zapsat." };
+  }
+}
+
+export async function updateWorkEntryAction(_prev: CollaboratorActionState, formData: FormData): Promise<CollaboratorActionState> {
+  try {
+    const result = await updateCollaboratorWorkEntry({
+      id: formData.get("id"),
+      description: formData.get("description"),
+      postCount: formData.get("postCount"),
+      durationMinutes: formData.get("durationMinutes"),
+      rewardType: formData.get("rewardType"),
+      rateKc: formData.get("rateKc"),
+      occurredOn: formData.get("occurredOn"),
+    });
+    if (!result.ok) return { error: result.error };
+    revalidatePath(path);
+    return { success: "Záznam byl upraven." };
+  } catch (error) {
+    console.error("updateWorkEntryAction", error);
+    return { error: "Záznam se nepodařilo upravit." };
+  }
+}
+
+export async function deleteWorkEntryAction(_prev: CollaboratorActionState, formData: FormData): Promise<CollaboratorActionState> {
+  try {
+    const result = await deleteCollaboratorWorkEntry({ id: formData.get("id") });
+    if (!result.ok) return { error: result.error };
+    revalidatePath(path);
+    return { success: "Záznam byl smazán." };
+  } catch (error) {
+    console.error("deleteWorkEntryAction", error);
+    return { error: "Záznam se nepodařilo smazat." };
   }
 }
 

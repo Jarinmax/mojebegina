@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getLucieCollaboratorCard } from "@/lib/data/collaboratorCards";
-import { InviteCollaboratorForm, PayoutForm, ProductMovementForm, WorkEntryForm } from "./Forms";
+import { InviteCollaboratorForm, PayoutForm, ProductMovementForm, WorkEntryForm, WorkEntryRow } from "./Forms";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +55,7 @@ export default async function LucieCollaboratorPage() {
       </section>
 
       <section className="mt-7 grid gap-6 md:grid-cols-2">
-        <div><h2 className="mb-2 text-lg font-semibold text-begina-primary-900">Poslední práce</h2><div className="grid gap-2">{view.workEntries.slice(0, 12).map((entry) => <div key={entry.id} className="rounded-lg border border-neutral-200 bg-white p-3"><div className="flex justify-between gap-2"><p className="font-medium text-begina-primary-900">{entry.description}</p><p className="text-sm font-medium">{kc.format(entry.earnedKc)}</p></div><p className="mt-1 text-xs text-neutral-500">{entry.occurredOn} · {entry.postCount} příspěvků · {hours(entry.durationMinutes)}</p></div>)}{view.workEntries.length === 0 && <p className="text-sm text-neutral-500">Zatím nic zapsáno.</p>}</div></div>
+        <div><h2 className="mb-2 text-lg font-semibold text-begina-primary-900">Poslední práce</h2><div className="grid gap-2">{view.workEntries.slice(0, 12).map((entry) => <WorkEntryRow key={entry.id} entry={entry} />)}{view.workEntries.length === 0 && <p className="text-sm text-neutral-500">Zatím nic zapsáno.</p>}</div></div>
         <div><h2 className="mb-2 text-lg font-semibold text-begina-primary-900">Poslední pohyby a výplaty</h2><div className="grid gap-2">{view.movements.slice(0, 8).map((movement) => <div key={movement.id} className="rounded-lg border border-neutral-200 bg-white p-3 text-sm"><div className="flex justify-between"><span>{movement.kind === "sale" ? "Prodej" : "Naskladnění"}</span><strong>{movement.quantity} ks</strong></div><p className="mt-1 text-xs text-neutral-500">{date.format(movement.occurredAt)}{movement.commissionKc ? ` · provize ${kc.format(movement.commissionKc)}` : ""}</p></div>)}{view.payouts.slice(0, 4).map((payout) => <div key={payout.id} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm"><div className="flex justify-between"><span>Vyplaceno</span><strong>{kc.format(payout.amountKc)}</strong></div><p className="mt-1 text-xs text-neutral-500">{date.format(payout.paidAt)}</p></div>)}{view.movements.length === 0 && view.payouts.length === 0 && <p className="text-sm text-neutral-500">Zatím žádný pohyb.</p>}</div></div>
       </section>
     </div>
