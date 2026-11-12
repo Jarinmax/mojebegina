@@ -8,6 +8,7 @@ import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
+import { clampBoxes } from "./boxOption";
 import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
 
@@ -43,8 +44,8 @@ export type CheckoutInput = {
   termsAccepted: boolean;
   /** Potvrzení 18+; vyžaduje se jen, když košík obsahuje alkohol. */
   ageConfirmed: boolean;
-  /** Zabalit balení 3 l do krabice (příplatek, boxOption.ts); nepovinné. */
-  boxed?: boolean;
+  /** Počet krabic na balení 3 l (příplatek, boxOption.ts); nepovinné, text z formuláře. */
+  boxes?: string | number;
   /** JSON ["kod", …] — uplatněné slevové kódy (z košíku / pokladny); nepovinné. */
   couponCodes?: string;
 };
@@ -131,7 +132,7 @@ export function validateCheckoutInput(
   options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxed: input.boxed === true });
+  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxes: clampBoxes(input.boxes, Number.MAX_SAFE_INTEGER) });
   if (!priced.ok) {
     return priced;
   }

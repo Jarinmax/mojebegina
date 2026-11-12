@@ -13,7 +13,7 @@ import { getShippingMethod, quoteShipping, type ShippingMethod, type ShippingMod
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
-import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, isBoxEligible, weightWithBox } from "./boxOption";
+import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
 export type PricedLine = {
   sku: string;
@@ -55,7 +55,7 @@ export function priceCart(
   input: CartInputLine[],
   shippingMethodId: string,
   index: CatalogIndex,
-  options: { shippingMode?: ShippingMode; /** zákazník chce balení 3 l zabalit do krabice */ boxed?: boolean } = {}
+  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number } = {}
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   const shippingMode = options.shippingMode ?? "flat";
   if (input.length === 0) {
@@ -74,7 +74,7 @@ export function priceCart(
   const lines: PricedLine[] = [];
   const weights: (number | null)[] = [];
   let containsAgeRestricted = false;
-  let boxes = 0;
+  let boxEligible = 0;
   for (const item of input) {
     const found = index.getVariant(item.sku);
     if (!found) {
@@ -105,9 +105,8 @@ export function priceCart(
       };
     }
     containsAgeRestricted ||= product.isAgeRestricted;
-    const boxed = options.boxed === true && isBoxEligible(product, variant);
-    if (boxed) boxes += item.quantity;
-    weights.push(weightWithBox(variant.weightGrams, boxed));
+    if (isBoxEligible(product, variant)) boxEligible += item.quantity;
+    weights.push(variant.weightGrams);
     lines.push({
       sku: variant.sku,
       name,
@@ -117,11 +116,15 @@ export function priceCart(
     });
   }
 
+  const boxes = clampBoxes(options.boxes, boxEligible);
   // Nad 400 kg nebo bez známé hmotnosti chlazenou přepravu nejde objednat
   // automaticky — server ji odmítne, i kdyby ji formulář (podvržený) poslal.
   const quote = quoteShipping(
     shipping,
-    lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
+    [
+      ...lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
+      ...boxWeightLines(boxes),
+    ],
     shippingMode,
     OPERATOR
   );
