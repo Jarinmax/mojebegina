@@ -2,13 +2,13 @@
 // úvodu, kategoriích a produktech; JSON-LD Product (nabídka za každé balení
 // v CZK), BreadcrumbList, Organization; alt u fotek. BASE=https://begina.cz pro ostrý web.
 const PORT = Number(process.argv[2] ?? 3100);
-const BASE = process.env.BASE ?? `http://127.0.0.1:${PORT}`;
-const HOST = process.env.BASE ? {} : { host: "begina.cz" };
+// lokálně: begina.cz → 127.0.0.1 v /etc/hosts (CI to nastaví)
+const BASE = process.env.BASE ?? `http://begina.cz:${PORT}`;
 const fails = [];
 const ok = [];
 const check = (n, c, d = "") => (c ? ok : fails).push(`${n}${d ? ` — ${d}` : ""}`);
 const page = async (u) => {
-  const r = await fetch(BASE + u, { headers: { ...HOST, "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1)" } });
+  const r = await fetch(BASE + u, { headers: { "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1)" } });
   const h = await r.text();
   const m = (re) => (h.match(re) || [, ""])[1].replace(/\s+/g, " ").trim();
   const ld = [...h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].flatMap((x) => [].concat(JSON.parse(x[1])));
