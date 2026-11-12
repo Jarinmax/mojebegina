@@ -41,3 +41,10 @@ export const DELIVERY_ADDRESS = {
   /** na jeden řádek: „Jaroslav Viner – Zahradní Bistro Begina (areál …), Vitice 119, …“ */
   oneLine: `${OPERATOR.name} – ${PICKUP_PLACE.name} (${PICKUP_PLACE.area}), ${PICKUP_PLACE.address}`,
 } as const;
+
+/**
+ * Slovensko (rozhodnutí Lucie 12. 11. 2026): e-shop tam nedoručuje;
+ * zájemce má objednávku poslat e-mailem. Věta se ukazuje v pokladně,
+ * v chybách serveru i na stránce Doprava.
+ */
+export const SLOVAKIA_ORDER_NOTE = `Na Slovensko přes e-shop nedoručujeme — objednávku na Slovensko nám prosím pošlete e-mailem na ${OPERATOR.email}.`;
