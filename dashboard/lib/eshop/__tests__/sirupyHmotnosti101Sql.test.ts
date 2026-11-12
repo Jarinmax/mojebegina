@@ -1,5 +1,5 @@
 // Skript 101 (skutečné hmotnosti sirupů) nad PGlite: stav Production =
-// sirupy 3 l 3 000 g a 650 ml 750 g; po skriptu 3 680 g a 780 g, doprava
+// sirupy 3 l 3 000 g a 650 ml 750 g; po skriptu 3 800 g (s krabicí) a 780 g, doprava
 // se počítá ze skutečné hmotnosti.
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -34,7 +34,7 @@ describe("101 hmotnosti sirupů", { timeout: 120_000 }, () => {
     after.forEach((r, i) => {
       if (r.cat === "sirupy") {
         changed++;
-        expect(r.weight_g).toBe(r.volume_ml === 3000 ? 3680 : 780);
+        expect(r.weight_g).toBe(r.volume_ml === 3000 ? 3800 : 780);
         expect({ ...r, weight_g: 0 }).toEqual({ ...before[i], weight_g: 0 });
       } else expect(r).toEqual(before[i]);
     });
@@ -43,14 +43,15 @@ describe("101 hmotnosti sirupů", { timeout: 120_000 }, () => {
     await pg.exec("ROLLBACK");
   });
 
-  it("doprava ze skutečné hmotnosti: 4 sirupy 14,72 kg → 267 Kč, 5 → 18,4 kg → 379 Kč, 6 → 22,08 kg → 491 Kč", () => {
+  it("doprava ze skutečné hmotnosti: 3 sirupy 11,4 kg → 267 Kč, 4 → 15,2 kg → 379 Kč, 5 → 19 kg → 379 Kč, 6 → 22,8 kg → 491 Kč", () => {
     const price = (n: number) => {
-      const w = cartWeight([{ sku: "lipovy-sirup-3l", quantity: n, weightGrams: 3680 }]);
+      const w = cartWeight([{ sku: "lipovy-sirup-3l", quantity: n, weightGrams: 3800 }]);
       const p = w.ok ? coldShippingPrice(w.grams) : null;
       return [w.ok && w.grams, p?.ok && p.priceKc];
     };
-    expect(price(4)).toEqual([14_720, 267]);
-    expect(price(5)).toEqual([18_400, 379]);
-    expect(price(6)).toEqual([22_080, 491]);
+    expect(price(3)).toEqual([11_400, 267]);
+    expect(price(4)).toEqual([15_200, 379]);
+    expect(price(5)).toEqual([19_000, 379]);
+    expect(price(6)).toEqual([22_800, 491]);
   });
 });
