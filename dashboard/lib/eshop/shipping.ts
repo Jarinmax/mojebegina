@@ -64,7 +64,9 @@ const COLD_BY_WEIGHT: ShippingMethod = {
 };
 
 export function shippingMethodsFor(mode: ShippingMode): ShippingMethod[] {
-  return [PICKUP, mode === "weight" ? COLD_BY_WEIGHT : COLD_FLAT];
+  // Pořadí podle zadání Lucie (12. 11. 2026): chlazená přeprava první
+  // a předvybraná (většina zákazníků si nechává zboží poslat), osobní odběr druhý.
+  return [mode === "weight" ? COLD_BY_WEIGHT : COLD_FLAT, PICKUP];
 }
 
 /** Dosavadní nabídka (paušál) — výchozí stav. */
@@ -157,6 +159,9 @@ export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
 export function defaultPaymentMethodId(_cardAvailable?: boolean): PaymentMethod["id"] {
   return "prevod";
 }
+
+/** Výchozí doručení v pokladně = chlazená přeprava. */
+export const DEFAULT_SHIPPING_METHOD_ID: ShippingMethod["id"] = "rozvoz";
 
 export const paymentMethods: PaymentMethod[] = paymentMethodsFor(false);
 

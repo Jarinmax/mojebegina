@@ -10,6 +10,7 @@ import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
+  DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodsFor,
   defaultPaymentMethodId,
   quoteLabel,
@@ -94,7 +95,7 @@ const emptyValues: Values = {
   zip: "",
   recipientPhone: "",
   note: "",
-  shippingMethodId: "osobni-odber",
+  shippingMethodId: DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodId: "prevod",
   termsAccepted: false,
   ageConfirmed: false,
