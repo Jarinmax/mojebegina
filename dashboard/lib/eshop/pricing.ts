@@ -103,7 +103,7 @@ export function priceCart(
     });
   }
 
-  // Nad 150 kg nebo bez známé hmotnosti chlazenou přepravu nejde objednat
+  // Nad 400 kg nebo bez známé hmotnosti chlazenou přepravu nejde objednat
   // automaticky — server ji odmítne, i kdyby ji formulář (podvržený) poslal.
   const quote = quoteShipping(
     shipping,

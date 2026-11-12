@@ -4,7 +4,7 @@
 // Dva režimy chlazené přepravy (přepínač ESHOP_WEIGHT_SHIPPING):
 //   "flat"   (výchozí, dosavadní stav) — orientační paušál 99 Kč
 //   "weight" (ESHOP_WEIGHT_SHIPPING=on) — ceník WooCommerce podle hmotnosti
-//            košíku (shippingRates.ts); nad 150 kg nebo bez známé hmotnosti
+//            košíku (shippingRates.ts); nad 400 kg nebo bez známé hmotnosti
 //            se chlazená přeprava automaticky nenabídne → individuální domluva.
 // Osobní vyzvednutí ve Viticích je v obou režimech zdarma.
 // Doprava zdarma od určité částky: NEOVĚŘENO, záměrně neimplementováno

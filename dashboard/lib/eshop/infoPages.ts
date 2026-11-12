@@ -176,7 +176,7 @@ export function shippingPageFor(mode: ShippingMode): InfoPage {
               heading: "Ceník chlazené přepravy",
               paragraphs: ["Cena podle celkové hmotnosti objednávky:"],
               items: COLD_SHIPPING_RULES.map(
-                (rule) => `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg — ${formatKc(rule.priceKc)}`
+                (rule) => `${rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`} — ${formatKc(rule.priceKc)}`
               ),
               afterParagraphs: [
                 `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,

@@ -1,0 +1,28 @@
+name: docasne-testy
+on:
+  push:
+    branches: [doprava-do-400kg]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    env:
+      DATABASE_URL: postgresql://u:p@ep-test.neon.tech/neondb
+      NEON_AUTH_BASE_URL: https://auth.example.test
+      NEON_AUTH_COOKIE_SECRET: test-cookie-secret-test-cookie-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Testy
+        run: npx vitest run 2>&1 | tee /tmp/t.log | grep -E "Test Files|Tests |FAIL|AssertionError" | head -40
+      - name: Detail
+        run: npx vitest run 2>&1 | grep -A25 -E "FAIL|AssertionError" | head -120 || true
+      - name: Build
+        run: npx next build 2>&1 | tail -5
