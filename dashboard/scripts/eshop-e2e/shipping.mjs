@@ -98,14 +98,14 @@ try {
       JSON.stringify(order)
     );
 
-    // 51× 3 l = 153 kg → chlazená přeprava nedostupná, individuální domluva
-    await checkout([{ sku: "kulajda", quantity: 51 }]);
-    check("153 kg: chlazená přeprava zakázaná", !(await coldRadio().isEnabled()));
+    // 134× 3 l = 402 kg → chlazená přeprava nedostupná, individuální domluva (od 12. 11. 2026 limit 400 kg)
+    await checkout([{ sku: "kulajda", quantity: 99 }, { sku: "lipovy-caj-3l", quantity: 35 }]);
+    check("402 kg: chlazená přeprava zakázaná", !(await coldRadio().isEnabled()));
     const box = await deliveryBox();
-    check("153 kg: text s váhou a kontaktem", /Objednávka váží 153 kg.*nad 150 kg nelze objednat automaticky.*info@begina\.cz.*\+420 774 199 975/.test(box), box);
-    check("153 kg: v nabídce „Individuálně“", /Chlazená přeprava Individuálně/.test(box));
-    check("153 kg: osobní odběr zůstává zdarma", /Osobní vyzvednutí.*Zdarma/.test(box) && /Osobní vyzvednutí.* 0 Kč/.test(await summary()));
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/doprava-nad-150kg.png`, fullPage: true });
+    check("402 kg: text s váhou a kontaktem", /Objednávka váží 402 kg.*nad 400 kg nelze objednat automaticky.*info@begina\.cz.*\+420 774 199 975/.test(box), box);
+    check("402 kg: v nabídce „Individuálně“", /Chlazená přeprava Individuálně/.test(box));
+    check("402 kg: osobní odběr zůstává zdarma", /Osobní vyzvednutí.*Zdarma/.test(box) && /Osobní vyzvednutí.* 0 Kč/.test(await summary()));
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/doprava-nad-400kg.png`, fullPage: true });
 
     // podvržený formulář: chlazená přeprava nad 150 kg → server odmítne
     for (const [id, value] of [["#name", "Jana"], ["#email", "jana@example.cz"], ["#phone", "+420 777 123 456"]]) await page.fill(id, value);
