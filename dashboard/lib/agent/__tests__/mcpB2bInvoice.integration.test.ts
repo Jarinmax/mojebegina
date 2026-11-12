@@ -47,6 +47,7 @@ const ENV: Record<string, string> = {
 type Inv = { Id: number; DocumentNumber: string; NumericSequenceId: number; PartnerId: number; DateOfIssue: string; PaymentStatus: number; Prices: { TotalWithVat: number }; body: Record<string, unknown> };
 const store = vi.hoisted(() => ({
   serial: 202,
+  rejectInvoice: null as string | null,
   invoices: [] as Inv[],
   contacts: [] as { Id: number; IdentificationNumber: string; CompanyName: string }[],
   calls: [] as { method: string; path: string; body: unknown; query: Record<string, string> }[],
@@ -58,7 +59,7 @@ async function fakeIdoklad(input: RequestInfo | URL, init?: RequestInit): Promis
   const method = (init?.method ?? "GET").toUpperCase();
   const ok = (data: unknown) => new Response(JSON.stringify({ Data: data, IsSuccess: true, StatusCode: 200 }), { status: 200 });
   const page = (items: unknown[]) => ok({ Items: items, TotalItems: items.length, TotalPages: 1 });
-  if (url.hostname === "identity.idoklad.cz") return new Response(JSON.stringify({ access_token: "t", expires_in: 3600 }), { status: 200 });
+  if (url.hostname === "identity.idoklad.cz") return new Response(JSON.stringify({ access_token: "tok-test-0123456789", expires_in: 3600 }), { status: 200 });
   const path = url.pathname.replace(/^\/v3/, "");
   const query = Object.fromEntries(url.searchParams);
   const body = init?.body ? JSON.parse(String(init.body)) : null;
@@ -97,6 +98,9 @@ async function fakeIdoklad(input: RequestInfo | URL, init?: RequestInit): Promis
     const contact = { Id: 900 + store.contacts.length, IdentificationNumber: body.IdentificationNumber, CompanyName: body.CompanyName };
     store.contacts.push(contact);
     return ok(contact);
+  }
+  if (method === "POST" && path === "/IssuedInvoices" && store.rejectInvoice) {
+    return new Response(JSON.stringify({ IsSuccess: false, StatusCode: 400, Message: store.rejectInvoice }), { status: 400 });
   }
   if (method === "POST" && path === "/IssuedInvoices") {
     store.serial = body.DocumentSerialNumber;
@@ -200,6 +204,7 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
   beforeEach(() => {
     for (const [k, v] of Object.entries(ENV)) process.env[k] = v;
     store.calls.length = 0;
+    store.rejectInvoice = null;
     mail.sent.length = 0;
   });
 
@@ -301,6 +306,17 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
     delete process.env.IDOKLAD_B2B_SEQUENCE_ID;
     expect(await call(lucie, "prepare_b2b_invoice", kavarna())).toMatchObject({ isError: true, text: expect.stringMatching(/IDOKLAD_B2B_SEQUENCE_ID/) });
     expect(writes()).toEqual([]);
+  });
+
+  it("iDoklad fakturu odmítne → uživatel vidí přesný důvod (ne obecnou chybu serveru), nic nevzniklo, důvod je v auditu", async () => {
+    store.rejectInvoice = "PaymentOptionId: Pole je povinné.";
+    const before = store.invoices.length;
+    const { issued } = await issue(lucie, kavarna({ items: [{ name: "Odmítnutá", quantity: 1, unit_price_kc: 111 }], expected_total_kc: 111 }));
+    expect(issued).toMatchObject({ isError: true, text: expect.stringMatching(/iDoklad fakturu odmítl: iDoklad POST \/IssuedInvoices: 400 PaymentOptionId: Pole je povinné\. Faktura se nevystavila\./) });
+    expect(issued.text).not.toMatch(/chybě na straně MojeBegina/);
+    expect(store.invoices.length).toBe(before);
+    const [audit] = await rows(sql`SELECT status, error FROM agent_audit_log WHERE tool = 'issue_b2b_invoice' ORDER BY created_at DESC LIMIT 1`);
+    expect(audit).toMatchObject({ status: "error", error: expect.stringMatching(/PaymentOptionId: Pole je povinné/) });
   });
 });
 

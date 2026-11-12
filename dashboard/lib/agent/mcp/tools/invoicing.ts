@@ -23,6 +23,7 @@ import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
+import { invoiceIssuerEmails } from "@/lib/data/invoiceIssuerEmails";
 import {
   getOrderInvoiceSummary,
   invoicePdfUrl,
@@ -34,7 +35,7 @@ import {
 import { INVOICE_ISSUER_NAMES } from "@/lib/data/invoiceAuth";
 import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
-import { emailConfig, resolveRecipients, invoiceCopyRecipients } from "@/lib/eshop/email/config";
+import { emailConfig, resolveRecipients, invoiceCopyRecipients, invoiceEmailSender } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
@@ -278,7 +279,9 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
     description:
       "ZÁPIS — pošle e-mailem PDF EXISTUJÍCÍ vydané faktury z iDokladu (i z ruční řady 2026xxxx) z MojeBegina. Nic nevystavuje ani nemění. " +
       "Volej JEN když uživatel výslovně požádal o odeslání konkrétní faktury konkrétním příjemcům. Povolení příjemci: e-mail odběratele uvedený na faktuře, " +
-      `adresy @begina.cz, e-mail účtu uživatele v MojeBegina a adresy povolené správcem; jiné server odmítne. Nejvýš ${MAX_INVOICE_RECIPIENTS} příjemců. ` +
+      `adresy @begina.cz, e-mail účtu uživatele v MojeBegina, e-maily vystavovatelů faktur (${INVOICE_ISSUER_NAMES}) a adresy povolené správcem; jiné server odmítne. ` +
+      "Když uživatel řekne „pošli mi to / na můj e-mail“, nastav to_me=true — server doplní e-mail jeho účtu v MojeBegina; adresu NEHÁDEJ ani ji neber z účtu ChatGPT. " +
+      `E-mail odchází z info@begina.cz a info@begina.cz dostane vždy skrytou kopii — do příjemců ho dávat nemusíš. Nejvýš ${MAX_INVOICE_RECIPIENTS} příjemců. ` +
       "Vyžaduje confirm=true a idempotency_key.",
     write: true,
     writeScope: "invoicing",
@@ -286,30 +289,38 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
     properties: {
       number: { type: "string", description: "Číslo faktury, např. „20260202“." },
       id: { type: "integer", description: "ID faktury v iDokladu (když číslo není jednoznačné)." },
-      to: { type: "array", items: { type: "string" }, minItems: 1, maxItems: MAX_INVOICE_RECIPIENTS, description: "Příjemci (e-maily)." },
+      to: { type: "array", items: { type: "string" }, maxItems: MAX_INVOICE_RECIPIENTS, description: "Příjemci (e-maily), které uživatel výslovně uvedl. Nepovinné, když to_me=true." },
+      to_me: { type: "boolean", description: "true = poslat i na e-mail účtu přihlášeného uživatele v MojeBegina („pošli mi to“)." },
       message: { type: "string", description: "Krátký průvodní text (nepovinné, max. 1000 znaků)." },
       confirm: { type: "boolean", description: "true = uživatel výslovně požádal o odeslání této faktury těmto příjemcům." },
     },
-    required: ["to", "confirm"],
+    required: ["confirm"],
     parse: (args) => {
       const number = optionalString(args, "number", 20);
       const id = args.id === undefined || args.id === null ? null : Number(args.id);
       if (id !== null && !(Number.isInteger(id) && id > 0)) throw new ArgError("Argument id musí být kladné celé číslo.");
       if (!number && id === null) throw new ArgError("Zadejte number nebo id faktury.");
-      if (!Array.isArray(args.to) || args.to.some((e) => typeof e !== "string")) throw new ArgError("Argument to musí být seznam e-mailů.");
+      const to = args.to === undefined || args.to === null ? [] : args.to;
+      if (!Array.isArray(to) || to.some((e) => typeof e !== "string")) throw new ArgError("Argument to musí být seznam e-mailů.");
+      if (args.to_me !== undefined && typeof args.to_me !== "boolean") throw new ArgError("Argument to_me musí být true/false.");
+      const toMe = args.to_me === true;
+      if (to.length === 0 && !toMe) throw new ArgError("Zadejte příjemce (to), nebo to_me=true pro e-mail účtu uživatele.");
       if (args.confirm !== true) throw new ArgError("Fakturu lze poslat jen s confirm=true na výslovnou žádost uživatele.");
-      return { number, id, to: args.to as string[], message: optionalString(args, "message", 1000) };
+      return { number, id, to: to as string[], toMe, message: optionalString(args, "message", 1000) };
     },
-    execute: async ({ number, id, to, message }) => {
+    execute: async ({ number, id, to: requested, toMe, message }) => {
       const ctx = await getAuthContext();
       if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury z iDokladu smí posílat jen ${INVOICE_ISSUER_NAMES}.` };
+      const own = ctx.email?.trim() || null;
+      if (toMe && !own) return { ok: false, error: "Váš účet v MojeBegina nemá e-mail — řekněte, na jakou adresu fakturu poslat. Nic se neodeslalo." };
+      const to = toMe && own ? [own, ...requested] : requested;
       const config = emailConfig();
       if (!config) return { ok: false, error: "Odesílání e-mailů z MojeBegina není na tomto prostředí zapnuté." };
       const read = await runIdokladRead("idoklad_invoice_pdf_file", { ...(number ? { number } : {}), ...(id ? { id } : {}) }, "mcp:chatgpt");
       if (!read.ok) return { ok: false, error: read.error };
       if (read.data.found !== true) return { ok: false, error: `Faktura ${number ?? id} v iDokladu není.` };
       const pdf = read.data as unknown as InvoicePdfFile;
-      const check = checkInvoiceRecipients(to, { partnerEmail: pdf.partnerEmail, userEmail: ctx.email || null, extra: allowedExtraRecipients() });
+      const check = checkInvoiceRecipients(to, { partnerEmail: pdf.partnerEmail, userEmail: own, teamEmails: await invoiceIssuerEmails(), extra: allowedExtraRecipients() });
       if (!check.ok) return check;
 
       const resolved = resolveRecipients(check.to, config);
@@ -321,13 +332,15 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       const text = `${intro}\n\n${body}\n\nS pozdravem\nBegina${testNote}`;
       const html = `<p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p><p>${escapeHtml(body)}</p><p>S pozdravem<br>Begina</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
       const key = createHash("sha256").update(`${pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
+      // odesílatel info@begina.cz, skrytá kopie Begině (info@begina.cz)
+      const sender = invoiceEmailSender(config);
+      const bcc = invoiceCopyRecipients(config, resolved.to);
       const sent = await resendTransport(config.apiKey)(
         {
-          from: config.from,
+          from: sender.from,
           to: resolved.to,
-          // skrytá kopie Begině (info@begina.cz)
-          ...(invoiceCopyRecipients(config, resolved.to).length ? { bcc: invoiceCopyRecipients(config, resolved.to) } : {}),
-          replyTo: config.replyTo,
+          ...(bcc.length ? { bcc } : {}),
+          replyTo: sender.replyTo,
           subject: `${test ? "[TEST] " : ""}Faktura ${invoiceNumber} – Begina`,
           text,
           html,
@@ -344,10 +357,12 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
           invoiceNumber,
           idokladId: pdf.invoice.id,
           to: resolved.to,
+          bcc,
+          from: sender.from,
           withheldInTestMode: resolved.withheld,
           recipientKinds: check.reasons,
           messageId: sent.id,
-          message: `PDF faktury ${invoiceNumber} je odeslané na ${resolved.to.join(", ")}.`,
+          message: `PDF faktury ${invoiceNumber} je odeslané z ${sender.from} na ${resolved.to.join(", ")}${bcc.length ? ` (skrytá kopie ${bcc.join(", ")})` : ""}.`,
         },
       };
     },
@@ -516,6 +531,7 @@ const B2B_TOOLS: AgentTool[] = [
           dueDate: result.dueDate,
           customer: result.partnerName,
           contactCreated: result.contactCreated,
+          warnings: result.warnings ?? [],
           pdfUrl: `${await appOrigin()}${idokladInvoicePdfPath(result.idokladId)}`,
           emailed: false,
           message: `Faktura ${result.invoiceNumber} pro ${result.partnerName} na ${result.totalKc} Kč je vystavená v iDokladu (${result.paid ? "uhrazená" : "otevřená, splatnost " + result.dueDate}). Zákazníkovi se nic neposlalo.`,

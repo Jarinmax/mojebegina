@@ -18,7 +18,7 @@ import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { IDOKLAD_ENUMS, idokladDate, type ItemPricing } from "./idoklad";
-import { EshopIdokladClient, IdokladApiError, eqFilter, issuedInvoiceFilter } from "./idokladHttp";
+import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter } from "./idokladHttp";
 import { ESHOP_SERIES, eshopIdokladCredentials, liveInvoicingGate } from "./mode";
 import { B2B_NUMBER_RE, preflightFailureSummary, runIdokladPreflight, type PreflightResolved } from "./preflight";
 import { addDays, b2bWarnings, B2B_PAYMENT_LABELS, type B2bInvoiceInput } from "./b2bInvoiceValidation";
@@ -200,14 +200,29 @@ function invoiceBody(value: B2bInvoiceInput, partnerId: number, resolved: Prefli
 }
 
 export type B2bIssueResult =
-  | { ok: true; invoiceNumber: string; idokladId: number; totalKc: number; paid: boolean; dueDate: string; partnerName: string; contactCreated: boolean }
+  | { ok: true; invoiceNumber: string; idokladId: number; totalKc: number; paid: boolean; dueDate: string; partnerName: string; contactCreated: boolean; warnings?: string[] }
   | { ok: false; error: string; existing?: B2bExistingInvoice[] };
 
 type IdokladInvoice = { Id: number; DocumentNumber?: string | null; NumericSequenceId?: number | null; Prices?: { TotalWithVat?: number | null } | null; PaymentStatus?: number | string | null };
 
+/** Text chyby iDokladu pro uživatele (už bez tajných údajů — EshopIdokladClient.redact); jiné chyby null. */
+function idokladProblem(error: unknown): string | null {
+  return error instanceof IdokladApiError || error instanceof IdokladBlockedError ? error.message : null;
+}
+
+/** Odpověď iDokladu (4xx/5xx se zprávou) = zápis neproběhl; výpadek / timeout = nejisté. */
+function definitelyRejected(error: unknown): boolean {
+  return error instanceof IdokladBlockedError || (error instanceof IdokladApiError && error.httpStatus !== null);
+}
+
 /**
  * Vystaví B2B fakturu přesně podle návrhu. Kontrola iDokladu znovu těsně
  * před zápisem; zápisy: (kontakt) → faktura → (FullyPay, jen paid=true).
+ *
+ * Chyby iDokladu se vrací uživateli s důvodem a se stavem (12. 11. 2026 —
+ * dřív skončily obecnou hláškou serveru a nešlo poznat proč, ani zda faktura
+ * vznikla). Po vzniku faktury se už nikdy nevrací ok=false bez čísla faktury:
+ * asistent by jinak mohl vystavit znovu.
  */
 export async function issueB2bInvoice(
   db: Db,
@@ -216,7 +231,14 @@ export async function issueB2bInvoice(
   deps: Deps = {}
 ): Promise<B2bIssueResult> {
   const env = deps.env ?? process.env;
-  const prepared = await prepareB2bInvoice(db, value, deps);
+  let prepared: Awaited<ReturnType<typeof prepareB2bInvoice>>;
+  try {
+    prepared = await prepareB2bInvoice(db, value, deps);
+  } catch (error) {
+    const problem = idokladProblem(error);
+    if (problem === null) throw error;
+    return { ok: false, error: `Kontrola iDokladu před vystavením se nezdařila: ${problem} Nic se nevystavilo.` };
+  }
   if (!prepared.ok) return prepared;
   const { preview, resolved } = prepared;
   if (preview.fingerprint !== options.expectedFingerprint) {
@@ -237,38 +259,76 @@ export async function issueB2bInvoice(
   const partner = preview.partner;
   if (partner.status === "existing") partnerId = partner.idokladId;
   else if (partner.status === "new") {
-    const contact = await client.post<{ Id: number }>("/Contacts", {
-      CompanyName: partner.name.slice(0, 200),
-      IdentificationNumber: partner.ico,
-      VatIdentificationNumber: partner.dic,
-      Street: partner.street,
-      City: partner.city,
-      PostalCode: partner.zip,
-      CountryId: resolved.countryId,
-    });
+    let contact: { Id: number } | null;
+    try {
+      contact = await client.post<{ Id: number }>("/Contacts", {
+        CompanyName: partner.name.slice(0, 200),
+        IdentificationNumber: partner.ico,
+        VatIdentificationNumber: partner.dic,
+        Street: partner.street,
+        City: partner.city,
+        PostalCode: partner.zip,
+        CountryId: resolved.countryId,
+      });
+    } catch (error) {
+      const problem = idokladProblem(error);
+      if (problem === null) throw error;
+      return definitelyRejected(error)
+        ? { ok: false, error: `iDoklad odmítl založit kontakt odběratele ${partner.name}: ${problem} Faktura se nevystavila.` }
+        : { ok: false, error: `Zakládání kontaktu ${partner.name} v iDokladu nedoběhlo (${problem}). Faktura se nevystavila; než to zkusíte znovu, ověřte v iDokladu, zda kontakt nevznikl (pak by byl dvakrát).` };
+    }
     if (!contact?.Id) return { ok: false, error: "iDoklad nevrátil ID nového kontaktu — nic se nevystavilo." };
     partnerId = contact.Id;
     contactCreated = true;
   } else return { ok: false, error: "Odběratel není určený." };
+  const contactNote = contactCreated ? ` Kontakt odběratele (ID ${partnerId}) se v iDokladu už založil — příště se najde.` : "";
 
-  const invoice = await client.post<IdokladInvoice>("/IssuedInvoices", invoiceBody(value, partnerId, resolved));
-  if (!invoice?.Id) throw new IdokladApiError("iDoklad nevrátil ID nové faktury — zkontrolujte v iDokladu, zda vznikla, než to zkusíte znovu.");
-  const number = (invoice.DocumentNumber ?? "").trim();
-  if (!B2B_NUMBER_RE.test(number) || String(invoice.NumericSequenceId ?? seriesId) !== seriesId) {
-    throw new IdokladApiError(`Faktura ${invoice.Id} vznikla s číslem „${number}“ mimo očekávanou řadu — nutná ruční kontrola v iDokladu.`);
+  let invoice: IdokladInvoice | null;
+  try {
+    invoice = await client.post<IdokladInvoice>("/IssuedInvoices", invoiceBody(value, partnerId, resolved));
+  } catch (error) {
+    const problem = idokladProblem(error);
+    if (problem === null) throw error;
+    return definitelyRejected(error)
+      ? { ok: false, error: `iDoklad fakturu odmítl: ${problem} Faktura se nevystavila.${contactNote}` }
+      : { ok: false, error: `Vystavení v iDokladu nedoběhlo (${problem}). NENÍ JISTÉ, zda faktura vznikla — nejdřív ji dohledejte v iDokladu (idoklad_search_invoices), teprve pak zkoušejte znovu.${contactNote}` };
   }
-  if (value.paid) await client.put<boolean>(`/IssuedDocumentPayments/FullyPay/${invoice.Id}`, { dateOfPayment: `${value.issueDate} 12:00:00.000` });
-  const check = await client.get<IdokladInvoice>(`/IssuedInvoices/${invoice.Id}`);
-  const total = check?.Prices?.TotalWithVat ?? null;
-  if (total === null || Math.abs(total - value.totalKc) >= 0.005) {
-    throw new IdokladApiError(`Faktura ${number} má v iDokladu celkem ${total ?? "—"} Kč, čekáno ${value.totalKc} Kč — nutná ruční kontrola.`);
+  if (!invoice?.Id) {
+    return { ok: false, error: `iDoklad nevrátil ID nové faktury — NENÍ JISTÉ, zda vznikla. Nejdřív ji dohledejte v iDokladu (idoklad_search_invoices), teprve pak zkoušejte znovu.${contactNote}` };
+  }
+  const number = (invoice.DocumentNumber ?? "").trim();
+  const created = { ok: true as const, invoiceNumber: number, idokladId: invoice.Id, totalKc: value.totalKc, paid: value.paid, dueDate: value.dueDate, partnerName: partner.name, contactCreated };
+  const warnings: string[] = [];
+  if (!B2B_NUMBER_RE.test(number) || String(invoice.NumericSequenceId ?? seriesId) !== seriesId) {
+    warnings.push(`Faktura vznikla s číslem „${number}“ mimo očekávanou řadu — nutná ruční kontrola v iDokladu.`);
+  }
+  try {
+    if (value.paid) await client.put<boolean>(`/IssuedDocumentPayments/FullyPay/${invoice.Id}`, { dateOfPayment: `${value.issueDate} 12:00:00.000` });
+    const check = await client.get<IdokladInvoice>(`/IssuedInvoices/${invoice.Id}`);
+    const total = check?.Prices?.TotalWithVat ?? null;
+    if (total === null || Math.abs(total - value.totalKc) >= 0.005) {
+      warnings.push(`Faktura má v iDokladu celkem ${total ?? "—"} Kč, čekáno ${value.totalKc} Kč — nutná ruční kontrola.`);
+    }
+  } catch (error) {
+    const problem = idokladProblem(error);
+    if (problem === null) throw error;
+    warnings.push(
+      value.paid
+        ? `Faktura vznikla, ale označení „uhrazeno“ / kontrola v iDokladu se nezdařila (${problem}) — zkontrolujte a případně označte úhradu v iDokladu ručně. Fakturu NEVYSTAVUJTE znovu.`
+        : `Faktura vznikla, ale závěrečná kontrola v iDokladu se nezdařila (${problem}) — zkontrolujte ji v iDokladu. Fakturu NEVYSTAVUJTE znovu.`
+    );
   }
 
   if (preview.organization) {
-    await db.execute(sql`
-      INSERT INTO organization_activity (organization_id, author_user_id, author_name, kind, metadata)
-      VALUES (${preview.organization.id}, ${options.actor.userId}, ${options.actor.name}, 'invoice_issued',
-              ${JSON.stringify({ ...options.via, invoiceNumber: number, idokladId: invoice.Id, totalKc: value.totalKc, paid: value.paid, paymentMethod: value.paymentMethod, dueDate: value.dueDate, series: seriesId })}::jsonb)`);
+    try {
+      await db.execute(sql`
+        INSERT INTO organization_activity (organization_id, author_user_id, author_name, kind, metadata)
+        VALUES (${preview.organization.id}, ${options.actor.userId}, ${options.actor.name}, 'invoice_issued',
+                ${JSON.stringify({ ...options.via, invoiceNumber: number, idokladId: invoice.Id, totalKc: value.totalKc, paid: value.paid, paymentMethod: value.paymentMethod, dueDate: value.dueDate, series: seriesId })}::jsonb)`);
+    } catch (error) {
+      console.error("B2B faktura: zápis do historie zákazníka se nezdařil", invoice.Id, error instanceof Error ? error.name : typeof error);
+      warnings.push("Faktura vznikla, jen se nezapsala do historie zákazníka v MojeBegina.");
+    }
   }
-  return { ok: true, invoiceNumber: number, idokladId: invoice.Id, totalKc: value.totalKc, paid: value.paid, dueDate: value.dueDate, partnerName: partner.name, contactCreated };
+  return warnings.length ? { ...created, warnings } : created;
 }

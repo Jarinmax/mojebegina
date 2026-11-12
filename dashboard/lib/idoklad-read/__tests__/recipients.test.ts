@@ -29,4 +29,13 @@ describe("příjemci PDF faktury z iDokladu", () => {
     expect(allowedExtraRecipients({ IDOKLAD_INVOICE_EMAIL_ALLOWED: " Lucie.Konigsbergova@gmail.com, spatne ;x@y.cz" })).toEqual(["lucie.konigsbergova@gmail.com", "x@y.cz"]);
     expect(allowedExtraRecipients({})).toEqual([]);
   });
+  it("vystavovatelé faktur si smí posílat kopie navzájem; chyba radí to_me místo hádání adresy", () => {
+    const team = { ...ctx, extra: [], teamEmails: ["Viner.Jaroslav@gmail.com", "lucie.konigsbergova@seznam.cz"] };
+    expect(checkInvoiceRecipients(["viner.jaroslav@gmail.com", "lucie.konigsbergova@seznam.cz"], team)).toEqual({
+      ok: true,
+      to: ["viner.jaroslav@gmail.com", "lucie.konigsbergova@seznam.cz"],
+      reasons: { "viner.jaroslav@gmail.com": "team", "lucie.konigsbergova@seznam.cz": "own" },
+    });
+    expect(checkInvoiceRecipients(["lucie.konigsbergova@gmail.com"], team)).toMatchObject({ ok: false, error: expect.stringMatching(/to_me=true/) });
+  });
 });

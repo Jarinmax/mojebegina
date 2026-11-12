@@ -53,7 +53,7 @@ import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
 import { ESHOP_ACTOR_NAME } from "../orderWrite";
-import { emailConfig, invoiceCopyRecipients, resolveRecipients, type EmailConfig } from "./config";
+import { emailConfig, invoiceCopyRecipients, invoiceEmailSender, resolveRecipients, type EmailConfig } from "./config";
 import { resendTransport, type EmailTransport } from "./resend";
 import {
   customerCancellationEmail,
@@ -363,8 +363,10 @@ export async function sendOrderEmails(
       // režimu jen když je zákazník na seznamu (odpověď na [TEST] e-mail
       // nesmí odejít na adresu z testovací objednávky).
       const customerReply = order.contactEmail ? resolveRecipients([order.contactEmail], config) : null;
+      // e-mail s fakturou v příloze odchází z info@begina.cz (invoiceEmailSender)
+      const sender = customer && pdf ? invoiceEmailSender(config) : { from: config.from, replyTo: config.replyTo };
       const replyTo = customer
-        ? config.replyTo
+        ? sender.replyTo
         : customerReply && customerReply.withheld.length === 0
           ? customerReply.to[0]
           : config.replyTo;
@@ -372,7 +374,7 @@ export async function sendOrderEmails(
       // každý e-mail zákazníkovi: skrytá kopie Begině (info@begina.cz)
       const bcc = customer ? invoiceCopyRecipients(config, to) : [];
       const result = await transport(
-        { from: config.from, to, ...(bcc.length ? { bcc } : {}), replyTo, ...rendered, inlineImages, attachments },
+        { from: sender.from, to, ...(bcc.length ? { bcc } : {}), replyTo, ...rendered, inlineImages, attachments },
         `eshop-${template}-${orderId}`
       );
       if (result.ok) {
