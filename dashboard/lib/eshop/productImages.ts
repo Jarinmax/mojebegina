@@ -58,6 +58,13 @@ const BACKDROP: Record<string, string> = {
   "/eshop/sirupy/medunkovy-sirup-s-levanduli-hlavni.jpg": "#fefefe",
   "/eshop/sirupy/medunkovy-sirup-s-levanduli-sacek.jpg": "#fefefe",
   "/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg": "#fefefe",
+  // ovocné nápoje od 12. 11. 2026 (hlavní fotka a s beginou)
+  "/eshop/ovocne-napoje/dum-u-jezera-hlavni.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/dum-u-jezera-begina.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/cervankove-nebe-hlavni.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/cervankove-nebe-begina.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/malinovy-svarak-nealko-hlavni.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/malinovy-svarak-nealko-begina.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
