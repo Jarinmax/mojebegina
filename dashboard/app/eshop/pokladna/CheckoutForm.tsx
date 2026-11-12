@@ -21,7 +21,7 @@ import { BOX_NAME, BOX_PRICE_KC, boxCount, isBoxEligible, weightWithBox } from "
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
-import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
+import { INFO_PAGES, OPERATOR, SLOVAKIA_ORDER_NOTE } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
 import CouponBox from "@/components/eshop/CouponBox";
 import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
@@ -574,7 +574,7 @@ export default function CheckoutForm({
               {values.deliverySameAsBilling ? (
                 <p className="text-xs text-neutral-500">
                   Zásilku doručíme na jméno a adresu z fakturačních údajů, telefon pro doručení je váš kontaktní telefon.
-                  {values.billingCountry !== DELIVERY_COUNTRY && " Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu."}
+                  {values.billingCountry !== DELIVERY_COUNTRY && ` Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu. ${SLOVAKIA_ORDER_NOTE}`}
                 </p>
               ) : (
                 <>
@@ -610,7 +610,7 @@ export default function CheckoutForm({
                   </div>
                 </>
               )}
-              <p className="text-xs text-neutral-500">Doručujeme jen v České republice.</p>
+              <p className="text-xs text-neutral-500">Doručujeme jen v České republice. {SLOVAKIA_ORDER_NOTE}</p>
             </div>
           )}
         </fieldset>

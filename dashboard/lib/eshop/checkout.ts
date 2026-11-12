@@ -8,6 +8,7 @@ import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
+import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
 
 const MAX_TEXT_LENGTH = 200;
@@ -214,7 +215,7 @@ export function validateCheckoutInput(
   if (priced.value.shipping.requiresAddress) {
     if (input.deliverySameAsBilling) {
       if (country !== DELIVERY_COUNTRY) {
-        return { ok: false, error: "Doručujeme jen v České republice — zvolte prosím jinou doručovací adresu v ČR." };
+        return { ok: false, error: `Doručujeme jen v České republice — zvolte prosím jinou doručovací adresu v ČR. ${SLOVAKIA_ORDER_NOTE}` };
       }
       delivery = {
         sameAsBilling: true,
@@ -246,7 +247,7 @@ export function validateCheckoutInput(
         return { ok: false, error: "Zadejte PSČ ve tvaru 123 45." };
       }
       if (!CZ_ZIP_PATTERN.test(zip)) {
-        return { ok: false, error: "Doručujeme jen v České republice — zadejte prosím české PSČ." };
+        return { ok: false, error: `Doručujeme jen v České republice — zadejte prosím české PSČ. ${SLOVAKIA_ORDER_NOTE}` };
       }
       if (!PHONE_PATTERN.test(recipientPhone)) {
         return { ok: false, error: "Zadejte platný telefon příjemce pro doručení." };

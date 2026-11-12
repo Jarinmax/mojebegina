@@ -10,7 +10,8 @@ import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethodsFor, type ShippingMode } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
-import { OPERATOR } from "./operator";
+import { OPERATOR, SLOVAKIA_ORDER_NOTE } from "./operator";
+export { SLOVAKIA_ORDER_NOTE };
 import { PACKAGING_PAGE_PATH } from "./packaging";
 import { CURRENT_TERMS, termsPdfPath } from "./content/termsVersions";
 import { WITHDRAWAL_FORM_DOWNLOAD_LABEL, WITHDRAWAL_FORM_PDF_PATH } from "./content/withdrawalForm";
@@ -180,7 +181,7 @@ export function shippingPageFor(mode: ShippingMode): InfoPage {
               ),
               afterParagraphs: [
                 `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,
-                "Doručujeme jen v České republice.",
+                `Doručujeme jen v České republice. ${SLOVAKIA_ORDER_NOTE}`,
               ],
             },
           ]

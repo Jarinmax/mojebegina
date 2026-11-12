@@ -9,6 +9,7 @@
 // 4) zobrazená cena (výpočet pokladny v prohlížeči) = cena serveru,
 // 5) stav Production (bez sloupce, bez přepínače): paušál, weight_g se nečte,
 // 6) uložená objednávka přes ovladač Neonu = zobrazená = spočtená serverem.
+import { SLOVAKIA_ORDER_NOTE } from "@/lib/eshop/infoPages";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -303,7 +304,7 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     });
 
     it.each(["811 01", "04001", "960 01"])("slovenské PSČ %s → doručujeme jen v ČR", (zip) => {
-      expect(validate({ zip })).toEqual({ ok: false, error: "Doručujeme jen v České republice — zadejte prosím české PSČ." });
+      expect(validate({ zip })).toEqual({ ok: false, error: `Doručujeme jen v České republice — zadejte prosím české PSČ. ${SLOVAKIA_ORDER_NOTE}` });
     });
   });
 });
