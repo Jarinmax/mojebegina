@@ -1,6 +1,8 @@
 -- Sirupy (12. 11. 2026): skutečná hmotnost balení pro výpočet dopravy.
 -- Sirup je těžší než voda (zváženo ve výrobě, sdělení Lucie 12. 11. 2026):
---   3 l sirupu   = 3 680 g (dosud 3 000 g),
+--   3 l sirupu   = 3 680 g + krabice 126 g = 3 806 g → zaokrouhleno 3 800 g
+--                  (dosud 3 000 g; sirupy 3 l se posílají vždy v krabici;
+--                  vážen jeden druh, proto zaokrouhlení),
 --   650 ml sáček =   780 g (dosud   750 g).
 -- Mění se JEN weight_g u 14 balení sirupů → e-shop podle toho sám počítá
 -- pásmo chlazené přepravy. Ceny, názvy, SKU, objemy, ostatní produkty
@@ -24,7 +26,7 @@ BEGIN
     INTO rest_before
     FROM product_variants v JOIN products p ON p.id = v.product_id JOIN product_categories c ON c.id = p.category_id;
 
-  UPDATE product_variants v SET weight_g = 3680, updated_at = now()
+  UPDATE product_variants v SET weight_g = 3800, updated_at = now()
     FROM products p JOIN product_categories c ON c.id = p.category_id
    WHERE p.id = v.product_id AND c.slug = 'sirupy' AND v.volume_ml = 3000 AND v.weight_g = 3000;
   GET DIAGNOSTICS n_big = ROW_COUNT;
@@ -43,7 +45,7 @@ BEGIN
       FROM product_variants v JOIN products p ON p.id = v.product_id JOIN product_categories c ON c.id = p.category_id) THEN
     RAISE EXCEPTION 'Změnilo by se něco jiného než hmotnost sirupů — zastavuji, nic se nezměnilo.';
   END IF;
-  RAISE NOTICE 'Hotovo: sirupy 3 l = 3 680 g, 650 ml = 780 g (14 balení). Ostatní beze změny.';
+  RAISE NOTICE 'Hotovo: sirupy 3 l = 3 800 g (s krabicí), 650 ml = 780 g (14 balení). Ostatní beze změny.';
 END $$;
 
 COMMIT;
