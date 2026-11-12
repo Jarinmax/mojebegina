@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateCommissionKc,
+  calculateWorkEarnedKc,
   inviteCollaboratorInputSchema,
   productMovementInputSchema,
+  workEntryDeleteInputSchema,
+  workEntryEditInputSchema,
   workEntryInputSchema,
 } from "../collaboratorCardsValidation";
 
@@ -25,21 +28,59 @@ describe("karta spolupracovnice", () => {
     }).success).toBe(true);
   });
 
-  it("zápis práce hlídá počet, čas, odměnu a datum", () => {
+  it("zápis práce hlídá počet, čas, typ odměny, sazbu a datum", () => {
     expect(workEntryInputSchema.safeParse({
       description: "Příspěvek o medových svíčkách",
       postCount: 1,
       durationMinutes: 45,
-      earnedKc: 300,
+      rewardType: "per_post",
+      rateKc: 300,
       occurredOn: "2026-11-07",
     }).success).toBe(true);
     expect(workEntryInputSchema.safeParse({
       description: "",
       postCount: -1,
       durationMinutes: -2,
-      earnedKc: -10,
+      rewardType: "per_post",
+      rateKc: -10,
       occurredOn: "dnes",
     }).success).toBe(false);
+    expect(workEntryInputSchema.safeParse({
+      description: "Chybí sazba",
+      postCount: 1,
+      durationMinutes: 10,
+      rewardType: "hourly",
+      rateKc: 0,
+      occurredOn: "2026-11-07",
+    }).success).toBe(false);
+  });
+
+  it("částka je vždy sazba × množství — hodinovka podle minut, příspěvek podle počtu", () => {
+    expect(calculateWorkEarnedKc("hourly", 300, 1, 90)).toBe(450); // 300 Kč/h × 1,5 h
+    expect(calculateWorkEarnedKc("hourly", 300, 1, 45)).toBe(225); // 300 Kč/h × 45 min (0,75 h)
+    expect(calculateWorkEarnedKc("per_post", 200, 3, 0)).toBe(600);
+  });
+
+  it("úprava záznamu vyžaduje i jeho id; smazání jen id", () => {
+    expect(workEntryEditInputSchema.safeParse({
+      id: "6c756369-652d-4000-8000-000000000101",
+      description: "Oprava popisu",
+      postCount: 2,
+      durationMinutes: 0,
+      rewardType: "per_post",
+      rateKc: 150,
+      occurredOn: "2026-11-10",
+    }).success).toBe(true);
+    expect(workEntryEditInputSchema.safeParse({
+      description: "Bez id",
+      postCount: 2,
+      durationMinutes: 0,
+      rewardType: "per_post",
+      rateKc: 150,
+      occurredOn: "2026-11-10",
+    }).success).toBe(false);
+    expect(workEntryDeleteInputSchema.safeParse({ id: "6c756369-652d-4000-8000-000000000101" }).success).toBe(true);
+    expect(workEntryDeleteInputSchema.safeParse({ id: "neni-uuid" }).success).toBe(false);
   });
 
   it("pozvání spolupracovnice vyžaduje jméno a platný e-mail; e-mail se ořízne a dá na malá písmena", () => {
