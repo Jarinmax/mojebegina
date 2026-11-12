@@ -1,6 +1,7 @@
 // Security Phase 16 (Obchod/CRM 1.0) — čistá validace, bez "server-only",
 // stejný princip jako orderValidation.ts: testovatelná bez databáze,
 // kontrola a dotaz se skládají až v leads.ts.
+import { pragueDayStart, formatPragueDate } from "./callActivityValidation";
 
 export const LEAD_STAGES = [
   "new",
@@ -170,6 +171,8 @@ export type CallLogInput = {
   note: string;
   nextStage: string;
   nextFollowUpAt: string;
+  /** Nepovinný přesný čas (HH:MM) domluveného hovoru — jen s vyplněným nextFollowUpAt. */
+  scheduledCallTime: string;
   nextStepNote: string;
 };
 
@@ -177,6 +180,7 @@ export type ValidatedCallLogInput = {
   note: string | null;
   nextStage: LeadStage | null;
   nextFollowUpAt: Date | null;
+  scheduledCallAt: Date | null;
   nextStepNote: string | null;
 };
 
@@ -214,6 +218,24 @@ export function validateCallLogInput(
     nextFollowUpAt = parsed;
   }
 
+  // Přesný čas má smysl jen spolu s datem — bez data by ho nebylo možné
+  // k ničemu ukotvit (žádné "dnes v 10:00", pokud datum zůstává beze změny).
+  // pragueDayStart (stejný zdroj jako Dnešní volání) dá přesnou půlnoc
+  // Europe/Prague bez ruční DST aritmetiky.
+  const scheduledCallTimeRaw = trimOrNull(input.scheduledCallTime);
+  let scheduledCallAt: Date | null = null;
+  if (scheduledCallTimeRaw) {
+    if (!nextFollowUpAtRaw) {
+      return { ok: false, error: "Čas hovoru má smysl jen spolu s datem dalšího kontaktu." };
+    }
+    const match = /^(\d{2}):(\d{2})$/.exec(scheduledCallTimeRaw);
+    if (!match) return { ok: false, error: "Neplatný čas hovoru." };
+    const hh = Number(match[1]);
+    const mm = Number(match[2]);
+    if (hh > 23 || mm > 59) return { ok: false, error: "Neplatný čas hovoru." };
+    scheduledCallAt = new Date(pragueDayStart(nextFollowUpAtRaw).getTime() + (hh * 60 + mm) * 60_000);
+  }
+
   const nextStepNote = trimOrNull(input.nextStepNote);
   if (nextStepNote && nextStepNote.length > 500) {
     return { ok: false, error: "Popis dalšího kroku je příliš dlouhý (max. 500 znaků)." };
@@ -230,7 +252,7 @@ export function validateCallLogInput(
     return { ok: false, error: "Zápis je prázdný — vyplňte alespoň jedno pole (poznámku, fázi, další kontakt nebo další krok)." };
   }
 
-  return { ok: true, value: { note, nextStage, nextFollowUpAt, nextStepNote } };
+  return { ok: true, value: { note, nextStage, nextFollowUpAt, scheduledCallAt, nextStepNote } };
 }
 
 // Počítáno, ne uložené — stejný princip jako isPaymentOverdue
@@ -241,6 +263,12 @@ export function isFollowUpOverdue(stage: LeadStage, nextFollowUpAt: Date | null)
     return false;
   }
   return nextFollowUpAt.getTime() < Date.now();
+}
+
+// Pro ranní upozornění (scripts spouštěné cronem i detail leadu) — "dnes"
+// je kalendářní den v Europe/Prague, ne UTC den serveru.
+export function isScheduledCallToday(scheduledCallAt: Date, now: Date = new Date()): boolean {
+  return formatPragueDate(scheduledCallAt) === formatPragueDate(now);
 }
 
 export type LeadSortRow = {

@@ -2,7 +2,12 @@ import Link from "next/link";
 import { listWorkNotifications, listWorkTasks, type WorkTaskView } from "@/lib/data/workTasks";
 import { getWorkerQueueView, type WorkerQueueView } from "@/lib/data/dailyCalls";
 import { getTodayCalls } from "@/lib/data/callHistory";
+import { getScheduledCallsToday, type ScheduledCallItem } from "@/lib/data/leads";
+import { getAuthContext } from "@/lib/data/authContext";
+import { isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import TodayCalls from "./TodayCalls";
+import ScheduledCalls from "./ScheduledCalls";
+import PushSubscribeButton from "./PushSubscribeButton";
 import { WORK_ASSIGNEES } from "@/lib/data/workTasksAuth";
 import { pragueToday } from "@/lib/data/workTasksValidation";
 import TaskCard from "./TaskCard";
@@ -22,6 +27,14 @@ async function loadCalls(): Promise<(WorkerQueueView & { todayCalls: Awaited<Ret
   }
 }
 
+async function loadScheduledCalls(): Promise<ScheduledCallItem[]> {
+  try {
+    return await getScheduledCallsToday();
+  } catch {
+    return []; // CRM nemusí být pro tohoto uživatele dostupné — obrazovka úkolů funguje dál
+  }
+}
+
 function Section({ title, tasks, today, isManager, empty }: { title: string; tasks: WorkTaskView[]; today: string; isManager: boolean; empty?: string }) {
   if (tasks.length === 0 && !empty) return null;
   return (
@@ -38,11 +51,14 @@ function Section({ title, tasks, today, isManager, empty }: { title: string; tas
 }
 
 export default async function PracePage() {
-  const [{ isManager, today, tasks, cancelled, photosEnabled }, calls, notifications] = await Promise.all([
+  const [{ isManager, today, tasks, cancelled, photosEnabled }, calls, notifications, scheduledCalls, authCtx] = await Promise.all([
     listWorkTasks(),
     loadCalls(),
     listWorkNotifications(),
+    loadScheduledCalls(),
+    getAuthContext(),
   ]);
+  const isCallWorker = isDailyCallWorker(authCtx);
   const active = tasks.filter((t) => t.status === "open" || t.status === "returned");
   const waiting = tasks.filter((t) => t.status === "submitted");
   const done = tasks.filter((t) => t.status === "done");
@@ -59,6 +75,10 @@ export default async function PracePage() {
       </div>
 
       <NotificationsPanel items={notifications} />
+
+      {isCallWorker && <PushSubscribeButton />}
+
+      {isCallWorker && <ScheduledCalls calls={scheduledCalls} />}
 
       {(isManager || tasks.some((t) => /^BEG-\d{2}/.test(t.title))) && (
         <Link href="/prace/kontrola-eshopu" className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900">

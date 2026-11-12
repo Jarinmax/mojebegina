@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/migrate-mcp-production.mjs && node scripts/migrate-work-tasks.mjs && node scripts/migrate-eshop-coupons.mjs && node scripts/migrate-order-fulfillment.mjs && node scripts/migrate-sklad.mjs && node scripts/migrate-sklad-dodavatel-volitelny.mjs && node scripts/migrate-collaborators.mjs && node scripts/migrate-eshop-billing.mjs && node scripts/migrate-petr-vyroba.mjs && node scripts/migrate-lucie-work-entry-edit.mjs",
+    "prebuild": "node scripts/migrate-mcp-production.mjs && node scripts/migrate-work-tasks.mjs && node scripts/migrate-eshop-coupons.mjs && node scripts/migrate-order-fulfillment.mjs && node scripts/migrate-sklad.mjs && node scripts/migrate-sklad-dodavatel-volitelny.mjs && node scripts/migrate-collaborators.mjs && node scripts/migrate-eshop-billing.mjs && node scripts/migrate-petr-vyroba.mjs && node scripts/migrate-lucie-work-entry-edit.mjs && node scripts/migrate-jarda-call-reminders.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -28,6 +28,7 @@
     "react-dom": "19.2.8",
     "sharp": "^0.35.4",
     "stripe": "22.6.2",
+    "web-push": "^4.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -39,6 +40,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",

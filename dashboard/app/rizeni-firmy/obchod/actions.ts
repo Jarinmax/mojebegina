@@ -65,6 +65,7 @@ export async function logCallOutcomeAction(
     nextStage: String(formData.get("nextStage") ?? ""),
     nextFollowUpAt: String(formData.get("nextFollowUpAt") ?? ""),
     nextStepNote: String(formData.get("nextStepNote") ?? ""),
+    scheduledCallTime: String(formData.get("scheduledCallTime") ?? ""),
   });
 
   if (!result.ok) {

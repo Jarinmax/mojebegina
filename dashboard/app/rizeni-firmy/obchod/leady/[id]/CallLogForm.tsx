@@ -5,6 +5,7 @@ import { logCallOutcomeAction, type ActionState } from "../../actions";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
 import { STAGE_LABELS } from "../../leadLabels";
 import { formatCzechDate } from "@/lib/format";
+import { formatPragueDateTime } from "@/lib/data/callActivityValidation";
 import type { LeadStage } from "@/lib/data/leadValidation";
 
 const initialState: ActionState = null;
@@ -12,6 +13,7 @@ const initialState: ActionState = null;
 type Props = {
   leadId: string;
   nextFollowUpAt: Date | null;
+  scheduledCallAt: Date | null;
   nextStepNote: string | null;
 };
 
@@ -26,7 +28,7 @@ type Props = {
 // Proto se aktuální naplánovaný stav (nextFollowUpAt/nextStepNote z DB,
 // ne z formuláře) zobrazuje samostatně nad formulářem — nezávisle na tom,
 // jestli jsou pole zrovna vyplněná nebo prázdná.
-export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Props) {
+export default function CallLogForm({ leadId, nextFollowUpAt, scheduledCallAt, nextStepNote }: Props) {
   const boundAction = logCallOutcomeAction.bind(null, leadId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
@@ -41,6 +43,9 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Pr
           {nextFollowUpAt && (
             <p>
               Další kontakt: <span className="font-medium">{formatCzechDate(nextFollowUpAt)}</span>
+              {scheduledCallAt && (
+                <span className="font-medium"> v {formatPragueDateTime(scheduledCallAt).slice(11)}</span>
+              )}
             </p>
           )}
           {nextStepNote && (
@@ -87,6 +92,18 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote }: Pr
             type="date"
             className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
           />
+        </div>
+        <div>
+          <label htmlFor="scheduledCallTime" className="text-xs text-neutral-500 mb-1 block">
+            Přesný čas hovoru (nepovinné)
+          </label>
+          <input
+            id="scheduledCallTime"
+            name="scheduledCallTime"
+            type="time"
+            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+          />
+          <p className="mt-1 text-xs text-neutral-400">Vyplňte spolu s datem — ráno v ten den přijde upozornění.</p>
         </div>
       </div>
 
