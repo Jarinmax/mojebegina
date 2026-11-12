@@ -28,6 +28,16 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "ikona-sirupy.webp",
     "ikona-zmrzliny.webp"
   ],
+  "ovocne-napoje/begina-3l": [
+    "cervankove-nebe.jpg",
+    "dum-u-jezera.jpg",
+    "malinovy-svarak-nealko.jpg"
+  ],
+  "ovocne-napoje/hlavni": [
+    "cervankove-nebe.jpg",
+    "dum-u-jezera.jpg",
+    "malinovy-svarak-nealko.jpg"
+  ],
   "polevky/begina-3l": [
     "dynova-polevka.jpg",
     "gulasova-polevka-z-hlivy-ustricne.jpg",
