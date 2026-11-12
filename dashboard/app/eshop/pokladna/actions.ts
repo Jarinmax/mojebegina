@@ -128,6 +128,7 @@ export async function submitCheckoutAction(
       note: field("note"),
       termsAccepted: formData.get("termsAccepted") === "on",
       ageConfirmed: formData.get("ageConfirmed") === "on",
+      boxed: formData.get("boxed") === "on",
       couponCodes,
     },
     await getCatalogIndex(),

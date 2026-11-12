@@ -13,6 +13,7 @@ import { getShippingMethod, quoteShipping, type ShippingMethod, type ShippingMod
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
+import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, isBoxEligible, weightWithBox } from "./boxOption";
 
 export type PricedLine = {
   sku: string;
@@ -36,7 +37,17 @@ export type PricedCart = {
   discountKc: number;
   /** Uplatněné slevové kódy (malými písmeny) a sleva každého z nich. */
   coupons: AppliedCoupon[];
+  /**
+   * Volitelné krabice (boxOption.ts) — samostatný řádek mimo zboží: slevové
+   * kódy se z něj nepočítají. totalKc = subtotal − discount + shipping + krabice.
+   */
+  packaging?: PricedLine | null;
 };
+
+/** Cena krabic v objednávce (0 = bez krabic). */
+export function packagingKc(priced: Pick<PricedCart, "packaging">): number {
+  return priced.packaging?.lineTotalKc ?? 0;
+}
 
 export type CartInputLine = { sku: string; quantity: number };
 
@@ -44,7 +55,7 @@ export function priceCart(
   input: CartInputLine[],
   shippingMethodId: string,
   index: CatalogIndex,
-  options: { shippingMode?: ShippingMode } = {}
+  options: { shippingMode?: ShippingMode; /** zákazník chce balení 3 l zabalit do krabice */ boxed?: boolean } = {}
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   const shippingMode = options.shippingMode ?? "flat";
   if (input.length === 0) {
@@ -63,6 +74,7 @@ export function priceCart(
   const lines: PricedLine[] = [];
   const weights: (number | null)[] = [];
   let containsAgeRestricted = false;
+  let boxes = 0;
   for (const item of input) {
     const found = index.getVariant(item.sku);
     if (!found) {
@@ -93,7 +105,9 @@ export function priceCart(
       };
     }
     containsAgeRestricted ||= product.isAgeRestricted;
-    weights.push(variant.weightGrams);
+    const boxed = options.boxed === true && isBoxEligible(product, variant);
+    if (boxed) boxes += item.quantity;
+    weights.push(weightWithBox(variant.weightGrams, boxed));
     lines.push({
       sku: variant.sku,
       name,
@@ -116,6 +130,10 @@ export function priceCart(
   }
 
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
+  const packaging: PricedLine | null =
+    boxes > 0
+      ? { sku: BOX_SKU, name: BOX_NAME, quantity: boxes, unitPriceKc: BOX_PRICE_KC, lineTotalKc: boxes * BOX_PRICE_KC }
+      : null;
   return {
     ok: true,
     value: {
@@ -123,11 +141,12 @@ export function priceCart(
       shipping,
       subtotalKc,
       shippingKc: quote.priceKc,
-      totalKc: subtotalKc + quote.priceKc,
+      totalKc: subtotalKc + quote.priceKc + (packaging?.lineTotalKc ?? 0),
       weightGrams: quote.weightGrams,
       containsAgeRestricted,
       discountKc: 0,
       coupons: [],
+      packaging,
     },
   };
 }
@@ -148,6 +167,6 @@ export function withCoupons(
     coupons: result.applied,
     discountKc,
     shippingKc,
-    totalKc: priced.subtotalKc - discountKc + shippingKc,
+    totalKc: priced.subtotalKc - discountKc + shippingKc + packagingKc(priced),
   };
 }
