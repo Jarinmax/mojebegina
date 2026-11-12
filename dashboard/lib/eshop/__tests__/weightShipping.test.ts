@@ -430,9 +430,9 @@ describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
   });
 
   it("nabídka: osobní odběr zdarma v obou režimech; paušál beze změny", () => {
-    expect(shippingMethodsFor("flat").map((m) => [m.id, m.priceKc])).toEqual([["osobni-odber", 0], ["rozvoz", 99]]);
-    expect(shippingMethodsFor("weight")[0]).toEqual(shippingMethodsFor("flat")[0]);
-    expect(shippingMethodsFor("weight")[1].description).toContain("v České republice");
+    expect(shippingMethodsFor("flat").map((m) => [m.id, m.priceKc])).toEqual([["rozvoz", 99], ["osobni-odber", 0]]);
+    expect(shippingMethodsFor("weight")[1]).toEqual(shippingMethodsFor("flat")[1]);
+    expect(shippingMethodsFor("weight")[0].description).toContain("v České republice");
   });
 
   it("stránka Doprava: v režimu podle hmotnosti celý ceník z shippingRates.ts, nad 400 kg individuálně; bez dopravy zdarma", () => {

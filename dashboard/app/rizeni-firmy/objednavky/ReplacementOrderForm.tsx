@@ -33,7 +33,10 @@ export type ReplacementFormData = {
 export default function ReplacementOrderForm({ orderId, data }: { orderId: string; data: ReplacementFormData }) {
   const [state, formAction, pending] = useActionState(createReplacementAction.bind(null, orderId), initialState);
   const [lines, setLines] = useState(() => Array.from({ length: ROWS }, () => ({ sku: "", quantity: 1 })));
-  const [shippingId, setShippingId] = useState<string>(data.shipping[0]?.id ?? "");
+  const [shippingId, setShippingId] = useState<string>(
+    // interní náhradní objednávka: výchozí zůstává osobní odběr (pořadí v e-shopu se 12. 11. 2026 změnilo)
+    (data.shipping.find((m) => m.id === "osobni-odber") ?? data.shipping[0])?.id ?? ""
+  );
 
   const bySku = new Map(data.products.map((p) => [p.sku, p]));
   const shipping = data.shipping.find((s) => s.id === shippingId);
