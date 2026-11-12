@@ -17,7 +17,7 @@ import {
   quoteShipping,
   type ShippingMode,
 } from "@/lib/eshop/shipping";
-import { BOX_NAME, BOX_PRICE_KC, boxCount, isBoxEligible, weightWithBox } from "@/lib/eshop/boxOption";
+import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
@@ -72,7 +72,7 @@ type Values = {
   paymentMethodId: string;
   termsAccepted: boolean;
   ageConfirmed: boolean;
-  boxed: boolean;
+  boxes: number;
 };
 
 const emptyValues: Values = {
@@ -99,7 +99,7 @@ const emptyValues: Values = {
   paymentMethodId: "prevod",
   termsAccepted: false,
   ageConfirmed: false,
-  boxed: false,
+  boxes: 0,
 };
 
 export default function CheckoutForm({
@@ -379,15 +379,15 @@ export default function CheckoutForm({
 
   // Cena dopravy jen pro zobrazení — server ji spočítá znovu (priceCart).
   // Volitelné krabice (boxOption.ts): jedna na každé balení 3 l mimo sirupy.
-  const boxes = boxCount(lines);
-  const boxed = values.boxed && boxes > 0;
-  const boxesKc = boxed ? boxes * BOX_PRICE_KC : 0;
+  const boxesMax = boxCount(lines);
+  const boxes = clampBoxes(values.boxes, boxesMax);
+  const boxesKc = boxes * BOX_PRICE_KC;
   const quoteLines = lines.map((line) => ({
     sku: line.sku,
     name: line.name,
     quantity: line.quantity,
-    weightGrams: weightWithBox(line.variant.weightGrams, boxed && isBoxEligible(line.product, line.variant)),
-  }));
+    weightGrams: line.variant.weightGrams,
+  })).concat(boxWeightLines(boxes));
   const quotes = new Map(
     shippingMethods.map((method) => [method.id, quoteShipping(method, quoteLines, shippingMode, OPERATOR)])
   );
@@ -643,28 +643,50 @@ export default function CheckoutForm({
           </div>
         </fieldset>
 
-        {boxes > 0 && (
+        {boxesMax > 0 && (
           <fieldset>
             <legend className="font-medium mb-3">Balení</legend>
-            <label className="flex items-start gap-3 border border-neutral-200 rounded-xl p-3.5 cursor-pointer">
-              <input
-                type="checkbox"
-                name="boxed"
-                checked={values.boxed}
-                onChange={(e) => set("boxed", e.target.checked)}
-                className="mt-1 accent-begina-primary-900"
-              />
-              <span>
-                <span className="flex justify-between gap-3 text-sm font-medium">
-                  <span>Zabalit do kartonové krabice</span>
-                  <span className="tabular-nums whitespace-nowrap">+{formatKc(boxes * BOX_PRICE_KC)}</span>
+            <div className="border border-neutral-200 rounded-xl p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="boxes" className="text-sm font-medium">Zabalit do kartonové krabice</label>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label="Ubrat krabici"
+                    disabled={boxes <= 0}
+                    onClick={() => set("boxes", Math.max(0, boxes - 1))}
+                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <input
+                    id="boxes"
+                    name="boxes"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={boxesMax}
+                    value={boxes}
+                    onChange={(e) => set("boxes", clampBoxes(e.target.value, boxesMax))}
+                    className="w-14 h-9 text-center border border-neutral-300 rounded-lg tabular-nums"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Přidat krabici"
+                    disabled={boxes >= boxesMax}
+                    onClick={() => set("boxes", Math.min(boxesMax, boxes + 1))}
+                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                  <span className="text-sm tabular-nums whitespace-nowrap w-20 text-right">+{formatKc(boxesKc)}</span>
                 </span>
-                <span className="block text-xs text-neutral-500 mt-0.5">
-                  Balení 3 l běžně posíláme bez vnější krabice. Za příplatek {formatKc(BOX_PRICE_KC)} za kus je zabalíme
-                  každé do vlastní krabice ({boxes} ks). Sirupy 3 l posíláme v krabici vždy, bez příplatku.
-                </span>
-              </span>
-            </label>
+              </div>
+              <p className="text-xs text-neutral-500 mt-2">
+                Balení 3 l běžně posíláme bez vnější krabice. Krabice stojí {formatKc(BOX_PRICE_KC)} za kus — zvolte, kolik
+                balení chcete zabalit (nejvýše {boxesMax}). Sirupy 3 l posíláme v krabici vždy, bez příplatku.
+              </p>
+            </div>
           </fieldset>
         )}
 
@@ -691,7 +713,7 @@ export default function CheckoutForm({
               <span className="tabular-nums whitespace-nowrap">−{formatKc(discountKc)}</span>
             </li>
           )}
-          {boxed && (
+          {boxes > 0 && (
             <li className="py-2 flex justify-between gap-3">
               <span>
                 {boxes}× {BOX_NAME}
