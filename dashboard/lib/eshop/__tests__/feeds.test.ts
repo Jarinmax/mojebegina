@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googleMerchantFeed } from "../feeds";
+import { googleMerchantFeed, litres } from "../feeds";
 import type { Catalog, Product } from "../types";
 
 const base = {
@@ -20,8 +20,8 @@ const sirup = {
   image: "/eshop/sirupy/lipovy.jpg",
   gallery: [{ url: "/eshop/sirupy/lipovy.jpg", alt: null }, { url: "/eshop/sirupy/lipovy-sacek.jpg", alt: null }],
   variants: [
-    { sku: "lipovy-sirup-3l", label: "3 l", priceKc: 549, weightGrams: 3000 },
-    { sku: "lipovy-sirup-750ml", label: "650 ml", priceKc: 199, weightGrams: 750 },
+    { sku: "lipovy-sirup-3l", label: "3 l", priceKc: 549, weightGrams: 3000, volumeMl: 3000 },
+    { sku: "lipovy-sirup-750ml", label: "650 ml", priceKc: 199, weightGrams: 750, volumeMl: 650 },
   ],
 } as unknown as Product;
 const koktejl = { ...sirup, slug: "kosmopolitan", name: "Kosmopolitan", category: "koktejly", isAgeRestricted: true } as unknown as Product;
@@ -49,5 +49,16 @@ describe("googleMerchantFeed", () => {
     expect(xml).not.toContain("y-3l");
     expect(xml).toMatch(/<g:id>x-3l<\/g:id>[\s\S]*?<g:availability>out_of_stock<\/g:availability>/);
     expect(xml).not.toMatch(/<g:shipping_weight>null/);
+  });
+  it("kategorie Google (nealko nápoje) a jednotková cena za litr", () => {
+    expect(xml.match(/<g:google_product_category>Food, Beverages &amp; Tobacco &gt; Beverages<\/g:google_product_category>/g)).toHaveLength(3);
+    expect(xml).not.toContain("Alcoholic");
+    expect(xml).toContain("<g:unit_pricing_measure>3 l</g:unit_pricing_measure>");
+    expect(xml).toContain("<g:unit_pricing_measure>0.65 l</g:unit_pricing_measure>");
+    expect(xml.match(/<g:unit_pricing_base_measure>1 l<\/g:unit_pricing_base_measure>/g)).toHaveLength(2);
+    expect(litres(500)).toBe("0.5 l");
+    // balení bez známého objemu jednotkovou cenu nemá (nehádá se)
+    expect(xml).toMatch(/<g:id>x-3l<\/g:id>(?:(?!<\/item>)[\s\S])*<\/item>/);
+    expect(xml.match(/<g:id>x-3l<\/g:id>(?:(?!<\/item>)[\s\S])*/)![0]).not.toContain("unit_pricing_measure");
   });
 });

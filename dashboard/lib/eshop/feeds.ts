@@ -11,6 +11,23 @@ const esc = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 const abs = (url: string) => (/^https?:\/\//.test(url) ? url : `${PUBLIC_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`);
 
+// Kategorie Google (úřední názvy taxonomie, anglicky). Bez ní Google zařazuje
+// podle názvu — „Malinový svařák – nealko“ vyhodnotil jako alkohol (12. 11. 2026).
+// Alkoholické produkty se do katalogu nedávají vůbec, takže vše zde je nealko.
+const BEVERAGES = "Food, Beverages & Tobacco > Beverages";
+const GOOGLE_CATEGORY: Record<string, string> = {
+  polevky: "Food, Beverages & Tobacco > Food Items > Soups & Broths",
+  sirupy: BEVERAGES,
+  caje: "Food, Beverages & Tobacco > Beverages > Tea & Infusions",
+  "ovocne-napoje": BEVERAGES,
+  zmrzliny: "Food, Beverages & Tobacco > Food Items > Frozen Desserts & Novelties > Ice Cream & Frozen Yogurt",
+};
+
+/** „3 l“, „0.65 l“ — objem balení v litrech pro jednotkovou cenu (cena za 1 l). */
+export function litres(volumeMl: number): string {
+  return `${Number((volumeMl / 1000).toFixed(3))} l`;
+}
+
 function photos(product: Product): string[] {
   const urls = product.gallery?.length ? product.gallery.map((p) => p.url) : product.image ? [product.image] : [];
   return urls.map(abs);
@@ -47,6 +64,13 @@ export function googleMerchantFeed(catalog: Catalog): string {
           "      <g:condition>new</g:condition>",
           "      <g:identifier_exists>no</g:identifier_exists>",
           `      <g:product_type>${esc(categoryName.get(product.category) ?? product.category)}</g:product_type>`,
+          `      <g:google_product_category>${esc(GOOGLE_CATEGORY[product.category] ?? "Food, Beverages & Tobacco")}</g:google_product_category>`,
+          ...(variant.volumeMl && variant.volumeMl > 0
+            ? [
+                `      <g:unit_pricing_measure>${litres(variant.volumeMl)}</g:unit_pricing_measure>`,
+                "      <g:unit_pricing_base_measure>1 l</g:unit_pricing_base_measure>",
+              ]
+            : []),
           ...(variant.label ? [`      <g:size>${esc(variant.label)}</g:size>`] : []),
           ...(variant.weightGrams ? [`      <g:shipping_weight>${variant.weightGrams} g</g:shipping_weight>`] : []),
           "    </item>",
