@@ -360,7 +360,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     const sent = await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
     expect(sent.data).toMatchObject({ emailed: true, invoiceNumber: next.number, recipients: { to: [order.contact_email], bcc: ["info@begina.cz"] } });
     expect(invoiceMails()).toHaveLength(1);
-    expect(invoiceMails()[0]).toMatchObject({ to: [order.contact_email], bcc: ["info@begina.cz"] });
+    expect(invoiceMails()[0]).toMatchObject({ from: "Begina <info@begina.cz>", replyTo: "info@begina.cz", to: [order.contact_email], bcc: ["info@begina.cz"] });
     expect(invoiceMails()[0].attachments?.[0].filename).toBe(`faktura-${next.number}.pdf`);
     const resend = await call(viner, "send_invoice_to_customer", { order_id: order.id, confirm: true, idempotency_key: randomUUID() });
     expect(resend.data).toMatchObject({ emailed: false, alreadySentAt: expect.any(String) });

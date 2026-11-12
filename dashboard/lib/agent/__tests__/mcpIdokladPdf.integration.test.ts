@@ -134,7 +134,8 @@ describe("PDF faktury z iDokladu přes MCP (ChatGPT) a MojeBegina", { timeout: 1
       MCP_ALLOW_INVOICING: "on",
     })!;
     await db.execute(sql.raw(`INSERT INTO user_roles (user_id, system_role) VALUES ('${LUCIE}', 'EXECUTIVE'), ('${OTHER}', 'EXECUTIVE')`));
-    await db.execute(sql.raw(`INSERT INTO user_profiles (user_id, name, email) VALUES ('${LUCIE}', 'Lucie Königsbergová', 'lucie.konigsbergova@seznam.cz'), ('${OTHER}', 'Kolega', 'kolega@begina.cz')`));
+    await db.execute(sql.raw(`INSERT INTO user_profiles (user_id, name, email) VALUES ('${LUCIE}', 'Lucie Königsbergová', 'lucie.konigsbergova@seznam.cz'), ('${OTHER}', 'Kolega', 'kolega@begina.cz') ON CONFLICT (user_id) DO NOTHING`));
+    await db.execute(sql.raw(`INSERT INTO user_profiles (user_id, name, email) VALUES ('${VINER}', 'Jaroslav Viner', 'viner.jaroslav@gmail.com') ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email`));
     lucieRead = await connect(LUCIE, "EXECUTIVE", true, false);
     lucieInvoicing = await connect(LUCIE, "EXECUTIVE", false, true);
     other = await connect(OTHER, "EXECUTIVE", true, true);
@@ -222,7 +223,8 @@ describe("PDF faktury z iDokladu přes MCP (ChatGPT) a MojeBegina", { timeout: 1
     });
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0]).toMatchObject({
-      from: "Begina <objednavky@begina.cz>",
+      from: "Begina <info@begina.cz>",
+      replyTo: "info@begina.cz",
       to: ["lucie.konigsbergova@gmail.com", "info@begina.cz"],
       subject: "Faktura 20260202 – Begina",
       attachments: [{ filename: "faktura-20260202.pdf", contentBase64: PDF_BASE64, contentType: "application/pdf" }],
@@ -245,5 +247,53 @@ describe("PDF faktury z iDokladu přes MCP (ChatGPT) a MojeBegina", { timeout: 1
 
     const audit = await rows(sql`SELECT user_id, status, result FROM agent_audit_log WHERE tool = 'send_idoklad_invoice_email' AND status = 'ok' ORDER BY created_at`);
     expect(audit[0]).toMatchObject({ user_id: LUCIE, result: { to: ["lucie.konigsbergova@gmail.com", "info@begina.cz"], invoiceNumber: "20260202", messageId: "msg_1" } });
+  });
+  it("send_idoklad_invoice_email: „pošli mi to“ = e-mail účtu (to_me), kopie mezi vystavovateli; odesílatel info@begina.cz a skrytá kopie info@begina.cz", async () => {
+    const saved = process.env.IDOKLAD_INVOICE_EMAIL_ALLOWED;
+    process.env.IDOKLAD_INVOICE_EMAIL_ALLOWED = "";
+    try {
+      // GPT si „mně“ domyslí jako Luciin Gmail z ChatGPT → odmítnuto s nápovědou to_me
+      const guessed = await call(lucieInvoicing, "send_idoklad_invoice_email", {
+        number: "20260202",
+        to: ["lucie.konigsbergova@gmail.com", "viner.jaroslav@gmail.com"],
+        confirm: true,
+        idempotency_key: randomUUID(),
+      });
+      expect(guessed).toMatchObject({ isError: true, text: expect.stringMatching(/lucie\.konigsbergova@gmail\.com fakturu poslat nelze.*to_me=true/) });
+      expect(guessed!.text).not.toMatch(/viner\.jaroslav@gmail\.com fakturu/);
+      expect(mail.sent).toEqual([]);
+
+      // bez příjemců a bez to_me nic
+      expect(await call(lucieInvoicing, "send_idoklad_invoice_email", { number: "20260202", confirm: true, idempotency_key: randomUUID() })).toMatchObject({
+        isError: true,
+        text: expect.stringMatching(/to_me=true/),
+      });
+
+      // správně: to_me (Luciin Seznam z účtu) + Jaroslavův Gmail (vystavovatel faktur)
+      const sent = await call(lucieInvoicing, "send_idoklad_invoice_email", {
+        number: "20260202",
+        to_me: true,
+        to: ["viner.jaroslav@gmail.com"],
+        confirm: true,
+        idempotency_key: randomUUID(),
+      });
+      expect(sent!.isError, sent!.text).toBe(false);
+      expect(sent!.data).toMatchObject({
+        sent: true,
+        to: ["lucie.konigsbergova@seznam.cz", "viner.jaroslav@gmail.com"],
+        bcc: ["info@begina.cz"],
+        from: "Begina <info@begina.cz>",
+        recipientKinds: { "lucie.konigsbergova@seznam.cz": "own", "viner.jaroslav@gmail.com": "team" },
+      });
+      expect(mail.sent).toHaveLength(1);
+      expect(mail.sent[0]).toMatchObject({
+        from: "Begina <info@begina.cz>",
+        replyTo: "info@begina.cz",
+        to: ["lucie.konigsbergova@seznam.cz", "viner.jaroslav@gmail.com"],
+        bcc: ["info@begina.cz"],
+      });
+    } finally {
+      process.env.IDOKLAD_INVOICE_EMAIL_ALLOWED = saved;
+    }
   });
 });
