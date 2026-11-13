@@ -22,8 +22,11 @@ export default function CategoryTile({
   sizes: string;
   tabIndex?: number;
 }) {
-  const backdrop = imageBackdrop(category.image);
-  const icon = category.image ? null : HOME_CATEGORIES.find((c) => c.slug === category.slug)?.icon ?? null;
+  // Od 11. 11. 2026 má přednost nová ikona kategorie (stejná jako na úvodu);
+  // staré tmavé fotky kategorií se ukážou jen tam, kde ikona chybí.
+  const icon = HOME_CATEGORIES.find((c) => c.slug === category.slug)?.icon ?? null;
+  const photo = icon ? null : category.image;
+  const backdrop = icon ? "#FAF6EF" : imageBackdrop(photo);
   return (
     <ShopLink
       href={`/kategorie/${category.slug}`}
@@ -35,17 +38,17 @@ export default function CategoryTile({
         className={`relative block aspect-[3/2] overflow-hidden ${backdrop ? "" : "bg-begina-primary-50"}`}
         style={backdrop ? { backgroundColor: backdrop } : undefined}
       >
-        {category.image ? (
+        {photo ? (
           <Image
-            src={category.image}
-            alt=""
+            src={photo}
+            alt={category.name}
             fill
             sizes={sizes}
             draggable={false}
             className={`${backdrop ? "object-contain" : "object-cover object-bottom"} transition-transform duration-300 group-hover:scale-105`}
           />
         ) : (
-          // kategorie zatím bez fotky (Zmrzliny): ikona z pruhu na úvodu
+          // ikona kategorie z pruhu na úvodu
           icon && (
             <span className="absolute inset-[10%]">
               <Image src={icon} alt="" fill sizes="200px" draggable={false} className="object-contain transition-transform duration-300 group-hover:scale-105" />

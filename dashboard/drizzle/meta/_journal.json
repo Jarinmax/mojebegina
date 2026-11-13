@@ -250,15 +250,36 @@
     {
       "idx": 35,
       "version": "7",
-      "when": 1794311054329,
-      "tag": "0035_google_kalendar",
+      "when": 1794400716916,
+      "tag": "0035_petr_vyroba_1_0",
       "breakpoints": true
     },
     {
       "idx": 36,
       "version": "7",
-      "when": 1794311055756,
-      "tag": "0036_denni_volani_1_1_historie",
+      "when": 1794476119087,
+      "tag": "0036_lucie_work_entry_edit",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794500021842,
+      "tag": "0037_jarda-call-reminders",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794561332308,
+      "tag": "0038_google_kalendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794561333914,
+      "tag": "0039_denni_volani_1_1_historie",
       "breakpoints": true
     }
   ]

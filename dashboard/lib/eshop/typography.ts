@@ -4,7 +4,7 @@
 //   • větné texty a seznamy (složení, alergeny, skladování, trvanlivost,
 //     příprava, výživové údaje souvislým textem) začínají velkým písmenem
 //     a končí tečkou,
-//   • samostatné hodnoty („3 l“, „700 ml“, „6,3 % obj.“) se nemění,
+//   • samostatné hodnoty („3 l“, „650 ml“, „6,3 % obj.“) se nemění,
 //   • číslo a jednotka / procento a „E 435“ drží pohromadě nezalomitelnou
 //     mezerou (stávající mezery se jen nahradí, žádné se nepřidávají).
 

@@ -18,7 +18,10 @@ Do dokončení: žádné „bez lepku“, „přirozeně bezlepková“ ani obec
 
 | Produkt | Co chybí | Úkol | Stav na e-shopu |
 |---|---|---|---|
-| Kosmopolitan | potvrzení dodavatele, zda brusinková šťáva obsahuje siřičitany | BEG-02 | po spuštění skriptu 84 „Připravujeme“, nejde objednat |
+| Kosmopolitan | — vše doloženo 10. 11. 2026 (šťávy, cukr, grepový olej Terpenic: potravinářské aroma) | BEG-02 | odblokuje skript 92 |
+
+Brusinková šťáva vyřešena 10. 11. 2026: etiketa Naturalne Tłoczone,
+„100% sok z żurawiny“, NFC, pasterizovaná, siřičitany neuvedeny.
 
 Mechanismus: `allergens = NULL` → `isOrderable()` = false (karta, košík,
 pokladna i serverová kontrola v `lib/eshop/pricing.ts`). Řádek Alergeny se
@@ -32,13 +35,31 @@ k doložení specifikace (BEG-02), objednání se neblokuje.
 Bez nich nelze potvrdit „bez barviv“ ani „bez přidaného glutamátu“ a nelze
 plně uzavřít kontrolu alergenů v podsložkách:
 
-- přírodní aroma (Dýňová, Tomatová, Tomatová s červenou řepou, Kosmopolitan)
-- grepová šťáva (Dýňová, Svařák, Lady Carneval), pomerančová a citronová šťáva
+- přírodní aroma (Dýňová, Tomatová, Tomatová s červenou řepou, Dům u jezera,
+  Červánkové nebe) — po dodání specifikace ověřit název: aroma z jediného zdroje
+  = „přírodní X aroma“, samotné „přírodní aroma“ jen pro více zdrojů
+  (čl. 16 odst. 4 a 6 nař. 1334/2008)
 - pasírovaná rajčata, rajčatový protlak
 - paprika uzená, paprika sladká, chilli, další koření a směsi
 - hlíva ústřičná (zpracovaná?), žampiony
 - lahůdkové droždí — technický list (podíl volného glutamátu)
-- brusinková, jablečná šťáva a šťáva z granátového jablka (siřičitany)
+- šťáva z granátového jablka (složení, siřičitany)
+
+### Vyřešené podklady (etikety dodány 10. 11. 2026)
+
+| Surovina | Výrobce | Etiketa | Alergeny |
+|---|---|---|---|
+| brusinková šťáva | Naturalne Tłoczone | 100% šťáva z brusinek, NFC, lisovaná za studena, pasterizovaná | žádné uvedeny |
+| citronová šťáva | Naturalne Tłoczone | 100% šťáva z citronů, NFC, pasterizovaná | žádné uvedeny |
+| grapefruitová šťáva | Naturalne Tłoczone | 100% šťáva z grapefruitů, NFC, pasterizovaná | žádné uvedeny |
+| jablečná šťáva | Naturalne Tłoczone | 100% šťáva z jablek, NFC, pasterizovaná | žádné uvedeny |
+| třtinový cukr | Riopaila Castilla (Kolumbie), balí Obchody Milota | tmavý třtinový cukr Demerara, sacharóza min. 98 % | žádné uvedeny |
+| grepový esenciální olej | Terpenic lab S.L. (prodejce aromatics.cz) | Citrus paradisi, kůra, lisování za studena, „potravinářské aroma“, vnitřní užití; na krabičce španělsky „pomelo“ = grapefruit | žádné |
+| pomerančová šťáva | Belfood (Jurajskie Wzgórza) | 100% pomerančová šťáva **z koncentrátu**, pasterizovaná | žádné uvedeny |
+
+Pomerančová šťáva je z koncentrátu (vyhl. 248/2018 Sb. § 2 písm. i)) —
+doporučení: ve složení Svařáku Deluxe uvádět „pomerančová šťáva
+z koncentrátu“ (zatím neměněno, čeká na rozhodnutí).
 
 ## 4. Tvrzení — rozhodnutí
 
@@ -51,6 +72,7 @@ plně uzavřít kontrolu alergenů v podsložkách:
 | „bez přidaného glutamátu“ | nezveřejňovat — lahůdkové droždí je přirozený zdroj glutamátu; riziko zavádějícího tvrzení (čl. 7 nař. 1169/2011) |
 | „bez konzervantů“ | nepoužívat |
 | „bez přídatných látek“, „bez éček“ | nikdy (polévky obsahují E 435 a kyselinu askorbovou) |
+| „čistá filtrovaná voda“ | PONECHAT (rozhodnutí vedení 10. 11. 2026) u výrobků, které ji obsahují; podmínka vyhl. 417/2016 Sb. § 2 odst. 4 písm. b): mít doložitelnou filtraci (typ filtru, údržba, rozbor vody) |
 | „bez mléčných výrobků“ (úvod kategorie) | odpovídá recepturám; riziko kvůli sdílené výrobě s mlékem — viz bod 1 |
 
 ## 5. Ke kontrole (mimo polévky, zatím neměněno)

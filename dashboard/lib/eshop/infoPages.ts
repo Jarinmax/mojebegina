@@ -10,7 +10,8 @@ import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethodsFor, type ShippingMode } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
-import { OPERATOR } from "./operator";
+import { OPERATOR, SLOVAKIA_ORDER_NOTE } from "./operator";
+export { SLOVAKIA_ORDER_NOTE };
 import { PACKAGING_PAGE_PATH } from "./packaging";
 import { CURRENT_TERMS, termsPdfPath } from "./content/termsVersions";
 import { WITHDRAWAL_FORM_DOWNLOAD_LABEL, WITHDRAWAL_FORM_PDF_PATH } from "./content/withdrawalForm";
@@ -113,7 +114,7 @@ const packagingPage: InfoPage = {
   path: PACKAGING_PAGE_PATH,
   footerLabel: "O balení",
   title: "O balení",
-  description: "Třílitrové balení Begina s kohoutkem a menší balení 700 ml a 500 ml.",
+  description: "Třílitrové balení Begina s kohoutkem a menší balení 650 ml a 500 ml.",
   hideOperatorLine: true,
   blocks: [
     {
@@ -130,13 +131,13 @@ const packagingPage: InfoPage = {
     {
       heading: "Třílitrové balení",
       paragraphs: [
-        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek.",
+        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek. Ostatní balení 3 l vám do krabice zabalíme na přání — v pokladně zvolte „Zabalit do kartonové krabice“ (19 Kč za krabici).",
       ],
     },
     {
       heading: "Menší balení",
       paragraphs: [
-        "Sirupy nabízíme také v balení 700 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
+        "Sirupy nabízíme také v balení 650 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
         "Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.",
         "Dostupné velikosti najdete vždy u konkrétního produktu.",
       ],
@@ -176,11 +177,11 @@ export function shippingPageFor(mode: ShippingMode): InfoPage {
               heading: "Ceník chlazené přepravy",
               paragraphs: ["Cena podle celkové hmotnosti objednávky:"],
               items: COLD_SHIPPING_RULES.map(
-                (rule) => `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg — ${formatKc(rule.priceKc)}`
+                (rule) => `${rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`} — ${formatKc(rule.priceKc)}`
               ),
               afterParagraphs: [
                 `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,
-                "Doručujeme jen v České republice.",
+                `Doručujeme jen v České republice. ${SLOVAKIA_ORDER_NOTE}`,
               ],
             },
           ]

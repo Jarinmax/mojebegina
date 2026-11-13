@@ -1,8 +1,9 @@
-// Ceník chlazené přepravy (WooCommerce Flexible Shipping, 11 pravidel) —
+// Ceník chlazené přepravy (11 pravidel WooCommerce + pásma do 400 kg podle
+// tabulky CoolBalík, 12. 11. 2026; cena = základ × DPH × palivový příplatek) —
 // hranice pásem, skutečné košíky z balení 3 kg / 0,75 kg / 0,5 kg,
-// nad 150 kg, chybějící hmotnost. Osobní odběr: lib/eshop/shipping.ts.
+// nad 400 kg, chybějící hmotnost. Osobní odběr: lib/eshop/shipping.ts.
 import { describe, expect, it } from "vitest";
-import { cartWeight, COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES, coldShippingPrice } from "../shippingRates";
+import { carrierPriceKc, cartWeight, COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES, coldShippingPrice, FUEL_SURCHARGE_PERCENT } from "../shippingRates";
 import { getShippingMethod } from "../shipping";
 
 const price = (kg: number) => {
@@ -10,8 +11,16 @@ const price = (kg: number) => {
   return result.ok ? result.priceKc : result.reason;
 };
 
-describe("ceník chlazené přepravy = WooCommerce (11 pravidel, beze změny)", () => {
-  it("pravidla přesně jak jsou zapsaná ve WooCommerce", () => {
+describe("ceník chlazené přepravy (pásma 1–11 beze změny, nově do 400 kg)", () => {
+  it("palivový příplatek 16 %: cena = základ × 1,21 × 1,16 zaokrouhleně (tabulka Lucie)", () => {
+    expect(FUEL_SURCHARGE_PERCENT).toBe(16);
+    expect([190, 270, 1310, 1710, 2910, 3310].map((b) => carrierPriceKc(b))).toEqual([267, 379, 1839, 2400, 4084, 4646]);
+    // změna paliva přepočítá ceny: 190 × 1,21 × 1,20 = 275,88
+    expect(carrierPriceKc(190, 20)).toBe(276);
+    expect(carrierPriceKc(190, 0)).toBe(230);
+  });
+
+  it("pravidla 1–11 přesně jak byla ve WooCommerce, 12–16 podle tabulky CoolBalík", () => {
     expect(COLD_SHIPPING_RULES.map((r) => [r.fromKg, r.toKg, r.priceKc])).toEqual([
       [0, 14.99, 267],
       [15, 19.99, 379],
@@ -24,6 +33,11 @@ describe("ceník chlazené přepravy = WooCommerce (11 pravidel, beze změny)", 
       [80, 89.99, 1165],
       [90, 99.99, 1277],
       [100, 150, 1839],
+      [150.001, 200, 2400],
+      [200.001, 250, 2962],
+      [250.001, 300, 3523],
+      [300.001, 350, 4084],
+      [350.001, 400, 4646],
     ]);
   });
 
@@ -50,18 +64,28 @@ describe("ceník chlazené přepravy = WooCommerce (11 pravidel, beze změny)", 
     [99.99, 1277],
     [100, 1839],
     [150, 1839],
+    [150.001, 2400],
+    [200, 2400],
+    [200.001, 2962],
+    [250, 2962],
+    [250.001, 3523],
+    [300, 3523],
+    [300.001, 4084],
+    [350, 4084],
+    [350.001, 4646],
+    [400, 4646],
   ])("hranice: %s kg → %s Kč", (kg, expected) => {
     expect(price(kg)).toBe(expected);
   });
 
-  it("nad 150 kg žádné pravidlo neplatí → chlazenou přepravu nelze nabídnout", () => {
-    expect(price(150.001)).toBe("over_limit");
-    expect(price(153)).toBe("over_limit");
-    expect(COLD_SHIPPING_MAX_GRAMS).toBe(150_000);
+  it("nad 400 kg žádné pravidlo neplatí → chlazenou přepravu nelze nabídnout", () => {
+    expect(price(400.001)).toBe("over_limit");
+    expect(price(402)).toBe("over_limit");
+    expect(COLD_SHIPPING_MAX_GRAMS).toBe(400_000);
   });
 
-  it("žádná mezera mezi pásmy (0,25kg kroky od 0,5 do 150 kg mají vždy cenu)", () => {
-    for (let g = 500; g <= 150_000; g += 250) expect(coldShippingPrice(g).ok, `${g} g`).toBe(true);
+  it("žádná mezera mezi pásmy (0,25kg kroky od 0,5 do 400 kg mají vždy cenu)", () => {
+    for (let g = 500; g <= 400_000; g += 250) expect(coldShippingPrice(g).ok, `${g} g`).toBe(true);
   });
 });
 
@@ -78,15 +102,17 @@ describe("hmotnost košíku — více kusů a různá balení", () => {
     ["33× 3 l + 1× 750 g = 99,75 kg", [bag("kulajda", 33), syrup750(1)], 99_750, 1277],
     ["34× 3 l = 102 kg", [bag("kulajda", 34)], 102_000, 1839],
     ["50× 3 l = přesně 150 kg", [bag("kulajda", 50)], 150_000, 1839],
+    ["51× 3 l = 153 kg (dříve individuálně)", [bag("kulajda", 51)], 153_000, 2400],
+    ["133× 3 l = 399 kg", [bag("kulajda", 99), bag("lipovy-caj-3l", 34)], 399_000, 4646],
   ])("%s", (_name, lines, grams, expected) => {
     const weight = cartWeight(lines);
     expect(weight).toEqual({ ok: true, grams });
     expect(price(grams / 1000)).toBe(expected);
   });
 
-  it("51× 3 l = 153 kg → nad limit", () => {
-    const weight = cartWeight([bag("kulajda", 51)]);
-    expect(weight.ok && coldShippingPrice(weight.grams)).toEqual({ ok: false, reason: "over_limit", grams: 153_000 });
+  it("134× 3 l = 402 kg → nad limit", () => {
+    const weight = cartWeight([bag("kulajda", 99), bag("lipovy-caj-3l", 35)]);
+    expect(weight.ok && coldShippingPrice(weight.grams)).toEqual({ ok: false, reason: "over_limit", grams: 402_000 });
   });
 
   it("položka bez hmotnosti → cenu nejde určit, nic se nedopočítává", () => {
@@ -99,7 +125,7 @@ describe("hmotnost košíku — více kusů a různá balení", () => {
 });
 
 describe("osobní odběr", () => {
-  it("zdarma bez ohledu na hmotnost (i nad 150 kg a bez hmotností)", () => {
+  it("zdarma bez ohledu na hmotnost (i nad 400 kg a bez hmotností)", () => {
     const pickup = getShippingMethod("osobni-odber")!;
     expect(pickup.priceKc).toBe(0);
     expect(pickup.requiresAddress).toBe(false);

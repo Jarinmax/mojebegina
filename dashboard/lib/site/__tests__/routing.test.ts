@@ -83,6 +83,7 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
     ["/ochrana-osobnich-udaju", "/eshop/ochrana-osobnich-udaju"],
     ["/robots.txt", "/eshop/robots.txt"],
     ["/sitemap.xml", "/eshop/sitemap.xml"],
+    ["/feed-google.xml", "/eshop/feed-google.xml"],
   ])("%s → %s", (pathname, target) => {
     expect(get("begina.cz", pathname)).toEqual({ kind: "rewrite", path: target });
   });
@@ -100,8 +101,8 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
       "/favicon.ico",
       "/logo-begina-mark.png",
       "/eshop/kulajda.jpg",
-      "/eshop/hero/polevka-a-caj-bezove-pozadi.webp",
-      "/eshop/hero/ikona-polevky-2026-11.webp",
+      "/eshop/hero/polevka-begina-caj-limonada-v3.webp",
+      "/eshop/hero/ikona-polevky-2026-11c.webp",
     ]) {
       expect(get("begina.cz", pathname), pathname).toEqual({ kind: "pass", site: "public" });
     }

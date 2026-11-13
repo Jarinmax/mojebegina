@@ -52,7 +52,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Statické soubory e-shopu (public/eshop/…) — fotky produktů, ikony, hero. */
 const ESHOP_ASSET = /^\/eshop\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:jpe?g|png|webp|avif|gif|svg|ico)$/;
 /** Soubory z kořene public/ a app/, které e-shop používá. */
-const ROOT_ASSETS = new Set(["/favicon.ico", "/logo-begina-mark.png", "/og-begina.png", "/og-begina-ctverec.png", "/icon.png", "/apple-icon.png"]);
+const ROOT_ASSETS = new Set(["/favicon.ico", "/logo-begina-mark.png", "/og-begina.png", "/og-begina-ctverec.png", "/icon.png", "/apple-icon.png",
+  // ověření vlastnictví pro Google Search Console (12. 11. 2026) — nemazat
+  "/googlef33375736e28d0b9.html",
+]);
 
 /** Stránky e-shopu bez parametru — na begina.cz stejná cesta bez /eshop. */
 const ESHOP_PAGES = new Set([
@@ -67,8 +70,8 @@ const ESHOP_PAGES = new Set([
   "/ochrana-osobnich-udaju",
 ]);
 
-/** Soubory pro vyhledávače — na begina.cz je obslouží app/eshop/{robots.txt,sitemap.xml}. */
-const SEO_FILES = new Set(["/robots.txt", "/sitemap.xml"]);
+/** Soubory pro vyhledávače — na begina.cz je obslouží app/eshop/{robots.txt,sitemap.xml,feed-google.xml}. */
+const SEO_FILES = new Set(["/robots.txt", "/sitemap.xml", "/feed-google.xml"]);
 
 // Staré adresy z WordPressu/WooCommerce (begina.cz) → 301. Produkty
 // WooCommerce mají tvar /produkt/<slug>/ — stejný jako nový e-shop; tady

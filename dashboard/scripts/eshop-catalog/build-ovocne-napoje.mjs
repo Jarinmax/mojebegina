@@ -56,8 +56,14 @@ const bagInBox = (slug, price, servings) => ({
   price,
 });
 
-const STORAGE =
-  "Skladujte v chladu při teplotě do 4 °C, a to i před otevřením. Po otevření spotřebujte co nejdříve. Určeno k přímé spotřebě. Výrobek podléhá rychlé zkáze, proto se na něj nevztahuje právo na odstoupení od smlouvy (čl. VII obchodních podmínek). Reklamace vadného zboží tím není dotčena.";
+// Skladování a trvanlivost — 11. 11. 2026 (Jaroslav): neotevřené 14 dnů od
+// výroby v lednici, po otevření 5 dnů. Složení a výživa podle receptur
+// (Ovocne napoje_kalkulace) a štítků šťáv (Sadvit jablko-malina 85/15,
+// Naturalne Tłoczone grep/jablko/citron), viz skript 95.
+// Příprava a „Vrácení a reklamace“ jsou samostatné řádky (lib/eshop/categoryFoodInfo.ts).
+const STORAGE = "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.";
+const SHELF_LIFE =
+  "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 5 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 export const DRINKS = [
@@ -84,9 +90,10 @@ export const DRINKS = [
     taste:
       "Jablečno-malinový nápoj Červánkové nebe má šťavnatý, harmonický charakter. Jablečno-malinová plnost se přirozeně propojuje s jemnou citrusovou linkou a vytváří hladký, vyvážený dojem. Chuť je kulatá, ovocně hluboká a mimořádně pitelná. Je to ten typ nápoje, který si nalijete znovu dřív, než si uvědomíte, že sklenka je prázdná.",
     ingredients:
-      "čistá filtrovaná voda, jablečno-malinová šťáva, citronová šťáva, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
-    nutrition: { energy_kj: 86, energy_kcal: 20, fat: 0, saturates: 0, carbohydrate: 5.1, sugars: 5, protein: 0, salt: 0 },
+      "čistá filtrovaná voda, jablečno-malinová šťáva 34 % (jablečná šťáva 85 %, malinová šťáva 15 %), citronová šťáva 1 %, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    nutrition: { energy_kj: 69, energy_kcal: 16, fat: 0, saturates: 0, carbohydrate: 3.9, sugars: 3.6, protein: 0.1, salt: 0 },
     storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
     warnings: [],
     variants: [bagInBox("cervankove-nebe", 349, 12)],
   },
@@ -113,9 +120,10 @@ export const DRINKS = [
     taste:
       "Grepový nápoj dům u jezera má výrazný, osvěžující charakter. Grepová svěžest se přirozeně propojuje s jemnou jablečnou plností a vytváří lehký, čistý dojem. Chuť připomíná letní střik nebo dobře vychlazenou sklenku vína a působí svěže a energicky.",
     ingredients:
-      "čistá filtrovaná voda, grepová šťáva, jablečná šťáva, citronová šťáva, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
-    nutrition: { energy_kj: 52, energy_kcal: 12, fat: 0, saturates: 0, carbohydrate: 2.9, sugars: 2.9, protein: 0, salt: 0 },
+      "čistá filtrovaná voda, grepová šťáva 14 %, jablečná šťáva 14 %, citronová šťáva 4 %, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    nutrition: { energy_kj: 52, energy_kcal: 12, fat: 0, saturates: 0, carbohydrate: 2.8, sugars: 2.7, protein: 0.1, salt: 0 },
     storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
     warnings: [],
     variants: [bagInBox("dum-u-jezera", 349, 12)],
   },
@@ -135,9 +143,10 @@ export const DRINKS = [
     taste:
       "Malinový svařák nealko má jemně ovocný, plný a hřejivý charakter. Sladké maliny a jablka se přirozeně doplňují s citrusovým tónem pomeranče, zatímco hřebíček, skořice a badyán dodávají nápoji jeho typickou, příjemně kořeněnou hloubku. Chuť je harmonická, vyvážená a působí příjemným a hřejivým dojmem.",
     ingredients:
-      "čistá filtrovaná voda, jablečná šťáva, malinová šťáva, pomerančová šťáva, hřebíček, skořice, badyán, antioxidant: kyselina askorbová (vitamin C)",
-    nutrition: { energy_kj: 128, energy_kcal: 30, fat: 0, saturates: 0, carbohydrate: 7.3, sugars: 7.1, protein: 0, salt: 0 },
+      "jablečno-malinová šťáva 51 % (jablečná šťáva 85 %, malinová šťáva 15 %), čistá filtrovaná voda, pomerančová šťáva 7 %, hřebíček, skořice, badyán, antioxidant: kyselina askorbová (vitamin C)",
+    nutrition: { energy_kj: 115, energy_kcal: 27, fat: 0, saturates: 0, carbohydrate: 6.5, sugars: 6, protein: 0.2, salt: 0 },
     storage: STORAGE,
+    shelfLifeNote: SHELF_LIFE,
     warnings: [],
     variants: [bagInBox("malinovy-svarak-nealko", 399, 15)],
   },

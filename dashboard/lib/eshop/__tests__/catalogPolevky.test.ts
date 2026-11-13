@@ -62,9 +62,12 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(dyne.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/dynova-polevka-miska.jpg", "/eshop/polevky/dynova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, dyne.image!))).toBe(true);
     expect(dyne.foodInfo.nutritionPer100g).toBe(
-      "na 100 ml: energie 283 kJ / 68 kcal, tuky 4 g (z toho nasycené 2,7 g), sacharidy 7,6 g (z toho cukry 2 g), bílkoviny 1 g, sůl 0,8 g, vláknina 1,1 g"
+      "na 100 ml: energie 250 kJ / 60 kcal, tuky 3,9 g (z toho nasycené 2,5 g), sacharidy 4,7 g (z toho cukry 3,1 g), bílkoviny 1 g, sůl 0,78 g"
     );
-    expect(dyne.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 %/);
+    expect(dyne.foodInfo.ingredients).toBe(
+      "dýně 41 %, čistá filtrovaná voda, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 10 %, cibule 5 %, kořen petržele, olivový olej, dýňový olej, mořská sůl, třtinový cukr, grapefruitová šťáva, lahůdkové droždí, sušený mletý zázvor, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma"
+    );
+    expect(dyne.foodInfo.nutritionTable?.rows.map((r) => r.label)).not.toContain("Vláknina");
     // právní upozornění už není ve Skladování (samostatný řádek Vrácení a reklamace)
     expect(dyne.foodInfo.storage).not.toMatch(/odstoupení|nelze jej vrátit/);
     // všechny polévky: bez alergenů, trvanlivost 14 dnů (údaje vedení)
@@ -87,7 +90,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(kulajda.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/kulajda-miska.jpg", "/eshop/polevky/kulajda-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, kulajda.image!))).toBe(true);
     expect(kulajda.foodInfo.ingredients).toMatch(/žampiony 7 %/);
-    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3,4 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
+    expect(kulajda.foodInfo.ingredients).toBe("čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 5 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)");
     expect(kulajda.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 219 kJ / 53 kcal, tuky 3,5 g (z toho nasycené 2,4 g), sacharidy 3,9 g (z toho cukry 0,8 g), bílkoviny 1 g, sůl 0,76 g");
     expect(kulajda.foodInfo.nutritionTable?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
       "Energetická hodnota: 219\u00a0kJ / 53\u00a0kcal", "Tuky: 3,5\u00a0g", "z toho nasycené mastné kyseliny: 2,4\u00a0g", "Sacharidy: 3,9\u00a0g", "z toho cukry: 0,8\u00a0g", "Bílkoviny: 1,0\u00a0g", "Sůl: 0,76\u00a0g",
@@ -102,10 +105,10 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(rajce.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 229 kJ / 54 kcal, tuky 2,9 g (z toho nasycené 1,3 g), sacharidy 5,5 g (z toho cukry 4,4 g), bílkoviny 1,2 g, sůl 0,86 g");
     expect(rajce.foodInfo.nutritionTable?.rows).toHaveLength(7);
     // tabulka u všech produktů s úplnými údaji, vláknina zachována
-    expect(list[0].foodInfo.nutritionTable?.rows.map((r) => r.label)).toContain("Vláknina");
+    expect(list.every((p) => !p.foodInfo.nutritionTable?.rows.some((r) => r.label === "Vláknina"))).toBe(true);
     const repa = list[3];
     expect(repa.foodInfo.ingredients).toMatch(/červená řepa 9 %/);
-    expect(repa.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 189 kJ \/ 45 kcal.*vláknina 0,9 g$/);
+    expect(repa.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 219 kJ / 52 kcal, tuky 2,8 g (z toho nasycené 2,1 g), sacharidy 5,1 g (z toho cukry 3,1 g), bílkoviny 1,1 g, sůl 0,84 g");
     expect(repa.image).toBe("/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg");
     expect(repa.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/rajcatova-polevka-s-cervenou-repou-miska.jpg", "/eshop/polevky/rajcatova-polevka-s-cervenou-repou-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, repa.image!))).toBe(true);
@@ -115,13 +118,13 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(gulas.image).toBe("/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg");
     expect(gulas.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-miska.jpg", "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, gulas.image!))).toBe(true);
-    expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 8 %/);
-    expect(gulas.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 149 kJ \/ 36 kcal.*vláknina 1,1 g$/);
+    expect(gulas.foodInfo.ingredients).toMatch(/hlíva ústřičná \(Pleurotus ostreatus\) 7 %/);
+    expect(gulas.foodInfo.nutritionPer100g).toBe("na 100 ml: energie 125 kJ / 30 kcal, tuky 0,9 g (z toho nasycené 0,1 g), sacharidy 4 g (z toho cukry 1,1 g), bílkoviny 0,9 g, sůl 0,82 g");
     const spenat = list[5];
     expect(spenat.image).toBe("/eshop/polevky/spenatova-polevka-miska.jpg");
     expect(spenat.gallery?.map((ph) => ph.url)).toEqual(["/eshop/polevky/spenatova-polevka-miska.jpg", "/eshop/polevky/spenatova-polevka-sacek.jpg"]);
     expect(existsSync(path.join(PUBLIC, spenat.image!))).toBe(true);
-    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule 4,3 %, olivový olej/);
+    expect(spenat.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % \(kokosový extrakt 85 %, pitná voda, emulgátor: E 435\), brambory 14 %, cibule 4 %, olivový olej/);
     expect(spenat.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g"
     );

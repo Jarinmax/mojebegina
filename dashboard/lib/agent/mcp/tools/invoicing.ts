@@ -23,6 +23,7 @@ import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
+import { invoiceIssuerEmails } from "@/lib/data/invoiceIssuerEmails";
 import {
   getOrderInvoiceSummary,
   invoicePdfUrl,
@@ -34,11 +35,14 @@ import {
 import { INVOICE_ISSUER_NAMES } from "@/lib/data/invoiceAuth";
 import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
-import { emailConfig, resolveRecipients, invoiceCopyRecipients } from "@/lib/eshop/email/config";
+import { emailConfig, resolveRecipients, invoiceCopyRecipients, invoiceEmailSender } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
 import type { InvoicePdfFile } from "@/lib/idoklad-read/service";
+import { createB2bInvoice, previewB2bInvoice } from "@/lib/data/b2bInvoices";
+import { B2B_PAYMENT_METHODS, MAX_B2B_ITEMS, type B2bInvoiceRaw } from "@/lib/eshop/invoicing/b2bInvoiceValidation";
+import { idokladInvoicePdfPath } from "@/lib/idoklad-read/tools";
 import { idokladAgentTools } from "@/lib/idoklad-read/mcp";
 import { ArgError, optionalString, requiredString } from "../args";
 import { defineTool, type AgentTool } from "../define";
@@ -275,7 +279,9 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
     description:
       "ZÁPIS — pošle e-mailem PDF EXISTUJÍCÍ vydané faktury z iDokladu (i z ruční řady 2026xxxx) z MojeBegina. Nic nevystavuje ani nemění. " +
       "Volej JEN když uživatel výslovně požádal o odeslání konkrétní faktury konkrétním příjemcům. Povolení příjemci: e-mail odběratele uvedený na faktuře, " +
-      `adresy @begina.cz, e-mail účtu uživatele v MojeBegina a adresy povolené správcem; jiné server odmítne. Nejvýš ${MAX_INVOICE_RECIPIENTS} příjemců. ` +
+      `adresy @begina.cz, e-mail účtu uživatele v MojeBegina, e-maily vystavovatelů faktur (${INVOICE_ISSUER_NAMES}) a adresy povolené správcem; jiné server odmítne. ` +
+      "Když uživatel řekne „pošli mi to / na můj e-mail“, nastav to_me=true — server doplní e-mail jeho účtu v MojeBegina; adresu NEHÁDEJ ani ji neber z účtu ChatGPT. " +
+      `E-mail odchází z info@begina.cz a info@begina.cz dostane vždy skrytou kopii — do příjemců ho dávat nemusíš. Nejvýš ${MAX_INVOICE_RECIPIENTS} příjemců. ` +
       "Vyžaduje confirm=true a idempotency_key.",
     write: true,
     writeScope: "invoicing",
@@ -283,30 +289,38 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
     properties: {
       number: { type: "string", description: "Číslo faktury, např. „20260202“." },
       id: { type: "integer", description: "ID faktury v iDokladu (když číslo není jednoznačné)." },
-      to: { type: "array", items: { type: "string" }, minItems: 1, maxItems: MAX_INVOICE_RECIPIENTS, description: "Příjemci (e-maily)." },
+      to: { type: "array", items: { type: "string" }, maxItems: MAX_INVOICE_RECIPIENTS, description: "Příjemci (e-maily), které uživatel výslovně uvedl. Nepovinné, když to_me=true." },
+      to_me: { type: "boolean", description: "true = poslat i na e-mail účtu přihlášeného uživatele v MojeBegina („pošli mi to“)." },
       message: { type: "string", description: "Krátký průvodní text (nepovinné, max. 1000 znaků)." },
       confirm: { type: "boolean", description: "true = uživatel výslovně požádal o odeslání této faktury těmto příjemcům." },
     },
-    required: ["to", "confirm"],
+    required: ["confirm"],
     parse: (args) => {
       const number = optionalString(args, "number", 20);
       const id = args.id === undefined || args.id === null ? null : Number(args.id);
       if (id !== null && !(Number.isInteger(id) && id > 0)) throw new ArgError("Argument id musí být kladné celé číslo.");
       if (!number && id === null) throw new ArgError("Zadejte number nebo id faktury.");
-      if (!Array.isArray(args.to) || args.to.some((e) => typeof e !== "string")) throw new ArgError("Argument to musí být seznam e-mailů.");
+      const to = args.to === undefined || args.to === null ? [] : args.to;
+      if (!Array.isArray(to) || to.some((e) => typeof e !== "string")) throw new ArgError("Argument to musí být seznam e-mailů.");
+      if (args.to_me !== undefined && typeof args.to_me !== "boolean") throw new ArgError("Argument to_me musí být true/false.");
+      const toMe = args.to_me === true;
+      if (to.length === 0 && !toMe) throw new ArgError("Zadejte příjemce (to), nebo to_me=true pro e-mail účtu uživatele.");
       if (args.confirm !== true) throw new ArgError("Fakturu lze poslat jen s confirm=true na výslovnou žádost uživatele.");
-      return { number, id, to: args.to as string[], message: optionalString(args, "message", 1000) };
+      return { number, id, to: to as string[], toMe, message: optionalString(args, "message", 1000) };
     },
-    execute: async ({ number, id, to, message }) => {
+    execute: async ({ number, id, to: requested, toMe, message }) => {
       const ctx = await getAuthContext();
       if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury z iDokladu smí posílat jen ${INVOICE_ISSUER_NAMES}.` };
+      const own = ctx.email?.trim() || null;
+      if (toMe && !own) return { ok: false, error: "Váš účet v MojeBegina nemá e-mail — řekněte, na jakou adresu fakturu poslat. Nic se neodeslalo." };
+      const to = toMe && own ? [own, ...requested] : requested;
       const config = emailConfig();
       if (!config) return { ok: false, error: "Odesílání e-mailů z MojeBegina není na tomto prostředí zapnuté." };
       const read = await runIdokladRead("idoklad_invoice_pdf_file", { ...(number ? { number } : {}), ...(id ? { id } : {}) }, "mcp:chatgpt");
       if (!read.ok) return { ok: false, error: read.error };
       if (read.data.found !== true) return { ok: false, error: `Faktura ${number ?? id} v iDokladu není.` };
       const pdf = read.data as unknown as InvoicePdfFile;
-      const check = checkInvoiceRecipients(to, { partnerEmail: pdf.partnerEmail, userEmail: ctx.email || null, extra: allowedExtraRecipients() });
+      const check = checkInvoiceRecipients(to, { partnerEmail: pdf.partnerEmail, userEmail: own, teamEmails: await invoiceIssuerEmails(), extra: allowedExtraRecipients() });
       if (!check.ok) return check;
 
       const resolved = resolveRecipients(check.to, config);
@@ -318,13 +332,15 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       const text = `${intro}\n\n${body}\n\nS pozdravem\nBegina${testNote}`;
       const html = `<p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p><p>${escapeHtml(body)}</p><p>S pozdravem<br>Begina</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
       const key = createHash("sha256").update(`${pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
+      // odesílatel info@begina.cz, skrytá kopie Begině (info@begina.cz)
+      const sender = invoiceEmailSender(config);
+      const bcc = invoiceCopyRecipients(config, resolved.to);
       const sent = await resendTransport(config.apiKey)(
         {
-          from: config.from,
+          from: sender.from,
           to: resolved.to,
-          // skrytá kopie Begině (info@begina.cz)
-          ...(invoiceCopyRecipients(config, resolved.to).length ? { bcc: invoiceCopyRecipients(config, resolved.to) } : {}),
-          replyTo: config.replyTo,
+          ...(bcc.length ? { bcc } : {}),
+          replyTo: sender.replyTo,
           subject: `${test ? "[TEST] " : ""}Faktura ${invoiceNumber} – Begina`,
           text,
           html,
@@ -341,14 +357,188 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
           invoiceNumber,
           idokladId: pdf.invoice.id,
           to: resolved.to,
+          bcc,
+          from: sender.from,
           withheldInTestMode: resolved.withheld,
           recipientKinds: check.reasons,
           messageId: sent.id,
-          message: `PDF faktury ${invoiceNumber} je odeslané na ${resolved.to.join(", ")}.`,
+          message: `PDF faktury ${invoiceNumber} je odeslané z ${sender.from} na ${resolved.to.join(", ")}${bcc.length ? ` (skrytá kopie ${bcc.join(", ")})` : ""}.`,
         },
       };
     },
   }),
 ];
 
-export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS];
+// ------------------------------------------------------------------ B2B faktury (řada Lucie)
+
+const B2B_PROPERTIES: Record<string, unknown> = {
+  customer_ico: { type: "string", description: "IČO odběratele (8 číslic). Kontakt se najde v iDokladu; když tam není, založí se z údajů zákazníka v MojeBegina." },
+  items: {
+    type: "array",
+    minItems: 1,
+    maxItems: MAX_B2B_ITEMS,
+    description: "Položky faktury.",
+    items: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Název položky." },
+        quantity: { type: "number", description: "Množství (kladné, nejvýš na 2 desetinná místa)." },
+        unit: { type: "string", description: "Jednotka (výchozí ks)." },
+        unit_price_kc: { type: "number", description: "Jednotková cena v Kč (Begina je neplátce DPH)." },
+      },
+      required: ["name", "quantity", "unit_price_kc"],
+      additionalProperties: false,
+    },
+  },
+  payment_method: { type: "string", enum: [...B2B_PAYMENT_METHODS], description: "Způsob úhrady: bank_transfer (převodem, výchozí), cash (hotově), card (kartou)." },
+  paid: { type: "boolean", description: "true = faktura je už zaplacená (označí se jako uhrazená); false/vynechat = otevřená, neuhrazená." },
+  issue_date: { type: "string", description: "Datum vystavení RRRR-MM-DD (výchozí dnes, nejvýš 15 dní zpět)." },
+  due_days: { type: "integer", minimum: 0, maximum: 90, description: "Splatnost ve dnech od vystavení (výchozí 14)." },
+  due_date: { type: "string", description: "Datum splatnosti RRRR-MM-DD (místo due_days)." },
+  note: { type: "string", description: "Text za položkami na faktuře (max. 500 znaků), přesně jak ho uživatel chce." },
+  order_number: { type: "string", description: "Číslo objednávky odběratele (nepovinné)." },
+  description: { type: "string", description: "Popis faktury (nepovinné)." },
+  expected_total_kc: { type: "number", description: "Kontrolní celková částka z podkladu — když nesedí s položkami, nic se nevystaví." },
+};
+const B2B_KEYS = Object.keys(B2B_PROPERTIES);
+
+function b2bRawOf(args: Record<string, unknown>, extra: string[]): B2bInvoiceRaw {
+  const unknown = Object.keys(args).filter((k) => !B2B_KEYS.includes(k) && !extra.includes(k));
+  if (unknown.length) throw new ArgError(`Neznámé argumenty: ${unknown.join(", ")}.`);
+  const items = Array.isArray(args.items)
+    ? args.items.map((raw) => {
+        const item = (raw ?? {}) as Record<string, unknown>;
+        return { name: item.name, quantity: item.quantity, unit: item.unit, unitPriceKc: item.unit_price_kc };
+      })
+    : args.items;
+  return {
+    ico: args.customer_ico,
+    items,
+    paymentMethod: args.payment_method,
+    paid: args.paid,
+    issueDate: args.issue_date,
+    dueDays: args.due_days,
+    dueDate: args.due_date,
+    note: args.note,
+    orderNumber: args.order_number,
+    description: args.description,
+    expectedTotalKc: args.expected_total_kc,
+  };
+}
+
+const B2B_TOKEN_ORDER = "b2b";
+
+const B2B_TOOLS: AgentTool[] = [
+  defineTool({
+    name: "prepare_b2b_invoice",
+    title: "Připravit fakturu odběrateli (náhled, nic nevystaví)",
+    description:
+      "JEN ČTENÍ — nic nevystaví. Návrh faktury v iDokladu v Luciině řadě (2026xxxx) pro libovolného odběratele podle IČO — i bez objednávky v e-shopu: " +
+      "položky, způsob úhrady (převodem / hotově / kartou), otevřená (neuhrazená) nebo uhrazená, splatnost, vlastní poznámka. Ověří iDoklad, odběratele, další číslo a možné duplicity. " +
+      "Celý náhled ukaž uživateli. Když canIssue=true, vrací preview_token pro issue_b2b_invoice (30 minut, jen pro tebe a jen pro tyto údaje).",
+    write: false,
+    visible: issuerOnly,
+    properties: B2B_PROPERTIES,
+    required: ["customer_ico", "items"],
+    parse: (args) => b2bRawOf(args, []),
+    execute: async (raw) => {
+      const ctx = await getAuthContext();
+      const result = await previewB2bInvoice(raw);
+      if (!result.ok || !ctx) return result.ok ? { ok: false, error: "Nepřihlášený uživatel." } : result;
+      const p = result.preview;
+      const reasons = [...(p.canIssueLive ? [] : [p.liveReason ?? "Ostré vystavování je vypnuté."]), ...p.blocking];
+      const canIssue = reasons.length === 0;
+      const v = p.value;
+      return {
+        ok: true,
+        summary: { canIssue, possibleDuplicates: p.similar.length },
+        data: {
+          canIssue,
+          cannotIssueReasons: reasons,
+          warnings: p.warnings,
+          requiresConfirmNotDuplicate: p.similar.length > 0,
+          possibleDuplicates: p.similar,
+          series: p.series,
+          expectedNumber: p.nextNumber,
+          customer: p.partner,
+          invoice: {
+            items: v.items,
+            totalKc: v.totalKc,
+            paymentMethod: v.paymentMethod,
+            paymentLabel: p.paymentLabel,
+            paid: v.paid,
+            status: v.paid ? "uhrazená" : "otevřená (neuhrazená)",
+            issueDate: v.issueDate,
+            dueDate: v.dueDate,
+            note: v.note,
+            orderNumber: v.orderNumber,
+            description: v.description,
+          },
+          sendsEmail: false,
+          ...(canIssue
+            ? {
+                preview_token: signPreviewToken({ userId: ctx.userId, orderId: B2B_TOKEN_ORDER, fingerprint: p.fingerprint, issuedAt: Date.now() }, previewSecret()),
+                previewValidMinutes: PREVIEW_TOKEN_MINUTES,
+                nextStep:
+                  "Ukaž uživateli odběratele, položky, celkem, způsob úhrady, stav (otevřená / uhrazená), splatnost, poznámku a varování. Až po jeho výslovném souhlasu zavolej issue_b2b_invoice se STEJNÝMI argumenty, preview_token, confirm=true a novým idempotency_key. Vystavení nic neposílá — PDF pošli jen na žádost přes send_idoklad_invoice_email.",
+              }
+            : {}),
+        },
+      };
+    },
+  }),
+  defineTool({
+    name: "issue_b2b_invoice",
+    title: "Vystavit fakturu odběrateli v iDokladu",
+    description:
+      "ZÁPIS DO ÚČETNICTVÍ — vystaví fakturu v iDokladu v Luciině řadě (2026xxxx) přesně podle náhledu prepare_b2b_invoice: odběratel podle IČO, položky, " +
+      "způsob úhrady, otevřená nebo uhrazená, splatnost, poznámka. Zákazníkovi nic neposílá. Volej JEN po výslovném souhlasu uživatele s náhledem, se STEJNÝMI argumenty + " +
+      "preview_token, confirm=true a idempotency_key. Vrací číslo faktury, ID v iDokladu a odkaz na PDF.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      ...B2B_PROPERTIES,
+      preview_token: { type: "string", description: "preview_token z prepare_b2b_invoice." },
+      confirm: { type: "boolean", description: "true = uživatel výslovně potvrdil vystavení této faktury." },
+      confirm_not_duplicate: { type: "boolean", description: "true jen když náhled hlásil možnou duplicitu a uživatel potvrdil, že jde o jinou fakturu." },
+    },
+    required: ["customer_ico", "items", "preview_token", "confirm"],
+    parse: (args) => {
+      const raw = b2bRawOf(args, ["preview_token", "confirm", "confirm_not_duplicate", "idempotency_key"]);
+      if (args.confirm !== true) throw new ArgError("Fakturu lze vystavit jen s confirm=true po výslovném souhlasu uživatele s náhledem.");
+      return { raw, token: requiredString(args, "preview_token", 2000), confirmNotDuplicate: args.confirm_not_duplicate === true };
+    },
+    execute: async ({ raw, token, confirmNotDuplicate }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Fakturu do iDokladu smí vystavit jen ${INVOICE_ISSUER_NAMES}.` };
+      const verified = verifyPreviewToken(token, { userId: ctx.userId, orderId: B2B_TOKEN_ORDER }, previewSecret());
+      if (!verified.ok) return verified;
+      const result = await createB2bInvoice(raw, { expectedFingerprint: verified.claims.fingerprint, confirmNotDuplicate, via: { via: "mcp", channel: "mcp", client: "chatgpt" } });
+      if (!result.ok) {
+        const list = result.existing?.length ? ` Podobné: ${result.existing.map((e) => `${e.number} (${e.totalKc} Kč, ${e.dateOfIssue})`).join(", ")}.` : "";
+        return { ok: false, error: `${result.error}${list}` };
+      }
+      return {
+        ok: true,
+        summary: { issued: true, paid: result.paid },
+        data: {
+          issued: true,
+          invoiceNumber: result.invoiceNumber,
+          idokladId: result.idokladId,
+          totalKc: result.totalKc,
+          status: result.paid ? "uhrazená" : "otevřená (neuhrazená)",
+          dueDate: result.dueDate,
+          customer: result.partnerName,
+          contactCreated: result.contactCreated,
+          warnings: result.warnings ?? [],
+          pdfUrl: `${await appOrigin()}${idokladInvoicePdfPath(result.idokladId)}`,
+          emailed: false,
+          message: `Faktura ${result.invoiceNumber} pro ${result.partnerName} na ${result.totalKc} Kč je vystavená v iDokladu (${result.paid ? "uhrazená" : "otevřená, splatnost " + result.dueDate}). Zákazníkovi se nic neposlalo.`,
+        },
+      };
+    },
+  }),
+];
+
+export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS, ...B2B_TOOLS];

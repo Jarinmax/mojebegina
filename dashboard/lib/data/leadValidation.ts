@@ -2,6 +2,7 @@
 // stejný princip jako orderValidation.ts: testovatelná bez databáze,
 // kontrola a dotaz se skládají až v leads.ts.
 import { parseFollowUpInput } from "./pragueTime";
+import { formatPragueDate } from "./callActivityValidation";
 
 export const LEAD_STAGES = [
   "new",
@@ -240,6 +241,12 @@ export function isFollowUpOverdue(stage: LeadStage, nextFollowUpAt: Date | null)
     return false;
   }
   return nextFollowUpAt.getTime() < Date.now();
+}
+
+// Pro ranní souhrn hovorů (cron) a sekci „Naplánované hovory dnes“ na /prace
+// — „dnes“ je kalendářní den v Europe/Prague, ne UTC den serveru.
+export function isTodayInPrague(at: Date, now: Date = new Date()): boolean {
+  return formatPragueDate(at) === formatPragueDate(now);
 }
 
 export type LeadSortRow = {

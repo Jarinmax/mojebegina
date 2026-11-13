@@ -1,8 +1,8 @@
-// scripts/migrate-google-calendar.mjs — hlídané migrace 0035/0036 a převod
+// scripts/migrate-google-calendar.mjs — hlídané migrace 0038/0039 a převod
 // starých termínů „jen datum“ (12:00 UTC → 09:00 Europe/Prague) při buildu
 // na Vercelu. Stejná cesta jako v produkci: každý úsek zvlášť přes
 // @neondatabase/serverless, přesměrovaný na PGlite se stavem dnešní produkce
-// (migrace až po 0034).
+// (migrace až po 0037).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -96,10 +96,10 @@ function mockNeonFetch(pg: PGlite): () => void {
 const LEAD_DATE_ONLY = "00000000-0000-4000-8000-0000000000c1";
 const LEAD_SUMMER = "00000000-0000-4000-8000-0000000000c2";
 const LEAD_NONE = "00000000-0000-4000-8000-0000000000c3";
-const IDX_0034 = journalTags().indexOf("0034_eshop_fakturacni_udaje");
+const IDX_0037 = journalTags().indexOf("0037_jarda-call-reminders");
 
 async function productionLike(): Promise<PGlite> {
-  const pg = await seedPg(IDX_0034);
+  const pg = await seedPg(IDX_0037);
   // stejně jako dnes v produkci: termín „jen datum“ uložený jako 12:00 UTC (zima i léto)
   await pg.exec(`INSERT INTO leads (id, company_name, source, stage, next_follow_up_at) VALUES
     ('${LEAD_DATE_ONLY}', 'Zimní termín', 'existing_database', 'contacted', '2026-11-12T12:00:00Z'),
@@ -133,7 +133,7 @@ describe("scripts/migrate-google-calendar.mjs — hlídané migrace při Vercel 
     await expect(runGoogleCalendarMigration()).resolves.toBeUndefined();
   });
 
-  it("stav produkce: 0035 + převod termínů na 09:00 + 0036; podruhé beze změny", async () => {
+  it("stav produkce: 0038 + převod termínů na 09:00 + 0039; podruhé beze změny", async () => {
     const pg = await productionLike();
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "preview";

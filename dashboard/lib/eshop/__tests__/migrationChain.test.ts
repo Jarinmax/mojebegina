@@ -51,13 +51,20 @@ const AFTER_ESHOP = [
   "0029_objednavky_1_1_rozvoz_carrier_tracking",
 ];
 const SKLAD = ["0030_sklad_1_0_zaklad", "0031_sklad_1_0_znovu_precist"];
-/** Za skladem: karta spolupracovnice (práce, provize, sklad) a volitelný dodavatel. */
-const AFTER_SKLAD = ["0032_spolupracovnici_1_0", "0033_sklad_1_0_dodavatel_volitelny", "0034_eshop_fakturacni_udaje"];
+/** Za skladem: karta spolupracovnice (práce, provize, sklad), volitelný dodavatel, fakturační údaje, karta výroby (Petr), úprava zápisu práce a upozornění na naplánovaný hovor (Jarda). */
+const AFTER_SKLAD = [
+  "0032_spolupracovnici_1_0",
+  "0033_sklad_1_0_dodavatel_volitelny",
+  "0034_eshop_fakturacni_udaje",
+  "0035_petr_vyroba_1_0",
+  "0036_lucie_work_entry_edit",
+  "0037_jarda-call-reminders",
+];
 /** Google Kalendář (propojení, synchronizace termínů) a Denní volání 1.1 (vazba položky na aktivitu). */
-const CALENDAR = ["0035_google_kalendar", "0036_denni_volani_1_1_historie"];
+const CALENDAR = ["0038_google_kalendar", "0039_denni_volani_1_1_historie"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
-/** Index migrace 0036 (Denní volání 1.1). */
+/** Index migrace 0039 (Denní volání 1.1). */
 const DAILY_CALLS_1_1_IDX = FIRST_SKLAD_IDX + SKLAD.length + AFTER_SKLAD.length + 1;
 const SKLAD_TABLES = [
   "suppliers",
@@ -87,7 +94,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031, spolupracovníci 0032, volitelný dodavatel 0033, fakturační údaje 0034, Google Kalendář 0035 a Denní volání 1.1 0036", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031, spolupracovníci 0032–0037, Google Kalendář 0038 a Denní volání 1.1 0039", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
@@ -131,14 +138,14 @@ describe("řetězec migrací Drizzle", () => {
     }
   });
 
-  it("e-shop ani sklad nemění tabulky z main (0013–0035 = stejné jako 0012)", () => {
+  it("e-shop ani sklad nemění tabulky z main (0013–0038 = stejné jako 0012)", () => {
     const base = snapshot(FIRST_ESHOP_IDX - 1).tables;
     for (let i = FIRST_ESHOP_IDX; i < DAILY_CALLS_1_1_IDX; i++) {
       for (const table of Object.keys(MAIN_TABLES)) expect(snapshot(i).tables[table]).toEqual(base[table]);
     }
   });
 
-  it("Denní volání 1.1 (0036) přidá do daily_call_queue jen resulting_activity_id; ostatní tabulky z main beze změny", () => {
+  it("Denní volání 1.1 (0039) přidá do daily_call_queue jen resulting_activity_id; ostatní tabulky z main beze změny", () => {
     const before = snapshot(DAILY_CALLS_1_1_IDX - 1).tables;
     const after = snapshot(DAILY_CALLS_1_1_IDX).tables;
     const queue = "public.daily_call_queue";

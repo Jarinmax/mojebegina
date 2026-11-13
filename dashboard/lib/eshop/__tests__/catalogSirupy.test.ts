@@ -49,17 +49,17 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(await check(pg, "30_sirupy_before.sql")).toBe("1 | 0 | 0 | 0 | 0 | 7 | 11");
   });
 
-  it("skript: 7 sirupů, 14 balení, 7 fotek; po kontrole přesně podle komentáře", async () => {
+  it("skript: 7 sirupů, 14 balení, 21 fotek; po kontrole přesně podle komentáře", async () => {
     await pg.exec(file("31_sirupy.sql"));
-    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
+    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 21 | 7 | 3 | 4 | 14 | 25");
   });
 
   it("opakované spuštění nic nezdvojí", async () => {
     await pg.exec(file("31_sirupy.sql"));
-    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
+    expect(await check(pg, "32_sirupy_after.sql")).toBe("3 | 7 | 7 | 14 | 21 | 7 | 3 | 4 | 14 | 25");
   });
 
-  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 700 ml (9. 11. 2026), fotky existují; text kategorie", async () => {
+  it("e-shop: sirupy v pořadí z begina.cz, 3 l a 650 ml (11. 11. 2026), fotky existují; text kategorie", async () => {
     const catalog = await loadCatalog(db);
     const syrups = catalog.products.filter((p) => p.category === "sirupy");
     expect(syrups.map((p) => [p.name, p.variants.map((v) => [v.label, v.detail, v.priceKc])])).toEqual(
@@ -67,29 +67,33 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
         name,
         [
           ["3 l", "Až 150 nápojů", price3l],
-          ["700 ml", "Až 35 nápojů", 199],
+          ["650 ml", "Až 32 nápojů", 199],
         ],
       ])
     );
     for (const product of syrups) {
-      expect(product.image, product.slug).toBe(`/eshop/${product.slug}.jpg`);
-      expect(existsSync(path.join(PUBLIC, product.image!)), product.image!).toBe(true);
+      expect(product.image, product.slug).toBe(`/eshop/sirupy/${product.slug}-hlavni.jpg`);
+      const kinds = ["hlavni", "sacek", "doypack"];
+      expect(product.gallery?.map((g) => g.url), product.slug).toEqual(kinds.map((k) => `/eshop/sirupy/${product.slug}-${k}.jpg`));
+      for (const g of product.gallery!) expect(existsSync(path.join(PUBLIC, g.url)), g.url).toBe(true);
+      // původní fotka zůstává v kódu pro případ návratu
+      expect(existsSync(path.join(PUBLIC, `/eshop/${product.slug}.jpg`))).toBe(true);
     }
     const saman = syrups[0];
-    expect(saman.highlights).toEqual(["40 % bylinného výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z jednoho balení"]);
+    expect(saman.highlights).toEqual(["40 % bylinného výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z balení 3 l"]);
     expect(parseDescription(saman.description).intro).toHaveLength(3);
     expect(parseDescription(saman.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
       ["Jak jej používat", ["ul", "p", "p"]],
     ]);
     expect(saman.taste!.split("\n\n")).toHaveLength(2);
-    expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen pravý \(Panax ginseng\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
+    expect(saman.foodInfo.ingredients).toMatch(/čaga \(Inonotus obliquus\), ženšen sibiřský \(Eleutherococcus senticosus\), zázvor \(Zingiber officinale\)\), citronová šťáva 10 %/);
     expect(saman.warnings).toEqual(["Není vhodné pro děti do 3 let, těhotné a kojící ženy."]);
     expect(syrups.slice(1).every((p) => p.warnings.length === 0)).toBe(true);
-    expect(saman.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
+    expect(saman.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,70 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     // Zázvorový: úplné údaje z begina.cz (výživa na 100 ml).
     const zazvor = syrups[1];
-    expect(zazvor.shortDescription).toMatch(/přibližně na 3,30 Kč\.$/);
+    expect(zazvor.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,30 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     expect(zazvor.highlights[0]).toBe("39 % bylinného výluhu");
     expect(zazvor.taste).toMatch(/^Chuť je intenzivní, přímá a autenticky pálivá/);
     expect(zazvor.foodInfo.ingredients).toMatch(/^třtinový cukr, bylinný výluh 39 % \(čistá filtrovaná voda, zázvor/);
@@ -107,7 +111,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(syrups.filter((p) => p.foodInfo.ingredients !== null).map((p) => p.slug)).toEqual(["bylinny-sirup-saman", "zazvorovy-sirup", "lipovy-sirup", "ibiskovy-sirup", "sipkovy-sirup", "hermankovy-sirup", "medunkovy-sirup-s-levanduli"]);
     // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
-    expect(lipa.shortDescription).toMatch(/přibližně na 3,70 Kč\.$/);
+    expect(lipa.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,70 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     expect(lipa.highlights[0]).toBe("39 % bylinného výluhu");
     expect(lipa.description[0]).toMatch(/^Lipový sirup nabízí jemnou, medovou/);
     expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
@@ -121,7 +125,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     // Šípkový: 40 % výluhu, citronová šťáva 9 %, šípek (Rosa canina)
     const sipek = syrups[4];
     expect(sipek.name).toBe("Šípkový sirup");
-    expect(sipek.shortDescription).toMatch(/přibližně na 3,30 Kč\.$/);
+    expect(sipek.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,30 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
     expect(sipek.highlights[0]).toBe("40 % bylinného výluhu");
     expect(sipek.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
     expect(parseDescription(sipek.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
@@ -149,7 +153,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       expect([p.slug, parsed.intro.length, parsed.sections.length, p.highlights.length, p.taste !== null, p.foodInfo.nutritionPer100g !== null, p.foodInfo.storage !== null]).toEqual([p.slug, 3, 2, 4, true, true, true]);
     }
     // Balení: popis u všech sirupů
-    expect(syrups.every((p) => p.variants[0].description!.startsWith("3 l – praktické balení") && p.variants[0].description!.endsWith("Dodáváme v kartonové krabici.") && p.variants[1].description!.startsWith("700 ml – lehké balení ve stříbrném sáčku"))).toBe(true);
+    expect(syrups.every((p) => p.variants[0].description!.startsWith("3 l – praktické balení") && p.variants[0].description!.endsWith("Dodáváme v kartonové krabici.") && p.variants[1].description!.startsWith("650 ml – lehké balení ve stříbrném sáčku"))).toBe(true);
     const category = catalog.categories.find((c) => c.slug === "sirupy")!;
     // společná sekce detailu (i pro Šamana)
     expect(category.detailSections).toEqual([

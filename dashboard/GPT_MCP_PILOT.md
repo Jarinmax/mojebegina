@@ -70,6 +70,8 @@ OAuth 2.1 (vlastní, malý, nad běžným přihlášením MojeBegina):
 | `send_invoice_to_customer` | fakturace (`mojebegina.invoicing`) | jen na výslovnou žádost: pošle PDF už vystavené faktury zákazníkovi (jednou, Bcc) — **jen vystavovatelé faktur** |
 | `idoklad_invoice_pdf` | čtení | PDF libovolné vydané faktury z iDokladu (i ruční řady 2026xxxx): ověří PDF a vrátí odkaz na stažení v MojeBegina (`/rizeni-firmy/faktury/idoklad/{id}/pdf`, po přihlášení); obsah PDF ani e-mail odběratele asistentovi nevrací — **jen vystavovatelé faktur** |
 | `send_idoklad_invoice_email` | fakturace (`mojebegina.invoicing`) | jen na výslovnou žádost: pošle PDF existující faktury z iDokladu e-mailem z MojeBegina — jen odběrateli z faktury, na `@begina.cz`, na e-mail účtu uživatele a na adresy z `IDOKLAD_INVOICE_EMAIL_ALLOWED` — **jen vystavovatelé faktur** |
+| `prepare_b2b_invoice` | čtení | náhled faktury odběrateli podle IČO **bez e-shopu** v Luciině řadě 2026xxxx: položky, převodem / hotově / kartou, otevřená nebo uhrazená, splatnost, poznámka; kontrola iDokladu, odběratele, dalšího čísla a duplicit — **jen vystavovatelé faktur** |
+| `issue_b2b_invoice` | fakturace (`mojebegina.invoicing`) | vystaví tuto fakturu v iDokladu přesně podle náhledu; nic neposílá; vrací číslo, ID a odkaz na PDF — **jen vystavovatelé faktur** |
 
 Asistent **nikdy** nemaže, nemění fázi leadu, vlastníka, role ani oprávnění a
 nesahá na objednávky ani platby. Zápisové nástroje dostane jen
@@ -169,11 +171,26 @@ PDF a odeslání EXISTUJÍCÍ faktury z iDokladu (např. ruční řada Lucie 202
   a adresy z `IDOKLAD_INVOICE_EMAIL_ALLOWED` (čárkou, např. soukromý e-mail Lucie). Jedna
   nepovolená adresa = neodejde nic. Příjemci a ID zprávy zůstanou v `agent_audit_log`.
 
+B2B faktury bez e-shopu (rozhodnutí majitele 1. 11. 2026 — Luciina řada 2026xxxx):
+
+- `prepare_b2b_invoice` → potvrzení → `issue_b2b_invoice` (`lib/eshop/invoicing/b2bInvoice.ts`).
+  Stejný klient iDokladu a stejná kontrola před vystavením (`runIdokladPreflight`, profil
+  `b2b`: výchozí řada agendy, formát `{RRRR}{NNNN}`, nikdy 7277293, další číslo volné),
+  stejná brána ostrého provozu. Navíc nutné `IDOKLAD_B2B_SEQUENCE_ID` = ID Luciiny řady
+  (zjistí `idoklad_list_series` — výchozí řada vydaných faktur).
+- Klient iDokladu vytvořený pro B2B smí zapsat fakturu jen do této jedné řady
+  (`assertB2bSeriesBody`); e-shop a automat dál výhradně 7277293 (`assertEshopSeriesBody`).
+- Odběratel podle IČO z kontaktů iDokladu; když tam není, založí se z zákazníka v MojeBegina;
+  jinak stop. Stejný odběratel + částka ±7 dní = jen s `confirm_not_duplicate`.
+- Otevřená faktura = bez FullyPay; `paid=true` = FullyPay k datu vystavení. Poznámka
+  „uhrazena“ u neuhrazené faktury = varování v náhledu.
+- Audit: `agent_audit_log` + `organization_activity` `invoice_issued` u zákazníka v MojeBegina.
+
 Co musí být zapnuté, aby nástroje uviděla Lucie:
 
 | Kde | Co |
 |---|---|
-| Vercel Production | `IDOKLAD_INVOICE_EMAIL_ALLOWED` (volitelně, další povolení příjemci), `MCP_ALLOW_INVOICING=on`, `IDOKLAD_READ_CHANNELS=mcp:chatgpt`, `IDOKLAD_INVOICING_ENABLED=manual` (beze změny), `MCP_ALLOWED_USER_IDS` s Lucií |
+| Vercel Production | `IDOKLAD_B2B_SEQUENCE_ID` (ID Luciiny řady, B2B faktury), `IDOKLAD_INVOICE_EMAIL_ALLOWED` (volitelně, další povolení příjemci), `MCP_ALLOW_INVOICING=on`, `IDOKLAD_READ_CHANNELS=mcp:chatgpt`, `IDOKLAD_INVOICING_ENABLED=manual` (beze změny), `MCP_ALLOWED_USER_IDS` s Lucií |
 | Vercel Domains | `gpt-pilot.begina.cz` → Production (ne Git větev pilotu) |
 | ChatGPT konektor | scope `mojebegina.read mojebegina.invoicing` (nebo bez scope), obnovit nástroje |
 | Souhlas | Lucie znovu připojí konektor a zaškrtne „vystavovat faktury…“ (role EXECUTIVE) |

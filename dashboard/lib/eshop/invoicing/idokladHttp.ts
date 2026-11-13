@@ -137,6 +137,19 @@ export function assertEshopSeriesBody(body: unknown): void {
   }
 }
 
+/**
+ * Výjimka JEN pro B2B faktury z MojeBegina (b2bInvoice.ts, rozhodnutí majitele
+ * 1. 11. 2026): klient vytvořený s `b2bSeriesId` smí vystavit fakturu výhradně
+ * v této jedné řadě (Luciina ruční 2026xxxx) — nikdy v 7277293 ani jinde.
+ * Klient bez `b2bSeriesId` (e-shop, automat) má dál jen assertEshopSeriesBody.
+ */
+export function assertB2bSeriesBody(body: unknown, b2bSeriesId: string): void {
+  const sequenceId = String((body as { NumericSequenceId?: unknown } | null)?.NumericSequenceId ?? "—");
+  if (!/^[1-9]\d{0,9}$/.test(b2bSeriesId) || b2bSeriesId === ESHOP_SERIES.id || sequenceId !== b2bSeriesId) {
+    throw new IdokladBlockedError(`B2B faktura mimo povolenou řadu ${b2bSeriesId} (NumericSequenceId ${sequenceId})`);
+  }
+}
+
 export type IdokladLogEntry = { method: string; path: string; status: number | null; ms: number };
 
 export type EshopIdokladClientOptions = {
@@ -152,6 +165,8 @@ export type EshopIdokladClientOptions = {
   now?: () => number;
   /** max. počet požadavků na jedno vystavení (ochrana denní kvóty) */
   requestBudget?: number;
+  /** jen B2B faktury (b2bInvoice.ts): jediná povolená řada místo 7277293 */
+  b2bSeriesId?: string;
   timeoutMs?: number;
 };
 
@@ -160,10 +175,11 @@ type Envelope = { Data?: unknown; IsSuccess?: boolean; Message?: string; StatusC
 export type IdokladListPage<T> = { Items: T[]; TotalItems: number; TotalPages: number };
 
 export class EshopIdokladClient {
-  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret" | "applicationId">> & {
+  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret" | "applicationId" | "b2bSeriesId">> & {
     clientId: string;
     clientSecret: string;
     applicationId: string;
+    b2bSeriesId: string | undefined;
   };
   private token: { value: string; expiresAt: number } | null = null;
   private count = 0;
@@ -185,6 +201,7 @@ export class EshopIdokladClient {
       requestBudget: options.requestBudget ?? 40,
       timeoutMs: options.timeoutMs ?? IDOKLAD_TIMEOUT_MS,
       env: options.env ?? process.env,
+      b2bSeriesId: options.b2bSeriesId,
     };
   }
 
@@ -307,7 +324,10 @@ export class EshopIdokladClient {
     // Pojistka se ověří i tady (před získáním tokenu), aby blokovaný zápis
     // na Preview neposlal na identity server ani žádost o token.
     assertEshopIdokladRequest(method, url.toString(), this.writesAllowed);
-    if (method === "POST" && path === "/IssuedInvoices") assertEshopSeriesBody(body);
+    if (method === "POST" && path === "/IssuedInvoices") {
+      if (this.opts.b2bSeriesId !== undefined) assertB2bSeriesBody(body, this.opts.b2bSeriesId);
+      else assertEshopSeriesBody(body);
+    }
     const token = await this.accessToken();
     const response = await this.send(method, url.toString(), {
       headers: {

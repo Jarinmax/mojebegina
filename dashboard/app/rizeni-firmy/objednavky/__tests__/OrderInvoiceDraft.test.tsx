@@ -8,7 +8,11 @@ import { buildInvoiceDraft } from "@/lib/eshop/invoicing/draft";
 import { IDOKLAD_ISSUE_STEPS, idokladRequests } from "@/lib/eshop/invoicing/idoklad";
 import type { OrderInvoiceView } from "@/lib/eshop/invoicing/service";
 
-vi.mock("../actions", () => ({ prepareInvoiceDraftAction: async () => null, issueInvoiceAction: async () => null }));
+vi.mock("../actions", () => ({
+  prepareInvoiceDraftAction: async () => null,
+  issueInvoiceAction: async () => null,
+  linkExternalInvoiceAction: async () => null,
+}));
 
 afterEach(cleanup);
 

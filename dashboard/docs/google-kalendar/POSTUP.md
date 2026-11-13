@@ -4,17 +4,23 @@ Zadání 10. 11. 2026: když nastane termín „Ozvat se později“, má Jardov
 (Android, účet `jaroslavblahout@begina.cz`) pípnout mobil s telefonním číslem.
 Událost má upozornění **60 min předem, 5 min předem a v čase hovoru**.
 
+Je jen jedno pole s časem: **„Další kontakt“** (datum i hodina). Řídí frontu Denního
+volání, kalendář, sekci „Naplánované hovory dnes“ na /prace i ranní souhrnné upozornění
+z webu (PR #170, Vercel Cron, potřebuje VAPID klíče a `CRON_SECRET`). Dřívější
+samostatné pole „Přesný čas hovoru“ (`leads.scheduled_call_at`) se od 13. 11. 2026
+nepoužívá.
+
 ## Co se stane při nasazení (automaticky, `scripts/migrate-google-calendar.mjs` v prebuild)
 
 V jedné transakci proběhne:
-1. **Migrace 0035:** nové tabulky `google_calendar_connections` a `lead_calendar_sync`.
+1. **Migrace 0038:** nové tabulky `google_calendar_connections` a `lead_calendar_sync`.
 2. **Převod starých termínů** (`21_terminy_prevod.sql`): termíny uložené dřív jako
    „jen datum“ (12:00 UTC) se převedou na **09:00** téhož dne.
    - 10. 11. 2026 jich bylo 38.
    - Záloha je v tabulce `lead_follow_up_k8_backup`.
    - Převod proběhne jen jednou, spolu s vytvořením tabulek.
 
-Potom samostatně proběhne **migrace 0036**: `daily_call_queue.resulting_activity_id` (Denní volání 1.1).
+Potom samostatně proběhne **migrace 0039**: `daily_call_queue.resulting_activity_id` (Denní volání 1.1).
 
 Při jakékoli chybě se transakce vrátí, build skončí a dál běží dosavadní verze.
 

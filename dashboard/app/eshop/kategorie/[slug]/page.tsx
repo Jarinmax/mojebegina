@@ -7,19 +7,23 @@ import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { imageBackdrop } from "@/lib/eshop/productImages";
 import { SHARE_DESCRIPTION } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
+import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const category = (await getCatalogIndex()).findCategory(slug);
+  const index = await getCatalogIndex();
+  const category = index.findCategory(slug);
   if (!category) return {};
   // Náhled při sdílení: vlastní fotka jen u kategorií s čistou fotkou bez
   // zapečeného textu (polévky = hlavní fotka Dýňové); jinak logo z layoutu.
   const shareImage = imageBackdrop(category.image) ? category.image : null;
-  const description = category.intro[0] ?? SHARE_DESCRIPTION;
+  // vlastní popis pro vyhledávače: názvy produktů + úvod kategorie (12. 11. 2026)
+  const description = categoryDescription(category, index.productsInCategory(category.slug)) || SHARE_DESCRIPTION;
   return {
     title: category.name,
+    description,
     alternates: { canonical: `/kategorie/${category.slug}` },
     ...(shareImage
       ? {
@@ -41,6 +45,12 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd(breadcrumbJsonLd([{ name: "Begina", path: "/" }, { name: category.name, path: `/kategorie/${category.slug}` }])),
+        }}
+      />
       <ShopLink href="/" className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-4 -ml-1">
         <ChevronLeft className="w-4 h-4" />
         Všechny kategorie

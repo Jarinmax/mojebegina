@@ -23,11 +23,9 @@ describe("úvod e-shopu", () => {
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
     expect(text(document.body.textContent)).toContain("Čerstvě. Jednoduše. S chutí.");
     const h1 = screen.getByRole("heading", { level: 1 });
-    // přesně tři řádky bez čárek a tečky (9. 11. 2026)
-    expect(Array.from(h1.querySelectorAll("span")).map((s) => text(s.textContent))).toEqual(["Čerstvé polévky", "Bylinné sirupy", "Nápoje a zmrzliny"]);
-    expect(text(h1.textContent)).toBe("Čerstvé polévky Bylinné sirupy Nápoje a zmrzliny");
-    expect(h1.textContent).not.toMatch(/[,.]/);
-    expect(text(document.body.textContent)).toContain("Z pečlivě vybraných surovin a čisté filtrované vody.");
+    // nadpis s hlavní výhodou – begina (11. 11. 2026)
+    expect(text(h1.textContent)).toBe("Polévky a nápoje v begině");
+    expect(text(document.body.textContent)).toContain("Natočíte si, kolik chcete a kdy chcete. 100 % rostlinné, z čisté filtrované vody.");
     expect(screen.getByText("Doručujeme chlazenou přepravou.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
@@ -42,11 +40,11 @@ describe("úvod e-shopu", () => {
     expect(existsSync(path.join(__dirname, "../../app/eshop/kategorie/[slug]/page.tsx"))).toBe(true);
   });
 
-  it("skutečná fotografie (polévka a horký čaj, 9. 11. 2026) v plném poměru, existuje v public", () => {
+  it("fotografie úvodu (polévka, čaj, limonáda, begina, 11. 11. 2026) v plném poměru, existuje v public", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
-    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-a-caj-bezove-pozadi.webp");
-    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1672 / 941);
+    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-begina-caj-limonada-v3.webp");
+    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1448 / 1126);
     expect(img.className).toContain("h-auto");
     expect(img.className).not.toMatch(/object-cover|rounded|shadow|border/);
     expect(existsSync(path.join(__dirname, "../../public", HERO_PHOTO.src))).toBe(true);

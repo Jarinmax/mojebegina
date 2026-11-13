@@ -13,6 +13,7 @@ import { getShippingMethod, quoteShipping, type ShippingMethod, type ShippingMod
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
+import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
 export type PricedLine = {
   sku: string;
@@ -36,7 +37,17 @@ export type PricedCart = {
   discountKc: number;
   /** Uplatněné slevové kódy (malými písmeny) a sleva každého z nich. */
   coupons: AppliedCoupon[];
+  /**
+   * Volitelné krabice (boxOption.ts) — samostatný řádek mimo zboží: slevové
+   * kódy se z něj nepočítají. totalKc = subtotal − discount + shipping + krabice.
+   */
+  packaging?: PricedLine | null;
 };
+
+/** Cena krabic v objednávce (0 = bez krabic). */
+export function packagingKc(priced: Pick<PricedCart, "packaging">): number {
+  return priced.packaging?.lineTotalKc ?? 0;
+}
 
 export type CartInputLine = { sku: string; quantity: number };
 
@@ -44,7 +55,7 @@ export function priceCart(
   input: CartInputLine[],
   shippingMethodId: string,
   index: CatalogIndex,
-  options: { shippingMode?: ShippingMode } = {}
+  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number } = {}
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   const shippingMode = options.shippingMode ?? "flat";
   if (input.length === 0) {
@@ -63,6 +74,7 @@ export function priceCart(
   const lines: PricedLine[] = [];
   const weights: (number | null)[] = [];
   let containsAgeRestricted = false;
+  let boxEligible = 0;
   for (const item of input) {
     const found = index.getVariant(item.sku);
     if (!found) {
@@ -93,6 +105,7 @@ export function priceCart(
       };
     }
     containsAgeRestricted ||= product.isAgeRestricted;
+    if (isBoxEligible(product, variant)) boxEligible += item.quantity;
     weights.push(variant.weightGrams);
     lines.push({
       sku: variant.sku,
@@ -103,11 +116,15 @@ export function priceCart(
     });
   }
 
-  // Nad 150 kg nebo bez známé hmotnosti chlazenou přepravu nejde objednat
+  const boxes = clampBoxes(options.boxes, boxEligible);
+  // Nad 400 kg nebo bez známé hmotnosti chlazenou přepravu nejde objednat
   // automaticky — server ji odmítne, i kdyby ji formulář (podvržený) poslal.
   const quote = quoteShipping(
     shipping,
-    lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
+    [
+      ...lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
+      ...boxWeightLines(boxes),
+    ],
     shippingMode,
     OPERATOR
   );
@@ -116,6 +133,10 @@ export function priceCart(
   }
 
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
+  const packaging: PricedLine | null =
+    boxes > 0
+      ? { sku: BOX_SKU, name: BOX_NAME, quantity: boxes, unitPriceKc: BOX_PRICE_KC, lineTotalKc: boxes * BOX_PRICE_KC }
+      : null;
   return {
     ok: true,
     value: {
@@ -123,11 +144,12 @@ export function priceCart(
       shipping,
       subtotalKc,
       shippingKc: quote.priceKc,
-      totalKc: subtotalKc + quote.priceKc,
+      totalKc: subtotalKc + quote.priceKc + (packaging?.lineTotalKc ?? 0),
       weightGrams: quote.weightGrams,
       containsAgeRestricted,
       discountKc: 0,
       coupons: [],
+      packaging,
     },
   };
 }
@@ -148,6 +170,6 @@ export function withCoupons(
     coupons: result.applied,
     discountKc,
     shippingKc,
-    totalKc: priced.subtotalKc - discountKc + shippingKc,
+    totalKc: priced.subtotalKc - discountKc + shippingKc + packagingKc(priced),
   };
 }

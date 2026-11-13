@@ -107,3 +107,18 @@ export function invoiceCopyRecipients(config: Pick<EmailConfig, "invoiceCopyTo" 
   const allowed = config.testRecipients === null ? null : new Set(config.testRecipients);
   return (config.invoiceCopyTo ?? []).filter((email) => !already.has(email) && (allowed === null || allowed.has(email)));
 }
+
+/**
+ * Odesílatel e-mailu s fakturou: vždy Begina <info@begina.cz> (rozhodnutí
+ * majitele 12. 11. 2026 — faktury odcházejí ze společné schránky a odpovědi
+ * na ni chodí zpět). Jen když je doména begina.cz v Resendu ověřená, tj.
+ * běžný odesílatel (ESHOP_EMAIL_FROM) je také @begina.cz; jinak (testovací
+ * odesílatel resend.dev) zůstane běžný odesílatel, aby e-mail vůbec odešel.
+ */
+export function invoiceEmailSender(config: Pick<EmailConfig, "from" | "replyTo">): { from: string; replyTo: string | null } {
+  const address = /<([^<>]+)>\s*$/.exec(config.from)?.[1] ?? config.from;
+  if (address.trim().toLowerCase().endsWith("@begina.cz")) {
+    return { from: `Begina <${DEFAULT_INTERNAL_EMAIL}>`, replyTo: DEFAULT_INTERNAL_EMAIL };
+  }
+  return { from: config.from, replyTo: config.replyTo };
+}

@@ -8,6 +8,8 @@ import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
+import { clampBoxes } from "./boxOption";
+import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
 
 const MAX_TEXT_LENGTH = 200;
@@ -42,6 +44,8 @@ export type CheckoutInput = {
   termsAccepted: boolean;
   /** Potvrzení 18+; vyžaduje se jen, když košík obsahuje alkohol. */
   ageConfirmed: boolean;
+  /** Počet krabic na balení 3 l (příplatek, boxOption.ts); nepovinné, text z formuláře. */
+  boxes?: string | number;
   /** JSON ["kod", …] — uplatněné slevové kódy (z košíku / pokladny); nepovinné. */
   couponCodes?: string;
 };
@@ -128,7 +132,7 @@ export function validateCheckoutInput(
   options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode });
+  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxes: clampBoxes(input.boxes, Number.MAX_SAFE_INTEGER) });
   if (!priced.ok) {
     return priced;
   }
@@ -212,7 +216,7 @@ export function validateCheckoutInput(
   if (priced.value.shipping.requiresAddress) {
     if (input.deliverySameAsBilling) {
       if (country !== DELIVERY_COUNTRY) {
-        return { ok: false, error: "Doručujeme jen v České republice — zvolte prosím jinou doručovací adresu v ČR." };
+        return { ok: false, error: `Doručujeme jen v České republice — zvolte prosím jinou doručovací adresu v ČR. ${SLOVAKIA_ORDER_NOTE}` };
       }
       delivery = {
         sameAsBilling: true,
@@ -244,7 +248,7 @@ export function validateCheckoutInput(
         return { ok: false, error: "Zadejte PSČ ve tvaru 123 45." };
       }
       if (!CZ_ZIP_PATTERN.test(zip)) {
-        return { ok: false, error: "Doručujeme jen v České republice — zadejte prosím české PSČ." };
+        return { ok: false, error: `Doručujeme jen v České republice — zadejte prosím české PSČ. ${SLOVAKIA_ORDER_NOTE}` };
       }
       if (!PHONE_PATTERN.test(recipientPhone)) {
         return { ok: false, error: "Zadejte platný telefon příjemce pro doručení." };

@@ -1,6 +1,6 @@
 {
-  "id": "733698c1-5387-4e0d-85af-717df2fedf9d",
-  "prevId": "0786fbd9-c913-40e6-b27c-a4026f83d699",
+  "id": "63b21519-bf72-4397-a094-24b5a340b6a0",
+  "prevId": "de78d7f3-b7aa-4a5b-a86f-e766ae220104",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -800,6 +800,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "reward_type": {
+          "name": "reward_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'flat'"
+        },
+        "rate_kc": {
+          "name": "rate_kc",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "earned_kc": {
           "name": "earned_kc",
           "type": "integer",
@@ -825,6 +838,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_by": {
+          "name": "deleted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -880,6 +918,22 @@
         "collaborator_work_entries_earned_check": {
           "name": "collaborator_work_entries_earned_check",
           "value": "\"collaborator_work_entries\".\"earned_kc\" >= 0"
+        },
+        "collaborator_work_entries_reward_type_check": {
+          "name": "collaborator_work_entries_reward_type_check",
+          "value": "\"collaborator_work_entries\".\"reward_type\" IN ('hourly','per_post','flat')"
+        },
+        "collaborator_work_entries_rate_consistent": {
+          "name": "collaborator_work_entries_rate_consistent",
+          "value": "(\"collaborator_work_entries\".\"reward_type\" = 'flat') = (\"collaborator_work_entries\".\"rate_kc\" IS NULL)"
+        },
+        "collaborator_work_entries_rate_positive": {
+          "name": "collaborator_work_entries_rate_positive",
+          "value": "\"collaborator_work_entries\".\"rate_kc\" IS NULL OR \"collaborator_work_entries\".\"rate_kc\" > 0"
+        },
+        "collaborator_work_entries_deleted_consistent": {
+          "name": "collaborator_work_entries_deleted_consistent",
+          "value": "(\"collaborator_work_entries\".\"deleted_at\" IS NULL) = (\"collaborator_work_entries\".\"deleted_by\" IS NULL)"
         }
       },
       "isRLSEnabled": false
@@ -1276,12 +1330,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "resulting_activity_id": {
-          "name": "resulting_activity_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1364,19 +1412,6 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "daily_call_queue_resulting_activity_id_lead_activity_id_fk": {
-          "name": "daily_call_queue_resulting_activity_id_lead_activity_id_fk",
-          "tableFrom": "daily_call_queue",
-          "tableTo": "lead_activity",
-          "columnsFrom": [
-            "resulting_activity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -2676,77 +2711,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.google_calendar_connections": {
-      "name": "google_calendar_connections",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "google_account_email": {
-          "name": "google_account_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "google_calendar_id": {
-          "name": "google_calendar_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "refresh_token_encrypted": {
-          "name": "refresh_token_encrypted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "granted_scopes": {
-          "name": "granted_scopes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "connected_at": {
-          "name": "connected_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "google_calendar_connections_user_id_unique": {
-          "name": "google_calendar_connections_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.idoklad_read_log": {
       "name": "idoklad_read_log",
       "schema": "",
@@ -3669,76 +3633,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.lead_calendar_sync": {
-      "name": "lead_calendar_sync",
-      "schema": "",
-      "columns": {
-        "lead_id": {
-          "name": "lead_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "google_event_id": {
-          "name": "google_event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "synced_next_follow_up_at": {
-          "name": "synced_next_follow_up_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sync_status": {
-          "name": "sync_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "lead_calendar_sync_lead_id_leads_id_fk": {
-          "name": "lead_calendar_sync_lead_id_leads_id_fk",
-          "tableFrom": "lead_calendar_sync",
-          "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "lead_calendar_sync_status_check": {
-          "name": "lead_calendar_sync_status_check",
-          "value": "\"lead_calendar_sync\".\"sync_status\" IN ('pending','synced','failed')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.leads": {
@@ -5604,6 +5498,200 @@
         "product_variants_weight_positive": {
           "name": "product_variants_weight_positive",
           "value": "\"product_variants\".\"weight_g\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.production_cards": {
+      "name": "production_cards",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assignee_user_id": {
+          "name": "assignee_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "production_cards_assignee_user_id_unique": {
+          "name": "production_cards_assignee_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "assignee_user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.production_stock_requests": {
+      "name": "production_stock_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "card_id": {
+          "name": "card_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stock_item_id": {
+          "name": "stock_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "resolved_by": {
+          "name": "resolved_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolved_at": {
+          "name": "resolved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "production_stock_requests_card_status_idx": {
+          "name": "production_stock_requests_card_status_idx",
+          "columns": [
+            {
+              "expression": "card_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "production_stock_requests_card_id_production_cards_id_fk": {
+          "name": "production_stock_requests_card_id_production_cards_id_fk",
+          "tableFrom": "production_stock_requests",
+          "tableTo": "production_cards",
+          "columnsFrom": [
+            "card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "production_stock_requests_stock_item_id_stock_items_id_fk": {
+          "name": "production_stock_requests_stock_item_id_stock_items_id_fk",
+          "tableFrom": "production_stock_requests",
+          "tableTo": "stock_items",
+          "columnsFrom": [
+            "stock_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "production_stock_requests_status_check": {
+          "name": "production_stock_requests_status_check",
+          "value": "\"production_stock_requests\".\"status\" IN ('open','done')"
+        },
+        "production_stock_requests_resolved_consistent": {
+          "name": "production_stock_requests_resolved_consistent",
+          "value": "(\"production_stock_requests\".\"status\" = 'done') = (\"production_stock_requests\".\"resolved_at\" IS NOT NULL)"
         }
       },
       "isRLSEnabled": false

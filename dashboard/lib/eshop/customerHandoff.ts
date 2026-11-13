@@ -12,6 +12,7 @@
 // Pas se při každém použití znovu ověří (odebraný člen ho nevyužije).
 // Bez pasu se objednávka ke kartě přiřadí podle e-mailu člena karty
 // (findCardByMemberEmail) — údaje karty se ale bez pasu nikdy neukážou.
+import { BOX_SKU } from "./boxOption";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -219,6 +220,8 @@ export function reorderLines(items: ReorderSource[], index: CatalogIndex): Reord
   const skipped: string[] = [];
   for (const item of items) {
     if (item.unitPriceKc <= 0 || item.quantity <= 0) continue;
+    // volitelná krabice (boxOption.ts) není zboží — v pokladně se volí znovu
+    if (item.sku === BOX_SKU) continue;
     let sku: string | undefined;
     if (item.sku && index.getVariant(item.sku)) sku = item.sku;
     if (!sku) sku = byLineName.get(normalizeName(item.name));

@@ -74,7 +74,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
   it("A6 — katalog Bylinné sirupy (před / skript / po)", async () => {
     expect(await check(pg, file("eshop-catalog", "30_sirupy_before.sql"))).toBe("1 | 0 | 0 | 0 | 0 | 7 | 11");
     await run(pg, file("eshop-catalog", "31_sirupy.sql"));
-    expect(await check(pg, file("eshop-catalog", "32_sirupy_after.sql"))).toBe("3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 14 | 25");
+    expect(await check(pg, file("eshop-catalog", "32_sirupy_after.sql"))).toBe("3 | 7 | 7 | 14 | 21 | 7 | 3 | 4 | 14 | 25");
   });
 
   it("A7 — katalog Čerstvé polévky (před / skript / po)", async () => {
@@ -341,7 +341,7 @@ describe("13_katalog_a_platby_A_MAIN.sql — zbytek fáze A v jedné transakci, 
     const pg = await afterMigrations();
     await run(pg, file("eshop-production", REST));
     expect(await afterChecks(pg)).toEqual([
-      "3 | 7 | 7 | 14 | 7 | 7 | 3 | 4 | 25 | 36", // celkem až po polévkách a čajích
+      "3 | 7 | 7 | 14 | 21 | 7 | 3 | 4 | 25 | 36", // celkem až po polévkách a čajích
       "6 | 1 | ano | 3 l | 379 | 12 | 12 | 1 | 379 Kč, 12 porcí | 379 Kč, 12 porcí",
       "8 | 1 | 3 l, 289 Kč | 8 | 249 Kč, 12 nápojů",
       "5 | 1 | 1 | 1 | 0 | 2 | 2 | 2 | 0 | 0 | 2",

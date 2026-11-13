@@ -52,7 +52,7 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(zazvor.variants).toEqual([expect.objectContaining({ sku: "zazvorovy-caj-3l", priceKc: 249, servings: 12 })]);
     expect(zazvor.image).toBe("/eshop/zazvorovy-caj.jpg");
     expect(existsSync(path.join(PUBLIC, zazvor.image!))).toBe(true);
-    expect(zazvor.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 94 kJ \/ 22 kcal/);
+    expect(zazvor.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 95 kJ \/ 22 kcal/);
     expect(zazvor.warnings).toEqual([]);
     const lipa = (await teas())[2];
     expect([lipa.name, lipa.variants[0].priceKc, lipa.image]).toEqual(["Lipový čaj", 259, "/eshop/lipovy-caj.jpg"]);
@@ -70,12 +70,12 @@ describe("katalog — Čaje", DB_TEST, () => {
     const jasmin = (await teas())[5];
     expect([jasmin.name, jasmin.variants[0].priceKc, jasmin.image]).toEqual(["Jasmínový zelený čaj", 269, "/eshop/jasminovy-zeleny-caj.jpg"]);
     expect(existsSync(path.join(PUBLIC, jasmin.image!))).toBe(true);
-    expect(jasmin.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 95 kJ \/ 23 kcal/);
+    expect(jasmin.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 95 kJ \/ 22 kcal/);
     expect(jasmin.warnings).toEqual(nepal.warnings);
     const ibisek = (await teas())[6];
     expect([ibisek.name, ibisek.variants[0].priceKc, ibisek.image]).toEqual(["Ibiškový čaj", 249, "/eshop/ibiskovy-caj.jpg"]);
     expect(existsSync(path.join(PUBLIC, ibisek.image!))).toBe(true);
-    expect(ibisek.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 113 kJ \/ 27 kcal, .*sacharidy 6,7 g/);
+    expect(ibisek.foodInfo.nutritionPer100g).toMatch(/^na 100 ml: energie 95 kJ \/ 22 kcal, .*sacharidy 5,6 g/);
     expect(ibisek.warnings).toEqual([]);
     const medunka = (await teas())[7];
     expect([medunka.name, medunka.variants[0].priceKc, medunka.image]).toEqual(["Meduňkový čaj s levandulí", 249, "/eshop/medunkovy-caj-s-levanduli.jpg"]);
@@ -90,13 +90,13 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(saman.image).toBe("/eshop/bylinny-caj-saman.jpg");
     expect(existsSync(path.join(PUBLIC, saman.image!))).toBe(true);
     expect(saman.foodInfo.nutritionPer100g).toBe(
-      "na 100 ml: energie 98 kJ / 23 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 5,7 g (z toho cukry 5,7 g), bílkoviny 0 g, sůl 0 g"
+      "na 100 ml: energie 95 kJ / 22 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 5,6 g (z toho cukry 5,6 g), bílkoviny 0 g, sůl 0 g"
     );
     expect(saman.warnings).toEqual(["Není vhodné pro děti do 3 let, těhotné a kojící ženy."]);
-    // všechny čaje: bez alergenů, trvanlivost 2 měsíce (údaje vedení 5. 10. 2026)
+    // všechny čaje: bez alergenů, trvanlivost 14 dnů / 5 dnů po otevření (11. 11. 2026)
     for (const tea of await teas()) {
       expect(tea.foodInfo.allergens, tea.slug).toEqual([]);
-      expect(tea.foodInfo.shelfLife, tea.slug).toBe("Do 2 měsíců při skladování v lednici do 4 °C.");
+      expect(tea.foodInfo.shelfLife, tea.slug).toBe("Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.");
     }
     const category = (await loadCatalog(db)).categories.find((c) => c.slug === "caje")!;
     expect(category.detailSections[0].paragraphs[0]).toBe("Čaje Begina jsou praktické řešení pro:");

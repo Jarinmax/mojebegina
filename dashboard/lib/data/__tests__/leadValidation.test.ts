@@ -5,6 +5,7 @@ import {
   validateCallLogInput,
   validateCompanyNameInput,
   isFollowUpOverdue,
+  isTodayInPrague,
   leadDisplayName,
   compareLeadsForList,
   type CreateLeadInput,
@@ -424,5 +425,26 @@ describe("compareLeadsForList — Security Phase 16.4", () => {
     const secondRun = [...rows].sort(compareLeadsForList).map((r) => r.id);
     expect(secondRun).toEqual(firstRun);
     expect(firstRun).toEqual(["b", "a", "d", "c"]);
+  });
+});
+
+describe("isTodayInPrague — dnešní hovory pro /prace a ranní souhrn", () => {
+  it("stejný kalendářní den v Europe/Prague = dnes, i přes posun UTC", () => {
+    // 2026-01-15 23:30 UTC je už 2026-01-16 00:30 v Praze (CET, UTC+1).
+    const now = new Date("2026-01-15T22:00:00.000Z"); // 2026-01-15 23:00 Praha
+    const scheduled = new Date("2026-01-15T23:30:00.000Z"); // 2026-01-16 00:30 Praha
+    expect(isTodayInPrague(scheduled, now)).toBe(false);
+  });
+
+  it("stejný den v Praze, jiná hodina UTC den = dnes", () => {
+    const now = new Date("2026-06-10T04:00:00.000Z"); // 2026-06-10 06:00 Praha (CEST)
+    const scheduled = new Date("2026-06-09T23:00:00.000Z"); // 2026-06-10 01:00 Praha
+    expect(isTodayInPrague(scheduled, now)).toBe(true);
+  });
+
+  it("jiný den = ne", () => {
+    const now = new Date("2026-06-10T10:00:00.000Z");
+    const scheduled = new Date("2026-06-11T10:00:00.000Z");
+    expect(isTodayInPrague(scheduled, now)).toBe(false);
   });
 });

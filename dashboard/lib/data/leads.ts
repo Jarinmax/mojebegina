@@ -11,7 +11,7 @@
 // (linkLeadToExistingOrganization / convertLeadToNewOrganization).
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -29,6 +29,7 @@ import {
   validateNextStepInput,
   likePattern,
   isFollowUpOverdue,
+  isTodayInPrague,
   leadDisplayName,
   compareLeadsForList,
   ACTIVE_LEAD_STAGES,
@@ -263,6 +264,43 @@ export async function getCockpitCounts(): Promise<CockpitCounts> {
   }
 
   return { toCallToday, followUp7d, negotiating, newCustomers30d };
+}
+
+export type ScheduledCallItem = {
+  leadId: string;
+  displayName: string;
+  contactPhone: string | null;
+  callAt: Date;
+};
+
+// Moje dnešní naplánované hovory — termín „Další kontakt“ (next_follow_up_at,
+// datum i hodina) připadá na dnešek v Europe/Prague. Sjednoceno 13. 11. 2026:
+// jedno pole s časem pro frontu, kalendář i tuhle sekci (dřív samostatné
+// scheduled_call_at, které se už nepoužívá).
+export async function getScheduledCallsToday(): Promise<ScheduledCallItem[]> {
+  const ctx = await requireCrmContext();
+
+  const rows = await db
+    .select({
+      id: leads.id,
+      companyName: leads.companyName,
+      contactName: leads.contactName,
+      contactEmail: leads.contactEmail,
+      contactPhone: leads.contactPhone,
+      nextFollowUpAt: leads.nextFollowUpAt,
+    })
+    .from(leads)
+    .where(and(eq(leads.ownerUserId, ctx.userId), inArray(leads.stage, ACTIVE_LEAD_STAGES), isNotNull(leads.nextFollowUpAt)));
+
+  return rows
+    .filter((r): r is typeof r & { nextFollowUpAt: Date } => r.nextFollowUpAt !== null && isTodayInPrague(r.nextFollowUpAt))
+    .map((r) => ({
+      leadId: r.id,
+      displayName: leadDisplayName(r),
+      contactPhone: r.contactPhone,
+      callAt: r.nextFollowUpAt,
+    }))
+    .sort((a, b) => a.callAt.getTime() - b.callAt.getTime());
 }
 
 // --- Lead detail -----------------------------------------------------------

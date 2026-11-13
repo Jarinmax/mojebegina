@@ -1,5 +1,5 @@
 import ShopLink from "./ShopLink";
-import { isOrderable, lowestPriceKc, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
+import { isOrderable, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
@@ -20,9 +20,22 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       </ShopLink>
       <div className="px-1 pt-3 flex items-center justify-between gap-3">
-        <p className="font-semibold tabular-nums">
-          {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
-        </p>
+        {hasChoice ? (
+          // Cena každého balení zvlášť (11. 11. 2026) — „od 199 Kč“ vedle
+          // „až 150 nápojů“ (platí pro 3 l) mohlo zákazníka uvést v omyl.
+          <ul className="font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
+            {[...product.variants]
+              .sort((a, b) => a.priceKc - b.priceKc)
+              .map((v) => (
+                <li key={v.sku ?? v.label ?? v.priceKc}>
+                  {formatKc(v.priceKc)}
+                  {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p className="font-semibold tabular-nums">{formatKc(product.variants[0].priceKc)}</p>
+        )}
         <div className="w-36">
           {!isOrderable(product) ? (
             <span

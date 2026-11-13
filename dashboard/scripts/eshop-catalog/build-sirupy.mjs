@@ -7,7 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { categorySql, imageSql, productSql, variantSql } from "./sql.mjs";
+import { categorySql, productSql, q, variantSql } from "./sql.mjs";
 
 export const CATEGORY = {
   intro: [
@@ -29,7 +29,8 @@ export const CATEGORY = {
 };
 
 // Balení — stejná u všech sirupů (cena 3 l podle produktu). Označení od
-// 9. 11. 2026 „3 l“ a „700 ml“ (dříve „Begina 3 l“ a „750 g“); hmotnosti pro
+// 9. 11. 2026 „3 l“ a „700 ml“ (dříve „Begina 3 l“ a „750 g“), od 11. 11. 2026
+// malé balení „650 ml“ (skript 94); hmotnosti pro
 // dopravu (weight_g) se nemění.
 export const VARIANTS = [
   {
@@ -43,14 +44,14 @@ export const VARIANTS = [
     price: (product) => product.price3l,
   },
   {
-    // Balení 700 ml (9. 11. 2026; dříve „750 g“ a „750 ml“). SKU zůstává
+    // Balení 650 ml (11. 11. 2026; dříve „700 ml“, „750 g“, „750 ml“). SKU zůstává
     // beze změny, aby opakované spuštění skriptu přepsalo stávající balení.
     suffix: "750ml",
-    label: "700 ml",
-    note: "Až 35 nápojů",
-    description: "700 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.", // objem obsahu; sáček má kapacitu 750 ml
-    volumeMl: 700,
-    servings: 35, // 700 ml : 20 ml sirupu na nápoj (ředění 1 : 10)
+    label: "650 ml",
+    note: "Až 32 nápojů",
+    description: "650 ml – lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.", // objem obsahu; sáček má kapacitu 750 ml
+    volumeMl: 650,
+    servings: 32, // 650 ml : 20 ml sirupu na nápoj (ředění 1 : 10)
     price: () => 199,
   },
 ];
@@ -60,19 +61,21 @@ const MIX = "**Stačí smíchat s vodou a během chvíle vznikne poctivá domác
 // Závěr sekce „Jak sirup používat“ — u všech sirupů stejný (znění 9. 11. 2026).
 const GOLDEN_RULE = [
   "**Zlaté pravidlo Beginy:** doporučený poměr ředění je **1 : 10**.",
-  "Použijte přibližně **20 ml sirupu na 200 ml vody**. Chuť si můžete upravit podle sebe.",
+  "Použijte přibližně **20 ml sirupu a doplňte vodou na 200 ml nápoje**. Chuť si můžete upravit podle sebe.",
 ];
 // Skladování a trvanlivost — společné pro všechny sirupy (lib/eshop/syrupFoodInfo.ts).
 const STORAGE = "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.";
-const SHELF_LIFE = "Minimální trvanlivost do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
+const SHELF_LIFE = "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.";
 const highlights = (extractPercent) => [
   `${extractPercent} % bylinného výluhu`,
   "z čisté filtrované vody",
   "bez umělých aromat a barviv",
-  "až 150 nápojů z jednoho balení",
+  "až 150 nápojů z balení 3 l",
 ];
+// Krátký popis na kartě (11. 11. 2026): počty nápojů u každého balení zvlášť,
+// cena za nápoj jen u 3 l (nápoj 200 ml = 20 ml sirupu + voda).
 const shortDescription = (pricePerDrink) =>
-  `Až 150 nápojů z jednoho balení (při doporučeném ředění 1:10). 200 ml nápoje při 3l balení vyjde přibližně na ${pricePerDrink} Kč.`;
+  `3 l: až 150 nápojů (cca ${pricePerDrink} Kč za nápoj). 650 ml: až 32 nápojů. Při ředění 1 : 10.`;
 
 const EMPTY = {
   shortDescription: null,
@@ -113,7 +116,7 @@ export const SYRUPS = [
     taste:
       "Chuť tohoto bylinného sirupu je hluboká a přirozeně vyvážená. Základ tvoří šípek, který přináší jemně svěží a plný charakter, doplněný zemitými tóny čagy. Výslednou chuť rozvíjí ženšen a zázvor, které dodávají směsi plnost a lehce kořenitý dozvuk.\n\nVzniká tak kultivovaný bylinný sirup s výrazným charakterem a dlouhým, hřejivým dozvukem na patře.",
     ingredients:
-      "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen pravý (Panax ginseng), zázvor (Zingiber officinale)), citronová šťáva 10 %, antioxidant: kyselina askorbová (vitamin C)",
+      "třtinový cukr, bylinný výluh 40 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen sibiřský (Eleutherococcus senticosus), zázvor (Zingiber officinale)), citronová šťáva 10 %, antioxidant: kyselina askorbová (vitamin C)",
     nutrition: { energy_kj: 1105, energy_kcal: 260, fat: 0, saturates: 0, carbohydrate: 65, sugars: 64, protein: 0, salt: 0 },
     storage: STORAGE,
     shelfLifeNote: SHELF_LIFE,
@@ -297,7 +300,7 @@ export const SYRUPS = [
 export function sirupySql() {
   const out = [];
   const w = (s) => out.push(s);
-  w(`-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 7 fotek),
+  w(`-- ESHOP 1.0 — katalog: Bylinné sirupy (7 produktů, 14 balení, 21 fotek),
 -- text kategorie a společná sekce detailu. VYGENEROVÁNO skriptem
 -- scripts/eshop-catalog/build-sirupy.mjs — ručně neupravovat.
 -- Texty doslova z begina.cz (produktové stránky dodané vedením 3. 10.
@@ -317,10 +320,35 @@ BEGIN;
     VARIANTS.forEach((v, j) => {
       w(variantSql(p.slug, { ...v, sku: `${p.slug}-${v.suffix}`, price: v.price(p) }, (j + 1) * 10));
     });
-    w(imageSql(p));
+    w(syrupPhotosSql(p));
   });
   w("COMMIT;\n");
   return out.join("\n");
+}
+
+// Fotografie sirupů (10. 11. 2026, bílý podklad, public/eshop/sirupy/):
+// 1. sklenice a hrnek se surovinami (hlavní), 2. průhledný sáček
+// s kohoutkem, 3. stříbrný doypack (Meduňkový doplněn skriptem 91). Původní fotky public/eshop/<slug>.jpg zůstávají v kódu.
+const NO_DOYPACK = new Set();
+export const syrupPhotos = (p) => [
+  { url: `/eshop/sirupy/${p.slug}-hlavni.jpg`, alt: `${p.name} – sklenice a hrnek se surovinami` },
+  { url: `/eshop/sirupy/${p.slug}-sacek.jpg`, alt: `${p.name} v průhledném sáčku s kohoutkem` },
+  ...(NO_DOYPACK.has(p.slug) ? [] : [{ url: `/eshop/sirupy/${p.slug}-doypack.jpg`, alt: `${p.name} ve stříbrném doypacku` }]),
+];
+
+function syrupPhotosSql(p) {
+  const photos = syrupPhotos(p);
+  const product = `(SELECT "id" FROM "products" WHERE "slug" = ${q(p.slug)})`;
+  return [
+    `DELETE FROM "product_images" WHERE "product_id" = ${product} AND "url" NOT IN (${photos.map((ph) => q(ph.url)).join(", ")});`,
+    ...photos.map(
+      (ph, i) => `INSERT INTO "product_images" ("product_id", "url", "alt", "sort_order")
+SELECT ${product}, ${q(ph.url)}, ${q(ph.alt)}, ${i}
+WHERE NOT EXISTS (SELECT 1 FROM "product_images" WHERE "product_id" = ${product} AND "url" = ${q(ph.url)});
+UPDATE "product_images" SET "alt" = ${q(ph.alt)}, "sort_order" = ${i} WHERE "product_id" = ${product} AND "url" = ${q(ph.url)};`
+    ),
+    "",
+  ].join("\n");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

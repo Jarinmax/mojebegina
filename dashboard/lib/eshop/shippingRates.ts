@@ -5,8 +5,9 @@
 // ESHOP_WEIGHT_SHIPPING=on; jinak dál orientační paušál.
 // Postup a otevřené otázky: docs/eshop-doprava/spusteni.md.
 //
-// Rozhodnutí majitele 11. 10. 2026: pásmo 100–150 kg = 1 839 Kč zachovat;
-// nad 150 kg individuální domluva (nic se neúčtuje automaticky).
+// Rozhodnutí majitele 11. 10. 2026: pásmo 100–150 kg = 1 839 Kč zachovat.
+// Od 12. 11. 2026 (zadání Lucie): ceník pokračuje do 400 kg podle tabulky
+// CoolBalík; individuální domluva až nad 400 kg.
 // OTEVŘENÁ OTÁZKA: doprava zdarma od určité částky — NEOVĚŘENO, proto tu
 // záměrně žádné takové pravidlo není.
 //
@@ -17,32 +18,66 @@
 // násobky 0,25 kg) dává totéž co WooCommerce.
 
 export type ColdShippingRule = {
-  /** číslo pravidla ve WooCommerce */
+  /** číslo pravidla (1–11 = původní pravidla WooCommerce) */
   rule: number;
   fromKg: number;
-  /** horní hranice, jak je zapsaná ve WooCommerce (informativní) */
+  /** horní hranice pásma, jak se vypisuje v ceníku (informativní) */
   toKg: number;
+  /** základ dopravce bez DPH (smluvní ceník CoolBalík, zóna 1 a 2) */
+  baseKc: number;
   priceKc: number;
+  /** text pásma v ceníku na stránce Doprava, když se liší od „od–do“ */
+  label?: string;
 };
 
+// Cena pro zákazníka = základ dopravce × (1 + DPH dopravce) × (1 + palivový
+// příplatek), zaokrouhleno na celé Kč — přesně jako tabulka Lucie
+// „coolbalik_vypocty“ (list Česká republika, 12. 11. 2026).
+// PALIVOVÝ PŘÍPLATEK se mění každý měsíc: stačí změnit toto jedno číslo
+// (procenta) a ceny všech pásem se přepočítají.
+export const FUEL_SURCHARGE_PERCENT = 16;
+export const CARRIER_VAT_PERCENT = 21;
+
+export function carrierPriceKc(baseKc: number, fuelPercent: number = FUEL_SURCHARGE_PERCENT): number {
+  // celočíselně (bez chyb zaokrouhlení): základ × 121 × 116 / 10 000
+  return Math.round((baseKc * (100 + CARRIER_VAT_PERCENT) * (100 + fuelPercent)) / 10_000);
+}
+
+const band = (rule: number, fromKg: number, toKg: number, baseKc: number, label?: string): ColdShippingRule => ({
+  rule,
+  fromKg,
+  toKg,
+  baseKc,
+  priceKc: carrierPriceKc(baseKc),
+  ...(label ? { label } : {}),
+});
+
 export const COLD_SHIPPING_RULES: readonly ColdShippingRule[] = [
-  { rule: 1, fromKg: 0, toKg: 14.99, priceKc: 267 },
-  { rule: 2, fromKg: 15, toKg: 19.99, priceKc: 379 },
-  { rule: 3, fromKg: 20, toKg: 29.99, priceKc: 491 },
-  { rule: 4, fromKg: 30, toKg: 39.99, priceKc: 604 },
-  { rule: 5, fromKg: 40, toKg: 49.99, priceKc: 716 },
-  { rule: 6, fromKg: 50, toKg: 59.99, priceKc: 828 },
-  { rule: 7, fromKg: 60, toKg: 69.99, priceKc: 940 },
-  { rule: 8, fromKg: 70, toKg: 79.99, priceKc: 1053 },
-  { rule: 9, fromKg: 80, toKg: 89.99, priceKc: 1165 },
-  { rule: 10, fromKg: 90, toKg: 99.99, priceKc: 1277 },
-  // Zapsáno ve WooCommerce takto (1 839 Kč); majitel 11. 10. 2026 potvrdil
-  // zachovat (řada by jinak dávala ~1 389 Kč).
-  { rule: 11, fromKg: 100, toKg: 150, priceKc: 1839 },
+  // Pásma 1–11 beze změny proti WooCommerce (při 16 % paliva vycházejí
+  // stejné ceny jako dosud: 267, 379, 491 … 1 839 Kč).
+  band(1, 0, 14.99, 190),
+  band(2, 15, 19.99, 270),
+  band(3, 20, 29.99, 350),
+  band(4, 30, 39.99, 430),
+  band(5, 40, 49.99, 510),
+  band(6, 50, 59.99, 590),
+  band(7, 60, 69.99, 670),
+  band(8, 70, 79.99, 750),
+  band(9, 80, 89.99, 830),
+  band(10, 90, 99.99, 910),
+  // 100–150 kg: majitel 11. 10. 2026 potvrdil zachovat (1 839 Kč při 16 %).
+  band(11, 100, 150, 1310),
+  // Nad 150 kg podle tabulky Lucie („váha do“ včetně), zadání 12. 11. 2026 —
+  // dříve individuální domluva.
+  band(12, 150.001, 200, 1710, "nad 150 do 200 kg"),
+  band(13, 200.001, 250, 2110, "nad 200 do 250 kg"),
+  band(14, 250.001, 300, 2510, "nad 250 do 300 kg"),
+  band(15, 300.001, 350, 2910, "nad 300 do 350 kg"),
+  band(16, 350.001, 400, 3310, "nad 350 do 400 kg"),
 ];
 
-/** Nad touto hmotností žádné pravidlo neplatí (WooCommerce pravidlo 11 končí na 150 kg). */
-export const COLD_SHIPPING_MAX_GRAMS = 150_000;
+/** Nad touto hmotností žádné pravidlo neplatí (tabulka CoolBalík končí na 400 kg). */
+export const COLD_SHIPPING_MAX_GRAMS = 400_000;
 
 const toGrams = (kg: number) => Math.round(kg * 1000);
 
@@ -60,7 +95,7 @@ export function cartWeight(lines: readonly { sku: string; quantity: number; weig
 
 export type ColdShippingPrice =
   | { ok: true; priceKc: number; rule: ColdShippingRule }
-  /** nad 150 kg — chlazenou přepravu nelze nabídnout automaticky */
+  /** nad 400 kg — chlazenou přepravu nelze nabídnout automaticky */
   | { ok: false; reason: "over_limit"; grams: number };
 
 export function coldShippingPrice(grams: number): ColdShippingPrice {

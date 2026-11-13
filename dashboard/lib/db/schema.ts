@@ -766,6 +766,11 @@ export const leads = pgTable("leads", {
   acquiredByUserId: text("acquired_by_user_id"),
   lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
   nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+  // NEPOUŽÍVÁ SE (od 13. 11. 2026). Krátce existovalo jako samostatný přesný
+  // čas hovoru (migrace 0037); sjednoceno s next_follow_up_at, které nese
+  // datum i hodinu a řídí frontu, kalendář i ranní souhrn. Sloupec zůstává
+  // (prázdný) jen kvůli bezpečnému nasazení bez mazání dat.
+  scheduledCallAt: timestamp("scheduled_call_at", { withTimezone: true }),
   nextStepNote: text("next_step_note"),
   convertedOrganizationId: uuid("converted_organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1362,6 +1367,15 @@ export const collaboratorCards = pgTable(
   ]
 );
 
+// Karta spolupracovnice — úprava/smazání zápisu práce (zadání Lucie
+// Vymyslická přes Jaroslava 12. 11. 2026). `rewardType`/`rateKc` se ukládají
+// NATRVALO k záznamu (sazba se časem mění a liší se příspěvek od
+// příspěvku — žádné jedno pravidlo), aby šel vždy zpětně dohledat výpočet
+// částky. „flat“ = starší záznamy odsud (jen ručně zapsaná částka, bez
+// sazby) — nikdy se nedomýšlí sazba, kterou reálný zápis neměl. Mazání jen
+// „soft“ (deleted_at/by), stejný vzor jako jinde v appce — nikdy hard delete.
+export const WORK_REWARD_TYPES = ["hourly", "per_post", "flat"] as const;
+
 export const collaboratorWorkEntries = pgTable(
   "collaborator_work_entries",
   {
@@ -1370,16 +1384,26 @@ export const collaboratorWorkEntries = pgTable(
     description: text("description").notNull(),
     postCount: integer("post_count").notNull().default(1),
     durationMinutes: integer("duration_minutes").notNull(),
+    rewardType: text("reward_type").notNull().default("flat"),
+    rateKc: integer("rate_kc"),
     earnedKc: integer("earned_kc").notNull().default(0),
     occurredOn: date("occurred_on", { mode: "string" }).notNull(),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedBy: text("deleted_by"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
     index("collaborator_work_entries_card_date_idx").on(table.cardId, table.occurredOn),
     check("collaborator_work_entries_post_count_check", sql`${table.postCount} >= 0`),
     check("collaborator_work_entries_duration_check", sql`${table.durationMinutes} >= 0`),
     check("collaborator_work_entries_earned_check", sql`${table.earnedKc} >= 0`),
+    check("collaborator_work_entries_reward_type_check", sql`${table.rewardType} IN ('hourly','per_post','flat')`),
+    check("collaborator_work_entries_rate_consistent", sql`(${table.rewardType} = 'flat') = (${table.rateKc} IS NULL)`),
+    check("collaborator_work_entries_rate_positive", sql`${table.rateKc} IS NULL OR ${table.rateKc} > 0`),
+    check("collaborator_work_entries_deleted_consistent", sql`(${table.deletedAt} IS NULL) = (${table.deletedBy} IS NULL)`),
   ]
 );
 
@@ -1888,3 +1912,71 @@ export const stockItemBalances = pgView("stock_item_balances", {
   stockLocationId: uuid("stock_location_id").notNull(),
   currentQuantity: numeric("current_quantity", { precision: 18, scale: 6, mode: "number" }).notNull(),
 }).existing();
+
+// Karta výroby (Petr Königsberg — kuchař, výroba) — stejný vzor jako
+// collaboratorCards výš, bez provizních polí (výroba nic neprodává).
+// Fronta k výrobě i stav surovin se čtou ze stávajících dat (orders/
+// order_items, stock_items/stock_item_balances) — jediná nová potřeba
+// zápisu je žádost o doplnění/přípravu suroviny.
+export const productionCards = pgTable(
+  "production_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    displayName: text("display_name").notNull(),
+    assigneeUserId: text("assignee_user_id").unique(),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+// Žádost o doplnění/přípravu suroviny — volitelně na konkrétní skladovou
+// kartu (stock_items, kind "stock_material"); bez ní jde jen o text pro
+// surovinu, která ve skladu ještě není. `resolved*` vyplní jen admin.
+export const productionStockRequests = pgTable(
+  "production_stock_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => productionCards.id),
+    stockItemId: uuid("stock_item_id").references(() => stockItems.id, { onDelete: "set null" }),
+    note: text("note").notNull(),
+    status: text("status").notNull().default("open"), // "open" | "done"
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedBy: text("resolved_by"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("production_stock_requests_card_status_idx").on(table.cardId, table.status, table.createdAt),
+    check("production_stock_requests_status_check", sql`${table.status} IN ('open','done')`),
+    check(
+      "production_stock_requests_resolved_consistent",
+      sql`(${table.status} = 'done') = (${table.resolvedAt} IS NOT NULL)`
+    ),
+  ]
+);
+
+// Předplatná webového push oznámení (zadání Jaroslav 12. 11. 2026 — ranní
+// upozornění na domluvené hovory). Jeden prohlížeč/telefon = jeden řádek;
+// endpoint je od prohlížeče jedinečný, takže opakované přihlášení ze
+// STEJNÉHO telefonu přepíše klíče, ne založí duplicitu. Víc telefonů na
+// jednoho uživatele je v pořádku (víc řádků se stejným user_id).
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("push_subscriptions_endpoint_key").on(table.endpoint),
+    index("push_subscriptions_user_idx").on(table.userId),
+  ]
+);

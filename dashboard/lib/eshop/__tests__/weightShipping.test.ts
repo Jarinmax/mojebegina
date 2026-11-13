@@ -4,11 +4,12 @@
 // 1) balíček 40/41/42/49 — přesně soubory pro Neon SQL Editor,
 // 2) katalog (hmotnosti jen se zapnutým režimem, bez sloupce nespadne),
 // 3) cena na serveru (priceCart / validateCheckoutInput): hranice pásem,
-//    součty různých SKU, nad 150 kg a bez hmotnosti → individuální domluva,
+//    součty různých SKU, nad 400 kg a bez hmotnosti → individuální domluva,
 //    osobní odběr zdarma, jen česká PSČ, výchozí paušál beze změny,
 // 4) zobrazená cena (výpočet pokladny v prohlížeči) = cena serveru,
 // 5) stav Production (bez sloupce, bez přepínače): paušál, weight_g se nečte,
 // 6) uložená objednávka přes ovladač Neonu = zobrazená = spočtená serverem.
+import { SLOVAKIA_ORDER_NOTE } from "@/lib/eshop/infoPages";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -197,6 +198,7 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     ["33× 3 l + 1× 750 g = 99,75 kg", [{ sku: "kulajda", quantity: 33 }, { sku: "lipovy-sirup-750ml", quantity: 1 }], 99_750, 1277],
     ["33× 3 l + 2× 500 ml = 100 kg (pásmo 11)", [{ sku: "kulajda", quantity: 33 }, { sku: "lady-carneval-500ml", quantity: 2 }], 100_000, 1839],
     ["50× 3 l = přesně 150 kg", [{ sku: "kulajda", quantity: 25 }, { sku: "svarak-deluxe-3l", quantity: 25 }], 150_000, 1839],
+    ["50× 3 l + 1× 500 ml = 150,5 kg (nově pásmo do 200 kg)", [{ sku: "kulajda", quantity: 50 }, { sku: "kosmopolitan-500ml", quantity: 1 }], 150_500, 2400],
   ])("%s", (_name, cart, grams, kc) => {
     expect(shippingKc(cart)).toEqual([grams, kc]);
   });
@@ -206,11 +208,11 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     expect(result).toMatchObject({ ok: true, value: { subtotalKc: 5 * 379, shippingKc: 379, totalKc: 5 * 379 + 379 } });
   });
 
-  it("150,5 kg (50× 3 l + 1× 500 ml) → chlazenou přepravu nelze objednat, výzva k individuální domluvě", () => {
-    const result = price([{ sku: "kulajda", quantity: 50 }, { sku: "kosmopolitan-500ml", quantity: 1 }]);
-    expect(result).toEqual({ ok: false, error: expect.stringContaining("Objednávka váží 150,5 kg") });
+  it("400,5 kg (133× 3 l + 3× 500 ml) → chlazenou přepravu nelze objednat, výzva k individuální domluvě", () => {
+    const result = price([{ sku: "kulajda", quantity: 99 }, { sku: "lipovy-caj-3l", quantity: 34 }, { sku: "kosmopolitan-500ml", quantity: 3 }]);
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("Objednávka váží 400,5 kg") });
     if (result.ok) return;
-    expect(result.error).toContain("nad 150 kg nelze objednat automaticky");
+    expect(result.error).toContain("nad 400 kg nelze objednat automaticky");
     expect(result.error).toContain(OPERATOR.email);
     expect(result.error).toContain(OPERATOR.phone);
     expect(result.error).toContain("osobní vyzvednutí ve Viticích");
@@ -230,7 +232,7 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/^U položky Kulajda – 3 l zatím neznáme hmotnost.*individuálně/) });
   });
 
-  it("osobní odběr ve Viticích zdarma vždy — i nad 150 kg a bez hmotnosti", () => {
+  it("osobní odběr ve Viticích zdarma vždy — i nad 400 kg a bez hmotnosti", () => {
     for (const cart of [[{ sku: "kulajda", quantity: 1 }], [{ sku: "kulajda", quantity: 60 }]]) {
       expect(price(cart, "osobni-odber")).toMatchObject({ ok: true, value: { shippingKc: 0, weightGrams: null } });
     }
@@ -291,8 +293,8 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
       });
     });
 
-    it("nad 150 kg pokladna objednávku chlazenou přepravou odmítne, osobním odběrem přijme", () => {
-      const heavy = JSON.stringify([{ sku: "kulajda", quantity: 51 }]);
+    it("nad 400 kg pokladna objednávku chlazenou přepravou odmítne, osobním odběrem přijme", () => {
+      const heavy = JSON.stringify([{ sku: "kulajda", quantity: 99 }, { sku: "lipovy-caj-3l", quantity: 35 }]);
       expect(validate({ cart: heavy })).toEqual({ ok: false, error: expect.stringContaining("individuálně") });
       expect(validate({ cart: heavy, shippingMethodId: "osobni-odber" })).toMatchObject({ ok: true, value: { pricedCart: { shippingKc: 0 } } });
     });
@@ -302,7 +304,7 @@ describe("cena dopravy na serveru — režim podle hmotnosti", DB_TEST, () => {
     });
 
     it.each(["811 01", "04001", "960 01"])("slovenské PSČ %s → doručujeme jen v ČR", (zip) => {
-      expect(validate({ zip })).toEqual({ ok: false, error: "Doručujeme jen v České republice — zadejte prosím české PSČ." });
+      expect(validate({ zip })).toEqual({ ok: false, error: `Doručujeme jen v České republice — zadejte prosím české PSČ. ${SLOVAKIA_ORDER_NOTE}` });
     });
   });
 });
@@ -352,6 +354,7 @@ describe("zobrazená cena v pokladně = cena spočtená serverem", DB_TEST, () =
   }
   carts.push(["150 kg", [{ sku: "kulajda", quantity: 50 }]]);
   carts.push(["150,5 kg", [{ sku: "kulajda", quantity: 50 }, { sku: "granatovy-bond-500ml", quantity: 1 }]]);
+  carts.push(["400,5 kg", [{ sku: "kulajda", quantity: 99 }, { sku: "lipovy-caj-3l", quantity: 34 }, { sku: "granatovy-bond-500ml", quantity: 3 }]]);
   carts.push(["mix 7 SKU", [
     { sku: "kulajda", quantity: 2 }, { sku: "lipovy-caj-3l", quantity: 1 }, { sku: "sipkovy-sirup-3l", quantity: 1 },
     { sku: "zazvorovy-sirup-750ml", quantity: 2 }, { sku: "svarak-deluxe-500ml", quantity: 3 }, { sku: "kosmopolitan-3l", quantity: 1 },
@@ -388,13 +391,14 @@ describe("zobrazená cena v pokladně = cena spočtená serverem", DB_TEST, () =
       "89.75 kg": [89_750, 1165], "90 kg": [90_000, 1277],
       "99.75 kg": [99_750, 1277], "100 kg": [100_000, 1839],
       "150 kg": [150_000, 1839],
+      "150,5 kg": [150_500, 2400],
     });
-    expect(byName["150,5 kg"]).toEqual(expect.stringContaining("nelze objednat automaticky"));
+    expect(byName["400,5 kg"]).toEqual(expect.stringContaining("nelze objednat automaticky"));
   });
 });
 
 describe("Production: bez přepínače i bez sloupce weight_g beze změny", DB_TEST, () => {
-  it("katalog nečte weight_g, pokladna účtuje 99 Kč, nad 150 kg dál objednatelné, uložená cena 99 Kč", async () => {
+  it("katalog nečte weight_g, pokladna účtuje 99 Kč, i velké objednávky dál objednatelné, uložená cena 99 Kč", async () => {
     const { pg, db } = await productionLikeDb(); // = Production: sloupec weight_g neexistuje
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const mode = shippingModeFromEnv({ VERCEL_ENV: "production" }); // přepínač v Production nenastaven
@@ -427,18 +431,19 @@ describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
   });
 
   it("nabídka: osobní odběr zdarma v obou režimech; paušál beze změny", () => {
-    expect(shippingMethodsFor("flat").map((m) => [m.id, m.priceKc])).toEqual([["osobni-odber", 0], ["rozvoz", 99]]);
-    expect(shippingMethodsFor("weight")[0]).toEqual(shippingMethodsFor("flat")[0]);
-    expect(shippingMethodsFor("weight")[1].description).toContain("v České republice");
+    expect(shippingMethodsFor("flat").map((m) => [m.id, m.priceKc])).toEqual([["rozvoz", 99], ["osobni-odber", 0]]);
+    expect(shippingMethodsFor("weight")[1]).toEqual(shippingMethodsFor("flat")[1]);
+    expect(shippingMethodsFor("weight")[0].description).toContain("v České republice");
   });
 
-  it("stránka Doprava: v režimu podle hmotnosti celý ceník z shippingRates.ts, nad 150 kg individuálně; bez dopravy zdarma", () => {
+  it("stránka Doprava: v režimu podle hmotnosti celý ceník z shippingRates.ts, nad 400 kg individuálně; bez dopravy zdarma", () => {
     const page = shippingPageFor("weight");
     const text = JSON.stringify(page.blocks);
     expect(text).toContain("0–14,99 kg — 267");
     expect(text).toContain("100–150 kg — 1");
     expect(text).toContain("839 Kč");
-    expect(text).toContain("Objednávky nad 150 kg");
+    expect(text).toContain("nad 350 do 400 kg — 4");
+    expect(text).toContain("Objednávky nad 400 kg");
     expect(text).toContain("Doručujeme jen v České republice.");
     expect(text).not.toMatch(/zdarma od|doprava zdarma/i);
     expect(JSON.stringify(shippingPageFor("flat").blocks)).not.toContain("Ceník chlazené přepravy");

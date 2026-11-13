@@ -106,8 +106,12 @@ export const SOUPS = [
     taste:
       "Základ tvoří kvalitní dýně, kterou doplňují brambory a pečlivě zvolené koření. Kokosové mléko zjemňuje strukturu a dodává krémovost. Chuť je vyvážená, plná a přirozeně harmonická.",
     ingredients:
-      "čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 9 %, cibule 4 %, olivový olej, dýňový olej, petržel kořen, mořská sůl, třtinový cukr, zázvor, lahůdkové droždí, grepová šťáva, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
-    nutrition: { energy_kj: 283, energy_kcal: 68, fat: 4.0, saturates: 2.7, carbohydrate: 7.6, sugars: 2.0, protein: 1.0, salt: 0.8, fibre: 1.1 },
+      "dýně 41 %, čistá filtrovaná voda, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 10 %, cibule 5 %, kořen petržele, olivový olej, dýňový olej, mořská sůl, třtinový cukr, grapefruitová šťáva, lahůdkové droždí, sušený mletý zázvor, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový odhad podle
+    // receptury (Polevky_kalkulace(3).xlsx, čistá hmotnost 3 l = 2 855 g) a
+    // dodavatelských/databázových údajů; dýně = zástupný profil Hokkaido,
+    // poměr druhů dýní není stanoven. Vláknina výpočtem nepotvrzena → neuvádí se.
+    nutrition: { energy_kj: 250, energy_kcal: 60, fat: 3.9, saturates: 2.5, carbohydrate: 4.7, sugars: 3.1, protein: 1.0, salt: 0.78 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
     warnings: [],
@@ -133,7 +137,7 @@ export const SOUPS = [
     taste:
       "Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.",
     ingredients:
-      "čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 3,4 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 5 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtové průměrné hodnoty
     // podle receptury na 3 l (čistá hmotnost 2 915 g), Polevky_kalkulace(2).xlsx,
     // u olejů průměrné hodnoty. Vláknina neověřená → neuvádí se.
@@ -194,8 +198,12 @@ export const SOUPS = [
     taste:
       "Je jemná, kulatá a vyvážená. Rajčatový základ doplňuje červená řepa, která chuť přirozeně uhlazuje a propojuje do hladkého celku. Výsledkem je hebká struktura a příjemně plný charakter.",
     ingredients:
-      "čistá filtrovaná voda, pasírovaná rajčata 17 %, brambory 13 %, kokosové mléko 13 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), červená řepa 9 %, rajčatový protlak 3 %, cibule, petržel kořen, mořská sůl, třtinový cukr, olivový olej, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
-    nutrition: { energy_kj: 189, energy_kcal: 45, fat: 2.9, saturates: 2.4, carbohydrate: 3.9, sugars: 2.6, protein: 0.9, salt: 0.8, fibre: 0.9 },
+      "čistá filtrovaná voda, pasírovaná rajčata 17 % (rajčata 99,9 %, regulátor kyselosti: kyselina citronová), brambory 14 %, kokosové mléko 12 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), červená řepa 9 %, cibule 5 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), kořen petržele, olivový olej, mořská sůl, třtinový cukr, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+    // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový průměr z receptury
+    // (Polevky_kalkulace(3).xlsx, čistá hmotnost 3 l = 2 940 g; kokosové mléko
+    // 400 ml = 359 g podle vážení), dodavatelských údajů a databází; na 100 ml.
+    // Vláknina výpočtem nepotvrzena → neuvádí se.
+    nutrition: { energy_kj: 219, energy_kcal: 52, fat: 2.8, saturates: 2.1, carbohydrate: 5.1, sugars: 3.1, protein: 1.1, salt: 0.84 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
     warnings: [],
@@ -222,8 +230,11 @@ export const SOUPS = [
     taste:
       "Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.",
     ingredients:
-      "čistá filtrovaná voda, brambory 22 %, hlíva ústřičná (Pleurotus ostreatus) 8 %, cibule 5 %, rajčatový protlak 4 %, mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, paprika uzená, paprika sladká, chilli, pepř černý, skořice",
-    nutrition: { energy_kj: 149, energy_kcal: 36, fat: 0.7, saturates: 0.1, carbohydrate: 5.4, sugars: 1.7, protein: 1.2, salt: 0.8, fibre: 1.1 },
+      "čistá filtrovaná voda, brambory 19 %, hlíva ústřičná (Pleurotus ostreatus) 7 %, cibule 4 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, uzená paprika, sladká paprika, chilli, černý pepř, antioxidant: kyselina askorbová (vitamin C), skořice",
+    // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový průměr podle receptury
+    // (Polevky_kalkulace(3).xlsx, čistá hmotnost 3 l = 2 963 g, mořská sůl 23 g, voda doplněna na 3 l), dodavatelských údajů
+    // a databází, u koření i zástupné hodnoty; na 100 ml (3 l). Vláknina nepotvrzena.
+    nutrition: { energy_kj: 125, energy_kcal: 30, fat: 0.9, saturates: 0.1, carbohydrate: 4.0, sugars: 1.1, protein: 0.9, salt: 0.82 },
     storage:
       "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření.",
     warnings: [],
@@ -249,7 +260,7 @@ export const SOUPS = [
     taste:
       "Špenát tvoří výrazný zeleninový základ, který doplňují brambory a pečlivě zvolené koření. Struktura je krémová, chuť vyvážená a čistá. Polévka působí svěže a harmonicky.",
     ingredients:
-      "čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 14 %, cibule 4,3 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)",
+      "čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 14 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtové průměrné hodnoty
     // podle receptury na 3 l ze souboru Polevky_kalkulace(2).xlsx, u olejů
     // průměrné hodnoty. Vláknina v podkladu není → neuvádí se.

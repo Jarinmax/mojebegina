@@ -80,6 +80,73 @@ describe("83 + 84 + 85 nad stavem Production", { timeout: 120_000 }, () => {
     await pg.exec("ROLLBACK");
   });
 
+  it("88: Dýňová + Rajčatová s řepou + Gulášová — nové složení a výživa, bez vlákniny, ostatní beze změny", async () => {
+    await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = 'dynova-polevka'`, [
+      "čistá filtrovaná voda, dýně 39 %, kokosové mléko 15 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 9 %, cibule 4 %, olivový olej, dýňový olej, petržel kořen, mořská sůl, třtinový cukr, zázvor, lahůdkové droždí, grepová šťáva, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      JSON.stringify({ fat: 4, salt: 0.8, fibre: 1.1, sugars: 2, protein: 1, energy_kj: 283, saturates: 2.7, energy_kcal: 68, carbohydrate: 7.6 }),
+    ]);
+    await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = 'rajcatova-polevka-s-cervenou-repou'`, [
+      "čistá filtrovaná voda, pasírovaná rajčata 17 %, brambory 13 %, kokosové mléko 13 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), červená řepa 9 %, rajčatový protlak 3 %, cibule, petržel kořen, mořská sůl, třtinový cukr, olivový olej, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
+      JSON.stringify({ fat: 2.9, salt: 0.8, fibre: 0.9, sugars: 2.6, protein: 0.9, energy_kj: 189, saturates: 2.4, energy_kcal: 45, carbohydrate: 3.9 }),
+    ]);
+    await pg.query(`UPDATE products SET ingredients = $1, nutrition = $2::jsonb WHERE slug = 'gulasova-polevka-z-hlivy-ustricne'`, [
+      "čistá filtrovaná voda, brambory 22 %, hlíva ústřičná (Pleurotus ostreatus) 8 %, cibule 5 %, rajčatový protlak 4 %, mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, paprika uzená, paprika sladká, chilli, pepř černý, skořice",
+      JSON.stringify({ fat: 0.7, salt: 0.8, fibre: 1.1, sugars: 1.7, protein: 1.2, energy_kj: 149, saturates: 0.1, energy_kcal: 36, carbohydrate: 5.4 }),
+    ]);
+    const others = (await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('dynova-polevka','rajcatova-polevka-s-cervenou-repou','gulasova-polevka-z-hlivy-ustricne') ORDER BY slug`)).rows;
+    await pg.exec(script("88_polevky_dynova_repa_gulas_MAIN.sql"));
+    const d = (await loadCatalog(db)).products.find((p) => p.slug === "dynova-polevka")!;
+    expect(d.foodInfo.ingredients).toMatch(/^dýně 41 %, čistá filtrovaná voda, kokosové mléko 14 %/);
+    expect(d.foodInfo.nutritionTable?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
+      "Energetická hodnota: 250\u00a0kJ / 60\u00a0kcal", "Tuky: 3,9\u00a0g", "z toho nasycené mastné kyseliny: 2,5\u00a0g", "Sacharidy: 4,7\u00a0g", "z toho cukry: 3,1\u00a0g", "Bílkoviny: 1,0\u00a0g", "Sůl: 0,78\u00a0g",
+    ]);
+    const r = (await loadCatalog(db)).products.find((p) => p.slug === "rajcatova-polevka-s-cervenou-repou")!;
+    expect(r.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, pasírovaná rajčata 17 % \(rajčata 99,9 %, regulátor kyselosti: kyselina citronová\), brambory 14 %, kokosové mléko 12 %/);
+    expect(r.foodInfo.nutritionTable?.rows.at(-1)?.value).toBe("0,84\u00a0g");
+    expect(r.foodInfo.nutritionTable?.rows.map((x) => x.label)).not.toContain("Vláknina");
+    const g = (await loadCatalog(db)).products.find((p) => p.slug === "gulasova-polevka-z-hlivy-ustricne")!;
+    expect(g.foodInfo.ingredients).toMatch(/^čistá filtrovaná voda, brambory 19 %, hlíva ústřičná \(Pleurotus ostreatus\) 7 %, cibule 4 %, rajčatový protlak 3 % \(rajčatový protlak, jedlá sůl 1 %\)/);
+    expect(g.foodInfo.ingredients).toMatch(/antioxidant: kyselina askorbová \(vitamin C\), skořice$/);
+    expect(g.foodInfo.nutritionTable?.rows.map((x) => x.value)).toEqual(["125\u00a0kJ / 30\u00a0kcal", "0,9\u00a0g", "0,1\u00a0g", "4,0\u00a0g", "1,1\u00a0g", "0,9\u00a0g", "0,86\u00a0g"]);
+    expect((await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('dynova-polevka','rajcatova-polevka-s-cervenou-repou','gulasova-polevka-z-hlivy-ustricne') ORDER BY slug`)).rows).toEqual(others);
+    await expect(pg.exec(script("88_polevky_dynova_repa_gulas_MAIN.sql"))).rejects.toThrow(/nemá očekávané původní/);
+    await pg.exec("ROLLBACK");
+  });
+
+  it("90: Gulášová sůl 0,82, cibule Špenátová 4 %, Kulajda 3 %", async () => {
+    const others = (await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('gulasova-polevka-z-hlivy-ustricne','spenatova-polevka','kulajda') ORDER BY slug`)).rows;
+    await pg.exec(script("90_polevky_sul_cibule_MAIN.sql"));
+    const all = (await loadCatalog(db)).products;
+    expect(all.find((p) => p.slug === "gulasova-polevka-z-hlivy-ustricne")!.foodInfo.nutritionTable?.rows.at(-1)?.value).toBe("0,82\u00a0g");
+    expect(all.find((p) => p.slug === "spenatova-polevka")!.foodInfo.ingredients).toMatch(/brambory 14 %, cibule 4 %, olivový olej/);
+    expect(all.find((p) => p.slug === "kulajda")!.foodInfo.ingredients).toMatch(/žampiony 7 %, cibule 3 %, olivový olej/);
+    expect((await pg.query(`SELECT slug, ingredients, nutrition FROM products WHERE slug NOT IN ('gulasova-polevka-z-hlivy-ustricne','spenatova-polevka','kulajda') ORDER BY slug`)).rows).toEqual(others);
+    await expect(pg.exec(script("90_polevky_sul_cibule_MAIN.sql"))).rejects.toThrow(/nemá sůl 0,86/);
+    await pg.exec("ROLLBACK");
+  });
+
+  it("89: sirupy — 3 fotky v pořadí (Meduňkový 2), ostatní beze změny", async () => {
+    const SYR = ["bylinny-sirup-saman", "zazvorovy-sirup", "lipovy-sirup", "ibiskovy-sirup", "sipkovy-sirup", "hermankovy-sirup", "medunkovy-sirup-s-levanduli"];
+    await pg.query(`DELETE FROM product_images WHERE url LIKE '/eshop/sirupy/%'`);
+    for (const slug of SYR) await pg.query(`INSERT INTO product_images (product_id, url, alt, sort_order) SELECT id, $1, name, 0 FROM products WHERE slug = $2 AND NOT EXISTS (SELECT 1 FROM product_images WHERE url = $1)`, [`/eshop/${slug}.jpg`, slug]);
+    await pg.exec(script("89_sirupy_fotky_MAIN.sql"));
+    const list = (await loadCatalog(db)).products;
+    for (const slug of SYR) {
+      const g = list.find((p) => p.slug === slug)!.gallery!.map((x) => x.url);
+      const exp = [`/eshop/sirupy/${slug}-hlavni.jpg`, `/eshop/sirupy/${slug}-sacek.jpg`, ...(slug.startsWith("medunkovy") ? [] : [`/eshop/sirupy/${slug}-doypack.jpg`])];
+      expect(g).toEqual(exp);
+      expect(list.find((p) => p.slug === slug)!.image).toBe(exp[0]);
+    }
+    await expect(pg.exec(script("89_sirupy_fotky_MAIN.sql"))).rejects.toThrow(/Čekal jsem 7 původních/);
+    await pg.exec("ROLLBACK");
+    await pg.exec(script("91_medunkovy_doypack_MAIN.sql"));
+    const m = (await loadCatalog(db)).products.find((p) => p.slug === "medunkovy-sirup-s-levanduli")!;
+    expect(m.gallery!.map((x) => x.url).at(-1)).toBe("/eshop/sirupy/medunkovy-sirup-s-levanduli-doypack.jpg");
+    expect(m.gallery).toHaveLength(3);
+    await expect(pg.exec(script("91_medunkovy_doypack_MAIN.sql"))).rejects.toThrow(/nemá přesně 2 fotky/);
+    await pg.exec("ROLLBACK");
+  });
+
   it("84: Kosmopolitan nejde objednat, ostatní ano", async () => {
     const has = (await pg.query(`SELECT 1 FROM products WHERE slug = 'kosmopolitan'`)).rows.length;
     if (!has) return; // testovací katalog bez koktejlů — ověří se jen syntaxe níže

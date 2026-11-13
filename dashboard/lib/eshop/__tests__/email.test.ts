@@ -1,7 +1,7 @@
 // ESHOP 1.0 — e-maily k objednávce: pojistky (Preview / Production),
 // testovací příjemci, obsah e-mailů a volání Resend API (bez sítě).
 import { describe, expect, it, vi } from "vitest";
-import { emailConfig, invoiceCopyRecipients, parseEmailList, resolveRecipients } from "../email/config";
+import { emailConfig, invoiceCopyRecipients, invoiceEmailSender, parseEmailList, resolveRecipients } from "../email/config";
 import { emailsFor } from "../email/orderEmails";
 import { resendTransport } from "../email/resend";
 import {
@@ -421,5 +421,14 @@ describe("e-maily — náhradní objednávka s převedenou platbou", () => {
     expect(emailsFor({ channel: "eshop", paymentMethodCode: "prevod", paymentStatus: "paid" }, "replacement_created")).toEqual([
       "customer_replacement",
     ]);
+  });
+});
+
+describe("e-maily — odesílatel faktur", () => {
+  it("faktura odchází z info@begina.cz (odpovědi tamtéž), když je doména begina.cz ověřená; testovací odesílatel zůstane", () => {
+    expect(invoiceEmailSender({ from: "Begina <objednavky@begina.cz>", replyTo: null })).toEqual({ from: "Begina <info@begina.cz>", replyTo: "info@begina.cz" });
+    expect(invoiceEmailSender({ from: "objednavky@begina.cz", replyTo: "x@begina.cz" })).toEqual({ from: "Begina <info@begina.cz>", replyTo: "info@begina.cz" });
+    expect(invoiceEmailSender({ from: "Begina <onboarding@resend.dev>", replyTo: null })).toEqual({ from: "Begina <onboarding@resend.dev>", replyTo: null });
+    expect(invoiceEmailSender({ from: "Begina <objednavky@begina.cz.evil.example>", replyTo: null }).from).toBe("Begina <objednavky@begina.cz.evil.example>");
   });
 });

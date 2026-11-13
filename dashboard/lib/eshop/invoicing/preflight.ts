@@ -30,6 +30,12 @@ import { ISSUED_INVOICE_DOCUMENT_TYPE, checkEshopSeries, parseSeriesId, type Ido
  */
 export const ESHOP_NUMBER_RE = /^9\d{2}\d{4}$/;
 
+/**
+ * Číslo ruční řady Lucie: {RRRR}{NNNN} — rok (4 číslice) + pořadí (4+ číslice),
+ * např. 20260202. Jen pro B2B faktury z MojeBegina (b2bInvoice.ts, profil „b2b“).
+ */
+export const B2B_NUMBER_RE = /^20\d{2}\d{4,}$/;
+
 /** Nejvýš tolik stran (po 100) dokladů řady E-shop Begina projde kontrola řady. */
 const SERIES_DOCUMENT_PAGES = 10;
 
@@ -122,8 +128,14 @@ function message(error: unknown): string {
  */
 export async function runIdokladPreflight(
   client: EshopIdokladClient,
-  options: { seriesId: string; day: string; now?: Date }
+  /**
+   * profile „eshop“ (výchozí): řada E-shop Begina 7277293 se všemi kontrolami níže.
+   * profile „b2b“: výchozí (ruční) řada agendy — Luciina 2026xxxx — pro B2B faktury
+   * z MojeBegina (b2bInvoice.ts); nikdy 7277293, formát {RRRR}{NNNN}, další číslo volné.
+   */
+  options: { seriesId: string; day: string; now?: Date; profile?: "eshop" | "b2b" }
 ): Promise<PreflightResult> {
+  const b2b = options.profile === "b2b";
   const results = new Map<PreflightCheckKey, PreflightCheck>();
   const pass = (key: PreflightCheckKey, detail: string) => results.set(key, { key, label: LABELS[key], ok: true, detail });
   const fail = (key: PreflightCheckKey, detail: string) => results.set(key, { key, label: LABELS[key], ok: false, detail });
@@ -227,7 +239,23 @@ export async function runIdokladPreflight(
   try {
     const page = await client.list<IdokladNumericSequence>("/NumericSequences", `DocumentType~eq~${ISSUED_INVOICE_DOCUMENT_TYPE}`);
     const sequences = page.Items.map((s) => ({ ...s, DocumentType: documentTypeNumber(s.DocumentType) }));
-    if (options.seriesId !== ESHOP_SERIES.id) {
+    if (b2b) {
+      const own = sequences.find((s) => String(s.Id) === options.seriesId) ?? null;
+      if (!/^[1-9]\d{0,9}$/.test(options.seriesId) || options.seriesId === ESHOP_SERIES.id) {
+        fail("series", `Řada pro B2B faktury „${options.seriesId || "—"}“ není platná (nesmí to být ${ESHOP_SERIES.id} „${ESHOP_SERIES.name}“).`);
+      } else if (!own) {
+        fail("series", `Řada ${options.seriesId} v iDokladu mezi řadami vydaných faktur není.`);
+      } else if (own.DocumentType !== ISSUED_INVOICE_DOCUMENT_TYPE) {
+        fail("series", `Řada ${options.seriesId} není řada vydaných faktur.`);
+      } else if (!own.IsDefault) {
+        fail("series", `Řada ${options.seriesId} „${own.Name ?? ""}“ není výchozí řada agendy (Luciina ruční řada) — ověřit IDOKLAD_B2B_SEQUENCE_ID.`);
+      } else if (!/^\{RRRR\}\{N+\}$/.test((own.NumberFormat ?? "").trim())) {
+        fail("series", `Řada ${options.seriesId} má formát „${own.NumberFormat ?? "—"}“, čekán {RRRR}{NNNN}.`);
+      } else {
+        sequence = own;
+        pass("series", `${own.Name ?? ""}, formát ${own.NumberFormat}, vydané faktury, výchozí řada agendy (B2B)`);
+      }
+    } else if (options.seriesId !== ESHOP_SERIES.id) {
       fail("series", `Nastavená řada ${options.seriesId || "—"} není ${ESHOP_SERIES.id}.`);
     } else {
       const check = checkEshopSeries(options.seriesId, sequences);
@@ -248,10 +276,18 @@ export async function runIdokladPreflight(
   try {
     const numbers = await client.get<{
       Unique?: { DocumentSerialNumber?: number; DocumentNumber?: string; NumericSequenceId?: number } | null;
-    }>("/NumericSequences/DocumentNumbers/IssuedInvoice", { date: options.day, numericSequenceId: ESHOP_SERIES.id });
+    }>("/NumericSequences/DocumentNumbers/IssuedInvoice", { date: options.day, numericSequenceId: b2b ? options.seriesId : ESHOP_SERIES.id });
     const unique = numbers?.Unique;
-    if (!unique || String(unique.NumericSequenceId) !== ESHOP_SERIES.id || typeof unique.DocumentSerialNumber !== "number") {
-      fail("next_number", `iDoklad nevrátil další číslo v řadě ${ESHOP_SERIES.id}.`);
+    const seriesId = b2b ? options.seriesId : ESHOP_SERIES.id;
+    if (!unique || String(unique.NumericSequenceId) !== seriesId || typeof unique.DocumentSerialNumber !== "number") {
+      fail("next_number", `iDoklad nevrátil další číslo v řadě ${seriesId}.`);
+    } else if (b2b) {
+      if (!unique.DocumentNumber || !B2B_NUMBER_RE.test(unique.DocumentNumber) || !unique.DocumentNumber.startsWith(options.day.slice(0, 4))) {
+        fail("next_number", `Další číslo „${unique.DocumentNumber ?? "—"}“ neodpovídá formátu ${options.day.slice(0, 4)}NNNN.`);
+      } else {
+        next = { documentNumber: unique.DocumentNumber, serial: unique.DocumentSerialNumber, day: options.day };
+        pass("next_number", `${unique.DocumentNumber} (pořadí ${unique.DocumentSerialNumber}, ${options.day})`);
+      }
     } else if (!unique.DocumentNumber || !ESHOP_NUMBER_RE.test(unique.DocumentNumber)) {
       fail("next_number", `Další číslo „${unique.DocumentNumber ?? "—"}“ neodpovídá formátu 9{RR}{NNNN}.`);
     } else if (!unique.DocumentNumber.startsWith(`9${options.day.slice(2, 4)}`)) {
@@ -266,7 +302,15 @@ export async function runIdokladPreflight(
 
   // 7. doklady v řadě: každý číslo 9RRNNNN, žádné číslo dvakrát, další číslo
   //    ještě nikde v agendě není; poslední číslo řady je v agendě jen jednou
-  if (next) {
+  if (next && b2b) {
+    try {
+      const used = (await client.list<{ Id: number }>("/IssuedInvoices", issuedInvoiceFilter(eqFilter("DocumentNumber", next.documentNumber)), 5)).Items.length;
+      if (used > 0) fail("series_documents", `Další číslo ${next.documentNumber} už v iDokladu existuje.`);
+      else pass("series_documents", `další číslo ${next.documentNumber} je v agendě volné`);
+    } catch (error) {
+      fail("series_documents", message(error));
+    }
+  } else if (next) {
     try {
       const filter = issuedInvoiceFilter(eqFilter("NumericSequenceId", ESHOP_SERIES.id));
       const documents: { Id: number; DocumentNumber?: string | null }[] = [];

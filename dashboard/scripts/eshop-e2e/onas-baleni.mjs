@@ -1,7 +1,7 @@
 // begina.cz (9. 11. 2026): podnabídka „O nás“ (Náš příběh, O vodě, O balení)
 // myší, klávesnicí i dotykem; stránky O nás / O vodě / O balení (texty, bez
 // řádku Provozovatel, kolotoč šesti kategorií); část Balení u produktů
-// („3 l – …“, „700 ml – …“, „500 ml – …“, odkaz Více o balení); označení
+// („3 l – …“, „650 ml – …“, „500 ml – …“, odkaz Více o balení); označení
 // variant jen objemem. Počítač, iPad, mobil na výšku i na šířku.
 import { mkdirSync } from "node:fs";
 const { chromium, devices } = await import(process.env.PLAYWRIGHT_MODULE ?? "playwright");
@@ -24,7 +24,7 @@ const CASES = [
 const T3 = "praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete.";
 const PRODUCTS = [
   ["dynova-polevka", [["3 l", T3]]],
-  ["lipovy-sirup", [["3 l", `${T3} Dodáváme v kartonové krabici.`], ["700 ml", "lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu."]]],
+  ["lipovy-sirup", [["3 l", `${T3} Dodáváme v kartonové krabici.`], ["650 ml", "lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu."]]],
   ["svarak-deluxe", [["3 l", T3], ["500 ml", "lehké balení v průhledném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu."]]],
   ["lipovy-caj", [["3 l", T3]]],
 ];
@@ -109,7 +109,7 @@ for (const [name, device] of CASES) {
     check(`${name} ${slug}: Informace o potravině — jen objemy`, dd === expected.map((e) => e[0]).join(", "), dd);
     const body = await page.locator("main").innerText();
     check(`${name} ${slug}: žádné Begina 3 l / 750`, !/Begina 3 l|750 g|750 ml/.test(body));
-    if (slug === "lipovy-sirup") check(`${name} ${slug}: Zlaté pravidlo zpět v popisu`, /Zlaté pravidlo Beginy: doporučený poměr ředění je 1 : 10\./.test(body) && /20 ml sirupu na 200 ml vody/.test(body));
+    if (slug === "lipovy-sirup") check(`${name} ${slug}: Zlaté pravidlo zpět v popisu`, /Zlaté pravidlo Beginy: doporučený poměr ředění je 1 : 10\./.test(body) && /20 ml sirupu a doplňte vodou na 200 ml nápoje/.test(body));
     if (slug === "lipovy-sirup" && name === "pocitac") {
       await Promise.all([page.waitForURL(url("/o-baleni")), more.click()]);
       check(`${name}: klik Více o balení → O balení`, (await page.locator("h1").first().textContent()).trim() === "O balení");

@@ -10,16 +10,18 @@ import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
 import {
   shippingMethodsFor,
+  DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodsFor,
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
   type ShippingMode,
 } from "@/lib/eshop/shipping";
+import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
-import { INFO_PAGES, OPERATOR } from "@/lib/eshop/infoPages";
+import { INFO_PAGES, OPERATOR, SLOVAKIA_ORDER_NOTE } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
 import CouponBox from "@/components/eshop/CouponBox";
 import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
@@ -70,6 +72,7 @@ type Values = {
   paymentMethodId: string;
   termsAccepted: boolean;
   ageConfirmed: boolean;
+  boxes: number;
 };
 
 const emptyValues: Values = {
@@ -92,10 +95,11 @@ const emptyValues: Values = {
   zip: "",
   recipientPhone: "",
   note: "",
-  shippingMethodId: "osobni-odber",
+  shippingMethodId: DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodId: "prevod",
   termsAccepted: false,
   ageConfirmed: false,
+  boxes: 0,
 };
 
 export default function CheckoutForm({
@@ -299,6 +303,14 @@ export default function CheckoutForm({
                 <span className="tabular-nums whitespace-nowrap">−{formatKc(confirmation.pricedCart.discountKc)}</span>
               </li>
             )}
+            {confirmation.pricedCart.packaging && (
+              <li className="py-2 flex justify-between gap-3">
+                <span>
+                  {confirmation.pricedCart.packaging.quantity}× {confirmation.pricedCart.packaging.name}
+                </span>
+                <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.packaging.lineTotalKc)}</span>
+              </li>
+            )}
             <li className="py-2 flex justify-between gap-3">
               <span>{confirmation.pricedCart.shipping.label}</span>
               <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.shippingKc)}</span>
@@ -366,12 +378,16 @@ export default function CheckoutForm({
   }
 
   // Cena dopravy jen pro zobrazení — server ji spočítá znovu (priceCart).
+  // Volitelné krabice (boxOption.ts): jedna na každé balení 3 l mimo sirupy.
+  const boxesMax = boxCount(lines);
+  const boxes = clampBoxes(values.boxes, boxesMax);
+  const boxesKc = boxes * BOX_PRICE_KC;
   const quoteLines = lines.map((line) => ({
     sku: line.sku,
     name: line.name,
     quantity: line.quantity,
     weightGrams: line.variant.weightGrams,
-  }));
+  })).concat(boxWeightLines(boxes));
   const quotes = new Map(
     shippingMethods.map((method) => [method.id, quoteShipping(method, quoteLines, shippingMode, OPERATOR)])
   );
@@ -558,7 +574,7 @@ export default function CheckoutForm({
               {values.deliverySameAsBilling ? (
                 <p className="text-xs text-neutral-500">
                   Zásilku doručíme na jméno a adresu z fakturačních údajů, telefon pro doručení je váš kontaktní telefon.
-                  {values.billingCountry !== DELIVERY_COUNTRY && " Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu."}
+                  {values.billingCountry !== DELIVERY_COUNTRY && ` Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu. ${SLOVAKIA_ORDER_NOTE}`}
                 </p>
               ) : (
                 <>
@@ -594,7 +610,7 @@ export default function CheckoutForm({
                   </div>
                 </>
               )}
-              <p className="text-xs text-neutral-500">Doručujeme jen v České republice.</p>
+              <p className="text-xs text-neutral-500">Doručujeme jen v České republice. {SLOVAKIA_ORDER_NOTE}</p>
             </div>
           )}
         </fieldset>
@@ -627,6 +643,53 @@ export default function CheckoutForm({
           </div>
         </fieldset>
 
+        {boxesMax > 0 && (
+          <fieldset>
+            <legend className="font-medium mb-3">Balení</legend>
+            <div className="border border-neutral-200 rounded-xl p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="boxes" className="text-sm font-medium">Zabalit do kartonové krabice</label>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label="Ubrat krabici"
+                    disabled={boxes <= 0}
+                    onClick={() => set("boxes", Math.max(0, boxes - 1))}
+                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <input
+                    id="boxes"
+                    name="boxes"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={boxesMax}
+                    value={boxes}
+                    onChange={(e) => set("boxes", clampBoxes(e.target.value, boxesMax))}
+                    className="w-14 h-9 text-center border border-neutral-300 rounded-lg tabular-nums"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Přidat krabici"
+                    disabled={boxes >= boxesMax}
+                    onClick={() => set("boxes", Math.min(boxesMax, boxes + 1))}
+                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                  <span className="text-sm tabular-nums whitespace-nowrap w-20 text-right">+{formatKc(boxesKc)}</span>
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500 mt-2">
+                Balení 3 l běžně posíláme bez vnější krabice. Krabice stojí {formatKc(BOX_PRICE_KC)} za kus — zvolte, kolik
+                balení chcete zabalit (nejvýše {boxesMax}). Sirupy 3 l posíláme v krabici vždy, bez příplatku.
+              </p>
+            </div>
+          </fieldset>
+        )}
+
         <div>
           <label htmlFor="note" className={labelClass}>Poznámka k objednávce (nepovinné)</label>
           <textarea id="note" name="note" rows={3} value={values.note} onChange={(e) => set("note", e.target.value)} className={inputClass} />
@@ -650,6 +713,14 @@ export default function CheckoutForm({
               <span className="tabular-nums whitespace-nowrap">−{formatKc(discountKc)}</span>
             </li>
           )}
+          {boxes > 0 && (
+            <li className="py-2 flex justify-between gap-3">
+              <span>
+                {boxes}× {BOX_NAME}
+              </span>
+              <span className="tabular-nums whitespace-nowrap">{formatKc(boxesKc)}</span>
+            </li>
+          )}
           <li className="py-2 flex justify-between gap-3 text-neutral-600">
             <span>{shipping.label}</span>
             <span className="tabular-nums whitespace-nowrap">
@@ -658,7 +729,7 @@ export default function CheckoutForm({
           </li>
           <li className="pt-3 flex justify-between gap-3 font-semibold">
             <span>Celkem</span>
-            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc - discountKc + shippingKc)}</span>
+            <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc - discountKc + shippingKc + boxesKc)}</span>
           </li>
         </ul>
 

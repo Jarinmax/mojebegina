@@ -8,6 +8,7 @@ import { eshopHref } from "@/lib/eshop/paths";
 import { eshopBase } from "@/lib/eshop/siteServer";
 import {
   AGE_RESTRICTION_NOTICE,
+  nutritionNotRequired,
   isOrderable,
   lowestPriceKc,
   NOT_ORDERABLE_LABEL,
@@ -25,16 +26,19 @@ import type { ReactNode } from "react";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
+import { breadcrumbJsonLd, jsonLd, productDescription, productJsonLd, productTitle } from "@/lib/eshop/seo";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps<"/eshop/produkt/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const product = (await getCatalogIndex()).getProduct(slug);
+  const index = await getCatalogIndex();
+  const product = index.getProduct(slug);
   if (!product) return {};
-  const description = product.shortDescription ?? undefined;
+  // popis pro vyhledávače = první odstavec popisu produktu; název + kategorie (12. 11. 2026)
+  const description = productDescription(product);
   return {
-    title: product.name,
+    title: productTitle(product, index.findCategory(product.category) ?? null),
     description,
     alternates: { canonical: `/produkt/${product.slug}` },
     openGraph: {
@@ -116,9 +120,14 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
           },
         ]
       : []),
-    info.nutritionTable
-      ? { label: "Výživové hodnoty", value: <NutritionTableView table={info.nutritionTable} />, wide: true }
-      : { label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) },
+    // Nápoje nad 1,2 % obj. alkoholu nemusí výživu uvádět (čl. 16 odst. 4
+    // nař. 1169/2011): bez údajů se řádek vynechá místo „Doplníme“
+    // (koktejly, 10. 11. 2026). Kde údaje jsou (Svařák), zobrazí se.
+    ...(info.nutritionTable
+      ? [{ label: "Výživové hodnoty", value: <NutritionTableView table={info.nutritionTable} />, wide: true }]
+      : info.nutritionPer100g === null && nutritionNotRequired(product)
+        ? []
+        : [{ label: "Výživové hodnoty", value: asSentence(info.nutritionPer100g) }]),
     { label: "Skladování", value: asSentence(info.storage) },
     { label: "Trvanlivost", value: asSentence(info.shelfLife) },
     ...(info.preparation ? [{ label: "Příprava", value: asSentence(info.preparation) }] : []),
@@ -162,6 +171,19 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(productJsonLd(product, category)) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd(
+            breadcrumbJsonLd([
+              { name: "Begina", path: "/" },
+              { name: category.name, path: `/kategorie/${category.slug}` },
+              { name: product.name, path: `/produkt/${product.slug}` },
+            ])
+          ),
+        }}
+      />
       <ShopLink
         href={`/kategorie/${category.slug}`}
         className="inline-flex items-center gap-1 text-sm text-neutral-600 mb-6 -ml-1"

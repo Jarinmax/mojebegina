@@ -125,17 +125,50 @@ export default async function CompanyOverviewPage() {
         </div>
       )}
 
-      {ctx?.systemRole === "ADMIN" ? <div className="mb-6">
+      <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Spolupracovníci</h2>
-          <Link href="/spoluprace/lucie" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Otevřít Luciinu kartu →
+          <h2 className="text-sm font-medium text-begina-primary-900">Etikety</h2>
+          <Link href="/rizeni-firmy/etikety" className="text-sm font-medium text-begina-primary-900 hover:underline">
+            Otevřít →
           </Link>
         </div>
-        <Link href="/spoluprace/lucie" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
-          <p className="font-medium text-begina-primary-900">Lucie — sociální sítě, med a medové svíčky</p>
-          <p className="mt-1 text-sm text-neutral-600">Práce, čas, odměny, provize 20 %, sklad a prodeje</p>
+        <Link
+          href="/rizeni-firmy/etikety"
+          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
+        >
+          Finální etikety k tisku — polévky, sirupy, ovocné nápoje, koktejly, čaje
         </Link>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Fotky na e-shop</h2>
+          <Link href="/rizeni-firmy/fotky-eshop" className="text-sm font-medium text-begina-primary-900 hover:underline">
+            Otevřít →
+          </Link>
+        </div>
+        <Link
+          href="/rizeni-firmy/fotky-eshop"
+          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
+        >
+          Schválené produktové fotky — hlavní, s beginou a se sáčkem
+        </Link>
+      </div>
+
+      {ctx?.systemRole === "ADMIN" ? <div className="mb-6">
+        <div className="mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Spolupracovníci</h2>
+        </div>
+        <div className="grid gap-3">
+          <Link href="/spoluprace/lucie" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
+            <p className="font-medium text-begina-primary-900">Lucie — sociální sítě, med a medové svíčky</p>
+            <p className="mt-1 text-sm text-neutral-600">Práce, čas, odměny, provize 20 %, sklad a prodeje</p>
+          </Link>
+          <Link href="/vyroba/petr" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
+            <p className="font-medium text-begina-primary-900">Petr — výroba a kuchyně</p>
+            <p className="mt-1 text-sm text-neutral-600">Fronta objednávek, suroviny skladem, žádosti o doplnění</p>
+          </Link>
+        </div>
       </div> : null}
 
       <div className="mb-6">
