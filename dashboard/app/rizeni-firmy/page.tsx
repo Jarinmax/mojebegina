@@ -151,7 +151,7 @@ export default async function CompanyOverviewPage() {
           href="/rizeni-firmy/haccp"
           className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
         >
-          Platná příručka HACCP pro hygienu — Zahradní Bistro Begina, verze 1.1
+          Platná příručka HACCP pro hygienu — Zahradní Bistro Begina
         </Link>
       </div>
 
