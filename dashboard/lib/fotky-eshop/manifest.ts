@@ -12,6 +12,12 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "lady-carneval.jpg",
     "svarak-deluxe.jpg"
   ],
+  "alkoholicke-koktejly/sacek-500ml": [
+    "granatovy-bond.jpg",
+    "kosmopolitan.jpg",
+    "lady-carneval.jpg",
+    "svarak-deluxe.jpg"
+  ],
   "caje/begina-3l": [
     "bylinny-caj-saman.jpg",
     "cerny-caj-golden-nepal.jpg",
