@@ -65,6 +65,11 @@ const BACKDROP: Record<string, string> = {
   "/eshop/ovocne-napoje/cervankove-nebe-begina.jpg": "#fefefe",
   "/eshop/ovocne-napoje/malinovy-svarak-nealko-hlavni.jpg": "#fefefe",
   "/eshop/ovocne-napoje/malinovy-svarak-nealko-begina.jpg": "#fefefe",
+  // alkoholické koktejly od 13. 11. 2026 (hlavní fotka)
+  "/eshop/koktejly/lady-carneval-hlavni.jpg": "#fefefe",
+  "/eshop/koktejly/granatovy-bond-hlavni.jpg": "#fefefe",
+  "/eshop/koktejly/svarak-deluxe-hlavni.jpg": "#fefefe",
+  "/eshop/koktejly/kosmopolitan-hlavni.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
