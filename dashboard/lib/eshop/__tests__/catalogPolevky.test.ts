@@ -79,7 +79,8 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
       expect(soup.foodInfo.returns?.linkText, soup.slug).toBe("obchodních podmínek");
     }
     const parsed = parseDescription(dyne.description);
-    expect(parsed.intro).toHaveLength(3);
+    expect(parsed.intro).toHaveLength(2);
+    expect(dyne.description.join(" ")).not.toMatch(/domácí/);
     expect(parsed.sections).toEqual([{ title: "Pro koho je vhodná", blocks: [{ type: "ul", items: expect.any(Array) }] }]);
     const category = (await loadCatalog(db)).categories.find((c) => c.slug === "polevky")!;
     expect(category.detailSections[0]).toEqual(expect.objectContaining({ title: "Vhodné také pro gastro provozy a kanceláře" }));
@@ -128,7 +129,7 @@ describe("katalog — Čerstvé polévky", DB_TEST, () => {
     expect(spenat.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 199 kJ / 48 kcal, tuky 3,4 g (z toho nasycené 2,4 g), sacharidy 2,7 g (z toho cukry 0,7 g), bílkoviny 1,1 g, sůl 0,76 g"
     );
-    expect(parseDescription(gulas.description).sections[0].blocks[0]).toEqual(expect.objectContaining({ items: expect.arrayContaining(["pro vegany i vegetariány"]) }));
+    expect(parseDescription(gulas.description).sections[0].blocks[0]).toEqual(expect.objectContaining({ items: expect.arrayContaining(["pro vegany a vegetariány"]) }));
   });
 
   it("vrácení: Dýňová, Kulajda a Rajčatová přesně jako po migraci 0014; nové spuštění 41 vše vrátí", async () => {

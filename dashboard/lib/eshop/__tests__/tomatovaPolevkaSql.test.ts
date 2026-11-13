@@ -24,10 +24,10 @@ describe("79 Tomatová polévka nad stavem Production", { timeout: 120_000 }, ()
     ({ pg } = await createMigratedDb());
     await pg.exec(catalog);
     // stav Production před přejmenováním
-    await pg.query(`UPDATE products SET name = 'Rajčatová polévka',
-      description = array_replace(array_replace(description, 'Tomatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.',
-        'Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.'),
-        '- pro milovníky tomatových polévek', '- pro milovníky rajčatových polévek') WHERE slug = 'rajcatova-polevka'`);
+    // stav Production před přejmenováním (texty z doby skriptu 79; katalog má od 14. 11. 2026 nové texty)
+    await pg.query(`UPDATE products SET name = 'Rajčatová polévka', description = ARRAY[
+      'Rajčatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.',
+      '## Pro koho je vhodná', '- pro milovníky rajčatových polévek']::text[] WHERE slug = 'rajcatova-polevka'`);
     await pg.query(`DELETE FROM product_images WHERE url LIKE '%-sacek.jpg'`); // stav Production před fotkami (skript 85)
     await pg.query(`UPDATE product_images SET alt = 'Rajčatová polévka' WHERE alt = 'Tomatová polévka'`);
   }, 120_000);
@@ -35,7 +35,7 @@ describe("79 Tomatová polévka nad stavem Production", { timeout: 120_000 }, ()
   it("generátor katalogu už má nový název a texty, polévka s řepou beze změny", () => {
     expect(catalog).toContain("'rajcatova-polevka', 'Tomatová polévka',");
     expect(catalog).toContain("'rajcatova-polevka-s-cervenou-repou', 'Rajčatová polévka s červenou řepou',");
-    expect(catalog).toContain("pro milovníky jemnějších rajčatových polévek");
+    expect(catalog).toContain("Jemná rajčatová polévka, které červená řepa dává sladší chuť a sytou barvu.");
   });
 
   it("přejmenuje jen tento produkt; složení, varianty, slug a polévka s řepou beze změny; druhé spuštění zastaví", async () => {
