@@ -22,15 +22,6 @@ jobs:
       - run: npm ci
       - name: Typy
         run: npx next typegen && npx tsc --noEmit
-      - name: Lint
-        if: always()
-        run: npx eslint app/eshop/pokladna lib/eshop/zasilkovna.ts lib/eshop/shipping.ts lib/eshop/checkout.ts lib/eshop/pricing.ts
-      - name: Testy
-        if: always()
-        run: npx vitest run lib/eshop 2>&1 | tee /tmp/t.log | grep -E "Test Files|Tests |FAIL|AssertionError" | head -40
-      - name: Detail
-        if: always()
-        run: grep -A25 -E "FAIL|AssertionError" /tmp/t.log | head -150 || true
       - name: Build
         if: always()
         run: npx next build 2>&1 | tail -5
