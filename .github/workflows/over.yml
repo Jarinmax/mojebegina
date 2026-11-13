@@ -1,0 +1,13 @@
+name: over
+on:
+  push:
+    branches: [over-produkce-1011]
+jobs:
+  over:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -o d.html -w "doprava %{http_code}\n" https://begina.cz/doprava
+          echo "zasilkovna na strance Doprava: $(grep -o 'Zásilkovna – výdejní místo nebo Z-BOX' d.html | wc -l)"
+          grep -o 'Zásilkovna – výdejní[^<]\{0,160\}' d.html | head -2
+          curl -sS -o /dev/null -w "widget %{http_code}\n" https://widget.packeta.com/v6/www/js/library.js
