@@ -1,5 +1,11 @@
 // GENEROVÁNO scripts/fotky-eshop/build-manifest.mjs — neupravovat ručně.
 export const FOTKY_MANIFEST: Record<string, string[]> = {
+  "alkoholicke-koktejly/hlavni": [
+    "granatovy-bond.jpg",
+    "kosmopolitan.jpg",
+    "lady-carneval.jpg",
+    "svarak-deluxe.jpg"
+  ],
   "caje/begina-3l": [
     "bylinny-caj-saman.jpg",
     "cerny-caj-golden-nepal.jpg",

@@ -208,7 +208,7 @@ export const products: Product[] = [
     taste:
       "Plná a vyvážená chuť červeného vína s jemnými tóny pomeranče, grepu a citronu, doplněná hřejivým kořením, které vytváří bohatý a harmonický chuťový zážitek.",
     warnings: COCKTAIL_WARNINGS,
-    image: "/eshop/svarak-deluxe.jpg",
+    image: "/eshop/koktejly/svarak-deluxe-hlavni.jpg",
     variants: cocktailVariants("svarak-deluxe", 499, 129),
     alcoholPercent: 7.5,
     foodInfo: {
@@ -238,7 +238,7 @@ export const products: Product[] = [
     taste:
       "Grepový alkoholický koktejl Lady Carneval má výraznou citrusovou chuť s příjemnou svěžestí grepu a jemně nasládlým dozvukem. Vyvážené spojení vodky, Aperolu a ovocných tónů vytváří harmonický a osvěžující drink, který působí lehce a elegantně.",
     warnings: COCKTAIL_WARNINGS,
-    image: "/eshop/lady-carneval.jpg",
+    image: "/eshop/koktejly/lady-carneval-hlavni.jpg",
     variants: cocktailVariants("lady-carneval", 799, 169),
     alcoholPercent: 7.2,
     foodInfo: {
@@ -261,7 +261,7 @@ export const products: Product[] = [
     taste:
       "Granátový Bond má plnou, ovocnou chuť s výrazným tónem granátového jablka, který se postupně rozvíjí do jemně nasládlého a hladkého závěru. Jako alkoholický koktejl s granátovým jablkem působí elegantně, intenzivně a zanechává dlouhý, příjemný dozvuk.",
     warnings: COCKTAIL_WARNINGS,
-    image: "/eshop/granatovy-bond.jpg",
+    image: "/eshop/koktejly/granatovy-bond-hlavni.jpg",
     variants: cocktailVariants("granatovy-bond", 799, 169),
     alcoholPercent: 6.7,
     foodInfo: {
@@ -293,7 +293,7 @@ export const products: Product[] = [
     taste:
       "Kosmopolitan má výraznou ovocně-citrusovou chuť se svěžestí brusinek a jemně nasládlým dozvukem. Působí lehce, elegantně a dodává každému okamžiku nádech sebevědomí a stylu.",
     warnings: COCKTAIL_WARNINGS,
-    image: "/eshop/kosmopolitan.jpg",
+    image: "/eshop/koktejly/kosmopolitan-hlavni.jpg",
     variants: cocktailVariants("kosmopolitan", 799, 169),
     alcoholPercent: 6.3,
     foodInfo: {
