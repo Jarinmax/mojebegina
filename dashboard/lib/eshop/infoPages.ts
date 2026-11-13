@@ -8,7 +8,8 @@
 // 3. 10. 2026, GDPR 8. 10. 2026).
 import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
-import { shippingMethodsFor, type ShippingMode } from "./shipping";
+import { shippingMethodsFor, type ShippingMode, type ShippingOptions } from "./shipping";
+import { ZASILKOVNA_BOX_KC, ZASILKOVNA_STANDARD_KC } from "./zasilkovna";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { OPERATOR, SLOVAKIA_ORDER_NOTE } from "./operator";
 export { SLOVAKIA_ORDER_NOTE };
@@ -154,8 +155,8 @@ const packagingPage: InfoPage = {
 const kgText = (kg: number) => kg.toLocaleString("cs-CZ");
 
 /** Stránka Doprava a platba — ze stejných dat, ze kterých počítá pokladna (shipping.ts, shippingRates.ts). */
-export function shippingPageFor(mode: ShippingMode): InfoPage {
-  const methods = shippingMethodsFor(mode);
+export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {}): InfoPage {
+  const methods = shippingMethodsFor(mode, options);
   const byWeight = mode === "weight";
   return {
     path: "/doprava",
@@ -166,7 +167,9 @@ export function shippingPageFor(mode: ShippingMode): InfoPage {
       {
         heading: "Doručení",
         items: methods.map((method) =>
-          byWeight && method.id === "rozvoz"
+          method.id === "zasilkovna"
+            ? `${method.label} — ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)}. ${method.description}`
+            : byWeight && method.id === "rozvoz"
             ? `${method.label} — ${method.description}`
             : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
         ),

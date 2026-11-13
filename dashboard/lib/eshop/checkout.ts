@@ -48,6 +48,12 @@ export type CheckoutInput = {
   boxes?: string | number;
   /** JSON ["kod", …] — uplatněné slevové kódy (z košíku / pokladny); nepovinné. */
   couponCodes?: string;
+  /** Zásilkovna: výdejní místo vybrané na mapě (údaje z widgetu Zásilkovny). */
+  pickupPointId?: string;
+  pickupPointName?: string;
+  pickupPointStreet?: string;
+  pickupPointCity?: string;
+  pickupPointZip?: string;
 };
 
 /** Kupóny k ověření — načte je server (couponsServer.ts), checkout zůstává čistý. */
@@ -69,7 +75,7 @@ export type CheckoutValue = {
     zip: string;
     country: BillingCountry;
   };
-  /** null u osobního odběru */
+  /** null u osobního odběru; u Zásilkovny adresa výdejního místa (firma = název místa) */
   delivery: {
     sameAsBilling: boolean;
     name: string;
@@ -80,6 +86,8 @@ export type CheckoutValue = {
     country: typeof DELIVERY_COUNTRY;
     phone: string;
   } | null;
+  /** Zásilkovna: vybrané výdejní místo (ID pro podání zásilky) */
+  pickupPoint?: { id: string; name: string } | null;
   /** karta zákazníka z ověřeného pasu MojeBegina (nikdy z formuláře) */
   buyerOrganizationId?: string | null;
   /** náhradní objednávka ke starší objednávce bez fakturačních údajů — neukládat je */
@@ -129,10 +137,10 @@ function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
 export function validateCheckoutInput(
   input: CheckoutInput,
   index: CatalogIndex,
-  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext } = {}
+  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext; zasilkovna?: boolean } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxes: clampBoxes(input.boxes, Number.MAX_SAFE_INTEGER) });
+  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxes: clampBoxes(input.boxes, Number.MAX_SAFE_INTEGER), zasilkovna: options.zasilkovna === true });
   if (!priced.ok) {
     return priced;
   }
@@ -213,7 +221,35 @@ export function validateCheckoutInput(
   // Doručovací údaje — jen u zasílání. Stejné jako fakturační se převezmou,
   // jiný příjemce musí vyplnit vlastní jméno, adresu a telefon.
   let delivery: CheckoutValue["delivery"] = null;
-  if (priced.value.shipping.requiresAddress) {
+  let pickupPoint: CheckoutValue["pickupPoint"] = null;
+  if (priced.value.shipping.requiresPickupPoint) {
+    // Zásilkovna: zákazník adresu nepíše, vybírá výdejní místo na mapě.
+    const id = (input.pickupPointId ?? "").trim();
+    const pointName = (input.pickupPointName ?? "").trim();
+    const pointCity = (input.pickupPointCity ?? "").trim();
+    const pointZip = (input.pickupPointZip ?? "").trim();
+    const pointStreet = (input.pickupPointStreet ?? "").trim() || pointName;
+    if (!/^\d{1,12}$/.test(id) || !pointName || !pointCity) {
+      return { ok: false, error: "Vyberte prosím výdejní místo nebo Z-BOX Zásilkovny." };
+    }
+    if (!CZ_ZIP_PATTERN.test(pointZip)) {
+      return { ok: false, error: `Zásilkovnou doručujeme jen na výdejní místa v České republice. ${SLOVAKIA_ORDER_NOTE}` };
+    }
+    if ([pointName, pointStreet, pointCity].some((v) => tooLong(v))) {
+      return { ok: false, error: "Údaje výdejního místa jsou příliš dlouhé — vyberte prosím místo znovu." };
+    }
+    pickupPoint = { id, name: pointName };
+    delivery = {
+      sameAsBilling: false,
+      name,
+      company: `Zásilkovna: ${pointName} (ID ${id})`,
+      street: pointStreet,
+      city: pointCity,
+      zip: normalizeZip(pointZip),
+      country: DELIVERY_COUNTRY,
+      phone,
+    };
+  } else if (priced.value.shipping.requiresAddress) {
     if (input.deliverySameAsBilling) {
       if (country !== DELIVERY_COUNTRY) {
         return { ok: false, error: `Doručujeme jen v České republice — zvolte prosím jinou doručovací adresu v ČR. ${SLOVAKIA_ORDER_NOTE}` };
@@ -316,6 +352,7 @@ export function validateCheckoutInput(
       phone,
       billing,
       delivery,
+      pickupPoint,
       address,
       note: note || null,
     },

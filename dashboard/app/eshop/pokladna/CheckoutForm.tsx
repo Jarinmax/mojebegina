@@ -15,8 +15,16 @@ import {
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
+  quoteZasilkovnaShipping,
+  ZASILKOVNA_METHOD_ID,
   type ShippingMode,
 } from "@/lib/eshop/shipping";
+import {
+  ZASILKOVNA_WIDGET_KEY,
+  ZASILKOVNA_WIDGET_SCRIPT,
+  pointFromWidget,
+  type ZasilkovnaPoint,
+} from "@/lib/eshop/zasilkovna";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -105,12 +113,19 @@ const emptyValues: Values = {
 export default function CheckoutForm({
   cardPaymentAvailable = false,
   shippingMode = "flat",
+  zasilkovna = false,
 }: {
   cardPaymentAvailable?: boolean;
   shippingMode?: ShippingMode;
+  /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) — nabídne se jen u košíku s kapsičkami sirupu */
+  zasilkovna?: boolean;
 }) {
   const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
-  const shippingMethods = shippingMethodsFor(shippingMode);
+  const allShippingMethods = shippingMethodsFor(shippingMode, { zasilkovna });
+  // Zásilkovna: dokud zákazník sám nezvolí doručení, předvybere se (je nejlevnější).
+  const [shippingChosen, setShippingChosen] = useState(false);
+  const [pickupPoint, setPickupPoint] = useState<ZasilkovnaPoint | null>(null);
+  const [widgetError, setWidgetError] = useState<string | null>(null);
   const { cart, clear } = useCart();
   const catalog = useCatalog();
   const href = useEshopHref();
@@ -388,11 +403,65 @@ export default function CheckoutForm({
     quantity: line.quantity,
     weightGrams: line.variant.weightGrams,
   })).concat(boxWeightLines(boxes));
+  // Zásilkovna se nabízí jen u košíku, kde jsou pouze kapsičky sirupu (zasilkovna.ts);
+  // jinak ji zákazník vůbec nevidí. Když ji nabídnout jde, je první.
+  const zasilkovnaQuote = quoteZasilkovnaShipping(lines);
+  const zasilkovnaOffered = zasilkovna && zasilkovnaQuote.available;
+  const shippingMethods = [
+    ...allShippingMethods.filter((method) => method.id === ZASILKOVNA_METHOD_ID && zasilkovnaOffered),
+    ...allShippingMethods.filter((method) => method.id !== ZASILKOVNA_METHOD_ID),
+  ];
   const quotes = new Map(
-    shippingMethods.map((method) => [method.id, quoteShipping(method, quoteLines, shippingMode, OPERATOR)])
+    shippingMethods.map((method) => [
+      method.id,
+      method.id === ZASILKOVNA_METHOD_ID ? zasilkovnaQuote : quoteShipping(method, quoteLines, shippingMode, OPERATOR),
+    ])
   );
-  const shipping = shippingMethods.find((method) => method.id === values.shippingMethodId) ?? shippingMethods[0];
+  const selectedShippingId =
+    zasilkovnaOffered && !shippingChosen
+      ? ZASILKOVNA_METHOD_ID
+      : shippingMethods.some((method) => method.id === values.shippingMethodId)
+        ? values.shippingMethodId
+        : shippingMethods[0].id;
+  const shipping = shippingMethods.find((method) => method.id === selectedShippingId) ?? shippingMethods[0];
   const quote = quotes.get(shipping.id)!;
+
+  function openZasilkovnaWidget() {
+    setWidgetError(null);
+    type PacketaWindow = Window & { Packeta?: { Widget: { pick: (key: string, cb: (point: unknown) => void, options?: object) => void } } };
+    const pick = () => {
+      const packeta = (window as PacketaWindow).Packeta;
+      if (!packeta) {
+        setWidgetError("Mapu výdejních míst se nepodařilo načíst. Zkuste to prosím znovu.");
+        return;
+      }
+      packeta.Widget.pick(
+        ZASILKOVNA_WIDGET_KEY,
+        (raw) => {
+          if (raw === null || raw === undefined) return; // zákazník okno zavřel
+          const point = pointFromWidget(raw);
+          if (point) setPickupPoint(point);
+          else setWidgetError("Toto výdejní místo nejde použít — vyberte prosím jiné v České republice.");
+        },
+        {
+          country: "cz",
+          language: "cs",
+          vendors: [{ country: "cz" }, { country: "cz", group: "zbox" }],
+          weight: zasilkovnaQuote.available && zasilkovnaQuote.weightGrams ? zasilkovnaQuote.weightGrams / 1000 : undefined,
+        }
+      );
+    };
+    if ((window as PacketaWindow).Packeta) {
+      pick();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = ZASILKOVNA_WIDGET_SCRIPT;
+    script.async = true;
+    script.onload = pick;
+    script.onerror = () => setWidgetError("Mapu výdejních míst se nepodařilo načíst. Zkuste to prosím znovu.");
+    document.head.appendChild(script);
+  }
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
   // Sleva a doprava zdarma ze slevových kódů (ověřené serverem; při
   // odeslání je server spočítá znovu).
@@ -518,15 +587,18 @@ export default function CheckoutForm({
                   key={method.id}
                   className={`flex items-start gap-3 border rounded-xl p-3.5 ${
                     methodQuote.available ? "cursor-pointer" : "cursor-not-allowed"
-                  } ${values.shippingMethodId === method.id ? "border-begina-primary-900" : "border-neutral-200"}`}
+                  } ${selectedShippingId === method.id ? "border-begina-primary-900" : "border-neutral-200"}`}
                 >
                   <input
                     type="radio"
                     name="shippingMethodId"
                     value={method.id}
                     disabled={!methodQuote.available}
-                    checked={values.shippingMethodId === method.id}
-                    onChange={() => set("shippingMethodId", method.id)}
+                    checked={selectedShippingId === method.id}
+                    onChange={() => {
+                      set("shippingMethodId", method.id);
+                      setShippingChosen(true);
+                    }}
                     className="mt-1 accent-begina-primary-900"
                   />
                   <span className="flex-1">
@@ -545,6 +617,44 @@ export default function CheckoutForm({
               );
             })}
           </div>
+
+          {shipping.requiresPickupPoint && (
+            <div className="mt-4 flex flex-col gap-3">
+              <p className="font-medium text-sm">Výdejní místo</p>
+              <input type="hidden" name="pickupPointId" value={pickupPoint?.id ?? ""} />
+              <input type="hidden" name="pickupPointName" value={pickupPoint?.name ?? ""} />
+              <input type="hidden" name="pickupPointStreet" value={pickupPoint?.street ?? ""} />
+              <input type="hidden" name="pickupPointCity" value={pickupPoint?.city ?? ""} />
+              <input type="hidden" name="pickupPointZip" value={pickupPoint?.zip ?? ""} />
+              {pickupPoint ? (
+                <div className="border border-neutral-200 rounded-xl p-3.5 text-sm">
+                  <p className="font-medium">{pickupPoint.name}</p>
+                  <p className="text-neutral-600">
+                    {[pickupPoint.street, `${pickupPoint.zip} ${pickupPoint.city}`].filter(Boolean).join(", ")}
+                  </p>
+                  <button type="button" onClick={openZasilkovnaWidget} className="underline text-sm mt-2">
+                    Změnit výdejní místo
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openZasilkovnaWidget}
+                  className="self-start bg-begina-primary-900 text-white text-sm font-medium rounded-lg px-4 py-2.5"
+                >
+                  Vybrat výdejní místo nebo Z-BOX
+                </button>
+              )}
+              {widgetError && (
+                <p className="text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5" role="alert">
+                  {widgetError}
+                </p>
+              )}
+              <p className="text-xs text-neutral-500">
+                O uložení zásilky vám Zásilkovna pošle zprávu na telefon a e-mail uvedený výše.
+              </p>
+            </div>
+          )}
 
           {shipping.requiresAddress && (
             <div className="mt-4 flex flex-col gap-3">
