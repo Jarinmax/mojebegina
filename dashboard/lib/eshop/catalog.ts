@@ -261,7 +261,7 @@ export const products: Product[] = [
     taste:
       "Granátový Bond má plnou, ovocnou chuť s výrazným tónem granátového jablka, který se postupně rozvíjí do jemně nasládlého a hladkého závěru. Jako alkoholický koktejl s granátovým jablkem působí elegantně, intenzivně a zanechává dlouhý, příjemný dozvuk.",
     warnings: COCKTAIL_WARNINGS,
-    image: "/eshop/koktejly/granatovy-bond-hlavni.jpg",
+    image: "/eshop/koktejly/granatovy-bond-hlavni-v2.jpg",
     variants: cocktailVariants("granatovy-bond", 799, 169),
     alcoholPercent: 6.7,
     foodInfo: {

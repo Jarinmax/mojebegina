@@ -77,6 +77,15 @@ const BACKDROP: Record<string, string> = {
   // špenátová polévka od 13. 11. 2026 (hustší)
   "/eshop/polevky/spenatova-polevka-hlavni.jpg": "#fefefe",
   "/eshop/polevky/spenatova-polevka-begina.jpg": "#fefefe",
+  // 14. 11. 2026: sáčky 500 ml, nový Bond, hustší gulášová, nový Dům u jezera
+  "/eshop/koktejly/lady-carneval-sacek.jpg": "#fefefe",
+  "/eshop/koktejly/granatovy-bond-sacek.jpg": "#fefefe",
+  "/eshop/koktejly/svarak-deluxe-sacek.jpg": "#fefefe",
+  "/eshop/koktejly/kosmopolitan-sacek.jpg": "#fefefe",
+  "/eshop/koktejly/granatovy-bond-hlavni-v2.jpg": "#fefefe",
+  "/eshop/koktejly/granatovy-bond-begina-v2.jpg": "#fefefe",
+  "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-hlavni.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/dum-u-jezera-hlavni-v2.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
