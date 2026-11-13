@@ -62,7 +62,7 @@ describe("Zásilkovna — zapnutí a nabídka", () => {
   });
 
   it("stránka Doprava ji uvádí jen zapnutou, s cenou 104 Kč", () => {
-    const items = (page: ReturnType<typeof shippingPageFor>) => page.blocks.flatMap((b) => b.items ?? []).join("\n");
+    const items = (page: ReturnType<typeof shippingPageFor>) => (page.blocks ?? []).flatMap((b) => b.items ?? []).join("\n");
     expect(items(shippingPageFor("weight"))).not.toContain("Zásilkovna");
     expect(items(shippingPageFor("weight", { zasilkovna: true }))).toMatch(/Zásilkovna – výdejní místo nebo Z-BOX — 104\sKč/);
   });
