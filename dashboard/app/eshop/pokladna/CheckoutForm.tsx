@@ -126,6 +126,8 @@ export default function CheckoutForm({
   const [shippingChosen, setShippingChosen] = useState(false);
   const [pickupPoint, setPickupPoint] = useState<ZasilkovnaPoint | null>(null);
   const [widgetError, setWidgetError] = useState<string | null>(null);
+  // chyba ze serveru, kterou zákazník mezitím napravil výběrem výdejního místa
+  const [resolvedError, setResolvedError] = useState<string | null>(null);
   const { cart, clear } = useCart();
   const catalog = useCatalog();
   const href = useEshopHref();
@@ -440,7 +442,10 @@ export default function CheckoutForm({
         (raw) => {
           if (raw === null || raw === undefined) return; // zákazník okno zavřel
           const point = pointFromWidget(raw);
-          if (point) setPickupPoint(point);
+          if (point) {
+            setPickupPoint(point);
+            setResolvedError(state && "error" in state ? state.error : null);
+          }
           else setWidgetError("Toto výdejní místo nejde použít — vyberte prosím jiné v České republice.");
         },
         {
@@ -889,7 +894,7 @@ export default function CheckoutForm({
           </p>
         )}
 
-        {state && "error" in state && (
+        {state && "error" in state && state.error !== resolvedError && (
           <p className="mt-4 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2" role="alert">
             {state.error}
           </p>

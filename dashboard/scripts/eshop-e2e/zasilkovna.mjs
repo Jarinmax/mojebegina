@@ -89,6 +89,7 @@ try {
   });
   await page.click("text=Vybrat výdejní místo nebo Z-BOX");
   await page.waitForSelector("text=Změnit výdejní místo");
+  check("po výběru místa zmizí chyba o chybějícím místě", !(await summary()).includes("Vyberte prosím výdejní místo"), await summary());
   check("vybrané místo je vidět", (await deliveryBox()).includes("Z-BOX Kolín, Benešova 12"), await deliveryBox());
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/zasilkovna-vybrane-misto.png`, fullPage: true });
   await page.click('button[type="submit"]');

@@ -20,6 +20,8 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
+      - name: Typy
+        run: npx next typegen && npx tsc --noEmit
       - name: Build
         if: always()
         run: npx next build 2>&1 | tail -5
