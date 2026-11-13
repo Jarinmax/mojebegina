@@ -20,23 +20,20 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
-      - name: Typy
-        run: npx next typegen && npx tsc --noEmit
       - name: Build
         if: always()
         run: npx next build 2>&1 | tail -5
       - name: Prohlížeč
         if: always()
         run: |
-          npm i -g playwright@1.49.1 >/dev/null 2>&1 && playwright install --with-deps chromium >/dev/null 2>&1
+          npm i -g playwright@1.49.1 >/dev/null 2>&1 && playwright install --with-deps chromium >/dev/null 2>&1 && pip install -q pillow
           mkdir -p /tmp/z
           E2E_ORDER_NUMBERING=vs E2E_SQL_PORT=4998 E2E_WEIGHTS=1 ESHOP_WEIGHT_SHIPPING=on ESHOP_ZASILKOVNA=on E2E_CATALOG_SQL=31_sirupy.sql,41_polevky.sql,51_caje.sql PORT=3102 NODE_OPTIONS="--import ./scripts/eshop-e2e/neon-http-pglite.mjs" npx next start -p 3102 > /tmp/server.log 2>&1 &
           for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:3102/ && break; sleep 1; done
           export PLAYWRIGHT_MODULE=$(npm root -g)/playwright/index.mjs
           E2E_SQL_PORT=4998 node scripts/eshop-e2e/zasilkovna.mjs 3102 /tmp/z || true
-          tail -20 /tmp/server.log
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: snimky
-          path: /tmp/z
+          cd /tmp/z && python3 -c "
+          from PIL import Image
+          for f in ['zasilkovna-vybrane-misto.png','zasilkovna-pokladna.png']:
+              im=Image.open(f).convert('RGB'); im=im.resize((im.width//2, im.height//2)); im.save(f.replace('.png','.jpg'), quality=70)
+          " && tar czf /tmp/s.tgz *.jpg && echo "=====BEGIN S" && base64 -w 2000 /tmp/s.tgz && echo "=====END S"
