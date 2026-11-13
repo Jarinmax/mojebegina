@@ -4,17 +4,20 @@
 // potřebuje vidět hovory VŠECH vlastníků najednou, aby mohl každému
 // poslat jen jeho vlastní denní shrnutí. Nikdy nevolat z uživatelského
 // (session-gated) kódu — tam patří leads.ts:getScheduledCallsToday.
+//
+// Sjednoceno 13. 11. 2026: dnešní hovory = termín „Další kontakt“
+// (next_follow_up_at, datum i hodina) v Europe/Prague.
 import "server-only";
 import { and, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads } from "@/lib/db/schema";
-import { ACTIVE_LEAD_STAGES, isScheduledCallToday, leadDisplayName } from "./leadValidation";
+import { ACTIVE_LEAD_STAGES, isTodayInPrague, leadDisplayName } from "./leadValidation";
 
 export type ReminderItem = {
   leadId: string;
   displayName: string;
   contactPhone: string | null;
-  scheduledCallAt: Date;
+  callAt: Date;
 };
 
 export async function getScheduledCallsGroupedByOwnerToday(now: Date = new Date()): Promise<Map<string, ReminderItem[]>> {
@@ -26,14 +29,14 @@ export async function getScheduledCallsGroupedByOwnerToday(now: Date = new Date(
       contactEmail: leads.contactEmail,
       contactPhone: leads.contactPhone,
       ownerUserId: leads.ownerUserId,
-      scheduledCallAt: leads.scheduledCallAt,
+      nextFollowUpAt: leads.nextFollowUpAt,
     })
     .from(leads)
-    .where(and(isNotNull(leads.scheduledCallAt), isNotNull(leads.ownerUserId), inArray(leads.stage, ACTIVE_LEAD_STAGES)));
+    .where(and(isNotNull(leads.nextFollowUpAt), isNotNull(leads.ownerUserId), inArray(leads.stage, ACTIVE_LEAD_STAGES)));
 
   const grouped = new Map<string, ReminderItem[]>();
   for (const r of rows) {
-    if (!r.scheduledCallAt || !r.ownerUserId || !isScheduledCallToday(r.scheduledCallAt, now)) {
+    if (!r.nextFollowUpAt || !r.ownerUserId || !isTodayInPrague(r.nextFollowUpAt, now)) {
       continue;
     }
     const list = grouped.get(r.ownerUserId) ?? [];
@@ -41,12 +44,12 @@ export async function getScheduledCallsGroupedByOwnerToday(now: Date = new Date(
       leadId: r.id,
       displayName: leadDisplayName(r),
       contactPhone: r.contactPhone,
-      scheduledCallAt: r.scheduledCallAt,
+      callAt: r.nextFollowUpAt,
     });
     grouped.set(r.ownerUserId, list);
   }
   for (const list of grouped.values()) {
-    list.sort((a, b) => a.scheduledCallAt.getTime() - b.scheduledCallAt.getTime());
+    list.sort((a, b) => a.callAt.getTime() - b.callAt.getTime());
   }
   return grouped;
 }

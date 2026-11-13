@@ -90,8 +90,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           <CallLogForm
             leadId={lead.id}
             nextFollowUpAt={lead.nextFollowUpAt}
-            scheduledCallAt={lead.scheduledCallAt}
             nextStepNote={lead.nextStepNote}
+            calendarSync={lead.calendarSync}
           />
         </div>
       )}

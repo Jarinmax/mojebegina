@@ -5,7 +5,7 @@ import {
   validateCallLogInput,
   validateCompanyNameInput,
   isFollowUpOverdue,
-  isScheduledCallToday,
+  isTodayInPrague,
   leadDisplayName,
   compareLeadsForList,
   type CreateLeadInput,
@@ -115,7 +115,13 @@ describe("validateCallLogInput — Security Phase 16", () => {
   // "Uložit zápis" bez nového vyplnění dřív tiše vytvořilo prázdný
   // call_logged záznam. Teď se to odmítá už na validaci.
   it("úplně prázdné odeslání je DENY (UX past po vyprázdnění formuláře)", () => {
-    const result = validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "" });
+    const result = validateCallLogInput({
+      note: "",
+      nextStage: "",
+      nextFollowUpAtDate: "",
+      nextFollowUpAtTime: "",
+      nextStepNote: "",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toMatch(/prázdný/i);
@@ -124,31 +130,61 @@ describe("validateCallLogInput — Security Phase 16", () => {
 
   it("jen poznámka bez čehokoliv dalšího je povolené", () => {
     expect(
-      validateCallLogInput({ note: "Chce vzorek.", nextStage: "", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "Chce vzorek.",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
     ).toBe(true);
   });
 
   it("jen posun fáze bez poznámky je povolené", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "sample_offer", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "sample_offer",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
     ).toBe(true);
   });
 
-  it("jen datum dalšího kontaktu bez čehokoliv dalšího je povolené", () => {
+  it("jen datum a čas dalšího kontaktu bez čehokoliv dalšího je povolené", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "2026-10-05", scheduledCallTime: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "2026-10-05",
+        nextFollowUpAtTime: "10:00",
+        nextStepNote: "",
+      }).ok
     ).toBe(true);
   });
 
   it("jen další krok bez čehokoliv dalšího je povolené", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "Zavolat zítra." }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "Zavolat zítra.",
+      }).ok
     ).toBe(true);
   });
 
   it("jen bílé znaky ve všech polích se počítá jako prázdné = DENY", () => {
     expect(
-      validateCallLogInput({ note: "   ", nextStage: "", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "  " }).ok
+      validateCallLogInput({
+        note: "   ",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "  ",
+      }).ok
     ).toBe(false);
   });
 
@@ -156,69 +192,81 @@ describe("validateCallLogInput — Security Phase 16", () => {
     const result = validateCallLogInput({
       note: "Chce vzorek svařáku.",
       nextStage: "sample_offer",
-      nextFollowUpAt: "2026-10-05",
-      scheduledCallTime: "",
+      nextFollowUpAtDate: "2026-10-05",
+      nextFollowUpAtTime: "10:00",
       nextStepNote: "Poslat vzorek a zavolat.",
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.nextStage).toBe("sample_offer");
-      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T12:00:00.000Z");
+      // 2026-10-05 10:00 Europe/Prague je ještě letní čas (CEST, UTC+2) —
+      // DST končí až 2026-10-25.
+      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-10-05T08:00:00.000Z");
     }
-  });
-
-  it("platný čas hovoru spolu s datem se uloží jako přesný okamžik v Europe/Prague", () => {
-    const result = validateCallLogInput({
-      note: "",
-      nextStage: "",
-      nextFollowUpAt: "2026-10-05",
-      scheduledCallTime: "14:30",
-      nextStepNote: "",
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      // 2026-10-05 je letní čas (CEST, UTC+2) → 14:30 místního je 12:30 UTC.
-      expect(result.value.scheduledCallAt?.toISOString()).toBe("2026-10-05T12:30:00.000Z");
-    }
-  });
-
-  it("čas hovoru bez data = DENY (nemá se k čemu ukotvit)", () => {
-    const result = validateCallLogInput({
-      note: "",
-      nextStage: "",
-      nextFollowUpAt: "",
-      scheduledCallTime: "14:30",
-      nextStepNote: "",
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  it("neplatný formát času hovoru = DENY", () => {
-    const result = validateCallLogInput({
-      note: "",
-      nextStage: "",
-      nextFollowUpAt: "2026-10-05",
-      scheduledCallTime: "25:99",
-      nextStepNote: "",
-    });
-    expect(result.ok).toBe(false);
   });
 
   it("neplatná příští fáze = DENY", () => {
-    expect(validateCallLogInput({ note: "", nextStage: "won", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "" }).ok).toBe(
-      false
-    );
+    expect(
+      validateCallLogInput({
+        note: "",
+        nextStage: "won",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
+    ).toBe(false);
   });
 
   it("neplatné datum follow-upu = DENY", () => {
     expect(
-      validateCallLogInput({ note: "", nextStage: "", nextFollowUpAt: "zítra", scheduledCallTime: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "zítra",
+        nextFollowUpAtTime: "10:00",
+        nextStepNote: "",
+      }).ok
     ).toBe(false);
   });
 
   it("příliš dlouhá poznámka = DENY", () => {
     expect(
-      validateCallLogInput({ note: "a".repeat(2001), nextStage: "", nextFollowUpAt: "", scheduledCallTime: "", nextStepNote: "" }).ok
+      validateCallLogInput({
+        note: "a".repeat(2001),
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "",
+        nextStepNote: "",
+      }).ok
+    ).toBe(false);
+  });
+
+  // Security Phase 20 (Google Kalendář 1.0) — datum a čas se musí vyplnit
+  // SPOLEČNĚ, jakmile uživatel další kontakt vůbec plánuje.
+  it("Etapa 0 — jen datum bez času = 09:00 Europe/Prague (dřív DENY)", () => {
+    const result = validateCallLogInput({
+      note: "",
+      nextStage: "",
+      nextFollowUpAtDate: "2026-11-02",
+      nextFollowUpAtTime: "",
+      nextStepNote: "",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // 2. 11. 2026 = zimní čas (UTC+1) → 09:00 Praha = 08:00 UTC
+      expect(result.value.nextFollowUpAt?.toISOString()).toBe("2026-11-02T08:00:00.000Z");
+    }
+  });
+
+  it("jen čas bez data = DENY (musí jít dohromady)", () => {
+    expect(
+      validateCallLogInput({
+        note: "",
+        nextStage: "",
+        nextFollowUpAtDate: "",
+        nextFollowUpAtTime: "10:00",
+        nextStepNote: "",
+      }).ok
     ).toBe(false);
   });
 });
@@ -380,23 +428,23 @@ describe("compareLeadsForList — Security Phase 16.4", () => {
   });
 });
 
-describe("isScheduledCallToday — Jarda, upozornění na naplánovaný hovor", () => {
+describe("isTodayInPrague — dnešní hovory pro /prace a ranní souhrn", () => {
   it("stejný kalendářní den v Europe/Prague = dnes, i přes posun UTC", () => {
     // 2026-01-15 23:30 UTC je už 2026-01-16 00:30 v Praze (CET, UTC+1).
     const now = new Date("2026-01-15T22:00:00.000Z"); // 2026-01-15 23:00 Praha
     const scheduled = new Date("2026-01-15T23:30:00.000Z"); // 2026-01-16 00:30 Praha
-    expect(isScheduledCallToday(scheduled, now)).toBe(false);
+    expect(isTodayInPrague(scheduled, now)).toBe(false);
   });
 
   it("stejný den v Praze, jiná hodina UTC den = dnes", () => {
     const now = new Date("2026-06-10T04:00:00.000Z"); // 2026-06-10 06:00 Praha (CEST)
     const scheduled = new Date("2026-06-09T23:00:00.000Z"); // 2026-06-10 01:00 Praha
-    expect(isScheduledCallToday(scheduled, now)).toBe(true);
+    expect(isTodayInPrague(scheduled, now)).toBe(true);
   });
 
   it("jiný den = ne", () => {
     const now = new Date("2026-06-10T10:00:00.000Z");
     const scheduled = new Date("2026-06-11T10:00:00.000Z");
-    expect(isScheduledCallToday(scheduled, now)).toBe(false);
+    expect(isTodayInPrague(scheduled, now)).toBe(false);
   });
 });

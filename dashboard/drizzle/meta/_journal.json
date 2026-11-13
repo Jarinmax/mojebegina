@@ -267,6 +267,20 @@
       "when": 1794500021842,
       "tag": "0037_jarda-call-reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794561332308,
+      "tag": "0038_google_kalendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794561333914,
+      "tag": "0039_denni_volani_1_1_historie",
+      "breakpoints": true
     }
   ]
 }

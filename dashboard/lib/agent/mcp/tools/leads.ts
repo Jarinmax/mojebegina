@@ -21,7 +21,7 @@ import { PAGING_PROPERTIES, excerpt, pageInfo, parsePaging } from "../envelope";
 import { DATE_DESCRIPTION, optionalRange, periodOf, resolveSalesperson, sourceFor } from "./shared";
 
 const prague = (d: Date | null) => (d ? formatPragueDateTime(d) : null);
-const NEXT_CONTACT_NOTE = "nextContactDate je plánovaný termín dalšího kontaktu (datum v Praze).";
+const NEXT_CONTACT_NOTE = "nextContactDate je plánovaný termín dalšího kontaktu (datum v Praze), nextContactAtPrague totéž i s časem.";
 
 export const LEAD_TOOLS: AgentTool[] = [
   defineTool({
@@ -123,6 +123,7 @@ export const LEAD_TOOLS: AgentTool[] = [
             createdAtPrague: prague(lead.createdAt),
             lastContactedAtPrague: prague(lead.lastContactedAt),
             nextContactDate: lead.nextFollowUpAt ? formatPragueDate(lead.nextFollowUpAt) : null,
+            nextContactAtPrague: prague(lead.nextFollowUpAt),
             nextStep: excerpt(lead.nextStepNote),
             state: leadState(lead, today),
             recordedCalls: lead.recordedCalls,
@@ -194,6 +195,7 @@ export const LEAD_TOOLS: AgentTool[] = [
             convertedCustomerId: lead.convertedOrganizationId,
             lastContactedAtPrague: prague(lead.lastContactedAt),
             nextContactDate: lead.nextFollowUpAt ? formatPragueDate(lead.nextFollowUpAt) : null,
+            nextContactAtPrague: prague(lead.nextFollowUpAt),
             nextStep: lead.nextStepNote,
             state: leadState(lead, today),
             importedLead: imported,

@@ -19,7 +19,7 @@ const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")
 const TODAY_EARLY = id(1); // Blahout, dnes 10:00 UTC
 const TODAY_LATE = id(2); // Blahout, dnes 12:00 UTC (musí být až za TODAY_EARLY)
 const YESTERDAY = id(3); // Blahout, jiný den — nesmí se objevit
-const NO_TIME = id(4); // Blahout, scheduled_call_at NULL — nesmí se objevit
+const NO_TIME = id(4); // Blahout, next_follow_up_at NULL — nesmí se objevit
 const CONVERTED = id(5); // Blahout, stage converted — nesmí se objevit
 const OTHER_OWNER = id(6); // Viner, dnes — vlastní skupina
 
@@ -39,7 +39,7 @@ describe("getScheduledCallsGroupedByOwnerToday — Jarda, upozornění na naplá
     mod = await import("../scheduledCallReminders");
 
     await db.execute(sql.raw(`
-      INSERT INTO leads (id, company_name, contact_phone, source, stage, owner_user_id, scheduled_call_at) VALUES
+      INSERT INTO leads (id, company_name, contact_phone, source, stage, owner_user_id, next_follow_up_at) VALUES
         ('${TODAY_EARLY}', 'Kavárna Ráno', '+420 600 000 001', 'existing_database', 'new', '${BLAHOUT}', '2026-06-10T10:00:00Z'),
         ('${TODAY_LATE}', 'Bistro Poledne', '+420 600 000 002', 'existing_database', 'new', '${BLAHOUT}', '2026-06-10T12:00:00Z'),
         ('${YESTERDAY}', 'Firma Včera', '+420 600 000 003', 'existing_database', 'new', '${BLAHOUT}', '2026-06-09T10:00:00Z'),

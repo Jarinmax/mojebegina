@@ -2,8 +2,8 @@
 // viz vercel.json) — každému vlastníkovi s dnešním naplánovaným hovorem a
 // aspoň jedním uloženým odběrem pošle JEDNO shrnující push upozornění.
 // Hobby plán Vercelu dovoluje jen 1 spuštění cronu/den — proto souhrn, ne
-// upozornění přesně v čase hovoru (schváleno, Fáze 1; Vercel Pro = další
-// krok, až se ověří, že tohle Jardovi vyhovuje).
+// upozornění přesně v čase hovoru. Přesná upozornění (60/5/0 min předem)
+// posílá Google Kalendář (googleCalendar.ts); tohle je jen ranní souhrn.
 //
 // Autorizace: Vercel k cronu automaticky posílá "Authorization: Bearer
 // $CRON_SECRET" (env proměnná, kterou je potřeba nastavit) — bez shody se
@@ -22,9 +22,9 @@ function isAuthorizedCronRequest(request: Request): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-function summaryText(calls: { displayName: string; scheduledCallAt: Date }[]): { title: string; body: string } {
+function summaryText(calls: { displayName: string; callAt: Date }[]): { title: string; body: string } {
   const first = calls[0];
-  const time = formatPragueDateTime(first.scheduledCallAt).slice(11);
+  const time = formatPragueDateTime(first.callAt).slice(11);
   if (calls.length === 1) {
     return { title: `Hovor dnes v ${time}`, body: `${first.displayName} — klepněte a zavolejte.` };
   }

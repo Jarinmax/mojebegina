@@ -1,7 +1,8 @@
 // Security Phase 16 (Obchod/CRM 1.0) — čistá validace, bez "server-only",
 // stejný princip jako orderValidation.ts: testovatelná bez databáze,
 // kontrola a dotaz se skládají až v leads.ts.
-import { pragueDayStart, formatPragueDate } from "./callActivityValidation";
+import { parseFollowUpInput } from "./pragueTime";
+import { formatPragueDate } from "./callActivityValidation";
 
 export const LEAD_STAGES = [
   "new",
@@ -170,9 +171,8 @@ export function validateStageInput(
 export type CallLogInput = {
   note: string;
   nextStage: string;
-  nextFollowUpAt: string;
-  /** Nepovinný přesný čas (HH:MM) domluveného hovoru — jen s vyplněným nextFollowUpAt. */
-  scheduledCallTime: string;
+  nextFollowUpAtDate: string;
+  nextFollowUpAtTime: string;
   nextStepNote: string;
 };
 
@@ -180,7 +180,6 @@ export type ValidatedCallLogInput = {
   note: string | null;
   nextStage: LeadStage | null;
   nextFollowUpAt: Date | null;
-  scheduledCallAt: Date | null;
   nextStepNote: string | null;
 };
 
@@ -206,35 +205,14 @@ export function validateCallLogInput(
     nextStage = validated.value;
   }
 
-  const nextFollowUpAtRaw = trimOrNull(input.nextFollowUpAt);
-  let nextFollowUpAt: Date | null = null;
-  if (nextFollowUpAtRaw) {
-    // Stejná konvence jako orderValidation.ts — datum bez času se ukládá
-    // na 12:00 UTC, aby zobrazení bylo nezávislé na časové zóně serveru.
-    const parsed = new Date(`${nextFollowUpAtRaw}T12:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime())) {
-      return { ok: false, error: "Neplatné datum dalšího kontaktu." };
-    }
-    nextFollowUpAt = parsed;
+  // Security Phase 20 (Google Kalendář 1.0) + Etapa 0 — jednotné pravidlo
+  // termínu (pragueTime.ts:parseFollowUpInput): prázdné = beze změny, jen
+  // datum = 09:00 Europe/Prague, jen čas = chyba.
+  const followUp = parseFollowUpInput(input.nextFollowUpAtDate, input.nextFollowUpAtTime);
+  if (!followUp.ok) {
+    return { ok: false, error: followUp.error };
   }
-
-  // Přesný čas má smysl jen spolu s datem — bez data by ho nebylo možné
-  // k ničemu ukotvit (žádné "dnes v 10:00", pokud datum zůstává beze změny).
-  // pragueDayStart (stejný zdroj jako Dnešní volání) dá přesnou půlnoc
-  // Europe/Prague bez ruční DST aritmetiky.
-  const scheduledCallTimeRaw = trimOrNull(input.scheduledCallTime);
-  let scheduledCallAt: Date | null = null;
-  if (scheduledCallTimeRaw) {
-    if (!nextFollowUpAtRaw) {
-      return { ok: false, error: "Čas hovoru má smysl jen spolu s datem dalšího kontaktu." };
-    }
-    const match = /^(\d{2}):(\d{2})$/.exec(scheduledCallTimeRaw);
-    if (!match) return { ok: false, error: "Neplatný čas hovoru." };
-    const hh = Number(match[1]);
-    const mm = Number(match[2]);
-    if (hh > 23 || mm > 59) return { ok: false, error: "Neplatný čas hovoru." };
-    scheduledCallAt = new Date(pragueDayStart(nextFollowUpAtRaw).getTime() + (hh * 60 + mm) * 60_000);
-  }
+  const nextFollowUpAt = followUp.value;
 
   const nextStepNote = trimOrNull(input.nextStepNote);
   if (nextStepNote && nextStepNote.length > 500) {
@@ -252,7 +230,7 @@ export function validateCallLogInput(
     return { ok: false, error: "Zápis je prázdný — vyplňte alespoň jedno pole (poznámku, fázi, další kontakt nebo další krok)." };
   }
 
-  return { ok: true, value: { note, nextStage, nextFollowUpAt, scheduledCallAt, nextStepNote } };
+  return { ok: true, value: { note, nextStage, nextFollowUpAt, nextStepNote } };
 }
 
 // Počítáno, ne uložené — stejný princip jako isPaymentOverdue
@@ -265,10 +243,10 @@ export function isFollowUpOverdue(stage: LeadStage, nextFollowUpAt: Date | null)
   return nextFollowUpAt.getTime() < Date.now();
 }
 
-// Pro ranní upozornění (scripts spouštěné cronem i detail leadu) — "dnes"
-// je kalendářní den v Europe/Prague, ne UTC den serveru.
-export function isScheduledCallToday(scheduledCallAt: Date, now: Date = new Date()): boolean {
-  return formatPragueDate(scheduledCallAt) === formatPragueDate(now);
+// Pro ranní souhrn hovorů (cron) a sekci „Naplánované hovory dnes“ na /prace
+// — „dnes“ je kalendářní den v Europe/Prague, ne UTC den serveru.
+export function isTodayInPrague(at: Date, now: Date = new Date()): boolean {
+  return formatPragueDate(at) === formatPragueDate(now);
 }
 
 export type LeadSortRow = {
@@ -328,17 +306,24 @@ export function validateNoteInput(raw: string): { ok: true; value: string } | { 
 export type NextStepInput = {
   nextStepNote: string;
   nextFollowUpAt: string;
+  /** "HH:MM" v Europe/Prague; prázdné = 09:00 (DEFAULT_FOLLOW_UP_TIME). */
+  nextFollowUpTime?: string;
+  /** Výslovné smazání naplánovaného kontaktu (Etapa 0, rozhodnutí 6). */
+  clearFollowUp?: boolean;
 };
 
 export type ValidatedNextStepInput = {
   nextStepNote: string | null;
   nextFollowUpAt: Date | null;
+  clearFollowUp: boolean;
 };
 
-// GPT/MCP pilot — "úkol" u leadu = další krok + datum dalšího kontaktu
+// GPT/MCP pilot — "úkol" u leadu = další krok + termín dalšího kontaktu
 // (existující pole leads.nextStepNote/nextFollowUpAt). Prázdné pole se
 // nikdy nepřepisuje na NULL (stejné pravidlo jako logCallOutcome), takže
 // stačí poslat jen to, co se mění — ale aspoň jedno pole musí být.
+// Etapa 0: datum bez času = 09:00 Europe/Prague (dřív pevně 12:00 UTC);
+// smazat termín jde jen výslovně přes clearFollowUp, nikdy prázdným polem.
 export function validateNextStepInput(
   input: NextStepInput
 ): { ok: true; value: ValidatedNextStepInput } | { ok: false; error: string } {
@@ -348,25 +333,31 @@ export function validateNextStepInput(
   }
 
   const dateRaw = trimOrNull(input.nextFollowUpAt);
-  let nextFollowUpAt: Date | null = null;
-  if (dateRaw) {
-    // Jen YYYY-MM-DD (stejná konvence 12:00 UTC jako validateCallLogInput);
-    // přísnější formát, protože vstup nepíše člověk do <input type="date">.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
-      return { ok: false, error: "Datum dalšího kontaktu zadejte ve tvaru RRRR-MM-DD." };
-    }
-    const parsed = new Date(`${dateRaw}T12:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== dateRaw) {
-      return { ok: false, error: "Neplatné datum dalšího kontaktu." };
-    }
-    nextFollowUpAt = parsed;
+  const timeRaw = trimOrNull(input.nextFollowUpTime ?? "");
+  // Přísnější formát než u formuláře, protože vstup nepíše člověk do
+  // <input type="date">/<input type="time">.
+  if (dateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
+    return { ok: false, error: "Datum dalšího kontaktu zadejte ve tvaru RRRR-MM-DD." };
+  }
+  if (timeRaw && !/^\d{2}:\d{2}$/.test(timeRaw)) {
+    return { ok: false, error: "Čas dalšího kontaktu zadejte ve tvaru HH:MM." };
+  }
+  const followUp = parseFollowUpInput(dateRaw, timeRaw);
+  if (!followUp.ok) {
+    return { ok: false, error: followUp.error };
+  }
+  const nextFollowUpAt = followUp.value;
+
+  const clearFollowUp = input.clearFollowUp === true;
+  if (clearFollowUp && nextFollowUpAt) {
+    return { ok: false, error: "Buď zadejte nový termín dalšího kontaktu, nebo ho smažte — ne obojí." };
   }
 
-  if (!nextStepNote && !nextFollowUpAt) {
+  if (!nextStepNote && !nextFollowUpAt && !clearFollowUp) {
     return { ok: false, error: "Vyplňte další krok, datum dalšího kontaktu, nebo obojí." };
   }
 
-  return { ok: true, value: { nextStepNote, nextFollowUpAt } };
+  return { ok: true, value: { nextStepNote, nextFollowUpAt, clearFollowUp } };
 }
 
 /** Text pro ILIKE '%…%' — escapuje zpětné lomítko, % a _, aby se hledal doslovný text, ne vzor. */
