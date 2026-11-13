@@ -83,6 +83,8 @@ const SOUP_COMMON = {
   shelfLifeNote: "Neotevřené balení spotřebujte do data uvedeného na obalu. Po otevření spotřebujte do 14 dnů při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
 };
 
+// Texty popisu a chuti od 14. 11. 2026 schválila Lucie (bez „domácí“, bez opakování
+// filtrované vody; tipy na podávání jsou doporučení). Produkce: skript 106.
 // Popis: "## Nadpis" = vlastní sekce, "- " = odrážka, "**…**" = tučně (lib/eshop/productDescription.ts).
 // Pořadí (sortOrder) jako v migraci 0014: Dýňová 10, Kulajda 20, Rajčatová (od 9. 11. 2026 Tomatová) 30.
 export const SOUPS = [
@@ -94,17 +96,15 @@ export const SOUPS = [
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
-      "Dýňová polévka s kokosovým mlékem stojí na plném a výrazném základu kvalitní dýně. Krémová struktura, jemnost kokosového mléka a pečlivě zvolené koření vytvářejí harmonickou chuť s přirozeně bohatým charakterem.",
-      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
-      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "Naše nejprodávanější polévka. Dýně je v ní 41 % a kokosové mléko ji zjemňuje. Zázvor, chilli, muškátový oříšek a hřebíček jí dodávají výraznou, zajímavou chuť.",
+      "**Natočte si z kohoutku, ohřejte a je hotovo.**",
       "## Pro koho je vhodná",
-      "- pro milovníky krémových zeleninových polévek",
-      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
-      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
-      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+      "- pro ty, kdo chtějí dýňovou s charakterem",
+      "- pro vegany a vegetariány",
+      "- na rychlý oběd doma i v práci",
     ],
     taste:
-      "Základ tvoří kvalitní dýně, kterou doplňují brambory a pečlivě zvolené koření. Kokosové mléko zjemňuje strukturu a dodává krémovost. Chuť je vyvážená, plná a přirozeně harmonická.",
+      "Krémová a plná, s kořeněným dozvukem, který příjemně prohřeje. Tip: opražená dýňová semínka nebo kapka dýňového oleje.",
     ingredients:
       "dýně 41 %, čistá filtrovaná voda, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 10 %, cibule 5 %, kořen petržele, olivový olej, dýňový olej, mořská sůl, třtinový cukr, grapefruitová šťáva, lahůdkové droždí, sušený mletý zázvor, chilli, muškátový oříšek, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový odhad podle
@@ -125,17 +125,15 @@ export const SOUPS = [
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
-      "Kulajda stojí na plném základu brambor a žampionů. Čerstvý kopr a vyvážené koření vytvářejí harmonickou chuť s čistým charakterem.",
-      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
-      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "Krémová kulajda plná brambor a žampionů, provoněná koprem.",
+      "**Natočte si z kohoutku, ohřejte a je hotovo.**",
       "## Pro koho je vhodná",
-      "- pro milovníky krémových polévek s vyváženým charakterem",
-      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
-      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
-      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+      "- pro milovníky kulajdy",
+      "- pro vegany a vegetariány",
+      "- na rychlý oběd doma i v práci",
     ],
     taste:
-      "Základ tvoří brambory a žampiony, které dávají polévce plnost a hloubku. Čerstvý kopr dodává typický bylinný akcent a podtrhuje charakter celé receptury. Struktura je krémová, chuť vyvážená a přirozeně plná.",
+      "Hebká a sytá. Voní po houbách a kopru, česnek a kmín ji doladí. Tip: čerstvý chléb.",
     ingredients:
       "čistá filtrovaná voda, brambory 22 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), žampiony 7 %, cibule 5 %, olivový olej, dýňový olej, mořská sůl, kopr, česnek, kmín, lahůdkové droždí, antioxidant: kyselina askorbová (vitamin C)",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtové průměrné hodnoty
@@ -155,17 +153,15 @@ export const SOUPS = [
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
-      "Tomatová polévka nabízí plnou chuť zralých rajčat, vyvážené koření a jemně krémovou strukturu.",
-      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
-      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "Poctivá rajská, ve které je rajčat přes třetinu. Kokosové mléko ji zjemní, libeček, kardamom a hřebíček jí dávají vlastní vůni.",
+      "**Natočte si z kohoutku, ohřejte a je hotovo.**",
       "## Pro koho je vhodná",
-      "- pro milovníky tomatových polévek",
-      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
-      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
-      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+      "- pro milovníky rajské",
+      "- pro vegany a vegetariány",
+      "- na rychlý oběd doma i v práci",
     ],
     taste:
-      "Základ tvoří kvalitní rajčata, která dávají polévce výraz a hloubku. Pečlivě zvolené koření doplňuje celkovou harmonii a podtrhuje plnost chuti. Struktura je jemná, chuť vyvážená a přirozeně plná.",
+      "Výrazně rajčatová, lehce nasládlá, s kořeněnou vůní. Tip: krutony, rýže nebo čerstvá bazalka.",
     ingredients:
       "čistá filtrovaná voda, pasírovaná rajčata 27 % (rajčata 99,9 %, regulátor kyselosti: kyselina citronová), rajčatový protlak 7 % (rajčatový protlak, jedlá sůl 1 %), brambory 7 %, kokosové mléko 6 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), cibule 5 %, kořen petržele, olivový olej, třtinový cukr, mořská sůl, česnek, libeček, černý pepř, kardamom, hřebíček, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtové průměrné hodnoty
@@ -186,17 +182,15 @@ export const SOUPS = [
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
-      "Rajčatová polévka s červenou řepou nabízí jemnou a přirozeně vyváženou chuť. Zralá rajčata tvoří výrazný základ, který červená řepa přirozeně zjemňuje a propojuje do hladkého celku.",
-      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
-      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "Jemná rajčatová polévka, které červená řepa dává sladší chuť a sytou barvu. Brambory a kokosové mléko ji dělají krémovou.",
+      "**Natočte si z kohoutku, ohřejte a je hotovo.**",
       "## Pro koho je vhodná",
-      "- pro milovníky jemnějších rajčatových polévek",
-      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
-      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
-      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+      "- pro ty, kdo mají rádi jemné krémové polévky",
+      "- pro vegany a vegetariány",
+      "- na rychlý oběd doma i v práci",
     ],
     taste:
-      "Je jemná, kulatá a vyvážená. Rajčatový základ doplňuje červená řepa, která chuť přirozeně uhlazuje a propojuje do hladkého celku. Výsledkem je hebká struktura a příjemně plný charakter.",
+      "Hladká a krémová, jemnější a kulatější než klasická rajská.",
     ingredients:
       "čistá filtrovaná voda, pasírovaná rajčata 17 % (rajčata 99,9 %, regulátor kyselosti: kyselina citronová), brambory 14 %, kokosové mléko 12 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), červená řepa 9 %, cibule 5 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), kořen petržele, olivový olej, mořská sůl, třtinový cukr, antioxidant: kyselina askorbová (vitamin C), přírodní aroma",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový průměr z receptury
@@ -217,18 +211,15 @@ export const SOUPS = [
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
-      "Gulášová polévka z hlívy ústřičné nabízí výraznou a plnou chuť. Hlíva dodává pevnou strukturu, rajčatový základ hloubku a uzená paprika charakteristickou intenzitu.",
-      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
-      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "Sytá, lehce pikantní gulášová polévka. Plnou chuť jí dává hlíva ústřičná, uzená paprika, majoránka a kmín.",
+      "**Natočte si z kohoutku, ohřejte a je hotovo.**",
       "## Pro koho je vhodná",
-      "- pro milovníky výrazných a sytějších chutí",
-      "- pro ty, kteří hledají gulášovou polévku bez masa",
-      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
-      "- pro vegany i vegetariány",
-      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+      "- pro ty, kdo chtějí gulášovou bez masa",
+      "- pro vegany a vegetariány",
+      "- když chcete polévku, která zasytí",
     ],
     taste:
-      "Má plnou a sytou chuť s výrazem uzené papriky a rajčatového základu. Hlíva ústřičná dodává přirozenou strukturu a vytváří harmonický celek. Chuť je koncentrovaná, vyvážená a příjemně zahřívací.",
+      "Výrazná a lehce pikantní, voní po uzené paprice, česneku a majoránce. Zahřeje a zasytí. Tip: čerstvý chléb.",
     ingredients:
       "čistá filtrovaná voda, brambory 19 %, hlíva ústřičná (Pleurotus ostreatus) 7 %, cibule 4 %, rajčatový protlak 3 % (rajčatový protlak, jedlá sůl 1 %), mořská sůl, dýňový olej, česnek, olivový olej, majoránka, kmín, lahůdkové droždí, uzená paprika, sladká paprika, chilli, černý pepř, antioxidant: kyselina askorbová (vitamin C), skořice",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtový průměr podle receptury
@@ -248,17 +239,15 @@ export const SOUPS = [
     shortDescription: "Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.",
     highlights: ["rostlinná receptura", "z čisté filtrované vody"],
     description: [
-      "Špenátová polévka nabízí jemně krémovou a přirozeně plnou chuť. Kvalitní špenát tvoří její výrazný základ, který doplňuje jemná struktura a vyvážené koření.",
-      "**Poctivá domácí polévka, kterou máte v lednici vždy připravenou. Stačí ohřát a servírovat.**",
-      "Připravujeme ji z kvalitních surovin a čisté filtrované vody, která nechává vyniknout přirozené chuti jednotlivých ingrediencí.",
+      "Lahodná špenátová polévka s bramborami a kokosovým mlékem, dochucená česnekem a majoránkou.",
+      "**Natočte si z kohoutku, ohřejte a je hotovo.**",
       "## Pro koho je vhodná",
-      "- pro milovníky zeleninových krémových polévek",
-      "- pro ty, kteří hledají veganskou (rostlinnou) polévku bez masa",
-      "- pro rodiny, kanceláře i provozy, kde se počítá praktičnost",
-      "- pro každého, kdo ocení kvalitní suroviny a čistou filtrovanou vodu",
+      "- pro milovníky špenátu s česnekem",
+      "- pro vegany a vegetariány",
+      "- na rychlý oběd doma i v práci",
     ],
     taste:
-      "Špenát tvoří výrazný zeleninový základ, který doplňují brambory a pečlivě zvolené koření. Struktura je krémová, chuť vyvážená a čistá. Polévka působí svěže a harmonicky.",
+      "Krémová a špenátová, s česnekem v pozadí. Tip: krutony.",
     ingredients:
       "čistá filtrovaná voda, špenát 17 %, kokosové mléko 14 % (kokosový extrakt 85 %, pitná voda, emulgátor: E 435), brambory 14 %, cibule 4 %, olivový olej, dýňový olej, mořská sůl, česnek, majoránka, kmín, antioxidant: kyselina askorbová (vitamin C)",
     // Výživa od 10. 11. 2026 (INTERNĚ, nezobrazovat): výpočtové průměrné hodnoty
