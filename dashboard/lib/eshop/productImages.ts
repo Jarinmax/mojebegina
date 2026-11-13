@@ -86,6 +86,12 @@ const BACKDROP: Record<string, string> = {
   "/eshop/koktejly/granatovy-bond-begina-v2.jpg": "#fefefe",
   "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-hlavni.jpg": "#fefefe",
   "/eshop/ovocne-napoje/dum-u-jezera-hlavni-v2.jpg": "#fefefe",
+  // 14. 11. 2026: větší beginy u koktejlů, Dům u jezera s beginou
+  "/eshop/koktejly/lady-carneval-begina-v3.jpg": "#fefefe",
+  "/eshop/koktejly/granatovy-bond-begina-v3.jpg": "#fefefe",
+  "/eshop/koktejly/svarak-deluxe-begina-v3.jpg": "#fefefe",
+  "/eshop/koktejly/kosmopolitan-begina-v3.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/dum-u-jezera-begina-v2.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
