@@ -3,8 +3,33 @@
 // se nabídne jen tehdy, když je v košíku POUZE sirup v kapsičce 650 ml
 // a kapsičky se vejdou do krabice, kterou Begina má. Krabice je povinná
 // a je v ceně dopravy.
-// Čisté funkce bez I/O. V pokladně ZATÍM NEZAPOJENO — čeká na účet
-// u Zásilkovny (výběr výdejního místa potřebuje klíč z účtu).
+// Čisté funkce bez I/O. V pokladně se zapíná proměnnou ESHOP_ZASILKOVNA=on
+// (shipping.ts → zasilkovnaEnabledFromEnv).
+
+/**
+ * Klíč API účtu Begina u Zásilkovny (13. 11. 2026) pro mapu výdejních míst.
+ * Je veřejný z principu — widget ho posílá z prohlížeče zákazníka. Heslo API
+ * (tajné, pro podávání zásilek) sem NEPATŘÍ.
+ */
+export const ZASILKOVNA_WIDGET_KEY = "3eb3f37454ec3081";
+export const ZASILKOVNA_WIDGET_SCRIPT = "https://widget.packeta.com/v6/www/js/library.js";
+
+/** Výdejní místo, jak ho vrací widget Zásilkovny (jen pole, která ukládáme). */
+export type ZasilkovnaPoint = { id: string; name: string; street: string; city: string; zip: string };
+
+/** Odpověď widgetu → výdejní místo; null = zákazník okno zavřel nebo místo není v ČR / nemá ID. */
+export function pointFromWidget(raw: unknown): ZasilkovnaPoint | null {
+  if (!raw || typeof raw !== "object") return null;
+  const point = raw as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" || typeof value === "number" ? String(value).trim() : "");
+  const id = text(point.id);
+  const name = text(point.name) || text(point.place);
+  const city = text(point.city);
+  const zip = text(point.zip);
+  if (!/^\d{1,12}$/.test(id) || !name || !city || !zip) return null;
+  if (text(point.country) && text(point.country).toLowerCase() !== "cz") return null;
+  return { id, name, street: text(point.street), city, zip };
+}
 
 /** Cena Zásilkovny podle její aplikace 13. 11. 2026 (smluvní ceník může být jiný). */
 export const ZASILKOVNA_STANDARD_KC = 89; // do 5 kg

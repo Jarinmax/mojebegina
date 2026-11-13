@@ -10,6 +10,7 @@
 // Doprava zdarma od určité částky: NEOVĚŘENO, záměrně neimplementováno
 // (docs/eshop-doprava/spusteni.md).
 
+import { ZASILKOVNA_MAX_POUCHES, quoteZasilkovna } from "./zasilkovna";
 import { formatKc } from "@/lib/format";
 import { cartWeight, coldShippingPrice, COLD_SHIPPING_MAX_GRAMS } from "./shippingRates";
 
@@ -21,12 +22,14 @@ export function shippingModeFromEnv(env: Record<string, string | undefined> = pr
 }
 
 export type ShippingMethod = {
-  id: "osobni-odber" | "rozvoz";
+  id: "osobni-odber" | "rozvoz" | "zasilkovna";
   label: string;
   description: string;
   /** Pevná cena; u chlazené přepravy v režimu "weight" se nepoužije (cena = quoteShipping). */
   priceKc: number;
   requiresAddress: boolean;
+  /** Zásilkovna: zákazník vybírá výdejní místo nebo Z-BOX na mapě (adresu nezadává). */
+  requiresPickupPoint?: boolean;
 };
 
 // Znění podle zadání Lucie (6. 11. 2026). Celá věta (PICKUP_NOTICE) se ukáže
@@ -63,10 +66,31 @@ const COLD_BY_WEIGHT: ShippingMethod = {
   requiresAddress: true,
 };
 
-export function shippingMethodsFor(mode: ShippingMode): ShippingMethod[] {
+// Zásilkovna (13. 11. 2026) — jen pro kapsičky sirupu 650 ml, pravidla a cena
+// v zasilkovna.ts. Zapíná se proměnnou ESHOP_ZASILKOVNA=on.
+export const ZASILKOVNA_METHOD_ID = "zasilkovna";
+const ZASILKOVNA: ShippingMethod = {
+  id: "zasilkovna",
+  label: "Zásilkovna – výdejní místo nebo Z-BOX",
+  description: `Jen pro sirupy v kapsičce 650 ml (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce). Cena je včetně krabice.`,
+  priceKc: 0,
+  requiresAddress: false,
+  requiresPickupPoint: true,
+};
+
+export type ShippingOptions = { /** nabízet Zásilkovnu (ESHOP_ZASILKOVNA=on) */ zasilkovna?: boolean };
+
+export function zasilkovnaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
+  return env.ESHOP_ZASILKOVNA === "on";
+}
+
+export function shippingMethodsFor(mode: ShippingMode, options: ShippingOptions = {}): ShippingMethod[] {
   // Pořadí podle zadání Lucie (12. 11. 2026): chlazená přeprava první
   // a předvybraná (většina zákazníků si nechává zboží poslat), osobní odběr druhý.
-  return [mode === "weight" ? COLD_BY_WEIGHT : COLD_FLAT, PICKUP];
+  const methods = [mode === "weight" ? COLD_BY_WEIGHT : COLD_FLAT, PICKUP];
+  // Zásilkovna až za nimi v seznamu typů; pokladna ji u košíku jen s kapsičkami
+  // ukáže první a předvybere (je nejlevnější).
+  return options.zasilkovna ? [...methods, ZASILKOVNA] : methods;
 }
 
 /** Dosavadní nabídka (paušál) — výchozí stav. */
@@ -77,7 +101,7 @@ export type ShippingContact = { email: string; phone: string };
 
 export type ShippingQuote =
   | { available: true; priceKc: number; /** null = hmotnost se nepočítala (paušál, osobní odběr) */ weightGrams: number | null }
-  | { available: false; reason: "over_limit" | "missing_weight"; message: string; weightGrams: number | null };
+  | { available: false; reason: "over_limit" | "missing_weight" | "not_eligible"; message: string; weightGrams: number | null };
 
 export type ShippingQuoteLine = { sku: string; name: string; quantity: number; weightGrams: number | null };
 
@@ -93,6 +117,10 @@ export function quoteShipping(
   mode: ShippingMode,
   contact: ShippingContact
 ): ShippingQuote {
+  if (method.id === "zasilkovna") {
+    // Zásilkovna se počítá z balení v košíku (quoteZasilkovnaShipping), ne z hmotnostních řádků.
+    return { available: false, reason: "not_eligible", message: "Cenu Zásilkovny pro tento košík nejde spočítat.", weightGrams: null };
+  }
   if (method.id === "osobni-odber" || mode === "flat") {
     return { available: true, priceKc: method.priceKc, weightGrams: null };
   }
@@ -117,6 +145,19 @@ export function quoteShipping(
     };
   }
   return { available: true, priceKc: price.priceKc, weightGrams: weight.grams };
+}
+
+/** Cena Zásilkovny pro košík, nebo srozumitelný důvod, proč ji nabídnout nejde. */
+export function quoteZasilkovnaShipping(lines: Parameters<typeof quoteZasilkovna>[0]): ShippingQuote {
+  const quote = quoteZasilkovna(lines);
+  if (quote.available) return { available: true, priceKc: quote.priceKc, weightGrams: quote.weightGrams };
+  const message =
+    quote.reason === "too_many"
+      ? `Zásilkovnou posíláme nejvýše ${ZASILKOVNA_MAX_POUCHES} ks sirupu v kapsičce v jedné objednávce. Zvolte prosím chlazenou přepravu, nebo objednávku rozdělte.`
+      : quote.reason === "other_goods"
+        ? "Zásilkovnou posíláme jen sirupy v kapsičce 650 ml. Ostatní zboží doručujeme chlazenou přepravou."
+        : "Cenu Zásilkovny pro tento košík nejde spočítat. Zvolte prosím jiný způsob doručení.";
+  return { available: false, reason: quote.reason === "missing_weight" ? "missing_weight" : quote.reason === "over_limit" ? "over_limit" : "not_eligible", message, weightGrams: null };
 }
 
 /** Text ceny v nabídce způsobů doručení. */
@@ -165,8 +206,8 @@ export const DEFAULT_SHIPPING_METHOD_ID: ShippingMethod["id"] = "rozvoz";
 
 export const paymentMethods: PaymentMethod[] = paymentMethodsFor(false);
 
-export function getShippingMethod(id: string, mode: ShippingMode = "flat"): ShippingMethod | undefined {
-  return shippingMethodsFor(mode).find((method) => method.id === id);
+export function getShippingMethod(id: string, mode: ShippingMode = "flat", options: ShippingOptions = {}): ShippingMethod | undefined {
+  return shippingMethodsFor(mode, options).find((method) => method.id === id);
 }
 
 export function getPaymentMethod(id: string, cardAvailable = false): PaymentMethod | undefined {

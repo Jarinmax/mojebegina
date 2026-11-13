@@ -14,7 +14,7 @@ import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
-import { shippingModeFromEnv } from "@/lib/eshop/shipping";
+import { shippingModeFromEnv, zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
 import { parseCouponCodes } from "@/lib/eshop/coupons";
 import { loadCouponContext } from "@/lib/eshop/couponsServer";
@@ -130,9 +130,14 @@ export async function submitCheckoutAction(
       ageConfirmed: formData.get("ageConfirmed") === "on",
       boxes: field("boxes"),
       couponCodes,
+      pickupPointId: field("pickupPointId"),
+      pickupPointName: field("pickupPointName"),
+      pickupPointStreet: field("pickupPointStreet"),
+      pickupPointCity: field("pickupPointCity"),
+      pickupPointZip: field("pickupPointZip"),
     },
     await getCatalogIndex(),
-    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons, zasilkovna: zasilkovnaEnabledFromEnv() }
   );
 
   if (!result.ok) {

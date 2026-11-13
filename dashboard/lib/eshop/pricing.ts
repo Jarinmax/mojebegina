@@ -9,7 +9,7 @@
 
 import type { CatalogIndex } from "./catalogIndex";
 import { isOrderable, lineName } from "./productRules";
-import { getShippingMethod, quoteShipping, type ShippingMethod, type ShippingMode } from "./shipping";
+import { getShippingMethod, quoteShipping, quoteZasilkovnaShipping, type ShippingMethod, type ShippingMode } from "./shipping";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
@@ -55,7 +55,7 @@ export function priceCart(
   input: CartInputLine[],
   shippingMethodId: string,
   index: CatalogIndex,
-  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number } = {}
+  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number; /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) */ zasilkovna?: boolean } = {}
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   const shippingMode = options.shippingMode ?? "flat";
   if (input.length === 0) {
@@ -65,7 +65,7 @@ export function priceCart(
     return { ok: false, error: `Košík může mít nejvýše ${MAX_CART_LINES} položek.` };
   }
 
-  const shipping = getShippingMethod(shippingMethodId, shippingMode);
+  const shipping = getShippingMethod(shippingMethodId, shippingMode, { zasilkovna: options.zasilkovna === true });
   if (!shipping) {
     return { ok: false, error: "Vyberte způsob doručení." };
   }
@@ -75,6 +75,7 @@ export function priceCart(
   const weights: (number | null)[] = [];
   let containsAgeRestricted = false;
   let boxEligible = 0;
+  const packages: Parameters<typeof quoteZasilkovnaShipping>[0][number][] = [];
   for (const item of input) {
     const found = index.getVariant(item.sku);
     if (!found) {
@@ -107,6 +108,7 @@ export function priceCart(
     containsAgeRestricted ||= product.isAgeRestricted;
     if (isBoxEligible(product, variant)) boxEligible += item.quantity;
     weights.push(variant.weightGrams);
+    packages.push({ quantity: item.quantity, product, variant });
     lines.push({
       sku: variant.sku,
       name,
@@ -116,18 +118,22 @@ export function priceCart(
     });
   }
 
-  const boxes = clampBoxes(options.boxes, boxEligible);
+  // Zásilkovna: jen kapsičky sirupu; krabice je v ceně dopravy, volitelné krabice se nepočítají.
+  const viaZasilkovna = shipping.id === "zasilkovna";
+  const boxes = viaZasilkovna ? 0 : clampBoxes(options.boxes, boxEligible);
   // Nad 400 kg nebo bez známé hmotnosti chlazenou přepravu nejde objednat
   // automaticky — server ji odmítne, i kdyby ji formulář (podvržený) poslal.
-  const quote = quoteShipping(
-    shipping,
-    [
-      ...lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
-      ...boxWeightLines(boxes),
-    ],
-    shippingMode,
-    OPERATOR
-  );
+  const quote = viaZasilkovna
+    ? quoteZasilkovnaShipping(packages)
+    : quoteShipping(
+        shipping,
+        [
+          ...lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
+          ...boxWeightLines(boxes),
+        ],
+        shippingMode,
+        OPERATOR
+      );
   if (!quote.available) {
     return { ok: false, error: quote.message };
   }

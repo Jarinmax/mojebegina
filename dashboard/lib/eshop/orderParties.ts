@@ -6,7 +6,7 @@
 // Nic se nedoplňuje odhadem: u objednávek z doby, kdy pokladna fakturační
 // údaje nezjišťovala, blok výslovně vypíše, co chybí.
 import { PICKUP_PLACE } from "./operator";
-import { PICKUP_METHOD_ID } from "./shipping";
+import { PICKUP_METHOD_ID, ZASILKOVNA_METHOD_ID } from "./shipping";
 
 /** Země doručení — chlazenou přepravou doručujeme jen v ČR. */
 export const DELIVERY_COUNTRY = "Česká republika";
@@ -131,7 +131,9 @@ export function deliveryBlock(order: OrderPartiesSource): PartyBlock {
   if (phone) lines.push(`Tel.: ${phone}`);
   else missing.push("telefon pro doručení");
   const note =
-    order.deliverySameAsBilling === true
+    order.shippingMethodCode === ZASILKOVNA_METHOD_ID
+      ? "Zásilkovna — zásilka se podává na uvedené výdejní místo."
+      : order.deliverySameAsBilling === true
       ? "Shodné s fakturačními údaji."
       : order.deliverySameAsBilling === false
         ? "Jiný příjemce / jiná adresa než fakturační."
