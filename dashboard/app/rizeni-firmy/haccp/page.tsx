@@ -15,7 +15,7 @@ export default function HaccpPage() {
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">HACCP</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
-          Platná příručka HACCP — Zahradní Bistro Begina, Vitice 119. Při kontrole z hygieny ukaž tuto verzi.
+          Platná příručka HACCP — Zahradní Bistro Begina, Vitice 119.
         </p>
       </div>
       <DocumentList docs={HACCP_DOCUMENTS} />
