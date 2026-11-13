@@ -52,7 +52,6 @@ async function checkout(cart) {
 try {
   // pomocný SQL port startuje až s prvním dotazem aplikace do databáze
   await page.goto(pub("/"));
-  await query(`UPDATE product_variants SET weight_g = 805 WHERE volume_ml = 650`);
   const pouches = await query(
     `SELECT v.sku FROM product_variants v JOIN products p ON p.id = v.product_id JOIN product_categories c ON c.id = p.category_id
       WHERE c.slug = 'sirupy' AND v.volume_ml = 650 AND v.is_active ORDER BY v.sku LIMIT 2`
