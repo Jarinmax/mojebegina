@@ -28,6 +28,8 @@ const BACKDROP: Record<string, string> = {
   "/eshop/polevky/dynova-polevka-miska.jpg": "#fefefe",
   "/eshop/polevky/dynova-polevka-sacek.jpg": "#fefefe",
   "/eshop/polevky/dynova-polevka-begina-v2.jpg": "#fefefe",
+  "/eshop/polevky/kulajda-hlavni.jpg": "#fefefe",
+  "/eshop/polevky/kulajda-begina.jpg": "#fefefe",
   "/eshop/polevky/kulajda-miska.jpg": "#fafafb",
   "/eshop/polevky/kulajda-sacek.jpg": "#fefefe",
   "/eshop/polevky/rajcatova-polevka-miska.jpg": "#fefefe",
