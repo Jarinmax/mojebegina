@@ -88,5 +88,5 @@ export function productDeliveryNote(
   zasilkovna: boolean
 ): string {
   if (!zasilkovna || !product.variants.some((variant) => isSyrupPouch(product, variant))) return DELIVERY_NOTE_COLD;
-  return `Doručíme chlazenou přepravou. Sáčky 650 ml (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou.`;
+  return `Doručíme chlazenou přepravou. Sáčky 650 ml (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou na výdejní místo.`;
 }

@@ -98,7 +98,7 @@ describe("102 hmotnost kapsičky 650 ml", { timeout: 120_000 }, () => {
 describe("věta o doručení na stránce produktu", () => {
   const syrup = { category: "sirupy", variants: [{ volumeMl: 3000 }, { volumeMl: 650 }] };
   it("sirup se sáčkem 650 ml: zmíní Zásilkovnu, jen když je zapnutá", () => {
-    expect(productDeliveryNote(syrup, true)).toBe("Doručíme chlazenou přepravou. Sáčky 650 ml (až 4 kusy) můžeme poslat i Zásilkovnou.");
+    expect(productDeliveryNote(syrup, true)).toBe("Doručíme chlazenou přepravou. Sáčky 650 ml (až 4 kusy) můžeme poslat i Zásilkovnou na výdejní místo.");
     expect(productDeliveryNote(syrup, false)).toBe(DELIVERY_NOTE_COLD);
   });
   it("ostatní produkty a sirup bez sáčku: jen chlazená přeprava", () => {
