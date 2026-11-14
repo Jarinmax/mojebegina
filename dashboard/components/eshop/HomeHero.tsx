@@ -6,6 +6,9 @@ import ShopLink from "./ShopLink";
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
 // (schválil majitel): dýňová polévka, hrnek čaje, limonáda a skutečné
 // balení begina 3 l s kohoutkem (žádné krabice ani vymyšlené obaly).
+// Od 14. 11. 2026 (schválila Lucie): nová fotografie bez beginy – dýňová
+// polévka, ovocný nápoj, koktejl a hrnek horkého nápoje ze sirupu; begina
+// zůstává níž v části „Jak funguje begina“.
 // Texty a tlačítka jsou webové prvky; logo a menu zůstávají z hlavičky webu.
 //
 // Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
@@ -17,10 +20,10 @@ import ShopLink from "./ShopLink";
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-begina-caj-limonada-v3.webp",
+  src: "/eshop/hero/polevka-a-napoje-v4.webp",
   width: 1448,
   height: 1126,
-  alt: "Dýňová polévka v misce, ibišková limonáda, hrnek bylinného čaje a třílitrová begina s kohoutkem",
+  alt: "Dýňová polévka v misce, ovocný nápoj s malinami, koktejl s granátovým jablkem a hrnek horkého bylinného nápoje",
 };
 
 export const HERO_LINKS = {

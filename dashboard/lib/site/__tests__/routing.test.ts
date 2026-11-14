@@ -101,7 +101,7 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
       "/favicon.ico",
       "/logo-begina-mark.png",
       "/eshop/kulajda.jpg",
-      "/eshop/hero/polevka-begina-caj-limonada-v3.webp",
+      "/eshop/hero/polevka-a-napoje-v4.webp",
       "/eshop/hero/ikona-polevky-2026-11c.webp",
     ]) {
       expect(get("begina.cz", pathname), pathname).toEqual({ kind: "pass", site: "public" });
