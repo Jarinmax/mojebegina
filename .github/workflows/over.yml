@@ -1,0 +1,22 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { chromium } from "playwright";
+          const b = await chromium.launch();
+          const p = await b.newPage({ viewport: { width: 1300, height: 700 } });
+          await p.goto("https://begina.cz/partnersky-program", { waitUntil: "networkidle" });
+          const m = await p.evaluate(() => ({ konecClanku: Math.round(document.querySelector("article").getBoundingClientRect().bottom), odber: document.querySelector("article").innerText.includes("Osobní odběr") }));
+          console.log("MERENI", JSON.stringify(m));
+          await p.screenshot({ path: "pp.jpg", type: "jpeg", quality: 60 });
+          await b.close();
+          JS
+          node s.mjs
+          echo "B64PP $(base64 -w0 pp.jpg)"
