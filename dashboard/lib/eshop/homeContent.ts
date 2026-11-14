@@ -13,12 +13,12 @@ export const HOME_STEPS = [
   { title: "Natočíte si porci", text: "Beginu vezmete do ruky a natočíte kohoutkem – polévku ohřejete, sirup zalijete vodou." },
 ] as const;
 
-/** Nejoblíbenější produkty v pořadí od majitele. */
+/** Nejoblíbenější produkty v pořadí od vedení (Lucie 14. 11. 2026: polévka, výrazný a jemný sirup, zimní koktejl). */
 export const HOME_BESTSELLERS = [
   "dynova-polevka",
-  "rajcatova-polevka",
   "bylinny-sirup-saman",
-  "zazvorovy-sirup",
+  "lipovy-sirup",
+  "svarak-deluxe",
 ] as const;
 
 export const HOME_ABOUT =

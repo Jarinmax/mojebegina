@@ -14,6 +14,10 @@ export default function ProductCard({ product }: { product: Product }) {
         <ProductImage name={product.name} src={product.image} />
         <div className="px-1 pt-3 flex-1">
           <h2 className="font-medium group-hover:underline underline-offset-2">{product.name}</h2>
+          {product.isAgeRestricted && (
+            // alkohol: označení i na kartě (14. 11. 2026 — Svařák Deluxe mezi Nejoblíbenějšími na úvodní stránce)
+            <p className="mt-0.5 text-xs font-medium text-neutral-600">18+ · obsahuje alkohol</p>
+          )}
           {product.shortDescription && (
             <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>
           )}
