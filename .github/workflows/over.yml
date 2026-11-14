@@ -1,0 +1,30 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { chromium } from "playwright";
+          const b = await chromium.launch();
+          for (const [n, w, h] of [["pc", 1440, 800], ["mobil", 390, 760]]) {
+            const p = await b.newPage({ viewport: { width: w, height: h } });
+            await p.goto("https://begina.cz/", { waitUntil: "networkidle" });
+            const m = await p.evaluate(() => {
+              const r = (e) => { const x = e.getBoundingClientRect(); return [Math.round(x.left), Math.round(x.top), Math.round(x.right), Math.round(x.bottom)]; };
+              const h1 = document.querySelector("h1"), img = document.querySelector('section img'), nav = document.querySelector('nav[aria-label="Kategorie"]');
+              const icons = [...nav.querySelectorAll("img")].map(r);
+              return { w: innerWidth, h1: r(h1), img: r(img), nav: r(nav), ikona: icons[0], radky: new Set(icons.map((i) => i[1])).size, pocet: icons.length };
+            });
+            console.log("MERENI", n, JSON.stringify(m));
+            await p.screenshot({ path: n + ".jpg", type: "jpeg", quality: 60 });
+          }
+          await b.close();
+          JS
+          node s.mjs
+          base64 -w0 pc.jpg > pc.b64; base64 -w0 mobil.jpg > mobil.b64
+          echo "B64PC $(cat pc.b64)"; echo "B64MOBIL $(cat mobil.b64)"
