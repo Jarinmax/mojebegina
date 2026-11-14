@@ -1,5 +1,5 @@
 import { getCatalog } from "@/lib/eshop/catalogServer";
-import HomeHero from "@/components/eshop/HomeHero";
+import HomeHero, { HeroEyebrow } from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
@@ -50,6 +50,7 @@ export default async function EshopPage() {
           <HomeHero />
         </div>
         <div className="order-1 lg:order-2 border-b border-[#EDE5D8] lg:border-b-0">
+          <HeroEyebrow />
           <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
         </div>
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
