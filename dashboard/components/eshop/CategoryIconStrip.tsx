@@ -31,7 +31,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
                   className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
-              <span className="text-[11px] leading-tight sm:text-base sm:leading-[1.35] font-medium hyphens-auto break-words max-w-full text-[#4F5B2B] group-hover:underline underline-offset-4">
+              <span className="text-[11px] leading-tight sm:text-base sm:leading-[1.35] font-medium text-[#4F5B2B] group-hover:underline underline-offset-4">
                 {/* mobil: šest sloupců je úzkých, dlouhý popisek koktejlů by se lámal na tři řádky */}
                 {category.slug === "koktejly" ? (
                   <>
