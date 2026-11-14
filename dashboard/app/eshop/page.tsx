@@ -42,17 +42,18 @@ export default async function EshopPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd()) }} />
       {/* Pořadí (Lucie 14. 11. 2026): na počítači úvod a pod ním pruh kategorií;
           na mobilu a tabletu pruh kategorií nahoře, aby byla hned vidět celá nabídka. */}
-      <div className="flex flex-col">
+      {/* První obrazovka na počítači (15. 11. 2026): úvod, pruh kategorií a Proč Begina
+          vyplní přesně výšku okna (pod hlavičkou) — končí čtyřmi dlaždicemi,
+          „Jak funguje begina“ je až po posunutí. */}
+      <div className="flex flex-col lg:min-h-[calc(100svh-4rem)] xl:min-h-[calc(100svh-5.25rem)]">
         <div className="order-2 lg:order-1">
           <HomeHero />
         </div>
         <div className="order-1 lg:order-2 border-b border-[#EDE5D8] lg:border-b-0">
           <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
         </div>
-      </div>
-      <div className="max-w-6xl mx-auto px-4 pt-8 pb-10 sm:pt-10 sm:pb-12 lg:pt-5 flex flex-col gap-8 sm:gap-10">
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
-        <section>
+        <section className="order-3 w-full max-w-6xl mx-auto px-4 pt-8 sm:pt-10 lg:pt-0 lg:pb-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
           <h2 className="font-serif text-2xl sm:text-3xl lg:text-2xl text-center text-[#2A2622] mb-5 lg:mb-3">Proč Begina</h2>
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-4">
             {HOME_WHY.map((item) => {
@@ -80,7 +81,8 @@ export default async function EshopPage() {
             })}
           </ul>
         </section>
-
+      </div>
+      <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
         {/* Jak funguje begina */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-center">
           <div className="relative aspect-square w-full max-w-[17rem] md:max-w-xs mx-auto">

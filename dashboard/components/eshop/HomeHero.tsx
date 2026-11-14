@@ -17,7 +17,8 @@ import ShopLink from "./ShopLink";
 // a 36rem na tabletu). Na počítači je fotka u pravého okraje obsahu stejně
 // jako text u levého (šířka jako hlavička), aby úvod působil vyváženě.
 // Na počítači je úvod nízký (nadpis na jeden řádek, fotka 22rem), aby se na
-// první obrazovku vešel i pruh kategorií a dlaždice Proč Begina.
+// první obrazovku vešel i pruh kategorií a dlaždice Proč Begina; fotka se
+// zvětšuje s výškou okna (20–34rem), aby první obrazovka byla vyplněná.
 // Mobil (15. 11. 2026): nadpis na jeden řádek, těsnější odstupy a fotka 19rem,
 // aby se pod hlavičku vešly ikony, text i celá fotka bez posouvání.
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
@@ -74,14 +75,14 @@ export default function HomeHero() {
           </p>
         </div>
 
-        <div className="relative w-full max-w-[19rem] mx-auto sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[22rem] lg:ml-auto lg:mr-0">
+        <div className="relative w-full max-w-[19rem] mx-auto sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
             width={HERO_PHOTO.width}
             height={HERO_PHOTO.height}
             priority
-            sizes="(min-width: 1024px) 22rem, (min-width: 640px) 36rem, 100vw"
+            sizes="(min-width: 1024px) 34rem, (min-width: 640px) 36rem, 100vw"
             className="block w-full h-auto"
           />
         </div>
