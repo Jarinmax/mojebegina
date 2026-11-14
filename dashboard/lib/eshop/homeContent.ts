@@ -6,7 +6,7 @@ export const HOME_WHY = [
   { icon: "soup", title: "Porce už od 3,30 Kč", text: "Nápoj ze sirupu od 3,30 Kč, porce polévky za 31,60 Kč." },
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
   // 14. 11. 2026 (Lucie): partnerský program má být vidět na úvodu, dlaždice vede na stránku programu
-  { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší slevu máte další měsíc: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
+  { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší sleva: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
 ] as const;
 
 export const HOME_STEPS = [
