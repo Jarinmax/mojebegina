@@ -32,3 +32,16 @@ export function packagingSentence(category: string, label: string | null): strin
   const copy = packagingCopy(category, label);
   return copy ? `${copy.volume} – ${copy.text}` : null;
 }
+
+/**
+ * Druh obalu k označení velikosti ve výběru balení na stránce produktu
+ * (Lucie 14. 11. 2026): „3 l · begina s kohoutkem“, „650 ml · sáček se
+ * šroubovacím uzávěrem“. Jen zobrazení — název balení (košík, faktura,
+ * objednávky) zůstává samotný objem (lib/eshop/packageLabel.ts).
+ */
+export function packagingKind(label: string | null): string | null {
+  const volume = (label ?? "").trim();
+  if (volume === "3 l") return "begina s kohoutkem";
+  if (volume === "650 ml" || volume === "700 ml" || volume === "500 ml") return "sáček se šroubovacím uzávěrem";
+  return null;
+}

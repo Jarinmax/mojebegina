@@ -8,6 +8,7 @@ import { formatKc } from "@/lib/format";
 import QuantityStepper from "./QuantityStepper";
 import { useCart } from "./useCart";
 import { trackMeta } from "@/lib/eshop/metaPixel";
+import { packagingKind } from "@/lib/eshop/packaging";
 
 type AddToCartButtonProps = {
   name: string;
@@ -79,7 +80,12 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
                   className="accent-begina-primary-900"
                 />
                 <span className="flex-1">
-                  <span className="block text-sm font-medium">{variant.label}</span>
+                  <span className="block text-sm font-medium">
+                    {variant.label}
+                    {packagingKind(variant.label) && (
+                      <span className="font-normal text-neutral-600"> · {packagingKind(variant.label)}</span>
+                    )}
+                  </span>
                   {variant.detail && <span className="block text-xs text-neutral-500">{variant.detail}</span>}
                 </span>
                 <span className="text-sm font-semibold tabular-nums">{formatKc(variant.priceKc)}</span>
