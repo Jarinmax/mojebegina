@@ -1,6 +1,7 @@
 // Vyhledávače (12. 11. 2026): popisy stránek, názvy a strukturovaná data
 // (schema.org JSON-LD) pro begina.cz. Čisté funkce — data jen z katalogu,
 // nic se nevymýšlí (žádná hodnocení, recenze ani tvrzení navíc).
+import { coldShippingPrice } from "./shippingRates";
 import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import { isOrderable } from "./productRules";
 import type { Category, Product } from "./types";
@@ -58,6 +59,52 @@ export function jsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
+// Doprava a vrácení ve strukturovaných datech nabídky (Search Console 14. 11. 2026
+// hlásila chybějící shippingDetails a hasMerchantReturnPolicy). Stejné údaje jako
+// v Merchant Center: chlazená přeprava po ČR, vyřízení do 5 pracovních dnů
+// (obchodní podmínky), přeprava 1–4 dny. Cena z ceníku pro hmotnost jednoho kusu.
+function offerShippingDetails(weightGrams: number | null) {
+  const price = coldShippingPrice(weightGrams ?? 0);
+  if (!price.ok) return null;
+  return {
+    "@type": "OfferShippingDetails",
+    shippingRate: { "@type": "MonetaryAmount", value: price.priceKc.toFixed(2), currency: "CZK" },
+    shippingDestination: { "@type": "DefinedRegion", addressCountry: "CZ" },
+    deliveryTime: {
+      "@type": "ShippingDeliveryTime",
+      handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 5, unitCode: "DAY" },
+      transitTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 4, unitCode: "DAY" },
+    },
+  };
+}
+
+/**
+ * Vrácení podle čl. VII obchodních podmínek: výrobky, které se musí od výroby
+ * do spotřeby držet v chladu (údaj o skladování „před otevřením i po otevření“),
+ * nelze vrátit bez udání důvodu (§ 1837 písm. e) OZ); ostatní (sirupy) do 14 dnů,
+ * náklady na vrácení nese kupující. Reklamace vad tím není dotčena.
+ */
+export function isWithdrawalExcluded(product: Pick<Product, "foodInfo">): boolean {
+  return /před otevřením i po otevření/i.test(product.foodInfo?.storage ?? "");
+}
+
+function offerReturnPolicy(product: Product) {
+  const base = {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "CZ",
+    merchantReturnLink: `${PUBLIC_ORIGIN}/obchodni-podminky`,
+  };
+  return isWithdrawalExcluded(product)
+    ? { ...base, returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted" }
+    : {
+        ...base,
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 14,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/ReturnFeesCustomerResponsibility",
+      };
+}
+
 export function productJsonLd(product: Product, category: Category | null) {
   const url = `${PUBLIC_ORIGIN}/produkt/${product.slug}`;
   const images = (product.gallery?.length ? product.gallery.map((photo) => photo.url) : product.image ? [product.image] : []).map(absolute);
@@ -83,6 +130,8 @@ export function productJsonLd(product: Product, category: Category | null) {
       itemCondition: "https://schema.org/NewCondition",
       url,
       seller: { "@type": "Organization", name: "Begina" },
+      ...(offerShippingDetails(variant.weightGrams ?? null) ? { shippingDetails: offerShippingDetails(variant.weightGrams ?? null) } : {}),
+      hasMerchantReturnPolicy: offerReturnPolicy(product),
     })),
   };
 }

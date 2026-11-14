@@ -53,6 +53,29 @@ describe("seo", () => {
     expect(blocked.offers[0].availability).toBe("https://schema.org/OutOfStock");
   });
 
+  it("nabídka má dopravu a vrácení: sirup lze vrátit do 14 dnů, chlazený výrobek ne", () => {
+    const syrup = productJsonLd(
+      { ...product, variants: [{ sku: "a", label: "650 ml", priceKc: 199, weightGrams: 805 }], foodInfo: { allergens: [], storage: "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C." } } as unknown as Product,
+      category
+    ).offers[0] as Record<string, any>;
+    expect(syrup.shippingDetails.shippingRate).toEqual({ "@type": "MonetaryAmount", value: "267.00", currency: "CZK" });
+    expect(syrup.shippingDetails.shippingDestination.addressCountry).toBe("CZ");
+    expect(syrup.shippingDetails.deliveryTime.handlingTime.maxValue).toBe(5);
+    expect(syrup.hasMerchantReturnPolicy).toMatchObject({
+      applicableCountry: "CZ",
+      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 14,
+      returnFees: "https://schema.org/ReturnFeesCustomerResponsibility",
+      merchantReturnLink: "https://begina.cz/obchodni-podminky",
+    });
+    const soup = productJsonLd(
+      { ...product, foodInfo: { allergens: [], storage: "Skladujte v chladničce při teplotě do 4 °C, a to před otevřením i po otevření." } } as unknown as Product,
+      category
+    ).offers[0] as Record<string, any>;
+    expect(soup.hasMerchantReturnPolicy.returnPolicyCategory).toBe("https://schema.org/MerchantReturnNotPermitted");
+    expect(soup.hasMerchantReturnPolicy.merchantReturnDays).toBeUndefined();
+  });
+
   it("drobečková navigace, organizace a bezpečné vložení do <script>", () => {
     expect(breadcrumbJsonLd([{ name: "Begina", path: "/" }, { name: "Bylinné sirupy", path: "/kategorie/sirupy" }]).itemListElement[1]).toEqual({
       "@type": "ListItem",
