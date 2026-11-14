@@ -1,0 +1,14 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sleep 60
+          curl -sS -o p.html -w "partner %{http_code}\n" https://begina.cz/partnersky-program
+          for t in "Budujeme stabilní partnerství" "nad 12 000 do 20 000 Kč" "sleva 7 %" "individuální dohoda" "Nejsme plátci DPH"; do grep -q "$t" p.html && echo "OK $t" || echo "CHYBI $t"; done
+          curl -sS -o h.html -w "home %{http_code}\n" https://begina.cz/
+          grep -o 'href="/partnersky-program"[^>]*>[^<]*' h.html | head -2
+          grep -o 'lg:max-w-\[32rem\]' h.html | head -1
+          grep -o 'lg:grid-cols-2 lg:gap-6' h.html | head -1
