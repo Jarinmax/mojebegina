@@ -1,0 +1,26 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { chromium } from "playwright";
+          const b = await chromium.launch();
+          const mer = () => { const r = (e) => { const x = e.getBoundingClientRect(); return [Math.round(x.top + scrollY), Math.round(x.bottom + scrollY)]; }; const o = { nav: r(document.querySelector('nav[aria-label="Kategorie"]')), h1: r(document.querySelector("h1")) }; for (const h of document.querySelectorAll("h2")) o[h.textContent.slice(0, 12)] = r(h.closest("section") || h); return o; };
+          const m = await b.newPage({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2, isMobile: true });
+          await m.goto("https://begina.cz/", { waitUntil: "networkidle" });
+          console.log("VYSLEDEK mobil " + JSON.stringify(await m.evaluate(mer)));
+          await m.screenshot({ path: "m.jpg", type: "jpeg", quality: 50 });
+          const d = await b.newPage({ viewport: { width: 1300, height: 720 } });
+          await d.goto("https://begina.cz/", { waitUntil: "networkidle" });
+          console.log("VYSLEDEK pc " + JSON.stringify(await d.evaluate(mer)));
+          await d.screenshot({ path: "d.jpg", type: "jpeg", quality: 45, fullPage: true });
+          await b.close();
+          JS
+          node s.mjs
+          echo "OBRM $(base64 -w0 m.jpg)"; echo "OBRD $(base64 -w0 d.jpg)"
