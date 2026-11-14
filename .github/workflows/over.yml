@@ -1,0 +1,24 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { chromium } from "playwright";
+          const b = await chromium.launch();
+          for (const [n, w, h] of [["pc", 1300, 720], ["velky", 1440, 800]]) {
+            const p = await b.newPage({ viewport: { width: w, height: h } });
+            await p.goto("https://begina.cz/", { waitUntil: "networkidle" });
+            const m = await p.evaluate(() => { const ul = [...document.querySelectorAll("h2")].find((x) => x.textContent.includes("Proč Begina")).nextElementSibling; return { konecDlazdic: Math.round(ul.getBoundingClientRect().bottom), vyska: innerHeight }; });
+            console.log("MERENI", n, JSON.stringify(m));
+            if (n === "pc") await p.screenshot({ path: "pc.jpg", type: "jpeg", quality: 60 });
+          }
+          await b.close();
+          JS
+          node s.mjs
+          echo "B64PC $(base64 -w0 pc.jpg)"
