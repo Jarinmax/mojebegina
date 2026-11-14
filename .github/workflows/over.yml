@@ -1,0 +1,23 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { chromium } from "playwright";
+          const b = await chromium.launch();
+          for (const [w, h] of [[1300, 720], [1300, 780], [1440, 820], [1920, 960], [390, 645]]) {
+            const m = await b.newPage({ viewport: { width: w, height: h } });
+            await m.goto("https://begina.cz/", { waitUntil: "networkidle" });
+            console.log("VYSLEDEK " + w + "x" + h + " " + JSON.stringify(await m.evaluate(() => { const hs = [...document.querySelectorAll("h2")]; const f = (t) => hs.find((x) => x.textContent.includes(t)); return { fotka: Math.round(document.querySelector("section img").getBoundingClientRect().width), konecFotky: Math.round(document.querySelector("section img").getBoundingClientRect().bottom), konecDlazdic: Math.round(f("Proč").nextElementSibling.getBoundingClientRect().bottom), jakFunguje: Math.round(f("Jak funguje").getBoundingClientRect().top) }; })));
+            if (h === 780) await m.screenshot({ path: "d.jpg", type: "jpeg", quality: 50 });
+          }
+          await b.close();
+          JS
+          node s.mjs
+          echo "OBRD $(base64 -w0 d.jpg)"
