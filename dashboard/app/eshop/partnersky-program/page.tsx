@@ -19,7 +19,7 @@ export default function Page() {
       <header className="text-center">
         <h1 className="text-2xl leading-tight font-semibold tracking-tight text-begina-primary-900">{page.title}</h1>
         {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
-        <ul className="mt-2 flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-x-6 gap-y-1">
+        <ul className="mt-2 flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-x-6 gap-y-1 max-w-xl mx-auto">
           {benefits?.items?.map((item) => <li key={item}>✔ {item}</li>)}
         </ul>
       </header>
@@ -36,13 +36,14 @@ export default function Page() {
           </tbody>
         </table>
       </section>
-      <section className="mt-5">
+      {/* stejná šířka jako tabulka úrovní — odrážky začínají pod jejím levým okrajem */}
+      <section className="mt-5 max-w-xl mx-auto">
         <h2 className="font-medium text-lg text-begina-primary-900 mb-1.5 text-center">{conditions?.heading}</h2>
-        <ul className="flex flex-col gap-1 list-disc pl-5 leading-snug">
+        <ul className="flex flex-col gap-1.5 list-disc pl-5 leading-snug">
           {conditions?.items?.map((item) => <li key={item}>{item}</li>)}
         </ul>
       </section>
-      <p className="mt-4 text-center text-sm text-neutral-600">
+      <p className="mt-4 max-w-xl mx-auto text-center text-sm text-neutral-600">
         <strong className="font-medium text-begina-primary-900">{shipping?.heading}:</strong> {shipping?.paragraphs?.[0]}{" "}
         {shipping?.afterParagraphs?.[0]}
       </p>
