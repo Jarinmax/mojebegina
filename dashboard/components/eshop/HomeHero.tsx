@@ -20,10 +20,10 @@ import ShopLink from "./ShopLink";
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-napoje-v4.webp",
+  src: "/eshop/hero/polevka-a-napoje-v9.webp",
   width: 1448,
   height: 1126,
-  alt: "Dýňová polévka v misce, ovocný nápoj s malinami, koktejl s granátovým jablkem a hrnek horkého bylinného nápoje",
+  alt: "Dýňová polévka v misce, koktejl Lady Carneval s grepem, horký Svařák Deluxe a hrnek horkého bylinného nápoje ze sirupu",
 };
 
 export const HERO_LINKS = {
