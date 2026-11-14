@@ -103,12 +103,13 @@ describe("informační stránky", () => {
     expect(text).not.toMatch(/Provozovatel:|Bag-in-Box|Chuť je pro mě základ/);
   });
 
-  it("O vodě: text dodaný 9. 11. 2026, bez řádku Provozovatel", () => {
+  it("O vodě: text od 14. 11. 2026 (o chuti, bez technologie filtrace), bez řádku Provozovatel", () => {
     render(<InfoPageView page={INFO_PAGES.water} />);
     expect(screen.getByRole("heading", { level: 1, name: "Čistá filtrovaná voda" })).toBeTruthy();
     const text = document.querySelector("article")!.textContent!;
-    expect(text).toContain("Je pro nás stejně důležitou součástí receptury jako zelenina, ovoce, bylinky a koření.");
-    expect(text).toContain("Proto věnujeme pozornost také vodě, kterou při výrobě používáme.");
+    expect(text).toContain("Vodu si pro Beginu filtrujeme sami.");
+    expect(text).toContain("Proto je čistá filtrovaná voda v každé naší receptuře.");
+    expect(text).not.toMatch(/osmóz|zdrav/i);
     expect(text).not.toMatch(/Provozovatel:|71 %/);
     expect(existsSync(path.join(ESHOP_APP, INFO_PAGES.water.path, "page.tsx"))).toBe(true);
   });
