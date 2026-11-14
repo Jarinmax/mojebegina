@@ -1,0 +1,33 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          t() { curl -sSL --max-time 30 "https://begina.cz$1" | sed 's/<[^>]*>/ /g' | tr -s ' \n' ' '; }
+          c() { if t "$1" | grep -qF "$2"; then echo "OK   $1 :: $2"; else echo "CHYBI $1 :: $2"; fi; }
+          c /produkt/svarak-deluxe "U tohoto výrobku nelze odstoupit od smlouvy bez udání důvodu"
+          c /produkt/svarak-deluxe "Svařák z červeného vína s pomerančovou"
+          c /produkt/svarak-deluxe "begina s kohoutkem"
+          c /produkt/svarak-deluxe "sáček se šroubovacím uzávěrem"
+          c /produkt/granatovy-bond "Ovocný koktejl s vodkou a šťávou z granátového jablka"
+          c /produkt/granatovy-bond "U tohoto výrobku nelze odstoupit"
+          c /produkt/lipovy-sirup "Jemný sirup z lipového květu, třtinového cukru"
+          c /produkt/lipovy-sirup "můžeme poslat i Zásilkovnou na výdejní místo"
+          c /produkt/bylinny-sirup-saman "Není vhodné pro děti do 12 let"
+          c /produkt/bylinny-caj-saman "Není vhodné pro děti do 12 let"
+          c /produkt/dynova-polevka "Naše nejprodávanější polévka"
+          c /produkt/cervankove-nebe "Bez přidaného cukru, obsahuje jen přirozeně se vyskytující cukry"
+          c /produkt/cerny-caj-golden-nepal "z nepálských hor"
+          c /o-vode "Vodu si pro Beginu filtrujeme sami"
+          c /o-baleni "říkáme begina"
+          c /o-nas "jarin-a-lucie"
+          c / "Lipový sirup"
+          c / "Svařák Deluxe"
+          c /kategorie/koktejly "18+"
+          c /kategorie/koktejly "z vodky nebo vína"
+          c /kategorie/polevky "ze zeleniny, hub, bylinek, koření a čisté filtrované vody"
+          curl -sSL --max-time 30 https://begina.cz/produkt/svarak-deluxe | grep -o '"hasMerchantReturnPolicy":{[^}]*}' | head -1
+          curl -sSL --max-time 30 https://begina.cz/produkt/lipovy-sirup | grep -o '"hasMerchantReturnPolicy":{[^}]*}' | head -1
+          curl -sSL --max-time 30 https://begina.cz/produkt/lipovy-sirup | grep -o '"shippingRate":{[^}]*}' | head -1
