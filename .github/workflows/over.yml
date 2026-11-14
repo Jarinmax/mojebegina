@@ -1,0 +1,16 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -o h.html -w "home %{http_code}\n" https://begina.cz/
+          python3 - <<'PY'
+          s=open('h.html',encoding='utf-8').read()
+          a=s.find('aria-label="Kategorie"'); b=s.find('Čerstvě. Jednoduše.')
+          print('pruh', a, 'uvod', b, 'PRUH_PRVNI' if 0<a<b else 'SPATNE')
+          import re
+          seg=s[a:b]
+          print('odkazu v pruhu', len(set(re.findall(r'href="/kategorie/([a-z-]+)"', seg))), sorted(set(re.findall(r'href="/kategorie/([a-z-]+)"', seg))))
+          PY
