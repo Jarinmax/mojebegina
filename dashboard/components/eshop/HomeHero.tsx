@@ -13,7 +13,8 @@ import ShopLink from "./ShopLink";
 //
 // Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
 // pod nimi přes celou šířku; počítač = text vlevo, fotografie vpravo
-// (od 11. 11. 2026 fotka dostává víc místa, poměr sloupců 0,72 : 1,28).
+// (od 14. 11. 2026 na přání Lucie menší fotka: nejvýše 32rem na počítači
+// a 36rem na tabletu, aby byl hned vidět i pruh kategorií pod úvodem).
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
 // Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
 // rámečku a stínu — splývá s podkladem (9. 11. 2026).
@@ -34,7 +35,7 @@ export const HERO_LINKS = {
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-[76rem] mx-auto lg:px-4 lg:py-[clamp(1.5rem,4vh,3.5rem)] grid items-center lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:gap-6">
+      <div className="max-w-[76rem] mx-auto lg:px-4 lg:py-[clamp(1rem,2.5vh,2rem)] grid items-center lg:grid-cols-2 lg:gap-6">
         <div className="relative z-10 px-4 pt-6 pb-5 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
             Čerstvě. Jednoduše. S&nbsp;chutí.
@@ -68,14 +69,14 @@ export default function HomeHero() {
           </p>
         </div>
 
-        <div className="relative w-full sm:max-w-3xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-none">
+        <div className="relative w-full sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[32rem]">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
             width={HERO_PHOTO.width}
             height={HERO_PHOTO.height}
             priority
-            sizes="(min-width: 1216px) 760px, (min-width: 1024px) 62vw, (min-width: 768px) 48rem, 100vw"
+            sizes="(min-width: 1024px) 32rem, (min-width: 640px) 36rem, 100vw"
             className="block w-full h-auto"
           />
         </div>

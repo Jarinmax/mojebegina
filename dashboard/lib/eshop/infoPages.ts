@@ -30,6 +30,8 @@ export type InfoBlock = {
   image?: { src: string; alt: string };
   /** řádky adresy v rámečku (první tučně), za odstavci */
   lines?: string[];
+  /** dvousloupcová tabulka (např. partnerské úrovně): [vlevo, vpravo tučně] */
+  rows?: [string, string][];
   items?: string[];
   /** "check" = odrážky ✔ (jako na begina.cz), jinak tečky */
   itemStyle?: "check";
@@ -241,14 +243,60 @@ const privacyPage: InfoPage = {
   blocks: PRIVACY_BLOCKS,
 };
 
+// Partnerský program — znění ze starého e-shopu (dokument „Begina_partnerský
+// program“, Lucie 31. 10. 2026; vráceno na web 14. 11. 2026). Úrovně jsou
+// stejné jako v mock/partnerProgram.ts (podle nich počítá kupón typu partner).
+export const PARTNER_PROGRAM_PATH = "/partnersky-program";
+const partnerPage: InfoPage = {
+  path: PARTNER_PROGRAM_PATH,
+  footerLabel: "Partnerský program",
+  title: "Partnerský program",
+  subtitle: "Budujeme stabilní partnerství",
+  description: "Partnerský program Begina: slevy 3–7 % podle objemu nákupu v předchozím kalendářním měsíci.",
+  hideOperatorLine: true,
+  blocks: [
+    {
+      itemStyle: "check",
+      items: ["výhodné ceny dle objemu nákupu", "motivace k růstu a vyšším odběrům", "marketingová i prodejní podpora"],
+    },
+    {
+      heading: "Partnerské úrovně",
+      rows: [
+        ["do 5 000 Kč", "standardní cena"],
+        ["nad 5 000 do 8 000 Kč", "sleva 3 %"],
+        ["nad 8 000 do 12 000 Kč", "sleva 5 %"],
+        ["nad 12 000 do 20 000 Kč", "sleva 7 %"],
+        ["nad 20 000 Kč", "individuální dohoda"],
+      ],
+    },
+    {
+      heading: "Podmínky programu",
+      items: [
+        "vyhodnocení probíhá podle součtu objednávek za kalendářní měsíc",
+        "do vyhodnocení se započítávají pouze objednávky uhrazené v daném kalendářním měsíci",
+        "započítává se pouze hodnota zboží bez ceny dopravy a dalších poplatků",
+        "do programu se započítávají pouze objednávky vytvořené přes e-shop s dopravou hrazenou zákazníkem nebo s osobním odběrem; partnerskou slevu lze uplatnit pouze na tyto objednávky",
+        "sleva platí v následujícím kalendářním měsíci pro objednávky splňující podmínky programu",
+      ],
+    },
+    { heading: "Doprava", paragraphs: ["Chlazená doprava dle aktuálního ceníku e-shopu."] },
+    {
+      heading: "Osobní odběr",
+      lines: ["Zahradní Bistro Begina (areál Zahradnictví Jandl)", "Vitice 119, 281 06 Vitice (okr. Kolín)", "Osobní odběr po předchozí domluvě."],
+      afterParagraphs: ["Nejsme plátci DPH. Uvedené ceny jsou konečné."],
+    },
+  ],
+};
+
 export const INFO_PAGES = {
   about: aboutPage,
   water: waterPage,
   packaging: packagingPage,
+  partner: partnerPage,
   shipping: shippingPage,
   terms: termsPage,
   privacy: privacyPage,
 } as const;
 
 /** Pořadí odkazů v patičce. */
-export const FOOTER_LINKS: InfoPage[] = [aboutPage, shippingPage, termsPage, privacyPage];
+export const FOOTER_LINKS: InfoPage[] = [aboutPage, partnerPage, shippingPage, termsPage, privacyPage];
