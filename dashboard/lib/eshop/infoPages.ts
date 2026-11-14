@@ -97,13 +97,14 @@ const waterPage: InfoPage = {
   path: "/o-vode",
   footerLabel: "O vodě",
   title: "Čistá filtrovaná voda",
-  description: "Proč Begina používá čistou filtrovanou vodu.",
+  description: "Proč Begina vaří z čisté filtrované vody: aby chutnaly suroviny, ne voda.",
   hideOperatorLine: true,
   blocks: [
     {
       paragraphs: [
-        "Při přípravě našich polévek, sirupů a nápojů používáme čistou filtrovanou vodu. Je pro nás stejně důležitou součástí receptury jako zelenina, ovoce, bylinky a koření.",
-        "Záleží nám na výsledné chuti i pečlivém výběru surovin. Proto věnujeme pozornost také vodě, kterou při výrobě používáme.",
+        // Znění od 14. 11. 2026 (Lucie): o chuti, bez technologie filtrace a bez zdravotních tvrzení.
+        "Vodu si pro Beginu filtrujeme sami. Z vodovodu má každá voda trochu jinou chuť a vůni, a to je v polévce nebo v čaji znát. Po filtraci je čistá a chuťově neutrální.",
+        "Díky tomu chutná dýňová po dýni, lipový čaj po lípě a zázvor po zázvoru, pokaždé stejně. Proto je čistá filtrovaná voda v každé naší receptuře.",
       ],
     },
   ],
