@@ -10,4 +10,4 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci
       - run: npx next typegen && npx tsc --noEmit
-      - run: npx vitest run components/__tests__/EshopFooter.test.tsx lib/site lib/eshop/__tests__/homeNav.test.ts
+      - run: npx vitest run components/__tests__/EshopFooter.test.tsx lib/site lib/eshop/__tests__/homeNav.test.ts components/__tests__/HomeHero.test.tsx

@@ -177,6 +177,11 @@ describe("begina.cz — MojeBegina je nedostupná (výchozí zákaz)", () => {
         continue;
       }
       if (url === "/") continue; // kořen = úvod e-shopu (ne MojeBegina)
+      if (url === "/partnersky-program") {
+        // stejná adresa jako veřejná stránka e-shopu — na begina.cz se smí přepsat JEN na ni
+        expect(get("begina.cz", url), file).toEqual({ kind: "rewrite", path: "/eshop/partnersky-program" });
+        continue;
+      }
       for (const method of ["GET", "POST"]) {
         const decision = route({ host: "begina.cz", pathname: url, search: "", method }, {});
         expect(decision.kind === "rewrite" || decision.kind === "pass", `${method} ${url} (${file})`).toBe(false);
