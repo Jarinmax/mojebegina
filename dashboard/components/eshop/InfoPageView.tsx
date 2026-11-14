@@ -1,6 +1,7 @@
 import EshopFileLink from "./EshopFileLink";
 import ShopLink from "./ShopLink";
-import type { ReactNode } from "react";
+import Image from "next/image";
+import { Fragment, type ReactNode } from "react";
 import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
 
 // Informační stránka e-shopu (O nás, O vodě, Doprava, Obchodní podmínky, GDPR).
@@ -59,10 +60,20 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
             <section key={block.heading ?? i}>
               {block.heading && <h2 className="font-medium text-lg text-begina-primary-900 mb-2">{block.heading}</h2>}
               {block.subheading && <h3 className="font-medium text-begina-primary-900 mb-1.5">{block.subheading}</h3>}
-              {block.paragraphs?.map((text) => (
-                <p key={text} className="mb-2">
-                  {linkify(text)}
-                </p>
+              {block.paragraphs?.map((text, j) => (
+                <Fragment key={text}>
+                  <p className="mb-2">{linkify(text)}</p>
+                  {j === 0 && block.image && (
+                    <Image
+                      src={block.image.src}
+                      alt={block.image.alt}
+                      width={1200}
+                      height={1200}
+                      sizes="(min-width: 640px) 24rem, 90vw"
+                      className="my-5 w-full max-w-sm mx-auto rounded-2xl"
+                    />
+                  )}
+                </Fragment>
               ))}
               {block.lines && (
                 <p className="my-2 pl-3 border-l-2 border-neutral-200 text-neutral-600">
