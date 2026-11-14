@@ -23,13 +23,12 @@ const EXTRAS: Record<string, Pick<FoodInfo, "preparation" | "returns">> = {
   },
 };
 
-/** Text „Vrácení a reklamace“ u koktejlů (zadání 10. 11. 2026, doslova). */
-export const COCKTAIL_RETURNS = {
-  before:
-    "Vadný nebo poškozený výrobek můžete reklamovat. Kontaktujte nás na info@begina.cz. Podrobnosti o odstoupení od kupní smlouvy a reklamacích najdete v ",
-  linkText: "obchodních podmínkách",
-  after: ". Vaše zákonná práva tím nejsou dotčena.",
-};
+/**
+ * „Vrácení a reklamace“ u koktejlů: od 14. 11. 2026 (Lucie) stejné jako polévky —
+ * čerstvý chlazený výrobek, vrácení bez udání důvodu se nepřijímá (čl. VII
+ * obchodních podmínek, § 1837 písm. e) OZ). Do 13. 11. 2026 jen obecný odkaz na podmínky.
+ */
+export const COCKTAIL_RETURNS = { before: SOUP_RETURNS_BEFORE, linkText: SOUP_RETURNS_LINK_TEXT, after: SOUP_RETURNS_AFTER };
 
 /** Ovocné nápoje (11. 11. 2026) — rychle se kazí, proto stejné „Vrácení a reklamace“ jako polévky. */
 const FRUIT_RETURNS = { before: SOUP_RETURNS_BEFORE, linkText: SOUP_RETURNS_LINK_TEXT, after: SOUP_RETURNS_AFTER };
