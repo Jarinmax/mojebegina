@@ -10,4 +10,4 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci
       - run: npx next typegen && npx tsc --noEmit
-      - run: npx vitest run lib/eshop/__tests__/ 2>&1 | tail -40
+      - run: npx vitest run lib/eshop/__tests__/ 2>&1 | grep -E "FAIL|AssertionError|Error:|expected|Test Files|Tests " | cut -c1-400 | head -80
