@@ -17,17 +17,33 @@ const APP = path.join(__dirname, "../../app");
 const ESHOP_APP = path.join(APP, "eshop");
 
 describe("patička e-shopu", () => {
-  it("čtyři klikací odkazy ve správném pořadí a na správné adresy", () => {
+  it("klikací odkazy ve správném pořadí a na správné adresy", () => {
     render(<EshopFooter />);
     const nav = screen.getByRole("navigation", { name: "Informace" });
     const links = Array.from(nav.querySelectorAll("a")).map((a) => [a.textContent, a.getAttribute("href")]);
     expect(links).toEqual([
       ["O nás", "/eshop/o-nas"],
+      ["Partnerský program", "/eshop/partnersky-program"],
       ["Doprava", "/eshop/doprava"],
       ["Obchodní podmínky", "/eshop/obchodni-podminky"],
       ["GDPR", "/eshop/ochrana-osobnich-udaju"],
       ["Odstoupit od smlouvy", "/eshop/odstoupeni-od-smlouvy"],
     ]);
+  });
+
+  it("Partnerský program: úrovně a podmínky ze starého e-shopu (vráceno 14. 11. 2026)", () => {
+    render(<InfoPageView page={INFO_PAGES.partner} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Partnerský program" })).toBeTruthy();
+    const rows = Array.from(document.querySelectorAll("tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(rows).toEqual([
+      ["do 5 000 Kč", "standardní cena"],
+      ["nad 5 000 do 8 000 Kč", "sleva 3 %"],
+      ["nad 8 000 do 12 000 Kč", "sleva 5 %"],
+      ["nad 12 000 do 20 000 Kč", "sleva 7 %"],
+      ["nad 20 000 Kč", "individuální dohoda"],
+    ]);
+    expect(screen.getByText("započítává se pouze hodnota zboží bez ceny dopravy a dalších poplatků")).toBeTruthy();
+    expect(screen.getByText("Nejsme plátci DPH. Uvedené ceny jsou konečné.")).toBeTruthy();
   });
 
   it("každý odkaz má svou stránku (app/…/page.tsx)", () => {

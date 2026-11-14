@@ -84,6 +84,18 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                   ))}
                 </p>
               )}
+              {block.rows && (
+                <table className="w-full my-1 border-separate border-spacing-y-1">
+                  <tbody>
+                    {block.rows.map(([left, right]) => (
+                      <tr key={left} className="bg-neutral-50">
+                        <th scope="row" className="text-left font-normal px-3 py-2 rounded-l-lg">{left}</th>
+                        <td className="font-medium text-begina-primary-900 px-3 py-2 rounded-r-lg">{right}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
               {block.items &&
                 (block.heading?.startsWith("Příloha:") ? (
                   <div className="border border-neutral-300 rounded-2xl p-4 sm:p-6 flex flex-col gap-4 break-inside-avoid">

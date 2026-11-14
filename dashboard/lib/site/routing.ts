@@ -65,6 +65,7 @@ const ESHOP_PAGES = new Set([
   "/o-nas",
   "/o-vode",
   "/o-baleni",
+  "/partnersky-program",
   "/obchodni-podminky",
   "/odstoupeni-od-smlouvy",
   "/ochrana-osobnich-udaju",
@@ -102,7 +103,6 @@ const LEGACY_PAGES: Readonly<Record<string, string>> = {
   "/kontakty": "/o-nas",
   // prázdné nebo zatím nepřenesené stránky → úvod (rozhodnutí o obsahu: ESHOP_DOMENY.md)
   "/landing-page": "/",
-  "/partnersky-program": "/",
   "/pro-podniky-gastro": "/",
   "/begina-english": "/",
   "/begina-deutsch": "/",

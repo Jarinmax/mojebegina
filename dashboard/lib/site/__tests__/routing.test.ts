@@ -79,6 +79,7 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
     ["/doprava", "/eshop/doprava"],
     ["/o-nas", "/eshop/o-nas"],
     ["/o-vode", "/eshop/o-vode"],
+    ["/partnersky-program", "/eshop/partnersky-program"],
     ["/obchodni-podminky", "/eshop/obchodni-podminky"],
     ["/ochrana-osobnich-udaju", "/eshop/ochrana-osobnich-udaju"],
     ["/robots.txt", "/eshop/robots.txt"],
@@ -138,7 +139,7 @@ describe("begina.cz — MojeBegina je nedostupná (výchozí zákaz)", () => {
     "/vyber-roli",
     "/upozorneni",
     "/executive",
-    // /partnersky-program je i stará stránka WordPressu → 301 na úvod begina.cz (níže), ne MojeBegina
+    // /partnersky-program je na begina.cz veřejná stránka e-shopu (14. 11. 2026), ne MojeBegina
     "/doporucit",
     "/api/auth/get-session",
     "/api/auth/sign-in/email",
@@ -258,7 +259,6 @@ describe("begina.cz — staré adresy (WordPress, /eshop)", () => {
     ["/kategorie", "https://begina.cz/"],
     ["/kontakty", "https://begina.cz/o-nas"],
     ["/landing-page", "https://begina.cz/"],
-    ["/partnersky-program", "https://begina.cz/"],
     ["/pro-podniky-gastro", "https://begina.cz/"],
     ["/begina-english", "https://begina.cz/"],
     ["/begina-deutsch", "https://begina.cz/"],
