@@ -50,10 +50,10 @@ export default async function EshopPage() {
           <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
         </div>
       </div>
-      <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 lg:pt-5 flex flex-col gap-14 sm:gap-20">
+      <div className="max-w-6xl mx-auto px-4 pt-8 pb-10 sm:pt-10 sm:pb-12 lg:pt-5 flex flex-col gap-8 sm:gap-10">
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
         <section>
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-2xl text-center text-[#2A2622] mb-8 lg:mb-3">Proč Begina</h2>
+          <h2 className="font-serif text-2xl sm:text-3xl lg:text-2xl text-center text-[#2A2622] mb-5 lg:mb-3">Proč Begina</h2>
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-4">
             {HOME_WHY.map((item) => {
               const Icon = WHY_ICONS[item.icon];
@@ -82,12 +82,12 @@ export default async function EshopPage() {
         </section>
 
         {/* Jak funguje begina */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          <div className="relative aspect-square w-full max-w-md mx-auto">
-            <Image src={HOME_STEPS_PHOTO} alt="Begina s dýňovou polévkou" fill sizes="(min-width: 768px) 28rem, 90vw" className="object-contain" />
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-center">
+          <div className="relative aspect-square w-full max-w-[17rem] md:max-w-xs mx-auto">
+            <Image src={HOME_STEPS_PHOTO} alt="Begina s dýňovou polévkou" fill sizes="(min-width: 768px) 20rem, 17rem" className="object-contain" />
           </div>
           <div>
-            <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-6 text-center md:text-left">Jak funguje begina</h2>
+            <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-4 text-center md:text-left">Jak funguje begina</h2>
             <ol className="flex flex-col gap-5">
               {HOME_STEPS.map((step, i) => (
                 <li key={step.title} className="flex gap-4">
@@ -108,7 +108,7 @@ export default async function EshopPage() {
         {/* Nejoblíbenější */}
         {bestsellers.length > 0 && (
           <section>
-            <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-8">Nejoblíbenější</h2>
+            <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">Nejoblíbenější</h2>
             <ul className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-4">
               {bestsellers.map((product) => (
                 <ProductCard key={product.slug} product={product} />
