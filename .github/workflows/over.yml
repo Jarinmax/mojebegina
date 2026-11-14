@@ -1,0 +1,26 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install webkit --with-deps >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { webkit, devices } from "playwright";
+          const b = await webkit.launch();
+          const c = await b.newContext({ ...devices["iPhone 14"] });
+          const p = await c.newPage();
+          await p.goto("https://begina.cz/", { waitUntil: "networkidle" });
+          const m = await p.evaluate(() => { const nav = document.querySelector('nav[aria-label="Kategorie"]').getBoundingClientRect(), h1 = document.querySelector("h1").getBoundingClientRect(); return { navTop: Math.round(nav.top), navBottom: Math.round(nav.bottom), h1Top: Math.round(h1.top) }; });
+          console.log("MERENI", JSON.stringify(m));
+          await p.screenshot({ path: "m.jpg", type: "jpeg", quality: 55 });
+          const d = await b.newPage({ viewport: { width: 1300, height: 720 } });
+          await d.goto("https://begina.cz/", { waitUntil: "networkidle" });
+          console.log("MERENIPC", JSON.stringify(await d.evaluate(() => ({ navTop: Math.round(document.querySelector('nav[aria-label="Kategorie"]').getBoundingClientRect().top), h1Top: Math.round(document.querySelector("h1").getBoundingClientRect().top) }))));
+          await b.close();
+          JS
+          node s.mjs
+          echo "B64M $(base64 -w0 m.jpg)"
