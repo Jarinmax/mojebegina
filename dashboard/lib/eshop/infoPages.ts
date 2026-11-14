@@ -26,6 +26,8 @@ export type InfoBlock = {
   /** podnadpis uvnitř článku (např. „1. Vyřízení objednávky…“) */
   subheading?: string;
   paragraphs?: string[];
+  /** fotka za prvním odstavcem (např. O nás); čtvercová, cesta v public/ */
+  image?: { src: string; alt: string };
   /** řádky adresy v rámečku (první tučně), za odstavci */
   lines?: string[];
   items?: string[];
@@ -81,6 +83,8 @@ const aboutPage: InfoPage = {
   hideOperatorLine: true,
   blocks: [
     {
+      // skutečná fotka majitelů (Český Krumlov), dodala a schválila Lucie 14. 11. 2026
+      image: { src: "/eshop/o-nas/jarin-a-lucie.jpg", alt: "Jarin a Lucie" },
       paragraphs: [
         "Za Beginou stojíme my dva – Jarin a Lucie. Spojuje nás chuť vytvářet něco vlastního a nabídnout vám dobré jídlo a nápoje pro každý den. Receptury a kombinace chutí vznikají v Jarinově kuchyni, o Beginu a její rozvoj se staráme společně.",
         "V roce 2023 jsme začali tvořit společně. V Českém Krumlově jsme otevřeli Simon Gallery, kde vznikaly naše první čaje a ovocné nápoje z čisté filtrované vody. Na tuto zkušenost jsme později navázali značkou Begina.",
