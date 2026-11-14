@@ -279,10 +279,10 @@ const partnerPage: InfoPage = {
         "sleva platí v následujícím kalendářním měsíci pro objednávky splňující podmínky programu",
       ],
     },
-    { heading: "Doprava", paragraphs: ["Chlazená doprava dle aktuálního ceníku e-shopu."] },
+    // Osobní odběr tu není (Lucie 14. 11. 2026): provozovna je hned pod stránkou v patičce.
     {
-      heading: "Osobní odběr",
-      lines: ["Zahradní Bistro Begina (areál Zahradnictví Jandl)", "Vitice 119, 281 06 Vitice (okr. Kolín)", "Osobní odběr po předchozí domluvě."],
+      heading: "Doprava",
+      paragraphs: ["Chlazená doprava dle aktuálního ceníku e-shopu."],
       afterParagraphs: ["Nejsme plátci DPH. Uvedené ceny jsou konečné."],
     },
   ],
