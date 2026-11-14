@@ -82,10 +82,10 @@ const aboutPage: InfoPage = {
   blocks: [
     {
       paragraphs: [
-        "Za Beginou stojíme my dva – Jarin a Lucie. Spojuje nás chuť vytvářet něco vlastního a nabídnout Vám dobré jídlo a nápoje pro každý den. Receptury a kombinace chutí vznikají v Jarinově kuchyni, o Beginu a její rozvoj se staráme společně.",
+        "Za Beginou stojíme my dva – Jarin a Lucie. Spojuje nás chuť vytvářet něco vlastního a nabídnout vám dobré jídlo a nápoje pro každý den. Receptury a kombinace chutí vznikají v Jarinově kuchyni, o Beginu a její rozvoj se staráme společně.",
         "V roce 2023 jsme začali tvořit společně. V Českém Krumlově jsme otevřeli Simon Gallery, kde vznikaly naše první čaje a ovocné nápoje z čisté filtrované vody. Na tuto zkušenost jsme později navázali značkou Begina.",
         "Dnes v naší nabídce najdete čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
-        "Chceme Vám usnadnit každodenní přípravu i chvíle, kdy se u stolu sejde více lidí. Polévku stačí ohřát, sirup naředit a nápoj podávat.",
+        "Chceme vám usnadnit každodenní přípravu i chvíle, kdy se u stolu sejde více lidí. Polévku stačí ohřát, sirup naředit a nápoj podávat.",
         "Begina. Když rozhoduje chuť.",
       ],
     },
@@ -120,7 +120,7 @@ const packagingPage: InfoPage = {
   blocks: [
     {
       paragraphs: [
-        "Našemu třílitrovému balení s kohoutkem říkáme Begina. Polévku, sirup nebo nápoj si z něj snadno odčepujete podle potřeby a zbytek necháte na příště.",
+        "Našemu třílitrovému balení s kohoutkem říkáme begina. Polévku, sirup nebo nápoj si z něj snadno natočíte podle potřeby a zbytek necháte na příště.",
       ],
     },
     {

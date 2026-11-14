@@ -93,7 +93,7 @@ for (const [name, device] of CASES) {
     if (path !== "/o-baleni" || tiles.length) check(`${name} ${path}: kolotoč všech šesti kategorií`, ["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"].every((s) => tiles.includes(`/kategorie/${s}`)), tiles.join(" "));
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);
     check(`${name} ${path}: bez vodorovného přetékání`, sw <= vw, `${sw}/${vw}`);
-    if (path === "/o-baleni") check(`${name} ${path}: text O balení`, /Našemu třílitrovému balení s kohoutkem říkáme Begina\./.test(text) && !/bagina/i.test(text));
+    if (path === "/o-baleni") check(`${name} ${path}: text O balení`, /Našemu třílitrovému balení s kohoutkem říkáme begina\./.test(text) && !/bagina/i.test(text));
     await page.screenshot({ path: `${OUT}/${path.slice(1)}-${name}.jpg`, type: "jpeg", quality: 60, fullPage: true });
   }
   // Balení u produktů

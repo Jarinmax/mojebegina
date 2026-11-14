@@ -120,7 +120,7 @@ describe("informační stránky", () => {
       "Snadné dávkování", "Třílitrové balení", "Menší balení", "Skladování a spotřeba",
     ]);
     const text = document.querySelector("article")!.textContent!;
-    expect(text).toContain("Našemu třílitrovému balení s kohoutkem říkáme Begina.");
+    expect(text).toContain("Našemu třílitrovému balení s kohoutkem říkáme begina.");
     expect(text).toContain("Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek.");
     expect(text).toContain("Sirupy nabízíme také v balení 650 ml ve stříbrném sáčku se šroubovacím uzávěrem.");
     expect(text).toContain("Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.");
