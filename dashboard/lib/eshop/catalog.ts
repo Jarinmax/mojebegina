@@ -238,7 +238,7 @@ export const products: Product[] = [
     taste:
       "Grepový alkoholický koktejl Lady Carneval má výraznou citrusovou chuť s příjemnou svěžestí grepu a jemně nasládlým dozvukem. Vyvážené spojení vodky, Aperolu a ovocných tónů vytváří harmonický a osvěžující drink, který působí lehce a elegantně.",
     warnings: COCKTAIL_WARNINGS,
-    image: "/eshop/koktejly/lady-carneval-hlavni.jpg",
+    image: "/eshop/koktejly/lady-carneval-hlavni-v2.jpg",
     variants: cocktailVariants("lady-carneval", 799, 169),
     alcoholPercent: 7.2,
     foodInfo: {

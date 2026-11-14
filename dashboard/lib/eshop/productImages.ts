@@ -87,6 +87,12 @@ const BACKDROP: Record<string, string> = {
   "/eshop/koktejly/granatovy-bond-begina-v2.jpg": "#fefefe",
   "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-hlavni.jpg": "#fefefe",
   "/eshop/ovocne-napoje/dum-u-jezera-hlavni-v2.jpg": "#fefefe",
+  "/eshop/koktejly/lady-carneval-hlavni-v2.jpg": "#fefefe",
+  "/eshop/koktejly/lady-carneval-begina-v4.jpg": "#fefefe",
+  "/eshop/koktejly/lady-carneval-sacek-v2.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/malinovy-svarak-nealko-hlavni-v2.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/malinovy-svarak-nealko-begina-v2.jpg": "#fefefe",
+  "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-begina.jpg": "#fefefe",
   "/eshop/ovocne-napoje/cervankove-nebe-hlavni-v2.jpg": "#fefefe",
   "/eshop/ovocne-napoje/cervankove-nebe-begina-v2.jpg": "#fefefe",
   // 14. 11. 2026: větší beginy u koktejlů, Dům u jezera s beginou
