@@ -1,0 +1,25 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > s.mjs <<'JS'
+          import { chromium } from "playwright";
+          const b = await chromium.launch();
+          const m = await b.newPage({ viewport: { width: 390, height: 645 }, deviceScaleFactor: 2, isMobile: true });
+          await m.goto("https://begina.cz/", { waitUntil: "networkidle" });
+          console.log("VYSLEDEK mobil " + JSON.stringify(await m.evaluate(() => { const vis = [...document.querySelectorAll("p")].filter((p) => p.textContent.includes("Čerstvě") && p.getBoundingClientRect().height > 0).map((p) => Math.round(p.getBoundingClientRect().top)); return { heslo: vis, ikony: Math.round(document.querySelector('nav[aria-label="Kategorie"]').getBoundingClientRect().top), h1: Math.round(document.querySelector("h1").getBoundingClientRect().top), konecFotky: Math.round(document.querySelector("section img").getBoundingClientRect().bottom) }; })));
+          await m.screenshot({ path: "m.jpg", type: "jpeg", quality: 50 });
+          const d = await b.newPage({ viewport: { width: 1300, height: 780 } });
+          await d.goto("https://begina.cz/partnersky-program", { waitUntil: "networkidle" });
+          console.log("VYSLEDEK partner " + JSON.stringify(await d.evaluate(() => { const t = document.querySelector("table").getBoundingClientRect(), u = document.querySelectorAll("article ul")[1].getBoundingClientRect(); return { tabulka: [Math.round(t.left), Math.round(t.right)], podminky: [Math.round(u.left), Math.round(u.right)], konec: Math.round(document.querySelector("article").getBoundingClientRect().bottom) }; })));
+          await d.screenshot({ path: "d.jpg", type: "jpeg", quality: 50 });
+          await b.close();
+          JS
+          node s.mjs
+          echo "OBRM $(base64 -w0 m.jpg)"; echo "OBRD $(base64 -w0 d.jpg)"
