@@ -14,7 +14,8 @@ import ShopLink from "./ShopLink";
 // Rozložení: mobil a tablet = text a tlačítka nahoře na střed, fotografie
 // pod nimi přes celou šířku; počítač = text vlevo, fotografie vpravo
 // (od 14. 11. 2026 na přání Lucie menší fotka: nejvýše 32rem na počítači
-// a 36rem na tabletu, aby byl hned vidět i pruh kategorií pod úvodem).
+// a 36rem na tabletu). Na počítači je fotka u pravého okraje obsahu stejně
+// jako text u levého (šířka jako hlavička), aby úvod působil vyváženě.
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
 // Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
 // rámečku a stínu — splývá s podkladem (9. 11. 2026).
@@ -35,7 +36,7 @@ export const HERO_LINKS = {
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-[76rem] mx-auto lg:px-4 lg:py-[clamp(1rem,2.5vh,2rem)] grid items-center lg:grid-cols-2 lg:gap-6">
+      <div className="max-w-6xl mx-auto lg:px-4 lg:py-[clamp(1rem,2.5vh,2rem)] grid items-center lg:grid-cols-2 lg:gap-6">
         <div className="relative z-10 px-4 pt-6 pb-5 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
             Čerstvě. Jednoduše. S&nbsp;chutí.
@@ -69,7 +70,7 @@ export default function HomeHero() {
           </p>
         </div>
 
-        <div className="relative w-full sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[32rem]">
+        <div className="relative w-full sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[32rem] lg:ml-auto lg:mr-0">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}

@@ -4,11 +4,12 @@ import { stripCategories, type HomeCategory } from "@/lib/eshop/homeNav";
 
 // Pruh kategorií s kreslenými ikonami — od 14. 11. 2026 nahoře pod hlavičkou, nad hero.
 // Na počítači kompaktní, aby byl vidět hned po otevření stránky (spolu s hero).
+// Ikony na počítači poloviční (decentní pruh, 14. 11. 2026).
 // Všech šest vždy v jedné řadě (Lucie 14. 11. 2026): na mobilu menší ikony a popisky.
 export default function CategoryIconStrip({ id, categories }: { id: string; categories: HomeCategory[] }) {
   return (
     <nav id={id} aria-label="Kategorie" className="bg-[#FBF8F3] scroll-mt-20">
-      <ul className="max-w-5xl mx-auto px-1 sm:px-2 py-3 sm:py-8 lg:py-4 flex justify-center">
+      <ul className="max-w-5xl mx-auto px-1 sm:px-2 py-3 sm:py-4 flex justify-center">
         {stripCategories(categories).map((category, i) => (
           <li
             key={category.slug}
@@ -20,13 +21,13 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
             >
               {/* Všechny ikony mají stejné plátno (stejná zem i výška), takže
                   je stačí zobrazit ve stejné výšce — optická velikost sedí. */}
-              <span className="h-11 sm:h-20 lg:h-[clamp(4.5rem,11.5vh,6.5rem)] flex items-end">
+              <span className="h-11 sm:h-12 flex items-end">
                 <Image
                   src={category.icon}
                   alt=""
                   width={category.iconSize?.[0] ?? 200}
                   height={category.iconSize?.[1] ?? 240}
-                  sizes="(min-width: 1024px) 110px, 80px"
+                  sizes="64px"
                   className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
