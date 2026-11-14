@@ -1,0 +1,13 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -o h.html https://begina.cz/
+          python3 - <<'PY'
+          s=open('h.html',encoding='utf-8').read()
+          a=s.find('Proč Begina'); seg=s[a:a+6000]
+          print('dlazdice', 'DLAZDICE_OK' if 'Partnerský program' in seg and 'href="/partnersky-program"' in seg and 'Jak to funguje' in seg else 'DLAZDICE_CHYBI', 'ctyri' if 'lg:grid-cols-4' in seg else 'ne')
+          PY
