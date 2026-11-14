@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { cartWeight, coldShippingPrice } from "../shippingRates";
-import { ZASILKOVNA_MAX_POUCHES, isSyrupPouch, quoteZasilkovna } from "../zasilkovna";
+import { DELIVERY_NOTE_COLD, ZASILKOVNA_MAX_POUCHES, isSyrupPouch, productDeliveryNote, quoteZasilkovna } from "../zasilkovna";
 
 const pouch = (quantity: number, weightGrams: number | null = 805) => ({
   quantity,
@@ -92,5 +92,18 @@ describe("102 hmotnost kapsičky 650 ml", { timeout: 120_000 }, () => {
     expect(w.ok && w.grams).toBe(14_490);
     const p = w.ok ? coldShippingPrice(w.grams) : null;
     expect(p?.ok && p.priceKc).toBe(267);
+  });
+});
+
+describe("věta o doručení na stránce produktu", () => {
+  const syrup = { category: "sirupy", variants: [{ volumeMl: 3000 }, { volumeMl: 650 }] };
+  it("sirup se sáčkem 650 ml: zmíní Zásilkovnu, jen když je zapnutá", () => {
+    expect(productDeliveryNote(syrup, true)).toBe("Doručíme chlazenou přepravou. Sáčky 650 ml (až 4 kusy) můžeme poslat i Zásilkovnou.");
+    expect(productDeliveryNote(syrup, false)).toBe(DELIVERY_NOTE_COLD);
+  });
+  it("ostatní produkty a sirup bez sáčku: jen chlazená přeprava", () => {
+    expect(productDeliveryNote({ category: "polevky", variants: [{ volumeMl: 3000 }] }, true)).toBe(DELIVERY_NOTE_COLD);
+    expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000 }] }, true)).toBe(DELIVERY_NOTE_COLD);
+    expect(productDeliveryNote({ category: "koktejly", variants: [{ volumeMl: 650 }] }, true)).toBe(DELIVERY_NOTE_COLD);
   });
 });

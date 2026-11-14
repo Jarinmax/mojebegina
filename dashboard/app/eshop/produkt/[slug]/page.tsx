@@ -26,6 +26,8 @@ import type { ReactNode } from "react";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
+import { productDeliveryNote } from "@/lib/eshop/zasilkovna";
+import { zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
 import { breadcrumbJsonLd, jsonLd, productDescription, productJsonLd, productTitle } from "@/lib/eshop/seo";
 
 export const dynamic = "force-dynamic";
@@ -232,7 +234,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
           <p className="mt-5 text-sm text-neutral-600 flex items-start gap-2">
             <Snowflake className="w-4 h-4 mt-0.5 shrink-0 text-neutral-500" />
-            Tento produkt vám doručíme chlazenou přepravou.
+            {productDeliveryNote(product, zasilkovnaEnabledFromEnv())}
           </p>
 
           {product.isAgeRestricted && (
