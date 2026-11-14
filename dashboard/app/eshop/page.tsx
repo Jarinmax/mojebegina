@@ -40,8 +40,9 @@ export default async function EshopPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd()) }} />
-      <HomeHero />
+      {/* Pruh kategorií hned pod hlavičkou, nad úvodem (přání Lucie 14. 11. 2026). */}
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
+      <HomeHero />
       <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 flex flex-col gap-14 sm:gap-20">
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) */}
         <section>

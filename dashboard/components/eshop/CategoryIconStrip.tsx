@@ -2,7 +2,7 @@ import ShopLink from "./ShopLink";
 import Image from "next/image";
 import { stripCategories, type HomeCategory } from "@/lib/eshop/homeNav";
 
-// Pruh kategorií s kreslenými ikonami pod hero (návrh úvodní stránky).
+// Pruh kategorií s kreslenými ikonami — od 14. 11. 2026 nahoře pod hlavičkou, nad hero.
 // Na počítači kompaktní, aby byl vidět hned po otevření stránky (spolu s hero).
 // Mobil a tablet na výšku: dvě řady po třech; od md jedna řada všech šesti.
 export default function CategoryIconStrip({ id, categories }: { id: string; categories: HomeCategory[] }) {
