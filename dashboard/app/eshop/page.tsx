@@ -43,27 +43,27 @@ export default async function EshopPage() {
       {/* Finální pořadí (Lucie 14. 11. 2026): úvod nahoře, pod ním decentní pruh kategorií. */}
       <HomeHero />
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-      <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 flex flex-col gap-14 sm:gap-20">
+      <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 lg:pt-5 flex flex-col gap-14 sm:gap-20">
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
         <section>
-          <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-8">Proč Begina</h2>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <h2 className="font-serif text-2xl sm:text-3xl lg:text-2xl text-center text-[#2A2622] mb-8 lg:mb-3">Proč Begina</h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-4">
             {HOME_WHY.map((item) => {
               const Icon = WHY_ICONS[item.icon];
               const body = (
                 <>
-                  <Icon className="w-8 h-8 mx-auto text-[#5E6B34]" aria-hidden="true" />
-                  <h3 className="mt-3 font-semibold text-lg text-[#2A2622]">{item.title}</h3>
-                  <p className="mt-1.5 text-base leading-normal text-neutral-700">{item.text}</p>
+                  <Icon className="w-8 h-8 lg:w-6 lg:h-6 mx-auto text-[#5E6B34]" aria-hidden="true" />
+                  <h3 className="mt-3 lg:mt-1.5 font-semibold text-lg lg:text-base text-[#2A2622]">{item.title}</h3>
+                  <p className="mt-1.5 lg:mt-1 text-base lg:text-[15px] leading-normal lg:leading-snug text-neutral-700">{item.text}</p>
                 </>
               );
-              const box = "rounded-2xl bg-[#FAF6EF] border border-[#EDE5D8] p-6 text-center h-full";
+              const box = "rounded-2xl bg-[#FAF6EF] border border-[#EDE5D8] p-6 lg:p-4 text-center h-full";
               return (
                 <li key={item.title}>
                   {"href" in item ? (
                     <ShopLink href={item.href} className={`${box} block group hover:border-[#5E6B34] transition-colors`}>
                       {body}
-                      <span className="mt-2 inline-block text-base font-medium text-[#4A5527] underline underline-offset-4">{item.linkLabel}</span>
+                      <span className="mt-2 lg:mt-1 inline-block text-base lg:text-[15px] font-medium text-[#4A5527] underline underline-offset-4">{item.linkLabel}</span>
                     </ShopLink>
                   ) : (
                     <div className={box}>{body}</div>
