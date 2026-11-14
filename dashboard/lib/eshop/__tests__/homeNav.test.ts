@@ -67,7 +67,7 @@ describe("úvodní stránka — kategorie z návrhu", () => {
     const pub = path.join(__dirname, "../../../public");
     for (const c of stripCategories(HOME_CATEGORIES)) expect(existsSync(path.join(pub, c.icon)), c.icon).toBe(true);
     // úvod od 8. 11. 2026: jedna skutečná fotografie (bez krabice)
-    for (const f of ["polevka-begina-caj-limonada-v3"]) {
+    for (const f of ["polevka-a-napoje-v4"]) {
       expect(existsSync(path.join(pub, `eshop/hero/${f}.webp`)), f).toBe(true);
     }
   });

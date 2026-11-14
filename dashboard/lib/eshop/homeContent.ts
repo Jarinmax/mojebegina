@@ -26,4 +26,4 @@ export const HOME_ABOUT =
 
 export const HOME_BISTRO = "Ochutnat nás můžete i v Zahradním bistru Begina ve Viticích (areál Zahradnictví Jandl).";
 
-export const HOME_STEPS_PHOTO = "/eshop/polevky/dynova-polevka-sacek.jpg";
+export const HOME_STEPS_PHOTO = "/eshop/polevky/dynova-polevka-begina-v2.jpg";
