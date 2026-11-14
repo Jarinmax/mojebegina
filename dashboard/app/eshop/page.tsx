@@ -7,12 +7,12 @@ import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import { Clock, Leaf, Soup } from "lucide-react";
+import { Clock, Leaf, Percent, Soup } from "lucide-react";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import ProductCard from "@/components/eshop/ProductCard";
 import { HOME_ABOUT, HOME_BESTSELLERS, HOME_BISTRO, HOME_STEPS, HOME_STEPS_PHOTO, HOME_WHY } from "@/lib/eshop/homeContent";
 
-const WHY_ICONS = { leaf: Leaf, soup: Soup, clock: Clock } as const;
+const WHY_ICONS = { leaf: Leaf, soup: Soup, clock: Clock, percent: Percent } as const;
 
 // Úvodní stránka: hero podle návrhu z 8. 11. 2026 (fotografie polévky
 // s bylinným nápojem, tlačítka Vybrat polévku / Objevit sirupy), pruh
@@ -44,17 +44,30 @@ export default async function EshopPage() {
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
       <HomeHero />
       <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 flex flex-col gap-14 sm:gap-20">
-        {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) */}
+        {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
         <section>
           <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-8">Proč Begina</h2>
-          <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {HOME_WHY.map((item) => {
               const Icon = WHY_ICONS[item.icon];
-              return (
-                <li key={item.title} className="rounded-2xl bg-[#FAF6EF] border border-[#EDE5D8] p-6 text-center">
+              const body = (
+                <>
                   <Icon className="w-8 h-8 mx-auto text-[#5E6B34]" aria-hidden="true" />
                   <h3 className="mt-3 font-semibold text-lg text-[#2A2622]">{item.title}</h3>
                   <p className="mt-1.5 text-base leading-normal text-neutral-700">{item.text}</p>
+                </>
+              );
+              const box = "rounded-2xl bg-[#FAF6EF] border border-[#EDE5D8] p-6 text-center h-full";
+              return (
+                <li key={item.title}>
+                  {"href" in item ? (
+                    <ShopLink href={item.href} className={`${box} block group hover:border-[#5E6B34] transition-colors`}>
+                      {body}
+                      <span className="mt-2 inline-block text-base font-medium text-[#4A5527] underline underline-offset-4">{item.linkLabel}</span>
+                    </ShopLink>
+                  ) : (
+                    <div className={box}>{body}</div>
+                  )}
                 </li>
               );
             })}
