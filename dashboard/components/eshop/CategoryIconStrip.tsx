@@ -2,7 +2,7 @@ import ShopLink from "./ShopLink";
 import Image from "next/image";
 import { stripCategories, type HomeCategory } from "@/lib/eshop/homeNav";
 
-// Pruh kategorií s kreslenými ikonami — od 14. 11. 2026 nahoře pod hlavičkou, nad hero.
+// Pruh kategorií s kreslenými ikonami pod hero (úvodní stránka).
 // Na počítači kompaktní, aby byl vidět hned po otevření stránky (spolu s hero).
 // Ikony na počítači poloviční (decentní pruh, 14. 11. 2026).
 // Všech šest vždy v jedné řadě (Lucie 14. 11. 2026): na mobilu menší ikony a popisky.
