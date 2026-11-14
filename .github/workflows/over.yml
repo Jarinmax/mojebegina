@@ -1,0 +1,13 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -o h.html https://begina.cz/
+          python3 - <<'PY'
+          s=open('h.html',encoding='utf-8').read()
+          h=s[:s.find('</header>')]
+          print('v hlavicce', h.count('href="/partnersky-program"'), 'MENU_OK' if 'Partnerský program' in h else 'MENU_CHYBI')
+          PY
