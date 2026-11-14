@@ -142,19 +142,6 @@ export const currentMonthlyPurchase = customerOrders
 
 // --- Obecná marketingová data (nejsou vázaná na konkrétního zákazníka) --
 
-export const mockPerks = [
-  {
-    id: 2,
-    title: "Dárek k nákupu nad 990 Kč",
-    subtitle: "platí do 15. 10. 2026",
-  },
-  {
-    id: 3,
-    title: "Předobjednávka nové příchutě",
-    subtitle: "platí do 1. 11. 2026",
-  },
-];
-
 // "Doporučte Beginu" je záměrně mimo quickLinks i bottomNavItems —
 // referral program zatím nemá schválená obchodní pravidla, obrazovka
 // dashboard/app/doporucit zůstává v kódu, ale bez odkazu z hlavní navigace.
