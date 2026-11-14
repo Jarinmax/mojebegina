@@ -9,7 +9,7 @@ import ReorderCard from "@/components/ReorderCard";
 import QuickLinksList from "@/components/QuickLinksList";
 import BottomNav from "@/components/BottomNav";
 import NoOrganizationNotice from "@/components/NoOrganizationNotice";
-import { mockPerks, quickLinks, bottomNavItems } from "@/mock/customer";
+import { quickLinks, bottomNavItems } from "@/mock/customer";
 import { partnerTiers } from "@/mock/partnerProgram";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import { capitalizeFirst } from "@/lib/format";
@@ -113,7 +113,7 @@ export default async function Page() {
           tiers={partnerTiers}
           href="/partnersky-program"
         />
-        <PerksCarousel perks={[partnerPerk, ...mockPerks]} />
+        <PerksCarousel perks={[partnerPerk]} />
         {lastOrder && (
           <ReorderCard summary={lastOrder.products} href={`/objednat-znovu/${lastOrder.id}`} />
         )}
