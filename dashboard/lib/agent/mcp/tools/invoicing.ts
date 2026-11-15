@@ -37,6 +37,7 @@ import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
 import { emailConfig, resolveRecipients, invoiceCopyRecipients, invoiceEmailSender } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
+import { PARTNER_EMAIL_SIGNATURE } from "@/lib/eshop/partnerMonthly";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
 import type { InvoicePdfFile } from "@/lib/idoklad-read/service";
@@ -329,10 +330,14 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       const test = config.testRecipients !== null;
       const invoiceNumber = pdf.invoice.number;
       const intro = message?.trim() || "Dobrý den,";
-      const body = `V příloze posíláme fakturu č. ${invoiceNumber}.`;
+      // Vlastní průvodní text, který už číslo faktury zmiňuje, se neopakuje větou o příloze.
+      const body = intro.includes(invoiceNumber) ? "" : `V příloze posíláme fakturu č. ${invoiceNumber}.`;
       const testNote = test && resolved.withheld.length ? `\n\n[TEST] Určeno pro: ${resolved.withheld.join(", ")}` : "";
-      const text = `${intro}\n\n${body}\n\nS pozdravem\nBegina${testNote}`;
-      const html = `<p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p><p>${escapeHtml(body)}</p><p>S pozdravem<br>Begina</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
+      // Podpis jako v poště info@begina.cz (Lucie 15. 11. 2026).
+      const [team, ...contacts] = PARTNER_EMAIL_SIGNATURE;
+      const text = `${intro}\n\n${body ? `${body}\n\n` : ""}S přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}${testNote}`;
+      const paragraphs = intro.split(/\n{2,}/).map((part) => `<p>${escapeHtml(part).replace(/\n/g, "<br>")}</p>`).join("");
+      const html = `${paragraphs}${body ? `<p>${escapeHtml(body)}</p>` : ""}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(team)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
       const key = createHash("sha256").update(`${pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
       // odesílatel info@begina.cz, skrytá kopie Begině (info@begina.cz)
       const sender = invoiceEmailSender(config);
