@@ -441,7 +441,7 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     });
   });
 
-  it("od 1. 12. 2026 automatická partnerská sleva končí (nahrazují ji měsíční kódy po schválení)", async () => {
+  it("od 1. 12. 2026 se partnerská sleva řídí schváleným vyhodnocením — bez něj ji e-shop nenabídne", async () => {
     const { loadCouponContext } = await import("../couponsServer");
     const { PARTNER_CODE } = await import("../coupons");
     const december = new Date("2026-12-02T12:00:00Z");

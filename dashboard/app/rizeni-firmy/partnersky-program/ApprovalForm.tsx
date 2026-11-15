@@ -13,7 +13,6 @@ export type ApprovalRow = {
   tierLabel: string;
   /** null = individuální dohoda */
   percent: number | null;
-  code: string | null;
   individual: number | null;
   salutation: string;
   optedOut: boolean;
@@ -47,7 +46,7 @@ export default function ApprovalForm({ month, rows }: { month: string; rows: App
                 <th className="py-2 pr-3 text-right">Objednávek</th>
                 <th className="py-2 pr-3 text-right">S dopravou</th>
                 <th className="py-2 pr-3 text-right">Zboží bez dopravy</th>
-                <th className="py-2 pr-3">Úroveň a kód</th>
+                <th className="py-2 pr-3">Sleva na další měsíc</th>
                 <th className="py-2">Oslovení v e-mailu</th>
               </tr>
             </thead>
@@ -58,7 +57,7 @@ export default function ApprovalForm({ month, rows }: { month: string; rows: App
                   <td className="py-2 pr-3">
                     <div className="font-medium">{row.name}</div>
                     <div className="text-neutral-500">{row.emails.join(", ") || "bez e-mailu"}</div>
-                    {row.optedOut && <div className="text-amber-700">odhlášen z e-mailů — kód dostane, e-mail ne</div>}
+                    {row.optedOut && <div className="text-amber-700">odhlášen z e-mailů — slevu má, e-mail nedostane</div>}
                     {row.sent && <div className="text-green-700">e-mail odeslán</div>}
                   </td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.orders}</td>
@@ -78,9 +77,7 @@ export default function ApprovalForm({ month, rows }: { month: string; rows: App
                         <span>%</span>
                       </label>
                     ) : row.percent > 0 ? (
-                      <span>
-                        {row.tierLabel} · <strong>{row.code}</strong>
-                      </span>
+                      <strong>{row.tierLabel}</strong>
                     ) : (
                       <span className="text-neutral-500">bez slevy</span>
                     )}

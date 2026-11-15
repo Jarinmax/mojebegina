@@ -5,6 +5,7 @@ import { and, eq, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { PARTNER_CODE, type Coupon, type CouponDiscountType, type CouponUsage } from "./coupons";
+import { PARTNER_ENTITLEMENT_PREFIX } from "./partnerMonthly";
 import type { CouponContext } from "./checkout";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -57,9 +58,9 @@ function isMissingTable(error: unknown): boolean {
 // Partnerský program (Lucie 15. 11. 2026): do úrovně se počítají JEN objednávky
 // z e-shopu; faktury z iDokladu mimo e-shop ne (podmínka programu na webu).
 const COUNT_IDOKLAD_INVOICES: boolean = false;
-// Od 1. 12. 2026 platí měsíční kódy (PROSINEC5…) zakládané po schválení
-// (partnerMonthlyServer.ts) — automatická sleva podle e-mailu i náhrada za
-// kupony ze starého e-shopu tím končí, aby se sleva nesčítala dvakrát.
+// Od 1. 12. 2026 se partnerská sleva v pokladně („Uplatnit“) řídí schváleným
+// měsíčním vyhodnocením (partnerMonthlyServer.ts): e-shop ji nabídne jen
+// e-mailům, kterým ji vyhodnocení přiznalo — už si ji nepočítá sám.
 export const MONTHLY_PARTNER_CODES_FROM = new Date("2026-11-30T23:00:00Z");
 
 export async function loadCouponContext<T extends PgQueryResultHKT>(
@@ -77,9 +78,11 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
   let partnerByEmail: Coupon | null | undefined;
   const partnerForEmail = async () => {
     if (partnerByEmail === undefined) {
-      partnerByEmail = options.email && now < MONTHLY_PARTNER_CODES_FROM
-        ? await emailPartnerCoupon(db, options.email, now, options.partnerInvoices ?? idokladInvoices)
-        : null;
+      partnerByEmail = !options.email
+        ? null
+        : now < MONTHLY_PARTNER_CODES_FROM
+          ? await emailPartnerCoupon(db, options.email, now, options.partnerInvoices ?? idokladInvoices)
+          : await approvedPartnerCoupon(db, options.email, now);
     }
     return partnerByEmail;
   };
@@ -91,7 +94,8 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
     }
   }
   const requested = codes;
-  codes = codes.filter((code) => code !== PARTNER_CODE);
+  // vnitřní řádky s nárokem (partner-RRRR-MM-…) nejdou zadat jako kód
+  codes = codes.filter((code) => code !== PARTNER_CODE && !code.startsWith(PARTNER_ENTITLEMENT_PREFIX));
   if (codes.length === 0) return { coupons, usage, now };
 
   // Kupony ze starého e-shopu (WooCommerce) nový e-shop nezná. Byly to
@@ -258,6 +262,51 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
   }
   await resolveLegacy();
   return { coupons, usage, now };
+}
+
+/**
+ * Partnerská sleva ze schváleného měsíčního vyhodnocení: aktivní vnitřní
+ * řádek „partner-RRRR-MM-procento“ pro tento měsíc, který má e-mail mezi
+ * povolenými. null = e-mail na slevu tento měsíc nárok nemá.
+ */
+async function approvedPartnerCoupon<T extends PgQueryResultHKT>(db: PgDatabase<T, typeof schema> | Db, rawEmail: string, now: Date): Promise<Coupon | null> {
+  const email = rawEmail.trim().toLowerCase();
+  let rows: { amount: string; emails: string[]; expiresAt: Date | null }[];
+  try {
+    rows = await db
+      .select({ amount: eshopCoupons.amount, emails: eshopCoupons.emailRestrictions, expiresAt: eshopCoupons.expiresAt })
+      .from(eshopCoupons)
+      .where(and(eq(eshopCoupons.isActive, true), sql`${eshopCoupons.code} LIKE ${`partner-${pragueMonthKey(now)}-%`}`));
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+    return null;
+  }
+  const percent = Math.max(
+    0,
+    ...rows.filter((row) => (!row.expiresAt || row.expiresAt > now) && row.emails.map((e) => e.toLowerCase()).includes(email)).map((row) => Number(row.amount))
+  );
+  if (percent <= 0) return null;
+  return {
+    code: PARTNER_CODE,
+    discountType: "partner",
+    amount: percent,
+    freeShipping: false,
+    expiresAt: null,
+    minimumAmountKc: null,
+    maximumAmountKc: null,
+    individualUse: false,
+    productSlugs: [],
+    excludedProductSlugs: [],
+    categorySlugs: [],
+    excludedCategorySlugs: [],
+    emailRestrictions: [],
+    usageLimit: null,
+    usageLimitPerUser: null,
+    limitUsageToXItems: null,
+    partnerLastMonthKc: null,
+    partnerName: null,
+    partnerFixedPercent: percent,
+  };
 }
 
 /**

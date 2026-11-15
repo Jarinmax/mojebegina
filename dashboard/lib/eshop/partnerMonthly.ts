@@ -4,8 +4,9 @@
 //   • počítají se JEN objednávky z e-shopu uhrazené v daném kalendářním měsíci,
 //     hodnota zboží po slevě, bez dopravy; faktury mimo e-shop se nepočítají,
 //   • jeden klient = firma podle IČO z objednávky; kde IČO není, podle e-mailu,
-//   • sleva platí celý následující měsíc, kód = MĚSÍC + procento (PROSINEC5),
-//     bez háčků a čárek, jen pro e-maily daného klienta,
+//   • sleva platí celý následující měsíc; klient žádný kód nepíše — v pokladně
+//     zadá svůj e-mail a klikne na „Uplatnit“ (Lucie 15. 11. 2026). Nárok se
+//     drží ve vnitřním řádku eshop_coupons „partner-RRRR-MM-procento“,
 //   • nad 20 000 Kč je sleva individuální — procento určuje Lucie při schválení,
 //   • klientům nic neodejde bez schválení (viz partnerMonthlyServer.ts).
 import { partnerTiers } from "@/mock/partnerProgram";
@@ -36,7 +37,6 @@ export type PartnerClient = {
   percent: number | null;
 };
 
-const MONTH_CODES = ["LEDEN", "UNOR", "BREZEN", "DUBEN", "KVETEN", "CERVEN", "CERVENEC", "SRPEN", "ZARI", "RIJEN", "LISTOPAD", "PROSINEC"];
 const MONTH_NOMINATIVE = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
 const MONTH_GENITIVE = ["ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince"];
 const MONTH_LOCATIVE = ["lednu", "únoru", "březnu", "dubnu", "květnu", "červnu", "červenci", "srpnu", "září", "říjnu", "listopadu", "prosinci"];
@@ -68,9 +68,12 @@ export function monthName(ym: YearMonth, form: "nominative" | "genitive" | "loca
   return table[ym.month - 1];
 }
 
-/** Kód na měsíc platnosti: PROSINEC5, BREZEN3 (bez diakritiky). */
-export function partnerCode(validMonth: YearMonth, percent: number): string {
-  return `${MONTH_CODES[validMonth.month - 1]}${formatPercent(percent).replace(",", "")}`;
+/** Začátek vnitřních řádků s nárokem na partnerskou slevu — v pokladně je nejde zadat jako kód. */
+export const PARTNER_ENTITLEMENT_PREFIX = "partner-20";
+
+/** Vnitřní řádek s nárokem: partner-2026-12-5 (měsíc platnosti a procento). */
+export function partnerEntitlementCode(validMonth: YearMonth, percent: number): string {
+  return `partner-${monthKey(validMonth)}-${formatPercent(percent).replace(",", "_")}`;
 }
 
 function formatPercent(percent: number): string {
@@ -151,13 +154,12 @@ export function buildPartnerEmail(input: {
   percent: number;
 }): PartnerEmail {
   const valid = addMonths(input.evaluatedMonth, 1);
-  const code = partnerCode(valid, input.percent);
   const salutation = clean(input.salutation);
   const greeting = salutation ? `Dobrý den, ${salutation},` : "Dobrý den,";
   const percent = `${formatPercent(input.percent)} %`;
   const paragraphs = [
     `děkujeme za Vaše objednávky v e-shopu Begina v ${monthName(input.evaluatedMonth, "locative")}. Za zboží jste nakoupili celkem ${formatKc(input.goodsKc)}, a tím jste dosáhli partnerské úrovně se slevou ${percent}.`,
-    `Sleva platí na všechny objednávky v e-shopu od 1. do ${daysInMonth(valid)}. ${monthName(valid, "genitive")}. V pokladně zadejte slevový kód ${code}. Kód je vázaný na Váš e-mail.`,
+    `Sleva platí na všechny objednávky v e-shopu od 1. do ${daysInMonth(valid)}. ${monthName(valid, "genitive")}. Žádný kód nepotřebujete: v pokladně zadejte tento e-mail a u partnerské slevy klikněte na „Uplatnit“.`,
     `Jak partnerský program funguje: ${PARTNER_PROGRAM_URL}`,
   ];
   const optOut = "Pokud si nepřejete dostávat informace o partnerském programu, odpovězte na tento e-mail slovem NE.";
@@ -166,7 +168,7 @@ export function buildPartnerEmail(input: {
   const html = [
     `<p>${escapeHtml(greeting)}</p>`,
     `<p>${escapeHtml(paragraphs[0]).replace(escapeHtml(percent), `<strong>${escapeHtml(percent)}</strong>`)}</p>`,
-    `<p>${escapeHtml(paragraphs[1]).replace(code, `<strong>${code}</strong>`)}</p>`,
+    `<p>${escapeHtml(paragraphs[1])}</p>`,
     `<p>Jak partnerský program funguje: <a href="${PARTNER_PROGRAM_URL}">begina.cz/partnersky-program</a></p>`,
     `<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(PARTNER_EMAIL_SIGNATURE[0])}</strong><br>${PARTNER_EMAIL_SIGNATURE.slice(1).map(escapeHtml).join("<br>")}</p>`,
     `<p style="color:#666;font-size:13px">${escapeHtml(PARTNER_EMAIL_SENDER)}<br>${escapeHtml(optOut)}</p>`,
@@ -184,14 +186,14 @@ export function buildPartnerReport(input: {
   const valid = addMonths(input.evaluatedMonth, 1);
   const title = `Partnerský program: ${monthName(input.evaluatedMonth)} ${input.evaluatedMonth.year}${input.preliminary ? " (průběžný stav)" : ""}`;
   const describe = (client: PartnerClient): string =>
-    client.percent === null ? "individuální dohoda — určete procento" : client.percent > 0 ? `${formatPercent(client.percent)} % · ${partnerCode(valid, client.percent)}` : "bez slevy";
+    client.percent === null ? "individuální dohoda — určete procento" : client.percent > 0 ? `sleva ${formatPercent(client.percent)} %` : "bez slevy";
   const lines = input.clients.map(
     (c, i) => `${i + 1}. ${c.name} (${c.emails.join(", ") || "bez e-mailu"}) — objednávek ${c.orders}, s dopravou ${formatKc(c.totalKc)}, zboží ${formatKc(c.goodsKc)} → ${describe(c)}`
   );
   const withDiscount = input.clients.filter((c) => c.percent === null || c.percent > 0).length;
   const intro = [
     `Nákupy přes e-shop uhrazené v ${monthName(input.evaluatedMonth, "locative")} ${input.evaluatedMonth.year}. Klientů: ${input.clients.length}, z toho se slevou na ${monthName(valid)}: ${withDiscount}.`,
-    `Klientům zatím nic neodešlo. E-maily s kódy odejdou po půlnoci jen po schválení: ${input.approvalUrl}`,
+    `Klientům zatím nic neodešlo. Slevy se zapnou a e-maily odejdou po půlnoci jen po schválení: ${input.approvalUrl}`,
   ];
   const text = [title, "", ...intro, "", ...(lines.length ? lines : ["Žádné uhrazené objednávky z e-shopu."])].join("\n");
   const rows = input.clients
@@ -203,7 +205,7 @@ export function buildPartnerReport(input: {
   const html = [
     `<h2>${escapeHtml(title)}</h2>`,
     `<p>${escapeHtml(intro[0])}</p>`,
-    `<p>Klientům zatím nic neodešlo. E-maily s kódy odejdou po půlnoci jen po schválení: <a href="${input.approvalUrl}">schválit v MojeBegina</a></p>`,
+    `<p>Klientům zatím nic neodešlo. Slevy se zapnou a e-maily odejdou po půlnoci jen po schválení: <a href="${input.approvalUrl}">schválit v MojeBegina</a></p>`,
     lines.length
       ? `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse"><tr><th>#</th><th>Zákazník</th><th>Objednávek</th><th>S dopravou</th><th>Zboží bez dopravy</th><th>Úroveň na ${escapeHtml(monthName(valid))}</th></tr>${rows}</table>`
       : "<p>Žádné uhrazené objednávky z e-shopu.</p>",

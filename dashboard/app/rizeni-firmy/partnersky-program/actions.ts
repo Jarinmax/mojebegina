@@ -44,10 +44,10 @@ export async function approvePartnerMonthAction(_prev: PartnerActionState, formD
   if (monthKey(addMonths(evaluatedMonth, 1)) === monthKey(today)) {
     const result = await finalizePartnerMonth(db, now);
     return {
-      success: `Schváleno. Kódy: ${result.codes.join(", ") || "žádné"}. E-mail odešel: ${result.emailed.join(", ") || "nikomu novému"}.${result.failed.length ? ` Nepodařilo se: ${result.failed.join(", ")}.` : ""}`,
+      success: `Schváleno. Zapnuté slevy: ${result.codes.join(", ") || "žádné"}. E-mail odešel: ${result.emailed.join(", ") || "nikomu novému"}.${result.failed.length ? ` Nepodařilo se: ${result.failed.join(", ")}.` : ""}`,
     };
   }
-  return { success: "Schváleno. E-maily s kódy odejdou klientům po půlnoci prvního dne měsíce." };
+  return { success: "Schváleno. Slevy se zapnou a e-maily klientům odejdou po půlnoci prvního dne měsíce." };
 }
 
 export async function addPartnerOptOutAction(_prev: PartnerActionState, formData: FormData): Promise<PartnerActionState> {
