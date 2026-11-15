@@ -8,6 +8,7 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { isCeoFocusAllowed } from "@/lib/data/ceoFocusAuth";
 import { agentConfig } from "@/lib/agent/config";
 import { hasAnySkladAccess } from "@/lib/data/skladAuth";
+import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import CompanyMap from "@/components/company-overview/CompanyMap";
 import CompanyAreaAccordion from "@/components/company-overview/CompanyAreaAccordion";
 import FlowSteps from "@/components/company-overview/FlowSteps";
@@ -63,6 +64,8 @@ export default async function CompanyOverviewPage() {
   // tohle je jen podmíněné zobrazení odkazu, aby se k focení dalo dostat
   // z mobilu jedním tapem bez ručního psaní URL (externí revize, bod 6).
   const showSklad = hasAnySkladAccess(ctx);
+  // Ekonomika (příjmy, náklady) — jen Jaroslav a Lucie.
+  const showEkonomika = isInvoiceIssuer(ctx);
 
   return (
     <div>
@@ -104,6 +107,23 @@ export default async function CompanyOverviewPage() {
         </div>
         <OrderSummaryTiles counts={orderCounts} />
       </div>
+
+      {showEkonomika && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-begina-primary-900">Ekonomika</h2>
+            <Link href="/rizeni-firmy/ekonomika" className="text-sm font-medium text-begina-primary-900 hover:underline">
+              Příjmy a náklady →
+            </Link>
+          </div>
+          <Link
+            href="/rizeni-firmy/ekonomika"
+            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
+          >
+            Měsíční přehled, zápis nákladu nebo příjmu
+          </Link>
+        </div>
+      )}
 
       {showSklad && (
         <div className="mb-6">
