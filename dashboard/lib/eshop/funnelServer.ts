@@ -30,3 +30,10 @@ export async function loadFunnelDays(days: number): Promise<FunnelDay[] | null> 
     counts: { ...row.steps, order: Number(row.orders), paid: Number(row.paid) },
   }));
 }
+
+/** Týdenní report: posledních 7 ukončených dní a 7 dní před nimi (bez dneška). */
+export async function loadFunnelWeeks(): Promise<{ week: FunnelDay[]; previous: FunnelDay[] } | null> {
+  const days = await loadFunnelDays(15);
+  if (days === null) return null;
+  return { week: days.slice(1, 8), previous: days.slice(8, 15) };
+}
