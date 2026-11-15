@@ -22,7 +22,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
             >
               {/* Všechny ikony mají stejné plátno (stejná zem i výška), takže
                   je stačí zobrazit ve stejné výšce — optická velikost sedí. */}
-              <span className="h-9 sm:h-12 lg:h-10 flex items-end">
+              <span className="h-11 sm:h-12 lg:h-10 flex items-end">
                 <Image
                   src={category.icon}
                   alt=""
@@ -32,7 +32,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
                   className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
-              <span className="text-[11px] leading-tight sm:text-base sm:leading-[1.35] font-medium text-[#4F5B2B] group-hover:underline underline-offset-4">
+              <span className="text-xs leading-tight sm:text-base sm:leading-[1.35] font-medium text-[#4F5B2B] group-hover:underline underline-offset-4">
                 {/* mobil: šest sloupců je úzkých, dlouhý popisek koktejlů by se lámal na tři řádky */}
                 {category.slug === "koktejly" ? (
                   <>
