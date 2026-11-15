@@ -432,3 +432,15 @@ describe("e-maily — odesílatel faktur", () => {
     expect(invoiceEmailSender({ from: "Begina <objednavky@begina.cz.evil.example>", replyTo: null }).from).toBe("Begina <objednavky@begina.cz.evil.example>");
   });
 });
+
+describe("potvrzení objednávky: představení partnerského programu novým zákazníkům", () => {
+  it("jen když jde o první objednávku (partnerIntro), s odkazem na stránku programu", () => {
+    const withIntro = customerOrderEmail(ORDER, { ...CTX, transfer: null, qrContentId: null, partnerIntro: true });
+    expect(withIntro.text).toContain("Rádi bychom Vám představili náš partnerský program");
+    expect(withIntro.text).toContain("/partnersky-program");
+    expect(withIntro.html).toContain("/partnersky-program");
+    const without = customerOrderEmail(ORDER, { ...CTX, transfer: null, qrContentId: null });
+    expect(without.text).not.toContain("partnerský program");
+    expect(without.html).not.toContain("partnersky-program");
+  });
+});

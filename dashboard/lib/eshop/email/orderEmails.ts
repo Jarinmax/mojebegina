@@ -72,6 +72,7 @@ import type { InvoicePdf } from "../invoicing/issue";
 import { termsPdfPath, termsVersionForOrder, type TermsVersion } from "../content/termsVersions";
 import { termsPdf as defaultTermsPdf, type TermsPdf } from "../legal/termsPdf";
 import { displayItemName } from "../packageLabel";
+import { isNewEshopCustomer } from "../partnerMonthlyServer";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -336,7 +337,10 @@ export async function sendOrderEmails(
             attached: termsRecord !== null,
           };
         }
-        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber, terms });
+        // Nový zákazník e-shopu (první objednávka na tento e-mail), který si v pokladně
+        // neodmítl obchodní sdělení, dostane v potvrzení i představení partnerského programu.
+        const partnerIntro = order.channel === "eshop" && order.contactEmail ? await isNewEshopCustomer(db, orderId, order.contactEmail) : false;
+        rendered = customerOrderEmail(order, { ...ctx, transfer, qrContentId: qr ? qr.contentId : null, invoiceNumber, terms, partnerIntro });
       } else if (template === "customer_replacement") {
         // Platební údaje a QR jen na doplatek (zbytek po převedené platbě).
         const receivedHal = options.replacement?.receivedHal ?? 0;
