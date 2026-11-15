@@ -139,6 +139,11 @@ export const orders = pgTable("orders", {
   // (bez IČO — žádné falešné organizace). Ruční objednávka organizaci mít
   // musí dál a objednávka bez organizace musí mít e-mail (CHECKy níže).
   buyerOrganizationId: uuid("buyer_organization_id").references(() => organizations.id),
+  // Jardova karta (audit 15. 11. 2026): objednávka soukromé osoby (bez IČO,
+  // tedy bez organizace) přiřazená ke kontaktu, ze kterého vzešla. Firmy se
+  // ke kontaktu váží přes leads.converted_organization_id; tohle je obdoba
+  // pro objednávky bez organizace. NULL = bez vazby na kontakt.
+  sourceLeadId: uuid("source_lead_id").references((): AnyPgColumn => leads.id),
   placedByUserId: text("placed_by_user_id"),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
@@ -210,6 +215,7 @@ export const orders = pgTable("orders", {
   recipientCompany: text("recipient_company"),
   deliverySameAsBilling: boolean("delivery_same_as_billing"),
 }, (table) => [
+  index("orders_source_lead_idx").on(table.sourceLeadId),
   uniqueIndex("orders_order_number_key").on(table.orderNumber),
   // jedna objednávka z WooCommerce = nejvýš jeden záznam (migrace 0022)
   uniqueIndex("orders_external_woocommerce_id_key").on(table.externalWooCommerceId),

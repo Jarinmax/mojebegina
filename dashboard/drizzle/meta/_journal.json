@@ -281,6 +281,13 @@
       "when": 1794561333914,
       "tag": "0039_denni_volani_1_1_historie",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794756685128,
+      "tag": "0040_jarda_karta_zdroj_objednavky",
+      "breakpoints": true
     }
   ]
 }
