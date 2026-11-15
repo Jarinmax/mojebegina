@@ -18,6 +18,7 @@ import { shippingModeFromEnv, zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipp
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
 import { parseCouponCodes } from "@/lib/eshop/coupons";
 import { loadCouponContext } from "@/lib/eshop/couponsServer";
+import { addPartnerOptOut } from "@/lib/eshop/partnerMonthlyServer";
 import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
 import { eshopBase } from "@/lib/eshop/siteServer";
 import { isOrderWriteEnabled, parseOrderToken, saveEshopOrder } from "@/lib/eshop/orderWrite";
@@ -159,6 +160,11 @@ export async function submitCheckoutAction(
     const saved = await saveEshopOrder(db, orderId, result.value, { metaConsent });
     if (!saved.ok) {
       return { error: saved.error };
+    }
+    // Zákazník si v pokladně nepřeje obchodní sdělení (partnerský program) —
+    // možnost odmítnout už při získání e-mailu vyžaduje § 7 zákona č. 480/2004 Sb.
+    if (formData.get("noPartnerEmails") === "on") {
+      await addPartnerOptOut(db, result.value.email).catch((error) => console.error("Pokladna: odhlášení obchodních sdělení se nepodařilo uložit", error));
     }
     const baseUrl = await currentBaseUrl();
     if (result.value.payment.id === CARD_PAYMENT_METHOD && stripe) {

@@ -54,6 +54,14 @@ function isMissingTable(error: unknown): boolean {
   return false;
 }
 
+// Partnerský program (Lucie 15. 11. 2026): do úrovně se počítají JEN objednávky
+// z e-shopu; faktury z iDokladu mimo e-shop ne (podmínka programu na webu).
+const COUNT_IDOKLAD_INVOICES: boolean = false;
+// Od 1. 12. 2026 platí měsíční kódy (PROSINEC5…) zakládané po schválení
+// (partnerMonthlyServer.ts) — automatická sleva podle e-mailu i náhrada za
+// kupony ze starého e-shopu tím končí, aby se sleva nesčítala dvakrát.
+export const MONTHLY_PARTNER_CODES_FROM = new Date("2026-11-30T23:00:00Z");
+
 export async function loadCouponContext<T extends PgQueryResultHKT>(
   db: PgDatabase<T, typeof schema> | Db,
   codes: string[],
@@ -69,7 +77,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
   let partnerByEmail: Coupon | null | undefined;
   const partnerForEmail = async () => {
     if (partnerByEmail === undefined) {
-      partnerByEmail = options.email
+      partnerByEmail = options.email && now < MONTHLY_PARTNER_CODES_FROM
         ? await emailPartnerCoupon(db, options.email, now, options.partnerInvoices ?? idokladInvoices)
         : null;
     }
@@ -171,6 +179,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
       .leftJoin(invoices, eq(invoices.orderId, orders.id))
       .where(
         and(
+          eq(orders.channel, "eshop"),
           eq(orders.paymentStatus, "paid"),
           ne(orders.fulfillmentStatus, "cancelled"),
           gte(orders.orderedAt, from),
@@ -200,7 +209,7 @@ export async function loadCouponContext<T extends PgQueryResultHKT>(
     // dvakrát.
     const monthKey = pragueMonthKey(from);
     const loadInvoices = options.partnerInvoices ?? idokladInvoices;
-    for (const org of names) {
+    for (const org of COUNT_IDOKLAD_INVOICES ? names : []) {
       try {
         for (const invoice of await loadInvoices(org.ico)) {
           if (invoice.monthKey !== monthKey || !invoice.paid || localInvoiceNumbers.has(invoice.invoiceNumber)) continue;
@@ -295,6 +304,7 @@ async function emailPartnerCoupon<T extends PgQueryResultHKT>(
     .leftJoin(invoices, eq(invoices.orderId, orders.id))
     .where(
       and(
+        eq(orders.channel, "eshop"),
         eq(orders.paymentStatus, "paid"),
         ne(orders.fulfillmentStatus, "cancelled"),
         gte(orders.orderedAt, from),
@@ -314,7 +324,7 @@ async function emailPartnerCoupon<T extends PgQueryResultHKT>(
     total += Number(row.goodsKc);
   }
   const monthKey = pragueMonthKey(from);
-  for (const ico of icos) {
+  for (const ico of COUNT_IDOKLAD_INVOICES ? icos : []) {
     try {
       for (const invoice of await loadInvoices(ico)) {
         if (invoice.monthKey !== monthKey || !invoice.paid || counted.has(invoice.invoiceNumber)) continue;

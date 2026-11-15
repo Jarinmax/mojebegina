@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/daily-call-reminders",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/partner-program?beh=vecer",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/partner-program?beh=pulnoc",
+      "schedule": "5 23 * * *"
     }
   ]
 }

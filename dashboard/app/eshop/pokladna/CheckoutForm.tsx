@@ -888,6 +888,12 @@ export default function CheckoutForm({
           </span>
         </label>
 
+        {/* Možnost odmítnout obchodní sdělení už při objednávce (zákon č. 480/2004 Sb., § 7 odst. 3). */}
+        <label className="mt-2 flex items-start gap-2 text-xs text-neutral-600">
+          <input type="checkbox" name="noPartnerEmails" className="mt-0.5 accent-begina-primary-900" />
+          <span>Nepřeji si dostávat e-mailem informace o partnerském programu a nabídky Beginy.</span>
+        </label>
+
         {blockedLines.length > 0 && (
           <p className="mt-4 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2" role="alert">
             {blockedLines.map((line) => line.product.name).join(", ")}: {NOT_ORDERABLE_NOTICE} Upravte prosím košík.
