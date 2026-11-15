@@ -4,8 +4,8 @@ import { useActionState, useState } from "react";
 import { PAYMENT_FORMS, type EconomyKind } from "@/lib/ekonomika/economy";
 import { addEconomyEntryAction, type EconomyActionState } from "./actions";
 
-const input = "w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white";
-const label = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
+const input = "w-full min-w-0 box-border appearance-none rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white text-neutral-900 min-h-10";
+const label = "flex flex-col gap-1 min-w-0 text-xs font-medium text-neutral-600";
 
 export default function EntryForm({ today, initialKind }: { today: string; initialKind: EconomyKind }) {
   const [state, action, pending] = useActionState<EconomyActionState, FormData>(addEconomyEntryAction, null);

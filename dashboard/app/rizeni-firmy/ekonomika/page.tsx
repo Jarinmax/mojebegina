@@ -76,7 +76,7 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
 
   if (!(await economyTableExists())) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 py-8 text-neutral-900">
         <h1 className="text-2xl font-semibold">Ekonomika</h1>
         <p className="mt-3 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Tabulka pro příjmy a náklady v databázi ještě není. Spusťte v Neonu skript 114_ekonomika_MAIN.</p>
       </div>
@@ -101,7 +101,7 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
   const differenceTone = (hal: number) => (hal < 0 ? "text-red-700" : "text-green-800");
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
+    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6 text-neutral-900">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Ekonomika {year}</h1>
