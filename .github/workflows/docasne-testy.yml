@@ -10,5 +10,5 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci
       - run: npx next typegen && npx tsc --noEmit
-      - run: npx eslint lib/eshop/partnerMonthly.ts lib/eshop/partnerMonthlyServer.ts lib/eshop/couponsServer.ts app/rizeni-firmy/partnersky-program app/api/cron/partner-program app/eshop/pokladna
+      - run: npx eslint lib/eshop/partnerMonthly.ts lib/eshop/partnerMonthlyServer.ts lib/eshop/couponsServer.ts app/rizeni-firmy/partnersky-program app/api/cron/partner-program app/eshop/pokladna/actions.ts
       - run: npx vitest run lib/eshop/__tests__/partnerMonthly.test.ts lib/eshop/__tests__/coupons.test.ts lib/site
