@@ -5,6 +5,7 @@ import { canViewJardaRewards, getJardaRewardsView } from "@/lib/data/jardaReward
 import { CONTRACT, EXCLUSION_LABEL, REWARD_TYPE_LABEL } from "@/lib/data/jardaRewardsValidation";
 import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
 import PayoutForm from "./PayoutForm";
+import { confirmProposalAction, rejectProposalAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -99,9 +100,42 @@ export default async function JardaOdmenyPage() {
         ))}
       </section>
 
+      {view.proposals.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">
+            {view.isManager ? "Návrhy od Jardy ke schválení" : "Moje návrhy — čekají na potvrzení"} ({view.proposals.length})
+          </h2>
+          <p className="text-xs text-neutral-500">Sazby určuje dohoda. Odměna se počítá až z typu zákazníka potvrzeného vedením.</p>
+          {view.proposals.map((p) => (
+            <div key={p.leadId} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm flex flex-col gap-2">
+              <Link href={leadHref(p.leadId)} className="flex justify-between gap-2 text-begina-primary-900">
+                <span className="font-medium">{p.displayName}</span>
+                <span className="text-xs text-neutral-600 shrink-0">navrženo {pragueDateLabel(p.proposedAt)}</span>
+              </Link>
+              <p className="text-xs text-neutral-700">
+                {REWARD_TYPE_LABEL[p.type]}
+                {p.upsellProducts.length > 0 ? ` — ${p.upsellProducts.join(", ")}` : ""}
+                {p.note ? ` · ${p.note}` : ""}
+                {p.hasOrders ? " · už nakoupil" : ""}
+              </p>
+              {view.isManager && (
+                <div className="flex gap-2">
+                  <form action={confirmProposalAction.bind(null, p.leadId)}>
+                    <button type="submit" className="min-h-11 rounded-lg bg-begina-primary-900 px-4 text-sm font-medium text-begina-primary-50">Potvrdit</button>
+                  </form>
+                  <form action={rejectProposalAction.bind(null, p.leadId)}>
+                    <button type="submit" className="min-h-11 rounded-lg border border-red-200 bg-white px-4 text-sm font-medium text-red-700">Zamítnout</button>
+                  </form>
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+
       {view.pending.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Evidovaní, zatím bez nákupu ({view.pending.length})</h2>
+          <h2 className="text-sm font-medium text-begina-primary-900">Potvrzení, zatím bez nákupu ({view.pending.length})</h2>
           {view.pending.map((p) => (
             <Link key={p.leadId} href={leadHref(p.leadId)} className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-begina-primary-900 flex justify-between">
               <span>{p.displayName}</span>

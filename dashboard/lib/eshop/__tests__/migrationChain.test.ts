@@ -64,7 +64,7 @@ const AFTER_SKLAD = [
 const CALENDAR = ["0038_google_kalendar", "0039_denni_volani_1_1_historie"];
 /** Jardova karta: vazba objednávky soukromé osoby na kontakt. */
 const EKONOMIKA = ["0040_ekonomika"];
-const JARDA_CARD = ["0041_jarda_karta_zdroj_objednavky", "0042_jarda_karta_evidence_odmenovani"];
+const JARDA_CARD = ["0041_jarda_karta_zdroj_objednavky", "0042_jarda_karta_evidence_odmenovani", "0043_jarda_karta_potvrzeni_navrhu"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 /** Index migrace 0039 (Denní volání 1.1). */
@@ -97,7 +97,7 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031, spolupracovníci 0032–0037, Google Kalendář 0038, Denní volání 1.1 0039, Ekonomika 0040 a Jardova karta 0041–0042", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031, spolupracovníci 0032–0037, Google Kalendář 0038, Denní volání 1.1 0039, Ekonomika 0040 a Jardova karta 0041–0043", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);

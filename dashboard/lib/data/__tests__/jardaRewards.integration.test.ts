@@ -62,9 +62,9 @@ describe("Jardova karta nad DB", { timeout: 120_000 }, () => {
       ('${id(103)}', '${FFC}', NULL, 11370, 1277, 0, 12647, 'paid', 'delivered', '2026-10-19T00:00:00Z', NULL, 'import', NULL, NULL, NULL),
       ('${id(104)}', NULL, NULL, 129, 0, 0, 129, 'paid', 'new', '2026-11-04T10:00:00Z', '2026-11-04T10:00:00Z', 'eshop', 70000006, '70000006', 'viner@example.cz')`);
     // stav po úklidu: rozpracované kontakty potvrzené při podpisu dohody jako Nový zákazník (bod 6)
-    await exec(`INSERT INTO seller_reward_assignments (lead_id, seller_user_id, reward_type, basis, recorded_at, recorded_by) VALUES
-      ('${L_TATIANA}', '${BLAHOUT}', 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z', '${VINER}'),
-      ('${L_MONIKA}', '${BLAHOUT}', 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z', '${VINER}')`);
+    await exec(`INSERT INTO seller_reward_assignments (lead_id, seller_user_id, reward_type, basis, recorded_at, recorded_by, confirmed_at, confirmed_by) VALUES
+      ('${L_TATIANA}', '${BLAHOUT}', 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z', '${VINER}', '2026-11-14T12:00:00Z', '${VINER}'),
+      ('${L_MONIKA}', '${BLAHOUT}', 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z', '${VINER}', '2026-11-14T12:00:00Z', '${VINER}')`);
   });
 
   it("Jarda vidí své zákazníky a odměnu podle dohody: 5 % ze zboží v prvních 6 měsících", async () => {
@@ -88,29 +88,68 @@ describe("Jardova karta nad DB", { timeout: 120_000 }, () => {
     expect(v.excluded.map((e) => [e.displayName, e.reason, e.paidGoodsKc])).toEqual([["Tomáš Herout", "no_assignment", 11370]]);
   });
 
-  it("evidence typu odměňování: Jarda zapíše, duplicitu odmítne, zrušit smí jen vedoucí", async () => {
+  it("Jarda typ zákazníka jen navrhne — nepočítá se, dokud ho vedení nepotvrdí", async () => {
     asBlahout();
     expect(await jr.getLeadRewardAssignment(L_VINER_JOKE)).toMatchObject({ visible: false });
     expect(await jr.recordRewardAssignment({ leadId: L_VINER_JOKE, type: "new", productIds: [], note: "" })).toEqual({ ok: false, error: "Kontakt nepatří prodejci." });
     expect(await jr.recordRewardAssignment({ leadId: L_NOORDER, type: "upsell", productIds: [], note: "" })).toMatchObject({ ok: false });
     expect(await jr.recordRewardAssignment({ leadId: L_NOORDER, type: "new", productIds: [], note: "kavárna" })).toEqual({ ok: true });
-    expect(await jr.recordRewardAssignment({ leadId: L_NOORDER, type: "renewed", productIds: [], note: "" })).toEqual({ ok: false, error: "Kontakt už má evidovaný typ odměňování." });
+    expect(await jr.recordRewardAssignment({ leadId: L_NOORDER, type: "renewed", productIds: [], note: "" })).toEqual({
+      ok: false,
+      error: "Kontakt už má návrh nebo potvrzený typ zákazníka.",
+    });
 
-    const panel = await jr.getLeadRewardAssignment(L_NOORDER);
-    expect(panel).toMatchObject({ visible: true, canRecord: false, canCancel: false, assignment: { type: "new", basis: "contract", note: "kavárna" } });
-    const v = await jr.getJardaRewardsView();
-    expect(v.pending.map((p) => [p.displayName, p.type])).toEqual([["Bez objednávky", "new"]]);
-    await expect(jr.cancelRewardAssignment(L_NOORDER)).rejects.toThrow();
+    // Jarda: návrh čeká, potvrdit nemůže, stáhnout ano
+    expect(await jr.getLeadRewardAssignment(L_NOORDER)).toMatchObject({
+      visible: true, isManager: false, canRecord: false, canConfirm: false, canCancel: true,
+      assignment: { type: "new", basis: "contract", note: "kavárna", confirmedAt: null },
+    });
+    let v = await jr.getJardaRewardsView();
+    expect(v.proposals.map((p) => [p.displayName, p.type, p.hasOrders])).toEqual([["Bez objednávky", "new", false]]);
+    expect(v.pending).toEqual([]);
+    await expect(jr.confirmRewardAssignment(L_NOORDER)).rejects.toThrow();
+    expect(await jr.countPendingRewardProposals()).toBe(1);
+    expect(await jr.cancelRewardAssignment(L_NOORDER)).toEqual({ ok: true }); // stažení vlastního návrhu
+    expect(await jr.recordRewardAssignment({ leadId: L_NOORDER, type: "new", productIds: [], note: "kavárna" })).toEqual({ ok: true });
 
+    // Návrh u kontaktu, který už nakoupil (Food Fest Crew) — bez potvrzení se nic nepočítá
+    expect(await jr.recordRewardAssignment({ leadId: L_HEROUT, type: "new", productIds: [], note: "" })).toEqual({ ok: true });
     asViner();
-    expect(await jr.getLeadRewardAssignment(L_NOORDER)).toMatchObject({ canCancel: true });
+    v = await jr.getJardaRewardsView();
+    expect(v.summary.earnedKc).toBe(85.75);
+    expect(v.proposals.map((p) => [p.displayName, p.hasOrders])).toEqual([["Bez objednávky", false], ["Tomáš Herout", true]]);
+    expect(v.excluded.map((e) => [e.displayName, e.reason])).toEqual([["Tomáš Herout", "not_confirmed"]]);
+    expect(await jr.getLeadRewardAssignment(L_HEROUT)).toMatchObject({ isManager: true, canConfirm: true, canCancel: true });
+
+    // Vedení: potvrdí jeden, zamítne druhý
+    expect(await jr.confirmRewardAssignment(L_NOORDER)).toEqual({ ok: true });
+    expect(await jr.confirmRewardAssignment(L_NOORDER)).toEqual({ ok: false, error: "Návrh k potvrzení nenalezen." });
+    expect(await jr.cancelRewardAssignment(L_HEROUT)).toEqual({ ok: true });
+    v = await jr.getJardaRewardsView();
+    expect(v.proposals).toEqual([]);
+    expect(v.pending.map((p) => [p.displayName, p.type])).toEqual([["Bez objednávky", "new"]]);
+    expect(v.excluded.map((e) => [e.displayName, e.reason])).toEqual([["Tomáš Herout", "no_assignment"]]);
+    expect(await jr.countPendingRewardProposals()).toBe(0);
+
+    // Potvrzený typ už Jarda stáhnout nesmí
+    asBlahout();
+    expect(await jr.getLeadRewardAssignment(L_NOORDER)).toMatchObject({ canCancel: false, canConfirm: false });
+    expect(await jr.cancelRewardAssignment(L_NOORDER)).toEqual({ ok: false, error: "Nepotvrzený návrh nenalezen." });
+
+    // Vedení zapíše typ rovnou → potvrzený hned
+    asViner();
     expect(await jr.cancelRewardAssignment(L_NOORDER)).toEqual({ ok: true });
-    expect(await jr.cancelRewardAssignment(L_NOORDER)).toEqual({ ok: false, error: "Evidence nenalezena." });
-    expect((await jr.getLeadRewardAssignment(L_NOORDER)).canRecord).toBe(true);
-    const notes = await holder_exec(`SELECT body FROM lead_activity WHERE lead_id = '${L_NOORDER}' AND kind = 'note_added' ORDER BY created_at`);
+    expect(await jr.recordRewardAssignment({ leadId: L_NOORDER, type: "renewed", productIds: [], note: "" })).toEqual({ ok: true });
+    expect((await jr.getLeadRewardAssignment(L_NOORDER)).assignment).toMatchObject({ type: "renewed", confirmedAt: expect.any(Date) });
+
+    const notes = await holder_exec(`SELECT body FROM lead_activity WHERE lead_id = '${L_NOORDER}' AND kind = 'note_added' ORDER BY created_at, id`);
     expect(notes.map((r) => r.body)).toEqual([
-      "Evidován typ odměňování prodejce: Nový zákazník — kavárna.",
-      "Zrušena evidence odměňování prodejce (Nový zákazník).",
+      "Návrh typu zákazníka podle dohody o odměňování: Nový zákazník — čeká na potvrzení vedením (kavárna).",
+      "Návrh typu zákazníka stažen (Nový zákazník).",
+      "Návrh typu zákazníka podle dohody o odměňování: Nový zákazník — čeká na potvrzení vedením (kavárna).",
+      "Vedení potvrdilo typ zákazníka podle dohody o odměňování: Nový zákazník.",
+      "Vedení zrušilo potvrzený typ zákazníka (Nový zákazník).",
+      "Typ zákazníka podle dohody o odměňování: Obnovený zákazník (zapsalo a potvrdilo vedení).",
     ]);
   });
 

@@ -3,6 +3,7 @@
 // ostatní scripts/migrate-*.mjs:
 //   1. migrace 0041: orders.source_lead_id (objednávka soukromé osoby ↔ kontakt)
 //      a 0042: seller_reward_assignments (evidence typu odměňování, bod 4 dohody),
+//      a 0043: potvrzení návrhu vedením (prodejce typ jen navrhuje),
 //   2. úklid dat v JEDNÉ transakci; každý krok je hlídaný podmínkou, takže
 //      opakované spuštění nic nezmění a nic se nemaže:
 //      a) Jardova karta spolupracovníka (kvůli evidenci výplat odměn),
@@ -105,9 +106,10 @@ export function cleanupStatements() {
     },
     // e) evidence odměňování rozpracovaných kontaktů (bod 6 dohody)
     ...[LEAD_TATIANA, LEAD_MONIKA].map((leadId) => ({
-      query: `INSERT INTO seller_reward_assignments (lead_id, seller_user_id, reward_type, basis, recorded_at, note, recorded_by)
+      query: `INSERT INTO seller_reward_assignments (lead_id, seller_user_id, reward_type, basis, recorded_at, note, recorded_by, confirmed_at, confirmed_by)
               SELECT $1::uuid, $2::text, 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z'::timestamptz,
-                     'Rozpracovaný kontakt potvrzený při podpisu dohody 14. 11. 2026 (bod 6) jako Nový zákazník.', $3::text
+                     'Rozpracovaný kontakt potvrzený při podpisu dohody 14. 11. 2026 (bod 6) jako Nový zákazník.', $3::text,
+                     '2026-11-14T12:00:00Z'::timestamptz, $3::text
               WHERE EXISTS (SELECT 1 FROM leads WHERE id = $1::uuid AND owner_user_id = $2::text)
                 AND NOT EXISTS (SELECT 1 FROM seller_reward_assignments WHERE lead_id = $1::uuid AND cancelled_at IS NULL)`,
       params: [leadId, BLAHOUT, VINER],
@@ -154,6 +156,18 @@ export async function runJardaCardMigration() {
     const statements = statementsOf(await read("../drizzle/0042_jarda_karta_evidence_odmenovani.sql"));
     await sql.transaction((tx) => statements.map((s) => tx.query(s)));
     console.log(`Jarda card migration (${env}): schema 0042 applied (seller_reward_assignments).`);
+  }
+
+  const [{ has0043 }] = await sql.query(
+    `select count(*)::int > 0 as has0043 from information_schema.columns
+      where table_schema = 'public' and table_name = 'seller_reward_assignments' and column_name = 'confirmed_at'`,
+  );
+  if (has0043) {
+    console.log(`Jarda card migration (${env}): 0043 already applied.`);
+  } else {
+    const statements = statementsOf(await read("../drizzle/0043_jarda_karta_potvrzeni_navrhu.sql"));
+    await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+    console.log(`Jarda card migration (${env}): schema 0043 applied (proposal confirmation).`);
   }
 
   await sql.transaction((tx) => cleanupStatements().map(({ query, params }) => tx.query(query, params)));

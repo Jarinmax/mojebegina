@@ -5,7 +5,7 @@ import { getTodayCalls } from "@/lib/data/callHistory";
 import { getScheduledCallsToday, type ScheduledCallItem } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
-import { canViewJardaRewards } from "@/lib/data/jardaRewards";
+import { canViewJardaRewards, countPendingRewardProposals } from "@/lib/data/jardaRewards";
 import TodayCalls from "./TodayCalls";
 import ScheduledCalls from "./ScheduledCalls";
 import PushSubscribeButton from "./PushSubscribeButton";
@@ -52,12 +52,13 @@ function Section({ title, tasks, today, isManager, empty }: { title: string; tas
 }
 
 export default async function PracePage() {
-  const [{ isManager, today, tasks, cancelled, photosEnabled }, calls, notifications, scheduledCalls, authCtx] = await Promise.all([
+  const [{ isManager, today, tasks, cancelled, photosEnabled }, calls, notifications, scheduledCalls, authCtx, pendingProposals] = await Promise.all([
     listWorkTasks(),
     loadCalls(),
     listWorkNotifications(),
     loadScheduledCalls(),
     getAuthContext(),
+    countPendingRewardProposals().catch(() => 0),
   ]);
   const isCallWorker = isDailyCallWorker(authCtx);
   const active = tasks.filter((t) => t.status === "open" || t.status === "returned");
@@ -84,7 +85,14 @@ export default async function PracePage() {
       {canViewJardaRewards(authCtx) && (
         <Link href="/prace/odmeny" className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900 min-h-11">
           <span>{isManager ? "Jarda – zákazníci a odměny" : "Moji zákazníci a odměny"}</span>
-          <span aria-hidden>›</span>
+          <span className="flex items-center gap-2">
+            {pendingProposals > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
+                {isManager ? `${pendingProposals} ke schválení` : `${pendingProposals} čeká na potvrzení`}
+              </span>
+            )}
+            <span aria-hidden>›</span>
+          </span>
         </Link>
       )}
 
