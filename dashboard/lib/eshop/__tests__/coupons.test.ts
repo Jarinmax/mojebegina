@@ -359,12 +359,13 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     expect(ctx.coupons.get("kavarna-test")).toMatchObject({ discountType: "partner", partnerLastMonthKc: 0, partnerName: "Kavárna Test s.r.o." });
 
     // uhrazená říjnová objednávka partnera za 9 000 Kč zboží (+ doprava, ta se nepočítá) → 5 %
-    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
-                         VALUES ('1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 300, 9300, 'paid', 'delivered', '2026-10-15T10:00:00Z')`);
+    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs)
+                         VALUES ('1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 300, 9300, 'paid', 'delivered', '2026-10-15T10:00:00Z', '70009981'),
+                                ('6f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 30000, 0, 0, 30000, 'paid', 'delivered', '2026-10-16T10:00:00Z', NULL)`);
     // neuhrazená a listopadová se nepočítají
-    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at)
-                         VALUES ('2f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'unpaid', 'new', '2026-10-20T10:00:00Z'),
-                                ('3f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'manual', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'paid', 'new', '2026-11-02T10:00:00Z')`);
+    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs)
+                         VALUES ('2f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'unpaid', 'new', '2026-10-20T10:00:00Z', '70009982'),
+                                ('3f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b', 'eshop', '5a0c1b2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d', 9000, 0, 0, 9000, 'paid', 'new', '2026-11-02T10:00:00Z', '70009983')`);
     ctx = await loadCouponContext(db, ["kavarna-test"], now, { partnerInvoices: async () => [] });
     expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(9000);
     const priced = priceCart([KULAJDA], "osobni-odber", catalogIndex);
@@ -382,12 +383,11 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
     expect(r).toMatchObject({ ok: true, discountKc: 38, applied: [{ code: "kavarna-test", partnerPercent: 5 }] });
   });
 
-  it("partnerský kód: k objednávkám se přičtou uhrazené říjnové faktury z iDokladu (zboží bez dopravy)", async () => {
+  it("partnerský kód: faktury z iDokladu mimo e-shop se nepočítají (jen objednávky z e-shopu)", async () => {
     const { loadCouponContext } = await import("../couponsServer");
     const now = new Date("2026-11-06T12:00:00Z");
     const ctx = await loadCouponContext(db, ["kavarna-test"], now, {
-      partnerInvoices: async (ico) => {
-        expect(ico).toBe("99999991");
+      partnerInvoices: async () => {
         return [
           { invoiceNumber: "9260100", monthKey: "2026-10", paid: true, goodsKc: 4000 },
           { invoiceNumber: "9260101", monthKey: "2026-10", paid: false, goodsKc: 50000 },
@@ -395,8 +395,8 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
         ];
       },
     });
-    // 9 000 (objednávka) + 4 000 (faktura) = 13 000 → 7 %
-    expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(13000);
+    // jen 9 000 Kč z e-shopu; faktura 4 000 Kč ani ruční objednávka 30 000 Kč se nepřičtou
+    expect(ctx.coupons.get("kavarna-test")!.partnerLastMonthKc).toBe(9000);
   });
 
   it("automatická partnerská sleva podle e-mailu: člen organizace partnera dostane úroveň za minulý měsíc", async () => {
@@ -439,6 +439,15 @@ describe("kupóny v DB: načtení, uložení objednávky a počítání použit�
       code: PARTNER_CODE,
       error: "K tomuto e-mailu nenacházíme partnerskou úroveň za minulý měsíc, proto partnerská sleva neplatí.",
     });
+  });
+
+  it("od 1. 12. 2026 automatická partnerská sleva končí (nahrazují ji měsíční kódy po schválení)", async () => {
+    const { loadCouponContext } = await import("../couponsServer");
+    const { PARTNER_CODE } = await import("../coupons");
+    const december = new Date("2026-12-02T12:00:00Z");
+    const ctx = await loadCouponContext(db, [PARTNER_CODE, "rijen-kavarna"], december, { email: "pavla@kavarna.cz" });
+    expect(ctx.coupons.has(PARTNER_CODE)).toBe(false);
+    expect(ctx.coupons.has("rijen-kavarna")).toBe(false);
   });
 
   it("kupon ze starého e-shopu: nový e-shop ho nezná, ověří ho podle e-mailu jako partnerskou slevu", async () => {
