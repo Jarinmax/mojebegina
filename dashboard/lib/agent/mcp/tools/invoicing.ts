@@ -41,6 +41,8 @@ import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
 import type { InvoicePdfFile } from "@/lib/idoklad-read/service";
 import { createB2bInvoice, previewB2bInvoice } from "@/lib/data/b2bInvoices";
+import { correctInvoice, previewInvoiceCorrection } from "@/lib/data/invoiceCorrections";
+import { CORRECTION_PAYMENT_METHODS, type CorrectionPaymentMethod, type InvoiceCorrectionInput } from "@/lib/eshop/invoicing/invoiceCorrection";
 import { B2B_PAYMENT_METHODS, MAX_B2B_ITEMS, type B2bInvoiceRaw } from "@/lib/eshop/invoicing/b2bInvoiceValidation";
 import { idokladInvoicePdfPath } from "@/lib/idoklad-read/tools";
 import { idokladAgentTools } from "@/lib/idoklad-read/mcp";
@@ -541,4 +543,127 @@ const B2B_TOOLS: AgentTool[] = [
   }),
 ];
 
-export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS, ...B2B_TOOLS];
+// ------------------------------------------------------------------ opravy faktur (řada Lucie)
+
+const CORRECTION_PROPERTIES: Record<string, unknown> = {
+  number: { type: "string", description: "Číslo faktury z Luciiny řady, např. „20260212“." },
+  id: { type: "integer", description: "ID faktury v iDokladu (když číslo nestačí)." },
+  payment_method: { type: "string", enum: [...CORRECTION_PAYMENT_METHODS], description: "Nový způsob úhrady na faktuře: bank_transfer (převodem), cash (hotově), card (kartou)." },
+  payment_amount_kc: { type: "number", description: "Zaevidovat úhradu: částka v Kč — musí být celá zbývající částka faktury (částečné úhrady zatím ne)." },
+  payment_date: { type: "string", description: "Den úhrady RRRR-MM-DD (s payment_amount_kc; ne v budoucnosti, nejvýš 60 dní zpět)." },
+};
+const CORRECTION_KEYS = Object.keys(CORRECTION_PROPERTIES);
+const CORRECTION_TOKEN_ORDER = "invoice-correction";
+
+function correctionOf(args: Record<string, unknown>, extra: string[]): InvoiceCorrectionInput {
+  const unknown = Object.keys(args).filter((k) => !CORRECTION_KEYS.includes(k) && !extra.includes(k));
+  if (unknown.length) throw new ArgError(`Neznámé argumenty: ${unknown.join(", ")}.`);
+  const number = optionalString(args, "number", 20);
+  const id = args.id === undefined || args.id === null ? null : Number(args.id);
+  if (id !== null && !(Number.isInteger(id) && id > 0)) throw new ArgError("Argument id musí být kladné celé číslo.");
+  const method = args.payment_method === undefined || args.payment_method === null ? null : args.payment_method;
+  if (method !== null && !(CORRECTION_PAYMENT_METHODS as readonly unknown[]).includes(method)) throw new ArgError("payment_method musí být bank_transfer, cash nebo card.");
+  const hasAmount = args.payment_amount_kc !== undefined && args.payment_amount_kc !== null;
+  const date = optionalString(args, "payment_date", 10);
+  if (hasAmount !== (date !== null)) throw new ArgError("Úhradu zadejte celou: payment_amount_kc i payment_date.");
+  const amount = hasAmount ? Number(args.payment_amount_kc) : null;
+  if (amount !== null && !Number.isFinite(amount)) throw new ArgError("payment_amount_kc musí být číslo.");
+  return { invoiceId: id, number, paymentMethod: method as CorrectionPaymentMethod | null, payment: amount !== null && date ? { amountKc: amount, date } : null };
+}
+
+const CORRECTION_TOOLS: AgentTool[] = [
+  defineTool({
+    name: "prepare_invoice_correction",
+    title: "Připravit opravu faktury v iDokladu (náhled, nic nezmění)",
+    description:
+      "JEN ČTENÍ — nic nezmění. Oprava EXISTUJÍCÍ faktury z Luciiny řady (2026xxxx) v iDokladu: změna způsobu úhrady (převodem / hotově / kartou) a/nebo evidence úhrady " +
+      "celé zbývající částky k danému dni. Novou fakturu ani dobropis nevystavuje, jiná pole nemění. Vrací současný stav faktury, co se změní, varování a blokující důvody. " +
+      "Celý náhled ukaž uživateli. Když canApply=true, vrací preview_token pro apply_invoice_correction (30 minut, jen pro tebe a jen pro tyto údaje).",
+    write: false,
+    visible: issuerOnly,
+    properties: CORRECTION_PROPERTIES,
+    required: [],
+    parse: (args) => correctionOf(args, []),
+    execute: async (input) => {
+      const ctx = await getAuthContext();
+      const result = await previewInvoiceCorrection(input);
+      if (!result.ok || !ctx) return result.ok ? { ok: false, error: "Nepřihlášený uživatel." } : result;
+      const p = result.preview;
+      const reasons = [...(p.canApplyLive ? [] : [p.liveReason ?? "Ostré zápisy do iDokladu jsou vypnuté."]), ...p.blocking];
+      const canApply = reasons.length === 0;
+      return {
+        ok: true,
+        summary: { canApply },
+        data: {
+          canApply,
+          cannotApplyReasons: reasons,
+          warnings: p.warnings,
+          invoice: p.invoice,
+          changes: p.changes,
+          createsNewInvoice: false,
+          sendsEmail: false,
+          ...(canApply
+            ? {
+                preview_token: signPreviewToken({ userId: ctx.userId, orderId: CORRECTION_TOKEN_ORDER, fingerprint: p.fingerprint, issuedAt: Date.now() }, previewSecret()),
+                previewValidMinutes: PREVIEW_TOKEN_MINUTES,
+                nextStep:
+                  "Ukaž uživateli fakturu (číslo, odběratel, celkem, uhrazeno, zbývá, současný způsob úhrady) a přesně co se změní, včetně varování. Až po jeho výslovném souhlasu zavolej apply_invoice_correction se STEJNÝMI argumenty, preview_token, confirm=true a novým idempotency_key.",
+              }
+            : {}),
+        },
+      };
+    },
+  }),
+  defineTool({
+    name: "apply_invoice_correction",
+    title: "Opravit fakturu v iDokladu (způsob úhrady, úhrada)",
+    description:
+      "ZÁPIS DO ÚČETNICTVÍ — provede opravu existující faktury z Luciiny řady přesně podle náhledu prepare_invoice_correction: změní způsob úhrady a/nebo zaeviduje úhradu " +
+      "celé zbývající částky k danému dni. Novou fakturu nevystavuje, zákazníkovi nic neposílá. Pak ověří stav v iDokladu (zbývá 0 Kč) a text nového PDF (žádná výzva k úhradě ani upozornění na prodlení). " +
+      "Volej JEN po výslovném souhlasu uživatele s náhledem, se STEJNÝMI argumenty + preview_token, confirm=true a idempotency_key. Když vrátí chybu, sděl uživateli její přesný text a neopakuj s novým klíčem bez kontroly faktury.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      ...CORRECTION_PROPERTIES,
+      preview_token: { type: "string", description: "preview_token z prepare_invoice_correction." },
+      confirm: { type: "boolean", description: "true = uživatel výslovně potvrdil tuto opravu faktury." },
+    },
+    required: ["preview_token", "confirm"],
+    parse: (args) => {
+      const input = correctionOf(args, ["preview_token", "confirm", "idempotency_key"]);
+      if (args.confirm !== true) throw new ArgError("Fakturu lze opravit jen s confirm=true po výslovném souhlasu uživatele s náhledem.");
+      return { input, token: requiredString(args, "preview_token", 2000) };
+    },
+    execute: async ({ input, token }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury v iDokladu smí opravovat jen ${INVOICE_ISSUER_NAMES}.` };
+      const verified = verifyPreviewToken(token, { userId: ctx.userId, orderId: CORRECTION_TOKEN_ORDER }, previewSecret());
+      if (!verified.ok) return verified;
+      const result = await correctInvoice(input, { expectedFingerprint: verified.claims.fingerprint });
+      if (!result.ok) return result;
+      const inv = result.invoice;
+      const done = [result.applied.paymentMethodChanged ? `způsob úhrady: ${inv.paymentMethod.name ?? "změněn"}` : null, result.applied.paymentRecorded ? `úhrada ${inv.paidKc} Kč (${inv.dateOfPayment ?? "—"})` : null]
+        .filter(Boolean)
+        .join(", ");
+      return {
+        ok: true,
+        summary: { corrected: true, remainingKc: result.verified.remainingKc, pdfChecked: result.pdfCheck.checked, pdfOk: result.pdfCheck.checked && result.pdfCheck.ok },
+        data: {
+          corrected: true,
+          invoice: inv,
+          applied: result.applied,
+          verified: result.verified,
+          pdfCheck: result.pdfCheck,
+          warnings: result.warnings,
+          pdfUrl: `${await appOrigin()}${idokladInvoicePdfPath(inv.idokladId)}`,
+          createdNewInvoice: false,
+          emailed: false,
+          message: `Faktura ${inv.number} je opravená (${done}); zbývá uhradit ${result.verified.remainingKc} Kč. Zákazníkovi se nic neposlalo.`,
+        },
+      };
+    },
+  }),
+];
+
+export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS, ...B2B_TOOLS, ...CORRECTION_TOOLS];

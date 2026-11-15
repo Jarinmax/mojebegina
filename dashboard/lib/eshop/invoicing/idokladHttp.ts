@@ -5,13 +5,15 @@
 // odesláním:
 //   • host jen identity.idoklad.cz (POST pro token) a api.idoklad.cz/v3,
 //   • čtení (GET) jen na cesty ze seznamu READ_PATHS,
-//   • zápis jen tři operace z WRITE_OPERATIONS — založení kontaktu,
-//     vystavení faktury, úplná úhrada faktury — a JEN když klient vznikl
+//   • zápis jen operace z WRITE_OPERATIONS — založení kontaktu,
+//     vystavení faktury, úplná úhrada faktury a oprava způsobu úhrady
+//     (PATCH jen s Id + PaymentOptionId, jen klient pro opravy faktur
+//     invoiceCorrection.ts; rozhodnutí majitele 15. 11. 2026) — a JEN když klient vznikl
 //     s otevřenou bránou ostrého provozu (mode.ts: liveInvoicingGate —
 //     Vercel Production + IDOKLAD_INVOICING_ENABLED=on + řada 7277293 +
 //     přístupové údaje). Na Preview brána nikdy otevřená není, takže zápis
 //     se tam zablokuje ještě před sítí,
-//   • nic jiného: žádné DELETE/PATCH, žádné /Mails (e-mail z iDokladu se
+//   • nic jiného: žádné DELETE ani jiné PATCH, žádné /Mails (e-mail z iDokladu se
 //     zákazníkovi NEPOSÍLÁ — PDF posílá MojeBegina), žádné úpravy řad,
 //     žádné jiné doklady.
 //
@@ -68,6 +70,7 @@ export const WRITE_OPERATIONS = [
   { method: "POST", path: /^\/Contacts$/, label: "založení kontaktu" },
   { method: "POST", path: /^\/IssuedInvoices$/, label: "vystavení faktury" },
   { method: "PUT", path: /^\/IssuedDocumentPayments\/FullyPay\/[1-9][0-9]{0,9}$/, label: "úplná úhrada faktury" },
+  { method: "PATCH", path: /^\/IssuedInvoices$/, label: "oprava způsobu úhrady faktury" },
 ] as const;
 
 export class IdokladBlockedError extends Error {
@@ -150,6 +153,20 @@ export function assertB2bSeriesBody(body: unknown, b2bSeriesId: string): void {
   }
 }
 
+/** Oprava faktury (PATCH /IssuedInvoices) smí změnit JEN způsob úhrady — nic jiného. */
+export const CORRECTION_PATCH_KEYS = ["Id", "PaymentOptionId"] as const;
+
+export function assertCorrectionBody(body: unknown): void {
+  const record = body as Record<string, unknown> | null;
+  if (!record || typeof record !== "object" || Array.isArray(record)) throw new IdokladBlockedError("oprava faktury bez těla");
+  const extra = Object.keys(record).filter((k) => !(CORRECTION_PATCH_KEYS as readonly string[]).includes(k));
+  if (extra.length) throw new IdokladBlockedError(`oprava faktury smí měnit jen způsob úhrady (navíc: ${extra.join(", ")})`);
+  for (const key of CORRECTION_PATCH_KEYS) {
+    const value = record[key];
+    if (!(typeof value === "number" && Number.isInteger(value) && value > 0)) throw new IdokladBlockedError(`oprava faktury: neplatné ${key}`);
+  }
+}
+
 export type IdokladLogEntry = { method: string; path: string; status: number | null; ms: number };
 
 export type EshopIdokladClientOptions = {
@@ -167,6 +184,8 @@ export type EshopIdokladClientOptions = {
   requestBudget?: number;
   /** jen B2B faktury (b2bInvoice.ts): jediná povolená řada místo 7277293 */
   b2bSeriesId?: string;
+  /** jen opravy faktur (invoiceCorrection.ts): povolí PATCH způsobu úhrady */
+  corrections?: boolean;
   timeoutMs?: number;
 };
 
@@ -175,7 +194,8 @@ type Envelope = { Data?: unknown; IsSuccess?: boolean; Message?: string; StatusC
 export type IdokladListPage<T> = { Items: T[]; TotalItems: number; TotalPages: number };
 
 export class EshopIdokladClient {
-  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret" | "applicationId" | "b2bSeriesId">> & {
+  private readonly opts: Required<Omit<EshopIdokladClientOptions, "clientId" | "clientSecret" | "applicationId" | "b2bSeriesId" | "corrections">> & {
+    corrections: boolean;
     clientId: string;
     clientSecret: string;
     applicationId: string;
@@ -202,6 +222,7 @@ export class EshopIdokladClient {
       timeoutMs: options.timeoutMs ?? IDOKLAD_TIMEOUT_MS,
       env: options.env ?? process.env,
       b2bSeriesId: options.b2bSeriesId,
+      corrections: options.corrections === true,
     };
   }
 
@@ -318,7 +339,7 @@ export class EshopIdokladClient {
     return `: ${code}${description}${hint ? ` — ${hint}` : ""}`;
   }
 
-  private async call<T>(method: "GET" | "POST" | "PUT", path: string, query?: Record<string, string>, body?: unknown): Promise<T> {
+  private async call<T>(method: "GET" | "POST" | "PUT" | "PATCH", path: string, query?: Record<string, string>, body?: unknown): Promise<T> {
     const url = new URL(`${IDOKLAD_API_BASE}${path}`);
     for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
     // Pojistka se ověří i tady (před získáním tokenu), aby blokovaný zápis
@@ -327,6 +348,10 @@ export class EshopIdokladClient {
     if (method === "POST" && path === "/IssuedInvoices") {
       if (this.opts.b2bSeriesId !== undefined) assertB2bSeriesBody(body, this.opts.b2bSeriesId);
       else assertEshopSeriesBody(body);
+    }
+    if (method === "PATCH") {
+      if (!this.opts.corrections) throw new IdokladBlockedError("oprava faktury je povolená jen klientovi pro opravy faktur");
+      assertCorrectionBody(body);
     }
     const token = await this.accessToken();
     const response = await this.send(method, url.toString(), {
@@ -375,6 +400,11 @@ export class EshopIdokladClient {
 
   put<T>(path: string, query?: Record<string, string>): Promise<T> {
     return this.call<T>("PUT", path, query);
+  }
+
+  /** Jen oprava způsobu úhrady (assertCorrectionBody) a jen klient s corrections: true. */
+  patch<T>(path: string, body: unknown): Promise<T> {
+    return this.call<T>("PATCH", path, undefined, body);
   }
 }
 
