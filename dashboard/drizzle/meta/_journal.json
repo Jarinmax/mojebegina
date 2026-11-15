@@ -309,6 +309,13 @@
       "when": 1794761272464,
       "tag": "0043_jarda_karta_potvrzeni_navrhu",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794776846732,
+      "tag": "0044_mereni_eshopu",
+      "breakpoints": true
     }
   ]
 }
