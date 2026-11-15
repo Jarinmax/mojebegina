@@ -1,4 +1,4 @@
-// Měření e-shopu 1.0 — tabulka eshop_funnel_daily (migrace 0041). Na Production ji
+// Měření e-shopu 1.0 — tabulka eshop_funnel_daily (migrace 0044). Na Production ji
 // zakládá Lucie skriptem docs/eshop-production/117_mereni_eshopu_MAIN.sql;
 // tady se zakládá JEN v Preview (kopie databáze), aby náhledy fungovaly.
 // Preview nikdy nesmí migrovat produkční větev.
@@ -21,10 +21,10 @@ if (timeline === PRODUCTION_TIMELINE) {
 }
 const [{ present }] = await sql.query(`SELECT to_regclass('public.eshop_funnel_daily') IS NOT NULL AS present`);
 if (present) {
-  console.log("Mereni migration (preview): 0041 already applied.");
+  console.log("Mereni migration (preview): 0044 already applied.");
 } else {
-  const text = await readFile(fileURLToPath(new URL("../drizzle/0041_mereni_eshopu.sql", import.meta.url)), "utf8");
+  const text = await readFile(fileURLToPath(new URL("../drizzle/0044_mereni_eshopu.sql", import.meta.url)), "utf8");
   const statements = text.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
   await sql.transaction((tx) => statements.map((s) => tx.query(s)));
-  console.log("Mereni migration (preview): schema 0041 applied (eshop_funnel_daily).");
+  console.log("Mereni migration (preview): schema 0044 applied (eshop_funnel_daily).");
 }
