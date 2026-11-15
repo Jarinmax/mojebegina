@@ -51,7 +51,10 @@ export type RewardAssignment = {
   leadId: string;
   type: RewardType;
   basis: RewardBasis;
+  /** Kdy prodejce typ navrhl (nebo vedení zapsalo) — rozhoduje „před oslovením“ (bod 4). */
   recordedAt: Date;
+  /** Potvrzení vedením; bez něj se odměna nepočítá (prodejce typ jen navrhuje). */
+  confirmedAt: Date | null;
   /** Jen u typu upsell: předem zaznamenané nové produkty (products.id). */
   upsellProductIds: string[];
   note: string | null;
@@ -112,6 +115,7 @@ export type RewardCustomer = {
 
 export type ExclusionReason =
   | "no_assignment"
+  | "not_confirmed"
   | "no_call_after_assignment"
   | "bought_before_approach"
   | "not_renewed_gap"
@@ -119,7 +123,8 @@ export type ExclusionReason =
   | "no_order_after_approach";
 
 export const EXCLUSION_LABEL: Record<ExclusionReason, string> = {
-  no_assignment: "chybí evidence typu odměňování (bod 4)",
+  no_assignment: "chybí evidence typu zákazníka (bod 4)",
+  not_confirmed: "návrh typu zákazníka zatím nepotvrdilo vedení",
   no_call_after_assignment: "žádný Jardův hovor po evidenci (bod 4)",
   bought_before_approach: "nakupoval už před oslovením, nejde o nového zákazníka (bod 1)",
   not_renewed_gap: "před oslovením neobjednal-a alespoň 3 měsíce nebylo splněno (bod 2)",
@@ -169,6 +174,12 @@ export function computeJardaRewards(
 
     // Bez objednávky není co počítat ani vyřazovat — kontakt čeká (sekce „zatím bez nákupu“).
     if (own.length === 0) continue;
+
+    // Prodejce typ jen navrhuje; počítá se až potvrzený vedením.
+    if (!assignment.confirmedAt) {
+      excluded.push({ leadId: lead.id, displayName: lead.displayName, reason: "not_confirmed", paidGoodsKc: paidGoodsAll });
+      continue;
+    }
 
     const exclude = (reason: ExclusionReason) => excluded.push({ leadId: lead.id, displayName: lead.displayName, reason, paidGoodsKc: paidGoodsAll });
 

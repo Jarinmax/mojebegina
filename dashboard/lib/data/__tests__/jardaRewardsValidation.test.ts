@@ -11,7 +11,7 @@ import {
 const d = (s: string) => new Date(s);
 const lead = (over: Partial<RewardLead> = {}): RewardLead => ({ id: "L", displayName: "Kontakt", convertedOrganizationId: "ORG", jardaCallTimes: [], ...over });
 const assign = (over: Partial<RewardAssignment> = {}): RewardAssignment => ({
-  leadId: "L", type: "new", basis: "contract", recordedAt: d("2026-11-15T08:00:00Z"), upsellProductIds: [], note: null, ...over,
+  leadId: "L", type: "new", basis: "contract", recordedAt: d("2026-11-15T08:00:00Z"), confirmedAt: d("2026-11-15T10:00:00Z"), upsellProductIds: [], note: null, ...over,
 });
 let n = 0;
 const order = (over: Partial<RewardOrder> = {}): RewardOrder => ({
@@ -86,6 +86,23 @@ describe("bod 4 — evidence před oslovením a Jardův hovor", () => {
       [order({ orderedAt: d("2026-11-10T10:00:00Z"), paidAt: d("2026-11-10T11:00:00Z"), subtotalKc: 1516 })]
     );
     expect(r.customers[0].lines).toEqual([expect.objectContaining({ percent: 5, baseKc: 1516, amountKc: 75.8, month: "2026-11" })]);
+  });
+
+  it("návrh prodejce, který vedení nepotvrdilo, se nepočítá — ani když zákazník nakoupí", () => {
+    const r = calc(lead({ jardaCallTimes: [d("2026-11-16T09:00:00Z")] }), assign({ confirmedAt: null }), [
+      order({ orderedAt: d("2026-11-20T10:00:00Z"), subtotalKc: 2000 }),
+    ]);
+    expect(r.customers).toEqual([]);
+    expect(r.excluded.map((e) => [e.reason, e.paidGoodsKc])).toEqual([["not_confirmed", 2000]]);
+  });
+
+  it("návrh navržený před hovorem a potvrzený až po nákupu se počítá od hovoru (rozhoduje čas návrhu)", () => {
+    const r = calc(
+      lead({ jardaCallTimes: [d("2026-11-16T09:00:00Z")] }),
+      assign({ recordedAt: d("2026-11-15T08:00:00Z"), confirmedAt: d("2026-11-25T08:00:00Z") }),
+      [order({ orderedAt: d("2026-11-20T10:00:00Z"), paidAt: d("2026-11-20T10:00:00Z"), subtotalKc: 2000 })]
+    );
+    expect(r.customers[0].totalKc).toBe(100);
   });
 
   it("evidovaný bez objednávky zatím nic nemá a není ani vyřazený (čeká na nákup)", () => {

@@ -127,12 +127,21 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
       {reward.visible && (
         <RewardAssignmentPanel
           leadId={lead.id}
+          isManager={reward.isManager}
           canRecord={reward.canRecord}
+          canConfirm={reward.canConfirm}
           canCancel={reward.canCancel}
           products={reward.products}
           assignment={
             reward.assignment
-              ? { ...reward.assignment, recordedAt: pragueDateLabel(reward.assignment.recordedAt) }
+              ? {
+                  typeLabel: reward.assignment.typeLabel,
+                  basis: reward.assignment.basis,
+                  recordedAt: pragueDateLabel(reward.assignment.recordedAt),
+                  confirmed: reward.assignment.confirmedAt !== null,
+                  note: reward.assignment.note,
+                  upsellProducts: reward.assignment.upsellProducts,
+                }
               : null
           }
         />

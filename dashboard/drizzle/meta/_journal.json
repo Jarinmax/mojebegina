@@ -302,6 +302,13 @@
       "when": 1794759912528,
       "tag": "0042_jarda_karta_evidence_odmenovani",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794761272464,
+      "tag": "0043_jarda_karta_potvrzeni_navrhu",
+      "breakpoints": true
     }
   ]
 }

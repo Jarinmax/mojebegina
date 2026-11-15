@@ -123,7 +123,7 @@ const state = async (pg: PGlite) => ({
   order: (await pg.query(`SELECT source_lead_id FROM orders WHERE id = '${ORDER_MONIKA}'`)).rows,
   cards: (await pg.query(`SELECT id, assignee_user_id, display_name FROM collaborator_cards WHERE id = '${JARDA_CARD_ID}'`)).rows,
   activity: (await pg.query(`SELECT lead_id, kind, author_user_id, metadata->>'reason' AS reason FROM lead_activity ORDER BY lead_id, kind`)).rows,
-  assignments: (await pg.query(`SELECT lead_id, reward_type, basis, recorded_at FROM seller_reward_assignments ORDER BY lead_id`)).rows,
+  assignments: (await pg.query(`SELECT lead_id, reward_type, basis, recorded_at, confirmed_at, confirmed_by FROM seller_reward_assignments ORDER BY lead_id`)).rows,
 });
 
 describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu", { timeout: 60_000 }, () => {
@@ -164,9 +164,11 @@ describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu",
     expect(after.order).toEqual([{ source_lead_id: LEAD_MONIKA }]);
     expect(after.cards).toEqual([{ id: JARDA_CARD_ID, assignee_user_id: BLAHOUT, display_name: "Jaroslav Blahout – obchod a volání" }]);
     expect(after.activity).toHaveLength(3);
-    expect((after.assignments as { lead_id: string; reward_type: string; basis: string }[]).map((a) => [a.lead_id, a.reward_type, a.basis])).toEqual([
-      [LEAD_TATIANA, "new", "confirmed_at_signing"],
-      [LEAD_MONIKA, "new", "confirmed_at_signing"],
+    expect(
+      (after.assignments as { lead_id: string; reward_type: string; basis: string; confirmed_by: string | null }[]).map((a) => [a.lead_id, a.reward_type, a.basis, a.confirmed_by])
+    ).toEqual([
+      [LEAD_TATIANA, "new", "confirmed_at_signing", VINER],
+      [LEAD_MONIKA, "new", "confirmed_at_signing", VINER],
     ].sort());
     expect((after.activity as { reason: string }[]).every((a) => a.reason === "audit_2026_11_15")).toBe(true);
     const { rows: froms } = await pg.query<{ lead_id: string; from: string }>(`SELECT lead_id, metadata->>'from' AS from FROM lead_activity WHERE kind = 'converted' ORDER BY lead_id`);
@@ -174,6 +176,35 @@ describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu",
 
     await runJardaCardMigration();
     expect(await state(pg)).toEqual(after);
+  });
+
+  it("stav produkce po #230 (0042 použitá): 0043 potvrdí zápisy vedení, návrh prodejce zůstane návrhem", async () => {
+    const pg = await seedPg(journalTags().indexOf("0042_jarda_karta_evidence_odmenovani"));
+    const LEAD_PROPOSAL = "00000000-0000-4000-8000-000000000077";
+    await pg.exec(`
+      INSERT INTO leads (id, contact_name, source, stage, owner_user_id) VALUES
+        ('${LEAD_TATIANA}', 'Tatiana Lisichkina', 'existing_database', 'converted', '${BLAHOUT}'),
+        ('${LEAD_MONIKA}', 'Monika Chuda', 'existing_database', 'converted', '${BLAHOUT}'),
+        ('${LEAD_PROPOSAL}', 'Kavárna', 'existing_database', 'new', '${BLAHOUT}');
+      INSERT INTO seller_reward_assignments (lead_id, seller_user_id, reward_type, basis, recorded_at, recorded_by) VALUES
+        ('${LEAD_TATIANA}', '${BLAHOUT}', 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z', '${VINER}'),
+        ('${LEAD_MONIKA}', '${BLAHOUT}', 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z', '${VINER}'),
+        ('${LEAD_PROPOSAL}', '${BLAHOUT}', 'new', 'contract', '2026-11-15T17:00:00Z', '${BLAHOUT}');
+    `);
+    restoreFetch = mockNeonFetch(pg);
+    process.env.VERCEL_ENV = "production";
+    process.env.DATABASE_URL = DATABASE_URL;
+    await runJardaCardMigration();
+    const { rows } = await pg.query<{ lead_id: string; confirmed_at: Date | null; confirmed_by: string | null }>(
+      `SELECT lead_id, confirmed_at, confirmed_by FROM seller_reward_assignments ORDER BY recorded_at, lead_id`
+    );
+    expect(rows.map((r) => [r.lead_id, r.confirmed_by, r.confirmed_at?.toISOString() ?? null])).toEqual([
+      ...[LEAD_TATIANA, LEAD_MONIKA].sort().map((id) => [id, VINER, "2026-11-14T12:00:00.000Z"]),
+      [LEAD_PROPOSAL, null, null],
+    ]);
+    const again = (await pg.query(`SELECT * FROM seller_reward_assignments ORDER BY lead_id`)).rows;
+    await runJardaCardMigration();
+    expect((await pg.query(`SELECT * FROM seller_reward_assignments ORDER BY lead_id`)).rows).toEqual(again);
   });
 
   it("když záznamy v databázi nejsou (jiná větev), nic nespadne a nic nevznikne kromě karty", async () => {

@@ -1473,6 +1473,10 @@ export const sellerRewardAssignments = pgTable(
     upsellProductIds: uuid("upsell_product_ids").array().notNull().default(sql`'{}'::uuid[]`),
     note: text("note"),
     recordedBy: text("recorded_by").notNull(),
+    // Prodejce typ jen NAVRHUJE; počítá se až po potvrzení vedením (rozhodnutí
+    // Jaroslava Vinera 15. 11. 2026). Zapíše-li typ přímo vedení, potvrzeno hned.
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedBy: text("confirmed_by"),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: text("cancelled_by"),
   },
@@ -1480,6 +1484,7 @@ export const sellerRewardAssignments = pgTable(
     uniqueIndex("seller_reward_assignments_one_active").on(table.leadId).where(sql`${table.cancelledAt} IS NULL`),
     check("seller_reward_assignments_type_check", sql`${table.rewardType} IN ('new', 'renewed', 'upsell')`),
     check("seller_reward_assignments_basis_check", sql`${table.basis} IN ('contract', 'confirmed_at_signing')`),
+    check("seller_reward_assignments_confirmed_pair", sql`(${table.confirmedAt} IS NULL) = (${table.confirmedBy} IS NULL)`),
     check(
       "seller_reward_assignments_upsell_products",
       sql`(${table.rewardType} = 'upsell') = (cardinality(${table.upsellProductIds}) > 0)`

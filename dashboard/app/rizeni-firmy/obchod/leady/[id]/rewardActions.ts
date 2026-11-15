@@ -1,11 +1,16 @@
 "use server";
 
-// Evidence typu odměňování prodejce (bod 4 dohody). Oprávnění ověřuje
-// datová vrstva (lib/data/jardaRewards.ts).
+// Typ zákazníka podle dohody o odměňování (bod 4): Jarda navrhne, vedení
+// potvrdí/zamítne. Oprávnění ověřuje datová vrstva (lib/data/jardaRewards.ts).
 import { revalidatePath } from "next/cache";
-import { cancelRewardAssignment, recordRewardAssignment } from "@/lib/data/jardaRewards";
+import { cancelRewardAssignment, confirmRewardAssignment, recordRewardAssignment } from "@/lib/data/jardaRewards";
 
 export type RewardFormState = { error: string } | { success: string } | null;
+
+const refresh = (leadId: string) => {
+  revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
+  revalidatePath("/prace/odmeny");
+};
 
 export async function recordRewardAssignmentAction(leadId: string, _prev: RewardFormState, formData: FormData): Promise<RewardFormState> {
   try {
@@ -16,11 +21,23 @@ export async function recordRewardAssignmentAction(leadId: string, _prev: Reward
       note: String(formData.get("note") ?? ""),
     });
     if (!result.ok) return { error: result.error };
-    revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
-    return { success: "Typ odměňování je zaevidovaný." };
+    refresh(leadId);
+    return { success: "Uloženo." };
   } catch (error) {
     console.error("recordRewardAssignmentAction", error);
-    return { error: "Evidenci se nepodařilo uložit." };
+    return { error: "Nepodařilo se uložit." };
+  }
+}
+
+export async function confirmRewardAssignmentAction(leadId: string, _prev: RewardFormState): Promise<RewardFormState> {
+  try {
+    const result = await confirmRewardAssignment(leadId);
+    if (!result.ok) return { error: result.error };
+    refresh(leadId);
+    return { success: "Potvrzeno." };
+  } catch (error) {
+    console.error("confirmRewardAssignmentAction", error);
+    return { error: "Nepodařilo se potvrdit." };
   }
 }
 
@@ -28,10 +45,10 @@ export async function cancelRewardAssignmentAction(leadId: string, _prev: Reward
   try {
     const result = await cancelRewardAssignment(leadId);
     if (!result.ok) return { error: result.error };
-    revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
-    return { success: "Evidence zrušena." };
+    refresh(leadId);
+    return { success: "Hotovo." };
   } catch (error) {
     console.error("cancelRewardAssignmentAction", error);
-    return { error: "Evidenci se nepodařilo zrušit." };
+    return { error: "Nepodařilo se provést." };
   }
 }
