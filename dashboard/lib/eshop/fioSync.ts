@@ -62,12 +62,21 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
   if (!token) return { status: "no-token", ...empty };
 
   const from = pragueDay(new Date(now.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000));
+  const mailer = deps.mailer === undefined ? defaultMailer(env) : deps.mailer;
   const fetched = await fetchFioTransactions(token, from, pragueDay(now), deps.fetchImpl);
-  if (!fetched.ok) return { status: "fio-error", error: fetched.error, ...empty };
+  if (!fetched.ok) {
+    // Tichý výpadek (neplatný / propadlý token) by znamenal, že se platby přestanou
+    // párovat a nikdo se to nedozví — proto upozornění, nejvýš jednou denně.
+    await notify(mailer, {
+      subject: "Fio: platby se nepodařilo načíst",
+      text: `Automatická kontrola plateb ve Fio selhala: ${fetched.error}.\n\nPlatby převodem se teď nepárují samy. Když se to bude opakovat, zkontrolujte ve Fio (Nastavení → API), jestli token „Pouze sledovat účet“ ještě platí, a případně vytvořte nový a vložte ho do Vercelu jako FIO_API_TOKEN.`,
+      key: `fio-chyba-${pragueDay(now)}`,
+    });
+    return { status: "fio-error", error: fetched.error, ...empty };
+  }
 
   const incoming = fetched.transactions.filter((t) => t.amountHal > 0 && t.currency === "CZK" && t.vs);
   const result: FioSyncResult = { status: "done", paid: [], mismatched: [] };
-  const mailer = deps.mailer === undefined ? defaultMailer(env) : deps.mailer;
 
   for (const tx of incoming) {
     const found = await db.execute(sql`
