@@ -1,0 +1,26 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm i playwright@1.49.1 && npx playwright install chromium
+      - run: |
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const b = await chromium.launch();
+            const c = await b.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' });
+            const p = await c.newPage();
+            const posts = [];
+            p.on('response', r => { if (r.request().method() === 'POST') posts.push(r.status() + ' ' + r.url()); });
+            await p.goto('https://begina.cz/', { waitUntil: 'networkidle' });
+            const link = await p.locator('a[href*="/produkt/"]').first().getAttribute('href');
+            await p.goto('https://begina.cz' + link, { waitUntil: 'networkidle' });
+            await p.waitForTimeout(3000);
+            console.log('VYSLEDEK produkt', link);
+            console.log('VYSLEDEK posty', JSON.stringify(posts));
+            await b.close();
+          })();
+          JS
+          node t.js
