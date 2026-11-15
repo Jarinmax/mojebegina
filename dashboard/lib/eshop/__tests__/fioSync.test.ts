@@ -45,6 +45,7 @@ describe("Fio: párování plateb s objednávkami (PGlite)", () => {
     tx(104, "2026-11-13+0100", 466, null), // bez symbolu
     tx(105, "2026-11-13+0100", 466, "79999999"), // neznámý symbol
     tx(106, "2026-11-13+0100", 466, "70000013", "X", "EUR"), // jiná měna
+    tx(107, "2026-11-10+0100", 466, "70000030"), // objednávka už je zaplacená (ruční zápis) → nezapočítat podruhé
   ];
   const deps = (): FioSyncDeps => ({
     env: { FIO_API_TOKEN: "tajny-token" },
@@ -74,7 +75,8 @@ describe("Fio: párování plateb s objednávkami (PGlite)", () => {
     db = created.db as unknown as Parameters<typeof syncFioPayments>[0];
     await created.db.execute(sql`INSERT INTO orders (id, channel, contact_email, contact_name, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs, payment_method_code) VALUES
       (${A}, 'eshop', 'moni@example.cz', 'Monika Chuda', 199, 0, 267, 466, 'unpaid', 'new', '2026-11-13T10:00:00Z', '70000013', 'prevod'),
-      (${B}, 'eshop', 'jiny@example.cz', 'Jiný Zákazník', 199, 0, 267, 466, 'unpaid', 'new', '2026-11-13T10:00:00Z', '70000020', 'prevod')`);
+      (${B}, 'eshop', 'jiny@example.cz', 'Jiný Zákazník', 199, 0, 267, 466, 'unpaid', 'new', '2026-11-13T10:00:00Z', '70000020', 'prevod'),
+      ('b3333333-3333-4333-8333-333333333333', 'eshop', 'treti@example.cz', 'Třetí', 199, 0, 267, 466, 'paid', 'new', '2026-11-10T10:00:00Z', '70000030', 'prevod')`);
   });
 
   it("bez tokenu nic nedělá", async () => {
@@ -88,7 +90,7 @@ describe("Fio: párování plateb s objednávkami (PGlite)", () => {
       paid: [{ orderNumber: null, amountKc: 466, invoiceNumber: "9260004" }],
       mismatched: [{ orderNumber: null, receivedKc: 400, expectedKc: 466 }],
     });
-    const orders = await db.execute(sql`SELECT id, payment_status, paid_at FROM orders ORDER BY payment_vs`);
+    const orders = await db.execute(sql`SELECT id, payment_status, paid_at FROM orders WHERE payment_vs IN ('70000013', '70000020') ORDER BY payment_vs`);
     expect(orders.rows[0]).toMatchObject({ id: A, payment_status: "paid" });
     expect(new Date(orders.rows[0].paid_at as string).toISOString()).toBe("2026-11-13T12:00:00.000Z");
     expect(orders.rows[1]).toMatchObject({ id: B, payment_status: "unpaid" });

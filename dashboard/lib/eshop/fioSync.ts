@@ -75,11 +75,13 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
       WHERE channel = 'eshop' AND payment_vs = ${tx.vs} AND fulfillment_status <> 'cancelled' LIMIT 1`);
     const order = found.rows[0] as OrderRow | undefined;
     if (!order) continue;
+    // Už zaplacená objednávka (karta, ruční zápis, dřívější běh): pohyb se nezapisuje,
+    // jinak by se platba započítala dvakrát.
+    if (order.payment_status === "paid") continue;
     const expectedHal = Number(order.total_kc) * 100;
     const who = order.billing_company ?? order.contact_name ?? "zákazník";
 
     if (tx.amountHal !== expectedHal) {
-      if (order.payment_status === "paid") continue;
       const inserted = await insertBankPayment(db, order.id, tx, "pending", "needs_review", `Částka nesedí: přišlo ${kc(tx.amountHal)}, objednávka je na ${kc(expectedHal)}`);
       if (inserted) {
         result.mismatched.push({ orderNumber: order.order_number, receivedKc: tx.amountHal / 100, expectedKc: expectedHal / 100 });
