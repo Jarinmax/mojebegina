@@ -8,6 +8,7 @@ import { formatKc } from "@/lib/format";
 import QuantityStepper from "./QuantityStepper";
 import { useCart } from "./useCart";
 import { trackMeta } from "@/lib/eshop/metaPixel";
+import { trackFunnel } from "@/lib/eshop/funnelClient";
 import { packagingKind } from "@/lib/eshop/packaging";
 
 type AddToCartButtonProps = {
@@ -28,6 +29,7 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
     const count = compact ? 1 : quantity;
     add(sku, count);
     const priceKc = variants.find((variant) => variant.sku === sku)?.priceKc ?? 0;
+    trackFunnel("add_to_cart");
     trackMeta("AddToCart", {
       content_type: "product",
       content_ids: [sku],

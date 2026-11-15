@@ -108,6 +108,21 @@ export default async function CompanyOverviewPage() {
         <OrderSummaryTiles counts={orderCounts} />
       </div>
 
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">Měření e-shopu</h2>
+          <Link href="/rizeni-firmy/mereni-eshopu" className="text-sm font-medium text-begina-primary-900 hover:underline">
+            Konverzní poměr →
+          </Link>
+        </div>
+        <Link
+          href="/rizeni-firmy/mereni-eshopu"
+          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
+        >
+          Návštěvy, košík, pokladna, objednávky — kde lidé odpadají
+        </Link>
+      </div>
+
       {showEkonomika && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
