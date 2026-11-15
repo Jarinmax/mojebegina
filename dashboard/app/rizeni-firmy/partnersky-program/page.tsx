@@ -41,7 +41,7 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
   const next = monthKey(addMonths(evaluatedMonth, 1));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
+    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6 text-neutral-900">
       <div>
         <h1 className="text-2xl font-semibold">
           Partnerský program — {monthName(evaluatedMonth)} {evaluatedMonth.year}
