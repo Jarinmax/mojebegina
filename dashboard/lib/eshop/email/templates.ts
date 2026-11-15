@@ -260,6 +260,8 @@ export type CustomerEmailContext = Context & {
    * objednávky): attached = PDF je v příloze; jinak jen odkaz ke stažení.
    */
   terms?: { effectiveLabel: string; withWithdrawalForm: boolean; path: string; attached: boolean } | null;
+  /** první objednávka zákazníka v e-shopu: přidat představení partnerského programu (Lucie 15. 11. 2026) */
+  partnerIntro?: boolean;
 };
 
 /** Věta o obchodních podmínkách v potvrzení (příloha, případně jen odkaz). */
@@ -274,6 +276,10 @@ function termsSentence(terms: NonNullable<CustomerEmailContext["terms"]>): strin
 function invoiceSentence(invoiceNumber: string | null | undefined): string {
   return invoiceNumber ? `V příloze posíláme fakturu č. ${invoiceNumber}.` : "";
 }
+
+/** Představení partnerského programu novým zákazníkům (znění schválila Lucie 15. 11. 2026). */
+export const PARTNER_INTRO_TEXT =
+  "Rádi bychom Vám představili náš partnerský program: čím víc v e-shopu za měsíc nakoupíte, tím větší slevu máte na další měsíc (3 až 7 %). Jak to funguje:";
 
 export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext): RenderedEmail {
   const reference = orderReference(order);
@@ -311,12 +317,18 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
       ? `${termsSentence(ctx.terms)}${ctx.terms.attached ? " Najdete je také na" : ""} ${termsUrl}\n\n`
       : "";
 
+  const partnerUrl = eshopAbsoluteUrl(ctx.baseUrl, "/partnersky-program");
+  const partnerHtml = ctx.partnerIntro
+    ? `<p style="margin:0 0 16px;">${escapeHtml(PARTNER_INTRO_TEXT)} <a href="${escapeHtml(partnerUrl)}" style="color:#1A1A1A;">${escapeHtml(partnerUrl)}</a></p>\n`
+    : "";
+  const partnerText = ctx.partnerIntro ? `${PARTNER_INTRO_TEXT} ${partnerUrl}\n\n` : "";
+
   const html = layout(
     ctx,
     `<tr><td style="font-size:14px;color:#1A1A1A;">
 <p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
 <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
-${itemsTable(order)}
+${partnerHtml}${itemsTable(order)}
 <div style="height:16px"></div>
 ${detailsTable(details)}
 <div style="height:16px"></div>
@@ -330,7 +342,7 @@ ${termsHtml}<p style="margin:0 0 16px;color:#404040;font-size:13px;">Odstoupit o
   );
   const text =
     testBannerText(ctx) +
-    `${greeting}\n\n${intro}\n\n${itemsText(order)}\n\n` +
+    `${greeting}\n\n${intro}\n\n${partnerText}${itemsText(order)}\n\n` +
     details.map(([l, v]) => `${l}: ${v}`).join("\n") +
     `\n\n${partyBlocksText(blocks)}` +
     `\n\n${instructions.text}Stav objednávky: ${statusUrl}\n\n${termsText}Odstoupit od smlouvy můžete online: ${withdrawUrl}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;

@@ -15,7 +15,7 @@
 //   • „partner-program-odhlaseni“ — neaktivní řádek se seznamem e-mailů, které
 //     si nepřejí obchodní sdělení (zákon č. 480/2004 Sb., § 7).
 // Neaktivní řádky nejdou v pokladně uplatnit.
-import { and, eq, gte, lt, ne } from "drizzle-orm";
+import { and, eq, gte, lt, ne, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { eshopCoupons, orders } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
@@ -330,4 +330,27 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
     await sendInternal(mailer, { subject, text, html: `<p>${text.replace(/\n/g, "<br>")}</p>` }, `partner-hotovo-${monthKey(validMonth)}-${emailed.length}-${failed.length}`);
   }
   return { status: "done", codes, emailed, failed, waiting };
+}
+
+/**
+ * Nový zákazník e-shopu: na tento e-mail neexistuje žádná jiná (nezrušená)
+ * objednávka z e-shopu a zákazník si neodmítl obchodní sdělení. Podle toho se
+ * do potvrzení objednávky přidá představení partnerského programu. Při chybě
+ * raději nic nepřidává.
+ */
+export async function isNewEshopCustomer<T extends PgQueryResultHKT>(db: AnyDb<T>, orderId: string, rawEmail: string): Promise<boolean> {
+  const email = rawEmail.trim().toLowerCase();
+  if (!email.includes("@")) return false;
+  try {
+    const [other] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.channel, "eshop"), ne(orders.fulfillmentStatus, "cancelled"), ne(orders.id, orderId), sql`lower(${orders.contactEmail}) = ${email}`))
+      .limit(1);
+    if (other) return false;
+    return !(await loadPartnerOptOuts(db)).includes(email);
+  } catch (error) {
+    console.error("Partnerský program: nepodařilo se ověřit nového zákazníka", error instanceof Error ? error.message.slice(0, 200) : error);
+    return false;
+  }
 }
