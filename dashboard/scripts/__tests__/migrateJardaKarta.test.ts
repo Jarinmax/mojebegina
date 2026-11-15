@@ -123,6 +123,7 @@ const state = async (pg: PGlite) => ({
   order: (await pg.query(`SELECT source_lead_id FROM orders WHERE id = '${ORDER_MONIKA}'`)).rows,
   cards: (await pg.query(`SELECT id, assignee_user_id, display_name FROM collaborator_cards WHERE id = '${JARDA_CARD_ID}'`)).rows,
   activity: (await pg.query(`SELECT lead_id, kind, author_user_id, metadata->>'reason' AS reason FROM lead_activity ORDER BY lead_id, kind`)).rows,
+  assignments: (await pg.query(`SELECT lead_id, reward_type, basis, recorded_at FROM seller_reward_assignments ORDER BY lead_id`)).rows,
 });
 
 describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu", { timeout: 60_000 }, () => {
@@ -163,6 +164,10 @@ describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu",
     expect(after.order).toEqual([{ source_lead_id: LEAD_MONIKA }]);
     expect(after.cards).toEqual([{ id: JARDA_CARD_ID, assignee_user_id: BLAHOUT, display_name: "Jaroslav Blahout – obchod a volání" }]);
     expect(after.activity).toHaveLength(3);
+    expect((after.assignments as { lead_id: string; reward_type: string; basis: string }[]).map((a) => [a.lead_id, a.reward_type, a.basis])).toEqual([
+      [LEAD_TATIANA, "new", "confirmed_at_signing"],
+      [LEAD_MONIKA, "new", "confirmed_at_signing"],
+    ].sort());
     expect((after.activity as { reason: string }[]).every((a) => a.reason === "audit_2026_11_15")).toBe(true);
     const { rows: froms } = await pg.query<{ lead_id: string; from: string }>(`SELECT lead_id, metadata->>'from' AS from FROM lead_activity WHERE kind = 'converted' ORDER BY lead_id`);
     expect(Object.fromEntries(froms.map((r) => [r.lead_id, r.from]))).toEqual({ [LEAD_TATIANA]: "interested", [LEAD_MONIKA]: "callback_later" });
@@ -180,6 +185,7 @@ describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu",
     const s = await state(pg);
     expect(s.leads).toEqual([]);
     expect(s.activity).toEqual([]);
+    expect(s.assignments).toEqual([]);
     expect(s.cards).toHaveLength(1);
   });
 

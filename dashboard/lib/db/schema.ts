@@ -1455,6 +1455,38 @@ export const collaboratorProductMovements = pgTable(
   ]
 );
 
+// Jardova karta — evidence zákazníka a typu odměňování prodejce PŘED
+// oslovením (Dohoda o odměňování prodejce ze dne 14. 11. 2026, bod 4).
+// Jedna platná evidence na kontakt (provize se nesčítají). basis:
+// "contract" = evidováno podle dohody před oslovením; "confirmed_at_signing" =
+// rozpracovaný kontakt potvrzený při podpisu (bod 6). Nic se nemaže — zrušení
+// nastaví cancelled_at.
+export const sellerRewardAssignments = pgTable(
+  "seller_reward_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id),
+    sellerUserId: text("seller_user_id").notNull(),
+    rewardType: text("reward_type").notNull(), // "new" | "renewed" | "upsell"
+    basis: text("basis").notNull().default("contract"), // "contract" | "confirmed_at_signing"
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    upsellProductIds: uuid("upsell_product_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    note: text("note"),
+    recordedBy: text("recorded_by").notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
+  },
+  (table) => [
+    uniqueIndex("seller_reward_assignments_one_active").on(table.leadId).where(sql`${table.cancelledAt} IS NULL`),
+    check("seller_reward_assignments_type_check", sql`${table.rewardType} IN ('new', 'renewed', 'upsell')`),
+    check("seller_reward_assignments_basis_check", sql`${table.basis} IN ('contract', 'confirmed_at_signing')`),
+    check(
+      "seller_reward_assignments_upsell_products",
+      sql`(${table.rewardType} = 'upsell') = (cardinality(${table.upsellProductIds}) > 0)`
+    ),
+  ]
+);
+
 export const collaboratorPayouts = pgTable(
   "collaborator_payouts",
   {

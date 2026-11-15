@@ -288,6 +288,13 @@
       "when": 1794756685128,
       "tag": "0040_jarda_karta_zdroj_objednavky",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794758630524,
+      "tag": "0041_jarda_karta_evidence_odmenovani",
+      "breakpoints": true
     }
   ]
 }

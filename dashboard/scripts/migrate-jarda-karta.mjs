@@ -1,13 +1,17 @@
 // Jardova karta (audit 15. 11. 2026, rozhodnutí vedení téhož dne) — hlídaná
 // migrace a jednorázový úklid dat při buildu na Vercelu, stejný princip jako
 // ostatní scripts/migrate-*.mjs:
-//   1. migrace 0040: orders.source_lead_id (objednávka soukromé osoby ↔ kontakt),
+//   1. migrace 0040: orders.source_lead_id (objednávka soukromé osoby ↔ kontakt)
+//      a 0041: seller_reward_assignments (evidence typu odměňování, bod 4 dohody),
 //   2. úklid dat v JEDNÉ transakci; každý krok je hlídaný podmínkou, takže
 //      opakované spuštění nic nezmění a nic se nemaže:
 //      a) Jardova karta spolupracovníka (kvůli evidenci výplat odměn),
 //      b) VIP Dogs ↔ kontakt Tatiana Lisichkina (převedení na zákazníka),
 //      c) objednávka 70000013 ↔ kontakt Monika Chuda (soukromá osoba, bez IČO),
-//      d) kontakt „Jaroslav Viner“ (vtip, ne Jardův kontakt) → vlastník Viner.
+//      d) kontakt „Jaroslav Viner“ (vtip, ne Jardův kontakt) → vlastník Viner,
+//      e) VIP Dogs (Tatiana) a Monika Chuda jako „Nový zákazník“ — rozpracované
+//         kontakty potvrzené při podpisu dohody 14. 11. 2026 (bod 6),
+//         rozhodnutí vedení 15. 11. 2026.
 //      Ke každé změně se zapíše záznam do historie kontaktu.
 //   • Preview: jen na Neon větvi Preview (DATABASE_URL na produkční timeline →
 //     nic se nezmění). Jinde (lokálně, testy) nic.
@@ -99,6 +103,15 @@ export function cleanupStatements() {
                 FROM upd`,
       params: [LEAD_VINER_JOKE, VINER, BLAHOUT, AUTHOR_NAME],
     },
+    // e) evidence odměňování rozpracovaných kontaktů (bod 6 dohody)
+    ...[LEAD_TATIANA, LEAD_MONIKA].map((leadId) => ({
+      query: `INSERT INTO seller_reward_assignments (lead_id, seller_user_id, reward_type, basis, recorded_at, note, recorded_by)
+              SELECT $1::uuid, $2::text, 'new', 'confirmed_at_signing', '2026-11-14T12:00:00Z'::timestamptz,
+                     'Rozpracovaný kontakt potvrzený při podpisu dohody 14. 11. 2026 (bod 6) jako Nový zákazník.', $3::text
+              WHERE EXISTS (SELECT 1 FROM leads WHERE id = $1::uuid AND owner_user_id = $2::text)
+                AND NOT EXISTS (SELECT 1 FROM seller_reward_assignments WHERE lead_id = $1::uuid AND cancelled_at IS NULL)`,
+      params: [leadId, BLAHOUT, VINER],
+    })),
   ];
 }
 
@@ -129,6 +142,18 @@ export async function runJardaCardMigration() {
     const statements = statementsOf(await read("../drizzle/0040_jarda_karta_zdroj_objednavky.sql"));
     await sql.transaction((tx) => statements.map((s) => tx.query(s)));
     console.log(`Jarda card migration (${env}): schema 0040 applied (orders.source_lead_id).`);
+  }
+
+  const [{ has0041 }] = await sql.query(
+    `select count(*)::int > 0 as has0041 from information_schema.tables
+      where table_schema = 'public' and table_name = 'seller_reward_assignments'`,
+  );
+  if (has0041) {
+    console.log(`Jarda card migration (${env}): 0041 already applied.`);
+  } else {
+    const statements = statementsOf(await read("../drizzle/0041_jarda_karta_evidence_odmenovani.sql"));
+    await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+    console.log(`Jarda card migration (${env}): schema 0041 applied (seller_reward_assignments).`);
   }
 
   await sql.transaction((tx) => cleanupStatements().map(({ query, params }) => tx.query(query, params)));

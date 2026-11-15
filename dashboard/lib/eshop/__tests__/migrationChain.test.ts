@@ -63,7 +63,7 @@ const AFTER_SKLAD = [
 /** Google Kalendář (propojení, synchronizace termínů) a Denní volání 1.1 (vazba položky na aktivitu). */
 const CALENDAR = ["0038_google_kalendar", "0039_denni_volani_1_1_historie"];
 /** Jardova karta: vazba objednávky soukromé osoby na kontakt. */
-const JARDA_CARD = ["0040_jarda_karta_zdroj_objednavky"];
+const JARDA_CARD = ["0040_jarda_karta_zdroj_objednavky", "0041_jarda_karta_evidence_odmenovani"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 /** Index migrace 0039 (Denní volání 1.1). */
