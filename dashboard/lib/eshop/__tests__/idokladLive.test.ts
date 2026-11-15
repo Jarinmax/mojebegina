@@ -774,7 +774,8 @@ describe("pojistka HTTP klienta iDokladu (bez sítě)", () => {
     const base = "https://api.idoklad.cz/v3";
     const deny: [string, string][] = [
       ["DELETE", `${base}/IssuedInvoices/1`],
-      ["PATCH", `${base}/IssuedInvoices`],
+      ["PATCH", `${base}/IssuedInvoices/1`],
+      ["PATCH", `${base}/Contacts`],
       ["POST", `${base}/Mails/IssuedInvoice/Send`],
       ["POST", `${base}/NumericSequences`],
       ["PATCH", `${base}/NumericSequences`],
@@ -795,6 +796,10 @@ describe("pojistka HTTP klienta iDokladu (bez sítě)", () => {
     expect(() => assertEshopIdokladRequest("POST", `${base}/IssuedInvoices`, true)).not.toThrow();
     expect(() => assertEshopIdokladRequest("PUT", `${base}/IssuedDocumentPayments/FullyPay/5?dateOfPayment=2026-10-07+12%3A00%3A00.000`, true)).not.toThrow();
     expect(() => assertEshopIdokladRequest("GET", `${base}/Reports/IssuedInvoice/5/Pdf`, false)).not.toThrow();
+    // oprava způsobu úhrady (15. 11. 2026): adresa projde jen s otevřenou bránou; tělo
+    // (jen Id + PaymentOptionId) a klient pro opravy hlídá klient (mcpInvoiceCorrection test)
+    expect(() => assertEshopIdokladRequest("PATCH", `${base}/IssuedInvoices`, false)).toThrow(/mimo ostrý provoz/);
+    expect(() => assertEshopIdokladRequest("PATCH", `${base}/IssuedInvoices`, true)).not.toThrow();
   });
 
   it("klient s writesAllowed:true na Preview zápis stejně zablokuje — fetch se nezavolá", async () => {
