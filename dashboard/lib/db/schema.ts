@@ -11,6 +11,7 @@ import {
   uuid,
   text,
   integer,
+  primaryKey,
   boolean,
   timestamp,
   date,
@@ -2054,4 +2055,17 @@ export const economyEntries = pgTable(
     index("economy_entries_kind_date_idx").on(table.kind, table.entryDate),
     check("economy_entries_kind_check", sql`${table.kind} IN ('income','cost')`),
   ]
+);
+
+// MĚŘENÍ E-SHOPU 1.0 (15. 11. 2026) — anonymní denní počítadla kroků nákupu
+// (návštěva → produkt → košík → pokladna). Jen součty po dnech: žádná IP
+// adresa, žádný identifikátor návštěvníka, nic se neukládá do zařízení.
+export const eshopFunnelDaily = pgTable(
+  "eshop_funnel_daily",
+  {
+    day: date("day", { mode: "string" }).notNull(),
+    step: text("step").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.day, table.step] })]
 );

@@ -18,6 +18,7 @@ import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 import Marketing from "@/components/eshop/Marketing";
+import FunnelBeacon from "@/components/eshop/FunnelBeacon";
 import { marketingConfig } from "@/lib/eshop/marketing";
 import { SHARE_DESCRIPTION, SHARE_TITLE, brandShareMeta } from "@/lib/eshop/shareMeta";
 
@@ -107,6 +108,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
 
       <EshopFooter cookieSettings={marketing !== null} />
       {marketing && <Marketing config={marketing} />}
+      <FunnelBeacon />
     </div>
     </CatalogProvider>
     </EshopBaseProvider>
