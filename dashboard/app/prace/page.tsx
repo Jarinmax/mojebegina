@@ -5,6 +5,7 @@ import { getTodayCalls } from "@/lib/data/callHistory";
 import { getScheduledCallsToday, type ScheduledCallItem } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
+import { canViewJardaRewards } from "@/lib/data/jardaRewards";
 import TodayCalls from "./TodayCalls";
 import ScheduledCalls from "./ScheduledCalls";
 import PushSubscribeButton from "./PushSubscribeButton";
@@ -79,6 +80,13 @@ export default async function PracePage() {
       {isCallWorker && <PushSubscribeButton />}
 
       {isCallWorker && <ScheduledCalls calls={scheduledCalls} />}
+
+      {canViewJardaRewards(authCtx) && (
+        <Link href="/prace/odmeny" className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900 min-h-11">
+          <span>{isManager ? "Jarda – zákazníci a odměny" : "Moji zákazníci a odměny"}</span>
+          <span aria-hidden>›</span>
+        </Link>
+      )}
 
       {(isManager || tasks.some((t) => /^BEG-\d{2}/.test(t.title))) && (
         <Link href="/prace/kontrola-eshopu" className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900">

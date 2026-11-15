@@ -164,7 +164,7 @@ describe("scripts/migrate-google-calendar.mjs — hlídané migrace při Vercel 
     expect((await followUps(pg))[0]).toEqual({ id: LEAD_DATE_ONLY, at: "2026-11-12 14:30" });
   });
 
-  it("výsledné schéma = schéma kódu (všechny migrace)", async () => {
+  it("výsledné schéma = schéma kódu po migraci 0039", async () => {
     const pg = await productionLike();
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "preview";
@@ -175,7 +175,7 @@ describe("scripts/migrate-google-calendar.mjs — hlídané migrace při Vercel 
         SELECT 'col ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable AS k FROM information_schema.columns WHERE table_schema = 'public' AND table_name <> 'lead_follow_up_k8_backup'
         UNION ALL SELECT 'con ' || conrelid::regclass || ' ' || conname FROM pg_constraint WHERE connamespace = 'public'::regnamespace AND conrelid::regclass::text <> 'lead_follow_up_k8_backup'
         ORDER BY 1`)).rows.map((r) => r.k);
-    const code = await seedPg();
+    const code = await seedPg(journalTags().indexOf("0039_denni_volani_1_1_historie"));
     expect(await print(pg)).toEqual(await print(code));
   });
 

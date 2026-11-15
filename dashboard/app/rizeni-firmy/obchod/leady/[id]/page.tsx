@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLeadDetail, listStaffOptions } from "@/lib/data/leads";
+import { getLeadDetail, listLeadSourceOrders, listStaffOptions } from "@/lib/data/leads";
 import { SOURCE_LABELS, VENUE_TYPE_LABELS } from "../../leadLabels";
 import LeadStageBadge, { FollowUpBadge } from "../../LeadStageBadge";
 import CallLogForm from "./CallLogForm";
+import RewardAssignmentPanel from "./RewardAssignmentPanel";
+import { getLeadRewardAssignment } from "@/lib/data/jardaRewards";
+import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
 import LeadOwnerForm from "./LeadOwnerForm";
 import CompanyNameForm from "./CompanyNameForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
@@ -37,7 +40,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
     notFound();
   }
   const { lead, activity } = detail;
-  const staff = await listStaffOptions();
+  const [staff, sourceOrders, reward] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id)]);
 
   const venueTypeLabel = lead.venueType
     ? (VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType)
@@ -120,6 +123,27 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           staff={staff}
         />
       </div>
+
+      {reward.visible && (
+        <RewardAssignmentPanel
+          leadId={lead.id}
+          canRecord={reward.canRecord}
+          canCancel={reward.canCancel}
+          products={reward.products}
+          assignment={
+            reward.assignment
+              ? { ...reward.assignment, recordedAt: pragueDateLabel(reward.assignment.recordedAt) }
+              : null
+          }
+        />
+      )}
+
+      {lead.stage === "converted" && !lead.convertedOrganizationId && sourceOrders.length > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4 text-sm text-emerald-800">
+          Zákazník/zákaznice – soukromá osoba (bez IČO). Objednávky:{" "}
+          {sourceOrders.map((o) => (o.orderNumber ? `č. ${o.orderNumber}` : "bez čísla")).join(", ")}
+        </div>
+      )}
 
       {lead.stage === "converted" && lead.convertedOrganizationId ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4 text-sm text-emerald-800">

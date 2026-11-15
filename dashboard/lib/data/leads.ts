@@ -1194,3 +1194,14 @@ export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
     customers: customerRows,
   };
 }
+
+// Jardova karta (audit 15. 11. 2026): objednávky soukromé osoby navázané na
+// kontakt přes orders.source_lead_id — pro detail kontaktu.
+export async function listLeadSourceOrders(leadId: string) {
+  await requireCrmContext();
+  return db
+    .select({ id: orders.id, orderNumber: orders.orderNumber, orderedAt: orders.orderedAt, totalKc: orders.totalKc })
+    .from(orders)
+    .where(eq(orders.sourceLeadId, leadId))
+    .orderBy(asc(orders.orderedAt));
+}

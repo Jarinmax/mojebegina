@@ -288,6 +288,20 @@
       "when": 1794756498347,
       "tag": "0040_ekonomika",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794759911358,
+      "tag": "0041_jarda_karta_zdroj_objednavky",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794759912528,
+      "tag": "0042_jarda_karta_evidence_odmenovani",
+      "breakpoints": true
     }
   ]
 }
