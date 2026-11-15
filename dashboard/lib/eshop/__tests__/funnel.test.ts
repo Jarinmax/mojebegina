@@ -34,3 +34,25 @@ describe("měření e-shopu", () => {
     expect(buildFunnel({})[3]).toMatchObject({ count: 0, ofVisitsPct: null, ofPreviousPct: null });
   });
 });
+
+import { buildFunnelReport } from "../funnelReport";
+
+describe("týdenní report měření", () => {
+  const day = (iso: string, counts: Record<string, number>) => ({ day: iso, counts });
+  it("shrne týden, porovná s předchozím a najde největší odpad", () => {
+    const week = [day("2026-11-22", { visit: 60, product: 30, add_to_cart: 3, cart: 3, checkout: 2, order: 2, paid: 1 }), day("2026-11-16", { visit: 40, product: 20 })];
+    const previous = [day("2026-11-15", { visit: 50, paid: 1 })];
+    const report = buildFunnelReport(week, previous);
+    expect(report.subject).toContain("16. 11. – 22. 11.");
+    expect(report.subject).toContain("konverze 1 %");
+    expect(report.text).toContain("Návštěvy: 100 (50)");
+    expect(report.text).toContain("Týden předtím: 2 %");
+    expect(report.text).toContain("Největší odpad: Zobrazení produktu → Vložení do košíku, pokračuje jen 6 %.");
+    expect(report.html).not.toContain("<script");
+  });
+  it("bez návštěv nic nevymýšlí", () => {
+    const report = buildFunnelReport([day("2026-11-22", {})], [day("2026-11-15", {})]);
+    expect(report.text).toContain("nelze spočítat (žádné návštěvy)");
+    expect(report.text).toContain("Největší odpad zatím nejde určit");
+  });
+});
