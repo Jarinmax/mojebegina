@@ -121,8 +121,13 @@ export function evaluatePartnerMonth(rows: PartnerOrderRow[]): PartnerClient[] {
   return list.sort((a, b) => b.goodsKc - a.goodsKc || a.key.localeCompare(b.key));
 }
 
-/** Podpis pod e-maily klientům. TODO(Lucie): upravit podle jejího podpisu, až ho pošle. */
-export const PARTNER_EMAIL_SIGNATURE = ["Tým Begina", "Jaroslav Viner, IČO 74337297", "tel. +420 774 199 975, info@begina.cz"];
+/**
+ * Podpis podle Luciina podpisu v poště info@begina.cz (15. 11. 2026). Telefon
+ * je číslo z patičky webu (+420 774 199 975). Řádek s IČO je povinné označení
+ * odesílatele obchodního sdělení (zákon č. 480/2004 Sb., § 7 odst. 4).
+ */
+export const PARTNER_EMAIL_SIGNATURE = ["tým Begina", "+420 774 199 975", "info@begina.cz", "www.begina.cz"];
+export const PARTNER_EMAIL_SENDER = "Odesílatel: Jaroslav Viner, IČO 74337297";
 
 export const PARTNER_PROGRAM_URL = "https://begina.cz/partnersky-program";
 
@@ -157,14 +162,14 @@ export function buildPartnerEmail(input: {
   ];
   const optOut = "Pokud si nepřejete dostávat informace o partnerském programu, odpovězte na tento e-mail slovem NE.";
   const subject = `Vaše partnerská sleva na ${monthName(valid)} (obchodní sdělení)`;
-  const text = [greeting, "", ...paragraphs.flatMap((p) => [p, ""]), "S pozdravem", ...PARTNER_EMAIL_SIGNATURE, "", optOut].join("\n");
+  const text = [greeting, "", ...paragraphs.flatMap((p) => [p, ""]), "S přátelským pozdravem", ...PARTNER_EMAIL_SIGNATURE, "", PARTNER_EMAIL_SENDER, optOut].join("\n");
   const html = [
     `<p>${escapeHtml(greeting)}</p>`,
     `<p>${escapeHtml(paragraphs[0]).replace(escapeHtml(percent), `<strong>${escapeHtml(percent)}</strong>`)}</p>`,
     `<p>${escapeHtml(paragraphs[1]).replace(code, `<strong>${code}</strong>`)}</p>`,
     `<p>Jak partnerský program funguje: <a href="${PARTNER_PROGRAM_URL}">begina.cz/partnersky-program</a></p>`,
-    `<p>S pozdravem<br>${PARTNER_EMAIL_SIGNATURE.map(escapeHtml).join("<br>")}</p>`,
-    `<p style="color:#666;font-size:13px">${escapeHtml(optOut)}</p>`,
+    `<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(PARTNER_EMAIL_SIGNATURE[0])}</strong><br>${PARTNER_EMAIL_SIGNATURE.slice(1).map(escapeHtml).join("<br>")}</p>`,
+    `<p style="color:#666;font-size:13px">${escapeHtml(PARTNER_EMAIL_SENDER)}<br>${escapeHtml(optOut)}</p>`,
   ].join("\n");
   return { subject, text, html };
 }

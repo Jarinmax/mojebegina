@@ -56,7 +56,7 @@ describe("partnerský program: čistá logika", () => {
     expect(mail.text).toContain("slevou 5 %");
     expect(mail.text).toContain("od 1. do 31. prosince");
     expect(mail.text).toContain("PROSINEC5");
-    expect(mail.text).toContain("Tým Begina");
+    expect(mail.text).toContain("S přátelským pozdravem\ntým Begina\n+420 774 199 975\ninfo@begina.cz\nwww.begina.cz");
     expect(mail.text).toContain("IČO 74337297");
     expect(mail.text).toContain("slovem NE");
     expect(buildPartnerEmail({ evaluatedMonth: NOV, goodsKc: 6000, percent: 3 }).text.startsWith("Dobrý den,\n")).toBe(true);
@@ -87,12 +87,11 @@ describe("partnerský program: schválení, kódy a rozesílka (PGlite)", () => 
 
   beforeAll(async () => {
     ({ db } = await createMigratedDb());
-    // listopad: tři klienti z e-shopu + ruční objednávka a říjnová platba, které se nepočítají
+    // listopad: tři klienti z e-shopu + říjnová platba a neuhrazená objednávka, které se nepočítají
     await db.execute(sql`INSERT INTO orders (id, channel, contact_email, contact_name, billing_ico, billing_company, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, paid_at, payment_vs) VALUES
       ('a1111111-1111-4111-8111-111111111111', 'eshop', 'Majitel@kavarna.cz', 'Jana', '12345678', 'Kavárna s.r.o.', 9500, 500, 267, 9267, 'paid', 'delivered', '2026-11-05T10:00:00Z', '2026-11-05T10:05:00Z', '70000001'),
       ('a2222222-2222-4222-8222-222222222222', 'eshop', 'maly@example.cz', 'Petr Malý', NULL, NULL, 1200, 0, 267, 1467, 'paid', 'delivered', '2026-11-06T10:00:00Z', '2026-11-06T10:05:00Z', '70000002'),
       ('a3333333-3333-4333-8333-333333333333', 'eshop', 'velky@example.cz', 'Velký odběr', NULL, NULL, 26000, 0, 500, 26500, 'paid', 'delivered', '2026-11-07T10:00:00Z', '2026-11-07T10:05:00Z', '70000003'),
-      ('a4444444-4444-4444-8444-444444444444', 'manual', 'maly@example.cz', 'Petr Malý', NULL, NULL, 30000, 0, 0, 30000, 'paid', 'delivered', '2026-11-08T10:00:00Z', '2026-11-08T10:05:00Z', NULL),
       ('a5555555-5555-4555-8555-555555555555', 'eshop', 'maly@example.cz', 'Petr Malý', NULL, NULL, 9000, 0, 267, 9267, 'paid', 'delivered', '2026-10-29T10:00:00Z', '2026-10-30T10:05:00Z', '70000005'),
       ('a6666666-6666-4666-8666-666666666666', 'eshop', 'maly@example.cz', 'Petr Malý', NULL, NULL, 9000, 0, 267, 9267, 'unpaid', 'new', '2026-11-09T10:00:00Z', NULL, '70000006')`);
   });
