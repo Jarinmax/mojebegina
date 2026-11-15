@@ -11,6 +11,26 @@
     {
       "path": "/api/cron/partner-program?beh=pulnoc",
       "schedule": "5 23 * * *"
+    },
+    {
+      "path": "/api/cron/fio-platby?beh=1",
+      "schedule": "12 6 * * *"
+    },
+    {
+      "path": "/api/cron/fio-platby?beh=2",
+      "schedule": "12 9 * * *"
+    },
+    {
+      "path": "/api/cron/fio-platby?beh=3",
+      "schedule": "12 12 * * *"
+    },
+    {
+      "path": "/api/cron/fio-platby?beh=4",
+      "schedule": "12 15 * * *"
+    },
+    {
+      "path": "/api/cron/fio-platby?beh=5",
+      "schedule": "12 18 * * *"
     }
   ]
 }
