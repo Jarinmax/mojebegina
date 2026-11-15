@@ -1,7 +1,7 @@
 // Partnerský program — měsíční vyhodnocení, kódy, schválení a rozesílka.
 import { beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { buildPartnerEmail, crossedIndividualLimit, evaluatePartnerMonth, partnerCode, tierFor, type PartnerOrderRow } from "../partnerMonthly";
+import { buildPartnerEmail, crossedIndividualLimit, evaluatePartnerMonth, partnerEntitlementCode, tierFor, type PartnerOrderRow } from "../partnerMonthly";
 import type { EmailMessage } from "../email/resend";
 import { createMigratedDb } from "./helpers/migratedDb";
 
@@ -29,10 +29,9 @@ describe("partnerský program: čistá logika", () => {
     expect(tierFor(20001).percent).toBeNull();
   });
 
-  it("kód = měsíc platnosti bez diakritiky + procento", () => {
-    expect(partnerCode({ year: 2026, month: 12 }, 5)).toBe("PROSINEC5");
-    expect(partnerCode({ year: 2027, month: 3 }, 3)).toBe("BREZEN3");
-    expect(partnerCode({ year: 2027, month: 9 }, 7)).toBe("ZARI7");
+  it("vnitřní řádek s nárokem: měsíc platnosti a procento", () => {
+    expect(partnerEntitlementCode({ year: 2026, month: 12 }, 5)).toBe("partner-2026-12-5");
+    expect(partnerEntitlementCode({ year: 2027, month: 3 }, 7.5)).toBe("partner-2027-03-7_5");
   });
 
   it("jeden klient = IČO, jinak e-mail; dva e-maily jedné firmy se sečtou", () => {
@@ -47,7 +46,7 @@ describe("partnerský program: čistá logika", () => {
     expect(clients[1]).toMatchObject({ key: "email:a@firma.cz", percent: 0 });
   });
 
-  it("e-mail klientovi: částka, procento, kód, platnost, označení a možnost odmítnout", () => {
+  it("e-mail klientovi: částka, procento, platnost, Uplatnit bez kódu, označení a možnost odmítnout", () => {
     const mail = buildPartnerEmail({ salutation: "paní Nováková", evaluatedMonth: NOV, goodsKc: 9842, percent: 5 });
     expect(mail.subject).toBe("Vaše partnerská sleva na prosinec (obchodní sdělení)");
     expect(mail.text).toContain("Dobrý den, paní Nováková,");
@@ -55,7 +54,8 @@ describe("partnerský program: čistá logika", () => {
     expect(mail.text).toContain("9 842 Kč");
     expect(mail.text).toContain("slevou 5 %");
     expect(mail.text).toContain("od 1. do 31. prosince");
-    expect(mail.text).toContain("PROSINEC5");
+    expect(mail.text).toContain("klikněte na „Uplatnit“");
+    expect(mail.text).not.toContain("PROSINEC");
     expect(mail.text).toContain("S přátelským pozdravem\ntým Begina\n+420 774 199 975\ninfo@begina.cz\nwww.begina.cz");
     expect(mail.text).toContain("IČO 74337297");
     expect(mail.text).toContain("slovem NE");
@@ -116,23 +116,31 @@ describe("partnerský program: schválení, kódy a rozesílka (PGlite)", () => 
     expect(codes.rows).toEqual([]);
   });
 
-  it("po schválení: kód PROSINEC5 jen pro e-mail klienta do konce prosince, e-mail s kopií na info; individuální čeká", async () => {
+  it("po schválení: sleva 5 % jen pro e-mail klienta do konce prosince (v pokladně Uplatnit), e-mail s kopií na info; individuální čeká", async () => {
     const { approvePartnerMonth, finalizePartnerMonth, loadPartnerMonthState } = await import("../partnerMonthlyServer");
     const { loadCouponContext } = await import("../couponsServer");
     sentMail.length = 0;
     await approvePartnerMonth(db, { evaluatedMonth: NOV, approvedBy: "Lucie", individual: {}, salutations: { "ico:12345678": "paní Kavárníková" }, now: new Date("2026-11-30T18:00:00Z") });
     const result = await finalizePartnerMonth(db, DEC1, mailer);
-    expect(result).toMatchObject({ status: "done", codes: ["PROSINEC5"], emailed: ["majitel@kavarna.cz"], failed: [], waiting: ["Velký odběr"] });
+    expect(result).toMatchObject({ status: "done", codes: ["5 %"], emailed: ["majitel@kavarna.cz"], failed: [], waiting: ["Velký odběr"] });
     const client = sentMail.find((m) => m.to[0] === "majitel@kavarna.cz");
     expect(client?.bcc).toEqual(["info@begina.cz"]);
     expect(client?.text).toContain("Dobrý den, paní Kavárníková,");
     expect(client?.text).toContain("9 000 Kč");
-    expect(client?.text).toContain("PROSINEC5");
+    expect(client?.text).toContain("slevou 5 %");
     expect(sentMail.some((m) => m.to.includes("maly@example.cz") || m.to.includes("velky@example.cz"))).toBe(false);
 
-    const ctx = await loadCouponContext(db, ["prosinec5"], new Date("2026-12-10T12:00:00Z"));
-    expect(ctx.coupons.get("prosinec5")).toMatchObject({ discountType: "percent", amount: 5, emailRestrictions: ["majitel@kavarna.cz"] });
-    expect(ctx.coupons.get("prosinec5")!.expiresAt!.toISOString()).toBe("2026-12-31T23:00:00.000Z");
+    // pokladna: e-mail klienta dostane nabídku PARTNER 5 %, cizí e-mail ne; vnitřní řádek nejde zadat jako kód
+    const { PARTNER_CODE, partnerPercent } = await import("../coupons");
+    const inDecember = new Date("2026-12-10T12:00:00Z");
+    const mine = await loadCouponContext(db, [PARTNER_CODE], inDecember, { email: "Majitel@Kavarna.cz" });
+    expect(partnerPercent(mine.coupons.get(PARTNER_CODE)!)).toEqual({ ok: true, percent: 5 });
+    expect((await loadCouponContext(db, [PARTNER_CODE], inDecember, { email: "cizi@example.cz" })).coupons.has(PARTNER_CODE)).toBe(false);
+    expect((await loadCouponContext(db, ["partner-2026-12-5"], inDecember, { email: "cizi@example.cz" })).coupons.size).toBe(0);
+    // v lednu už prosincová sleva neplatí
+    expect((await loadCouponContext(db, [PARTNER_CODE], new Date("2027-01-05T12:00:00Z"), { email: "majitel@kavarna.cz" })).coupons.has(PARTNER_CODE)).toBe(false);
+    const stored = await db.execute(sql`SELECT expires_at FROM eshop_coupons WHERE code = 'partner-2026-12-5'`);
+    expect(new Date(stored.rows[0].expires_at as string).toISOString()).toBe("2026-12-31T23:00:00.000Z");
     expect((await loadPartnerMonthState(db, { year: 2026, month: 12 })).sent).toEqual(["majitel@kavarna.cz"]);
 
     // opakovaný běh už nikomu nic neposílá
@@ -142,16 +150,16 @@ describe("partnerský program: schválení, kódy a rozesílka (PGlite)", () => 
     expect(sentMail.every((m) => m.to[0] === "info@begina.cz")).toBe(true);
   });
 
-  it("doplnění individuální slevy: klient nad 20 000 Kč dostane vlastní kód; odhlášený kód dostane, e-mail ne", async () => {
+  it("doplnění individuální slevy: klient nad 20 000 Kč dostane vlastní procento; odhlášený slevu má, e-mail nedostane", async () => {
     const { addPartnerOptOut, approvePartnerMonth, finalizePartnerMonth } = await import("../partnerMonthlyServer");
     sentMail.length = 0;
     await addPartnerOptOut(db, "Velky@example.cz");
     await approvePartnerMonth(db, { evaluatedMonth: NOV, approvedBy: "Lucie", individual: { "email:velky@example.cz": 10 }, salutations: {}, now: new Date("2026-12-01T08:00:00Z") });
     const result = await finalizePartnerMonth(db, new Date("2026-12-01T08:00:05Z"), mailer);
-    expect(result.codes.sort()).toEqual(["PROSINEC10", "PROSINEC5"]);
+    expect(result.codes.sort()).toEqual(["10 %", "5 %"]);
     expect(result.emailed).toEqual([]);
     expect(result.waiting).toEqual([]);
-    const row = await db.execute(sql`SELECT email_restrictions, amount::int AS amount, is_active FROM eshop_coupons WHERE code = 'prosinec10'`);
+    const row = await db.execute(sql`SELECT email_restrictions, amount::int AS amount, is_active FROM eshop_coupons WHERE code = 'partner-2026-12-10'`);
     expect(row.rows[0]).toMatchObject({ email_restrictions: ["velky@example.cz"], amount: 10, is_active: true });
     // stavové řádky nejsou aktivní kódy
     const inactive = await db.execute(sql`SELECT code FROM eshop_coupons WHERE NOT is_active ORDER BY code`);

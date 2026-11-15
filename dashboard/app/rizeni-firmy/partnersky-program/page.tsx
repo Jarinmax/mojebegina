@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db/client";
-import { addMonths, buildPartnerEmail, monthKey, monthName, parseMonthKey, partnerCode } from "@/lib/eshop/partnerMonthly";
+import { addMonths, buildPartnerEmail, monthKey, monthName, parseMonthKey } from "@/lib/eshop/partnerMonthly";
 import { loadPartnerMonthOverview, pragueYearMonth } from "@/lib/eshop/partnerMonthlyServer";
 import ApprovalForm, { type ApprovalRow } from "./ApprovalForm";
 
@@ -30,7 +30,6 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
     goodsKc: client.goodsKc,
     tierLabel: client.tierLabel,
     percent: client.percent,
-    code: client.percent ? partnerCode(validMonth, client.percent) : null,
     individual: state.individual[client.key] ?? null,
     salutation: state.salutations[client.key] ?? "",
     optedOut: client.emails.length > 0 && client.emails.every((email) => optOuts.has(email)),
@@ -64,7 +63,7 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
         {state.approvedAt
           ? `Schváleno ${new Date(state.approvedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })} (${state.approvedBy ?? "?"}).`
           : "Zatím neschváleno — klientům nic neodejde."}{" "}
-        {state.finalizedAt ? `Kódy založeny a e-maily rozeslány ${new Date(state.finalizedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}.` : "Kódy se založí a e-maily odejdou po půlnoci prvního dne měsíce."}
+        {state.finalizedAt ? `Slevy zapnuty a e-maily rozeslány ${new Date(state.finalizedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}.` : "Slevy se zapnou a e-maily odejdou po půlnoci prvního dne měsíce. Klient v pokladně zadá e-mail a klikne na „Uplatnit“, žádný kód nepíše."}
       </p>
 
       {rows.length === 0 ? (

@@ -5,8 +5,9 @@
 //   1. poslední den měsíce večer → report na info@begina.cz (reportToBegina),
 //   2. Lucie v MojeBegina schválí (approvePartnerMonth) — klientům nic neodchází,
 //   3. první den měsíce po půlnoci → finalizePartnerMonth: přepočet podle
-//      konečného stavu, založení kódů (PROSINEC5…) jen pro e-maily klientů
-//      a rozeslání e-mailů. Bez schválení se nic nezaloží ani neodešle.
+//      konečného stavu, zapnutí slev (vnitřní řádky „partner-RRRR-MM-procento“
+//      jen pro e-maily klientů — pokladna podle nich nabídne „Uplatnit“)
+//      a rozeslání e-mailů. Bez schválení se nic nezapne ani neodešle.
 //
 // Stav se drží v tabulce eshop_coupons (žádná nová tabulka):
 //   • „partner-program-RRRR-MM“ — neaktivní řádek se stavem měsíce platnosti
@@ -29,7 +30,7 @@ import {
   evaluatePartnerMonth,
   monthKey,
   monthName,
-  partnerCode,
+  partnerEntitlementCode,
   type PartnerClient,
   type PartnerOrderRow,
   type YearMonth,
@@ -279,13 +280,13 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   const note = `Partnerský program ${monthKey(validMonth)} (nákupy ${monthKey(evaluatedMonth)}), schválil(a) ${state.approvedBy ?? "?"}`;
   const codes: string[] = [];
   for (const [percent, emails] of byPercent) {
-    const code = partnerCode(validMonth, percent).toLowerCase();
+    const code = partnerEntitlementCode(validMonth, percent);
     const values = { discountType: "percent", amount: String(percent), emailRestrictions: [...new Set(emails)], expiresAt, isActive: true, note, usedBefore: 0, usedByBefore: [] as string[] };
     await db
       .insert(eshopCoupons)
       .values({ code, ...values })
       .onConflictDoUpdate({ target: eshopCoupons.code, set: { ...values, updatedAt: now } });
-    codes.push(code.toUpperCase());
+    codes.push(`${percent} %`);
   }
 
   // e-maily klientům (kromě odhlášených a těch, kterým už odešlo)
@@ -317,9 +318,9 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   await savePartnerMonthState(db, validMonth, { ...state, sent: [...sent].sort(), finalizedAt: now.toISOString() });
 
   if (mailer) {
-    const subject = `Partnerský program: kódy na ${monthName(validMonth)} založeny, e-mailů odesláno ${emailed.length}`;
+    const subject = `Partnerský program: slevy na ${monthName(validMonth)} zapnuty, e-mailů odesláno ${emailed.length}`;
     const text = [
-      `Kódy: ${codes.join(", ") || "žádné"}.`,
+      `Zapnuté slevy (v pokladně tlačítkem „Uplatnit“): ${codes.join(", ") || "žádné"}.`,
       `E-mail odešel: ${emailed.join(", ") || "nikomu"}.`,
       failed.length ? `NEPODAŘILO SE odeslat: ${failed.join(", ")}.` : "",
       waiting.length ? `Čekají na určení individuální slevy (nad 20 000 Kč): ${waiting.join(", ")} — ${PARTNER_APPROVAL_URL}` : "",

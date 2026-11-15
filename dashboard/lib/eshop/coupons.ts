@@ -46,6 +46,8 @@ export type Coupon = {
   partnerName?: string | null;
   /** kupon ze starého e-shopu, ověřený jako partnerská sleva podle e-mailu */
   legacy?: boolean;
+  /** jen „partner“: schválené procento z měsíčního vyhodnocení (partnerMonthlyServer.ts) — má přednost před úrovní */
+  partnerFixedPercent?: number;
 };
 
 /** Úroveň partnerského programu pro obrat minulého měsíce (stejná tabulka jako Moje Begina). */
@@ -59,6 +61,7 @@ export function partnerTierFor(lastMonthKc: number, tiers: PartnerTier[] = partn
  * není. Individuální úroveň (nad 20 000 Kč) = `amount` kupónu.
  */
 export function partnerPercent(coupon: Coupon): { ok: true; percent: number } | { ok: false; error: string } {
+  if (coupon.partnerFixedPercent && coupon.partnerFixedPercent > 0) return { ok: true, percent: coupon.partnerFixedPercent };
   const lastMonth = coupon.partnerLastMonthKc ?? 0;
   const tier = partnerTierFor(lastMonth);
   const code = `„${coupon.code.toUpperCase()}“`;
