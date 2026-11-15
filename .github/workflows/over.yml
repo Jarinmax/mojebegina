@@ -1,0 +1,11 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "VYSLEDEK cron-moje $(curl -s -o /dev/null -w '%{http_code}' 'https://moje.begina.cz/api/cron/partner-program?beh=vecer')"
+          echo "VYSLEDEK cron-eshop $(curl -s -o /dev/null -w '%{http_code}' 'https://begina.cz/api/cron/partner-program?beh=vecer')"
+          echo "VYSLEDEK stranka $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' 'https://moje.begina.cz/rizeni-firmy/partnersky-program')"
+          echo "VYSLEDEK pokladna $(curl -s 'https://begina.cz/pokladna' | grep -c 'noPartnerEmails')"
