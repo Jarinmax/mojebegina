@@ -126,5 +126,7 @@ describe("Fio: párování plateb s objednávkami (PGlite)", () => {
   it("výpadek Fio: nic se nezapíše a chyba neobsahuje token", async () => {
     const result = await syncFioPayments(db, NOW, { ...deps(), fetchImpl: (async () => new Response("x", { status: 409 })) as unknown as typeof fetch });
     expect(result).toMatchObject({ status: "fio-error", error: "Fio API vrátilo stav 409" });
+    expect(mails.at(-1)?.subject).toBe("Fio: platby se nepodařilo načíst");
+    expect(JSON.stringify(mails.at(-1))).not.toContain("tajny-token");
   });
 });
