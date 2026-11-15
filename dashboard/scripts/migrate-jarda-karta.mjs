@@ -1,8 +1,8 @@
 // Jardova karta (audit 15. 11. 2026, rozhodnutí vedení téhož dne) — hlídaná
 // migrace a jednorázový úklid dat při buildu na Vercelu, stejný princip jako
 // ostatní scripts/migrate-*.mjs:
-//   1. migrace 0040: orders.source_lead_id (objednávka soukromé osoby ↔ kontakt)
-//      a 0041: seller_reward_assignments (evidence typu odměňování, bod 4 dohody),
+//   1. migrace 0041: orders.source_lead_id (objednávka soukromé osoby ↔ kontakt)
+//      a 0042: seller_reward_assignments (evidence typu odměňování, bod 4 dohody),
 //   2. úklid dat v JEDNÉ transakci; každý krok je hlídaný podmínkou, takže
 //      opakované spuštění nic nezmění a nic se nemaže:
 //      a) Jardova karta spolupracovníka (kvůli evidenci výplat odměn),
@@ -132,28 +132,28 @@ export async function runJardaCardMigration() {
     return;
   }
 
-  const [{ has0040 }] = await sql.query(
-    `select count(*)::int > 0 as has0040 from information_schema.columns
-      where table_schema = 'public' and table_name = 'orders' and column_name = 'source_lead_id'`,
-  );
-  if (has0040) {
-    console.log(`Jarda card migration (${env}): 0040 already applied.`);
-  } else {
-    const statements = statementsOf(await read("../drizzle/0040_jarda_karta_zdroj_objednavky.sql"));
-    await sql.transaction((tx) => statements.map((s) => tx.query(s)));
-    console.log(`Jarda card migration (${env}): schema 0040 applied (orders.source_lead_id).`);
-  }
-
   const [{ has0041 }] = await sql.query(
-    `select count(*)::int > 0 as has0041 from information_schema.tables
-      where table_schema = 'public' and table_name = 'seller_reward_assignments'`,
+    `select count(*)::int > 0 as has0041 from information_schema.columns
+      where table_schema = 'public' and table_name = 'orders' and column_name = 'source_lead_id'`,
   );
   if (has0041) {
     console.log(`Jarda card migration (${env}): 0041 already applied.`);
   } else {
-    const statements = statementsOf(await read("../drizzle/0041_jarda_karta_evidence_odmenovani.sql"));
+    const statements = statementsOf(await read("../drizzle/0041_jarda_karta_zdroj_objednavky.sql"));
     await sql.transaction((tx) => statements.map((s) => tx.query(s)));
-    console.log(`Jarda card migration (${env}): schema 0041 applied (seller_reward_assignments).`);
+    console.log(`Jarda card migration (${env}): schema 0041 applied (orders.source_lead_id).`);
+  }
+
+  const [{ has0042 }] = await sql.query(
+    `select count(*)::int > 0 as has0042 from information_schema.tables
+      where table_schema = 'public' and table_name = 'seller_reward_assignments'`,
+  );
+  if (has0042) {
+    console.log(`Jarda card migration (${env}): 0042 already applied.`);
+  } else {
+    const statements = statementsOf(await read("../drizzle/0042_jarda_karta_evidence_odmenovani.sql"));
+    await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+    console.log(`Jarda card migration (${env}): schema 0042 applied (seller_reward_assignments).`);
   }
 
   await sql.transaction((tx) => cleanupStatements().map(({ query, params }) => tx.query(query, params)));

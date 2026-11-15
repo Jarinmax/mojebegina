@@ -2018,3 +2018,35 @@ export const pushSubscriptions = pgTable(
     index("push_subscriptions_user_idx").on(table.userId),
   ]
 );
+
+// EKONOMIKA 1.0 (15. 11. 2026) — příjmy a náklady firmy. Jedna tabulka,
+// kind = 'income' | 'cost'. Vidí a zapisují jen Jaroslav a Lucie
+// (isInvoiceIssuer). source: 'manual' (formulář), 'import' (staré řádky
+// z Google tabulek), 'idoklad' (faktura); source_ref drží původ řádku,
+// aby se nic nezapsalo dvakrát. Mazání je měkké (deleted_at).
+export const economyEntries = pgTable(
+  "economy_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    entryDate: date("entry_date", { mode: "string" }).notNull(),
+    title: text("title").notNull(),
+    counterparty: text("counterparty"),
+    amountHal: bigint("amount_hal", { mode: "number" }).notNull(),
+    amountNoShippingHal: bigint("amount_no_shipping_hal", { mode: "number" }),
+    paymentForm: text("payment_form"),
+    invoiceNumber: text("invoice_number"),
+    note: text("note"),
+    source: text("source").notNull().default("manual"),
+    sourceRef: text("source_ref"),
+    createdByUserId: text("created_by_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("economy_entries_source_ref_key").on(table.source, table.sourceRef),
+    index("economy_entries_kind_date_idx").on(table.kind, table.entryDate),
+    check("economy_entries_kind_check", sql`${table.kind} IN ('income','cost')`),
+  ]
+);

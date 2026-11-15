@@ -1,4 +1,4 @@
-// scripts/migrate-jarda-karta.mjs — migrace 0040 a jednorázový úklid dat
+// scripts/migrate-jarda-karta.mjs — migrace 0041–0042 a jednorázový úklid dat
 // Jardovy karty (audit 15. 11. 2026) přes ovladač Neonu nad PGlite se stavem
 // produkce (migrace až po 0039) a se stejnými záznamy jako v produkci.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -148,7 +148,7 @@ describe("scripts/migrate-jarda-karta.mjs — úklid Jardovy karty při buildu",
     await expect(runJardaCardMigration()).resolves.toBeUndefined();
   });
 
-  it("0040 + úklid: VIP Dogs ↔ Tatiana, objednávka ↔ Monika, lead „Jaroslav Viner“ → Viner, Jardova karta; podruhé beze změny", async () => {
+  it("0041–0042 + úklid: VIP Dogs ↔ Tatiana, objednávka ↔ Monika, lead „Jaroslav Viner“ → Viner, Jardova karta; podruhé beze změny", async () => {
     const pg = await productionLike();
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "preview";

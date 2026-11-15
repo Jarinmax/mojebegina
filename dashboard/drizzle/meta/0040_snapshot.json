@@ -1,5 +1,5 @@
 {
-  "id": "eb4b374b-7bd5-443c-88bd-7fb759a985e8",
+  "id": "cf6c39eb-c097-4d94-afaf-04206351f5aa",
   "prevId": "1b96499e-e3c9-4d2a-b4a6-aadd89c50cef",
   "version": "7",
   "dialect": "postgresql",
@@ -1469,6 +1469,155 @@
         "daily_call_queue_done_implies_published_check": {
           "name": "daily_call_queue_done_implies_published_check",
           "value": "\"daily_call_queue\".\"status\" <> 'done' OR \"daily_call_queue\".\"published_at\" IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.economy_entries": {
+      "name": "economy_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entry_date": {
+          "name": "entry_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "counterparty": {
+          "name": "counterparty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount_hal": {
+          "name": "amount_hal",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_no_shipping_hal": {
+          "name": "amount_no_shipping_hal",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_form": {
+          "name": "payment_form",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_number": {
+          "name": "invoice_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "source_ref": {
+          "name": "source_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "economy_entries_kind_date_idx": {
+          "name": "economy_entries_kind_date_idx",
+          "columns": [
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entry_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "economy_entries_source_ref_key": {
+          "name": "economy_entries_source_ref_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "source",
+            "source_ref"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "economy_entries_kind_check": {
+          "name": "economy_entries_kind_check",
+          "value": "\"economy_entries\".\"kind\" IN ('income','cost')"
         }
       },
       "isRLSEnabled": false
@@ -4369,12 +4518,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "source_lead_id": {
-          "name": "source_lead_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "placed_by_user_id": {
           "name": "placed_by_user_id",
           "type": "text",
@@ -4647,21 +4790,6 @@
         }
       },
       "indexes": {
-        "orders_source_lead_idx": {
-          "name": "orders_source_lead_idx",
-          "columns": [
-            {
-              "expression": "source_lead_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "orders_order_number_key": {
           "name": "orders_order_number_key",
           "columns": [
@@ -4700,19 +4828,6 @@
           "tableTo": "organizations",
           "columnsFrom": [
             "buyer_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "orders_source_lead_id_leads_id_fk": {
-          "name": "orders_source_lead_id_leads_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "leads",
-          "columnsFrom": [
-            "source_lead_id"
           ],
           "columnsTo": [
             "id"
