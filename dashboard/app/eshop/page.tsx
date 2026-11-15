@@ -1,5 +1,5 @@
 import { getCatalog } from "@/lib/eshop/catalogServer";
-import HomeHero, { HeroEyebrow } from "@/components/eshop/HomeHero";
+import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
@@ -40,21 +40,20 @@ export default async function EshopPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd()) }} />
-      {/* Pořadí (Lucie 14. 11. 2026): na počítači úvod a pod ním pruh kategorií;
-          na mobilu a tabletu pruh kategorií nahoře, aby byla hned vidět celá nabídka. */}
+      {/* Pořadí (Lucie 15. 11. 2026): na počítači i na mobilu stejně — úvod a pod
+          ním oddělený pruh kategorií; na mobilu se obojí vejde na první obrazovku. */}
       {/* První obrazovka na počítači (15. 11. 2026): úvod, pruh kategorií a Proč Begina
           vyplní přesně výšku okna (pod hlavičkou) — končí čtyřmi dlaždicemi,
           „Jak funguje begina“ je až po posunutí. */}
       <div className="flex flex-col lg:min-h-[calc(100svh-4rem)] xl:min-h-[calc(100svh-5.25rem)]">
-        <div className="order-2 lg:order-1">
+        <div>
           <HomeHero />
         </div>
-        <div className="order-1 lg:order-2 border-b border-[#EDE5D8] lg:border-b-0">
-          <HeroEyebrow />
+        <div>
           <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
         </div>
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
-        <section className="order-3 w-full max-w-6xl mx-auto px-4 pt-8 sm:pt-10 lg:pt-0 lg:pb-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
+        <section className="w-full max-w-6xl mx-auto px-4 pt-8 sm:pt-10 lg:pt-0 lg:pb-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
           <h2 className="font-serif text-2xl sm:text-3xl lg:text-2xl text-center text-[#2A2622] mb-5 lg:mb-3">Proč Begina</h2>
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-4">
             {HOME_WHY.map((item) => {
