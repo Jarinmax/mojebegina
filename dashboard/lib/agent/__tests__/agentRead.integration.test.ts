@@ -251,10 +251,11 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "invoice_preview",
       "prepare_b2b_invoice",
       "prepare_invoice_correction",
+      "fio_incoming_payments",
     ]);
     for (const tool of tools) expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     const colleague = mcp.agentMcpServer(db, kolega, config).listTools().map((t) => t.name);
-    expect(colleague.filter((name) => name.startsWith("idoklad_") || name.startsWith("invoice_"))).toEqual([]);
+    expect(colleague.filter((name) => name.startsWith("idoklad_") || name.startsWith("invoice_") || name.startsWith("fio_"))).toEqual([]);
   });
 
   describe("source hlavička", () => {

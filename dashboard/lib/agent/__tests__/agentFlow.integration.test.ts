@@ -432,8 +432,16 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
           .filter(Boolean)
           .sort();
       expect(grep("runAsAgent\\(")).toEqual(["lib/agent/mcp/server.ts"]);
-      // hlavičku Authorization čte jen MCP (Bearer) a OAuth token/revoke (Basic = ChatGPT jako klient)
-      expect(grep('get\\("authorization"\\)')).toEqual(["app/api/mcp/route.ts", "app/api/oauth/revoke/route.ts", "app/api/oauth/token/route.ts"]);
+      // hlavičku Authorization čte jen MCP (Bearer), OAuth token/revoke (Basic = ChatGPT jako klient)
+      // a plánované úlohy Vercelu (Bearer CRON_SECRET — s identitou asistenta nesouvisí)
+      expect(grep('get\\("authorization"\\)')).toEqual([
+        "app/api/cron/daily-call-reminders/route.ts",
+        "app/api/cron/fio-platby/route.ts",
+        "app/api/cron/partner-program/route.ts",
+        "app/api/mcp/route.ts",
+        "app/api/oauth/revoke/route.ts",
+        "app/api/oauth/token/route.ts",
+      ]);
       expect(grep("resolveAccessToken\\(")).toEqual(["app/api/mcp/route.ts", "lib/agent/oauthStore.ts"]);
     });
   });
