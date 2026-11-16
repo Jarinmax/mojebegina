@@ -734,9 +734,15 @@ export default function CheckoutForm({
                 <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ.</p>
               ) : null}
               {slovakia && destination === "sk" ? (
-                <p role="note" className="text-xs rounded-lg bg-amber-50 text-amber-900 px-3 py-2">
-                  Na Slovensko doručujeme od úterý do pátku, do některých oblastí jen 2× týdně (například Žilina, Nitra, Košice, Prešov). Čerstvé polévky a čaje k vám proto mohou dorazit s kratší zbývající trvanlivostí. Počítejte s tím prosím při objednávce.
-                </p>
+                <div role="note" className="text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2 flex flex-col gap-2">
+                  <p>
+                    Chlazená přeprava na Slovensko může podle oblasti trvat 1 až 6 dní (doručuje se od úterý do pátku, do některých oblastí jen ve dvou dnech v týdnu). Zboží je po celou dobu v chladu. Čerstvé polévky a čaje k vám proto mohou dorazit s kratší zbývající trvanlivostí.
+                  </p>
+                  <label className="flex items-start gap-2 font-medium">
+                    <input type="checkbox" name="slovakiaTransitAccepted" required className="mt-1" />
+                    <span>Souhlasím s tím, že doručení na Slovensko může trvat až 6 dní.</span>
+                  </label>
+                </div>
               ) : null}
               {slovakia ? null : (
               
