@@ -1,0 +1,162 @@
+// Fakta u produktu pro rychlé rozhodnutí (zadání Lucie 16. 11. 2026):
+// trvanlivost po otevření, cena za porci a měrná cena, zvýraznění alergenů
+// ve složení a „bez konzervantů“. Všechno se ODVOZUJE z údajů, které už na
+// stránce produktu jsou (text trvanlivosti, cena, objem, počet porcí, složení,
+// alergeny) — nic se nevymýšlí; kde údaj chybí, řádek se nezobrazí.
+import { ALLERGEN_LABELS, type AllergenCode } from "./allergens";
+import type { Product, Variant } from "./types";
+
+// ── Trvanlivost po otevření ────────────────────────────────────────────────
+
+export type AfterOpening = { amount: number; unit: "days" | "months" };
+
+/** Z textu trvanlivosti („Po otevření spotřebujte do 14 dnů…“); jinak null. */
+export function afterOpening(shelfLife: string | null | undefined): AfterOpening | null {
+  const match = /po otevření spotřebujte do (\d+)\s*(dn[ůí]|dne|měsíc[ůe]?)/i.exec(shelfLife ?? "");
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isInteger(amount) || amount <= 0) return null;
+  return { amount, unit: match[2].toLowerCase().startsWith("d") ? "days" : "months" };
+}
+
+/** „14 dní“, „3 měsíce“, „1 den“. */
+export function durationText({ amount, unit }: AfterOpening): string {
+  const word =
+    unit === "days"
+      ? amount === 1 ? "den" : amount <= 4 ? "dny" : "dní"
+      : amount === 1 ? "měsíc" : amount <= 4 ? "měsíce" : "měsíců";
+  return `${amount} ${word}`;
+}
+
+/** Štítek na kartičku: „14 dní po otevření“. */
+export function afterOpeningBadge(product: Product): string | null {
+  const value = afterOpening(product.foodInfo.shelfLife);
+  return value ? `${durationText(value)} po otevření` : null;
+}
+
+/** Kategorie, kde se obsah natáčí postupně z jedné beginy (dovětek „natáčíte postupně“). */
+const POUR_GRADUALLY = new Set(["polevky", "caje"]);
+
+/** Řádek u tlačítka Do košíku; „v lednici“ jen když to říká text skladování. */
+export function afterOpeningLine(product: Product): string | null {
+  const value = afterOpening(product.foodInfo.shelfLife);
+  if (!value) return null;
+  const fridge = /chladni[čc]/i.test(product.foodInfo.storage ?? "") ? " v lednici" : "";
+  const tail = POUR_GRADUALLY.has(product.category) ? " – natáčíte postupně" : "";
+  return `Po otevření vydrží${fridge} ${durationText(value)}${tail}.`;
+}
+
+// ── Cena za porci a měrná cena ─────────────────────────────────────────────
+
+/** Na desetihaléře, vždy dvě desetinná místa: 31,58 → „31,60 Kč“. */
+export function formatServingKc(kc: number): string {
+  const rounded = Math.round(kc * 10) / 10;
+  return `${rounded.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
+}
+
+/** Měrná cena za litr na celé koruny: „126 Kč/l“. */
+export function formatPerLitre(priceKc: number, volumeMl: number): string {
+  return `${Math.round((priceKc * 1000) / volumeMl).toLocaleString("cs-CZ")} Kč/l`;
+}
+
+export type ServingPrice = { label: string | null; text: string };
+
+function servingText(category: string, variant: Variant): string | null {
+  const { priceKc, volumeMl, servings } = variant;
+  if (!volumeMl || volumeMl <= 0) return null;
+  const perLitre = formatPerLitre(priceKc, volumeMl);
+  if (!servings || servings <= 0) return perLitre;
+  const perServing = formatServingKc(priceKc / servings);
+  // Sirup se ředí, „porce“ je sklenice limonády; měrná cena za litr sirupu by mátla.
+  if (category === "sirupy") return `Sklenice limonády za ${perServing}`;
+  const servingMl = Math.round(volumeMl / servings);
+  const noun = category === "polevky" ? "Porce" : "Sklenice";
+  return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;
+}
+
+/** Jeden řádek na každé balení; u produktu s jedním balením bez popisku. */
+export function servingPrices(product: Product): ServingPrice[] {
+  const single = product.variants.length === 1;
+  return product.variants.flatMap((variant) => {
+    const text = servingText(product.category, variant);
+    return text ? [{ label: single ? null : variant.label, text }] : [];
+  });
+}
+
+// ── Alergeny ve složení ────────────────────────────────────────────────────
+
+const L = "[\\p{L}]*";
+/** Slova, kterými se alergen ve složení píše (kmeny + libovolná koncovka). */
+const ALLERGEN_WORDS: Record<AllergenCode, string> = {
+  gluten: `(?:lep(?:ek|ku|kem)|pšeni${L}|žit(?:o|a|ná|ný|né|nou)${L}|ječ(?:men|n)${L}|ov(?:es|sa|sn)${L}|špald${L}|kamut${L})`,
+  crustaceans: `(?:korýš${L}|krevet${L}|krab${L}|humr${L})`,
+  eggs: `(?:vejce|vajec|vaječ${L}|vejc${L})`,
+  fish: `(?:ryb(?:a|y|í|ího|ou)${L})`,
+  peanuts: `(?:arašíd${L}|podzemnic${L})`,
+  soy: `(?:sój${L}|sojov${L})`,
+  // kokosové mléko není alergen (mléko = živočišné); kyselina mléčná také ne
+  milk: `(?:(?<!kokosov${L}\\s)(?:mlék${L}|(?<!kyselin${L}\\s)mléčn(?!${L}\\s+kyselin)${L}|smetan${L}|másl${L}|sýr${L}|syrovát${L}|laktóz${L}|jogurt${L}))`,
+  nuts: `(?:mandl${L}|lískov${L}|vlašsk${L}|kešu|pekanov${L}|para\\s+oře${L}|pistáci${L}|makadam${L}|ořech${L})`,
+  celery: `(?:celer${L})`,
+  mustard: `(?:hořčic${L}|hořčičn${L})`,
+  sesame: `(?:sezam${L})`,
+  sulphites: `(?:oxid\\s+siřičit${L}|siřičitan${L}|E\\s?22\\d)`,
+  lupin: `(?:vlčí\\s+bob${L}|lupin${L})`,
+  molluscs: `(?:měkkýš${L}|mušl${L}|slávk${L}|chobotnic${L}|kalmar${L})`,
+};
+
+const CODE_BY_LABEL = new Map(Object.entries(ALLERGEN_LABELS).map(([code, label]) => [label, code as AllergenCode]));
+
+function allergenRegex(codes: AllergenCode[]): RegExp | null {
+  if (codes.length === 0) return null;
+  return new RegExp(`(?<![\\p{L}])(?:${codes.map((code) => ALLERGEN_WORDS[code]).join("|")})`, "giu");
+}
+
+export type TextSegment = { text: string; bold: boolean };
+
+/**
+ * Složení rozdělené na úseky; tučně jsou slova alergenů, které produkt má
+ * uvedené v řádku Alergeny (české názvy z ALLERGEN_LABELS). Bez alergenů
+ * nebo bez shody vrátí celý text jako jeden netučný úsek.
+ */
+export function highlightAllergens(ingredients: string, allergenLabels: readonly string[] | null | undefined): TextSegment[] {
+  const codes = (allergenLabels ?? []).flatMap((label) => {
+    const code = CODE_BY_LABEL.get(label);
+    return code ? [code] : [];
+  });
+  const regex = allergenRegex(codes);
+  if (!regex) return [{ text: ingredients, bold: false }];
+  const segments: TextSegment[] = [];
+  let last = 0;
+  for (const match of ingredients.matchAll(regex)) {
+    const start = match.index ?? 0;
+    if (start > last) segments.push({ text: ingredients.slice(last, start), bold: false });
+    segments.push({ text: match[0], bold: true });
+    last = start + match[0].length;
+  }
+  if (last < ingredients.length) segments.push({ text: ingredients.slice(last), bold: false });
+  return segments;
+}
+
+/** Kontrola dat: alergeny, jejichž slovo ve složení JE, ale v řádku Alergeny chybí. */
+export function undeclaredAllergenWords(ingredients: string, allergenLabels: readonly string[] | null | undefined): string[] {
+  const declared = new Set(allergenLabels ?? []);
+  return (Object.keys(ALLERGEN_WORDS) as AllergenCode[])
+    .filter((code) => !declared.has(ALLERGEN_LABELS[code]))
+    .flatMap((code) => [...ingredients.matchAll(allergenRegex([code])!)].map((match) => match[0]));
+}
+
+// ── Bez konzervantů ────────────────────────────────────────────────────────
+
+/** Ve složení je konzervant (slovně, siřičitany, nebo E 200–E 299)? */
+export function hasPreservative(ingredients: string): boolean {
+  return /konzerv|siřičit|sorb(?:an|ov)|benzo(?:an|ov)|dusit|dusičn|\bE\s?2\d\d\b/iu.test(ingredients);
+}
+
+export const NO_PRESERVATIVES = "bez konzervantů";
+
+/** „Bez konzervantů“ jen když je složení známé a žádný konzervant v něm není. */
+export function showsNoPreservatives(product: Product): boolean {
+  const ingredients = product.foodInfo.ingredients;
+  return ingredients !== null && !hasPreservative(ingredients);
+}

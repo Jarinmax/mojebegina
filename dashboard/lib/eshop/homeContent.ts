@@ -2,9 +2,10 @@
 // Konkrétní fakta místo obecných frází; ceny a výdrž podle e-shopu a etiket.
 
 export const HOME_WHY = [
+  // 16. 11. 2026 (Lucie): trvanlivost po otevření jako první
+  { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
   { icon: "leaf", title: "100 % rostlinné", text: "Všechny naše produkty jsou bez živočišných surovin." },
   { icon: "soup", title: "Porce už od 3,30 Kč", text: "Nápoj ze sirupu od 3,30 Kč, porce polévky za 31,60 Kč." },
-  { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
   // 14. 11. 2026 (Lucie): partnerský program má být vidět na úvodu, dlaždice vede na stránku programu
   { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší sleva: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
 ] as const;
@@ -29,3 +30,6 @@ export const HOME_ABOUT =
 export const HOME_BISTRO = "Ochutnat nás můžete i v Zahradním bistru Begina ve Viticích (areál Zahradnictví Jandl).";
 
 export const HOME_STEPS_PHOTO = "/eshop/polevky/dynova-polevka-begina-v3.jpg";
+
+/** Tři hlavní výhody hned pod nadpisem úvodu, viditelné bez posouvání (16. 11. 2026). */
+export const HOME_HERO_POINTS = ["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"] as const;

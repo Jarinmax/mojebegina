@@ -25,8 +25,10 @@ describe("úvod e-shopu", () => {
     const h1 = screen.getByRole("heading", { level: 1 });
     // nadpis s hlavní výhodou – begina (11. 11. 2026)
     expect(text(h1.textContent)).toBe("Polévky a nápoje v begině");
-    expect(text(document.body.textContent)).toContain("Natočíte si, kolik chcete a kdy chcete. 100 % rostlinné, z čisté filtrované vody.");
-    expect(screen.getByText("Doručujeme chlazenou přepravou.")).toBeTruthy();
+    expect(text(document.body.textContent)).toContain("Natočíte si, kolik chcete a kdy chcete. Z čisté filtrované vody.");
+    // tři výhody hned pod nadpisem (16. 11. 2026)
+    const points = screen.getAllByRole("listitem").map((item) => text(item.textContent));
+    expect(points).toEqual(["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"]);
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
 
