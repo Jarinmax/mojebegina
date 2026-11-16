@@ -114,6 +114,7 @@ const BACKDROP: Record<string, string> = {
   "/eshop/ovocne-napoje/cervankove-nebe-hlavni-v2.jpg": "#fefefe",
   "/eshop/ovocne-napoje/cervankove-nebe-hlavni-v3.jpg": "#fefefe",
   "/eshop/ovocne-napoje/cervankove-nebe-begina-v2.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/cervankove-nebe-begina-v3.jpg": "#fefefe",
   // 14. 11. 2026: větší beginy u koktejlů, Dům u jezera s beginou
   "/eshop/koktejly/lady-carneval-begina-v3.jpg": "#fefefe",
   "/eshop/koktejly/granatovy-bond-begina-v3.jpg": "#fefefe",
