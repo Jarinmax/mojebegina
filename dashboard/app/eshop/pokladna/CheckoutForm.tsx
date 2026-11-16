@@ -412,12 +412,13 @@ export default function CheckoutForm({
   // Zásilkovna se nabízí jen u košíku, kde jsou pouze kapsičky sirupu (zasilkovna.ts);
   // jinak ji zákazník vůbec nevidí. Když ji nabídnout jde, je první.
   const zasilkovnaQuote = quoteZasilkovnaShipping(lines);
-  const zasilkovnaOffered = zasilkovna && zasilkovnaQuote.available;
+  const destination = shippingDestination({ enabled: slovakia, sameAsBilling: values.deliverySameAsBilling, billingCountry: values.billingCountry, zip: values.zip });
+  // Zásilkovna jen v Česku — při doručení na Slovensko se vůbec nenabízí.
+  const zasilkovnaOffered = zasilkovna && zasilkovnaQuote.available && destination !== "sk";
   const shippingMethods = [
     ...allShippingMethods.filter((method) => method.id === ZASILKOVNA_METHOD_ID && zasilkovnaOffered),
     ...allShippingMethods.filter((method) => method.id !== ZASILKOVNA_METHOD_ID),
   ];
-  const destination = shippingDestination({ enabled: slovakia, sameAsBilling: values.deliverySameAsBilling, billingCountry: values.billingCountry, zip: values.zip });
   const deliveryCountryLabel = destination === "sk" ? "Slovensko" : DELIVERY_COUNTRY;
   // Slovensko: jen platba kartou (bankovní převod se nenabízí).
   const fromSlovakia = slovakPayer({ billingCountry: values.billingCountry, destination });
@@ -623,7 +624,9 @@ export default function CheckoutForm({
                       {method.label}
                       <span className="tabular-nums whitespace-nowrap">{quoteLabel(methodQuote)}</span>
                     </span>
-                    <span className="block text-xs text-neutral-500 mt-0.5">{method.description}</span>
+                    <span className="block text-xs text-neutral-500 mt-0.5">
+                      {method.id === "rozvoz" && destination === "sk" ? method.description.replace("v České republice", "na Slovensku") : method.description}
+                    </span>
                     {!methodQuote.available && (
                       <span className="block text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5 mt-2" role="note">
                         {methodQuote.message}
