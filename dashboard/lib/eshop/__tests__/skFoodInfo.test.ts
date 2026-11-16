@@ -15,7 +15,7 @@ describe("slovenské listy", () => {
       expect(sheet.storageSk).toContain("Pred otvorením");
     }
     expect(buildSkSheet({ ...base, slug: "sipkovy-sirup", ingredients: source.replace("9 %", "10 %") })).toEqual({ status: "stale" });
-    expect(buildSkSheet({ ...base, slug: "dynova-polevka", ingredients: "dýně" })).toEqual({ status: "missing" });
+    expect(buildSkSheet({ ...base, slug: "produkt-bez-prekladu", ingredients: "dýně" })).toEqual({ status: "missing" });
   });
   it("nepřeložené alergeny a věty hlásí, nezamlčí", () => {
     const sheet = buildSkSheet({ ...base, slug: "sipkovy-sirup", ingredients: SK_FOOD_INFO["sipkovy-sirup"].sourceCz, allergens: ["celer"], warnings: ["Nová věta."] });
