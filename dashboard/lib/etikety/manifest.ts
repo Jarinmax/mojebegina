@@ -220,5 +220,178 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "medunkovy-sirup-s-levanduli.png",
     "sipkovy-sirup.png",
     "zazvorovy-sirup.png"
+  ],
+  "sk-caje/predni-barevne": [
+    "bylinny-caj-saman.jpg",
+    "cerny-caj-golden-nepal.jpg",
+    "hermankovy-caj.jpg",
+    "ibiskovy-caj.jpg",
+    "jasminovy-zeleny-caj.jpg",
+    "lipovy-caj.jpg",
+    "medunkovy-caj-s-levanduli.jpg",
+    "zazvorovy-caj.jpg"
+  ],
+  "sk-caje/predni-cernobile": [
+    "bylinny-caj-saman.png",
+    "cerny-caj-golden-nepal.png",
+    "hermankovy-caj.png",
+    "ibiskovy-caj.png",
+    "jasminovy-zeleny-caj.png",
+    "lipovy-caj.png",
+    "medunkovy-caj-s-levanduli.png",
+    "zazvorovy-caj.png"
+  ],
+  "sk-caje/predni-cervenocerne": [
+    "bylinny-caj-saman.png",
+    "cerny-caj-golden-nepal.png",
+    "hermankovy-caj.png",
+    "ibiskovy-caj.png",
+    "jasminovy-zeleny-caj.png",
+    "lipovy-caj.png",
+    "medunkovy-caj-s-levanduli.png",
+    "zazvorovy-caj.png"
+  ],
+  "sk-caje/slozeni": [
+    "bylinny-caj-saman.png",
+    "cerny-caj-golden-nepal.png",
+    "hermankovy-caj.png",
+    "ibiskovy-caj.png",
+    "jasminovy-zeleny-caj.png",
+    "lipovy-caj.png",
+    "medunkovy-caj-s-levanduli.png",
+    "zazvorovy-caj.png"
+  ],
+  "sk-ovocne-napoje/predni-barevne": [
+    "cervankove-nebe.jpg",
+    "dum-u-jezera.jpg",
+    "malinovy-svarak-nealko.jpg"
+  ],
+  "sk-ovocne-napoje/predni-cernobile": [
+    "cervankove-nebe.png",
+    "dum-u-jezera.png",
+    "malinovy-svarak-nealko.png"
+  ],
+  "sk-ovocne-napoje/predni-cervenocerne": [
+    "cervankove-nebe.png",
+    "dum-u-jezera.png",
+    "malinovy-svarak-nealko.png"
+  ],
+  "sk-ovocne-napoje/slozeni": [
+    "cervankove-nebe.png",
+    "dum-u-jezera.png",
+    "malinovy-svarak-nealko.png"
+  ],
+  "sk-polevky/predni-barevne": [
+    "dynova-polevka.jpg",
+    "gulasova-polevka-z-hlivy-ustricne.jpg",
+    "kulajda.jpg",
+    "rajcatova-polevka-s-cervenou-repou.jpg",
+    "spenatova-polevka.jpg",
+    "tomatova-polevka.jpg"
+  ],
+  "sk-polevky/predni-cernobile": [
+    "dynova-polevka.png",
+    "gulasova-polevka-z-hlivy-ustricne.png",
+    "kulajda.png",
+    "rajcatova-polevka-s-cervenou-repou.png",
+    "spenatova-polevka.png",
+    "tomatova-polevka.png"
+  ],
+  "sk-polevky/predni-cervenocerne": [
+    "dynova-polevka.png",
+    "gulasova-polevka-z-hlivy-ustricne.png",
+    "kulajda.png",
+    "rajcatova-polevka-s-cervenou-repou.png",
+    "spenatova-polevka.png",
+    "tomatova-polevka.png"
+  ],
+  "sk-polevky/slozeni": [
+    "dynova-polevka.png",
+    "gulasova-polevka-z-hlivy-ustricne.png",
+    "kulajda.png",
+    "rajcatova-polevka-s-cervenou-repou.png",
+    "spenatova-polevka.png",
+    "tomatova-polevka.png"
+  ],
+  "sk-sirupy/100ml": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sk-sirupy/3l": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sk-sirupy/650ml": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sk-sirupy/predni-barevne-3l": [
+    "bylinny-sirup-saman.jpg",
+    "hermankovy-sirup.jpg",
+    "ibiskovy-sirup.jpg",
+    "lipovy-sirup.jpg",
+    "medunkovy-sirup-s-levanduli.jpg",
+    "sipkovy-sirup.jpg",
+    "zazvorovy-sirup.jpg"
+  ],
+  "sk-sirupy/predni-barevne-650ml": [
+    "bylinny-sirup-saman.jpg",
+    "hermankovy-sirup.jpg",
+    "ibiskovy-sirup.jpg",
+    "lipovy-sirup.jpg",
+    "medunkovy-sirup-s-levanduli.jpg",
+    "sipkovy-sirup.jpg",
+    "zazvorovy-sirup.jpg"
+  ],
+  "sk-sirupy/predni-cernobile-3l": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sk-sirupy/predni-cernobile-650ml": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sk-sirupy/predni-cervenocerne-3l": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
+  ],
+  "sk-sirupy/predni-cervenocerne-650ml": [
+    "bylinny-sirup-saman.png",
+    "hermankovy-sirup.png",
+    "ibiskovy-sirup.png",
+    "lipovy-sirup.png",
+    "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
+    "zazvorovy-sirup.png"
   ]
 };
