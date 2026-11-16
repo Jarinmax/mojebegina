@@ -10,5 +10,5 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci
       - run: npx next typegen && npx tsc --noEmit
-      - run: npx eslint lib/eshop/productFacts.ts lib/eshop/__tests__/productFacts.test.ts lib/eshop/homeContent.ts components/eshop "app/eshop/produkt/[slug]/page.tsx" app/eshop/page.tsx
+      - run: npx eslint lib/eshop/productFacts.ts lib/eshop/__tests__/productFacts.test.ts lib/eshop/homeContent.ts components/eshop/HomeHero.tsx components/eshop/ProductCard.tsx components/__tests__/HomeHero.test.tsx "app/eshop/produkt/[slug]/page.tsx" app/eshop/page.tsx
       - run: npx vitest run lib/eshop/__tests__/productFacts.test.ts components/__tests__ app/eshop
