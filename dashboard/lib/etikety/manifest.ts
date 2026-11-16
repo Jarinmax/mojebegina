@@ -14,27 +14,33 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
   ],
   "alkoholicke-koktejly/predni-barevne-3l": [
     "granatovy-bond.jpg",
-    "kosmopolitan.jpg"
+    "kosmopolitan.jpg",
+    "lady-carneval.jpg"
   ],
   "alkoholicke-koktejly/predni-barevne-500ml": [
     "granatovy-bond.jpg",
-    "kosmopolitan.jpg"
+    "kosmopolitan.jpg",
+    "lady-carneval.jpg"
   ],
   "alkoholicke-koktejly/predni-cernobile-3l": [
     "granatovy-bond.png",
-    "kosmopolitan.png"
+    "kosmopolitan.png",
+    "lady-carneval.png"
   ],
   "alkoholicke-koktejly/predni-cernobile-500ml": [
     "granatovy-bond.png",
-    "kosmopolitan.png"
+    "kosmopolitan.png",
+    "lady-carneval.png"
   ],
   "alkoholicke-koktejly/predni-cervenocerne-3l": [
     "granatovy-bond.png",
-    "kosmopolitan.png"
+    "kosmopolitan.png",
+    "lady-carneval.png"
   ],
   "alkoholicke-koktejly/predni-cervenocerne-500ml": [
     "granatovy-bond.png",
-    "kosmopolitan.png"
+    "kosmopolitan.png",
+    "lady-carneval.png"
   ],
   "caje/predni-barevne": [
     "bylinny-caj-saman.jpg",
