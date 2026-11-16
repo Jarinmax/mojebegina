@@ -131,6 +131,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "ibiskovy-sirup.jpg",
     "lipovy-sirup.jpg",
     "medunkovy-sirup-s-levanduli.jpg",
+    "sipkovy-sirup.jpg",
     "zazvorovy-sirup.jpg"
   ],
   "sirupy/predni-barevne-650ml": [
@@ -139,6 +140,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "ibiskovy-sirup.jpg",
     "lipovy-sirup.jpg",
     "medunkovy-sirup-s-levanduli.jpg",
+    "sipkovy-sirup.jpg",
     "zazvorovy-sirup.jpg"
   ],
   "sirupy/predni-cernobile-3l": [
@@ -147,6 +149,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "ibiskovy-sirup.png",
     "lipovy-sirup.png",
     "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
     "zazvorovy-sirup.png"
   ],
   "sirupy/predni-cernobile-650ml": [
@@ -155,6 +158,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "ibiskovy-sirup.png",
     "lipovy-sirup.png",
     "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
     "zazvorovy-sirup.png"
   ],
   "sirupy/predni-cervenocerne-3l": [
@@ -163,6 +167,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "ibiskovy-sirup.png",
     "lipovy-sirup.png",
     "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
     "zazvorovy-sirup.png"
   ],
   "sirupy/predni-cervenocerne-650ml": [
@@ -171,6 +176,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "ibiskovy-sirup.png",
     "lipovy-sirup.png",
     "medunkovy-sirup-s-levanduli.png",
+    "sipkovy-sirup.png",
     "zazvorovy-sirup.png"
   ]
 };
