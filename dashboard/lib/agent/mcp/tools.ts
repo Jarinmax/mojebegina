@@ -23,6 +23,7 @@ import { addActivityComment, createNode, getNodeDetail, listCompanyTasks } from 
 import { DAILY_CALL_TOOLS } from "./tools/dailyCalls";
 import { INVOICING_TOOLS } from "./tools/invoicing";
 import { ECONOMY_TOOLS } from "./tools/economy";
+import { LEGAL_AUDIT_TOOLS } from "./tools/legalAudit";
 import { MAIL_TOOLS } from "./tools/mail";
 import { ORDER_TOOLS } from "./tools/orders";
 import { LEAD_TOOLS } from "./tools/leads";
@@ -335,6 +336,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   ...ORDER_TOOLS,
   ...INVOICING_TOOLS,
   ...ECONOMY_TOOLS,
+  ...LEGAL_AUDIT_TOOLS,
   ...MAIL_TOOLS,
 ];
 
@@ -355,6 +357,7 @@ export const SERVER_INSTRUCTIONS = [
   "Oprava existující faktury z Luciiny řady (2026xxxx) — změna způsobu úhrady (převodem/hotově/kartou) a/nebo evidence úhrady celé zbývající částky k danému dni: prepare_invoice_correction, celý náhled ukaž uživateli, apply_invoice_correction až po jeho výslovném souhlasu se STEJNÝMI argumenty, preview_token, confirm=true a novým idempotency_key. Novou fakturu kvůli opravě NIKDY nevystavuj. Výsledek ukaž celý: zbývá uhradit, pdfCheck (výzva k úhradě / prodlení) a varování.",
   "PDF existující faktury z iDokladu (i z ruční řady 2026xxxx): idoklad_invoice_pdf vrátí odkaz na stažení v MojeBegina (po přihlášení). E-mailem ji pošli jen na výslovnou žádost uživatele nástrojem send_idoklad_invoice_email (confirm=true) — server pustí jen e-mail odběratele z faktury, adresy @begina.cz, e-mail účtu uživatele, e-maily vystavovatelů faktur (Jaroslav, Lucie) a adresy povolené správcem. „Pošli mi to / na můj e-mail“ = to_me=true (server doplní e-mail účtu v MojeBegina); adresu uživatele nikdy nehádej ani ji neber z účtu ChatGPT — když nevíš kam, zeptej se. E-mail odchází z info@begina.cz a info@begina.cz dostane vždy skrytou kopii. Když issue_b2b_invoice vrátí chybu, sděl uživateli její přesný text; při „NENÍ JISTÉ, zda faktura vznikla“ nejdřív dohledej fakturu v iDokladu.",
   "Zápis objednávky: Jaroslav dal trvalý pokyn — novou potvrzenou objednávku Begina.cz nalezenou v Gmailu zapiš do MojeBegina. Vždy nejdřív prepare_order s expected_total_kc z podkladu. Když vrátí autoCreateAllowed=true, zavolej create_order se STEJNÝMI argumenty, proposal_token, approval=\"standing_instruction\" a novým idempotency_key a pak oznam číslo a odkaz. Když autoCreateAllowed=false (blocking nebo decisionReasons: nesedí částka, nejednoznačný zákazník, možná duplicita, chybějící údaj…), NIC nezapisuj a vyžádej si rozhodnutí Jaroslava; po jeho výslovném souhlasu approval=\"user_confirmed\". Zákazníka nikdy nevybírej sám z více kandidátů. DIČ zadávej jen výslovně uvedené v podkladu (s customer_dic_source), nikdy ho neodvozuj z IČO. Číslo faktury vystavené mimo MojeBegina předej v external_invoice_number.",
+  "Legislativní audit (jen Jaroslav a Lucie): právní reporty (zákony ČR/SR/EU, kontrola webu) ukládej nástrojem legal_audit_save_report do Řízení firmy → Legislativní audit; před novým reportem si přes legal_audit_list_reports ověř, co už bylo nahlášeno.",
   "Když issue_invoice nebo send_invoice_to_customer vrátí chybu nebo nejasný stav, nic neopakuj s novým klíčem ani neobcházej — sděl důvod uživateli a doporuč kontrolu v detailu objednávky. Údaje z iDokladu jsou důvěrné.",
   "Plánování rozvozů (get_order, list_orders, update_order_fulfillment): id objednávky vždy nejdřív dohledej (list_orders nebo search_mojebegina), nikdy ho nevymýšlej; " +
     "při víc možných shodách (stejné jméno, víc otevřených objednávek…) se nejdřív zeptej, kterou myslí — bez jednoznačné shody NIC nezapisuj. " +
