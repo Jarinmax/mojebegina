@@ -5,7 +5,16 @@ export type EtiketyGroup = { slug: string; label: string };
 export type EtiketyCategory = { slug: string; label: string; groups?: EtiketyGroup[] };
 
 export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
-  { slug: "polevky", label: "Polévky (3 l)" },
+  {
+    slug: "polevky",
+    label: "Polévky (3 l)",
+    groups: [
+      { slug: "slozeni", label: "Složení" },
+      { slug: "predni-barevne", label: "Přední – barevné" },
+      { slug: "predni-cervenocerne", label: "Přední – Brother červeno-černé (DK-22251)" },
+      { slug: "predni-cernobile", label: "Přední – Brother černobílé (DK-22212)" },
+    ],
+  },
   {
     slug: "sirupy",
     label: "Sirupy",
