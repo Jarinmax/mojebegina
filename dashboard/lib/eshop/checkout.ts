@@ -8,7 +8,7 @@ import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
-import { shippingDestination, slovakiaDeliveryZone } from "./shipping";
+import { shippingDestination, slovakiaDeliveryZone, slovakPayer, SLOVAKIA_CARD_ONLY_NOTE } from "./shipping";
 import { clampBoxes } from "./boxOption";
 import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
@@ -151,7 +151,11 @@ export function validateCheckoutInput(
     return priced;
   }
 
-  const payment = getPaymentMethod(input.paymentMethodId, options.cardPaymentAvailable ?? false);
+  const fromSlovakia = slovakPayer({ billingCountry: input.billingCountry, destination });
+  const payment = getPaymentMethod(input.paymentMethodId, options.cardPaymentAvailable ?? false, { slovakPayer: fromSlovakia });
+  if (fromSlovakia && (!payment || !payment.available)) {
+    return { ok: false, error: options.cardPaymentAvailable ? `${SLOVAKIA_CARD_ONLY_NOTE} Zvolte prosím platbu kartou.` : `${SLOVAKIA_CARD_ONLY_NOTE} Platba kartou je teď nedostupná — objednávku nám prosím pošlete e-mailem.` };
+  }
   if (!payment || !payment.available) {
     return { ok: false, error: "Vyberte dostupný způsob platby." };
   }

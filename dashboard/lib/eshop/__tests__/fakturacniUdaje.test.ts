@@ -161,7 +161,9 @@ describe("pokladna: fakturační a doručovací údaje", () => {
 
   it("slovenská fakturační adresa: jde, ale doručit jen do ČR", () => {
     const sk = { billingCountry: "Slovensko", billingStreet: "Hlavná 1", billingCity: "Bratislava", billingZip: "811 01" };
-    expect(validate(input({ ...sk, shippingMethodId: "osobni-odber" })).ok).toBe(true);
+    // Slovák platí jen kartou (16. 11. 2026) — převod se odmítne, karta projde.
+    expect(validate(input({ ...sk, shippingMethodId: "osobni-odber" })).ok).toBe(false);
+    expect(validateWith(input({ ...sk, shippingMethodId: "osobni-odber", paymentMethodId: "karta" }), catalogIndex, { cardPaymentAvailable: true }).ok).toBe(true);
     expect(validate(input({ ...sk })).ok).toBe(false);
     expect(validate(input({ ...sk, billingZip: "186 00", shippingMethodId: "osobni-odber" })).ok).toBe(false);
     expect(validate(input({ billingCountry: "Německo" })).ok).toBe(false);
