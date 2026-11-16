@@ -1,0 +1,13 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          H=$(curl -sL https://begina.cz/obchodni-podminky)
+          echo "VYSLEDEK ucinnost $(echo "$H" | grep -o 'platné a účinné od [^.<]*' | head -1)"
+          echo "VYSLEDEK slovensko $(echo "$H" | grep -c 'Slovenské republiky')"
+          echo "VYSLEDEK pdf $(curl -sL -o /dev/null -w '%{http_code} %{content_type}' https://begina.cz/obchodni-podminky/2026-11-17.pdf)"
+          D=$(curl -sL https://begina.cz/doprava)
+          echo "VYSLEDEK doprava_jen_cr $(echo "$D" | grep -c 'Doručujeme jen v České republice') doprava_sk $(echo "$D" | grep -c 'Doručení na Slovensko')"
