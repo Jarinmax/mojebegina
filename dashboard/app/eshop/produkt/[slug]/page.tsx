@@ -198,6 +198,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
         <div className="md:sticky md:top-20">
           <ProductGallery
             name={product.name}
+            note={product.category === "polevky" ? "Návrh servírování – ozdoba na fotce není součástí balení." : undefined}
             photos={product.gallery?.length ? product.gallery : product.image ? [{ url: product.image, alt: product.name }] : []}
           />
         </div>

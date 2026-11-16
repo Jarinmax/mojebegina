@@ -9,12 +9,15 @@ import type { ProductPhoto } from "@/lib/eshop/types";
 // Galerie na detailu produktu (od 10. 11. 2026): velká fotka a pod ní
 // náhledy, kliknutím se přepne hlavní fotka. Jediná fotka = bez náhledů,
 // stejně jako dřív.
-export default function ProductGallery({ name, photos }: { name: string; photos: ProductPhoto[] }) {
+// note: drobný popisek pod hlavní fotkou (např. „Návrh servírování“ u polévek –
+// ozdoba na fotce není součástí balení).
+export default function ProductGallery({ name, photos, note }: { name: string; photos: ProductPhoto[]; note?: string }) {
   const [active, setActive] = useState(0);
   const current = photos[active] ?? photos[0] ?? null;
   return (
     <div>
       <ProductImage name={current?.alt ?? name} src={current?.url ?? null} size="lg" />
+      {note && <p className="mt-1.5 text-xs text-neutral-500">{note}</p>}
       {photos.length > 1 && (
         <ul className="mt-3 flex gap-3" aria-label="Fotografie produktu">
           {photos.map((photo, index) => {
