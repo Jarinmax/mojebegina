@@ -30,7 +30,16 @@ export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
       { slug: "predni-cernobile-650ml", label: "Přední – Brother černobílé 650 ml (DK-22212)" },
     ],
   },
-  { slug: "ovocne-napoje", label: "Ovocné nápoje (3 l)" },
+  {
+    slug: "ovocne-napoje",
+    label: "Ovocné nápoje (3 l)",
+    groups: [
+      { slug: "slozeni", label: "Složení" },
+      { slug: "predni-barevne", label: "Přední – barevné" },
+      { slug: "predni-cervenocerne", label: "Přední – Brother červeno-černé (DK-22251)" },
+      { slug: "predni-cernobile", label: "Přední – Brother černobílé (DK-22212)" },
+    ],
+  },
   {
     slug: "alkoholicke-koktejly",
     label: "Alkoholické koktejly",
