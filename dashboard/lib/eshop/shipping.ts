@@ -114,9 +114,12 @@ const kg = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFr
 /** Kam zásilka jede: Česko (výchozí) nebo Slovensko (jiný ceník CoolBalík). */
 export type ShippingDestination = "cz" | "sk";
 
-/** ESHOP_SLOVAKIA=on → pokladna přijme i doručení na Slovensko (jen zboží se slovenským listem, bez alkoholu). */
+/**
+ * Doručení na Slovensko je ZAPNUTÉ (Lucie 16. 11. 2026 — slovenské etikety
+ * hotové). Vypnout jde proměnnou ESHOP_SLOVAKIA=off ve Vercelu.
+ */
 export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
-  return env.ESHOP_SLOVAKIA === "on";
+  return env.ESHOP_SLOVAKIA !== "off";
 }
 
 const SK_ZIP = /^[089]\d{2} ?\d{2}$/;

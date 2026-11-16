@@ -6,9 +6,10 @@ const cold = shippingMethodsFor("weight", { zasilkovna: false }).find((method) =
 const sirupy = [{ sku: "a", name: "Lipový sirup 3 l", quantity: 5, weightGrams: 3826 }];
 
 describe("doručení na Slovensko", () => {
-  it("je vypnuté, dokud není ESHOP_SLOVAKIA=on", () => {
-    expect(slovakiaEnabledFromEnv({})).toBe(false);
+  it("je zapnuté, vypne ho jen ESHOP_SLOVAKIA=off", () => {
+    expect(slovakiaEnabledFromEnv({})).toBe(true);
     expect(slovakiaEnabledFromEnv({ ESHOP_SLOVAKIA: "on" })).toBe(true);
+    expect(slovakiaEnabledFromEnv({ ESHOP_SLOVAKIA: "off" })).toBe(false);
     expect(shippingDestination({ enabled: false, sameAsBilling: false, billingCountry: "Slovensko", zip: "821 05" })).toBe("cz");
   });
   it("cíl určí země fakturace nebo slovenské PSČ", () => {
