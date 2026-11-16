@@ -2,6 +2,7 @@
 // Přístup: celá sekce /rizeni-firmy (ADMIN + EXECUTIVE, viz layout.tsx).
 // Soubory: public/etikety/…, seznam: lib/etikety/manifest.ts.
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ETIKETY_CATEGORIES, ETIKETY_NAMES } from "@/lib/etikety/structure";
 import { ETIKETY_MANIFEST } from "@/lib/etikety/manifest";
 
@@ -50,37 +51,87 @@ function FileGrid({ folder }: { folder: string }) {
   );
 }
 
-export default function EtiketyPage() {
+type SP = { jazyk?: string; kat?: string; typ?: string };
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+function Pill({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      className={
+        "px-3 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap " +
+        (active
+          ? "bg-begina-primary-900 text-white border-begina-primary-900"
+          : "bg-white text-begina-primary-900 border-neutral-300 hover:border-begina-primary-900")
+      }
+    >
+      {children}
+    </Link>
+  );
+}
+
+export default async function EtiketyPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const sp = await searchParams;
+  const jazyk = one(sp.jazyk) === "sk" ? "sk" : "cz";
+  const cats = ETIKETY_CATEGORIES.filter((c) => (jazyk === "sk" ? c.slug.startsWith("sk-") : !c.slug.startsWith("sk-")));
+  const label = (c: { label: string }) => c.label.replace(/^🇸🇰\s*SK\s*–\s*/, "");
+  const cat = cats.find((c) => c.slug === one(sp.kat)) ?? cats[0];
+  const groups = cat?.groups ?? [];
+  const group = groups.find((g) => g.slug === one(sp.typ)) ?? groups[0];
+  const folder = cat ? (group ? `${cat.slug}/${group.slug}` : cat.slug) : "";
+  const url = (o: SP) => {
+    const q = new URLSearchParams();
+    q.set("jazyk", o.jazyk ?? jazyk);
+    if (o.kat) q.set("kat", o.kat);
+    if (o.typ) q.set("typ", o.typ);
+    return `/rizeni-firmy/etikety?${q.toString()}`;
+  };
+
   return (
     <div>
       <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
         ← Řízení firmy
       </Link>
-      <div className="mt-3 mb-5">
+      <div className="mt-3 mb-4">
         <h1 className="text-lg font-medium text-begina-primary-900">Etikety</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
-          Finální etikety k tisku — role Brother DK-22212 (62 mm), délka 120 mm, měřítko 100 %.
+          Finální etikety k tisku — Brother 62 mm, délka 120 mm, měřítko 100 %. Červeno-černé jen s rolí DK-22251.
         </p>
       </div>
-      <div className="flex flex-col gap-8">
-        {ETIKETY_CATEGORIES.map((cat) => (
-          <section key={cat.slug} id={cat.slug}>
-            <h2 className="text-base font-medium text-begina-primary-900 mb-3">{cat.label}</h2>
-            {cat.groups ? (
-              <div className="flex flex-col gap-5">
-                {cat.groups.map((g) => (
-                  <div key={g.slug}>
-                    <h3 className="text-sm font-medium text-neutral-600 mb-2">{g.label}</h3>
-                    <FileGrid folder={`${cat.slug}/${g.slug}`} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <FileGrid folder={cat.slug} />
-            )}
-          </section>
-        ))}
+
+      <div className="sticky top-0 z-10 bg-neutral-50/95 backdrop-blur py-3 -mx-1 px-1 flex flex-col gap-2 border-b border-neutral-200 mb-5">
+        <div className="flex gap-2">
+          <Pill href={url({ jazyk: "cz" })} active={jazyk === "cz"}>🇨🇿 Česky</Pill>
+          <Pill href={url({ jazyk: "sk" })} active={jazyk === "sk"}>🇸🇰 Slovensky</Pill>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {cats.map((c) => (
+            <Pill key={c.slug} href={url({ kat: c.slug })} active={c.slug === cat?.slug}>
+              {label(c)}
+            </Pill>
+          ))}
+        </div>
+        {groups.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {groups.map((g) => (
+              <Pill key={g.slug} href={url({ kat: cat!.slug, typ: g.slug })} active={g.slug === group?.slug}>
+                {g.label}
+              </Pill>
+            ))}
+          </div>
+        )}
       </div>
+
+      {cat && (
+        <section>
+          <h2 className="text-base font-medium text-begina-primary-900 mb-3">
+            {label(cat)}
+            {group ? ` · ${group.label}` : ""}
+          </h2>
+          <FileGrid folder={folder} />
+        </section>
+      )}
     </div>
   );
 }
