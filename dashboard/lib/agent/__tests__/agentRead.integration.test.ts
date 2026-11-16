@@ -252,6 +252,8 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "prepare_b2b_invoice",
       "prepare_invoice_correction",
       "fio_incoming_payments",
+      // ekonomika — jen Jaroslav a Lucie (zápis economy_add_entry jen se souhlasem fakturace)
+      "economy_list_entries",
     ]);
     for (const tool of tools) expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     const colleague = mcp.agentMcpServer(db, kolega, config).listTools().map((t) => t.name);
