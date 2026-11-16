@@ -128,6 +128,21 @@ export function shippingDestination(input: { enabled: boolean; sameAsBilling: bo
   return SK_ZIP.test(input.zip.trim()) ? "sk" : "cz";
 }
 
+/**
+ * Rozvozové zóny CoolBalíku na Slovensku (veřejný vyhledávač coolbalik.cz,
+ * stav 16. 11. 2026, po trojčíslí PSČ): „daily“ = Bratislava, Trnava, Banská
+ * Bystrica a okolí (úterý až pátek, doručení zpravidla druhý den); „twice“ =
+ * ostatní zóny (2 dny v týdnu, přeprava může trvat až 6 dní). Neznámá nebo
+ * smíšená trojčíslí se berou opatrně jako „twice“.
+ */
+const SK_DAILY_PREFIXES = new Set(["903", "917", "960", "974"]);
+export type SlovakiaZone = "daily" | "twice";
+export function slovakiaDeliveryZone(zip: string): SlovakiaZone {
+  const digits = zip.replace(/\s/g, "");
+  if (!/^\d{5}$/.test(digits)) return "twice";
+  return digits.startsWith("8") || SK_DAILY_PREFIXES.has(digits.slice(0, 3)) ? "daily" : "twice";
+}
+
 export function quoteShipping(
   method: ShippingMethod,
   lines: readonly ShippingQuoteLine[],
