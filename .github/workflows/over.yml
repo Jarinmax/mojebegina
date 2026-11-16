@@ -16,16 +16,21 @@ jobs:
             await p.goto('https://coolbalik.cz/kde-rozvazime/', { waitUntil: 'networkidle' });
             const forms = await p.evaluate(() => [...document.querySelectorAll('input,select,button')].filter(e => e.offsetParent).map(e => e.tagName+'|'+(e.name||'')+'|'+(e.id||'')+'|'+(e.type||'')+'|'+(e.placeholder||'')+'|'+(e.innerText||'').slice(0,60).replace(/\s+/g,' ')+'|'+(e.tagName==='SELECT'?[...e.options].map(o=>o.value+'='+o.text).join(','):'')).slice(0,40));
             console.log('VYSLEDEK prvky', JSON.stringify(forms));
-            for (const psc of ['82105','04001','97401','11000']) {
+            const body = async (re) => { const t = await p.evaluate(() => (document.querySelector('main') || document.body).innerText.replace(/\s+/g,' ')); const i = t.search(re); return t.slice(Math.max(0,i), i+420); };
+            for (const psc of ['82105','81101','91701','94901','01001','97401','04001','08001']) {
               try {
-                const sel = p.locator('select').filter({ hasText: /Slovensk/i }).first();
-                if (await sel.count()) await sel.selectOption({ label: psc === '11000' ? /Česk/ : /Slovensk/ }).catch(()=>{});
-                const inp = p.locator('input[type="text"], input[type="tel"], input[type="number"], input:not([type])').filter({ hasNot: p.locator('[type=hidden]') }).first();
-                await inp.fill(psc); await inp.press('Enter'); await p.waitForTimeout(3500);
-                const txt = await p.evaluate(() => { const m = document.querySelector('main') || document.body; return m.innerText.replace(/\s+/g,' '); });
-                const i = txt.search(/Dostupnost podle|rozvozov/i);
-                console.log('VYSLEDEK psc', psc, '::', txt.slice(Math.max(0,i), i+900));
+                await p.selectOption('#cbw-coverage-1-postcode-country', 'SK');
+                await p.fill('#cbw-coverage-1-postcode-input', psc); await p.press('#cbw-coverage-1-postcode-input', 'Enter'); await p.waitForTimeout(3000);
+                console.log('VYSLEDEK psc', psc, '::', await body(/Můžete psát s mezerou/));
               } catch (e) { console.log('VYSLEDEK chyba', psc, String(e).slice(0,200)); }
+            }
+            for (const psc of ['82105','97401','04001']) {
+              try {
+                await p.selectOption('#cbw-journey-2-route-pickup-country', 'CZ'); await p.fill('#cbw-journey-2-route-pickup', '28106');
+                await p.selectOption('#cbw-journey-2-route-delivery-country', 'SK'); await p.fill('#cbw-journey-2-route-delivery', psc);
+                await p.press('#cbw-journey-2-route-delivery', 'Enter'); await p.waitForTimeout(3500);
+                console.log('VYSLEDEK trasa 28106 ->', psc, '::', (await body(/Kam má zásilka dorazit/)).slice(0,700));
+              } catch (e) { console.log('VYSLEDEK chyba trasa', psc, String(e).slice(0,200)); }
             }
             console.log('VYSLEDEK api', JSON.stringify(api.slice(0,12)));
             await b.close();
