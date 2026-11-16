@@ -62,15 +62,15 @@ jobs:
           for (const [mode, opts] of [["mobil", { ...devices["iPhone 13"], deviceScaleFactor: 2 }], ["pc", { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }]]) {
             const ctx = await b.newContext(opts);
             const p = await ctx.newPage();
-            const go = async (path, cfg) => { await p.goto(B + path, { waitUntil: "networkidle" }); await p.evaluate(inject, cfg); await p.waitForTimeout(300); };
+            const go = async (path, cfg) => { await p.goto(B + path, { waitUntil: "networkidle" }); await p.addStyleTag({ content: ".cky-consent-container,.cky-overlay,.cky-btn-revisit-wrapper{display:none!important}" }); await p.evaluate(inject, cfg); await p.waitForTimeout(300); };
             await go("/", { home: true, badges: { "Dýňová polévka": "14 dní po otevření", "Bylinný sirup Šaman": "3 měsíce po otevření", "Lipový sirup": "3 měsíce po otevření", "Svařák Deluxe": "14 dní po otevření" } });
             await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-1-uvod.jpg` });
             if (mode === "mobil") await p.screenshot({ type: 'jpeg', quality: 70, path: "mobil-1-uvod-cela.jpg", fullPage: true });
             await go("/produkt/dynova-polevka", { product: { opened: S14, portions: [[null, "Porce 250 ml za 31,60 Kč · 126 Kč/l"]], noPreservatives: true } });
-            await p.locator("h1").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70));
+            await p.evaluate(() => { const h = document.querySelector("h1"); window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 90); });
             await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-2-polevka.jpg` });
             await go("/produkt/lipovy-sirup", { product: { opened: "Po otevření vydrží v lednici 3 měsíce.", portions: [["3 l", "Sklenice limonády za 3,70 Kč"], ["650 ml", "Sklenice limonády za 6,20 Kč"]], noPreservatives: true } });
-            await p.locator("h1").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70));
+            await p.evaluate(() => { const h = document.querySelector("h1"); window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 90); });
             await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-3-sirup.jpg` });
             if (mode === "mobil") {
               await go("/produkt/svarak-deluxe", { product: { opened: "Po otevření vydrží v lednici 14 dní.", portions: [["3 l", "Sklenice 200 ml za 33,30 Kč · 166 Kč/l"], ["500 ml", "258 Kč/l"]], noPreservatives: false, bold: "SIŘIČITANY" } });
