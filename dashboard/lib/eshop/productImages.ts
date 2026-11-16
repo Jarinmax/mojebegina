@@ -119,6 +119,7 @@ const BACKDROP: Record<string, string> = {
   "/eshop/koktejly/svarak-deluxe-begina-v3.jpg": "#fefefe",
   "/eshop/koktejly/kosmopolitan-begina-v3.jpg": "#fefefe",
   "/eshop/ovocne-napoje/dum-u-jezera-begina-v2.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/dum-u-jezera-begina-v3.jpg": "#fefefe",
 };
 
 /** Barva podkladu pro fotku na bílém pozadí; null = běžná fotka (ořez na rámeček). */
