@@ -3,12 +3,17 @@
 // se tu NEDRŽÍ — berou se živě z katalogu. U každého překladu je český
 // text, ze kterého vznikl (sourceCz): když se složení v e-shopu změní,
 // stránka překlad označí jako neaktuální a nevydává ho za platný.
-export type SkFoodInfo = { nameSk: string; sourceCz: string; ingredientsSk: string };
+export type SkFoodInfo = { nameSk: string; sourceCz: string; ingredientsSk: string; usageSk?: string };
+
+// Ředění sirupů podle e-shopu (kategorie Bylinné sirupy: „Stačí zalít vodou
+// v poměru přibližně 1 : 10 – studenou na limonádu, horkou na čaj.“).
+export const SIRUP_USAGE_SK = "Rieďte vodou v pomere približne 1 : 10 – studenou na limonádu, horúcou na čaj. Balenie 3 l: až 150 nápojov.";
 
 const sirup = (nameSk: string, percent: number, herbsCz: string, herbsSk: string, lemon: number): SkFoodInfo => ({
   nameSk,
   sourceCz: `třtinový cukr, bylinný výluh ${percent} % (čistá filtrovaná voda, ${herbsCz}), citronová šťáva ${lemon} %, antioxidant: kyselina askorbová (vitamin C)`,
   ingredientsSk: `trstinový cukor, bylinný výluh ${percent} % (čistá filtrovaná voda, ${herbsSk}), citrónová šťava ${lemon} %, antioxidant: kyselina askorbová (vitamín C)`,
+  usageSk: SIRUP_USAGE_SK,
 });
 
 export const SK_FOOD_INFO: Record<string, SkFoodInfo> = {
@@ -54,7 +59,7 @@ export type SkSheetSource = {
 };
 
 export type SkSheet =
-  | { status: "ok"; nameSk: string; ingredientsSk: string; storageSk: string | null; shelfLifeSk: string | null; warningsSk: string[]; problems: string[] }
+  | { status: "ok"; nameSk: string; ingredientsSk: string; usageSk: string | null; storageSk: string | null; shelfLifeSk: string | null; warningsSk: string[]; problems: string[] }
   | { status: "missing" }
   | { status: "stale" };
 
@@ -81,6 +86,7 @@ export function buildSkSheet(product: SkSheetSource): SkSheet {
     status: "ok",
     nameSk: info.nameSk,
     ingredientsSk: info.ingredientsSk,
+    usageSk: info.usageSk ?? null,
     storageSk: phrase(product.storage, "Skladování"),
     shelfLifeSk: phrase(product.shelfLife, "Trvanlivost"),
     warningsSk,

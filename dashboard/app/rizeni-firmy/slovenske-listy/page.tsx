@@ -79,6 +79,7 @@ export default async function SlovenskeListyPage() {
                   <strong>Výživové údaje na {row.nutritionBasis === "100g" ? "100 g" : "100 ml"}:</strong> energia {num(row.nutrition.energy_kj)} kJ / {num(row.nutrition.energy_kcal)} kcal; tuky {num(row.nutrition.fat)} g, z toho nasýtené mastné kyseliny {num(row.nutrition.saturates)} g; sacharidy {num(row.nutrition.carbohydrate)} g, z toho cukry {num(row.nutrition.sugars)} g; bielkoviny {num(row.nutrition.protein)} g; soľ {num(row.nutrition.salt)} g.
                 </p>
               )}
+              {sheet.usageSk && <p><strong>Použitie:</strong> {sheet.usageSk}</p>}
               {sheet.warningsSk.map((warning) => (
                 <p key={warning}><strong>Upozornenie:</strong> {warning}</p>
               ))}
