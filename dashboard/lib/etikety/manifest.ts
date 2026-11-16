@@ -27,7 +27,16 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "dum-u-jezera.png",
     "malinovy-svarak-nealko.png"
   ],
-  "polevky": [
+  "polevky/predni-barevne": [
+    "dynova-polevka.jpg"
+  ],
+  "polevky/predni-cernobile": [
+    "dynova-polevka.png"
+  ],
+  "polevky/predni-cervenocerne": [
+    "dynova-polevka.png"
+  ],
+  "polevky/slozeni": [
     "Dynova-polevka.png",
     "Gulasova-polevka-z-hlivy-ustricne.png",
     "Kulajda.png",
