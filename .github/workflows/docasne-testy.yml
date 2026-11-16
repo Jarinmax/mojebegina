@@ -59,27 +59,27 @@ jobs:
           };
           const S14 = "Po otevření vydrží v lednici 14 dní – natáčíte postupně.";
           const b = await chromium.launch();
-          for (const [mode, opts] of [["mobil", devices["iPhone 13"]], ["pc", { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }]]) {
+          for (const [mode, opts] of [["mobil", { ...devices["iPhone 13"], deviceScaleFactor: 2 }], ["pc", { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }]]) {
             const ctx = await b.newContext(opts);
             const p = await ctx.newPage();
             const go = async (path, cfg) => { await p.goto(B + path, { waitUntil: "networkidle" }); await p.evaluate(inject, cfg); await p.waitForTimeout(300); };
             await go("/", { home: true, badges: { "Dýňová polévka": "14 dní po otevření", "Bylinný sirup Šaman": "3 měsíce po otevření", "Lipový sirup": "3 měsíce po otevření", "Svařák Deluxe": "14 dní po otevření" } });
-            await p.screenshot({ path: `${mode}-1-uvod.png` });
-            if (mode === "mobil") await p.screenshot({ path: "mobil-1-uvod-cela.png", fullPage: true });
+            await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-1-uvod.jpg` });
+            if (mode === "mobil") await p.screenshot({ type: 'jpeg', quality: 70, path: "mobil-1-uvod-cela.jpg", fullPage: true });
             await go("/produkt/dynova-polevka", { product: { opened: S14, portions: [[null, "Porce 250 ml za 31,60 Kč · 126 Kč/l"]], noPreservatives: true } });
             await p.locator("h1").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70));
-            await p.screenshot({ path: `${mode}-2-polevka.png` });
+            await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-2-polevka.jpg` });
             await go("/produkt/lipovy-sirup", { product: { opened: "Po otevření vydrží v lednici 3 měsíce.", portions: [["3 l", "Sklenice limonády za 3,70 Kč"], ["650 ml", "Sklenice limonády za 6,20 Kč"]], noPreservatives: true } });
             await p.locator("h1").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70));
-            await p.screenshot({ path: `${mode}-3-sirup.png` });
+            await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-3-sirup.jpg` });
             if (mode === "mobil") {
               await go("/produkt/svarak-deluxe", { product: { opened: "Po otevření vydrží v lednici 14 dní.", portions: [["3 l", "Sklenice 200 ml za 33,30 Kč · 166 Kč/l"], ["500 ml", "258 Kč/l"]], noPreservatives: false, bold: "SIŘIČITANY" } });
               const row = p.locator("dt", { hasText: "Složení" }).locator("xpath=..");
               await row.scrollIntoViewIfNeeded();
-              await row.screenshot({ path: "mobil-4-svarak-slozeni.png" });
+              await row.screenshot({ type: 'jpeg', quality: 80, path: "mobil-4-svarak-slozeni.jpg" });
               await go("/kategorie/polevky", { badges: { "*": "14 dní po otevření" } });
               await p.locator("li h2").first().scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -330));
-              await p.screenshot({ path: "mobil-5-kategorie.png" });
+              await p.screenshot({ type: 'jpeg', quality: 70, path: "mobil-5-kategorie.jpg" });
             }
             await ctx.close();
           }
@@ -87,6 +87,4 @@ jobs:
           console.log("VYSLEDEK hotovo");
           JS
           node s.mjs
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with: { name: shots, path: shots/*.png }
+          for f in *.jpg; do echo "SOUBOR $f $(base64 -w0 $f)"; done
