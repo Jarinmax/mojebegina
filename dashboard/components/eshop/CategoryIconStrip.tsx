@@ -10,7 +10,7 @@ import { stripCategories, type HomeCategory } from "@/lib/eshop/homeNav";
 export default function CategoryIconStrip({ id, categories }: { id: string; categories: HomeCategory[] }) {
   return (
     <nav id={id} aria-label="Kategorie" className="bg-[#FBF8F3] scroll-mt-20">
-      <ul className="max-w-5xl mx-auto px-1 sm:px-2 py-3 sm:py-4 lg:py-3 flex justify-center">
+      <ul className="max-w-5xl mx-auto px-1 sm:px-2 pt-6 pb-4 sm:py-4 lg:py-3 flex justify-center">
         {stripCategories(categories).map((category, i) => (
           <li
             key={category.slug}
