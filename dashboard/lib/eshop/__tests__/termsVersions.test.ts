@@ -41,6 +41,10 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
     text: "3a7b5efd4fda223d68a41889cb91ac3cc7f25523c587521da4125bc4ade6004b",
     pdf: "8a3e01f88f7b2e1c3b895a8c4e2c41044834f47d45d6efde6220b22739867cd6",
   },
+  "2026-11-17": {
+    text: "81a19c9b6a9418bf815f2553faa5c92c07a39a04006740be91dbbf93c35ed206",
+    pdf: "a056f9f8190886c44f26e813b694af687333feb84cca074f8198b34c1b8c966c",
+  },
 };
 
 describe("znění obchodních podmínek", () => {
@@ -77,8 +81,16 @@ describe("znění obchodních podmínek", () => {
     expect(text).toContain("Adresát: Jaroslav Viner, Mostecká 273/21, 118 00 Praha 1, IČO: 74337297, e-mail: info@begina.cz");
   });
 
-  it("platné znění (4. vydání): online odstoupení tlačítkem v čl. VII (§ 1830a OZ)", () => {
-    expect(CURRENT_TERMS.edition).toBe(4);
+  it("platné znění (5. vydání): doručení na Slovensko v čl. VI, jinak jako 4. vydání", () => {
+    expect(CURRENT_TERMS.edition).toBe(5);
+    const current = termsPlainText(CURRENT_TERMS);
+    expect(current).toContain("také na území Slovenské republiky. Na Slovensko prodávající nedoručuje alkoholické nápoje.");
+    expect(current).toContain("není tím dotčena ochrana, kterou mu poskytují předpisy státu jeho bydliště");
+    expect(termsPlainText(findTermsVersion("2026-11-08")!)).not.toContain("Slovenské republiky");
+  });
+
+  it("4. vydání a novější: online odstoupení tlačítkem v čl. VII (§ 1830a OZ)", () => {
+    expect(CURRENT_TERMS.edition).toBeGreaterThanOrEqual(4);
     const text = termsPlainText(CURRENT_TERMS);
     expect(text).toContain("online tlačítkem „Odstoupit od smlouvy“ na stránce www.begina.cz/odstoupeni-od-smlouvy");
     expect(text).toContain("tlačítkem „Potvrdit odstoupení od smlouvy“");

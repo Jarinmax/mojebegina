@@ -45,6 +45,9 @@ export const TERMS_VERSIONS: readonly TermsVersion[] = [
   // zákon č. 159/2026 Sb.); nasazeno 7. 11. 2026, účinnost od 8. 11. 2026
   // (rozhodnutí majitele)
   version("2026-11-08", "8. listopadu 2026", 4),
+  // 5. znění — doručení na Slovensko (čl. VI), texty odsouhlasila Lucie
+  // 16. 11. 2026; účinnost od 17. 11. 2026
+  version("2026-11-17", "17. listopadu 2026", 5),
 ];
 
 /** Znění platné pro nové objednávky. */

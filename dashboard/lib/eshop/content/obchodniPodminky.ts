@@ -18,7 +18,7 @@ import { withdrawalFormBlock, withdrawalFormBlockV3, WITHDRAWAL_PAGE_URL_TEXT } 
  * tlačítkem „Odstoupit od smlouvy“ (§ 1830a OZ). Starší vydání se
  * generují beze změny (otisky v termsVersions.test.ts).
  */
-export type TermsEdition = 1 | 2 | 3 | 4;
+export type TermsEdition = 1 | 2 | 3 | 4 | 5;
 
 /** Věta doplněná do čl. VII od znění s přílohou (schváleno vedením 26. 10. 2026). */
 export const WITHDRAWAL_FORM_SENTENCE =
@@ -508,11 +508,22 @@ const articleVIIv4: InfoBlock = {
   ),
 };
 
+/** 5. vydání (texty odsouhlasila Lucie 16. 11. 2026): doručení na Slovensko, čl. VI. */
+const SLOVAKIA_POINTS = [
+  {
+    text: "Prodávající doručuje zboží na území České republiky a v rozsahu uvedeném na stránce Doprava také na území Slovenské republiky. Na Slovensko prodávající nedoručuje alkoholické nápoje. Cena dopravy na Slovensko se řídí ceníkem pro Slovensko a kupující ji vidí před odesláním objednávky.",
+  },
+  {
+    text: "Pro kupujícího se sídlem nebo bydlištěm na Slovensku platí tyto obchodní podmínky stejně; právní vztahy se řídí právním řádem České republiky. Je-li kupující spotřebitelem, není tím dotčena ochrana, kterou mu poskytují předpisy státu jeho bydliště, od nichž se nelze smluvně odchýlit.",
+  },
+];
+
 function termsBlocksV3(effectiveLabel: string, edition: TermsEdition): InfoBlock[] {
   return baseBlocks(effectiveLabel, false).map((block) => {
     if (block.heading?.startsWith("I. ")) return articleI;
     if (block.heading?.startsWith("VII. ")) return edition >= 4 ? articleVIIv4 : articleVII;
     if (block.heading?.startsWith("VIII. ")) return articleVIII(block);
+    if (edition >= 5 && block.heading?.startsWith("VI. ")) return { ...block, points: [...(block.points ?? []), ...SLOVAKIA_POINTS] };
     return block;
   }).concat(withdrawalFormBlockV3());
 }
