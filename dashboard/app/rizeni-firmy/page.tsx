@@ -167,6 +167,12 @@ export default async function CompanyOverviewPage() {
           >
             Měsíční přehled, zápis nákladu nebo příjmu
           </Link>
+          <Link
+            href="/rizeni-firmy/finance"
+            className="mt-2 block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
+          >
+            Finance – kontroly a audit: duplicity, číslování faktur, úhrady, iDoklad, auditní deník
+          </Link>
         </div>
       )}
 
