@@ -2081,6 +2081,32 @@ export const economyEntries = pgTable(
   ]
 );
 
+// FINANCE – KONTROLY A AUDIT 1.0 (16. 11. 2026) — auditní deník finančních
+// kontrol (lib/finance-kontroly). Jen přidávání, nic se neupravuje ani
+// nemaže: zápis o provedení kontroly (run, se snapshotem nálezů), výsledek
+// prověření nálezu (ok / fixed) a poznámky. `author_name` je snapshot
+// jména v okamžiku zápisu (stejně jako company_notes). Píšou jen Jaroslav
+// a Lucie (isInvoiceIssuer).
+export const financeCheckLog = pgTable(
+  "finance_check_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    checkKey: text("check_key").notNull(),
+    findingKey: text("finding_key"),
+    action: text("action").notNull(), // "run" | "ok" | "fixed" | "note"
+    note: text("note"),
+    snapshot: jsonb("snapshot"),
+    createdByUserId: text("created_by_user_id").notNull(),
+    authorName: text("author_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("finance_check_log_check_idx").on(table.checkKey, table.createdAt),
+    check("finance_check_log_action_check", sql`${table.action} IN ('run','ok','fixed','note')`),
+    check("finance_check_log_finding_action", sql`${table.action} IN ('run','note') OR ${table.findingKey} IS NOT NULL`),
+  ]
+);
+
 // MĚŘENÍ E-SHOPU 1.0 (15. 11. 2026) — anonymní denní počítadla kroků nákupu
 // (návštěva → produkt → košík → pokladna). Jen součty po dnech: žádná IP
 // adresa, žádný identifikátor návštěvníka, nic se neukládá do zařízení.
