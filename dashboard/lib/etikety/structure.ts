@@ -46,6 +46,12 @@ export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
     groups: [
       { slug: "3l", label: "3 l" },
       { slug: "500ml", label: "500 ml" },
+      { slug: "predni-barevne-3l", label: "Přední – barevné 3 l" },
+      { slug: "predni-barevne-500ml", label: "Přední – barevné 500 ml" },
+      { slug: "predni-cervenocerne-3l", label: "Přední – Brother červeno-černé 3 l (DK-22251)" },
+      { slug: "predni-cervenocerne-500ml", label: "Přední – Brother červeno-černé 500 ml (DK-22251)" },
+      { slug: "predni-cernobile-3l", label: "Přední – Brother černobílé 3 l (DK-22212)" },
+      { slug: "predni-cernobile-500ml", label: "Přední – Brother černobílé 500 ml (DK-22212)" },
     ],
   },
   {
