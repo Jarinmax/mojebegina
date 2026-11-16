@@ -12,7 +12,31 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "lady-carneval.png",
     "svarak-deluxe.png"
   ],
-  "caje": [
+  "caje/predni-barevne": [
+    "bylinny-caj-saman.jpg",
+    "hermankovy-caj.jpg",
+    "ibiskovy-caj.jpg",
+    "lipovy-caj.jpg",
+    "medunkovy-caj-s-levanduli.jpg",
+    "zazvorovy-caj.jpg"
+  ],
+  "caje/predni-cernobile": [
+    "bylinny-caj-saman.png",
+    "hermankovy-caj.png",
+    "ibiskovy-caj.png",
+    "lipovy-caj.png",
+    "medunkovy-caj-s-levanduli.png",
+    "zazvorovy-caj.png"
+  ],
+  "caje/predni-cervenocerne": [
+    "bylinny-caj-saman.png",
+    "hermankovy-caj.png",
+    "ibiskovy-caj.png",
+    "lipovy-caj.png",
+    "medunkovy-caj-s-levanduli.png",
+    "zazvorovy-caj.png"
+  ],
+  "caje/slozeni": [
     "bylinny-caj-saman.png",
     "cerny-caj-golden-nepal.png",
     "hermankovy-caj.png",
