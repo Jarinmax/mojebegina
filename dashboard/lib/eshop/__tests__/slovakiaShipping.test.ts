@@ -22,3 +22,12 @@ describe("doručení na Slovensko", () => {
     expect(quoteShipping(cold, sirupy, "weight", contact)).toMatchObject({ available: true, priceKc: 379 });
   });
 });
+
+import { slovakiaDeliveryZone } from "../shipping";
+
+describe("rozvozové zóny na Slovensku", () => {
+  it("Bratislava, Trnava, Banská Bystrica = denně; ostatní a neznámé = 2× týdně", () => {
+    for (const zip of ["821 05", "81101", "851 01", "917 01", "974 01", "903 01", "960 01"]) expect(slovakiaDeliveryZone(zip), zip).toBe("daily");
+    for (const zip of ["010 01", "040 01", "080 01", "949 01", "900 01", "962 01", "", "abc"]) expect(slovakiaDeliveryZone(zip), zip).toBe("twice");
+  });
+});

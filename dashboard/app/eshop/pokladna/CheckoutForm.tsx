@@ -8,7 +8,7 @@ import { CircleCheck } from "lucide-react";
 import { AGE_RESTRICTION_NOTICE, isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
-import { shippingDestination,
+import { shippingDestination, slovakiaDeliveryZone,
   shippingMethodsFor,
   DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodsFor,
@@ -734,15 +734,19 @@ export default function CheckoutForm({
                 <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ.</p>
               ) : null}
               {slovakia && destination === "sk" ? (
-                <div role="note" className="text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2 flex flex-col gap-2">
-                  <p>
-                    Chlazená přeprava na Slovensko může podle oblasti trvat 1 až 6 dní (doručuje se od úterý do pátku, do některých oblastí jen ve dvou dnech v týdnu). Zboží je po celou dobu v chladu. Čerstvé polévky a čaje k vám proto mohou dorazit s kratší zbývající trvanlivostí.
-                  </p>
-                  <label className="flex items-start gap-2 font-medium">
-                    <input type="checkbox" name="slovakiaTransitAccepted" required className="mt-1" />
-                    <span>Souhlasím s tím, že doručení na Slovensko může trvat až 6 dní.</span>
-                  </label>
-                </div>
+                slovakiaDeliveryZone(values.deliverySameAsBilling ? values.billingZip : values.zip) === "daily" ? (
+                  <p role="note" className="text-xs text-neutral-600">Do vaší oblasti na Slovensku doručujeme chlazenou přepravou od úterý do pátku, zpravidla druhý den po odeslání.</p>
+                ) : (
+                  <div role="note" className="text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2 flex flex-col gap-2">
+                    <p>
+                      Do vaší oblasti na Slovensku doručujeme chlazenou přepravou jen ve dvou dnech v týdnu, přeprava proto může trvat až 6 dní. Zboží je po celou dobu v chladu. Čerstvé polévky a čaje k vám mohou dorazit s kratší zbývající trvanlivostí.
+                    </p>
+                    <label className="flex items-start gap-2 font-medium">
+                      <input type="checkbox" name="slovakiaTransitAccepted" required className="mt-1" />
+                      <span>Souhlasím s tím, že doručení může trvat až 6 dní.</span>
+                    </label>
+                  </div>
+                )
               ) : null}
               {slovakia ? null : (
               

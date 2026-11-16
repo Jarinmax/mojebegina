@@ -8,7 +8,7 @@ import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
-import { shippingDestination } from "./shipping";
+import { shippingDestination, slovakiaDeliveryZone } from "./shipping";
 import { clampBoxes } from "./boxOption";
 import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
@@ -344,7 +344,12 @@ export function validateCheckoutInput(
     pricedCart = withCoupons(pricedCart, coupons);
   }
 
-  if (destination === "sk" && priced.value.shipping.requiresAddress && input.slovakiaTransitAccepted !== true) {
+  if (
+    destination === "sk" &&
+    priced.value.shipping.requiresAddress &&
+    slovakiaDeliveryZone(input.deliverySameAsBilling ? input.billingZip : input.zip) === "twice" &&
+    input.slovakiaTransitAccepted !== true
+  ) {
     return { ok: false, error: "Potvrďte prosím, že souhlasíte s dobou chlazené přepravy na Slovensko (až 6 dní)." };
   }
   if (!input.termsAccepted) {
