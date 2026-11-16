@@ -8,7 +8,7 @@ import { CircleCheck } from "lucide-react";
 import { AGE_RESTRICTION_NOTICE, isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { useCatalog } from "@/components/eshop/CatalogProvider";
-import {
+import { shippingDestination,
   shippingMethodsFor,
   DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodsFor,
@@ -114,11 +114,14 @@ export default function CheckoutForm({
   cardPaymentAvailable = false,
   shippingMode = "flat",
   zasilkovna = false,
+  slovakia = false,
 }: {
   cardPaymentAvailable?: boolean;
   shippingMode?: ShippingMode;
   /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) — nabídne se jen u košíku s kapsičkami sirupu */
   zasilkovna?: boolean;
+  /** Doručení na Slovensko zapnuté (ESHOP_SLOVAKIA=on) */
+  slovakia?: boolean;
 }) {
   const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
   const allShippingMethods = shippingMethodsFor(shippingMode, { zasilkovna });
@@ -413,10 +416,12 @@ export default function CheckoutForm({
     ...allShippingMethods.filter((method) => method.id === ZASILKOVNA_METHOD_ID && zasilkovnaOffered),
     ...allShippingMethods.filter((method) => method.id !== ZASILKOVNA_METHOD_ID),
   ];
+  const destination = shippingDestination({ enabled: slovakia, sameAsBilling: values.deliverySameAsBilling, billingCountry: values.billingCountry, zip: values.zip });
+  const deliveryCountryLabel = destination === "sk" ? "Slovensko" : DELIVERY_COUNTRY;
   const quotes = new Map(
     shippingMethods.map((method) => [
       method.id,
-      method.id === ZASILKOVNA_METHOD_ID ? zasilkovnaQuote : quoteShipping(method, quoteLines, shippingMode, OPERATOR),
+      method.id === ZASILKOVNA_METHOD_ID ? zasilkovnaQuote : quoteShipping(method, quoteLines, shippingMode, OPERATOR, method.id === "rozvoz" ? destination : "cz"),
     ])
   );
   const selectedShippingId =
@@ -689,7 +694,7 @@ export default function CheckoutForm({
               {values.deliverySameAsBilling ? (
                 <p className="text-xs text-neutral-500">
                   Zásilku doručíme na jméno a adresu z fakturačních údajů, telefon pro doručení je váš kontaktní telefon.
-                  {values.billingCountry !== DELIVERY_COUNTRY && ` Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu. ${SLOVAKIA_ORDER_NOTE}`}
+                  {values.billingCountry !== deliveryCountryLabel && ` Doručujeme ale jen v České republice — zadejte prosím jinou doručovací adresu. ${SLOVAKIA_ORDER_NOTE}`}
                 </p>
               ) : (
                 <>
@@ -717,7 +722,7 @@ export default function CheckoutForm({
                   </div>
                   <div>
                     <label htmlFor="deliveryCountry" className={labelClass}>Země</label>
-                    <input id="deliveryCountry" value={DELIVERY_COUNTRY} readOnly className={`${inputClass} bg-neutral-50 text-neutral-500`} />
+                    <input id="deliveryCountry" value={deliveryCountryLabel} readOnly className={`${inputClass} bg-neutral-50 text-neutral-500`} />
                   </div>
                   <div>
                     <label htmlFor="recipientPhone" className={labelClass}>Telefon pro doručení</label>
@@ -725,7 +730,11 @@ export default function CheckoutForm({
                   </div>
                 </>
               )}
-              <p className="text-xs text-neutral-500">Doručujeme jen v České republice. {SLOVAKIA_ORDER_NOTE}</p>
+              {slovakia ? (
+                <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko posíláme jen bylinné sirupy (bez alkoholu); zemi a cenu dopravy určíme podle PSČ.</p>
+              ) : (
+                <p className="text-xs text-neutral-500">Doručujeme jen v České republice. {SLOVAKIA_ORDER_NOTE}</p>
+              )}
             </div>
           )}
         </fieldset>

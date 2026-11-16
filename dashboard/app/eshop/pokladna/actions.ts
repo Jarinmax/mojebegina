@@ -14,7 +14,7 @@ import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
-import { shippingModeFromEnv, zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
+import { shippingModeFromEnv, zasilkovnaEnabledFromEnv, slovakiaEnabledFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
 import { parseCouponCodes } from "@/lib/eshop/coupons";
 import { loadCouponContext } from "@/lib/eshop/couponsServer";
@@ -138,7 +138,7 @@ export async function submitCheckoutAction(
       pickupPointZip: field("pickupPointZip"),
     },
     await getCatalogIndex(),
-    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons, zasilkovna: zasilkovnaEnabledFromEnv() }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons, zasilkovna: zasilkovnaEnabledFromEnv(), slovakia: slovakiaEnabledFromEnv() }
   );
 
   if (!result.ok) {
