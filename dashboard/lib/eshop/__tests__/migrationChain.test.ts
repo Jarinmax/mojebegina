@@ -65,6 +65,8 @@ const CALENDAR = ["0038_google_kalendar", "0039_denni_volani_1_1_historie"];
 /** Jardova karta: vazba objednávky soukromé osoby na kontakt. */
 const EKONOMIKA = ["0040_ekonomika"];
 const JARDA_CARD = ["0041_jarda_karta_zdroj_objednavky", "0042_jarda_karta_evidence_odmenovani", "0043_jarda_karta_potvrzeni_navrhu"];
+/** Měření e-shopu (0044) a import leadů z formuláře Meta (0045). */
+const AFTER_JARDA_CARD = ["0044_mereni_eshopu", "0045_meta_leady_import"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 /** Index migrace 0039 (Denní volání 1.1). */
@@ -97,11 +99,11 @@ describe("řetězec migrací Drizzle", () => {
     });
   });
 
-  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031, spolupracovníci 0032–0037, Google Kalendář 0038, Denní volání 1.1 0039, Ekonomika 0040 a Jardova karta 0041–0043", () => {
+  it("0011 = CEO přehled, 0012 = Denní volání, e-shop 0013–0022, audit 0023, MCP 0024, Práce 0025–0027, kupóny 0028, rozvoz 0029, sklad 0030–0031, spolupracovníci 0032–0037, Google Kalendář 0038, Denní volání 1.1 0039, Ekonomika 0040, Jardova karta 0041–0043, měření e-shopu 0044 a leady z Mety 0045", () => {
     const tags = journal.entries.map((e) => e.tag);
     expect(tags[11]).toBe(CEO);
     expect(tags[12]).toBe(DAILY_CALLS);
-    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP, ...SKLAD, ...AFTER_SKLAD, ...CALENDAR, ...EKONOMIKA, ...JARDA_CARD]);
+    expect(tags.slice(FIRST_ESHOP_IDX)).toEqual([...ESHOP, ...AFTER_ESHOP, ...SKLAD, ...AFTER_SKLAD, ...CALENDAR, ...EKONOMIKA, ...JARDA_CARD, ...AFTER_JARDA_CARD]);
   });
 
   it("sklad: 0030 přidá právě 10 skladových tabulek, 0031 žádnou; nic jiného se nezmění", () => {

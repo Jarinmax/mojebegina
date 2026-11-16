@@ -17,6 +17,7 @@
 // přesně jednou (dokumentované chování, ne optimalizace, která by je mohla
 // přeskočit) — viz komentář přímo u logDailyCallOutcome.
 import "server-only";
+import { claimUnownedLeadOnReach } from "./leadClaim";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -745,6 +746,15 @@ export async function logDailyCallOutcome(
     // Stav synchronizace (pending/failed) zůstává v lead_calendar_sync —
     // uživatel uvidí "synchronizace kalendáře selhala" a může zopakovat,
     // CRM zápis výše je v pořádku bez ohledu na tohle.
+  }
+
+  // Dovoláno u kontaktu bez vlastníka → přiřadit volajícímu (16. 11. 2026).
+  if (value.result === "reached_interested" || value.result === "reached_not_interested") {
+    try {
+      await claimUnownedLeadOnReach(item.leadId, { userId: ctx.userId, name: ctx.name }, "daily_call");
+    } catch (error) {
+      console.error("claimUnownedLeadOnReach (daily call)", error);
+    }
   }
 
   const effectiveRaw = result.rows[0]?.effectiveNextFollowUpAt ?? null;

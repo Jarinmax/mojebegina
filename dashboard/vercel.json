@@ -35,6 +35,26 @@
     {
       "path": "/api/cron/mereni-eshopu",
       "schedule": "0 15 * * 1"
+    },
+    {
+      "path": "/api/cron/meta-leady?beh=1",
+      "schedule": "5 6 * * *"
+    },
+    {
+      "path": "/api/cron/meta-leady?beh=2",
+      "schedule": "5 9 * * *"
+    },
+    {
+      "path": "/api/cron/meta-leady?beh=3",
+      "schedule": "5 12 * * *"
+    },
+    {
+      "path": "/api/cron/meta-leady?beh=4",
+      "schedule": "5 15 * * *"
+    },
+    {
+      "path": "/api/cron/meta-leady?beh=5",
+      "schedule": "5 18 * * *"
     }
   ]
 }

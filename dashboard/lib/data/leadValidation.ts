@@ -24,6 +24,7 @@ export const LEAD_SOURCES = [
   "doporuceni",
   "inbound",
   "vlastni_akvizice",
+  "meta",
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 
@@ -174,6 +175,8 @@ export type CallLogInput = {
   nextFollowUpAtDate: string;
   nextFollowUpAtTime: string;
   nextStepNote: string;
+  /** „Dovolal/a jsem se“ — u kontaktu bez vlastníka ho přiřadí volajícímu (leadClaim.ts). */
+  reached?: boolean;
 };
 
 export type ValidatedCallLogInput = {
