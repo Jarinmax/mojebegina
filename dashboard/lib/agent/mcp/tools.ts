@@ -23,6 +23,7 @@ import { addActivityComment, createNode, getNodeDetail, listCompanyTasks } from 
 import { DAILY_CALL_TOOLS } from "./tools/dailyCalls";
 import { INVOICING_TOOLS } from "./tools/invoicing";
 import { ECONOMY_TOOLS } from "./tools/economy";
+import { MAIL_TOOLS } from "./tools/mail";
 import { ORDER_TOOLS } from "./tools/orders";
 import { LEAD_TOOLS } from "./tools/leads";
 import { OVERVIEW_TOOLS } from "./tools/overview";
@@ -334,6 +335,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   ...ORDER_TOOLS,
   ...INVOICING_TOOLS,
   ...ECONOMY_TOOLS,
+  ...MAIL_TOOLS,
 ];
 
 export const SERVER_INSTRUCTIONS = [
