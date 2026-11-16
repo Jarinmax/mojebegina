@@ -12,7 +12,7 @@
 
 import { ZASILKOVNA_MAX_POUCHES, quoteZasilkovna } from "./zasilkovna";
 import { formatKc } from "@/lib/format";
-import { cartWeight, coldShippingPrice, COLD_SHIPPING_MAX_GRAMS } from "./shippingRates";
+import { cartWeight, coldShippingPrice, coldShippingPriceSk, COLD_SHIPPING_MAX_GRAMS } from "./shippingRates";
 
 export type ShippingMode = "flat" | "weight";
 
@@ -111,11 +111,29 @@ const kg = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFr
  * Cena doručení pro košík. Jediné místo s pravidly — volá ji server
  * (priceCart) i formuláře (jen pro zobrazení; server počítá znovu).
  */
+/** Kam zásilka jede: Česko (výchozí) nebo Slovensko (jiný ceník CoolBalík). */
+export type ShippingDestination = "cz" | "sk";
+
+/** ESHOP_SLOVAKIA=on → pokladna přijme i doručení na Slovensko (jen zboží se slovenským listem, bez alkoholu). */
+export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
+  return env.ESHOP_SLOVAKIA === "on";
+}
+
+const SK_ZIP = /^[089]\d{2} ?\d{2}$/;
+
+/** Slovensko se pozná podle země fakturace (doručení na fakturační adresu) nebo slovenského PSČ. */
+export function shippingDestination(input: { enabled: boolean; sameAsBilling: boolean; billingCountry: string; zip: string }): ShippingDestination {
+  if (!input.enabled) return "cz";
+  if (input.sameAsBilling) return input.billingCountry.trim() === "Slovensko" ? "sk" : "cz";
+  return SK_ZIP.test(input.zip.trim()) ? "sk" : "cz";
+}
+
 export function quoteShipping(
   method: ShippingMethod,
   lines: readonly ShippingQuoteLine[],
   mode: ShippingMode,
-  contact: ShippingContact
+  contact: ShippingContact,
+  destination: ShippingDestination = "cz"
 ): ShippingQuote {
   if (method.id === "zasilkovna") {
     // Zásilkovna se počítá z balení v košíku (quoteZasilkovnaShipping), ne z hmotnostních řádků.
@@ -135,7 +153,7 @@ export function quoteShipping(
       weightGrams: null,
     };
   }
-  const price = coldShippingPrice(weight.grams);
+  const price = destination === "sk" ? coldShippingPriceSk(weight.grams) : coldShippingPrice(weight.grams);
   if (!price.ok) {
     return {
       available: false,

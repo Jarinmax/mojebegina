@@ -10,6 +10,8 @@
 import type { CatalogIndex } from "./catalogIndex";
 import { isOrderable, lineName } from "./productRules";
 import { getShippingMethod, quoteShipping, quoteZasilkovnaShipping, type ShippingMethod, type ShippingMode } from "./shipping";
+import type { ShippingDestination } from "./shipping";
+import { SK_FOOD_INFO } from "./skFoodInfo";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
@@ -55,7 +57,7 @@ export function priceCart(
   input: CartInputLine[],
   shippingMethodId: string,
   index: CatalogIndex,
-  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number; /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) */ zasilkovna?: boolean } = {}
+  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number; /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) */ zasilkovna?: boolean; /** cíl chlazené přepravy (Slovensko = jiný ceník a omezený sortiment) */ destination?: ShippingDestination } = {}
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   const shippingMode = options.shippingMode ?? "flat";
   if (input.length === 0) {
@@ -70,6 +72,8 @@ export function priceCart(
     return { ok: false, error: "Vyberte způsob doručení." };
   }
 
+  const toSlovakia = options.destination === "sk" && shipping.id === "rozvoz";
+  const withoutSkLabel: string[] = [];
   const seen = new Set<string>();
   const lines: PricedLine[] = [];
   const weights: (number | null)[] = [];
@@ -106,6 +110,7 @@ export function priceCart(
       };
     }
     containsAgeRestricted ||= product.isAgeRestricted;
+    if (toSlovakia && !product.isAgeRestricted && !SK_FOOD_INFO[product.slug]) withoutSkLabel.push(product.name);
     if (isBoxEligible(product, variant)) boxEligible += item.quantity;
     weights.push(variant.weightGrams);
     packages.push({ quantity: item.quantity, product, variant });
@@ -116,6 +121,15 @@ export function priceCart(
       unitPriceKc: variant.priceKc,
       lineTotalKc: variant.priceKc * item.quantity,
     });
+  }
+
+  // Slovensko (16. 11. 2026): bez alkoholu (spotřební daň) a jen zboží,
+  // které má slovenské informace o potravině (skFoodInfo.ts).
+  if (toSlovakia && containsAgeRestricted) {
+    return { ok: false, error: "Alkoholické nápoje na Slovensko nedoručujeme. Odeberte je prosím z košíku, nebo zvolte doručení v České republice." };
+  }
+  if (toSlovakia && withoutSkLabel.length > 0) {
+    return { ok: false, error: `Na Slovensko zatím doručujeme jen bylinné sirupy. Odeberte prosím z košíku: ${[...new Set(withoutSkLabel)].join(", ")}.` };
   }
 
   // Zásilkovna: jen kapsičky sirupu; krabice je v ceně dopravy, volitelné krabice se nepočítají.
@@ -132,7 +146,8 @@ export function priceCart(
           ...boxWeightLines(boxes),
         ],
         shippingMode,
-        OPERATOR
+        OPERATOR,
+        toSlovakia ? "sk" : "cz"
       );
   if (!quote.available) {
     return { ok: false, error: quote.message };

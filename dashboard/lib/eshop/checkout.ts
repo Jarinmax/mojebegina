@@ -8,6 +8,7 @@ import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
 import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
+import { shippingDestination } from "./shipping";
 import { clampBoxes } from "./boxOption";
 import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
 import { BILLING_COUNTRIES, DELIVERY_COUNTRY, type BillingCountry } from "./orderParties";
@@ -83,7 +84,7 @@ export type CheckoutValue = {
     street: string;
     city: string;
     zip: string;
-    country: typeof DELIVERY_COUNTRY;
+    country: BillingCountry;
     phone: string;
   } | null;
   /** Zásilkovna: vybrané výdejní místo (ID pro podání zásilky) */
@@ -137,10 +138,13 @@ function tooLong(value: string, max = MAX_TEXT_LENGTH): boolean {
 export function validateCheckoutInput(
   input: CheckoutInput,
   index: CatalogIndex,
-  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext; zasilkovna?: boolean } = {}
+  options: { cardPaymentAvailable?: boolean; shippingMode?: ShippingMode; coupons?: CouponContext; zasilkovna?: boolean; /** ESHOP_SLOVAKIA=on */ slovakia?: boolean } = {}
 ): Result {
   const cartLines = parseStoredCart(input.cart);
-  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxes: clampBoxes(input.boxes, Number.MAX_SAFE_INTEGER), zasilkovna: options.zasilkovna === true });
+  // Slovensko: cíl se určí z adresy ještě před výpočtem ceny (jiný ceník dopravy).
+  const destination = shippingDestination({ enabled: options.slovakia === true, sameAsBilling: input.deliverySameAsBilling, billingCountry: input.billingCountry, zip: input.zip });
+  const deliveryCountry: BillingCountry = destination === "sk" ? "Slovensko" : DELIVERY_COUNTRY;
+  const priced = priceCart(cartLines, input.shippingMethodId, index, { shippingMode: options.shippingMode, boxes: clampBoxes(input.boxes, Number.MAX_SAFE_INTEGER), zasilkovna: options.zasilkovna === true, destination });
   if (!priced.ok) {
     return priced;
   }
@@ -251,7 +255,7 @@ export function validateCheckoutInput(
     };
   } else if (priced.value.shipping.requiresAddress) {
     if (input.deliverySameAsBilling) {
-      if (country !== DELIVERY_COUNTRY) {
+      if (country !== deliveryCountry) {
         return { ok: false, error: `Doručujeme jen v České republice — zvolte prosím jinou doručovací adresu v ČR. ${SLOVAKIA_ORDER_NOTE}` };
       }
       delivery = {
@@ -261,7 +265,7 @@ export function validateCheckoutInput(
         street: billing.street,
         city: billing.city,
         zip: billing.zip,
-        country: DELIVERY_COUNTRY,
+        country: deliveryCountry,
         phone,
       };
     } else {
@@ -283,7 +287,7 @@ export function validateCheckoutInput(
       if (!ZIP_PATTERN.test(zip)) {
         return { ok: false, error: "Zadejte PSČ ve tvaru 123 45." };
       }
-      if (!CZ_ZIP_PATTERN.test(zip)) {
+      if (!(destination === "sk" ? SK_ZIP_PATTERN : CZ_ZIP_PATTERN).test(zip)) {
         return { ok: false, error: `Doručujeme jen v České republice — zadejte prosím české PSČ. ${SLOVAKIA_ORDER_NOTE}` };
       }
       if (!PHONE_PATTERN.test(recipientPhone)) {
@@ -299,7 +303,7 @@ export function validateCheckoutInput(
         street,
         city,
         zip: normalizeZip(zip),
-        country: DELIVERY_COUNTRY,
+        country: deliveryCountry,
         phone: recipientPhone,
       };
     }
