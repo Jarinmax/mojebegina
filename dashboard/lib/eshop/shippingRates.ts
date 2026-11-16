@@ -104,3 +104,45 @@ export function coldShippingPrice(grams: number): ColdShippingPrice {
   const rule = [...COLD_SHIPPING_RULES].reverse().find((r) => grams >= toGrams(r.fromKg))!;
   return { ok: true, priceKc: rule.priceKc, rule };
 }
+
+// ── SLOVENSKO (16. 11. 2026) ────────────────────────────────────────────
+// Smluvní ceník CoolBalík, zóna 3 — tabulka Lucie „coolbalik_vypocty“,
+// list Slovensko (snímky ceníku z 19. 10. 2026). Pásma jsou „váha do (kg)“
+// VČETNĚ horní hranice. Cena pro zákazníka se počítá stejně jako pro ČR
+// (základ × DPH dopravce × palivový příplatek). E-shop na Slovensko
+// NEDORUČUJE — ceník slouží kalkulačce v MojeBegina a objednávkám e-mailem.
+export type SkShippingBand = { toKg: number; baseKc: number; priceKc: number };
+
+const skBand = (toKg: number, baseKc: number): SkShippingBand => ({ toKg, baseKc, priceKc: carrierPriceKc(baseKc) });
+
+export const COLD_SHIPPING_SK_BANDS: readonly SkShippingBand[] = [
+  skBand(10, 220),
+  skBand(15, 260),
+  skBand(20, 300),
+  skBand(30, 380),
+  skBand(40, 460),
+  skBand(50, 540),
+  skBand(60, 620),
+  skBand(70, 700),
+  skBand(80, 780),
+  skBand(90, 860),
+  skBand(100, 940),
+  skBand(110, 1340),
+  skBand(120, 1340),
+  skBand(130, 1340),
+  skBand(140, 1340),
+  skBand(150, 1340),
+  skBand(200, 1740),
+  skBand(250, 2140),
+  skBand(300, 2540),
+  skBand(350, 2940),
+  skBand(400, 3340),
+];
+
+export type SkShippingPrice = { ok: true; priceKc: number; band: SkShippingBand } | { ok: false; reason: "over_limit"; grams: number };
+
+export function coldShippingPriceSk(grams: number): SkShippingPrice {
+  if (!Number.isInteger(grams) || grams < 0) throw new Error(`Neplatná hmotnost: ${grams} g`);
+  const found = COLD_SHIPPING_SK_BANDS.find((item) => grams <= toGrams(item.toKg));
+  return found ? { ok: true, priceKc: found.priceKc, band: found } : { ok: false, reason: "over_limit", grams };
+}
