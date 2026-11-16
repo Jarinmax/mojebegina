@@ -4,20 +4,33 @@ jobs:
   o:
     runs-on: ubuntu-latest
     steps:
-      - run: npm i playwright@1.49.1 && npx playwright install chromium
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
       - run: |
-          cat > t.js <<'JS'
-          const { chromium } = require('playwright');
-          (async () => {
-            const b = await chromium.launch();
-            const p = await b.newPage({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' });
-            const seen = [];
-            p.on('response', async r => { const q = r.request(); const u = r.url(); if (/\.(css|png|jpe?g|svg|woff2?|gif|ico)(\?|$)/.test(u)) return; let t=''; try { t = await r.text(); } catch (e) {} const hit = /82105|821 05/.test(t); if (q.resourceType()==='xhr' || q.resourceType()==='fetch' || hit) seen.push([r.status(), q.method(), u.slice(0,200), (q.postData()||'').slice(0,200), t.length, hit, hit ? t.slice(Math.max(0,t.search(/82105|821 05/)-300), t.search(/82105|821 05/)+500).replace(/\s+/g,' ') : t.slice(0,300).replace(/\s+/g,' ')]); });
-            await p.goto('https://coolbalik.cz/kde-rozvazime/', { waitUntil: 'networkidle' });
-            await p.selectOption('#cbw-coverage-1-postcode-country', 'SK');
-            await p.fill('#cbw-coverage-1-postcode-input', '82105'); await p.press('#cbw-coverage-1-postcode-input', 'Enter'); await p.waitForTimeout(4000);
-            for (const s of seen) console.log('VYSLEDEK req', JSON.stringify(s));
-            await b.close();
-          })();
+          cat > t.mjs <<'JS'
+          const ua = { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', accept: 'application/json' };
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const prefixes = [];
+          for (let i = 10; i <= 99; i++) prefixes.push(String(i).padStart(3, '0'));
+          for (let i = 800; i <= 999; i++) prefixes.push(String(i));
+          const out = {}; const zones = {};
+          for (const prefix of prefixes) {
+            const found = new Set();
+            for (const tail of ['01', '00', '05', '11', '31', '51']) {
+              try {
+                const r = await fetch(`https://coolbalik.cz/wp-json/coolbalik/v1/coverage?postcode=${prefix}${tail}&country=SK`, { headers: ua });
+                const j = await r.json();
+                if (j.status === 'served') { found.add((j.days || []).join('')); zones[(j.days || []).join('')] = j.zone?.name; }
+              } catch (e) { found.add('ERR'); }
+              await sleep(120);
+            }
+            if (found.size) out[prefix] = [...found].sort().join('|');
+          }
+          const byDays = {};
+          for (const [prefix, days] of Object.entries(out)) (byDays[days] ||= []).push(prefix);
+          console.log('VYSLEDEK zony', JSON.stringify(zones));
+          for (const [days, list] of Object.entries(byDays)) console.log('VYSLEDEK dny', days, '::', list.join(','));
+          console.log('VYSLEDEK pocet prefixu', Object.keys(out).length);
+          // doba přepravy z Vitic pro zástupce každé skupiny dní
           JS
-          node t.js
+          node t.mjs
