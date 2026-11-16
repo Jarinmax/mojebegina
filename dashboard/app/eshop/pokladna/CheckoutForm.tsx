@@ -12,6 +12,8 @@ import { shippingDestination, slovakiaDeliveryZone,
   shippingMethodsFor,
   DEFAULT_SHIPPING_METHOD_ID,
   paymentMethodsFor,
+  slovakPayer,
+  SLOVAKIA_CARD_ONLY_NOTE,
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
@@ -123,7 +125,6 @@ export default function CheckoutForm({
   /** Doručení na Slovensko zapnuté (ESHOP_SLOVAKIA=on) */
   slovakia?: boolean;
 }) {
-  const paymentMethods = paymentMethodsFor(cardPaymentAvailable);
   const allShippingMethods = shippingMethodsFor(shippingMode, { zasilkovna });
   // Zásilkovna: dokud zákazník sám nezvolí doručení, předvybere se (je nejlevnější).
   const [shippingChosen, setShippingChosen] = useState(false);
@@ -418,6 +419,12 @@ export default function CheckoutForm({
   ];
   const destination = shippingDestination({ enabled: slovakia, sameAsBilling: values.deliverySameAsBilling, billingCountry: values.billingCountry, zip: values.zip });
   const deliveryCountryLabel = destination === "sk" ? "Slovensko" : DELIVERY_COUNTRY;
+  // Slovensko: jen platba kartou (bankovní převod se nenabízí).
+  const fromSlovakia = slovakPayer({ billingCountry: values.billingCountry, destination });
+  const paymentMethods = paymentMethodsFor(cardPaymentAvailable, { slovakPayer: fromSlovakia });
+  const selectedPaymentId = paymentMethods.some((m) => m.id === values.paymentMethodId && m.available)
+    ? values.paymentMethodId
+    : (paymentMethods.find((m) => m.available)?.id ?? values.paymentMethodId);
   const quotes = new Map(
     shippingMethods.map((method) => [
       method.id,
@@ -764,14 +771,14 @@ export default function CheckoutForm({
                 key={method.id}
                 className={`flex items-start gap-3 border rounded-xl p-3.5 ${
                   method.available ? "cursor-pointer" : "opacity-50 cursor-not-allowed"
-                } ${values.paymentMethodId === method.id ? "border-begina-primary-900" : "border-neutral-200"}`}
+                } ${selectedPaymentId === method.id ? "border-begina-primary-900" : "border-neutral-200"}`}
               >
                 <input
                   type="radio"
                   name="paymentMethodId"
                   value={method.id}
                   disabled={!method.available}
-                  checked={values.paymentMethodId === method.id}
+                  checked={selectedPaymentId === method.id}
                   onChange={() => set("paymentMethodId", method.id)}
                   className="mt-1 accent-begina-primary-900"
                 />
@@ -781,6 +788,9 @@ export default function CheckoutForm({
                 </span>
               </label>
             ))}
+            {fromSlovakia ? (
+              <p role="note" className="text-xs text-neutral-600">{SLOVAKIA_CARD_ONLY_NOTE} Částka se platí v Kč, přepočet na eura provede vaše banka.</p>
+            ) : null}
           </div>
         </fieldset>
 

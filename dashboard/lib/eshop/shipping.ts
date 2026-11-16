@@ -211,7 +211,18 @@ export type PaymentMethod = {
 // nedostupná. Pořadí podle zadání Lucie (6. 11. 2026): bankovní převod je
 // vždy první a předvybraný, karta (je-li dostupná) až za ním. Volbu, kterou
 // zákazník sám změní, pokladna drží ve stavu formuláře.
-export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
+/**
+ * Zákazník ze Slovenska (slovenská fakturační adresa nebo doručení na
+ * Slovensko) platí jen kartou — rozhodnutí Jarina 16. 11. 2026: peníze
+ * předem a celé, bez kurzových rozdílů z převodu v eurech.
+ */
+export const SLOVAKIA_CARD_ONLY_NOTE = "Na Slovensko je možné platit pouze kartou.";
+
+export function slovakPayer(input: { billingCountry: string; destination: ShippingDestination }): boolean {
+  return input.destination === "sk" || input.billingCountry.trim() === "Slovensko";
+}
+
+export function paymentMethodsFor(cardAvailable: boolean, options: { slovakPayer?: boolean } = {}): PaymentMethod[] {
   const transfer: PaymentMethod = {
     id: "prevod",
     label: "Bankovní převod — platba předem",
@@ -226,7 +237,8 @@ export function paymentMethodsFor(cardAvailable: boolean): PaymentMethod[] {
       : "Platební brána zatím není napojená.",
     available: cardAvailable,
   };
-  return [transfer, card];
+  // Slovensko: bankovní převod se vůbec nenabízí.
+  return options.slovakPayer ? [card] : [transfer, card];
 }
 
 /** Výchozí platba = bankovní převod (i když je karta dostupná). */
@@ -243,6 +255,6 @@ export function getShippingMethod(id: string, mode: ShippingMode = "flat", optio
   return shippingMethodsFor(mode, options).find((method) => method.id === id);
 }
 
-export function getPaymentMethod(id: string, cardAvailable = false): PaymentMethod | undefined {
-  return paymentMethodsFor(cardAvailable).find((method) => method.id === id);
+export function getPaymentMethod(id: string, cardAvailable = false, options: { slovakPayer?: boolean } = {}): PaymentMethod | undefined {
+  return paymentMethodsFor(cardAvailable, options).find((method) => method.id === id);
 }
