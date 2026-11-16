@@ -129,7 +129,7 @@ export function priceCart(
     return { ok: false, error: "Alkoholické nápoje na Slovensko nedoručujeme. Odeberte je prosím z košíku, nebo zvolte doručení v České republice." };
   }
   if (toSlovakia && withoutSkLabel.length > 0) {
-    return { ok: false, error: `Na Slovensko zatím doručujeme jen bylinné sirupy. Odeberte prosím z košíku: ${[...new Set(withoutSkLabel)].join(", ")}.` };
+    return { ok: false, error: `Toto zboží na Slovensko zatím nedoručujeme: ${[...new Set(withoutSkLabel)].join(", ")}. Odeberte ho prosím z košíku, nebo zvolte doručení v České republice.` };
   }
 
   // Zásilkovna: jen kapsičky sirupu; krabice je v ceně dopravy, volitelné krabice se nepočítají.

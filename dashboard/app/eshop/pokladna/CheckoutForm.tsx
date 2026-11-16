@@ -731,7 +731,7 @@ export default function CheckoutForm({
                 </>
               )}
               {slovakia ? (
-                <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko posíláme jen bylinné sirupy (bez alkoholu); zemi a cenu dopravy určíme podle PSČ.</p>
+                <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ.</p>
               ) : (
                 <p className="text-xs text-neutral-500">Doručujeme jen v České republice. {SLOVAKIA_ORDER_NOTE}</p>
               )}
