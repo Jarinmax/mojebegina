@@ -33,7 +33,7 @@ export const SK_FOOD_INFO: Record<string, SkFoodInfo> = {
     "Bylinný sirup Šaman",
     40,
     "šípek (Rosa canina), čaga (Inonotus obliquus), ženšen sibiřský (Eleutherococcus senticosus), zázvor (Zingiber officinale)",
-    "šípky (Rosa canina), čaga (Inonotus obliquus), sibírsky ženšen (Eleutherococcus senticosus), zázvor (Zingiber officinale)",
+    "šípky (Rosa canina), čaga (Inonotus obliquus), sibírsky ženšen – eleuterokok (Eleutherococcus senticosus), zázvor (Zingiber officinale)",
     10,
   ),
 };
