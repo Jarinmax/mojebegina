@@ -208,7 +208,6 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
                     items: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map((band) => `do ${kgText(band.toKg)} kg — ${formatKc(band.priceKc)}`),
                     afterParagraphs: [
                       "Zásilkovna doručuje jen v České republice. Osobní odběr je možný v naší provozovně ve Viticích i pro zákazníky ze Slovenska.",
-                      "Informace o složení a alergenech ve slovenštině vám přiložíme k zásilce.",
                     ],
                   },
                 ]
