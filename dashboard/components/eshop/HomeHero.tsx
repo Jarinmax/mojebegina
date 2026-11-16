@@ -77,7 +77,7 @@ export default function HomeHero() {
           </p>
         </div>
 
-        <div className="relative w-full max-w-[23rem] mx-auto sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">
+        <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
