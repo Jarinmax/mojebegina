@@ -48,7 +48,16 @@ export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
       { slug: "500ml", label: "500 ml" },
     ],
   },
-  { slug: "caje", label: "Čaje (3 l)" },
+  {
+    slug: "caje",
+    label: "Čaje (3 l)",
+    groups: [
+      { slug: "slozeni", label: "Složení" },
+      { slug: "predni-barevne", label: "Přední – barevné" },
+      { slug: "predni-cervenocerne", label: "Přední – Brother červeno-černé (DK-22251)" },
+      { slug: "predni-cernobile", label: "Přední – Brother černobílé (DK-22212)" },
+    ],
+  },
 ];
 
 /** Klíč pro manifest: "polevky" nebo "sirupy/3l". */
