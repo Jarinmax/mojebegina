@@ -41,6 +41,10 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
     text: "3a7b5efd4fda223d68a41889cb91ac3cc7f25523c587521da4125bc4ade6004b",
     pdf: "8a3e01f88f7b2e1c3b895a8c4e2c41044834f47d45d6efde6220b22739867cd6",
   },
+  "2026-11-17": {
+    text: "DOPLNIT_TEXT",
+    pdf: "DOPLNIT_PDF",
+  },
 };
 
 describe("znění obchodních podmínek", () => {
