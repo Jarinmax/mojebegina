@@ -2093,3 +2093,74 @@ export const eshopFunnelDaily = pgTable(
   },
   (table) => [primaryKey({ columns: [table.day, table.step] })]
 );
+
+// RECEPTURY A NÁKLADY 1.0 (16. 11. 2026) — přesné složení výrobků na 3l
+// dávku, ceník surovin a obalů a z něj počítané náklady a marže. Přístup
+// JEN Jaroslav a Lucie (isInvoiceIssuer); receptury jsou výrobní tajemství
+// a samotná data (množství) se do repozitáře neukládají — nahrávají se
+// skriptem přímo do databáze. Cena v ceníku je jedna pro všechny receptury:
+// po její změně se přepočítají všechny výrobky.
+export const recipeIngredients = pgTable(
+  "recipe_ingredients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    code: text("code").notNull().unique("recipe_ingredients_code_key"),
+    name: text("name").notNull(),
+    priceUnit: text("price_unit").notNull(),
+    priceKc: numeric("price_kc", { precision: 12, scale: 4 }).notNull(),
+    note: text("note"),
+    updatedByUserId: text("updated_by_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("recipe_ingredients_kind_check", sql`${table.kind} IN ('surovina','obal')`),
+    check("recipe_ingredients_unit_check", sql`${table.priceUnit} IN ('kg','l','ks','kapka')`),
+    check("recipe_ingredients_price_check", sql`${table.priceKc} >= 0`),
+  ]
+);
+
+export const recipes = pgTable("recipes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique("recipes_slug_key"),
+  category: text("category").notNull(),
+  name: text("name").notNull(),
+  batchMl: integer("batch_ml").notNull(),
+  note: text("note"),
+  archived: boolean("archived").notNull().default(false),
+  sort: integer("sort").notNull().default(0),
+});
+
+export const recipeItems = pgTable(
+  "recipe_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    ingredientId: uuid("ingredient_id")
+      .notNull()
+      .references(() => recipeIngredients.id, { onDelete: "restrict" }),
+    quantity: numeric("quantity", { precision: 12, scale: 3 }).notNull(),
+    unit: text("unit").notNull(),
+    sort: integer("sort").notNull().default(0),
+  },
+  (table) => [index("recipe_items_recipe_idx").on(table.recipeId), check("recipe_items_unit_check", sql`${table.unit} IN ('g','ml','l','kapka','ks')`)]
+);
+
+export const recipeVariants = pgTable(
+  "recipe_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    volumeMl: integer("volume_ml").notNull(),
+    // Kódy obalů z recipe_ingredients oddělené čárkou (např. "bag-3l,krabice-3l,etiketa").
+    packagingCodes: text("packaging_codes").notNull(),
+    salePriceHal: integer("sale_price_hal"),
+    sort: integer("sort").notNull().default(0),
+  },
+  (table) => [index("recipe_variants_recipe_idx").on(table.recipeId)]
+);

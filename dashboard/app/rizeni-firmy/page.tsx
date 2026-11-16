@@ -156,6 +156,23 @@ export default async function CompanyOverviewPage() {
       {showEkonomika && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-begina-primary-900">Receptury a náklady</h2>
+            <Link href="/rizeni-firmy/receptury" className="text-sm font-medium text-begina-primary-900 hover:underline">
+              Receptury →
+            </Link>
+          </div>
+          <Link
+            href="/rizeni-firmy/receptury"
+            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
+          >
+            Přesné složení na beginu, náklad, marže a ceník surovin
+          </Link>
+        </div>
+      )}
+
+      {showEkonomika && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-medium text-begina-primary-900">Ekonomika</h2>
             <Link href="/rizeni-firmy/ekonomika" className="text-sm font-medium text-begina-primary-900 hover:underline">
               Příjmy a náklady →
