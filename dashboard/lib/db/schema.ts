@@ -2164,3 +2164,31 @@ export const recipeVariants = pgTable(
   },
   (table) => [index("recipe_variants_recipe_idx").on(table.recipeId)]
 );
+
+// LEGISLATIVNÍ AUDIT 1.0 (17. 11. 2026) — archiv právních reportů (hlídání
+// zákonů ČR/SR/EU a kontrola webu begina.cz). Zapisuje je Claude (naplánované
+// úlohy přes MCP nástroj legal_audit_save_report), čtou Jaroslav a Lucie
+// v Řízení firmy → Legislativní audit. Nic se nepřepisuje ani nemaže.
+export const legalAuditReports = pgTable(
+  "legal_audit_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportDate: date("report_date", { mode: "string" }).notNull(),
+    // mesicni = měsíční report, upozorneni = průběžné upozornění na změnu, mimoradny = jednorázová analýza
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    body: text("body").notNull(),
+    urgentCount: integer("urgent_count").notNull().default(0),
+    source: text("source").notNull().default("agent"),
+    sourceRef: text("source_ref"),
+    createdByUserId: text("created_by_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("legal_audit_reports_source_ref_key").on(table.source, table.sourceRef),
+    index("legal_audit_reports_date_idx").on(table.reportDate),
+    check("legal_audit_reports_kind_check", sql`${table.kind} IN ('mesicni','upozorneni','mimoradny')`),
+    check("legal_audit_reports_urgent_check", sql`${table.urgentCount} >= 0`),
+  ]
+);

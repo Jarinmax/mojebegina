@@ -222,6 +222,23 @@ export default async function CompanyOverviewPage() {
         </Link>
       </div>
 
+      {showEkonomika && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-begina-primary-900">Legislativní audit</h2>
+            <Link href="/rizeni-firmy/legislativni-audit" className="text-sm font-medium text-begina-primary-900 hover:underline">
+              Otevřít →
+            </Link>
+          </div>
+          <Link
+            href="/rizeni-firmy/legislativni-audit"
+            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
+          >
+            Hlídání zákonů ČR a Slovenska a kontrola webu — upozornění a měsíční reporty
+          </Link>
+        </div>
+      )}
+
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-medium text-begina-primary-900">HACCP</h2>
