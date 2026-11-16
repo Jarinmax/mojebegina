@@ -43,6 +43,8 @@ export type CheckoutInput = {
   recipientPhone: string;
   note: string;
   termsAccepted: boolean;
+  /** Slovensko: zákazník potvrdil, že chlazená přeprava může trvat až 6 dní (povinné jen při doručení na Slovensko). */
+  slovakiaTransitAccepted?: boolean;
   /** Potvrzení 18+; vyžaduje se jen, když košík obsahuje alkohol. */
   ageConfirmed: boolean;
   /** Počet krabic na balení 3 l (příplatek, boxOption.ts); nepovinné, text z formuláře. */
@@ -342,6 +344,9 @@ export function validateCheckoutInput(
     pricedCart = withCoupons(pricedCart, coupons);
   }
 
+  if (destination === "sk" && priced.value.shipping.requiresAddress && input.slovakiaTransitAccepted !== true) {
+    return { ok: false, error: "Potvrďte prosím, že souhlasíte s dobou chlazené přepravy na Slovensko (až 6 dní)." };
+  }
   if (!input.termsAccepted) {
     return { ok: false, error: "Pro odeslání objednávky je potřeba souhlasit s obchodními podmínkami." };
   }

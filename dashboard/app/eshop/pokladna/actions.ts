@@ -128,6 +128,7 @@ export async function submitCheckoutAction(
       recipientPhone: field("recipientPhone"),
       note: field("note"),
       termsAccepted: formData.get("termsAccepted") === "on",
+      slovakiaTransitAccepted: formData.get("slovakiaTransitAccepted") === "on",
       ageConfirmed: formData.get("ageConfirmed") === "on",
       boxes: field("boxes"),
       couponCodes,
