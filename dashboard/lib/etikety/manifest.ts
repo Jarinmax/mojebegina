@@ -29,15 +29,18 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
   ],
   "polevky/predni-barevne": [
     "dynova-polevka.jpg",
-    "gulasova-polevka-z-hlivy-ustricne.jpg"
+    "gulasova-polevka-z-hlivy-ustricne.jpg",
+    "kulajda.jpg"
   ],
   "polevky/predni-cernobile": [
     "dynova-polevka.png",
-    "gulasova-polevka-z-hlivy-ustricne.png"
+    "gulasova-polevka-z-hlivy-ustricne.png",
+    "kulajda.png"
   ],
   "polevky/predni-cervenocerne": [
     "dynova-polevka.png",
-    "gulasova-polevka-z-hlivy-ustricne.png"
+    "gulasova-polevka-z-hlivy-ustricne.png",
+    "kulajda.png"
   ],
   "polevky/slozeni": [
     "Dynova-polevka.png",
