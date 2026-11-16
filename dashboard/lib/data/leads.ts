@@ -16,6 +16,7 @@ import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
+import { claimUnownedLeadOnReach } from "./leadClaim";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
@@ -466,6 +467,16 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   ]);
 
   await reconcileCalendarAfterCommit(leadId);
+
+  // Kontakt bez vlastníka → přiřadit tomu, kdo se dovolal (16. 11. 2026).
+  // Až PO uloženém zápisu hovoru; selhání ho nesmí vrátit.
+  if (rawInput.reached) {
+    try {
+      await claimUnownedLeadOnReach(leadId, { userId: ctx.userId, name: ctx.name }, "lead_detail");
+    } catch (error) {
+      console.error("claimUnownedLeadOnReach (lead detail)", error);
+    }
+  }
 
   return { ok: true };
 }

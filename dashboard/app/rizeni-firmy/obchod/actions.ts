@@ -5,6 +5,10 @@
 // app/rizeni-firmy/objednavky/actions.ts.
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db/client";
+import { getAuthContext } from "@/lib/data/authContext";
+import { isDailyCallCurator } from "@/lib/data/dailyCallsAuth";
+import { importMetaLeads } from "@/lib/data/metaLeads";
 import {
   createLead,
   logCallOutcome,
@@ -68,6 +72,7 @@ export async function logCallOutcomeAction(
     nextFollowUpAtDate: String(formData.get("nextFollowUpAtDate") ?? ""),
     nextFollowUpAtTime: String(formData.get("nextFollowUpAtTime") ?? ""),
     nextStepNote: String(formData.get("nextStepNote") ?? ""),
+    reached: formData.get("reached") === "1",
   });
 
   if (!result.ok) {
@@ -265,4 +270,24 @@ export async function addCustomerNoteAction(
 
   revalidateCrm(undefined, organizationId);
   return { success: "Poznámka byla uložena." };
+}
+
+// Ruční „Načíst leady z Mety teď“ — jen vedení (kurátor Denního volání).
+// Jinak běží automaticky několikrát denně (app/api/cron/meta-leady).
+export async function importMetaLeadsNowAction(_prev: ActionState): Promise<ActionState> {
+  const ctx = await getAuthContext();
+  if (!isDailyCallCurator(ctx)) return { error: "Načíst leady může jen vedení." };
+  const result = await importMetaLeads(db);
+  if (result.status === "not_configured") {
+    return { error: "Načítání zatím není nastavené — chybí klíč servisního účtu Google (GOOGLE_SERVICE_ACCOUNT_KEY) na Vercelu." };
+  }
+  if (result.status === "error") return { error: result.error };
+  revalidatePath("/rizeni-firmy/obchod");
+  const names = (list: { name: string | null }[]) => list.map((l) => l.name ?? "bez jména").join(", ");
+  const parts = [
+    result.created.length > 0 ? `nové: ${result.created.length} (${names(result.created)})` : "žádný nový kontakt",
+    result.matched.length > 0 ? `už v CRM, doplněna poznámka: ${result.matched.length} (${names(result.matched)})` : null,
+    result.skipped.length > 0 ? `přeskočeno: ${result.skipped.length}` : null,
+  ].filter(Boolean);
+  return { success: `Načteno z tabulky — ${parts.join("; ")}.` };
 }

@@ -316,6 +316,13 @@
       "when": 1794776846732,
       "tag": "0044_mereni_eshopu",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794824321405,
+      "tag": "0045_meta_leady_import",
+      "breakpoints": true
     }
   ]
 }

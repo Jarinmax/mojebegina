@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCockpitCounts, listLeads, listCustomers } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
+import MetaImportButton from "./MetaImportButton";
 import CockpitTiles from "./CockpitTiles";
 import LeadCard from "./LeadCard";
 import CustomerCard from "./CustomerCard";
@@ -67,6 +68,8 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           Dnešní volání →
         </Link>
       )}
+
+      {isDailyCallCurator(ctx) && <MetaImportButton />}
 
       <div className="mb-4 mt-4">
         <CockpitTiles counts={counts} />

@@ -784,6 +784,30 @@ export const leads = pgTable("leads", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Import leadů z formuláře Meta (Facebook/Instagram) přes Google tabulku, kam
+// je Meta zapisuje (zadání 16. 11. 2026). Jeden řádek = jeden lead z Mety
+// (id „l:…“) → nikdy se nezaloží dvakrát (primární klíč), ani při souběhu
+// cronu a ručního načtení. outcome: "created" = nový kontakt (bez vlastníka),
+// "matched" = kontakt už v CRM byl, jen se zapsala poznámka.
+export const metaLeadImports = pgTable(
+  "meta_lead_imports",
+  {
+    metaLeadId: text("meta_lead_id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    outcome: text("outcome").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    campaignName: text("campaign_name"),
+    formName: text("form_name"),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("meta_lead_imports_lead_idx").on(table.leadId),
+    check("meta_lead_imports_outcome_check", sql`${table.outcome} IN ('created', 'matched')`),
+  ]
+);
+
 // Stejný vzor jako order_activity/company_node_activity — jeden sdílený
 // chronologický timeline pro poznámky i systémové události, authorName
 // jako snapshot v okamžiku zápisu.

@@ -95,6 +95,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             nextFollowUpAt={lead.nextFollowUpAt}
             nextStepNote={lead.nextStepNote}
             calendarSync={lead.calendarSync}
+            unowned={lead.ownerUserId === null}
           />
         </div>
       )}

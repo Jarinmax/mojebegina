@@ -20,6 +20,8 @@ type Props = {
   nextFollowUpAt: Date | null;
   nextStepNote: string | null;
   calendarSync: LeadCalendarSyncStatus | null;
+  /** Kontakt zatím nemá vlastníka — po „Dovolal/a jsem se“ se přiřadí volajícímu. */
+  unowned?: boolean;
 };
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
@@ -39,7 +41,7 @@ type Props = {
 // datum bez času = 09:00 Europe/Prague (viz pragueTime.ts:parseFollowUpInput). Samostatné tlačítko "Odstranit naplánovaný
 // kontakt" — prázdná pole v hlavním formuláři znamenají "neřešeno", ne
 // "smazat", takže smazání potřebuje vlastní, jednoznačnou akci.
-export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, calendarSync }: Props) {
+export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, calendarSync, unowned = false }: Props) {
   const boundAction = logCallOutcomeAction.bind(null, leadId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
@@ -161,6 +163,16 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
           className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
       </div>
+
+      {unowned && (
+        <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-begina-primary-900">
+          <input type="checkbox" name="reached" value="1" className="mt-0.5 h-4 w-4" />
+          <span>
+            Dovolal/a jsem se
+            <span className="block text-xs text-neutral-600">Kontakt zatím nikomu nepatří — po uložení se přiřadí vám.</span>
+          </span>
+        </label>
+      )}
 
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}

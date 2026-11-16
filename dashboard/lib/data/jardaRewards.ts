@@ -216,7 +216,8 @@ export async function getLeadRewardAssignment(leadId: string): Promise<{
   const none = { visible: false, isManager: false, canRecord: false, canConfirm: false, canCancel: false, assignment: null, products: [] };
   if (!canViewJardaRewards(ctx)) return none;
   const [lead] = await db.select({ ownerUserId: leads.ownerUserId }).from(leads).where(eq(leads.id, leadId)).limit(1);
-  if (!lead || lead.ownerUserId !== JARDA_USER_ID) return none;
+  // Kontakt bez vlastníka (nový lead, např. z Mety) — návrh jde podat před prvním hovorem.
+  if (!lead || (lead.ownerUserId !== null && lead.ownerUserId !== JARDA_USER_ID)) return none;
 
   const [row] = await db
     .select()
@@ -262,7 +263,7 @@ export async function recordRewardAssignment(input: { leadId: string; type: stri
   if (type === "upsell" && productIds.length === 0) return { ok: false, error: "U dalšího produktu vyberte, který produkt budete nabízet." };
 
   const [lead] = await db.select({ ownerUserId: leads.ownerUserId }).from(leads).where(eq(leads.id, input.leadId)).limit(1);
-  if (!lead || lead.ownerUserId !== JARDA_USER_ID) return { ok: false, error: "Kontakt nepatří prodejci." };
+  if (!lead || (lead.ownerUserId !== null && lead.ownerUserId !== JARDA_USER_ID)) return { ok: false, error: "Kontakt nepatří prodejci." };
   if (productIds.length) {
     const found = await db.select({ id: products.id }).from(products).where(inArray(products.id, productIds));
     if (found.length !== productIds.length) return { ok: false, error: "Neznámý produkt." };
@@ -328,7 +329,7 @@ export async function cancelRewardAssignment(leadId: string): Promise<RewardActi
   const conditions = [eq(sellerRewardAssignments.leadId, leadId), isNull(sellerRewardAssignments.cancelledAt)];
   if (!isManager) {
     const [lead] = await db.select({ ownerUserId: leads.ownerUserId }).from(leads).where(eq(leads.id, leadId)).limit(1);
-    if (!lead || lead.ownerUserId !== JARDA_USER_ID) throw new ForbiddenError();
+    if (!lead || (lead.ownerUserId !== null && lead.ownerUserId !== JARDA_USER_ID)) throw new ForbiddenError();
     conditions.push(isNull(sellerRewardAssignments.confirmedAt));
   }
   const updated = await db

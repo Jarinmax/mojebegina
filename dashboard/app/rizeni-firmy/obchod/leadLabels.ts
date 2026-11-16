@@ -32,6 +32,7 @@ export const SOURCE_LABELS: Record<LeadSource, string> = {
   doporuceni: "Doporučení",
   inbound: "Inbound poptávka",
   vlastni_akvizice: "Vlastní akvizice",
+  meta: "Meta (Facebook/Instagram)",
 };
 
 export const VENUE_TYPE_LABELS: Record<VenueType, string> = {
