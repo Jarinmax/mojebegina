@@ -110,6 +110,7 @@ const BACKDROP: Record<string, string> = {
   "/eshop/koktejly/lady-carneval-sacek-v2.jpg": "#fefefe",
   "/eshop/ovocne-napoje/malinovy-svarak-nealko-hlavni-v2.jpg": "#fefefe",
   "/eshop/ovocne-napoje/malinovy-svarak-nealko-begina-v2.jpg": "#fefefe",
+  "/eshop/ovocne-napoje/malinovy-svarak-nealko-begina-v3.jpg": "#fefefe",
   "/eshop/polevky/gulasova-polevka-z-hlivy-ustricne-begina.jpg": "#fefefe",
   "/eshop/ovocne-napoje/cervankove-nebe-hlavni-v2.jpg": "#fefefe",
   "/eshop/ovocne-napoje/cervankove-nebe-hlavni-v3.jpg": "#fefefe",
