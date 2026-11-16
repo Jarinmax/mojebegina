@@ -50,6 +50,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
   ],
   "caje/predni-barevne": [
     "bylinny-caj-saman.jpg",
+    "cerny-caj-golden-nepal.jpg",
     "hermankovy-caj.jpg",
     "ibiskovy-caj.jpg",
     "lipovy-caj.jpg",
@@ -58,6 +59,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
   ],
   "caje/predni-cernobile": [
     "bylinny-caj-saman.png",
+    "cerny-caj-golden-nepal.png",
     "hermankovy-caj.png",
     "ibiskovy-caj.png",
     "lipovy-caj.png",
@@ -66,6 +68,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
   ],
   "caje/predni-cervenocerne": [
     "bylinny-caj-saman.png",
+    "cerny-caj-golden-nepal.png",
     "hermankovy-caj.png",
     "ibiskovy-caj.png",
     "lipovy-caj.png",
