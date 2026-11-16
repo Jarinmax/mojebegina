@@ -735,7 +735,7 @@ export default function CheckoutForm({
               ) : null}
               {slovakia && destination === "sk" ? (
                 slovakiaDeliveryZone(values.deliverySameAsBilling ? values.billingZip : values.zip) === "daily" ? (
-                  <p role="note" className="text-xs text-neutral-600">Do vaší oblasti na Slovensku doručujeme chlazenou přepravou od úterý do pátku, zpravidla druhý den po odeslání.</p>
+                  <p role="note" className="text-xs text-neutral-600">Do vaší oblasti na Slovensku doručujeme chlazenou přepravou jen od úterý do pátku. V pondělí a o víkendu se nedoručuje, zásilka odeslaná na konci týdne proto dorazí až v úterý.</p>
                 ) : (
                   <div role="note" className="text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2 flex flex-col gap-2">
                     <p>
