@@ -32,21 +32,24 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "gulasova-polevka-z-hlivy-ustricne.jpg",
     "kulajda.jpg",
     "rajcatova-polevka-s-cervenou-repou.jpg",
-    "spenatova-polevka.jpg"
+    "spenatova-polevka.jpg",
+    "tomatova-polevka.jpg"
   ],
   "polevky/predni-cernobile": [
     "dynova-polevka.png",
     "gulasova-polevka-z-hlivy-ustricne.png",
     "kulajda.png",
     "rajcatova-polevka-s-cervenou-repou.png",
-    "spenatova-polevka.png"
+    "spenatova-polevka.png",
+    "tomatova-polevka.png"
   ],
   "polevky/predni-cervenocerne": [
     "dynova-polevka.png",
     "gulasova-polevka-z-hlivy-ustricne.png",
     "kulajda.png",
     "rajcatova-polevka-s-cervenou-repou.png",
-    "spenatova-polevka.png"
+    "spenatova-polevka.png",
+    "tomatova-polevka.png"
   ],
   "polevky/slozeni": [
     "Dynova-polevka.png",
