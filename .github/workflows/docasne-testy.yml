@@ -1,14 +1,42 @@
-name: docasne-testy
+name: nahledy
 on: push
 jobs:
-  t:
+  s:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: dashboard } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm ci
-      - run: npx next typegen && npx tsc --noEmit
-      - run: npx eslint lib/eshop/productFacts.ts lib/eshop/__tests__/productFacts.test.ts lib/eshop/homeContent.ts components/eshop/HomeHero.tsx components/eshop/ProductCard.tsx components/__tests__/HomeHero.test.tsx "app/eshop/produkt/[slug]/page.tsx" app/eshop/page.tsx
-      - run: npx vitest run lib/eshop/__tests__/productFacts.test.ts components/__tests__ app/eshop
+      - run: |
+          mkdir shots && cd shots && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null && npx playwright install chromium >/dev/null
+          cat > s.mjs <<'JS'
+          import { chromium, devices } from "playwright";
+          const B = process.env.BASE;
+          const b = await chromium.launch();
+          const pages = [["home", "/eshop"], ["polevka", "/eshop/produkt/dynova-polevka"], ["sirup", "/eshop/produkt/lipovy-sirup"], ["svarak", "/eshop/produkt/svarak-deluxe"], ["ovocny", "/eshop/produkt/cervankove-nebe"], ["kategorie", "/eshop/kategorie/polevky"]];
+          for (const [mode, opts] of [["mobil", devices["iPhone 13"]], ["pc", { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }]]) {
+            const ctx = await b.newContext(opts);
+            const p = await ctx.newPage();
+            for (const [name, path] of pages) {
+              const r = await p.goto(B + path, { waitUntil: "networkidle" });
+              console.log("VYSLEDEK", mode, name, r.status(), (await p.title()).slice(0, 60));
+              await p.screenshot({ path: `${mode}-${name}.png` });
+              if (name !== "home") { await p.screenshot({ path: `${mode}-${name}-cela.png`, fullPage: true }); }
+            }
+            if (mode === "mobil") {
+              await p.goto(B + "/eshop/produkt/svarak-deluxe", { waitUntil: "networkidle" });
+              const dd = p.locator("dt", { hasText: "Složení" }).locator("xpath=..");
+              await dd.scrollIntoViewIfNeeded();
+              await dd.screenshot({ path: "mobil-svarak-slozeni.png" });
+              console.log("VYSLEDEK slozeni", await dd.innerHTML());
+              await p.goto(B + "/eshop", { waitUntil: "networkidle" });
+              await p.screenshot({ path: "mobil-home-cela.png", fullPage: true });
+            }
+            await ctx.close();
+          }
+          await b.close();
+          JS
+          BASE=https://mojebegina-23q9i0fs8-jarin-max.vercel.app node s.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: shots, path: shots/*.png }
