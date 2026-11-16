@@ -1,12 +1,12 @@
 import Image from "next/image";
-import Link from "next/link";
 import logoMark from "@/public/logo-begina-mark.png";
 import AdminSignOutButton from "@/components/admin/AdminSignOutButton";
 import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
+import BackLink from "./BackLink";
 
 // Security Phase 8 — strukturálně stejný jako AdminHeader/ExecutiveHeader,
-// jen s odkazem zpátky na dashboard té role, ze které uživatel přišel
-// (ADMIN → /admin, EXECUTIVE → /executive), místo vlastní navigace.
+// jen s odkazem „Zpět" o jeden krok výš (BackLink); z kořene sekce vede na
+// dashboard role (ADMIN → /admin, EXECUTIVE → /executive).
 // AdminSignOutButton je bezpečné znovupoužít beze změny — je role-agnostic
 // (jen volá authClient.signOut() a přesměruje na /login).
 type Props = {
@@ -36,12 +36,7 @@ export default function CompanyOverviewHeader({
         </div>
       </div>
       <nav className="max-w-5xl mx-auto px-4">
-        <Link
-          href={backHref}
-          className="inline-block text-sm font-medium text-neutral-500 hover:text-begina-primary-900 py-2"
-        >
-          ← Zpět
-        </Link>
+        <BackLink fallback={backHref} />
       </nav>
     </header>
   );
