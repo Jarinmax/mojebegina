@@ -23,14 +23,17 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "zazvorovy-caj.png"
   ],
   "ovocne-napoje/predni-barevne": [
+    "cervankove-nebe.jpg",
     "dum-u-jezera.jpg",
     "malinovy-svarak-nealko.jpg"
   ],
   "ovocne-napoje/predni-cernobile": [
+    "cervankove-nebe.png",
     "dum-u-jezera.png",
     "malinovy-svarak-nealko.png"
   ],
   "ovocne-napoje/predni-cervenocerne": [
+    "cervankove-nebe.png",
     "dum-u-jezera.png",
     "malinovy-svarak-nealko.png"
   ],
