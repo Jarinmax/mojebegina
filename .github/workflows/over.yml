@@ -1,0 +1,34 @@
+name: over
+on: push
+jobs:
+  o:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm i playwright@1.49.1 && npx playwright install chromium
+      - run: |
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const b = await chromium.launch();
+            const p = await b.newPage({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' });
+            const api = [];
+            p.on('response', async r => { const u = r.url(); if (/psc|zip|postal|rozvoz|availab|dostup|ajax|api/i.test(u) && !/\.(js|css|png|jpg|svg|woff)/.test(u)) { let t=''; try { t=(await r.text()).slice(0,1500);} catch(e){} api.push(r.status()+' '+u+' :: '+t.replace(/\s+/g,' ')); } });
+            await p.goto('https://coolbalik.cz/kde-rozvazime/', { waitUntil: 'networkidle' });
+            const forms = await p.evaluate(() => [...document.querySelectorAll('input,select,button')].filter(e => e.offsetParent).map(e => e.tagName+'|'+(e.name||'')+'|'+(e.id||'')+'|'+(e.type||'')+'|'+(e.placeholder||'')+'|'+(e.innerText||'').slice(0,60).replace(/\s+/g,' ')+'|'+(e.tagName==='SELECT'?[...e.options].map(o=>o.value+'='+o.text).join(','):'')).slice(0,40));
+            console.log('VYSLEDEK prvky', JSON.stringify(forms));
+            for (const psc of ['82105','04001','97401','11000']) {
+              try {
+                const sel = p.locator('select').filter({ hasText: /Slovensk/i }).first();
+                if (await sel.count()) await sel.selectOption({ label: psc === '11000' ? /Česk/ : /Slovensk/ }).catch(()=>{});
+                const inp = p.locator('input[type="text"], input[type="tel"], input[type="number"], input:not([type])').filter({ hasNot: p.locator('[type=hidden]') }).first();
+                await inp.fill(psc); await inp.press('Enter'); await p.waitForTimeout(3500);
+                const txt = await p.evaluate(() => { const m = document.querySelector('main') || document.body; return m.innerText.replace(/\s+/g,' '); });
+                const i = txt.search(/Dostupnost podle|rozvozov/i);
+                console.log('VYSLEDEK psc', psc, '::', txt.slice(Math.max(0,i), i+900));
+              } catch (e) { console.log('VYSLEDEK chyba', psc, String(e).slice(0,200)); }
+            }
+            console.log('VYSLEDEK api', JSON.stringify(api.slice(0,12)));
+            await b.close();
+          })();
+          JS
+          node t.js
