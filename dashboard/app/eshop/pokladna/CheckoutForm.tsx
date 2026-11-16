@@ -732,7 +732,14 @@ export default function CheckoutForm({
               )}
               {slovakia ? (
                 <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ.</p>
-              ) : (
+              ) : null}
+              {slovakia && destination === "sk" ? (
+                <p role="note" className="text-xs rounded-lg bg-amber-50 text-amber-900 px-3 py-2">
+                  Na Slovensko doručujeme od úterý do pátku, do některých oblastí jen 2× týdně (například Žilina, Nitra, Košice, Prešov). Čerstvé polévky a čaje k vám proto mohou dorazit s kratší zbývající trvanlivostí. Počítejte s tím prosím při objednávce.
+                </p>
+              ) : null}
+              {slovakia ? null : (
+              
                 <p className="text-xs text-neutral-500">Doručujeme jen v České republice. {SLOVAKIA_ORDER_NOTE}</p>
               )}
             </div>
