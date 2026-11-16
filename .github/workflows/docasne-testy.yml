@@ -4,39 +4,89 @@ jobs:
   s:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: |
           mkdir shots && cd shots && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null && npx playwright install chromium >/dev/null
           cat > s.mjs <<'JS'
           import { chromium, devices } from "playwright";
-          const B = process.env.BASE;
+          const B = "https://begina.cz";
+          const inject = (cfg) => {
+            const svg = (inner, size, color) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none">${inner}</svg>`;
+            const CHECK = '<path d="M20 6 9 17l-5-5"/>';
+            const CLOCK = '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>';
+            const wide = window.innerWidth >= 640, desk = window.innerWidth >= 1024;
+            const h1 = document.querySelector("h1");
+            if (cfg.home && h1) {
+              const ul = document.createElement("ul");
+              ul.style.cssText = `margin-top:${wide ? 16 : 8}px;display:flex;flex-wrap:wrap;align-items:center;justify-content:${desk ? "flex-start" : "center"};column-gap:${wide ? 20 : 12}px;row-gap:4px;font-size:${wide ? 16 : 13}px;font-weight:500;color:#4A5527;list-style:none;padding:0`;
+              ul.innerHTML = ["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"].map((t) => `<li style="display:inline-flex;align-items:center;gap:4px">${svg(CHECK, wide ? 20 : 16, "#4A5527")}${t}</li>`).join("");
+              h1.after(ul);
+              for (const p of document.querySelectorAll("p")) {
+                if (p.textContent.includes("Natočíte si, kolik chcete")) p.innerHTML = "Natočíte si, kolik chcete a&nbsp;kdy chcete. Z&nbsp;čisté filtrované vody.";
+                if (p.textContent.trim() === "Doručujeme chlazenou přepravou.") p.remove();
+              }
+              const h3 = [...document.querySelectorAll("h3")].find((e) => e.textContent.trim() === "Vydrží i po otevření");
+              const li = h3 && h3.closest("li");
+              if (li) li.parentElement.prepend(li);
+            }
+            if (cfg.badges) {
+              for (const h2 of document.querySelectorAll("li h2")) {
+                const badge = cfg.badges[h2.textContent.trim()] ?? cfg.badges["*"];
+                if (!badge) continue;
+                const p = document.createElement("p");
+                p.style.cssText = "margin-top:6px;display:inline-block;border-radius:9999px;background:#F1EFE3;padding:2px 8px;font-size:12px;line-height:16px;font-weight:500;color:#4A5527";
+                p.textContent = badge;
+                h2.parentElement.append(p);
+              }
+            }
+            if (cfg.product) {
+              const price = [...document.querySelectorAll("p")].find((p) => p.className.includes("text-2xl") && p.className.includes("font-semibold"));
+              const box = document.createElement("div");
+              box.style.cssText = "margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:20px;color:#404040";
+              box.innerHTML = `<p style="display:flex;align-items:flex-start;gap:8px">${svg(CLOCK, 16, "#5E6B34").replace('style="', 'style="margin-top:2px;')}${cfg.product.opened}</p>` + cfg.product.portions.map(([l, t]) => `<p style="padding-left:24px;font-variant-numeric:tabular-nums">${l ? `<span style="color:#737373">${l}: </span>` : ""}${t}</p>`).join("");
+              price.after(box);
+              if (cfg.product.noPreservatives) {
+                const ul = box.nextElementSibling;
+                if (ul && ul.tagName === "UL") { const li = ul.lastElementChild.cloneNode(true); li.lastChild.textContent = "bez konzervantů"; ul.append(li); }
+              }
+              if (cfg.product.bold) {
+                const dt = [...document.querySelectorAll("dt")].find((e) => e.textContent.trim() === "Složení");
+                const dd = dt.nextElementSibling;
+                dd.innerHTML = dd.innerHTML.replace(cfg.product.bold, `<strong>${cfg.product.bold}</strong>`);
+              }
+            }
+          };
+          const S14 = "Po otevření vydrží v lednici 14 dní – natáčíte postupně.";
           const b = await chromium.launch();
-          const pages = [["home", "/eshop"], ["polevka", "/eshop/produkt/dynova-polevka"], ["sirup", "/eshop/produkt/lipovy-sirup"], ["svarak", "/eshop/produkt/svarak-deluxe"], ["ovocny", "/eshop/produkt/cervankove-nebe"], ["kategorie", "/eshop/kategorie/polevky"]];
           for (const [mode, opts] of [["mobil", devices["iPhone 13"]], ["pc", { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }]]) {
             const ctx = await b.newContext(opts);
             const p = await ctx.newPage();
-            for (const [name, path] of pages) {
-              const r = await p.goto(B + path, { waitUntil: "networkidle" });
-              console.log("VYSLEDEK", mode, name, r.status(), (await p.title()).slice(0, 60));
-              await p.screenshot({ path: `${mode}-${name}.png` });
-              if (name !== "home") { await p.screenshot({ path: `${mode}-${name}-cela.png`, fullPage: true }); }
-            }
+            const go = async (path, cfg) => { await p.goto(B + path, { waitUntil: "networkidle" }); await p.evaluate(inject, cfg); await p.waitForTimeout(300); };
+            await go("/", { home: true, badges: { "Dýňová polévka": "14 dní po otevření", "Bylinný sirup Šaman": "3 měsíce po otevření", "Lipový sirup": "3 měsíce po otevření", "Svařák Deluxe": "14 dní po otevření" } });
+            await p.screenshot({ path: `${mode}-1-uvod.png` });
+            if (mode === "mobil") await p.screenshot({ path: "mobil-1-uvod-cela.png", fullPage: true });
+            await go("/produkt/dynova-polevka", { product: { opened: S14, portions: [[null, "Porce 250 ml za 31,60 Kč · 126 Kč/l"]], noPreservatives: true } });
+            await p.locator("h1").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70));
+            await p.screenshot({ path: `${mode}-2-polevka.png` });
+            await go("/produkt/lipovy-sirup", { product: { opened: "Po otevření vydrží v lednici 3 měsíce.", portions: [["3 l", "Sklenice limonády za 3,70 Kč"], ["650 ml", "Sklenice limonády za 6,20 Kč"]], noPreservatives: true } });
+            await p.locator("h1").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70));
+            await p.screenshot({ path: `${mode}-3-sirup.png` });
             if (mode === "mobil") {
-              await p.goto(B + "/eshop/produkt/svarak-deluxe", { waitUntil: "networkidle" });
-              const dd = p.locator("dt", { hasText: "Složení" }).locator("xpath=..");
-              await dd.scrollIntoViewIfNeeded();
-              await dd.screenshot({ path: "mobil-svarak-slozeni.png" });
-              console.log("VYSLEDEK slozeni", await dd.innerHTML());
-              await p.goto(B + "/eshop", { waitUntil: "networkidle" });
-              await p.screenshot({ path: "mobil-home-cela.png", fullPage: true });
+              await go("/produkt/svarak-deluxe", { product: { opened: "Po otevření vydrží v lednici 14 dní.", portions: [["3 l", "Sklenice 200 ml za 33,30 Kč · 166 Kč/l"], ["500 ml", "258 Kč/l"]], noPreservatives: false, bold: "SIŘIČITANY" } });
+              const row = p.locator("dt", { hasText: "Složení" }).locator("xpath=..");
+              await row.scrollIntoViewIfNeeded();
+              await row.screenshot({ path: "mobil-4-svarak-slozeni.png" });
+              await go("/kategorie/polevky", { badges: { "*": "14 dní po otevření" } });
+              await p.locator("li h2").first().scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -330));
+              await p.screenshot({ path: "mobil-5-kategorie.png" });
             }
             await ctx.close();
           }
           await b.close();
+          console.log("VYSLEDEK hotovo");
           JS
-          BASE=https://mojebegina-23q9i0fs8-jarin-max.vercel.app node s.mjs
+          node s.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: shots, path: shots/*.png }
