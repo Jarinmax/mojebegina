@@ -60,14 +60,22 @@ export function baseSku(sku: string): string {
   return at === -1 ? sku : sku.slice(0, at);
 }
 
-/** Platný výběr = přesně pět kódů sirupů (stejný smí být víckrát). */
+/**
+ * Platný výběr = přesně pět RŮZNÝCH sirupů (Lucie 17. 11. 2026: stejný
+ * víckrát vybrat nejde — i kartička v krabičce má u každého jedno políčko).
+ */
 export function validChoice(codes: readonly string[]): codes is SetSyrupCode[] {
-  return codes.length === SET_SIZE && codes.every((code) => BY_CODE.has(code));
+  return codes.length === SET_SIZE && new Set(codes).size === SET_SIZE && codes.every((code) => BY_CODE.has(code));
+}
+
+/** Výběr v pořadí nabídky sirupů (stejný set = stejný řádek košíku bez ohledu na pořadí klikání). */
+export function orderedChoice(codes: readonly SetSyrupCode[]): SetSyrupCode[] {
+  return SET_SYRUPS.map((syrup) => syrup.code).filter((code) => codes.includes(code));
 }
 
 /** SKU řádku košíku pro set s daným výběrem; null = výběr není úplný. */
 export function setCartSku(variantSku: string, codes: readonly string[]): string | null {
-  return validChoice(codes) ? `${variantSku}${SEPARATOR}${codes.join(".")}` : null;
+  return validChoice(codes) ? `${variantSku}${SEPARATOR}${orderedChoice(codes).join(".")}` : null;
 }
 
 /** Výběr ze SKU řádku košíku; null = bez výběru nebo neplatný. */
@@ -78,11 +86,9 @@ export function choiceFromSku(sku: string): SetSyrupCode[] | null {
   return validChoice(codes) ? codes : null;
 }
 
-/** „Šaman, Lipový, Zázvorový, Ibiškový, Šípkový“; stejné sirupy za sebou jako „2× Lipový“. */
+/** „Šaman, Lipový, Zázvorový, Ibiškový, Šípkový“ */
 export function choiceLabel(codes: readonly SetSyrupCode[]): string {
-  const counts = new Map<SetSyrupCode, number>();
-  for (const code of codes) counts.set(code, (counts.get(code) ?? 0) + 1);
-  return [...counts].map(([code, count]) => `${count > 1 ? `${count}× ` : ""}${BY_CODE.get(code)!.short}`).join(", ");
+  return codes.map((code) => BY_CODE.get(code)!.short).join(", ");
 }
 
 /** Název položky do košíku a objednávky: „… (Šaman, Lipový, …)“. */
@@ -108,7 +114,7 @@ export const SET_LINK_QUESTION = "Nevíte, který?";
 export const SET_LINK_LABEL = "Ochutnávkový set 5 × 100 ml";
 export const SET_ONLY_NOT_COLD =
   "Samotný ochutnávkový set posíláme Zásilkovnou na výdejní místo, nebo si ho můžete vyzvednout osobně. Chlazenou přepravou ho přibalíme k dalšímu zboží.";
-export const SET_NEEDS_CHOICE = "U ochutnávkového setu vyberte prosím všech pět sirupů.";
+export const SET_NEEDS_CHOICE = "U ochutnávkového setu vyberte prosím pět různých sirupů.";
 export function remainingLabel(remaining: number): string {
   return `Zbývá ${remaining} ze ${SET_CAMPAIGN_LIMIT} setů`;
 }

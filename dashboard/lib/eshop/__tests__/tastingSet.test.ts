@@ -38,7 +38,10 @@ describe("ochutnávkový set sirupů", () => {
     expect(setCartSku(SET_SKU, ["sa", "li"])).toBeNull();
     expect(choiceFromSku("set-sirupy-5x100~sa.li.za.ib.xx")).toBeNull();
     expect(choiceFromSku(SET_SKU)).toBeNull();
-    expect(choiceLabel(["li", "li", "sa", "me", "li"])).toBe("3× Lipový, Šaman, Meduňkový s levandulí");
+    expect(setCartSku(SET_SKU, ["li", "li", "sa", "me", "he"])).toBeNull(); // stejný sirup dvakrát nejde
+    expect(choiceFromSku("set-sirupy-5x100~sa.sa.za.ib.si")).toBeNull();
+    expect(setCartSku(SET_SKU, ["me", "sa", "he", "li", "si"])).toBe("set-sirupy-5x100~sa.li.si.he.me"); // pořadí podle nabídky
+    expect(choiceLabel(["sa", "li", "si", "he", "me"])).toBe("Šaman, Lipový, Šípkový, Heřmánkový, Meduňkový s levandulí");
     expect(withChoice("Set", CHOICE)).toBe("Set (Šaman, Lipový, Zázvorový, Ibiškový, Šípkový)");
     expect(isCampaignSetSku(CHOICE)).toBe(true);
     expect(isCampaignSetSku("set-sirupy-5x100~sa.li.za.ib.si")).toBe(false);
@@ -68,15 +71,15 @@ describe("ochutnávkový set sirupů", () => {
 
   it("dva sety s různým výběrem jsou dva řádky; bez výběru set objednat nejde", () => {
     const idx = index([set(SET_CAMPAIGN_SKU, 189, 100)]);
-    const other = setCartSku(SET_CAMPAIGN_SKU, ["he", "he", "he", "me", "me"])!;
+    const other = setCartSku(SET_CAMPAIGN_SKU, ["he", "me", "sa", "li", "za"])!;
     const two = priceCart([{ sku: CHOICE, quantity: 1 }, { sku: other, quantity: 1 }], "zasilkovna", idx, opts);
     expect(two.ok && two.value.lines.map((line) => line.name)).toEqual([
       "Ochutnávkový set sirupů 5 × 100 ml (Šaman, Lipový, Zázvorový, Ibiškový, Šípkový)",
-      "Ochutnávkový set sirupů 5 × 100 ml (3× Heřmánkový, 2× Meduňkový s levandulí)",
+      "Ochutnávkový set sirupů 5 × 100 ml (Šaman, Lipový, Zázvorový, Heřmánkový, Meduňkový s levandulí)",
     ]);
     const bare = priceCart([{ sku: SET_CAMPAIGN_SKU, quantity: 1 }], "zasilkovna", idx, opts);
     expect(bare.ok).toBe(false);
-    if (!bare.ok) expect(bare.error).toContain("vyberte prosím všech pět sirupů");
+    if (!bare.ok) expect(bare.error).toContain("vyberte prosím pět různých sirupů");
   });
 
   it("set + sáčky 650 ml = cena Zásilkovny za sáčky (104 Kč); běžná cena setu = 104 Kč", () => {
