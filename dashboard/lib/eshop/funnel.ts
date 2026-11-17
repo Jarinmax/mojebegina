@@ -17,6 +17,28 @@ export function isFunnelStep(value: unknown): value is FunnelStep {
   return typeof value === "string" && (FUNNEL_STEPS as readonly string[]).includes(value);
 }
 
+// Návštěvy a objednávky z bezplatných výpisů Google (Merchant Center).
+// Google při zapnutém automatickém označování přidá k prokliku do adresy
+// parametr „srsltid“. Poznáme ho jen v adresě první stránky; do zařízení
+// se nic neukládá (žádné cookies ani úložiště) — jen anonymní součet za den.
+export const GOOGLE_STEPS = ["google_visit", "google_order"] as const;
+export type GoogleStep = (typeof GOOGLE_STEPS)[number];
+export type TrackedStep = FunnelStep | GoogleStep;
+
+export const GOOGLE_LABELS: Record<GoogleStep, string> = {
+  google_visit: "Návštěvy z Google výpisů",
+  google_order: "Objednávky z Google výpisů",
+};
+
+export function isTrackedStep(value: unknown): value is TrackedStep {
+  return isFunnelStep(value) || (typeof value === "string" && (GOOGLE_STEPS as readonly string[]).includes(value));
+}
+
+/** Proklik z bezplatného výpisu Google (parametr srsltid v adrese). */
+export function isGoogleListingLanding(search: string | null | undefined): boolean {
+  return /[?&]srsltid=[^&]+/.test(search ?? "");
+}
+
 /** Krok podle adresy stránky (na begina.cz bez /eshop, v náhledu s ním). */
 export function stepForPath(pathname: string): FunnelStep | null {
   const path = pathname.replace(/^\/eshop(?=\/|$)/, "") || "/";

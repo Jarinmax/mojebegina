@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FUNNEL_STEPS, buildFunnel, type FunnelStep } from "@/lib/eshop/funnel";
+import { FUNNEL_STEPS, GOOGLE_LABELS, buildFunnel, type FunnelStep } from "@/lib/eshop/funnel";
 import { loadFunnelDays } from "@/lib/eshop/funnelServer";
 
 // MĚŘENÍ E-SHOPU 1.0 (15. 11. 2026) — trychtýř nákupu a konverzní poměr.
@@ -33,6 +33,8 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
   const paid = totals.paid ?? 0;
   const conversion = visits > 0 ? Math.round((paid / visits) * 1000) / 10 : null;
   const max = Math.max(1, ...funnel.map((row) => row.count));
+  const googleVisits = days.reduce((sum, day) => sum + (day.counts.google_visit ?? 0), 0);
+  const googleOrders = days.reduce((sum, day) => sum + (day.counts.google_order ?? 0), 0);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6 text-neutral-900">
@@ -63,6 +65,21 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
           <p className="text-xs text-neutral-500">Zaplacené objednávky</p>
           <p className="mt-1 text-2xl font-semibold">{paid.toLocaleString("cs-CZ")}</p>
         </div>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <h2 className="font-semibold">Bezplatné výpisy Google</h2>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <p>
+            {GOOGLE_LABELS.google_visit}: <strong>{googleVisits.toLocaleString("cs-CZ")}</strong>
+          </p>
+          <p>
+            {GOOGLE_LABELS.google_order}: <strong>{googleOrders.toLocaleString("cs-CZ")}</strong>
+          </p>
+        </div>
+        <p className="mt-2 text-xs text-neutral-500">
+          Proklik z Google se pozná podle značky „srsltid“ v adrese (v Merchant Center musí být zapnuté automatické označování). Bez cookies: když zákazník stránku obnoví nebo přijde později znovu, objednávka se Googlu nepřipíše — číslo je spíš spodní odhad. Počítají se odeslané objednávky, ne jen zaplacené.
+        </p>
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">

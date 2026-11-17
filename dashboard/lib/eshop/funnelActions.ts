@@ -6,11 +6,11 @@
 import { headers } from "next/headers";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { isBotUserAgent, isFunnelStep } from "./funnel";
+import { isBotUserAgent, isTrackedStep } from "./funnel";
 
 export async function recordFunnelStep(step: string): Promise<void> {
   try {
-    if (!isFunnelStep(step)) return;
+    if (!isTrackedStep(step)) return;
     const userAgent = (await headers()).get("user-agent");
     if (isBotUserAgent(userAgent)) return;
     await db.execute(sql`

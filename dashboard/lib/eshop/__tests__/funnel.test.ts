@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFunnel, isBotUserAgent, isFunnelStep, stepForPath } from "../funnel";
+import { buildFunnel, isBotUserAgent, isFunnelStep, isGoogleListingLanding, isTrackedStep, stepForPath } from "../funnel";
 
 describe("měření e-shopu", () => {
   it("pozná krok podle adresy na begina.cz i v náhledu", () => {
@@ -17,6 +17,23 @@ describe("měření e-shopu", () => {
     expect(isFunnelStep("paid")).toBe(false);
     expect(isFunnelStep("'; DROP TABLE")).toBe(false);
     expect(isFunnelStep(null)).toBe(false);
+  });
+
+  it("pozná proklik z bezplatného výpisu Google", () => {
+    expect(isGoogleListingLanding("?srsltid=AfmBOoq123")).toBe(true);
+    expect(isGoogleListingLanding("?utm_source=fb&srsltid=abc")).toBe(true);
+    expect(isGoogleListingLanding("?srsltid=")).toBe(false);
+    expect(isGoogleListingLanding("?xsrsltid=abc")).toBe(false);
+    expect(isGoogleListingLanding("")).toBe(false);
+    expect(isGoogleListingLanding(null)).toBe(false);
+  });
+
+  it("zapíše i kroky Google, nic jiného", () => {
+    expect(isTrackedStep("google_visit")).toBe(true);
+    expect(isTrackedStep("google_order")).toBe(true);
+    expect(isTrackedStep("visit")).toBe(true);
+    expect(isTrackedStep("google_paid")).toBe(false);
+    expect(isFunnelStep("google_visit")).toBe(false);
   });
 
   it("nepočítá roboty ani prázdný prohlížeč", () => {
