@@ -10,6 +10,15 @@ const HLAVNI: FotkyGroup = { slug: "hlavni", label: "Hlavní fotka" };
 const BEGINA: FotkyGroup = { slug: "begina-3l", label: "S beginou 3 l" };
 
 export const FOTKY_CATEGORIES: FotkyCategory[] = [
+  {
+    slug: "logo",
+    label: "Logo a sociální sítě",
+    groups: [
+      { slug: "logo", label: "Logo Begina (originál 5906 × 5906 px)" },
+      { slug: "profilovka", label: "Profilovka Facebook / Instagram" },
+      { slug: "facebook-uvodni", label: "Úvodní fotka Facebooku" },
+    ],
+  },
   { slug: "uvodni-fotka", label: "Úvodní fotka", groups: [{ slug: "aktualni", label: "Aktuální úvodní fotka webu" }] },
   { slug: "ikonky", label: "Ikonky", groups: [{ slug: "kategorie", label: "Ikonky kategorií na úvodní stránce" }] },
   { slug: "polevky", label: "Polévky", groups: [HLAVNI, BEGINA] },
@@ -30,6 +39,9 @@ export function fotkyFolderKeys(): string[] {
 
 const EXTRA_NAMES: Record<string, string> = {
   "uvodni-fotka": "Úvodní fotka",
+  "logo-begina": "Logo Begina",
+  "profilovka-facebook-instagram": "Profilovka (FB / IG)",
+  "facebook-uvodni-fotka": "Úvodní fotka Facebooku",
   "ikona-polevky": "Čerstvé polévky",
   "ikona-sirupy": "Bylinné sirupy",
   "ikona-caje": "Čaje",
