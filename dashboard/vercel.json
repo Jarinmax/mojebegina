@@ -59,10 +59,6 @@
     {
       "path": "/api/cron/hodnoceni",
       "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/cron/hodnoceni?nahled=1",
-      "schedule": "17 12 17 11 *"
     }
   ]
 }
