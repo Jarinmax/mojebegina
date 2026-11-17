@@ -358,6 +358,13 @@
       "when": 1794935830878,
       "tag": "0050_nakupy_surovin",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794955930104,
+      "tag": "0051_ekonomika_historie",
+      "breakpoints": true
     }
   ]
 }
