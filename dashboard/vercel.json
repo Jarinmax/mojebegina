@@ -62,7 +62,7 @@
     },
     {
       "path": "/api/cron/hodnoceni?nahled=1",
-      "schedule": "25 12 17 11 *"
+      "schedule": "17 12 17 11 *"
     }
   ]
 }
