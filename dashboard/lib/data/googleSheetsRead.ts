@@ -10,13 +10,58 @@ import { createSign } from "node:crypto";
 
 type ServiceAccountKey = { client_email: string; private_key: string };
 
+/**
+ * Klíč z proměnné prostředí. Snese, jak se hodnota do Vercelu typicky vloží:
+ * celý JSON soubor, JSON v uvozovkách (i jako escapovaný řetězec), base64,
+ * neviditelný znak BOM na začátku, private_key se zapsanými „\n“.
+ * Chybová hláška nikdy neobsahuje obsah klíče.
+ */
 export function serviceAccountKey(): ServiceAccountKey | null {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.trim();
-  if (!raw) return null;
-  const json = raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
-  const parsed = JSON.parse(json) as Partial<ServiceAccountKey>;
-  if (!parsed.client_email || !parsed.private_key) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY: chybí client_email nebo private_key.");
-  return { client_email: parsed.client_email, private_key: parsed.private_key };
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!raw || !raw.trim()) return null;
+  return parseServiceAccountKey(raw);
+}
+
+const INVALID = "Klíč GOOGLE_SERVICE_ACCOUNT_KEY na Vercelu není obsah JSON souboru servisního účtu — vložte celý obsah staženého souboru (začíná znakem { a končí }) a znovu nasaďte (Redeploy).";
+
+export function parseServiceAccountKey(raw: string): ServiceAccountKey {
+  let text = raw.replace(/^\uFEFF/, "").trim();
+  // Hodnota vložená i s názvem proměnné („GOOGLE_SERVICE_ACCOUNT_KEY={…}“).
+  text = text.replace(/^[A-Z][A-Z0-9_]*\s*=\s*/, "");
+  let parsed: unknown;
+  for (let attempt = 0; attempt < 4 && parsed === undefined; attempt++) {
+    if (text.startsWith("{")) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error(INVALID);
+      }
+    } else if (text.startsWith('"') || text.startsWith("'")) {
+      // JSON vložený jako řetězec v uvozovkách: "{\"type\": …}" nebo '{…}'
+      try {
+        const inner = JSON.parse(text);
+        text = typeof inner === "string" ? inner.trim() : text.slice(1, -1).trim();
+      } catch {
+        text = text.replace(/^["']+|["']+$/g, "").trim();
+      }
+    } else if (text.includes("PRIVATE KEY")) {
+      throw new Error(
+        "GOOGLE_SERVICE_ACCOUNT_KEY obsahuje jen soukromý klíč — na Vercel je potřeba vložit CELÝ obsah staženého souboru .json (začíná znakem { a končí })."
+      );
+    } else if (/^[A-Za-z0-9+/=_-]+$/.test(text.replace(/\s+/g, ""))) {
+      const decoded = Buffer.from(text.replace(/\s+/g, ""), "base64").toString("utf8").replace(/^\uFEFF/, "").trim();
+      if (!decoded.startsWith("{")) throw new Error(INVALID);
+      text = decoded;
+    } else {
+      throw new Error(INVALID);
+    }
+  }
+  const key = parsed as Partial<ServiceAccountKey> | undefined;
+  if (!key || typeof key !== "object" || !key.client_email || !key.private_key) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY: v klíči chybí client_email nebo private_key — je to opravdu JSON klíč servisního účtu?");
+  }
+  const privateKey = key.private_key.includes("\n") ? key.private_key : key.private_key.replace(/\\n/g, "\n");
+  return { client_email: key.client_email, private_key: privateKey };
 }
 
 const b64url = (input: string | Buffer) => Buffer.from(input).toString("base64url");

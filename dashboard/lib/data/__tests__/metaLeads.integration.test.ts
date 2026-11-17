@@ -86,6 +86,12 @@ describe("Leady z Mety nad DB", { timeout: 120_000 }, () => {
         },
       ])
     );
+    asBlahout();
+    const fresh = await leadsApi.listNewUnassignedLeads();
+    expect(fresh.map((l) => [l.displayName, l.isNew, l.source])).toEqual([["Marek Baroš", true, "meta"]]);
+    const all = await leadsApi.listLeads("all");
+    expect(all[0]).toMatchObject({ displayName: "Marek Baroš", isNew: true }); // nahoře seznamu
+    expect(all.find((l) => l.id === L_LENKA)?.isNew).toBe(false);
     const [lenka] = await rows(`SELECT owner_user_id, contact_name FROM leads WHERE id = '${L_LENKA}'`);
     expect(lenka).toEqual({ owner_user_id: BLAHOUT, contact_name: "Lenka Ester" }); // vlastník ani jméno se nemění
   });

@@ -257,7 +257,17 @@ export type LeadSortRow = {
   stage: LeadStage;
   nextFollowUpAt: Date | null;
   createdAt: Date;
+  /** Jen seznam leadů: null = bez obchodníka. Chybí-li (jiné seznamy), nový lead se nezvýrazňuje. */
+  ownerUserId?: string | null;
 };
+
+/**
+ * Nový lead (17. 11. 2026): ještě nemá obchodníka a je ve fázi „nový“ —
+ * typicky čerstvě načtený z formuláře Meta. V seznamu jde nahoru, nejnovější první.
+ */
+export function isNewUnassignedLead(row: { ownerUserId?: string | null; stage: string }): boolean {
+  return row.ownerUserId === null && row.stage === "new";
+}
 
 // Security Phase 16.4 — deterministické řazení seznamu leadů. Dřív se
 // řadilo jen podle followUpOverdue/nextFollowUpAt a leady beze shody
@@ -271,6 +281,17 @@ export type LeadSortRow = {
 // lastContactedAt (ty se update-em právě mění) — použit createdAt (pořadí
 // importu/vzniku, update ho nemění) a jako definitivní rozhodčí id.
 export function compareLeadsForList(a: LeadSortRow, b: LeadSortRow): number {
+  const aNew = isNewUnassignedLead(a);
+  const bNew = isNewUnassignedLead(b);
+  if (aNew !== bNew) {
+    return aNew ? -1 : 1;
+  }
+  if (aNew && bNew) {
+    const newest = b.createdAt.getTime() - a.createdAt.getTime();
+    if (newest !== 0) return newest;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  }
+
   const aOverdue = isFollowUpOverdue(a.stage, a.nextFollowUpAt);
   const bOverdue = isFollowUpOverdue(b.stage, b.nextFollowUpAt);
   if (aOverdue !== bOverdue) {

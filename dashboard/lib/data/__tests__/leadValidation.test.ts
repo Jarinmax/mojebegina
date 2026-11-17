@@ -8,6 +8,7 @@ import {
   isTodayInPrague,
   leadDisplayName,
   compareLeadsForList,
+  isNewUnassignedLead,
   type CreateLeadInput,
   type LeadSortRow,
 } from "../leadValidation";
@@ -446,5 +447,32 @@ describe("isTodayInPrague — dnešní hovory pro /prace a ranní souhrn", () =>
     const now = new Date("2026-06-10T10:00:00.000Z");
     const scheduled = new Date("2026-06-11T10:00:00.000Z");
     expect(isTodayInPrague(scheduled, now)).toBe(false);
+  });
+});
+
+describe("compareLeadsForList — nové leady bez obchodníka nahoře (17. 11. 2026)", () => {
+  const row = (id: string, over: Partial<Parameters<typeof compareLeadsForList>[0]> = {}) => ({
+    id,
+    stage: "new" as const,
+    nextFollowUpAt: null,
+    createdAt: new Date("2026-09-25T10:00:00Z"),
+    ownerUserId: "06240ac4-c050-47ea-998c-6c81389edf9f",
+    ...over,
+  });
+
+  it("nový nepřiřazený lead je před vším ostatním (i před leadem po termínu), nejnovější první", () => {
+    const overdue = row("a-overdue", { stage: "contacted", nextFollowUpAt: new Date("2020-01-01T08:00:00Z") });
+    const imported = row("b-imported");
+    const metaOld = row("c-meta-14", { ownerUserId: null, createdAt: new Date("2026-11-14T06:48:35Z") });
+    const metaNew = row("d-meta-16", { ownerUserId: null, createdAt: new Date("2026-11-16T10:00:00Z") });
+    const sorted = [imported, overdue, metaOld, metaNew].sort(compareLeadsForList).map((r) => r.id);
+    expect(sorted).toEqual(["d-meta-16", "c-meta-14", "a-overdue", "b-imported"]);
+  });
+
+  it("po přiřazení nebo posunu fáze už není „nový“; bez údaje o vlastníkovi (jiné seznamy) se nic nemění", () => {
+    expect(isNewUnassignedLead({ ownerUserId: null, stage: "new" })).toBe(true);
+    expect(isNewUnassignedLead({ ownerUserId: "x", stage: "new" })).toBe(false);
+    expect(isNewUnassignedLead({ ownerUserId: null, stage: "contacted" })).toBe(false);
+    expect(isNewUnassignedLead({ stage: "new" })).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateKeyPairSync, createVerify } from "node:crypto";
 
 vi.mock("server-only", () => ({}));
-import { readSheetValues, serviceAccountKey } from "../googleSheetsRead";
+import { parseServiceAccountKey, readSheetValues, serviceAccountKey } from "../googleSheetsRead";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const KEY = { client_email: "mojebegina-leady@projekt.iam.gserviceaccount.com", private_key: privateKey.export({ type: "pkcs8", format: "pem" }).toString() };
@@ -21,6 +21,31 @@ describe("googleSheetsRead", () => {
     expect(serviceAccountKey()).toEqual(KEY);
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({ client_email: "x" });
     expect(() => serviceAccountKey()).toThrow("chybí client_email nebo private_key");
+  });
+
+  it("snese, jak se klíč do Vercelu typicky vloží (soubor obsahuje i další pole)", () => {
+    const file = JSON.stringify({ type: "service_account", project_id: "mojebegina", ...KEY }, null, 2);
+    expect(parseServiceAccountKey(file)).toEqual(KEY); // celý soubor, víc řádků
+    expect(parseServiceAccountKey(`\uFEFF${file}\n`)).toEqual(KEY); // BOM a nový řádek
+    expect(parseServiceAccountKey(JSON.stringify(file))).toEqual(KEY); // escapovaný řetězec v uvozovkách
+    expect(parseServiceAccountKey(`'${file}'`)).toEqual(KEY); // v apostrofech
+    expect(parseServiceAccountKey(`"${file}"`)).toEqual(KEY); // v uvozovkách bez escapování
+    expect(parseServiceAccountKey(`GOOGLE_SERVICE_ACCOUNT_KEY=${file}`)).toEqual(KEY); // i s názvem proměnné
+    expect(parseServiceAccountKey(Buffer.from(file).toString("base64"))).toEqual(KEY); // base64
+    const escaped = JSON.stringify({ ...KEY, private_key: KEY.private_key.replace(/\n/g, "\\n") }).replace(/\\\\n/g, "\\n");
+    expect(parseServiceAccountKey(escaped).private_key).toBe(KEY.private_key);
+  });
+
+  it("srozumitelné chyby bez obsahu klíče", () => {
+    expect(() => parseServiceAccountKey(KEY.private_key)).toThrow("obsahuje jen soukromý klíč");
+    expect(() => parseServiceAccountKey("{nedokončený")).toThrow("není obsah JSON souboru servisního účtu");
+    expect(() => parseServiceAccountKey("ahoj světe")).toThrow("není obsah JSON souboru servisního účtu");
+    expect(() => parseServiceAccountKey("YWhvag==")).toThrow("není obsah JSON souboru servisního účtu"); // base64 něčeho jiného
+    try {
+      parseServiceAccountKey(KEY.private_key);
+    } catch (e) {
+      expect(String(e)).not.toContain("MII");
+    }
   });
 
   it("podepsaný JWT (jen čtení tabulek) → token → hodnoty prvního listu", async () => {

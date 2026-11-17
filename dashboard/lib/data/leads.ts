@@ -11,7 +11,7 @@
 // (linkLeadToExistingOrganization / convertLeadToNewOrganization).
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -30,6 +30,7 @@ import {
   validateNextStepInput,
   likePattern,
   isFollowUpOverdue,
+  isNewUnassignedLead,
   isTodayInPrague,
   leadDisplayName,
   compareLeadsForList,
@@ -128,6 +129,9 @@ export type LeadCardData = {
   nextFollowUpAt: Date | null;
   nextStepNote: string | null;
   followUpOverdue: boolean;
+  createdAt: Date;
+  /** Bez obchodníka a ve fázi „nový“ — viz isNewUnassignedLead. */
+  isNew: boolean;
 };
 
 async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<LeadCardData[]> {
@@ -157,6 +161,8 @@ async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<Lead
       nextFollowUpAt: r.nextFollowUpAt,
       nextStepNote: r.nextStepNote,
       followUpOverdue: isFollowUpOverdue(stage, r.nextFollowUpAt),
+      createdAt: r.createdAt,
+      isNew: isNewUnassignedLead({ ownerUserId: r.ownerUserId, stage }),
     };
   });
 }
@@ -185,12 +191,24 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
   // bylo shodné pro "Moje leady" i "Všechny leady".
   const sortedRows = [...rows].sort((a, b) =>
     compareLeadsForList(
-      { id: a.id, stage: a.stage as LeadStage, nextFollowUpAt: a.nextFollowUpAt, createdAt: a.createdAt },
-      { id: b.id, stage: b.stage as LeadStage, nextFollowUpAt: b.nextFollowUpAt, createdAt: b.createdAt }
+      { id: a.id, stage: a.stage as LeadStage, nextFollowUpAt: a.nextFollowUpAt, createdAt: a.createdAt, ownerUserId: a.ownerUserId },
+      { id: b.id, stage: b.stage as LeadStage, nextFollowUpAt: b.nextFollowUpAt, createdAt: b.createdAt, ownerUserId: b.ownerUserId }
     )
   );
 
   return buildLeadCards(sortedRows);
+}
+
+// Nové leady bez obchodníka (např. z formuláře Meta) — samostatný blok nahoře
+// na stránce Obchod, ať je vidí každý bez ohledu na vybranou záložku.
+export async function listNewUnassignedLeads(): Promise<LeadCardData[]> {
+  await requireCrmContext();
+  const rows = await db
+    .select()
+    .from(leads)
+    .where(and(isNull(leads.ownerUserId), eq(leads.stage, "new")))
+    .orderBy(desc(leads.createdAt), asc(leads.id));
+  return buildLeadCards(rows);
 }
 
 export type CockpitCounts = {
