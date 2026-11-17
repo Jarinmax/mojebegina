@@ -344,6 +344,13 @@
       "when": 1794909774217,
       "tag": "0048_projekt_begina",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794913685087,
+      "tag": "0049_hodnoceni",
+      "breakpoints": true
     }
   ]
 }
