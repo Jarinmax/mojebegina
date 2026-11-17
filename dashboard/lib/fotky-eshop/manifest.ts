@@ -46,6 +46,15 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "ikona-sirupy.webp",
     "ikona-zmrzliny.webp"
   ],
+  "logo/facebook-uvodni": [
+    "facebook-uvodni-fotka.jpg"
+  ],
+  "logo/logo": [
+    "logo-begina.png"
+  ],
+  "logo/profilovka": [
+    "profilovka-facebook-instagram.png"
+  ],
   "ovocne-napoje/begina-3l": [
     "cervankove-nebe.jpg",
     "dum-u-jezera.jpg",
