@@ -5,23 +5,19 @@ import Stars from "./Stars";
 
 // Hodnocení na detailu produktu (17. 11. 2026): průměr, počet, všechny
 // recenze (nic se neskrývá) a věta o ověřování podle zákona o ochraně
-// spotřebitele. Bez hodnocení zůstává jen věta, kdo může hodnotit.
+// spotřebitele. Dokud produkt nikdo nehodnotil, sekce se nezobrazuje.
 export default function ProductReviews({ summary, reviews }: { summary: ReviewSummary | null; reviews: PublicReview[] }) {
+  if (!summary || reviews.length === 0) return null;
   return (
     <section id="hodnoceni" className="mt-8 border-t border-neutral-200 pt-6" aria-labelledby="hodnoceni-nadpis">
       <h2 id="hodnoceni-nadpis" className="font-medium mb-3">Hodnocení zákazníků</h2>
-      {summary ? (
-        <p className="flex items-center gap-2 tabular-nums">
-          <Stars value={summary.average} size={20} label={`Průměr ${formatAverage(summary.average)} z 5`} />
-          <span className="font-semibold">{formatAverage(summary.average)}</span>
-          <span className="text-neutral-500">· {countLabel(summary.count)}</span>
-        </p>
-      ) : (
-        <p className="text-neutral-600">Tento produkt zatím nikdo nehodnotil.</p>
-      )}
+      <p className="flex items-center gap-2 tabular-nums">
+        <Stars value={summary.average} size={20} label={`Průměr ${formatAverage(summary.average)} z 5`} />
+        <span className="font-semibold">{formatAverage(summary.average)}</span>
+        <span className="text-neutral-500">· {countLabel(summary.count)}</span>
+      </p>
       <p className="mt-2 text-sm text-neutral-500">{REVIEW_VERIFICATION_NOTICE}</p>
-      {reviews.length > 0 && (
-        <ul className="mt-4 flex flex-col divide-y divide-neutral-100">
+      <ul className="mt-4 flex flex-col divide-y divide-neutral-100">
           {reviews.map((review) => (
             <li key={review.id} className="py-4">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -36,8 +32,7 @@ export default function ProductReviews({ summary, reviews }: { summary: ReviewSu
               {review.body && <p className="mt-2 text-neutral-700 whitespace-pre-line break-words">{review.body}</p>}
             </li>
           ))}
-        </ul>
-      )}
+      </ul>
     </section>
   );
 }
