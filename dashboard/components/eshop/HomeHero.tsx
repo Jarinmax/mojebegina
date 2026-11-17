@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { ArrowRight, Snowflake } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+import { HOME_HERO_POINTS } from "@/lib/eshop/homeContent";
 import ShopLink from "./ShopLink";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
@@ -19,7 +20,9 @@ import ShopLink from "./ShopLink";
 // Na počítači je úvod nízký (nadpis na jeden řádek, fotka 22rem), aby se na
 // první obrazovku vešel i pruh kategorií a dlaždice Proč Begina; fotka se
 // zvětšuje s výškou okna (20–34rem), aby první obrazovka byla vyplněná.
-// Mobil (15. 11. 2026, Lucie: „moc nápisů“): jen heslo, nadpis a velká fotka;
+// Od 16. 11. 2026 (Lucie) je pod nadpisem na všech zařízeních řádek tří výhod
+// (HOME_HERO_POINTS); nahradil větu „100 % rostlinné“ v odstavci a řádek o dopravě.
+// Mobil (15. 11. 2026, Lucie: „moc nápisů“): jen heslo, nadpis, tři výhody a velká fotka;
 // pod úvodem dlaždice kategorií. Odstavec, tlačítka a řádek o dopravě jsou
 // na mobilu skryté — totéž říkají dlaždice kategorií a části Proč Begina
 // a Jak funguje begina hned pod tím.
@@ -45,16 +48,22 @@ export default function HomeHero() {
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
       <div className="max-w-6xl mx-auto lg:px-4 lg:py-3 grid items-center lg:grid-cols-2 lg:gap-6">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
-          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
-            Čerstvě. Jednoduše. S&nbsp;chutí.
-          </p>
           {/* Nadpis s hlavní výhodou (11. 11. 2026): begina = natočíte si, kolik chcete. */}
           <h1 className="mt-1.5 sm:mt-4 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622]">
             <span className="sm:block lg:inline">Polévky a nápoje</span>{" "}
             <span className="sm:block lg:inline">v&nbsp;begině</span>
           </h1>
+          {/* Tři výhody hned pod nadpisem, i na mobilu (16. 11. 2026, Lucie). */}
+          <ul className="mt-2 sm:mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-x-3 gap-y-1 sm:gap-x-5 text-[13px] sm:text-base font-medium text-[#4A5527]">
+            {HOME_HERO_POINTS.map((point) => (
+              <li key={point} className="inline-flex items-center gap-1">
+                <Check className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
           <p className="hidden sm:block sm:mt-4 sm:text-lg sm:leading-relaxed text-[#3B3631] max-w-md mx-auto lg:mx-0 text-balance">
-            Natočíte si, kolik chcete a&nbsp;kdy chcete. 100&nbsp;% rostlinné, z&nbsp;čisté filtrované vody.
+            Natočíte si, kolik chcete a&nbsp;kdy chcete. Z&nbsp;čisté filtrované vody.
           </p>
           <div className="hidden sm:flex sm:mt-7 lg:mt-5 flex-row items-stretch sm:items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
             <ShopLink
@@ -71,10 +80,6 @@ export default function HomeHero() {
               Objevit sirupy
             </ShopLink>
           </div>
-          <p className="hidden sm:flex sm:mt-6 lg:mt-4 items-center justify-center lg:justify-start gap-2 text-sm sm:text-base text-[#5E6B34]">
-            <Snowflake className="w-5 h-5" aria-hidden="true" />
-            Doručujeme chlazenou přepravou.
-          </p>
         </div>
 
         <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">

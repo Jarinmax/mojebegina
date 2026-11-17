@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import ShopLink from "@/components/eshop/ShopLink";
 import { notFound, redirect } from "next/navigation";
-import { Check, ChevronLeft, Snowflake } from "lucide-react";
+import { Check, ChevronLeft, Clock, Snowflake } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { legacyProductFallback } from "@/lib/eshop/legacyProducts";
 import { eshopHref } from "@/lib/eshop/paths";
@@ -17,6 +17,7 @@ import {
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductGallery from "@/components/eshop/ProductGallery";
+import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
@@ -28,6 +29,7 @@ import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
 import { productDeliveryNote } from "@/lib/eshop/zasilkovna";
 import { zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
+import { afterOpeningLine, highlightAllergens, NO_PRESERVATIVES, servingPrices, showsNoPreservatives } from "@/lib/eshop/productFacts";
 import { breadcrumbJsonLd, jsonLd, productDescription, productJsonLd, productTitle } from "@/lib/eshop/seo";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +93,14 @@ function NutritionTableView({ table }: { table: NonNullable<Product["foodInfo"][
   );
 }
 
+function ingredientsValue(ingredients: string | null, allergens: string[] | null): ReactNode | null {
+  const sentence = asSentence(ingredients);
+  if (sentence === null) return null;
+  const segments = highlightAllergens(sentence, allergens);
+  if (segments.every((segment) => !segment.bold)) return sentence;
+  return segments.map((segment, index) => (segment.bold ? <strong key={index}>{segment.text}</strong> : segment.text));
+}
+
 function foodInfoRows(product: Product): { label: string; value: ReactNode | null; wide?: boolean }[] {
   const info = product.foodInfo;
   const packages = product.variants.every((variant) => variant.label)
@@ -100,7 +110,9 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
     { label: "Balení", value: packages },
     // Typografie (10. 11. 2026): seznamy a věty velkým písmenem s tečkou,
     // samostatné hodnoty (balení, obsah alkoholu) beze změny.
-    { label: "Složení", value: asSentence(info.ingredients) },
+    // Alergeny ve složení tučně (16. 11. 2026, čl. 21 nař. 1169/2011) — jen ty,
+    // které má produkt v řádku Alergeny; text složení se nemění.
+    { label: "Složení", value: ingredientsValue(info.ingredients, info.allergens) },
     // Alergeny (10. 11. 2026): veřejně jen skutečně přítomné alergeny. Prázdný
     // seznam v DB (interně „ověřeno, receptura bez povinných alergenů“) se už
     // nezobrazuje jako „Neobsahuje žádný z alergenů…“ — výroba je ve společném
@@ -166,6 +178,10 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const hasChoice = product.variants.length > 1;
   // Úvodní odstavce = „Popis“; sekce „## …“ (Pro koho je vhodný, Jak sirup používat…) až pod chutí, jako na begina.cz.
   const description = parseDescription(product.description);
+  const openedLine = afterOpeningLine(product);
+  const portions = servingPrices(product);
+  // „bez konzervantů“ jen kde ve složení žádný konzervant není (16. 11. 2026)
+  const highlights = showsNoPreservatives(product) ? [...product.highlights, NO_PRESERVATIVES] : product.highlights;
   const packagingItems = product.variants.flatMap((variant) => {
     const copy = packagingCopy(product.category, variant.label);
     return copy ? [{ sku: variant.sku, copy }] : [];
@@ -210,9 +226,23 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
           </p>
 
-          {product.highlights.length > 0 && (
+          {/* Trvanlivost po otevření a cena za porci (16. 11. 2026) — odvozeno z údajů
+              produktu (text trvanlivosti, cena, objem, počet porcí); bez údaje se řádek vynechá. */}
+          {(openedLine || portions.length > 0) && (
+            <div className="mt-3 flex flex-col gap-1 text-sm text-neutral-700">
+              {openedLine && (
+                <p className="flex items-start gap-2">
+                  <Clock className="w-4 h-4 mt-0.5 shrink-0 text-[#5E6B34]" aria-hidden="true" />
+                  {openedLine}
+                </p>
+              )}
+              <ServingPriceLine rows={portions} defaultSku={product.variants[0].sku} />
+            </div>
+          )}
+
+          {highlights.length > 0 && (
             <ul className="mt-5 flex flex-col gap-1.5 font-medium">
-              {product.highlights.map((item) => (
+              {highlights.map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <Check className="w-4 h-4 mt-1 shrink-0" />
                   {item}

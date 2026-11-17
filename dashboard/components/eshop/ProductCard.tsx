@@ -4,10 +4,13 @@ import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import AddToCartButton from "./AddToCartButton";
+import { afterOpeningBadge } from "@/lib/eshop/productFacts";
 
 export default function ProductCard({ product }: { product: Product }) {
   const href = `/produkt/${product.slug}`;
   const hasChoice = product.variants.length > 1;
+  // štítek s trvanlivostí po otevření (16. 11. 2026) — z textu trvanlivosti produktu
+  const opened = afterOpeningBadge(product);
   return (
     <li className="flex flex-col border border-neutral-200 rounded-2xl p-3 bg-white">
       <ShopLink href={href} className="group flex flex-col flex-1">
@@ -20,6 +23,9 @@ export default function ProductCard({ product }: { product: Product }) {
           )}
           {product.shortDescription && (
             <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>
+          )}
+          {opened && (
+            <p className="mt-1.5 inline-block rounded-full bg-[#F1EFE3] px-2 py-0.5 text-xs font-medium text-[#4A5527]">{opened}</p>
           )}
         </div>
       </ShopLink>
