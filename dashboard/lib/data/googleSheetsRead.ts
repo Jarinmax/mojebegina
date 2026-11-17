@@ -22,46 +22,83 @@ export function serviceAccountKey(): ServiceAccountKey | null {
   return parseServiceAccountKey(raw);
 }
 
-const INVALID = "Klíč GOOGLE_SERVICE_ACCOUNT_KEY na Vercelu není obsah JSON souboru servisního účtu — vložte celý obsah staženého souboru (začíná znakem { a končí }) a znovu nasaďte (Redeploy).";
+/** E-mail servisního účtu (není tajný) — použije se, když v proměnné je jen soukromý klíč. */
+export const DEFAULT_SERVICE_ACCOUNT_EMAIL = "mojebegina-leady@mojebegina.iam.gserviceaccount.com";
 
-export function parseServiceAccountKey(raw: string): ServiceAccountKey {
-  let text = raw.replace(/^\uFEFF/, "").trim();
-  // Hodnota vložená i s názvem proměnné („GOOGLE_SERVICE_ACCOUNT_KEY={…}“).
+const PEM_RE = /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----/;
+const EMAIL_RE = /[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com/;
+const INVISIBLE_RE = /[\uFEFF\u200B-\u200D\u2060\u00A0]/g;
+
+/** Soukromý klíč v tvaru, který Node přijme: tělo bez mezer a uvozovek, řádky po 64 znacích. */
+function normalizePem(pem: string): string {
+  const header = pem.match(/-----BEGIN (?:RSA )?PRIVATE KEY-----/)![0];
+  const footer = header.replace("BEGIN", "END");
+  const body = pem.slice(header.length, pem.lastIndexOf("-----END")).replace(/[^A-Za-z0-9+/=]/g, "");
+  return `${header}\n${body.match(/.{1,64}/g)!.join("\n")}\n${footer}\n`;
+}
+
+/** Bezpečný popis obsahu proměnné pro chybovou hlášku — nikdy ne obsah klíče. */
+function describe(raw: string): string {
+  const t = raw.replace(INVISIBLE_RE, "").trim();
+  const first = t.codePointAt(0);
+  const firstLabel = first === undefined ? "nic" : `„${String.fromCodePoint(first)}“ (U+${first.toString(16).toUpperCase().padStart(4, "0")})`;
+  return `délka ${t.length} znaků, začíná znakem ${firstLabel}, soukromý klíč: ${PEM_RE.test(t.replace(/\\n/g, "\n")) ? "ano" : "ne"}, e-mail servisního účtu: ${EMAIL_RE.test(t) ? "ano" : "ne"}`;
+}
+
+/**
+ * Z hodnoty proměnné vytáhne e-mail servisního účtu a soukromý klíč — bez
+ * ohledu na to, jak byla vložena: celý JSON soubor (i v uvozovkách, base64,
+ * s neviditelnými znaky, s „KLÍČ=“ před hodnotou), řádky zkopírované
+ * z náhledu JSON ve Firefoxu, nebo jen samotný soukromý klíč (pak se použije
+ * známý e-mail servisního účtu). Chybová hláška nikdy neobsahuje obsah klíče.
+ */
+export function parseServiceAccountKey(raw: string, fallbackEmail: string = DEFAULT_SERVICE_ACCOUNT_EMAIL): ServiceAccountKey {
+  let text = raw.replace(INVISIBLE_RE, "").trim();
   text = text.replace(/^[A-Z][A-Z0-9_]*\s*=\s*/, "");
-  let parsed: unknown;
-  for (let attempt = 0; attempt < 4 && parsed === undefined; attempt++) {
-    if (text.startsWith("{")) {
+
+  // base64 celého souboru
+  const compact = text.replace(/\s+/g, "");
+  if (!text.includes("{") && !PEM_RE.test(text) && /^[A-Za-z0-9+/=_-]+$/.test(compact)) {
+    text = Buffer.from(compact, "base64").toString("utf8").replace(INVISIBLE_RE, "").trim();
+  }
+
+  // JSON (i zabalený v uvozovkách nebo s čímkoli okolo)
+  const candidates: string[] = [];
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) candidates.push(text.slice(firstBrace, lastBrace + 1));
+  try {
+    const inner = JSON.parse(text);
+    if (typeof inner === "string") candidates.unshift(inner);
+  } catch {
+    // není JSON řetězec
+  }
+  for (const c of candidates) {
+    for (const variant of [c, c.replace(/\\"/g, '"')]) {
       try {
-        parsed = JSON.parse(text);
+        const obj = JSON.parse(variant) as Partial<ServiceAccountKey>;
+        if (obj && typeof obj.private_key === "string" && PEM_RE.test(obj.private_key.replace(/\\n/g, "\n"))) {
+          return {
+            client_email: typeof obj.client_email === "string" && obj.client_email ? obj.client_email : fallbackEmail,
+            private_key: normalizePem(obj.private_key.replace(/\\n/g, "\n").match(PEM_RE)![0]),
+          };
+        }
       } catch {
-        throw new Error(INVALID);
+        // zkusit další podobu
       }
-    } else if (text.startsWith('"') || text.startsWith("'")) {
-      // JSON vložený jako řetězec v uvozovkách: "{\"type\": …}" nebo '{…}'
-      try {
-        const inner = JSON.parse(text);
-        text = typeof inner === "string" ? inner.trim() : text.slice(1, -1).trim();
-      } catch {
-        text = text.replace(/^["']+|["']+$/g, "").trim();
-      }
-    } else if (text.includes("PRIVATE KEY")) {
-      throw new Error(
-        "GOOGLE_SERVICE_ACCOUNT_KEY obsahuje jen soukromý klíč — na Vercel je potřeba vložit CELÝ obsah staženého souboru .json (začíná znakem { a končí })."
-      );
-    } else if (/^[A-Za-z0-9+/=_-]+$/.test(text.replace(/\s+/g, ""))) {
-      const decoded = Buffer.from(text.replace(/\s+/g, ""), "base64").toString("utf8").replace(/^\uFEFF/, "").trim();
-      if (!decoded.startsWith("{")) throw new Error(INVALID);
-      text = decoded;
-    } else {
-      throw new Error(INVALID);
     }
   }
-  const key = parsed as Partial<ServiceAccountKey> | undefined;
-  if (!key || typeof key !== "object" || !key.client_email || !key.private_key) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY: v klíči chybí client_email nebo private_key — je to opravdu JSON klíč servisního účtu?");
+
+  // Cokoli jiného (náhled JSON z Firefoxu, jen soukromý klíč…): najít klíč a e-mail v textu.
+  const unescaped = text.replace(/\\n/g, "\n");
+  const pem = unescaped.match(PEM_RE)?.[0];
+  if (pem) {
+    return { client_email: text.match(EMAIL_RE)?.[0] ?? fallbackEmail, private_key: normalizePem(pem) };
   }
-  const privateKey = key.private_key.includes("\n") ? key.private_key : key.private_key.replace(/\\n/g, "\n");
-  return { client_email: key.client_email, private_key: privateKey };
+
+  throw new Error(
+    `V proměnné GOOGLE_SERVICE_ACCOUNT_KEY na Vercelu není klíč servisního účtu (${describe(raw)}). Vložte celý obsah staženého souboru .json a znovu nasaďte (Redeploy).`
+  );
 }
 
 const b64url = (input: string | Buffer) => Buffer.from(input).toString("base64url");
@@ -88,7 +125,19 @@ async function accessToken(key: ServiceAccountKey): Promise<string> {
     }),
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`Google přihlášení servisního účtu selhalo (${res.status}).`);
+  if (!res.ok) {
+    // Google vrací jen kód a popis chyby (nic tajného), např. invalid_grant / Invalid JWT Signature.
+    let reason = "";
+    try {
+      const err = (await res.json()) as { error?: string; error_description?: string };
+      reason = [err.error, err.error_description].filter(Boolean).join(": ");
+    } catch {
+      // bez těla
+    }
+    throw new Error(
+      `Google odmítl přihlášení servisního účtu ${key.client_email} (${res.status}${reason ? ` – ${reason}` : ""}). Je klíč aktuální (nesmazaný) a patří tomuto účtu?`
+    );
+  }
   const body = (await res.json()) as { access_token?: string };
   if (!body.access_token) throw new Error("Google nevrátil přístupový token.");
   return body.access_token;
