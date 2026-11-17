@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/hodnoceni",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/objednavky-po-terminu",
+      "schedule": "1 9,10 * * 1-5"
     }
   ]
 }

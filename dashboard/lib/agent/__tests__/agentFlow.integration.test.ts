@@ -438,6 +438,7 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
         "app/api/cron/daily-call-reminders/route.ts",
         "app/api/cron/fio-platby/route.ts",
         "app/api/cron/mereni-eshopu/route.ts",
+        "app/api/cron/objednavky-po-terminu/route.ts",
         "app/api/cron/partner-program/route.ts",
         "app/api/mcp/route.ts",
         "app/api/oauth/revoke/route.ts",
