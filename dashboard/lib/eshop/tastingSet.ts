@@ -8,7 +8,7 @@
 // Zákazník vidí vždy jen jedno z nich (catalogServer.ts).
 //
 // Výběr pěti sirupů se nese v řádku košíku jako přípona SKU:
-// „SET-SIRUPY-5X100-K~sa.li.za.ib.si“. Košík tak zůstává {sku, množství}
+// „set-sirupy-5x100-k~sa.li.za.ib.si“. Košík tak zůstává {sku, množství}
 // a dva sety s různým výběrem jsou dva řádky. Do objednávky se ukládá SKU
 // bez přípony a výběr je v názvu položky (order_items.name).
 
@@ -21,8 +21,8 @@ export const SET_PREVIEW_COOKIE = "begina_nahled";
 export const SET_PREVIEW_VALUE = "set-sirupu-7k3f9q";
 
 export const SET_SLUG = "ochutnavkovy-set-sirupu";
-export const SET_SKU = "SET-SIRUPY-5X100";
-export const SET_CAMPAIGN_SKU = "SET-SIRUPY-5X100-K";
+export const SET_SKU = "set-sirupy-5x100";
+export const SET_CAMPAIGN_SKU = "set-sirupy-5x100-k";
 export const SET_CAMPAIGN_LIMIT = 100;
 export const SET_CAMPAIGN_PRICE_KC = 189;
 export const SET_SIZE = 5;

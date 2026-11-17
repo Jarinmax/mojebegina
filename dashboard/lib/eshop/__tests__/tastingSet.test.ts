@@ -32,16 +32,16 @@ const opts = { shippingMode: "weight" as const, zasilkovna: true };
 
 describe("ochutnávkový set sirupů", () => {
   it("výběr pěti sirupů se nese v SKU řádku košíku", () => {
-    expect(CHOICE).toBe("SET-SIRUPY-5X100-K~sa.li.za.ib.si");
+    expect(CHOICE).toBe("set-sirupy-5x100-k~sa.li.za.ib.si");
     expect(baseSku(CHOICE)).toBe(SET_CAMPAIGN_SKU);
     expect(choiceFromSku(CHOICE)).toEqual(["sa", "li", "za", "ib", "si"]);
     expect(setCartSku(SET_SKU, ["sa", "li"])).toBeNull();
-    expect(choiceFromSku("SET-SIRUPY-5X100~sa.li.za.ib.xx")).toBeNull();
+    expect(choiceFromSku("set-sirupy-5x100~sa.li.za.ib.xx")).toBeNull();
     expect(choiceFromSku(SET_SKU)).toBeNull();
     expect(choiceLabel(["li", "li", "sa", "me", "li"])).toBe("3× Lipový, Šaman, Meduňkový s levandulí");
     expect(withChoice("Set", CHOICE)).toBe("Set (Šaman, Lipový, Zázvorový, Ibiškový, Šípkový)");
     expect(isCampaignSetSku(CHOICE)).toBe(true);
-    expect(isCampaignSetSku("SET-SIRUPY-5X100~sa.li.za.ib.si")).toBe(false);
+    expect(isCampaignSetSku("set-sirupy-5x100~sa.li.za.ib.si")).toBe(false);
     expect(campaignRemaining(0)).toBe(100);
     expect(campaignRemaining(97)).toBe(3);
     expect(campaignRemaining(140)).toBe(0);
@@ -50,7 +50,7 @@ describe("ochutnávkový set sirupů", () => {
   it("katalog najde balení setu i s výběrem; neplatný výběr je neznámé balení", () => {
     const idx = index([set(SET_CAMPAIGN_SKU, 189, 100)]);
     expect(idx.getVariant(CHOICE)?.variant.sku).toBe(SET_CAMPAIGN_SKU);
-    expect(idx.getVariant("SET-SIRUPY-5X100-K~sa.li")).toBeUndefined();
+    expect(idx.getVariant("set-sirupy-5x100-k~sa.li")).toBeUndefined();
     expect(idx.getVariant("lipovy-sirup-750ml~sa.li.za.ib.si")).toBeUndefined();
     const lines = resolveCartLines([{ sku: CHOICE, quantity: 2 }], idx);
     expect(lines[0].name).toBe("Ochutnávkový set sirupů 5 × 100 ml (Šaman, Lipový, Zázvorový, Ibiškový, Šípkový)");

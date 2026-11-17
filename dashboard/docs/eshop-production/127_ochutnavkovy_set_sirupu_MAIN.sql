@@ -1,8 +1,8 @@
 -- 127: Ochutnávkový set sirupů 5 × 100 ml (zadání Lucie 17. 11. 2026).
 -- Přidá jeden produkt do kategorie Sirupy a jeho dvě balení:
---   SET-SIRUPY-5X100-K = úvodní cena 189 Kč vč. dopravy (prvních 100 setů),
---   SET-SIRUPY-5X100   = běžná cena 249 Kč + doprava.
--- Hmotnost 900 g je DOČASNÁ (Jarin set zváží). Na webu se produkt neukáže,
+--   set-sirupy-5x100-k = úvodní cena 189 Kč vč. dopravy (prvních 100 setů),
+--   set-sirupy-5x100   = běžná cena 249 Kč + doprava.
+-- Hmotnost 710 g = zabalený set, zvážil Jarin 17. 11. 2026. Na webu se produkt neukáže,
 -- dokud ho e-shop nezapne (SET_LAUNCHED). Nic existujícího se nemění.
 -- Dá se spustit opakovaně.
 BEGIN;
@@ -28,8 +28,8 @@ BEGIN
   ON CONFLICT (slug) DO NOTHING;
   SELECT id INTO pid FROM products WHERE slug = 'ochutnavkovy-set-sirupu';
   INSERT INTO product_variants (product_id, sku, label, short_note, volume_ml, servings, price_b2c_kc, weight_g, sort_order, is_active)
-  VALUES (pid, 'SET-SIRUPY-5X100-K', NULL, 'Úvodní cena včetně dopravy Zásilkovnou', 500, 25, 189, 900, 10, true),
-         (pid, 'SET-SIRUPY-5X100',   NULL, '5 sáčků po 100 ml',                       500, 25, 249, 900, 20, true)
+  VALUES (pid, 'set-sirupy-5x100-k', NULL, 'Úvodní cena včetně dopravy Zásilkovnou', 500, 25, 189, 710, 10, true),
+         (pid, 'set-sirupy-5x100',   NULL, '5 sáčků po 100 ml',                       500, 25, 249, 710, 20, true)
   ON CONFLICT (sku) DO NOTHING;
 END $$;
 COMMIT;
