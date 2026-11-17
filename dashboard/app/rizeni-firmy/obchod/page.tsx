@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCockpitCounts, listLeads, listCustomers } from "@/lib/data/leads";
+import { getCockpitCounts, listLeads, listCustomers, listNewUnassignedLeads } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import MetaImportButton from "./MetaImportButton";
@@ -40,10 +40,13 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   const leadFilter = activeView === "moje-leady" ? "mine" : "all";
   const customerFilter = activeView === "moji-zakaznici" ? "mine" : "all";
 
-  const [leadCards, customerCards] = await Promise.all([
+  const [leadCards, customerCards, newLeads] = await Promise.all([
     isLeadsView ? listLeads(leadFilter) : Promise.resolve(null),
     !isLeadsView ? listCustomers(customerFilter) : Promise.resolve(null),
+    listNewUnassignedLeads(),
   ]);
+  // Na záložce „Všechny leady“ jsou nové leady už nahoře v seznamu — blok by je zdvojil.
+  const showNewLeadsBlock = newLeads.length > 0 && activeView !== "vsechny-leady";
 
   return (
     <div>
@@ -70,6 +73,18 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
       )}
 
       {isDailyCallCurator(ctx) && <MetaImportButton />}
+
+      {showNewLeadsBlock && (
+        <section className="mt-4 flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">
+            Nové leady — zatím bez obchodníka ({newLeads.length})
+          </h2>
+          <p className="text-xs text-neutral-500">Kdo zavolá a dovolá se, tomu se kontakt přiřadí.</p>
+          {newLeads.map((lead) => (
+            <LeadCard key={lead.id} lead={lead} />
+          ))}
+        </section>
+      )}
 
       <div className="mb-4 mt-4">
         <CockpitTiles counts={counts} />

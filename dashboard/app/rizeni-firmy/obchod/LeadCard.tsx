@@ -1,16 +1,26 @@
 import Link from "next/link";
 import { formatCzechDate } from "@/lib/format";
 import LeadStageBadge, { FollowUpBadge } from "./LeadStageBadge";
-import { VENUE_TYPE_LABELS } from "./leadLabels";
+import { SOURCE_LABELS, VENUE_TYPE_LABELS } from "./leadLabels";
 import type { LeadCardData } from "@/lib/data/leads";
-import type { VenueType } from "@/lib/data/leadValidation";
+import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
 
 export default function LeadCard({ lead }: { lead: LeadCardData }) {
   return (
     <Link
       href={`/rizeni-firmy/obchod/leady/${lead.id}`}
-      className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
+      className={`block border rounded-xl p-4 hover:border-begina-primary-300 transition-colors ${
+        lead.isNew ? "bg-amber-50 border-amber-300" : "bg-white border-neutral-200"
+      }`}
     >
+      {lead.isNew && (
+        <p className="mb-1 flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 font-semibold text-white">Nový</span>
+          <span className="text-amber-900">
+            přišel {formatCzechDate(lead.createdAt)} · {SOURCE_LABELS[lead.source as LeadSource] ?? lead.source} · zatím bez obchodníka
+          </span>
+        </p>
+      )}
       <div className="flex items-start justify-between gap-3 mb-1">
         <p className="text-sm font-medium text-begina-primary-900">{lead.displayName}</p>
         <LeadStageBadge stage={lead.stage} />
