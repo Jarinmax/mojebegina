@@ -1,0 +1,21 @@
+name: docasne
+on: push
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: dashboard } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: |
+          if ! ls drizzle/0049_* >/dev/null 2>&1; then
+            DATABASE_URL=postgres://x:x@localhost/x npx drizzle-kit generate --name hodnoceni
+            tar czf /tmp/m.tgz drizzle/0049_hodnoceni.sql drizzle/meta/_journal.json drizzle/meta/0049_snapshot.json
+            echo "SOUBOR m.tgz $(base64 -w0 /tmp/m.tgz)"
+          fi
+      - run: npx next typegen && npx tsc --noEmit
+      - run: npx eslint lib/eshop/reviews.ts lib/eshop/reviewsFormat.ts lib/eshop/reviewsServer.ts lib/eshop/catalogServer.ts components/eshop/Stars.tsx components/eshop/ProductReviews.tsx components/eshop/ReviewForm.tsx components/eshop/OptoutForm.tsx components/eshop/ProductCard.tsx app/eshop/hodnoceni app/eshop/odhlaseni app/api/cron/hodnoceni "app/eshop/produkt/[slug]/page.tsx"
+      - run: npx vitest run lib/eshop/__tests__/reviews.test.ts lib/eshop/__tests__/migrationChain.test.ts lib/eshop/__tests__/productFacts.test.ts components/__tests__
+        if: always()

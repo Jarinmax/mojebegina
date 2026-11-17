@@ -49,6 +49,8 @@ export type FoodInfo = {
 export type ProductPhoto = { url: string; alt: string | null };
 
 export type Product = {
+  /** Průměr a počet hodnocení zákazníků (doplňuje catalogServer); bez hodnocení chybí. */
+  rating?: { average: number; count: number };
   slug: string;
   name: string;
   /** slug kategorie */

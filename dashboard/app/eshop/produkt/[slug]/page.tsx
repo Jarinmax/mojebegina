@@ -17,6 +17,10 @@ import {
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductGallery from "@/components/eshop/ProductGallery";
+import ProductReviews from "@/components/eshop/ProductReviews";
+import Stars from "@/components/eshop/Stars";
+import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
+import { loadProductReviews } from "@/lib/eshop/reviewsServer";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
@@ -180,6 +184,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const description = parseDescription(product.description);
   const openedLine = afterOpeningLine(product);
   const portions = servingPrices(product);
+  const reviews = await loadProductReviews(product.slug);
   // „bez konzervantů“ jen kde ve složení žádný konzervant není (16. 11. 2026)
   const highlights = showsNoPreservatives(product) ? [...product.highlights, NO_PRESERVATIVES] : product.highlights;
   const packagingItems = product.variants.flatMap((variant) => {
@@ -221,6 +226,13 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
         <div>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{product.name}</h1>
+          {product.rating && (
+            <a href="#hodnoceni" className="mt-2 inline-flex items-center gap-2 text-sm text-neutral-600 tabular-nums hover:underline underline-offset-2">
+              <Stars value={product.rating.average} label={`Hodnocení ${formatAverage(product.rating.average)} z 5`} />
+              <span className="font-medium">{formatAverage(product.rating.average)}</span>
+              <span>({countLabel(product.rating.count)})</span>
+            </a>
+          )}
           {product.shortDescription && <p className="text-neutral-600 mt-2">{product.shortDescription}</p>}
           <p className="text-2xl font-semibold mt-5 tabular-nums">
             {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
@@ -357,6 +369,8 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
               </p>
             ))}
           </section>
+
+          <ProductReviews summary={product.rating ?? null} reviews={reviews} />
         </div>
       </div>
 

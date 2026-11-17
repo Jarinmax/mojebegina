@@ -55,6 +55,10 @@
     {
       "path": "/api/cron/meta-leady?beh=5",
       "schedule": "5 18 * * *"
+    },
+    {
+      "path": "/api/cron/hodnoceni",
+      "schedule": "0 10 * * *"
     }
   ]
 }
