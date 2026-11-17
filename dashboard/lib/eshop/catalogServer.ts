@@ -6,10 +6,25 @@ import "server-only";
 import { cache } from "react";
 import { db } from "@/lib/db/client";
 import { loadCatalog } from "./catalogDb";
+import { withoutGlassRange, withoutServingPrice } from "./productFacts";
 import { createCatalogIndex } from "./catalogIndex";
 import { shippingModeFromEnv } from "./shipping";
 
 // Hmotnosti balení jen s dopravou podle hmotnosti (ESHOP_WEIGHT_SHIPPING=on).
-export const getCatalog = cache(() => loadCatalog(db, { weights: shippingModeFromEnv() === "weight" }));
+// Cena za porci je jen v řádku pod cenou a u půllitrových koktejlů se počítá
+// sklenice 200 ml (rozhodnutí Lucie 17. 11. 2026) – z krátkého popisu proto
+// mizí závorka s cenou a z poznámky balení odhad „2–3 nápoje“. Data v DB
+// zůstávají beze změny.
+export const getCatalog = cache(async () => {
+  const catalog = await loadCatalog(db, { weights: shippingModeFromEnv() === "weight" });
+  return {
+    ...catalog,
+    products: catalog.products.map((product) => ({
+      ...product,
+      shortDescription: withoutServingPrice(product.shortDescription),
+      variants: product.variants.map((variant) => ({ ...variant, detail: withoutGlassRange(variant.detail) })),
+    })),
+  };
+});
 
 export const getCatalogIndex = cache(async () => createCatalogIndex(await getCatalog()));
