@@ -26,6 +26,7 @@ export const SECTION_GROUPS: Group[] = [
       { href: "/rizeni-firmy/objednavky-po-terminu", label: "Objednávky po termínu", icon: "⏰" },
       { href: "/rizeni-firmy/obchod", label: "Obchod / CRM", icon: "📞" },
       { href: "/rizeni-firmy/partnersky-program", label: "Partnerský program", icon: "🤝" },
+      { href: "/rizeni-firmy/kampan-set", label: "Kampaň set", icon: "🎁", show: (f) => f.ekonomika },
     ],
   },
   {

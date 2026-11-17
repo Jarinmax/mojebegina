@@ -38,6 +38,8 @@ export const SET_CAMPAIGN_SKU = "set-sirupy-5x100-k";
 export const SET_CAMPAIGN_LIMIT = 100;
 export const SET_CAMPAIGN_PRICE_KC = 189;
 export const SET_SIZE = 5;
+/** Slevový kód pro další nákup po setu (e-mail 5 dní po odeslání, viz setCampaign.ts). */
+export const SET_COUPON_CODE = "ochutnavka50";
 const SEPARATOR = "~";
 
 export const SET_SYRUPS = [

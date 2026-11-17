@@ -2252,6 +2252,13 @@ export const reviewRequests = pgTable("review_requests", {
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Kampaň Ochutnávkový set: objednávky, kterým už odešel e-mail se slevovým
+// kódem (jednou na objednávku, lib/eshop/setCampaignServer.ts).
+export const setCouponEmails = pgTable("set_coupon_emails", {
+  orderId: uuid("order_id").primaryKey().references(() => orders.id),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Odhlášení z obchodních sdělení (e-mail malými písmeny). Kdo je tady,
 // nedostane žádost o hodnocení ani jiné obchodní sdělení.
 export const emailOptouts = pgTable("email_optouts", {
