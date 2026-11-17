@@ -256,6 +256,9 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "economy_list_entries",
       // legislativní audit — jen Jaroslav a Lucie (uložení reportu jen se zápisem)
       "legal_audit_list_reports",
+      // Projekt Begina — jen Jaroslav a Lucie (project_write jen se zápisem)
+      "project_overview",
+      "project_read_area",
     ]);
     for (const tool of tools) expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     const colleague = mcp.agentMcpServer(db, kolega, config).listTools().map((t) => t.name);

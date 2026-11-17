@@ -73,6 +73,19 @@ export default async function CompanyOverviewPage() {
 
       {showCeoFocus && <CeoFocusPanel />}
 
+      {showEkonomika && (
+        <Link
+          href="/rizeni-firmy/projekt"
+          className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-begina-primary-200 bg-begina-primary-50 p-4 hover:border-begina-primary-300"
+        >
+          <div>
+            <p className="font-semibold text-begina-primary-900">Projekt Begina</p>
+            <p className="text-sm text-neutral-600">Stav, rozhodnutí a výstupy po oblastech</p>
+          </div>
+          <span className="text-sm font-medium text-begina-primary-900">Otevřít →</span>
+        </Link>
+      )}
+
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-medium text-begina-primary-900">Obchod / CRM</h2>
