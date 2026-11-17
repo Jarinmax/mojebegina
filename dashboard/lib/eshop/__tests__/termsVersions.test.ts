@@ -45,6 +45,10 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
     text: "81a19c9b6a9418bf815f2553faa5c92c07a39a04006740be91dbbf93c35ed206",
     pdf: "a056f9f8190886c44f26e813b694af687333feb84cca074f8198b34c1b8c966c",
   },
+  "2026-11-18": {
+    text: "f6f005d9ddcad0a3aadf23ea73c9cd4eec9e23947e1321fa002224ca0b77d3c2",
+    pdf: "2820558875df035ab9ca37d0c7d3ff72dcf4617171fd29e10b542b06b331f651",
+  },
 };
 
 describe("znění obchodních podmínek", () => {
@@ -81,8 +85,14 @@ describe("znění obchodních podmínek", () => {
     expect(text).toContain("Adresát: Jaroslav Viner, Mostecká 273/21, 118 00 Praha 1, IČO: 74337297, e-mail: info@begina.cz");
   });
 
-  it("platné znění (5. vydání): doručení na Slovensko v čl. VI, jinak jako 4. vydání", () => {
-    expect(CURRENT_TERMS.edition).toBe(5);
+  it("platné znění (6. vydání): hodnocení zákazníků v čl. II, jinak jako 5. vydání", () => {
+    expect(CURRENT_TERMS.edition).toBe(6);
+    expect(termsPlainText(CURRENT_TERMS)).toContain("Hodnocení mohou psát jen zákazníci, kteří produkt zakoupili na begina.cz. Ověřujeme to podle čísla objednávky.");
+    expect(termsPlainText(findTermsVersion("2026-11-17")!)).not.toContain("Hodnocení mohou psát");
+  });
+
+  it("5. vydání a novější: doručení na Slovensko v čl. VI", () => {
+    expect(CURRENT_TERMS.edition).toBeGreaterThanOrEqual(5);
     const current = termsPlainText(CURRENT_TERMS);
     expect(current).toContain("také na území Slovenské republiky. Na Slovensko prodávající nedoručuje alkoholické nápoje.");
     expect(current).toContain("není tím dotčena ochrana, kterou mu poskytují předpisy státu jeho bydliště");

@@ -6,6 +6,7 @@ import "server-only";
 import { cache } from "react";
 import { db } from "@/lib/db/client";
 import { loadCatalog } from "./catalogDb";
+import { loadReviewSummaries } from "./reviewsServer";
 import { withoutGlassRange, withoutServingPrice } from "./productFacts";
 import { createCatalogIndex } from "./catalogIndex";
 import { shippingModeFromEnv } from "./shipping";
@@ -16,7 +17,7 @@ import { shippingModeFromEnv } from "./shipping";
 // mizí závorka s cenou a z poznámky balení odhad „2–3 nápoje“. Data v DB
 // zůstávají beze změny.
 export const getCatalog = cache(async () => {
-  const catalog = await loadCatalog(db, { weights: shippingModeFromEnv() === "weight" });
+  const [catalog, ratings] = await Promise.all([loadCatalog(db, { weights: shippingModeFromEnv() === "weight" }), loadReviewSummaries()]);
   return {
     ...catalog,
     // úvodní text kategorie Koktejly: „sáček 500 ml … (2–3 nápoje)“ bez odhadu
@@ -26,6 +27,7 @@ export const getCatalog = cache(async () => {
     })),
     products: catalog.products.map((product) => ({
       ...product,
+      rating: ratings.get(product.slug),
       shortDescription: withoutServingPrice(product.shortDescription),
       variants: product.variants.map((variant) => ({ ...variant, detail: withoutGlassRange(variant.detail) })),
     })),

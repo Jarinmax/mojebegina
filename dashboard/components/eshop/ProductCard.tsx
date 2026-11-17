@@ -5,6 +5,8 @@ import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import AddToCartButton from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
+import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
+import Stars from "./Stars";
 
 export default function ProductCard({ product }: { product: Product }) {
   const href = `/produkt/${product.slug}`;
@@ -20,6 +22,13 @@ export default function ProductCard({ product }: { product: Product }) {
           {product.isAgeRestricted && (
             // alkohol: označení i na kartě (14. 11. 2026 — Svařák Deluxe mezi Nejoblíbenějšími na úvodní stránce)
             <p className="mt-0.5 text-xs font-medium text-neutral-600">18+ · obsahuje alkohol</p>
+          )}
+          {product.rating && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-600 tabular-nums">
+              <Stars value={product.rating.average} size={14} label={`Hodnocení ${formatAverage(product.rating.average)} z 5`} />
+              <span className="font-medium">{formatAverage(product.rating.average)}</span>
+              <span>({countLabel(product.rating.count)})</span>
+            </p>
           )}
           {product.shortDescription && (
             <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>

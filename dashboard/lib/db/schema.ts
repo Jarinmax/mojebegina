@@ -2223,3 +2223,39 @@ export const projectEntries = pgTable(
     check("project_entries_kind_check", sql`${table.kind} IN ('status','decision','output')`),
   ]
 );
+
+// Hodnocení produktů (zadání Lucie 17. 11. 2026). Hodnotit smí jen zákazník,
+// který produkt koupil na begina.cz: recenze je vždy vázaná na objednávku
+// (order_id) a na produkt z ní — jedna recenze na produkt a objednávku.
+// Recenze se nemažou ani neskrývají (žádný stavový sloupec záměrně není).
+export const productReviews = pgTable(
+  "product_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "restrict" }),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    rating: integer("rating").notNull(),
+    body: text("body").notNull().default(""),
+    authorName: text("author_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("product_reviews_order_product_key").on(table.orderId, table.productId),
+    index("product_reviews_product_idx").on(table.productId, table.createdAt),
+    check("product_reviews_rating_check", sql`${table.rating} BETWEEN 1 AND 5`),
+  ]
+);
+
+// Žádost o hodnocení e-mailem — nejvýš jedna na objednávku (PK = order_id).
+export const reviewRequests = pgTable("review_requests", {
+  orderId: uuid("order_id").primaryKey().references(() => orders.id),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Odhlášení z obchodních sdělení (e-mail malými písmeny). Kdo je tady,
+// nedostane žádost o hodnocení ani jiné obchodní sdělení.
+export const emailOptouts = pgTable("email_optouts", {
+  email: text("email").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  source: text("source").notNull().default("odkaz v e-mailu"),
+});
