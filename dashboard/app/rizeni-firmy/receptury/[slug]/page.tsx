@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
-import { RECIPE_CATEGORIES, batchCostKc, calcVariant, formatKcValue, formatQuantity, formatUnitPrice, itemCostKc, parseBatchCount, priceUnitLabel } from "@/lib/receptury/recipes";
+import { RECIPE_CATEGORIES, batchCostKc, calcVariant, formatKcValue, isLabelCode, formatQuantity, formatUnitPrice, itemCostKc, parseBatchCount, priceUnitLabel } from "@/lib/receptury/recipes";
 import { loadRecipes, packagingPrices, recipeTablesExist } from "@/lib/receptury/recipesServer";
 
 // RECEPTURY A NÁKLADY 1.0 — jedna receptura: přesné složení na zvolený počet
@@ -103,7 +103,8 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
               <tr>
                 <th className="px-3 py-2 font-medium">Balení</th>
                 <th className="px-3 py-2 font-medium text-right">Obsah</th>
-                <th className="px-3 py-2 font-medium text-right">Obal a etiketa</th>
+                <th className="px-3 py-2 font-medium text-right">Obal</th>
+                <th className="px-3 py-2 font-medium text-right">Etikety</th>
                 <th className="px-3 py-2 font-medium text-right">Náklad celkem</th>
                 <th className="px-3 py-2 font-medium text-right">Prodejní cena</th>
                 <th className="px-3 py-2 font-medium text-right">Marže</th>
@@ -112,14 +113,22 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
             <tbody>
               {recipe.variants.map((variant, index) => {
                 const calc = calcVariant(recipe, variant, packaging);
+                const partsLabel = (codes: string[]) =>
+                  codes.map((code) => (packaging.has(code) ? `${(packagingNames.get(code) ?? code).replace(/\s*\(.*\)$/, "")} ${formatKcValue(packaging.get(code) ?? 0)}` : `${code} (chybí v ceníku)`)).join(" + ");
                 return (
                   <tr key={index} className="border-b border-neutral-100 last:border-0 align-top">
                     <td className="px-3 py-2">
                       <div className="font-medium">{variant.label}</div>
-                      <div className="text-xs text-neutral-500">{variant.packagingCodes.map((code) => packagingNames.get(code) ?? `${code} (chybí v ceníku)`).join(" + ")}</div>
                     </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">{formatKcValue(calc.contentKc)}</td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">{formatKcValue(calc.packagingKc)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="whitespace-nowrap">{formatKcValue(calc.containerKc)}</div>
+                      <div className="text-xs text-neutral-500">{partsLabel(variant.packagingCodes.filter((code) => !isLabelCode(code)))}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="whitespace-nowrap">{formatKcValue(calc.labelKc)}</div>
+                      <div className="text-xs text-neutral-500">{partsLabel(variant.packagingCodes.filter(isLabelCode))}</div>
+                    </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap font-medium">{formatKcValue(calc.totalKc)}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">{calc.saleKc !== null ? formatKcValue(calc.saleKc) : <span className="text-neutral-400">neprodává se</span>}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap font-medium">
