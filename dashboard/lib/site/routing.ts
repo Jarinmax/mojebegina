@@ -57,6 +57,9 @@ const ROOT_ASSETS = new Set(["/favicon.ico", "/logo-begina-mark.png", "/og-begin
   "/googlef33375736e28d0b9.html",
 ]);
 
+/** Podepsaný odkaz: base64url.podpis (lib/eshop/reviews.ts). */
+const SIGNED_TOKEN = /^[A-Za-z0-9_-]{8,400}\.[A-Za-z0-9_-]{32}$/;
+
 /** Stránky e-shopu bez parametru — na begina.cz stejná cesta bez /eshop. */
 const ESHOP_PAGES = new Set([
   "/kosik",
@@ -148,6 +151,8 @@ export function publicEshopPath(pathname: string): string | null {
   if (rest.length > 0 || param === undefined) return null;
   if ((section === "produkt" || section === "kategorie") && SLUG.test(param)) return `${ESHOP_PREFIX}/${section}/${param}`;
   if (section === "objednavka" && UUID.test(param)) return `${ESHOP_PREFIX}/objednavka/${param}`;
+  // hodnocení nákupu a odhlášení z e-mailů — podepsaný odkaz z e-mailu (17. 11. 2026)
+  if ((section === "hodnoceni" || section === "odhlaseni") && SIGNED_TOKEN.test(param)) return `${ESHOP_PREFIX}/${section}/${param}`;
   // PDF znění obchodních podmínek (/obchodni-podminky/2026-10-27.pdf)
   if (section === "obchodni-podminky" && (TERMS_PDF.test(param) || param === WITHDRAWAL_FORM_PDF)) return `${ESHOP_PREFIX}/obchodni-podminky/${param}`;
   return null;
