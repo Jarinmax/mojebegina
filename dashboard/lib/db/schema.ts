@@ -2192,3 +2192,34 @@ export const legalAuditReports = pgTable(
     check("legal_audit_reports_urgent_check", sql`${table.urgentCount} >= 0`),
   ]
 );
+
+// PROJEKT BEGINA 1.0 (17. 11. 2026) — sdílená paměť firmy po oblastech
+// (sociální sítě, etikety, obrázky, konkurence, web, právo, ekonomika).
+// Jedna tabulka, kind = 'status' (aktuální stav — platí nejnovější řádek
+// oblasti, starší zůstávají jako historie), 'decision' (rozhodnutí s datem),
+// 'output' (hotový výstup s odkazem). Vidí a zapisují jen Jaroslav a Lucie
+// (isInvoiceIssuer); zapisuje i asistent (Claude/ChatGPT) — source 'agent',
+// source_ref = idempotency_key. Mazání je měkké (deleted_at).
+export const projectEntries = pgTable(
+  "project_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    area: text("area").notNull(),
+    kind: text("kind").notNull(),
+    entryDate: date("entry_date", { mode: "string" }).notNull(),
+    title: text("title"),
+    body: text("body"),
+    url: text("url"),
+    source: text("source").notNull().default("manual"),
+    sourceRef: text("source_ref"),
+    createdByUserId: text("created_by_user_id"),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("project_entries_source_ref_key").on(table.source, table.sourceRef),
+    index("project_entries_area_kind_idx").on(table.area, table.kind, table.createdAt),
+    check("project_entries_kind_check", sql`${table.kind} IN ('status','decision','output')`),
+  ]
+);
