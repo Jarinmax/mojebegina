@@ -34,7 +34,7 @@ přečíslovat a sloučit s `main`.
 |---|---|---|---|---|---|
 | `L-20261106-DYN-01` | Dýňová polévka, BiB 3 l | 38 | noc 5./6. 11. 2026 | **neurčeno** (19. nebo 20. 11.) | připraveno — viz `PRIPRAVENY_POCATECNI_ZAPIS_DYNOVA_POLEVKA.md` ve větvi Skladu 1.1 |
 | `L-20261110-DYN-01` | Dýňová polévka, BiB 3 l | 17 | 10. 11. 2026 | 24. 11. 2026 | připraveno — níže |
-| `L-20261117-MEL-01` | Meduňkový sirup s levandulí: 2 × begina 3 l, 9 × sáček 650 ml, 2 × sáček 100 ml (ochutnávky) | 13 | 17. 11. 2026 | **chybí** (sirupy nemají trvanlivost v systému) | připraveno — níže, **blokuje i omezení Skladu 1.1** |
+| `L-20261117-MEL-01` | Meduňkový sirup s levandulí: 2 × begina 3 l, 9 × sáček 650 ml, 2 × sáček 100 ml (ochutnávky) | 13 | 17. 11. 2026 | 16. 4. 2027 (min. trvanlivost, dle štítku) | připraveno — níže, **blokuje omezení Skladu 1.1** |
 
 ## L-20261110-DYN-01 — Dýňová polévka, 17 ks
 
@@ -81,13 +81,17 @@ kapsičky 650 ml 9 těch 650.“
 
 - **Jedna várka = jedna šarže = jedno označení na všech 13 kusech**, ať je
   to begina, nebo sáček. Celkem 2 × 3 l + 9 × 0,65 l + 2 × 0,1 l = 12,05 l.
-- **Kód výrobku `MEL`** (MEduňka + Levandule), navržen 17. 11., čeká na
-  potvrzení. Po první šarži se už nemění.
+- **Kód výrobku `MEL`** (MEduňka + Levandule) — potvrzen štítkem
+  (fotka štítku sáčku 650 ml, 17. 11. 2026). Po první šarži se už nemění.
 - **Vyrobeno 17. 11. 2026**, pořadí 01. **Odpovědná osoba:** Jaroslav Viner.
-- **Minimální trvanlivost: CHYBÍ.** Sirupy nemají `shelf_life_days`
-  a na obalu má být „Minimální trvanlivost do: …“ (den, měsíc, rok).
-  Datum musí určit výrobce podle receptury/ověření; zápis bez něj
-  nejde provést.
+- **Minimální trvanlivost do 16. 4. 2027** — podle štítku („16.4.27“),
+  tj. výroba + 150 dní. Sirupy zatím nemají `shelf_life_days` v katalogu.
+- **Kontrola štítku 650 ml (17. 11. 2026):** název, čistý objem, složení
+  (výluh 39 %, citronová šťáva 13 %) a výživa (1061 kJ / 250 kcal,
+  sacharidy i cukry 62 g) **sedí s daty e-shopu** v Production; šarže
+  `L-20261117-MEL-01` a datum jsou vytištěné. Na šabloně štítku zůstal
+  navíc prázdný řádek „Šarže:“ pod výrobcem — vyplněná šarže je dole
+  vpravo; prázdný řádek je vhodné ze šablony odstranit.
 - **Lokace:** `default` „Výchozí sklad“ (`05de79d2-4bca-4845-809c-9610085686b8`).
 
 Balení a skladové karty (druh `finished_good`, karty zatím neexistují):
@@ -133,7 +137,7 @@ zápis má vlastní předem daný `idempotency_key`.
   "quantity": 2,
   "batch_code": "L-20261117-MEL-01",
   "produced_at": "2026-11-17",
-  "best_before_at": "<CHYBÍ>",
+  "best_before_at": "2027-04-16",
   "stock_location_id": "05de79d2-4bca-4845-809c-9610085686b8",
   "responsible_user_id": "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c",
   "note": "Várka 17. 11. 2026, 12,05 l: 2 × begina 3 l, 9 × sáček 650 ml, 2 × sáček 100 ml (ochutnávky). Tento zápis: begina 3 l.",
@@ -147,7 +151,7 @@ zápis má vlastní předem daný `idempotency_key`.
   "quantity": 9,
   "batch_code": "L-20261117-MEL-01",
   "produced_at": "2026-11-17",
-  "best_before_at": "<CHYBÍ>",
+  "best_before_at": "2027-04-16",
   "stock_location_id": "05de79d2-4bca-4845-809c-9610085686b8",
   "responsible_user_id": "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c",
   "note": "Várka 17. 11. 2026, 12,05 l: 2 × begina 3 l, 9 × sáček 650 ml, 2 × sáček 100 ml (ochutnávky). Tento zápis: sáček 650 ml.",
@@ -161,7 +165,7 @@ zápis má vlastní předem daný `idempotency_key`.
   "quantity": 2,
   "batch_code": "L-20261117-MEL-01",
   "produced_at": "2026-11-17",
-  "best_before_at": "<CHYBÍ>",
+  "best_before_at": "2027-04-16",
   "stock_location_id": "05de79d2-4bca-4845-809c-9610085686b8",
   "responsible_user_id": "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c",
   "note": "Várka 17. 11. 2026, 12,05 l: 2 × begina 3 l, 9 × sáček 650 ml, 2 × sáček 100 ml (ochutnávky). Tento zápis: sáček 100 ml na ochutnávky, neprodává se.",
@@ -179,7 +183,6 @@ a šarže zůstala dohledatelná i u rozdaných kusů.
    sloučit s `main` (přečíslování migrace) a nasadit do Production.
 2. Založit karty (druh `finished_good`): Dýňová polévka 3 l (`67d70837-…`),
    Meduňkový s levandulí 3 l (`cfd5ee82-…`), 650 ml (`911cb423-…`) a 100 ml (ochutnávky).
-3. Rozhodnout datum spotřeby `L-20261106-DYN-01` (19. nebo 20. 11. 2026)
-   a minimální trvanlivost `L-20261117-MEL-01`; potvrdit kód `MEL`.
+3. Rozhodnout datum spotřeby `L-20261106-DYN-01` (19. nebo 20. 11. 2026).
 4. Teprve po výslovném schválení zapsat šarže v pořadí výroby:
    `L-20261106-DYN-01`, `L-20261110-DYN-01`, `L-20261117-MEL-01`.
