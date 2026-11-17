@@ -16,6 +16,6 @@ jobs:
             echo "SOUBOR m.tgz $(base64 -w0 /tmp/m.tgz)"
           fi
       - run: npx next typegen && npx tsc --noEmit
-      - run: npx eslint lib/eshop/reviews.ts lib/eshop/reviewsFormat.ts lib/eshop/reviewsServer.ts lib/eshop/catalogServer.ts components/eshop/Stars.tsx components/eshop/ProductReviews.tsx components/eshop/ReviewForm.tsx components/eshop/OptoutForm.tsx components/eshop/ProductCard.tsx app/eshop/hodnoceni app/eshop/odhlaseni app/api/cron/hodnoceni "app/eshop/produkt/[slug]/page.tsx"
-      - run: npx vitest run lib/eshop/__tests__/reviews.test.ts lib/eshop/__tests__/migrationChain.test.ts lib/eshop/__tests__/productFacts.test.ts components/__tests__
+      - run: npx eslint lib/eshop/reviews.ts lib/eshop/reviewsFormat.ts lib/eshop/reviewsServer.ts lib/eshop/catalogServer.ts components/eshop/Stars.tsx components/eshop/ProductReviews.tsx components/eshop/ReviewForm.tsx components/eshop/OptoutForm.tsx components/eshop/ProductCard.tsx app/eshop/hodnoceni app/eshop/odhlaseni app/api/cron/hodnoceni lib/eshop/content/obchodniPodminky.ts lib/eshop/content/termsVersions.ts "app/eshop/produkt/[slug]/page.tsx"
+      - run: npx vitest run lib/eshop/__tests__/reviews.test.ts lib/eshop/__tests__/migrationChain.test.ts lib/eshop/__tests__/termsVersions.test.ts lib/eshop/__tests__/productFacts.test.ts components/__tests__
         if: always()

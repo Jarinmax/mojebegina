@@ -84,7 +84,7 @@ export default function ReviewForm({ token, author, items }: { token: string; au
             {pending ? "Odesílám…" : "Odeslat hodnocení"}
           </button>
           <p className="text-sm text-neutral-500">
-            Hodnocení zveřejníme na stránce produktu s vaším jménem ve tvaru výše. {REVIEW_VERIFICATION_NOTICE} Nemusíte hodnotit všechny produkty.
+            Hodnocení zveřejníme na stránce produktu pod tímto jménem, bez příjmení. {REVIEW_VERIFICATION_NOTICE} Nemusíte hodnotit všechny produkty.
           </p>
         </>
       )}

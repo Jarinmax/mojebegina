@@ -6,6 +6,7 @@
 // znění, které už platilo, je NEMĚNNÉ — test hlídá jeho otisk (SHA-256).
 // Změna textu = nové znění v termsVersions.ts (nová verze s vlastním datem
 // účinnosti), nikdy úprava starého.
+import { REVIEW_VERIFICATION_NOTICE } from "../reviewsFormat";
 import type { InfoBlock } from "../infoPages";
 import { DELIVERY_ADDRESS } from "../operator";
 import { withdrawalFormBlock, withdrawalFormBlockV3, WITHDRAWAL_PAGE_URL_TEXT } from "./withdrawalForm";
@@ -18,7 +19,7 @@ import { withdrawalFormBlock, withdrawalFormBlockV3, WITHDRAWAL_PAGE_URL_TEXT } 
  * tlačítkem „Odstoupit od smlouvy“ (§ 1830a OZ). Starší vydání se
  * generují beze změny (otisky v termsVersions.test.ts).
  */
-export type TermsEdition = 1 | 2 | 3 | 4 | 5;
+export type TermsEdition = 1 | 2 | 3 | 4 | 5 | 6;
 
 /** Věta doplněná do čl. VII od znění s přílohou (schváleno vedením 26. 10. 2026). */
 export const WITHDRAWAL_FORM_SENTENCE =
@@ -518,12 +519,18 @@ const SLOVAKIA_POINTS = [
   },
 ];
 
+/** 6. vydání (zadání Lucie 17. 11. 2026): hodnocení zákazníků a jejich ověřování, čl. II. */
+export const REVIEWS_POINT = {
+  text: `Na stránkách zboží prodávající zveřejňuje hodnocení zákazníků. ${REVIEW_VERIFICATION_NOTICE}`,
+};
+
 function termsBlocksV3(effectiveLabel: string, edition: TermsEdition): InfoBlock[] {
   return baseBlocks(effectiveLabel, false).map((block) => {
     if (block.heading?.startsWith("I. ")) return articleI;
     if (block.heading?.startsWith("VII. ")) return edition >= 4 ? articleVIIv4 : articleVII;
     if (block.heading?.startsWith("VIII. ")) return articleVIII(block);
     if (edition >= 5 && block.heading?.startsWith("VI. ")) return { ...block, points: [...(block.points ?? []), ...SLOVAKIA_POINTS] };
+    if (edition >= 6 && block.heading?.startsWith("II. ")) return { ...block, points: [...(block.points ?? []), REVIEWS_POINT] };
     return block;
   }).concat(withdrawalFormBlockV3());
 }

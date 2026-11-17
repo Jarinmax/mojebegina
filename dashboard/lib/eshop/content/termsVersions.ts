@@ -48,6 +48,9 @@ export const TERMS_VERSIONS: readonly TermsVersion[] = [
   // 5. znění — doručení na Slovensko (čl. VI), texty odsouhlasila Lucie
   // 16. 11. 2026; účinnost od 17. 11. 2026
   version("2026-11-17", "17. listopadu 2026", 5),
+  // 6. znění — hodnocení zákazníků a jejich ověřování (čl. II), zadání Lucie
+  // 17. 11. 2026; nasazeno 17. 11., účinnost od 18. 11. 2026
+  version("2026-11-18", "18. listopadu 2026", 6),
 ];
 
 /** Znění platné pro nové objednávky. */

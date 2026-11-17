@@ -5,7 +5,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { customerGreeting } from "./email/greeting";
 
 export { REVIEW_MAX_LENGTH, REVIEW_NAME_MAX_LENGTH, REVIEW_VERIFICATION_NOTICE, VERIFIED_LABEL } from "./reviewsFormat";
-import { REVIEW_MAX_LENGTH, REVIEW_NAME_MAX_LENGTH, REVIEW_VERIFICATION_NOTICE } from "./reviewsFormat";
+import { REVIEW_MAX_LENGTH, REVIEW_NAME_MAX_LENGTH } from "./reviewsFormat";
 /**
  * Automatické odesílání žádostí o hodnocení. Vypnuto, dokud Lucie neschválí
  * konečný text e-mailu — do té doby cron nic neposílá.
@@ -70,15 +70,13 @@ export function emailFromOptoutToken(token: string, secret: string): string | nu
 
 export { countLabel, formatAverage, summarize, type ReviewSummary } from "./reviewsFormat";
 
-/** Podpis u recenze: křestní jméno a první písmeno příjmení („Jana N.“). */
+/** Podpis u recenze: jen křestní jméno, bez příjmení („Jana“) — rozhodnutí Lucie 17. 11. 2026. */
 export function defaultAuthorName(fullName: string | null | undefined): string {
   const words = (fullName ?? "")
     .trim()
     .split(/\s+/)
     .filter((word) => word && !/\.$/.test(word) && /^\p{L}[\p{L}'-]*$/u.test(word));
-  if (words.length === 0) return "Zákazník";
-  if (words.length === 1) return words[0];
-  return `${words[0]} ${words[words.length - 1].charAt(0).toLocaleUpperCase("cs")}.`;
+  return words.length >= 2 ? words[0] : "Zákazník";
 }
 
 export type ReviewInput = { productId: string; rating: number; body: string };
@@ -102,12 +100,9 @@ export function cleanAuthorName(raw: string, fallback: string): string {
 
 export const REVIEW_EMAIL_SUBJECT = "Jak vám chutná begina?";
 export const REVIEW_EMAIL_SIGNATURE = ["S přátelským pozdravem", "tým Begina", "+420 774 199 975", "info@begina.cz", "www.begina.cz"] as const;
-/** Pracovní text (návrh 17. 11. 2026) — konečný text dodá Lucie. */
-export const REVIEW_EMAIL_PARAGRAPHS = [
-  "před týdnem jsme vám doručili objednávku z begina.cz. Budeme rádi, když nám napíšete, jak vám chutnalo. Pomůže to nám i dalším zákazníkům.",
-  "Hodnocení zabere chvilku: hvězdičky a pár slov ke každému produktu.",
-] as const;
-export const REVIEW_EMAIL_BUTTON = "Ohodnotit zakoupené produkty";
+/** Krátký text (Lucie 17. 11. 2026: dlouhý e-mail nikdo nečte). */
+export const REVIEW_EMAIL_PARAGRAPHS = ["jak vám chutnalo? Budeme rádi za pár hvězdiček k vašemu nákupu. Zabere to minutu."] as const;
+export const REVIEW_EMAIL_BUTTON = "Ohodnotit nákup";
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -126,10 +121,8 @@ export function reviewRequestEmail(input: ReviewEmailInput): { subject: string; 
 ${p(escapeHtml(greeting))}
 ${p(escapeHtml(REVIEW_EMAIL_PARAGRAPHS[0]))}
 <tr><td style="padding:4px 0 18px;"><a href="${escapeHtml(input.reviewUrl)}" style="display:inline-block;background:#000000;color:#FFFFFF;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px;font-weight:600;">${escapeHtml(REVIEW_EMAIL_BUTTON)}</a></td></tr>
-${p(escapeHtml(REVIEW_EMAIL_PARAGRAPHS[1]))}
-${p(escapeHtml(REVIEW_VERIFICATION_NOTICE))}
 ${p(REVIEW_EMAIL_SIGNATURE.map(escapeHtml).join("<br>"))}
-<tr><td style="font-size:12px;line-height:18px;color:#737373;border-top:1px solid #EDEDED;padding-top:14px;">Tento e-mail jsme vám poslali jako zákazníkovi e-shopu begina.cz. Nechcete od nás podobné e-maily dostávat? <a href="${escapeHtml(input.optoutUrl)}" style="color:#737373;">Odhlásit se</a>.</td></tr>
+<tr><td style="font-size:12px;line-height:18px;color:#737373;border-top:1px solid #EDEDED;padding-top:14px;">Hodnotit mohou jen zákazníci, kteří produkt zakoupili na begina.cz. Nechcete podobné e-maily dostávat? <a href="${escapeHtml(input.optoutUrl)}" style="color:#737373;">Odhlásit se</a>.</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [
     greeting,
@@ -138,13 +131,9 @@ ${p(REVIEW_EMAIL_SIGNATURE.map(escapeHtml).join("<br>"))}
     "",
     `${REVIEW_EMAIL_BUTTON}: ${input.reviewUrl}`,
     "",
-    REVIEW_EMAIL_PARAGRAPHS[1],
-    "",
-    REVIEW_VERIFICATION_NOTICE,
-    "",
     ...REVIEW_EMAIL_SIGNATURE,
     "",
-    `Tento e-mail jsme vám poslali jako zákazníkovi e-shopu begina.cz. Odhlášení z podobných e-mailů: ${input.optoutUrl}`,
+    `Hodnotit mohou jen zákazníci, kteří produkt zakoupili na begina.cz. Odhlášení z podobných e-mailů: ${input.optoutUrl}`,
   ].join("\n");
   return { subject: `${input.test ? "[TEST] " : ""}${REVIEW_EMAIL_SUBJECT}`, html, text, greeting };
 }
