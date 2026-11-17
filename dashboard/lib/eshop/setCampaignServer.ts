@@ -94,7 +94,9 @@ export async function loadCommission(month: string): Promise<CommissionReport> {
   `);
   const later = await db.execute(sql`
     WITH camp AS (${CAMPAIGN_CUSTOMERS})
-    SELECT COALESCE(o.order_number::text, left(o.id::text, 8)) AS number, o.paid_at, (o.subtotal_kc - o.discount_kc) AS goods_kc
+    SELECT COALESCE(o.order_number::text, left(o.id::text, 8)) AS number, o.paid_at, (o.subtotal_kc - o.discount_kc
+             -- akční set má dopravu v ceně a provizi 3 Kč za kus — do základu pro 5 % nepatří
+             - COALESCE((SELECT sum(oi.line_total_kc) FROM order_items oi WHERE oi.order_id = o.id AND oi.sku_snapshot = ${SET_CAMPAIGN_SKU}), 0)) AS goods_kc
     FROM orders o JOIN camp c ON lower(trim(o.contact_email)) = c.email
     WHERE o.id <> c.id AND o.ordered_at > c.ordered_at
       AND o.ordered_at < c.ordered_at + make_interval(months => ${COMMISSION_MONTHS})

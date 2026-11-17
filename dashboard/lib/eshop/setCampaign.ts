@@ -7,14 +7,15 @@
 //   jednou na objednávku.
 //   Provize: 3 Kč za každý set prodaný za akční cenu + 5 % ze zboží
 //   (po slevě, bez dopravy) dalších objednávek zákazníků, pro které byl
-//   akční set první nákup — 6 měsíců od první objednávky. Počítá se na
+//   akční set první nákup — 6 měsíců od první objednávky. Doprava se do
+//   základu nepočítá (ani ta, kterou má akční set v ceně). Počítá se na
 //   haléře, měsíční součet se zaokrouhlí na celé koruny.
 import { customerGreeting } from "./email/greeting";
 import { OPERATOR } from "./operator";
 import { SET_CAMPAIGN_LIMIT, SET_COUPON_CODE } from "./tastingSet";
 
-/** Zapne se až po schválení textu e-mailu (Lucie řekne „ano“). */
-export const SET_COUPON_EMAILS_ENABLED = false;
+/** E-mail s kódem odchází (bez tabulky set_coupon_emails ze skriptu 129 se neposílá nic). */
+export const SET_COUPON_EMAILS_ENABLED = true; // text schválila Lucie 17. 11. 2026 16:01
 export const COUPON_EMAIL_AFTER_DAYS = 5;
 export const COUPON_EMAIL_MAX_AGE_DAYS = 30;
 export const COUPON_AMOUNT_KC = 50;
