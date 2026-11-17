@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { cleanAuthorName, defaultAuthorName, orderIdFromReviewToken, parseReview, reviewSecret, type ReviewInput } from "@/lib/eshop/reviews";
 import { loadReviewForm, saveReviews } from "@/lib/eshop/reviewsServer";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
@@ -31,6 +30,5 @@ export async function submitReviewsAction(_prev: ReviewState, formData: FormData
   if (inputs.length === 0) return { status: "error", error: "Vyberte hvězdičky aspoň u jednoho produktu." };
   const author = cleanAuthorName(field("author"), defaultAuthorName(form.customerName));
   const saved = await saveReviews(form, author, inputs);
-  for (const product of form.products) revalidatePath(`/eshop/produkt/${product.slug}`);
   return { status: "done", saved };
 }

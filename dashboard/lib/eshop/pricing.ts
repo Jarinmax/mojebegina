@@ -15,6 +15,7 @@ import { SK_FOOD_INFO } from "./skFoodInfo";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
+import { SET_NEEDS_CHOICE, SET_ONLY_NOT_COLD, choiceFromSku, isTastingSet, remainingLabel, withChoice } from "./tastingSet";
 import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
 export type PricedLine = {
@@ -79,6 +80,10 @@ export function priceCart(
   const weights: (number | null)[] = [];
   let containsAgeRestricted = false;
   let boxEligible = 0;
+  let setCount = 0;
+  const setFlags: boolean[] = [];
+  let otherGoods = false;
+  let campaignLeft: number | null = null;
   const packages: Parameters<typeof quoteZasilkovnaShipping>[0][number][] = [];
   for (const item of input) {
     const found = index.getVariant(item.sku);
@@ -86,7 +91,10 @@ export function priceCart(
       return { ok: false, error: "Košík obsahuje produkt, který už nenabízíme. Obnovte prosím košík." };
     }
     const { product, variant } = found;
-    const name = lineName(product, variant);
+    const isSet = isTastingSet(product);
+    // set jde objednat jen s úplným výběrem pěti sirupů (přípona SKU)
+    if (isSet && choiceFromSku(item.sku) === null) return { ok: false, error: SET_NEEDS_CHOICE };
+    const name = withChoice(lineName(product, variant), item.sku);
     // Neověřené alergeny (null) — jediné místo, které platí pro košík,
     // pokladnu i náhradní objednávku; obejít to nejde ani podvrženým košíkem.
     if (!isOrderable(product)) {
@@ -95,10 +103,10 @@ export function priceCart(
         error: `Produkt "${product.name}" zatím nelze objednat — doplňujeme u něj povinné údaje o potravině. Odeberte ho prosím z košíku.`,
       };
     }
-    if (seen.has(variant.sku)) {
+    if (seen.has(item.sku)) {
       return { ok: false, error: "Košík obsahuje duplicitní položku. Obnovte prosím košík." };
     }
-    seen.add(variant.sku);
+    seen.add(item.sku);
     if (
       !Number.isInteger(item.quantity) ||
       item.quantity < 1 ||
@@ -110,9 +118,15 @@ export function priceCart(
       };
     }
     containsAgeRestricted ||= product.isAgeRestricted;
-    if (toSlovakia && !product.isAgeRestricted && !SK_FOOD_INFO[product.slug]) withoutSkLabel.push(product.name);
+    // set se na Slovensko přibaluje k chlazenému zboží (sirupy slovenské etikety mají)
+    if (toSlovakia && !product.isAgeRestricted && !isSet && !SK_FOOD_INFO[product.slug]) withoutSkLabel.push(product.name);
     if (isBoxEligible(product, variant)) boxEligible += item.quantity;
+    if (isSet) {
+      setCount += item.quantity;
+      if (product.tastingCampaign) campaignLeft = product.tastingCampaign.remaining;
+    } else otherGoods = true;
     weights.push(variant.weightGrams);
+    setFlags.push(isSet);
     packages.push({ quantity: item.quantity, product, variant });
     lines.push({
       sku: variant.sku,
@@ -132,6 +146,13 @@ export function priceCart(
     return { ok: false, error: `Toto zboží na Slovensko zatím nedoručujeme: ${[...new Set(withoutSkLabel)].join(", ")}. Odeberte ho prosím z košíku, nebo zvolte doručení v České republice.` };
   }
 
+  // Úvodní cena setu platí jen pro zbývající kusy ze 100.
+  if (campaignLeft !== null && setCount > campaignLeft) {
+    return { ok: false, error: `Za úvodní cenu už ${campaignLeft === 0 ? "žádný set nezbývá" : `zbývá jen ${campaignLeft} ks`} (${remainingLabel(campaignLeft)}). Upravte prosím množství v košíku.` };
+  }
+  // Samotný set nejde chlazenou přepravou (ani na Slovensko) — jen Zásilkovnou nebo osobně.
+  if (setCount > 0 && !otherGoods && shipping.id === "rozvoz") return { ok: false, error: SET_ONLY_NOT_COLD };
+
   // Zásilkovna: jen kapsičky sirupu; krabice je v ceně dopravy, volitelné krabice se nepočítají.
   const viaZasilkovna = shipping.id === "zasilkovna";
   const boxes = viaZasilkovna ? 0 : clampBoxes(options.boxes, boxEligible);
@@ -142,7 +163,8 @@ export function priceCart(
     : quoteShipping(
         shipping,
         [
-          ...lines.map((line, i) => ({ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] })),
+          // set se do chlazeného balíku přibaluje a jeho hmotnost dopravu nezdražuje
+          ...lines.flatMap((line, i) => (setFlags[i] ? [] : [{ sku: line.sku, name: line.name, quantity: line.quantity, weightGrams: weights[i] }])),
           ...boxWeightLines(boxes),
         ],
         shippingMode,

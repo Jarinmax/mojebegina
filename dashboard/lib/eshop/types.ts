@@ -49,6 +49,8 @@ export type FoodInfo = {
 export type ProductPhoto = { url: string; alt: string | null };
 
 export type Product = {
+  /** Jen ochutnávkový set za úvodní cenu: kolik kusů ze 100 zbývá (catalogServer). */
+  tastingCampaign?: { remaining: number };
   /** Průměr a počet hodnocení zákazníků (doplňuje catalogServer); bez hodnocení chybí. */
   rating?: { average: number; count: number };
   slug: string;

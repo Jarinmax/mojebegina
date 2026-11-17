@@ -7,12 +7,15 @@ import AddToCartButton from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import Stars from "./Stars";
+import { isTastingSet } from "@/lib/eshop/tastingSet";
 
 export default function ProductCard({ product }: { product: Product }) {
   const href = `/produkt/${product.slug}`;
   const hasChoice = product.variants.length > 1;
   // štítek s trvanlivostí po otevření (16. 11. 2026) — z textu trvanlivosti produktu
   const opened = afterOpeningBadge(product);
+  // ochutnávkový set: štítek Novinka, cena vč. dopravy a výběr sirupů až na stránce produktu
+  const isSet = isTastingSet(product);
   return (
     <li className="flex flex-col border border-neutral-200 rounded-2xl p-3 bg-white">
       <ShopLink href={href} className="group flex flex-col flex-1">
@@ -33,6 +36,7 @@ export default function ProductCard({ product }: { product: Product }) {
           {product.shortDescription && (
             <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>
           )}
+          {isSet && <p className="mt-1.5 inline-block rounded-full bg-[#2A2622] px-2.5 py-0.5 text-xs font-medium text-white">Novinka</p>}
           {opened && (
             <p className="mt-1.5 inline-block rounded-full bg-[#F1EFE3] px-2 py-0.5 text-xs font-medium text-[#4A5527]">{opened}</p>
           )}
@@ -53,7 +57,10 @@ export default function ProductCard({ product }: { product: Product }) {
               ))}
           </ul>
         ) : (
-          <p className="font-semibold tabular-nums">{formatKc(product.variants[0].priceKc)}</p>
+          <p className="font-semibold tabular-nums leading-snug">
+            {formatKc(product.variants[0].priceKc)}
+            {isSet && product.tastingCampaign && <span className="block text-[13px] font-normal text-neutral-500">vč. dopravy</span>}
+          </p>
         )}
         <div className="w-36">
           {!isOrderable(product) ? (
@@ -63,12 +70,12 @@ export default function ProductCard({ product }: { product: Product }) {
             >
               {NOT_ORDERABLE_LABEL}
             </span>
-          ) : hasChoice ? (
+          ) : hasChoice || isSet ? (
             <ShopLink
               href={href}
               className="flex items-center justify-center border border-begina-primary-900 text-sm font-medium rounded-lg px-3 h-9 hover:bg-begina-primary-50"
             >
-              Vybrat balení
+              {isSet ? "Vybrat sirupy" : "Vybrat balení"}
             </ShopLink>
           ) : (
             <AddToCartButton name={product.name} variants={product.variants} compact />
