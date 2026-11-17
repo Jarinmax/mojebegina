@@ -3,7 +3,7 @@
 // Soubory: public/etikety/…, seznam: lib/etikety/manifest.ts.
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ETIKETY_CATEGORIES, ETIKETY_NAMES } from "@/lib/etikety/structure";
+import { ETIKETY_CATEGORIES, ETIKETY_NAMES, OTHER_SIZE, categorySizes, groupSize, groupTypeLabel, hasSizes } from "@/lib/etikety/structure";
 import { ETIKETY_MANIFEST } from "@/lib/etikety/manifest";
 
 export const metadata = { title: "Etikety — Řízení firmy" };
@@ -51,7 +51,7 @@ function FileGrid({ folder }: { folder: string }) {
   );
 }
 
-type SP = { jazyk?: string; kat?: string; typ?: string };
+type SP = { jazyk?: string; kat?: string; bal?: string; typ?: string };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 function Pill({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
@@ -77,13 +77,21 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
   const cats = ETIKETY_CATEGORIES.filter((c) => (jazyk === "sk" ? c.slug.startsWith("sk-") : !c.slug.startsWith("sk-")));
   const label = (c: { label: string }) => c.label.replace(/^🇸🇰\s*SK\s*–\s*/, "");
   const cat = cats.find((c) => c.slug === one(sp.kat)) ?? cats[0];
-  const groups = cat?.groups ?? [];
-  const group = groups.find((g) => g.slug === one(sp.typ)) ?? groups[0];
+  const allGroups = cat?.groups ?? [];
+  // Kategorie s více baleními: nejdřív balení, potom typ etikety (jen z toho balení).
+  const sized = cat ? hasSizes(cat) : false;
+  const sizes = cat && sized ? categorySizes(cat) : [];
+  const wanted = allGroups.find((g) => g.slug === one(sp.typ));
+  const size = sized ? (sizes.find((s) => s.slug === one(sp.bal)) ?? sizes.find((s) => wanted && s.slug === groupSize(wanted.slug)) ?? sizes[0]) : undefined;
+  const groups = size ? allGroups.filter((g) => groupSize(g.slug) === size.slug) : allGroups;
+  const group = groups.find((g) => g.slug === wanted?.slug) ?? groups[0];
+  const typeLabel = (g: { slug: string; label: string }) => (sized ? groupTypeLabel(g, jazyk === "sk") : g.label);
   const folder = cat ? (group ? `${cat.slug}/${group.slug}` : cat.slug) : "";
   const url = (o: SP) => {
     const q = new URLSearchParams();
     q.set("jazyk", o.jazyk ?? jazyk);
     if (o.kat) q.set("kat", o.kat);
+    if (o.bal) q.set("bal", o.bal);
     if (o.typ) q.set("typ", o.typ);
     return `/rizeni-firmy/etikety?${q.toString()}`;
   };
@@ -109,11 +117,22 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
             </Pill>
           ))}
         </div>
+        {sizes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-neutral-500">Balení:</span>
+            {sizes.map((s) => (
+              <Pill key={s.slug} href={url({ kat: cat!.slug, bal: s.slug })} active={s.slug === size?.slug}>
+                {s.label}
+              </Pill>
+            ))}
+          </div>
+        )}
         {groups.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {sized && <span className="text-sm text-neutral-500">Etiketa:</span>}
             {groups.map((g) => (
-              <Pill key={g.slug} href={url({ kat: cat!.slug, typ: g.slug })} active={g.slug === group?.slug}>
-                {g.label}
+              <Pill key={g.slug} href={url({ kat: cat!.slug, bal: size?.slug, typ: g.slug })} active={g.slug === group?.slug}>
+                {typeLabel(g)}
               </Pill>
             ))}
           </div>
@@ -124,7 +143,8 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
         <section>
           <h2 className="text-base font-medium text-begina-primary-900 mb-3">
             {label(cat)}
-            {group ? ` · ${group.label}` : ""}
+            {size && size.slug !== OTHER_SIZE ? ` · ${size.label}` : ""}
+            {group ? ` · ${typeLabel(group)}` : ""}
           </h2>
           <FileGrid folder={folder} />
         </section>

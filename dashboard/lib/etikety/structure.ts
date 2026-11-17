@@ -112,6 +112,42 @@ export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
   },
 ];
 
+// Balení (17. 11. 2026, Jarin): u kategorií s více velikostmi se nejdřív
+// vybere balení (3 l / 650 ml / …) a teprve potom typ etikety, aby se při
+// tisku nepletly etikety na 3 l a na kapsičku. Složky se nemění — balení se
+// čte z konce názvu podskupiny.
+const SIZE_LABELS: Record<string, string> = { "3l": "3 l", "650ml": "650 ml", "500ml": "500 ml", "100ml": "100 ml" };
+export const OTHER_SIZE = "ostatni";
+
+/** Balení podskupiny: "3l", "650ml", … nebo OTHER_SIZE (např. krabice setu). */
+export function groupSize(slug: string): string {
+  const match = /(?:^|-)(3l|650ml|500ml|100ml)$/.exec(slug);
+  return match ? match[1] : OTHER_SIZE;
+}
+
+/** Má kategorie víc balení? (Sirupy, koktejly.) Jinak se krok „balení“ neukazuje. */
+export function hasSizes(category: EtiketyCategory): boolean {
+  return (category.groups ?? []).some((group) => groupSize(group.slug) !== OTHER_SIZE);
+}
+
+/** Balení kategorie v pořadí, v jakém jsou podskupiny zapsané. */
+export function categorySizes(category: EtiketyCategory): { slug: string; label: string }[] {
+  const seen: string[] = [];
+  for (const group of category.groups ?? []) {
+    const size = groupSize(group.slug);
+    if (!seen.includes(size)) seen.push(size);
+  }
+  return seen.map((slug) => ({ slug, label: SIZE_LABELS[slug] ?? "Ostatní" }));
+}
+
+/** Název typu etikety bez balení: „Přední – barevné“, zadní etiketa = „Složení“. */
+export function groupTypeLabel(group: EtiketyGroup, slovak = false): string {
+  const size = groupSize(group.slug);
+  if (size === OTHER_SIZE) return group.label;
+  if (group.slug === size) return slovak ? "Zloženie (zadné)" : "Složení (zadní)";
+  return group.label.replace(` ${SIZE_LABELS[size]}`, "");
+}
+
 /** Klíč pro manifest: "polevky" nebo "sirupy/3l". */
 export function folderKeys(): string[] {
   return ETIKETY_CATEGORIES.flatMap((c) => (c.groups ? c.groups.map((g) => `${c.slug}/${g.slug}`) : [c.slug]));
