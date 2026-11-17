@@ -2165,6 +2165,35 @@ export const recipeVariants = pgTable(
   (table) => [index("recipe_variants_recipe_idx").on(table.recipeId)]
 );
 
+// NÁKUPY SUROVIN 1.0 (17. 11. 2026) — nabídky dodavatelů s odkazy (dřív
+// Google tabulka „Suroviny nákupy Begina“). U suroviny může být víc nabídek
+// (různá balení / e-shopy); cena za jednotku = (cena + doprava) / balení.
+// pack_qty je v jednotce ceny suroviny (kg / l / ks / kapka). Nabídka bez
+// suroviny (ingredient_id NULL) = ostatní nákupy mimo receptury (kelímky…).
+export const recipeOffers = pgTable(
+  "recipe_offers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ingredientId: uuid("ingredient_id").references(() => recipeIngredients.id, { onDelete: "set null" }),
+    itemName: text("item_name").notNull(),
+    url: text("url"),
+    packLabel: text("pack_label").notNull(),
+    packQty: numeric("pack_qty", { precision: 12, scale: 4 }).notNull(),
+    priceKc: numeric("price_kc", { precision: 12, scale: 2 }).notNull(),
+    shippingKc: numeric("shipping_kc", { precision: 12, scale: 2 }).notNull().default("0"),
+    isPromo: boolean("is_promo").notNull().default(false),
+    note: text("note"),
+    sort: integer("sort").notNull().default(0),
+    updatedByUserId: text("updated_by_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("recipe_offers_ingredient_idx").on(table.ingredientId),
+    check("recipe_offers_pack_check", sql`${table.packQty} > 0`),
+    check("recipe_offers_price_check", sql`${table.priceKc} >= 0 AND ${table.shippingKc} >= 0`),
+  ]
+);
+
 // LEGISLATIVNÍ AUDIT 1.0 (17. 11. 2026) — archiv právních reportů (hlídání
 // zákonů ČR/SR/EU a kontrola webu begina.cz). Zapisuje je Claude (naplánované
 // úlohy přes MCP nástroj legal_audit_save_report), čtou Jaroslav a Lucie

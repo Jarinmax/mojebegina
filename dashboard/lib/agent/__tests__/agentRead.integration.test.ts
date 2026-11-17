@@ -259,10 +259,12 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       // Projekt Begina — jen Jaroslav a Lucie (project_write jen se zápisem)
       "project_overview",
       "project_read_area",
+      // Ceník surovin — jen Jaroslav a Lucie (změny ceny a nabídek jen se zápisem)
+      "recipes_price_list",
     ]);
     for (const tool of tools) expect(tool.annotations, tool.name).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     const colleague = mcp.agentMcpServer(db, kolega, config).listTools().map((t) => t.name);
-    expect(colleague.filter((name) => name.startsWith("idoklad_") || name.startsWith("invoice_") || name.startsWith("fio_") || name.startsWith("legal_audit_"))).toEqual([]);
+    expect(colleague.filter((name) => name.startsWith("idoklad_") || name.startsWith("invoice_") || name.startsWith("fio_") || name.startsWith("legal_audit_") || name.startsWith("recipes_"))).toEqual([]);
   });
 
   describe("source hlavička", () => {
