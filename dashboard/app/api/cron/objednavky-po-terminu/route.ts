@@ -1,6 +1,6 @@
 // Objednávky po termínu (zadání Lucie 17. 11. 2026) — interní upozornění na
 // info@begina.cz každý pracovní den v 11:00 pražského času. Vercel Cron běží
-// v UTC, proto dvakrát (9:00 a 10:00 UTC, viz vercel.json) a pošle se jen
+// v UTC, proto dvakrát (9:01 a 10:01 UTC, viz vercel.json) a pošle se jen
 // v běhu, kdy je v Praze 11 h — v zimě i v létě. Víkendy a svátky nic.
 // Když není co hlásit, neposílá se nic. Zákazníkům nikdy nic.
 // Autorizace jako u ostatních cronů: "Authorization: Bearer $CRON_SECRET".

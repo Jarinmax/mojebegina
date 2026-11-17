@@ -61,8 +61,12 @@
       "schedule": "0 10 * * *"
     },
     {
-      "path": "/api/cron/objednavky-po-terminu",
-      "schedule": "1 9,10 * * 1-5"
+      "path": "/api/cron/objednavky-po-terminu?beh=leto",
+      "schedule": "1 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/objednavky-po-terminu?beh=zima",
+      "schedule": "1 10 * * 1-5"
     }
   ]
 }
