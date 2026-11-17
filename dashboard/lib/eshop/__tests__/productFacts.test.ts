@@ -10,6 +10,7 @@ import {
   servingPrices,
   showsNoPreservatives,
   undeclaredAllergenWords,
+  withoutGlassRange,
   withoutServingPrice,
 } from "../productFacts";
 import type { Product } from "../types";
@@ -148,5 +149,7 @@ describe("bez konzervantů", () => {
     expect(withoutServingPrice("Až 12 nápojů (29 Kč za nápoj). Jeden nápoj = 250 ml.")).toBe("Až 12 nápojů. Jeden nápoj = 250 ml.");
     expect(withoutServingPrice("Grepový koktejl s vodkou a Aperolem.")).toBe("Grepový koktejl s vodkou a Aperolem.");
     expect(withoutServingPrice(null)).toBeNull();
+    expect(withoutGlassRange("2–3 nápoje")).toBeNull();
+    expect(withoutGlassRange("Až 15 nápojů po 200 ml")).toBe("Až 15 nápojů po 200 ml");
   });
 });

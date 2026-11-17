@@ -11,7 +11,7 @@
 // jsou null → chlazená přeprava podle hmotnosti se nenabídne.
 
 import { asc, eq } from "drizzle-orm";
-import { withoutServingPrice } from "./productFacts";
+import { withoutGlassRange, withoutServingPrice } from "./productFacts";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { allergenLabel } from "./allergens";
@@ -111,7 +111,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
       sku: row.sku,
       // jen množství s jednotkou („3 l“, „750 g“) — packageLabel.ts
       label: row.label === null ? null : simplePackageLabel(row.label),
-      detail: row.shortNote,
+      detail: withoutGlassRange(row.shortNote),
       description: row.packageDescription,
       priceKc: row.priceB2cKc,
       volumeMl: row.volumeMl,

@@ -109,6 +109,15 @@ export function withoutServingPrice<T extends string | null>(text: T): T {
   return (text as string).replace(/\s*\((?:cca\s*)?\d[\d\s,]*Kč za (?:porci|nápoj|sklenici)\)/giu, "") as T;
 }
 
+/**
+ * Poznámka u balení bez odhadu „2–3 nápoje“ – počet sklenic říká řádek pod
+ * cenou (sklenice 200 ml), rozhodnutí Lucie 17. 11. 2026.
+ */
+export function withoutGlassRange<T extends string | null>(note: T): T {
+  if (note === null) return note;
+  return (/^\s*\d+\s*[–-]\s*\d+\s+(?:nápoje|nápojů|sklenice|sklenic)\s*$/iu.test(note) ? null : note) as T;
+}
+
 // ── Alergeny ve složení ────────────────────────────────────────────────────
 
 const L = "[\\p{L}]*";

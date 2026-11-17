@@ -31,7 +31,7 @@ jobs:
             if (cfg.home && h1) {
               const ul = document.createElement("ul");
               ul.style.cssText = `margin-top:${wide ? 16 : 8}px;display:flex;flex-wrap:wrap;align-items:center;justify-content:${desk ? "flex-start" : "center"};column-gap:${wide ? 20 : 12}px;row-gap:4px;font-size:${wide ? 16 : 13}px;font-weight:500;color:#4A5527;list-style:none;padding:0`;
-              ul.innerHTML = ["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"].map((t) => `<li style="display:inline-flex;align-items:center;gap:4px">${svg(CHECK, wide ? 20 : 16, "#4A5527")}${t}</li>`).join("");
+              ul.innerHTML = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"].map((t) => `<li style="display:inline-flex;align-items:center;gap:4px">${svg(CHECK, wide ? 20 : 16, "#4A5527")}${t}</li>`).join("");
               h1.after(ul);
               for (const p of document.querySelectorAll("p")) {
                 if (p.textContent.replace(/\u00a0/g, " ").trim() === "Čerstvě. Jednoduše. S chutí.") { p.remove(); continue; }
@@ -53,6 +53,7 @@ jobs:
               }
             }
             if (cfg.product) {
+              for (const p of document.querySelectorAll("p,span")) if (!p.children.length && /^\d+–\d+ (nápoje|sklenice)$/.test(p.textContent.trim())) p.remove();
               for (const p of document.querySelectorAll("p")) if (/Kč za (porci|nápoj)\)/.test(p.textContent) && !p.children.length) p.textContent = p.textContent.replace(/\s*\((?:cca\s*)?\d[\d\s,]*Kč za (?:porci|nápoj|sklenici)\)/g, "");
               const price = [...document.querySelectorAll("p")].find((p) => p.className.includes("text-2xl") && p.className.includes("font-semibold"));
               const box = document.createElement("div");
