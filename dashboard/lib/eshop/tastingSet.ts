@@ -116,12 +116,13 @@ export function campaignRemaining(sold: number): number {
 
 // Texty na stránce setu.
 export const SET_CAMPAIGN_PRICE_NOTE = "Akční cena včetně dopravy – prvních 100 setů";
-export const SET_UNDER_PRICE = "5 sirupů po 100 ml · z každého až 5 nápojů";
+export const SET_UNDER_PRICE = "5 sirupů po 100 ml · z každého až 5 nápojů, celkem 25 nápojů";
 export const SET_DELIVERY_NOTE_CAMPAIGN =
   "Doprava Zásilkovnou na výdejní místo je v ceně. Když set přidáte k chlazenému zboží, přibalíme ho do stejného balíku a nic navíc neplatíte.";
 export const SET_DELIVERY_NOTE =
   "Set posíláme Zásilkovnou na výdejní místo. Když ho přidáte k chlazenému zboží, přibalíme ho do stejného balíku a nic navíc neplatíte.";
 export const SET_HOME_BANNER = "Ochutnávkový set sirupů – 5 × 100 ml za 189 Kč vč. dopravy";
+export const SET_SYRUPS_HEADING = "Složení sirupů, ze kterých vybíráte";
 export const SET_LINK_QUESTION = "Nevíte, který?";
 export const SET_LINK_LABEL = "Ochutnávkový set 5 × 100 ml";
 export const SET_ONLY_NOT_COLD =

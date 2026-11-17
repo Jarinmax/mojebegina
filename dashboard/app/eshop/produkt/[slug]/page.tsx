@@ -22,7 +22,7 @@ import Stars from "@/components/eshop/Stars";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import { loadProductReviews } from "@/lib/eshop/reviewsServer";
 import TastingSetForm from "@/components/eshop/TastingSetForm";
-import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_SLUG, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
+import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
@@ -393,6 +393,25 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                 )
               )}
             </dl>
+            {/* Set: složení všech sirupů z nabídky přímo na stránce (17. 11. 2026) —
+                bere se ze stránek jednotlivých sirupů, takže je vždy stejné. */}
+            {isSet && (
+              <div className="mt-5">
+                <h3 className="text-sm font-medium mb-1">{SET_SYRUPS_HEADING}</h3>
+                <dl className="text-sm divide-y divide-neutral-100">
+                  {SET_SYRUPS.map((syrup) => {
+                    const info = index.getProduct(syrup.slug)?.foodInfo;
+                    const value = info ? ingredientsValue(info.ingredients, info.allergens) : null;
+                    return value === null ? null : (
+                      <div key={syrup.code} className="py-3 grid grid-cols-1 gap-1 sm:grid-cols-[10rem_1fr] sm:gap-3">
+                        <dt className="text-neutral-500">{syrup.name}</dt>
+                        <dd className="min-w-0 break-words">{value}</dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </div>
+            )}
             {product.warnings.map((warning) => (
               <p key={warning} className="mt-3 text-sm text-neutral-600">
                 {warning}
