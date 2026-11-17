@@ -3,6 +3,7 @@ import { companyOverview } from "@/lib/content/companyOverview";
 import { listCompanyNotes } from "@/lib/data/companyManagement";
 import { getCompanyMap } from "@/lib/data/companyNodes";
 import { listOrders } from "@/lib/data/orders";
+import { loadOverdueReport } from "@/lib/eshop/overdueOrdersServer";
 import { getCockpitCounts } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isCeoFocusAllowed } from "@/lib/data/ceoFocusAuth";
@@ -47,6 +48,8 @@ export default async function CompanyOverviewPage() {
   const companyMap = await getCompanyMap();
   const { counts: orderCounts } = await listOrders();
   const crmCounts = await getCockpitCounts();
+  const overdue = await loadOverdueReport().catch(() => null);
+  const overdueCount = overdue ? overdue.unshipped.length + overdue.undelivered.length : null;
   // Security Phase 17 (CEO přehled 1.0) — karta se zobrazuje jen dvěma
   // konkrétním lidem (viz ceoFocusAuth.ts), ne celému okruhu ADMIN/
   // EXECUTIVE jako zbytek téhle stránky. Skutečné vynucení je v datové
@@ -119,6 +122,12 @@ export default async function CompanyOverviewPage() {
           </Link>
         </div>
         <OrderSummaryTiles counts={orderCounts} />
+        <Link
+          href="/rizeni-firmy/objednavky-po-terminu"
+          className={`mt-2 block rounded-xl p-4 text-sm font-medium border ${overdueCount ? "bg-red-50 border-red-300 text-red-900" : "bg-white border-neutral-200 text-begina-primary-900 hover:border-begina-primary-300"}`}
+        >
+          Objednávky po termínu{overdueCount === null ? "" : `: ${overdueCount}`} — zaplacené nebo odeslané a 5 pracovních dnů nedoručené →
+        </Link>
       </div>
 
       <div className="mb-6">
