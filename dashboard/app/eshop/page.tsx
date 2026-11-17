@@ -10,6 +10,7 @@ import Image from "next/image";
 import { Clock, Leaf, Percent, Soup } from "lucide-react";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import ProductCard from "@/components/eshop/ProductCard";
+import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
 import { HOME_ABOUT, HOME_BESTSELLERS, HOME_BISTRO, HOME_STEPS, HOME_STEPS_PHOTO, HOME_WHY } from "@/lib/eshop/homeContent";
 
 const WHY_ICONS = { leaf: Leaf, soup: Soup, clock: Clock, percent: Percent } as const;
@@ -36,6 +37,7 @@ export const metadata: Metadata = {
 
 export default async function EshopPage() {
   const { categories, products } = await getCatalog();
+  const tastingSet = products.find((p) => p.slug === SET_SLUG);
   const bestsellers = HOME_BESTSELLERS.flatMap((slug) => products.filter((p) => p.slug === slug));
   return (
     <>
@@ -106,6 +108,17 @@ export default async function EshopPage() {
             </ShopLink>
           </div>
         </section>
+
+        {/* Novinka: ochutnávkový set sirupů (17. 11. 2026) — jen za úvodní cenu */}
+        {tastingSet?.tastingCampaign && (
+          <div className="w-full max-w-6xl mx-auto px-4">
+            <ShopLink href={`/produkt/${SET_SLUG}`} className="flex items-center gap-3 rounded-2xl border border-[#D9D4C7] bg-[#FAF6EF] px-4 py-3.5 text-[15px] leading-snug text-[#2A2622] hover:bg-[#F4EEE2]">
+              <span className="shrink-0 rounded-full bg-[#2A2622] px-2.5 py-0.5 text-xs font-semibold text-white">Novinka</span>
+              <span>{SET_HOME_BANNER}</span>
+              <span className="ml-auto text-xl" aria-hidden="true">›</span>
+            </ShopLink>
+          </div>
+        )}
 
         {/* Nejoblíbenější */}
         {bestsellers.length > 0 && (

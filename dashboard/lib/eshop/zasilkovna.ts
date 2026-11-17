@@ -49,6 +49,8 @@ export const ZASILKOVNA_BOXES: readonly { maxPouches: number; weightGrams: numbe
 
 export const ZASILKOVNA_MAX_POUCHES = Math.max(...ZASILKOVNA_BOXES.map((box) => box.maxPouches));
 
+import { isCampaignSetSku, isTastingSet } from "./tastingSet";
+
 const POUCH_CATEGORY = "sirupy";
 const POUCH_VOLUME_ML = 650;
 
@@ -56,7 +58,9 @@ export function isSyrupPouch(product: { category: string }, variant: { volumeMl:
   return product.category === POUCH_CATEGORY && variant.volumeMl === POUCH_VOLUME_ML;
 }
 
-type Line = { quantity: number; product: { category: string }; variant: { volumeMl: number | null; weightGrams: number | null } };
+type Line = { quantity: number; product: { category: string; slug?: string }; variant: { sku?: string; volumeMl: number | null; weightGrams: number | null } };
+
+const isSetLine = (line: Line) => line.product.slug !== undefined && isTastingSet({ slug: line.product.slug });
 
 export type ZasilkovnaQuote =
   | { available: true; priceKc: number; weightGrams: number; pouches: number }
@@ -65,10 +69,16 @@ export type ZasilkovnaQuote =
 /** Nabídka Zásilkovny pro košík: cena včetně krabice, nebo důvod, proč ji nabídnout nejde. */
 export function quoteZasilkovna(lines: readonly Line[]): ZasilkovnaQuote {
   if (lines.length === 0) return { available: false, reason: "empty" };
-  if (lines.some((line) => !isSyrupPouch(line.product, line.variant))) return { available: false, reason: "other_goods" };
-  const pouches = lines.reduce((sum, line) => sum + line.quantity, 0);
-  if (pouches <= 0) return { available: false, reason: "empty" };
-  const box = ZASILKOVNA_BOXES.find((candidate) => pouches <= candidate.maxPouches);
+  // Ochutnávkový set sirupů (17. 11. 2026): jde Zásilkovnou sám i se sáčky
+  // 650 ml. Set dopravu nezdražuje: se sáčky platí cena sáčků, set za
+  // úvodní cenu má dopravu v ceně (0 Kč), set za běžnou cenu standardní cenu.
+  const sets = lines.filter(isSetLine);
+  const pouchLines = lines.filter((line) => !isSetLine(line));
+  if (pouchLines.some((line) => !isSyrupPouch(line.product, line.variant))) return { available: false, reason: "other_goods" };
+  const pouches = pouchLines.reduce((sum, line) => sum + line.quantity, 0);
+  const setCount = sets.reduce((sum, line) => sum + line.quantity, 0);
+  if (pouches <= 0 && setCount <= 0) return { available: false, reason: "empty" };
+  const box = pouches > 0 ? ZASILKOVNA_BOXES.find((candidate) => pouches <= candidate.maxPouches) : { maxPouches: 0, weightGrams: 0 };
   if (!box) return { available: false, reason: "too_many" };
   let goods = 0;
   for (const line of lines) {
@@ -78,7 +88,8 @@ export function quoteZasilkovna(lines: readonly Line[]): ZasilkovnaQuote {
   const weightGrams = goods + box.weightGrams;
   if (weightGrams > ZASILKOVNA_OVERSIZE_MAX_GRAMS) return { available: false, reason: "over_limit" };
   const carrierKc = weightGrams <= ZASILKOVNA_STANDARD_MAX_GRAMS ? ZASILKOVNA_STANDARD_KC : ZASILKOVNA_OVERSIZE_KC;
-  return { available: true, priceKc: carrierKc + ZASILKOVNA_BOX_KC, weightGrams, pouches };
+  const onlyCampaignSets = pouches === 0 && sets.every((line) => line.variant.sku !== undefined && isCampaignSetSku(line.variant.sku));
+  return { available: true, priceKc: onlyCampaignSets ? 0 : carrierKc + ZASILKOVNA_BOX_KC, weightGrams, pouches };
 }
 
 /** Věta o doručení na stránce produktu (14. 11. 2026, Lucie): sirupy se sáčkem 650 ml jdou i Zásilkovnou. */

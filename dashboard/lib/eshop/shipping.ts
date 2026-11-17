@@ -11,6 +11,7 @@
 // (docs/eshop-doprava/spusteni.md).
 
 import { ZASILKOVNA_MAX_POUCHES, quoteZasilkovna } from "./zasilkovna";
+import { SET_LAUNCHED } from "./tastingSet";
 import { formatKc } from "@/lib/format";
 import { cartWeight, coldShippingPrice, coldShippingPriceSk, COLD_SHIPPING_MAX_GRAMS } from "./shippingRates";
 
@@ -72,7 +73,7 @@ export const ZASILKOVNA_METHOD_ID = "zasilkovna";
 const ZASILKOVNA: ShippingMethod = {
   id: "zasilkovna",
   label: "Zásilkovna – výdejní místo nebo Z-BOX",
-  description: `Jen pro sirupy v kapsičce 650 ml (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce). Cena je včetně krabice.`,
+  description: `Jen pro sirupy v kapsičce 650 ml (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce)${SET_LAUNCHED ? " a ochutnávkový set sirupů" : ""}. Cena je včetně krabice.`,
   priceKc: 0,
   requiresAddress: false,
   requiresPickupPoint: true,
@@ -191,7 +192,7 @@ export function quoteZasilkovnaShipping(lines: Parameters<typeof quoteZasilkovna
     quote.reason === "too_many"
       ? `Zásilkovnou posíláme nejvýše ${ZASILKOVNA_MAX_POUCHES} ks sirupu v kapsičce v jedné objednávce. Zvolte prosím chlazenou přepravu, nebo objednávku rozdělte.`
       : quote.reason === "other_goods"
-        ? "Zásilkovnou posíláme jen sirupy v kapsičce 650 ml. Ostatní zboží doručujeme chlazenou přepravou."
+        ? `Zásilkovnou posíláme jen sirupy v kapsičce 650 ml${SET_LAUNCHED ? " a ochutnávkový set sirupů" : ""}. Ostatní zboží doručujeme chlazenou přepravou.`
         : "Cenu Zásilkovny pro tento košík nejde spočítat. Zvolte prosím jiný způsob doručení.";
   return { available: false, reason: quote.reason === "missing_weight" ? "missing_weight" : quote.reason === "over_limit" ? "over_limit" : "not_eligible", message, weightGrams: null };
 }

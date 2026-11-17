@@ -1,0 +1,16 @@
+name: docasne
+on: push
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: dashboard } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx next typegen && npx tsc --noEmit
+      - run: npx eslint lib/eshop/tastingSet.ts lib/eshop/tastingSetServer.ts lib/eshop/catalogIndex.ts lib/eshop/cart.ts lib/eshop/pricing.ts lib/eshop/zasilkovna.ts lib/eshop/shipping.ts lib/eshop/catalogServer.ts components/eshop/TastingSetForm.tsx components/eshop/ProductCard.tsx app/eshop/page.tsx app/eshop/pokladna/CheckoutForm.tsx "app/eshop/produkt/[slug]/page.tsx"
+        if: always()
+      - run: npx vitest run lib/eshop components 2>&1 | tail -150
+        if: always()

@@ -27,6 +27,7 @@ import {
   pointFromWidget,
   type ZasilkovnaPoint,
 } from "@/lib/eshop/zasilkovna";
+import { isTastingSet } from "@/lib/eshop/tastingSet";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -403,7 +404,10 @@ export default function CheckoutForm({
   const boxesMax = boxCount(lines);
   const boxes = clampBoxes(values.boxes, boxesMax);
   const boxesKc = boxes * BOX_PRICE_KC;
-  const quoteLines = lines.map((line) => ({
+  // Ochutnávkový set sirupů se do chlazeného balíku přibaluje (hmotnost dopravu
+  // nezdražuje); samotný set chlazenou přepravou nejde (tastingSet.ts).
+  const onlyTastingSets = lines.length > 0 && lines.every((line) => isTastingSet(line.product));
+  const quoteLines = lines.filter((line) => !isTastingSet(line.product)).map((line) => ({
     sku: line.sku,
     name: line.name,
     quantity: line.quantity,
@@ -417,7 +421,7 @@ export default function CheckoutForm({
   const zasilkovnaOffered = zasilkovna && zasilkovnaQuote.available && destination !== "sk";
   const shippingMethods = [
     ...allShippingMethods.filter((method) => method.id === ZASILKOVNA_METHOD_ID && zasilkovnaOffered),
-    ...allShippingMethods.filter((method) => method.id !== ZASILKOVNA_METHOD_ID),
+    ...allShippingMethods.filter((method) => method.id !== ZASILKOVNA_METHOD_ID && !(onlyTastingSets && method.id === "rozvoz")),
   ];
   const deliveryCountryLabel = destination === "sk" ? "Slovensko" : DELIVERY_COUNTRY;
   // Slovensko: jen platba kartou (bankovní převod se nenabízí).

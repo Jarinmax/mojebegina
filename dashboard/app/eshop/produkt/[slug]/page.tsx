@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import ShopLink from "@/components/eshop/ShopLink";
 import { notFound, redirect } from "next/navigation";
-import { Check, ChevronLeft, Clock, Snowflake } from "lucide-react";
+import { Check, ChevronLeft, Clock, Package, Snowflake } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { legacyProductFallback } from "@/lib/eshop/legacyProducts";
 import { eshopHref } from "@/lib/eshop/paths";
@@ -21,6 +21,8 @@ import ProductReviews from "@/components/eshop/ProductReviews";
 import Stars from "@/components/eshop/Stars";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import { loadProductReviews } from "@/lib/eshop/reviewsServer";
+import TastingSetForm from "@/components/eshop/TastingSetForm";
+import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_SLUG, SET_UNDER_PRICE, isTastingSet, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
@@ -183,7 +185,11 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   // Úvodní odstavce = „Popis“; sekce „## …“ (Pro koho je vhodný, Jak sirup používat…) až pod chutí, jako na begina.cz.
   const description = parseDescription(product.description);
   const openedLine = afterOpeningLine(product);
-  const portions = servingPrices(product);
+  const isSet = isTastingSet(product);
+  const campaign = product.tastingCampaign;
+  // odkaz na set na stránce každého sirupu — jen když je set v katalogu vidět
+  const showSetLink = !isSet && product.category === "sirupy" && index.getProduct(SET_SLUG) !== undefined;
+  const portions = isSet ? [] : servingPrices(product);
   const reviews = await loadProductReviews(product.slug);
   // „bez konzervantů“ jen kde ve složení žádný konzervant není (16. 11. 2026)
   const highlights = showsNoPreservatives(product) ? [...product.highlights, NO_PRESERVATIVES] : product.highlights;
@@ -236,7 +242,17 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           {product.shortDescription && <p className="text-neutral-600 mt-2">{product.shortDescription}</p>}
           <p className="text-2xl font-semibold mt-5 tabular-nums">
             {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
+            {isSet && campaign && <span className="ml-2 text-base font-medium text-neutral-700">vč. dopravy Zásilkovnou</span>}
           </p>
+          {isSet && (
+            <div className="mt-3 flex flex-col items-start gap-1.5 text-sm text-neutral-700">
+              {campaign && <p className="font-medium">{SET_CAMPAIGN_PRICE_NOTE}</p>}
+              {campaign && (
+                <p className="rounded-full bg-[#F1EFE3] px-2.5 py-0.5 text-[13px] font-medium text-[#4A5527] tabular-nums">{remainingLabel(campaign.remaining)}</p>
+              )}
+              <p>{SET_UNDER_PRICE}</p>
+            </div>
+          )}
 
           {/* Trvanlivost po otevření a cena za porci (16. 11. 2026) — odvozeno z údajů
               produktu (text trvanlivosti, cena, objem, počet porcí); bez údaje se řádek vynechá. */}
@@ -265,7 +281,9 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
           <MetaViewContent sku={product.variants[0].sku} name={product.name} priceKc={lowestPriceKc(product)} />
           <div className="mt-6">
-            {isOrderable(product) ? (
+            {isOrderable(product) && isSet ? (
+              <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} maxQuantity={campaign?.remaining} />
+            ) : isOrderable(product) ? (
               <AddToCartButton name={product.name} variants={product.variants} />
             ) : (
               <div className="border border-neutral-200 rounded-xl p-4">
@@ -275,9 +293,19 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             )}
           </div>
 
+          {showSetLink && (
+            <p className="mt-3 text-sm">
+              {SET_LINK_QUESTION}{" "}
+              <ShopLink href={`/produkt/${SET_SLUG}`} className="font-medium underline underline-offset-2">
+                {SET_LINK_LABEL}
+              </ShopLink>
+            </p>
+          )}
+
           <p className="mt-5 text-sm text-neutral-600 flex items-start gap-2">
-            <Snowflake className="w-4 h-4 mt-0.5 shrink-0 text-neutral-500" />
-            {productDeliveryNote(product, zasilkovnaEnabledFromEnv())}
+            {/* vločka jen u chlazené přepravy; set jde Zásilkovnou → balík */}
+            {isSet ? <Package className="w-4 h-4 mt-0.5 shrink-0 text-neutral-500" /> : <Snowflake className="w-4 h-4 mt-0.5 shrink-0 text-neutral-500" />}
+            {isSet ? (campaign ? SET_DELIVERY_NOTE_CAMPAIGN : SET_DELIVERY_NOTE) : productDeliveryNote(product, zasilkovnaEnabledFromEnv())}
           </p>
 
           {product.isAgeRestricted && (
@@ -291,7 +319,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             </section>
           )}
 
-          {category.detailSections.map((section) => (
+          {(isSet ? [] : category.detailSections).map((section) => (
             <section key={section.title} className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
               <h2 className="font-medium text-begina-primary-900">{section.title}</h2>
               {section.paragraphs[0] && <p>{section.paragraphs[0]}</p>}
@@ -347,7 +375,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             <dl className="text-sm divide-y divide-neutral-100">
               {/* mobil: název nad textem (celá šířka); od sm: název vlevo, obsah vpravo.
                   Tabulka výživy přes celou šířku, nadpis jen pro čtečky. */}
-              {foodInfoRows(product).map((row) =>
+              {foodInfoRows(product).filter((row) => !isSet || row.value !== null).map((row) =>
                 row.wide ? (
                   <div key={row.label} className="py-3">
                     <dt className="sr-only">{row.label}</dt>

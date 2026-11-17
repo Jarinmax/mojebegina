@@ -7,6 +7,7 @@ import { cache } from "react";
 import { db } from "@/lib/db/client";
 import { loadCatalog } from "./catalogDb";
 import { loadReviewSummaries } from "./reviewsServer";
+import { applyTastingSet } from "./tastingSetServer";
 import { withoutGlassRange, withoutServingPrice } from "./productFacts";
 import { createCatalogIndex } from "./catalogIndex";
 import { shippingModeFromEnv } from "./shipping";
@@ -18,6 +19,7 @@ import { shippingModeFromEnv } from "./shipping";
 // zůstávají beze změny.
 export const getCatalog = cache(async () => {
   const [catalog, ratings] = await Promise.all([loadCatalog(db, { weights: shippingModeFromEnv() === "weight" }), loadReviewSummaries()]);
+  const products = await applyTastingSet(catalog.products);
   return {
     ...catalog,
     // úvodní text kategorie Koktejly: „sáček 500 ml … (2–3 nápoje)“ bez odhadu
@@ -25,7 +27,7 @@ export const getCatalog = cache(async () => {
       ...category,
       intro: category.intro.map((paragraph) => paragraph.replace(/\s*\(\d+\s*[–-]\s*\d+\s+nápoj[eů]\)/giu, "")),
     })),
-    products: catalog.products.map((product) => ({
+    products: products.map((product) => ({
       ...product,
       rating: ratings.get(product.slug),
       shortDescription: withoutServingPrice(product.shortDescription),

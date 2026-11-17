@@ -7,6 +7,7 @@
 
 import type { CatalogIndex } from "./catalogIndex";
 import { lineName } from "./productRules";
+import { withChoice } from "./tastingSet";
 import type { Product, Variant } from "./types";
 
 export type CartLine = { sku: string; quantity: number };
@@ -98,7 +99,7 @@ export function resolveCartLines(cart: CartLine[], index: CatalogIndex): Resolve
       {
         ...line,
         ...found,
-        name: lineName(found.product, found.variant),
+        name: withChoice(lineName(found.product, found.variant), line.sku),
         lineTotalKc: found.variant.priceKc * line.quantity,
       },
     ];

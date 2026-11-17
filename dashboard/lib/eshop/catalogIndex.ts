@@ -1,6 +1,7 @@
 // ESHOP 1.0 — vyhledávání v katalogu načteném z DB. Čisté funkce, běží
 // na serveru i v prohlížeči (CatalogProvider).
 
+import { baseSku, choiceFromSku, isSetSku } from "./tastingSet";
 import type { Catalog, Category, Product, Variant } from "./types";
 
 export type CatalogIndex = {
@@ -24,6 +25,13 @@ export function createCatalogIndex(catalog: Catalog): CatalogIndex {
     findCategory: (slug) => catalog.categories.find((category) => category.slug === slug),
     productsInCategory: (slug) => catalog.products.filter((product) => product.category === slug),
     getProduct: (slug) => productsBySlug.get(slug),
-    getVariant: (sku) => variantsBySku.get(sku),
+    // Ochutnávkový set: řádek košíku nese výběr sirupů jako příponu SKU
+    // („…~sa.li.za.ib.si“, tastingSet.ts) — balení se hledá bez přípony;
+    // přípona s neplatným výběrem = neznámé balení.
+    getVariant: (sku) => {
+      const direct = variantsBySku.get(sku);
+      if (direct || !isSetSku(sku) || choiceFromSku(sku) === null) return direct;
+      return variantsBySku.get(baseSku(sku));
+    },
   };
 }
