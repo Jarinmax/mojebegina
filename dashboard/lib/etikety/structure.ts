@@ -28,7 +28,7 @@ export const ETIKETY_CATEGORIES: EtiketyCategory[] = [
       { slug: "predni-cervenocerne-650ml", label: "Přední – Brother červeno-černé 650 ml (DK-22251)" },
       { slug: "predni-cernobile-3l", label: "Přední – Brother černobílé 3 l (DK-22212)" },
       { slug: "predni-cernobile-650ml", label: "Přední – Brother černobílé 650 ml (DK-22212)" },
-      { slug: "ochutnavkovy-set", label: "Ochutnávkový set – krabice (DK-22251)" },
+      { slug: "ochutnavkovy-set", label: "Ochutnávkový set – krabice (DK-22251 i DK-22212)" },
     ],
   },
   {
