@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGoodsReceipt, listGoodsReceiptLines } from "@/lib/data/sklad";
 import { getGoodsReceiptReextractionPreview } from "@/lib/data/skladExtraction";
@@ -12,16 +11,10 @@ export default async function ZnovuPrecistPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const backLink = (
-    <Link href={`/rizeni-firmy/sklad/prijemky/${id}`} className="text-sm text-neutral-500 hover:text-begina-primary-900">
-      ← Příjemka
-    </Link>
-  );
 
   if (receipt.status !== "draft") {
     return (
       <div>
-        {backLink}
         <p className="text-sm text-neutral-500 mt-3">Potvrzené a stornované příjemky appka nemění — porovnání tu není k dispozici.</p>
       </div>
     );
@@ -31,7 +24,6 @@ export default async function ZnovuPrecistPage({ params }: { params: Promise<{ i
   if (!preview || preview.status !== "ready" || !preview.raw) {
     return (
       <div>
-        {backLink}
         <p className="text-sm text-neutral-500 mt-3">Žádný výsledek nového čtení nečeká na porovnání.</p>
       </div>
     );
@@ -41,7 +33,6 @@ export default async function ZnovuPrecistPage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      {backLink}
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Porovnání nového čtení — {receipt.supplierNameSnapshot}</h1>
         <p className="text-sm text-neutral-500 mt-0.5">

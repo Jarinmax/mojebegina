@@ -1,12 +1,8 @@
-import Link from "next/link";
 import NewLeadForm from "./NewLeadForm";
 
 export default function NewLeadPage() {
   return (
     <div>
-      <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Obchod / CRM
-      </Link>
 
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Nový lead</h1>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
@@ -27,9 +26,6 @@ export default async function IdokladPreflightPage() {
 
   return (
     <div className="max-w-3xl">
-      <Link href="/rizeni-firmy/objednavky" className="text-sm text-neutral-500 hover:underline">
-        ← Objednávky
-      </Link>
       <h1 className="mt-2 text-lg font-medium text-begina-primary-900">iDoklad — kontrola připojení e-shopu</h1>
       <p className="mt-0.5 text-sm text-neutral-500">
         Ověří přihlášení a nastavení iDokladu, které použije vystavení e-shopových faktur. Jen čtení.

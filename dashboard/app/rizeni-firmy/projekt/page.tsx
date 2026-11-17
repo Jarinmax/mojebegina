@@ -31,9 +31,6 @@ export default async function ProjektPage() {
   return (
     <div className="flex flex-col gap-6 text-neutral-900">
       <div>
-        <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:underline">
-          ← Řízení firmy
-        </Link>
         <h1 className="mt-1 text-2xl font-semibold">Projekt Begina</h1>
         <p className="mt-1 text-sm text-neutral-600">Kde co je, co jsme rozhodli a co je hotové. Stačí Claudovi říct „zapiš to“.</p>
       </div>

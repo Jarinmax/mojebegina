@@ -41,7 +41,7 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
           <h1 className="text-2xl font-semibold">Měření e-shopu</h1>
           <p className="mt-1 text-sm text-neutral-600">Posledních {period} dní včetně dneška. Anonymní součty, bez cookies a bez údajů o návštěvnících.</p>
         </div>
-        <div className="flex gap-2 text-sm">
+        <div className="flex flex-wrap gap-2 text-sm">
           {PERIODS.map((value) => (
             <Link key={value} href={`/rizeni-firmy/mereni-eshopu?dni=${value}`} className={`rounded-lg px-3 py-1.5 font-medium ${value === period ? "bg-begina-primary-900 text-white" : "bg-neutral-100 text-neutral-700"}`}>
               {value} dní

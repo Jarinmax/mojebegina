@@ -32,9 +32,6 @@ export default async function CustomerDetailPage(
 
   return (
     <div>
-      <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Obchod / CRM
-      </Link>
 
       <div className="flex items-start justify-between gap-3 mt-1 mb-4">
         <div>

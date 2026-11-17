@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { getGoodsReceipt, getGoodsReceiptConfirmationCheck, listGoodsReceiptLines, listStockItems, listSuppliers } from "@/lib/data/sklad";
@@ -29,9 +28,6 @@ export default async function KontrolaPage({ params }: { params: Promise<{ id: s
 
   return (
     <div>
-      <Link href={`/rizeni-firmy/sklad/prijemky/${id}`} className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Příjemka
-      </Link>
 
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Kontrola a potvrzení — {receipt.supplierNameSnapshot}</h1>

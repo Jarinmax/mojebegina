@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { listOrganizationsForOrderPicker } from "@/lib/data/orders";
 import CreateOrderForm from "../CreateOrderForm";
 
@@ -12,12 +11,6 @@ export default async function NewOrderPage() {
 
   return (
     <div>
-      <Link
-        href="/rizeni-firmy/objednavky"
-        className="text-sm text-neutral-500 hover:text-begina-primary-900"
-      >
-        ← Objednávky
-      </Link>
 
       <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-4">Nová objednávka</h1>
 

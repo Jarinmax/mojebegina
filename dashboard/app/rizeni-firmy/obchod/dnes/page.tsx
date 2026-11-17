@@ -45,9 +45,6 @@ export default async function DailyCallsPage(props: PageProps<"/rizeni-firmy/obc
 
   return (
     <div>
-      <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Obchod / CRM
-      </Link>
 
       <div className="mt-2 mb-4">
         <h1 className="text-lg font-medium text-begina-primary-900">Dnešní volání</h1>

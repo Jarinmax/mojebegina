@@ -49,7 +49,7 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
         <p className="mt-1 text-sm text-neutral-600">
           Uhrazené objednávky z e-shopu zaplacené v tomto měsíci (zboží po slevě, bez dopravy). Sleva platí v měsíci {monthName(validMonth)} {validMonth.year}.
         </p>
-        <p className="mt-2 text-sm flex gap-4">
+        <p className="mt-2 text-sm flex flex-wrap gap-x-4 gap-y-1">
           <Link className="underline" href={`/rizeni-firmy/partnersky-program?mesic=${previous}`}>
             ← předchozí měsíc
           </Link>

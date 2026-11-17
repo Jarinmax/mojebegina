@@ -12,9 +12,6 @@ export default async function SkladPage() {
 
   return (
     <div>
-      <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Řízení firmy
-      </Link>
 
       <div className="mt-3 mb-5 flex items-center justify-between">
         <div>

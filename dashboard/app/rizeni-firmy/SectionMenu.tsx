@@ -1,0 +1,100 @@
+import Link from "next/link";
+
+// Rozcestník Řízení firmy (17. 11. 2026, přání Lucie): všechny oddíly nahoře
+// ve skupinách, aby se nemuselo scrollovat a hledat dole. Jen odkazy —
+// oprávnění se tu NEROZHODUJÍ, stránka předává hotové příznaky (stejné jako
+// dřív u jednotlivých karet) a skutečné vynucení zůstává na cílových
+// stránkách a v datové vrstvě.
+export type SectionMenuFlags = {
+  /** Jen Jaroslav a Lucie (isInvoiceIssuer) — Ekonomika, Receptury, Projekt, Legislativa. */
+  ekonomika: boolean;
+  ceoFocus: boolean;
+  sklad: boolean;
+  agent: boolean;
+  /** Spolupracovníci — jen role ADMIN. */
+  admin: boolean;
+};
+
+type Item = { href: string; label: string; icon: string; show?: (f: SectionMenuFlags) => boolean };
+type Group = { title: string; items: Item[] };
+
+export const SECTION_GROUPS: Group[] = [
+  {
+    title: "Prodej",
+    items: [
+      { href: "/rizeni-firmy/objednavky", label: "Objednávky", icon: "📦" },
+      { href: "/rizeni-firmy/objednavky-po-terminu", label: "Objednávky po termínu", icon: "⏰" },
+      { href: "/rizeni-firmy/obchod", label: "Obchod / CRM", icon: "📞" },
+      { href: "/rizeni-firmy/partnersky-program", label: "Partnerský program", icon: "🤝" },
+    ],
+  },
+  {
+    title: "Výroba",
+    items: [
+      { href: "/rizeni-firmy/receptury", label: "Receptury a náklady", icon: "🥣", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/etikety", label: "Etikety", icon: "🏷️" },
+      { href: "/rizeni-firmy/sklad/nova-prijemka", label: "Nová příjemka (foto)", icon: "📸", show: (f) => f.sklad },
+      { href: "/rizeni-firmy/sklad", label: "Sklad a příjemky", icon: "🗄️", show: (f) => f.sklad },
+      { href: "/rizeni-firmy/slovenske-listy", label: "Slovenské listy", icon: "🇸🇰" },
+      { href: "/rizeni-firmy/haccp", label: "HACCP", icon: "🧼" },
+    ],
+  },
+  {
+    title: "E-shop",
+    items: [
+      { href: "/rizeni-firmy/fotky-eshop", label: "Fotky na e-shop", icon: "📷" },
+      { href: "/rizeni-firmy/mereni-eshopu", label: "Měření e-shopu", icon: "📈" },
+      { href: "/rizeni-firmy/doprava-kalkulacka", label: "Doprava CoolBalík", icon: "🚚" },
+    ],
+  },
+  {
+    title: "Peníze a vedení",
+    items: [
+      { href: "/rizeni-firmy/ekonomika", label: "Ekonomika", icon: "💰", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/projekt", label: "Projekt Begina", icon: "🗂️", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/ceo", label: "CEO přehled", icon: "🎯", show: (f) => f.ceoFocus },
+      { href: "/rizeni-firmy/legislativni-audit", label: "Legislativní audit", icon: "⚖️", show: (f) => f.ekonomika },
+    ],
+  },
+  {
+    title: "Tým a nástroje",
+    items: [
+      { href: "/spoluprace/lucie", label: "Lucie — spolupráce", icon: "🐝", show: (f) => f.admin },
+      { href: "/vyroba/petr", label: "Petr — výroba", icon: "👨‍🍳", show: (f) => f.admin },
+      { href: "/rizeni-firmy/asistent", label: "Asistent ChatGPT", icon: "🤖", show: (f) => f.agent },
+      { href: "#mapa-firmy", label: "Mapa firmy a zápisy", icon: "🧭" },
+    ],
+  },
+];
+
+export function visibleGroups(flags: SectionMenuFlags): Group[] {
+  return SECTION_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !i.show || i.show(flags)) })).filter(
+    (g) => g.items.length > 0,
+  );
+}
+
+export default function SectionMenu({ flags }: { flags: SectionMenuFlags }) {
+  const groups = visibleGroups(flags);
+  return (
+    <nav aria-label="Oddíly Řízení firmy" className="mb-6 grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+      {groups.map((group) => (
+        <section key={group.title} className="bg-white border border-neutral-200 rounded-xl p-2 sm:p-3 min-w-0">
+          <h2 className="px-1 mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{group.title}</h2>
+          <ul className="flex flex-col">
+            {group.items.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm font-medium text-begina-primary-900 hover:bg-begina-primary-50"
+                >
+                  <span aria-hidden className="shrink-0 w-5 text-center">{item.icon}</span>
+                  <span className="min-w-0 leading-tight">{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </nav>
+  );
+}
