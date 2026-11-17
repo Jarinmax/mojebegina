@@ -2,7 +2,7 @@
 // pravidla bez DB a bez Reactu.
 //
 // Set je jeden produkt se dvěma baleními v DB:
-//   - SET_CAMPAIGN_SKU: úvodní cena 189 Kč včetně dopravy Zásilkovnou,
+//   - SET_CAMPAIGN_SKU: akční cena 189 Kč včetně dopravy Zásilkovnou (od SET_CAMPAIGN_FROM),
 //     prvních 100 setů (počítadlo v tastingSetServer.ts),
 //   - SET_SKU: běžná cena 249 Kč + doprava.
 // Zákazník vidí vždy jen jedno z nich (catalogServer.ts).
@@ -17,6 +17,18 @@
  * vidí jen náhled s cookie SET_PREVIEW_COOKIE (catalogServer.ts).
  */
 export const SET_LAUNCHED = false;
+/**
+ * Od kdy platí akční cena (Lucie 17. 11. 2026 „ano“): set se nejdřív týden
+ * prodává jen za běžnou cenu 249 Kč + doprava, potom se běžná cena
+ * přeškrtne a prvních 100 setů je za 189 Kč včetně dopravy.
+ * § 12a zák. 634/1992: přeškrtnutá cena = nejnižší cena, za kterou se set
+ * od zahájení prodeje nabízel a prodával. null = akce ještě nemá termín.
+ * Nastavuje se při spuštění setu na „spuštění + 7 dní“.
+ */
+export const SET_CAMPAIGN_FROM: string | null = null;
+export function campaignRunning(now: Date, from: string | null = SET_CAMPAIGN_FROM): boolean {
+  return from !== null && now.getTime() >= new Date(from).getTime();
+}
 export const SET_PREVIEW_COOKIE = "begina_nahled";
 export const SET_PREVIEW_VALUE = "set-sirupu-7k3f9q";
 
@@ -103,7 +115,7 @@ export function campaignRemaining(sold: number): number {
 }
 
 // Texty na stránce setu.
-export const SET_CAMPAIGN_PRICE_NOTE = "Úvodní cena 189 Kč vč. dopravy – prvních 100 setů";
+export const SET_CAMPAIGN_PRICE_NOTE = "Akční cena včetně dopravy – prvních 100 setů";
 export const SET_UNDER_PRICE = "5 sirupů po 100 ml · z každého až 5 nápojů";
 export const SET_DELIVERY_NOTE_CAMPAIGN =
   "Doprava Zásilkovnou na výdejní místo je v ceně. Když set přidáte k chlazenému zboží, přibalíme ho do stejného balíku a nic navíc neplatíte.";
@@ -115,6 +127,10 @@ export const SET_LINK_LABEL = "Ochutnávkový set 5 × 100 ml";
 export const SET_ONLY_NOT_COLD =
   "Samotný ochutnávkový set posíláme Zásilkovnou na výdejní místo, nebo si ho můžete vyzvednout osobně. Chlazenou přepravou ho přibalíme k dalšímu zboží.";
 export const SET_NEEDS_CHOICE = "U ochutnávkového setu vyberte prosím pět různých sirupů.";
+/** Povinná informace u slevy (§ 12a zák. 634/1992). */
+export function lowestPriceNote(priceKc: number): string {
+  return `Nejnižší cena před slevou: ${priceKc} Kč + doprava`;
+}
 export function remainingLabel(remaining: number): string {
   return `Zbývá ${remaining} ze ${SET_CAMPAIGN_LIMIT} setů`;
 }

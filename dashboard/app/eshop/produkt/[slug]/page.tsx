@@ -22,7 +22,7 @@ import Stars from "@/components/eshop/Stars";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import { loadProductReviews } from "@/lib/eshop/reviewsServer";
 import TastingSetForm from "@/components/eshop/TastingSetForm";
-import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_SLUG, SET_UNDER_PRICE, isTastingSet, remainingLabel } from "@/lib/eshop/tastingSet";
+import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_SLUG, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
@@ -241,6 +241,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           )}
           {product.shortDescription && <p className="text-neutral-600 mt-2">{product.shortDescription}</p>}
           <p className="text-2xl font-semibold mt-5 tabular-nums">
+            {isSet && campaign && <s className="mr-2 text-lg font-normal text-neutral-500">{formatKc(campaign.regularPriceKc)}</s>}
             {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
             {isSet && campaign && <span className="ml-2 text-base font-medium text-neutral-700">vč. dopravy Zásilkovnou</span>}
           </p>
@@ -250,6 +251,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
               {campaign && (
                 <p className="rounded-full bg-[#F1EFE3] px-2.5 py-0.5 text-[13px] font-medium text-[#4A5527] tabular-nums">{remainingLabel(campaign.remaining)}</p>
               )}
+              {campaign && <p className="text-[13px] text-neutral-500">{lowestPriceNote(campaign.regularPriceKc)}</p>}
               <p>{SET_UNDER_PRICE}</p>
             </div>
           )}

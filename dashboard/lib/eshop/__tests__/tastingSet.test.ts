@@ -9,6 +9,7 @@ import {
   SET_SLUG,
   baseSku,
   campaignRemaining,
+  campaignRunning,
   choiceFromSku,
   choiceLabel,
   isCampaignSetSku,
@@ -22,7 +23,7 @@ const food = { ingredients: "x", allergens: [], nutritionPer100g: null, storage:
 const base = { highlights: [], description: [], taste: null, warnings: [], image: null, gallery: [], alcoholPercent: null, isAgeRestricted: false, foodInfo: food };
 const variant = (sku: string, priceKc: number, volumeMl: number, weightGrams: number) => ({ sku, label: null, detail: null, description: null, priceKc, volumeMl, servings: null, weightGrams });
 const set = (sku: string, priceKc: number, remaining?: number): Product =>
-  ({ ...base, slug: SET_SLUG, name: "Ochutnávkový set sirupů 5 × 100 ml", category: "sirupy", shortDescription: null, variants: [variant(sku, priceKc, 500, 900)], ...(remaining === undefined ? {} : { tastingCampaign: { remaining } }) }) as unknown as Product;
+  ({ ...base, slug: SET_SLUG, name: "Ochutnávkový set sirupů 5 × 100 ml", category: "sirupy", shortDescription: null, variants: [variant(sku, priceKc, 500, 900)], ...(remaining === undefined ? {} : { tastingCampaign: { remaining, regularPriceKc: 249 } }) }) as unknown as Product;
 const pouch = { ...base, slug: "lipovy-sirup", name: "Lipový sirup", category: "sirupy", shortDescription: null, variants: [{ ...variant("lipovy-sirup-750ml", 199, 650, 805), label: "650 ml" }] } as unknown as Product;
 const soup = { ...base, slug: "kulajda", name: "Kulajda", category: "polevky", shortDescription: null, variants: [{ ...variant("kulajda-3l", 379, 3000, 3000), label: "3 l" }] } as unknown as Product;
 const categories = [{ slug: "sirupy", name: "Sirupy", image: null, intro: [], detailSections: [], ageRestricted: false }, { slug: "polevky", name: "Polévky", image: null, intro: [], detailSections: [], ageRestricted: false }];
@@ -48,6 +49,12 @@ describe("ochutnávkový set sirupů", () => {
     expect(campaignRemaining(0)).toBe(100);
     expect(campaignRemaining(97)).toBe(3);
     expect(campaignRemaining(140)).toBe(0);
+  });
+
+  it("akční cena platí až od nastaveného termínu (první týden jen běžná cena)", () => {
+    expect(campaignRunning(new Date("2026-12-01T10:00:00+01:00"), null)).toBe(false);
+    expect(campaignRunning(new Date("2026-11-30T23:59:00+01:00"), "2026-12-01T00:00:00+01:00")).toBe(false);
+    expect(campaignRunning(new Date("2026-12-01T00:00:00+01:00"), "2026-12-01T00:00:00+01:00")).toBe(true);
   });
 
   it("katalog najde balení setu i s výběrem; neplatný výběr je neznámé balení", () => {
