@@ -3,7 +3,19 @@
 // Soubory: public/etikety/…, seznam: lib/etikety/manifest.ts.
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ETIKETY_CATEGORIES, ETIKETY_NAMES } from "@/lib/etikety/structure";
+import { ETIKETY_NAMES } from "@/lib/etikety/structure";
+import {
+  KIND_ROLL,
+  categoriesFor,
+  categoryFixedSize,
+  categoryLabel,
+  kindLabel,
+  kindsFor,
+  parseGroupSlug,
+  sizeLabel,
+  sizesFor,
+  type Lang,
+} from "@/lib/etikety/wizard";
 import { ETIKETY_MANIFEST } from "@/lib/etikety/manifest";
 
 export const metadata = { title: "Etikety — Řízení firmy" };
@@ -51,8 +63,24 @@ function FileGrid({ folder }: { folder: string }) {
   );
 }
 
-type SP = { jazyk?: string; kat?: string; typ?: string };
+type SP = { jazyk?: string; kat?: string; vel?: string; druh?: string; typ?: string };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+function fileCount(folders: string[]): number {
+  return folders.reduce((n, f) => n + (ETIKETY_MANIFEST[f]?.length ?? 0), 0);
+}
+
+function Tile({ href, title, sub }: { href: string; title: ReactNode; sub?: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-col justify-center min-h-20 rounded-xl border border-neutral-200 bg-white px-4 py-3 hover:border-begina-primary-900"
+    >
+      <span className="text-base font-medium text-begina-primary-900">{title}</span>
+      {sub && <span className="mt-0.5 text-xs text-neutral-500">{sub}</span>}
+    </Link>
+  );
+}
 
 function Pill({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
   return (
@@ -71,64 +99,145 @@ function Pill({ href, active, children }: { href: string; active: boolean; child
   );
 }
 
+const countLabel = (n: number) => (n === 1 ? "1 etiketa" : n >= 2 && n <= 4 ? `${n} etikety` : `${n} etiket`);
+
 export default async function EtiketyPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const jazyk = one(sp.jazyk) === "sk" ? "sk" : "cz";
-  const cats = ETIKETY_CATEGORIES.filter((c) => (jazyk === "sk" ? c.slug.startsWith("sk-") : !c.slug.startsWith("sk-")));
-  const label = (c: { label: string }) => c.label.replace(/^🇸🇰\s*SK\s*–\s*/, "");
-  const cat = cats.find((c) => c.slug === one(sp.kat)) ?? cats[0];
-  const groups = cat?.groups ?? [];
-  const group = groups.find((g) => g.slug === one(sp.typ)) ?? groups[0];
-  const folder = cat ? (group ? `${cat.slug}/${group.slug}` : cat.slug) : "";
-  const url = (o: SP) => {
+  const rawLang = one(sp.jazyk);
+  const lang: Lang | null = rawLang === "sk" ? "sk" : rawLang === "cz" ? "cz" : null;
+  const cats = lang ? categoriesFor(lang) : [];
+  const cat = cats.find((c) => c.slug === one(sp.kat)) ?? null;
+  // Staré odkazy ?typ=… (před 17. 11. 2026) dál fungují.
+  const legacy = one(sp.typ) ? parseGroupSlug(one(sp.typ)!) : null;
+  const sizes = cat ? sizesFor(cat) : [];
+  const wantedSize = one(sp.vel) ?? legacy?.size ?? null;
+  const size: string | null = sizes.length === 0 ? null : sizes.find((s) => s === wantedSize) ?? (sizes.length === 1 ? sizes[0] : null);
+  const sizeChosen = sizes.length === 0 || size !== null;
+  const kinds = cat && sizeChosen ? kindsFor(cat, size) : [];
+  const option = kinds.find((k) => k.kind === (one(sp.druh) ?? legacy?.kind)) ?? null;
+
+  const url = (o: { jazyk?: Lang; kat?: string; vel?: string | null; druh?: string }) => {
     const q = new URLSearchParams();
-    q.set("jazyk", o.jazyk ?? jazyk);
+    if (o.jazyk) q.set("jazyk", o.jazyk);
     if (o.kat) q.set("kat", o.kat);
-    if (o.typ) q.set("typ", o.typ);
-    return `/rizeni-firmy/etikety?${q.toString()}`;
+    if (o.vel) q.set("vel", o.vel);
+    if (o.druh) q.set("druh", o.druh);
+    const qs = q.toString();
+    return `/rizeni-firmy/etikety${qs ? `?${qs}` : ""}`;
   };
+
+  const crumbs: { label: string; href: string }[] = [{ label: "Etikety", href: url({}) }];
+  if (lang) crumbs.push({ label: lang === "cz" ? "🇨🇿 Česky" : "🇸🇰 Slovensky", href: url({ jazyk: lang }) });
+  if (lang && cat) crumbs.push({ label: categoryLabel(cat), href: url({ jazyk: lang, kat: cat.slug }) });
+  if (lang && cat && sizeChosen) {
+    const fixed = size ? sizeLabel(size) : categoryFixedSize(cat);
+    if (fixed) crumbs.push({ label: fixed, href: url({ jazyk: lang, kat: cat.slug, vel: size }) });
+  }
+  if (lang && cat && option) crumbs.push({ label: kindLabel(lang, option.kind), href: url({ jazyk: lang, kat: cat.slug, vel: size, druh: option.kind }) });
+
+  let step: ReactNode;
+  if (!lang) {
+    step = (
+      <div className="grid grid-cols-2 gap-3">
+        <Tile href={url({ jazyk: "cz" })} title="🇨🇿 Česky" />
+        <Tile href={url({ jazyk: "sk" })} title="🇸🇰 Slovensky" />
+      </div>
+    );
+  } else if (!cat) {
+    step = (
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {cats.map((c) => (
+          <Tile
+            key={c.slug}
+            href={url({ jazyk: lang, kat: c.slug })}
+            title={categoryLabel(c)}
+            sub={sizesFor(c).length ? sizesFor(c).map(sizeLabel).join(" · ") : categoryFixedSize(c)}
+          />
+        ))}
+      </div>
+    );
+  } else if (!sizeChosen) {
+    step = (
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {sizes.map((s) => (
+          <Tile
+            key={s}
+            href={url({ jazyk: lang, kat: cat.slug, vel: s })}
+            title={sizeLabel(s)}
+            sub={countLabel(fileCount(kindsFor(cat, s).map((k) => k.folder)))}
+          />
+        ))}
+      </div>
+    );
+  } else if (!option) {
+    step = (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {kinds.map((k) => (
+          <Tile
+            key={k.kind}
+            href={url({ jazyk: lang, kat: cat.slug, vel: size, druh: k.kind })}
+            title={kindLabel(lang, k.kind)}
+            sub={[KIND_ROLL[k.kind], countLabel(fileCount([k.folder]))].filter(Boolean).join(" · ")}
+          />
+        ))}
+      </div>
+    );
+  } else {
+    step = (
+      <div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {kinds.map((k) => (
+            <Pill key={k.kind} href={url({ jazyk: lang, kat: cat.slug, vel: size, druh: k.kind })} active={k.kind === option.kind}>
+              {kindLabel(lang, k.kind)}
+            </Pill>
+          ))}
+        </div>
+        {KIND_ROLL[option.kind] && (
+          <p className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
+            Do tiskárny vlož: <strong>{KIND_ROLL[option.kind]}</strong> · měřítko 100 %
+          </p>
+        )}
+        <FileGrid folder={option.folder} />
+      </div>
+    );
+  }
+
+  const heading = !lang
+    ? "Vyber jazyk"
+    : !cat
+      ? "Vyber výrobky"
+      : !sizeChosen
+        ? "Vyber množství"
+        : !option
+          ? "Vyber etiketu"
+          : null;
 
   return (
     <div>
       <div className="mt-3 mb-4">
         <h1 className="text-lg font-medium text-begina-primary-900">Etikety</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          Finální etikety k tisku — Brother 62 mm, délka 120 mm, měřítko 100 %. Červeno-černé jen s rolí DK-22251.
-        </p>
+        <p className="text-sm text-neutral-500 mt-0.5">Finální etikety k tisku — Brother 62 mm, délka 120 mm, měřítko 100 %.</p>
       </div>
 
-      <div className="sm:sticky sm:top-0 z-10 bg-neutral-50/95 backdrop-blur py-3 -mx-1 px-1 flex flex-col gap-2 border-b border-neutral-200 mb-5">
-        <div className="flex flex-wrap gap-2">
-          <Pill href={url({ jazyk: "cz" })} active={jazyk === "cz"}>🇨🇿 Česky</Pill>
-          <Pill href={url({ jazyk: "sk" })} active={jazyk === "sk"}>🇸🇰 Slovensky</Pill>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {cats.map((c) => (
-            <Pill key={c.slug} href={url({ kat: c.slug })} active={c.slug === cat?.slug}>
-              {label(c)}
-            </Pill>
+      {crumbs.length > 1 && (
+        <nav aria-label="Kde jsem" className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+          {crumbs.map((c, i) => (
+            <span key={c.href} className="flex items-center gap-1.5">
+              {i > 0 && <span className="text-neutral-400">›</span>}
+              {i === crumbs.length - 1 ? (
+                <span className="font-semibold text-begina-primary-900">{c.label}</span>
+              ) : (
+                <Link href={c.href} className="text-neutral-600 hover:underline">
+                  {c.label}
+                </Link>
+              )}
+            </span>
           ))}
-        </div>
-        {groups.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {groups.map((g) => (
-              <Pill key={g.slug} href={url({ kat: cat!.slug, typ: g.slug })} active={g.slug === group?.slug}>
-                {g.label}
-              </Pill>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {cat && (
-        <section>
-          <h2 className="text-base font-medium text-begina-primary-900 mb-3">
-            {label(cat)}
-            {group ? ` · ${group.label}` : ""}
-          </h2>
-          <FileGrid folder={folder} />
-        </section>
+        </nav>
       )}
+
+      {heading && <h2 className="text-sm font-medium text-neutral-600 mb-3">{heading}</h2>}
+      {step}
     </div>
   );
 }
