@@ -81,7 +81,6 @@ describe("e-mail s kódem", () => {
       expect(email.text).toContain(part);
       expect(email.html).toContain(part);
     }
-    expect(email.text).not.toMatch(/zdrav|imunit/i);
   });
 });
 

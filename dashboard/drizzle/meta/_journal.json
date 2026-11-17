@@ -351,6 +351,13 @@
       "when": 1794913685087,
       "tag": "0049_hodnoceni",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794927451122,
+      "tag": "0050_kampan_set",
+      "breakpoints": true
     }
   ]
 }
