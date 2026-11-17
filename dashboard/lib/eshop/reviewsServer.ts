@@ -5,7 +5,8 @@ import "server-only";
 // pak běží dál bez hodnocení.
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { REVIEW_REQUEST_AFTER_DAYS, REVIEW_REQUEST_MAX_AGE_DAYS, type ReviewInput } from "./reviews";
+import { loadPartnerOptOuts, addPartnerOptOut } from "./partnerMonthlyServer";
+import { REVIEW_REQUESTS_ORDERS_FROM, REVIEW_REQUEST_AFTER_DAYS, REVIEW_REQUEST_MAX_AGE_DAYS, type ReviewInput } from "./reviews";
 import { summarize, type ReviewSummary } from "./reviewsFormat";
 
 type Row = Record<string, unknown>;
@@ -151,6 +152,7 @@ export async function dueReviewRequests(): Promise<DueReviewRequest[]> {
       WHERE a.order_id = o.id AND a.kind = 'fulfillment_status_changed' AND a.metadata->>'to' = 'delivered'
     ) d ON d.at IS NOT NULL
     WHERE o.channel = 'eshop' AND o.fulfillment_status = 'delivered' AND o.contact_email IS NOT NULL
+      AND o.created_at >= ${REVIEW_REQUESTS_ORDERS_FROM}::timestamptz
       AND d.at <= now() - make_interval(days => ${REVIEW_REQUEST_AFTER_DAYS})
       AND d.at >= now() - make_interval(days => ${REVIEW_REQUEST_MAX_AGE_DAYS})
       AND NOT EXISTS (SELECT 1 FROM review_requests q WHERE q.order_id = o.id)
@@ -164,7 +166,11 @@ export async function dueReviewRequests(): Promise<DueReviewRequest[]> {
     ORDER BY d.at
     LIMIT 50
   `);
-  return rowsOf(result).map((row) => ({ orderId: String(row.id), email: String(row.email), customerName: (row.customer_name as string | null) ?? null }));
+  // odhlášení v pokladně („Nepřeji si dostávat…“) platí i pro žádosti o hodnocení
+  const refused = new Set(await loadPartnerOptOuts(db));
+  return rowsOf(result)
+    .map((row) => ({ orderId: String(row.id), email: String(row.email), customerName: (row.customer_name as string | null) ?? null }))
+    .filter((row) => !refused.has(row.email));
 }
 
 /** Zabere žádost pro objednávku; false = už ji zabral jiný běh (e-mail jen jednou). */
@@ -180,4 +186,6 @@ export async function releaseReviewRequest(orderId: string): Promise<void> {
 
 export async function addEmailOptout(email: string): Promise<void> {
   await db.execute(sql`INSERT INTO email_optouts (email) VALUES (${email.trim().toLowerCase()}) ON CONFLICT (email) DO NOTHING`);
+  // jedno odhlášení pro všechna obchodní sdělení (i partnerský program)
+  await addPartnerOptOut(db, email);
 }

@@ -3,6 +3,7 @@
 // a e-mail „Jak vám chutná begina?“. Práce s DB je v reviewsServer.ts.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { customerGreeting } from "./email/greeting";
+import { OPERATOR } from "./operator";
 
 export { REVIEW_MAX_LENGTH, REVIEW_NAME_MAX_LENGTH, REVIEW_VERIFICATION_NOTICE, VERIFIED_LABEL } from "./reviewsFormat";
 import { REVIEW_MAX_LENGTH, REVIEW_NAME_MAX_LENGTH } from "./reviewsFormat";
@@ -102,6 +103,18 @@ export const REVIEW_EMAIL_SUBJECT = "Jak vám chutná begina?";
 export const REVIEW_EMAIL_SIGNATURE = ["S přátelským pozdravem", "tým Begina", "+420 774 199 975", "info@begina.cz", "www.begina.cz"] as const;
 /** Krátký text (Lucie 17. 11. 2026: dlouhý e-mail nikdo nečte). */
 export const REVIEW_EMAIL_PARAGRAPHS = ["jak vám chutnalo? Budeme rádi za pár hvězdiček k vašemu nákupu. Zabere to minutu."] as const;
+/**
+ * Patička podle zákona č. 480/2004 Sb., § 7 odst. 4 (označení obchodního
+ * sdělení, totožnost odesílatele, možnost odhlášení) a § 435 občanského
+ * zákoníku (jméno, sídlo a IČO podnikatele).
+ */
+export const REVIEW_EMAIL_LEGAL = `Obchodní sdělení. Odesílatel: ${OPERATOR.name} – Begina, ${OPERATOR.address}, IČO ${OPERATOR.ico}. Tento e-mail jste dostali, protože jste nakoupili na begina.cz.`;
+/**
+ * Žádost smí dostat jen zákazník, který měl při objednávce možnost obchodní
+ * sdělení odmítnout (§ 7 odst. 3) — zaškrtávací pole je v pokladně od
+ * 15. 11. 2026 12:41. Starší objednávky žádost nedostanou.
+ */
+export const REVIEW_REQUESTS_ORDERS_FROM = "2026-11-15T13:00:00+01:00";
 export const REVIEW_EMAIL_BUTTON = "Ohodnotit nákup";
 
 const escapeHtml = (value: string) =>
@@ -122,7 +135,7 @@ ${p(escapeHtml(greeting))}
 ${p(escapeHtml(REVIEW_EMAIL_PARAGRAPHS[0]))}
 <tr><td style="padding:4px 0 18px;"><a href="${escapeHtml(input.reviewUrl)}" style="display:inline-block;background:#000000;color:#FFFFFF;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px;font-weight:600;">${escapeHtml(REVIEW_EMAIL_BUTTON)}</a></td></tr>
 ${p(REVIEW_EMAIL_SIGNATURE.map(escapeHtml).join("<br>"))}
-<tr><td style="font-size:12px;line-height:18px;color:#737373;border-top:1px solid #EDEDED;padding-top:14px;">Hodnotit mohou jen zákazníci, kteří produkt zakoupili na begina.cz. Nechcete podobné e-maily dostávat? <a href="${escapeHtml(input.optoutUrl)}" style="color:#737373;">Odhlásit se</a>.</td></tr>
+<tr><td style="font-size:12px;line-height:18px;color:#737373;border-top:1px solid #EDEDED;padding-top:14px;">${escapeHtml(REVIEW_EMAIL_LEGAL)} Nechcete podobné e-maily dostávat? <a href="${escapeHtml(input.optoutUrl)}" style="color:#737373;">Odhlásit se</a>.</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [
     greeting,
@@ -133,7 +146,7 @@ ${p(REVIEW_EMAIL_SIGNATURE.map(escapeHtml).join("<br>"))}
     "",
     ...REVIEW_EMAIL_SIGNATURE,
     "",
-    `Hodnotit mohou jen zákazníci, kteří produkt zakoupili na begina.cz. Odhlášení z podobných e-mailů: ${input.optoutUrl}`,
+    `${REVIEW_EMAIL_LEGAL} Odhlášení z podobných e-mailů: ${input.optoutUrl}`,
   ].join("\n");
   return { subject: `${input.test ? "[TEST] " : ""}${REVIEW_EMAIL_SUBJECT}`, html, text, greeting };
 }

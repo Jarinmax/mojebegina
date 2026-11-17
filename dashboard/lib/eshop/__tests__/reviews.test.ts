@@ -70,7 +70,7 @@ describe("hodnocení produktů", () => {
     expect(reviewRequestEmail({ ...base, customerName: "Karolína Pospíšilová" }).greeting).toBe("Dobrý den, paní Pospíšilová,");
     // jméno, ze kterého 5. pád spolehlivě nejde (firma, jedno slovo) → neutrální oslovení
     expect(reviewRequestEmail({ ...base, customerName: "Bistro U Lípy" }).greeting).toBe("Dobrý den,");
-    for (const part of ["S přátelským pozdravem", "tým Begina", "+420 774 199 975", "info@begina.cz", "www.begina.cz", base.reviewUrl, base.optoutUrl, "Hodnotit mohou jen zákazníci, kteří produkt zakoupili na begina.cz."]) {
+    for (const part of ["S přátelským pozdravem", "tým Begina", "+420 774 199 975", "info@begina.cz", "www.begina.cz", base.reviewUrl, base.optoutUrl, "Obchodní sdělení. Odesílatel: Jaroslav Viner – Begina, Mostecká 273/21, 118 00 Praha 1, IČO 74337297."]) {
       expect(man.text).toContain(part);
     }
     expect(man.html).toContain('href="https://begina.cz/hodnoceni/t"');
