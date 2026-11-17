@@ -15,6 +15,7 @@ import { LEGACY_PRODUCT_SLUGS, publicEshopPath, route, type RouteDecision } from
 
 const ROOT = path.join(__dirname, "../../..");
 const ORDER_ID = "11348d18-506f-45b8-b65d-65df779471c7";
+const SIGNED = "M2YyYjhjMWUtNWE0Ny00ZDFiLTljMGUtN2E2YjVkNGMzYjJh.abcdefghijklmnopqrstuvwxyzABCDEF";
 const ON = { ESHOP_CANONICAL_ORIGIN: "https://begina.cz" };
 
 const get = (host: string | null, pathname: string, env: Record<string, string | undefined> = {}, search = "") =>
@@ -76,6 +77,8 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
     ["/kosik", "/eshop/kosik"],
     ["/pokladna", "/eshop/pokladna"],
     [`/objednavka/${ORDER_ID}`, `/eshop/objednavka/${ORDER_ID}`],
+    [`/hodnoceni/${SIGNED}`, `/eshop/hodnoceni/${SIGNED}`],
+    [`/odhlaseni/${SIGNED}`, `/eshop/odhlaseni/${SIGNED}`],
     ["/doprava", "/eshop/doprava"],
     ["/o-nas", "/eshop/o-nas"],
     ["/o-vode", "/eshop/o-vode"],
@@ -117,6 +120,8 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
       "/produkt/",
       "/kategorie/a%2Fb",
       "/objednavka/123",
+      "/hodnoceni/nesmysl",
+      `/hodnoceni/${SIGNED}/x`,
       `/objednavka/${ORDER_ID}/x`,
     ]) {
       const decision = get("begina.cz", pathname);
