@@ -4,7 +4,7 @@
 export const HOME_WHY = [
   // 16. 11. 2026 (Lucie): trvanlivost po otevření jako první
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
-  { icon: "leaf", title: "100 % rostlinné", text: "Všechny naše produkty jsou bez živočišných surovin." },
+  { icon: "leaf", title: "100% rostlinné polévky a nealko nápoje", text: "Polévky a nealkoholické nápoje jsou bez živočišných surovin." },
   { icon: "soup", title: "Porce už od 3,30 Kč", text: "Nápoj ze sirupu od 3,30 Kč, porce polévky za 31,60 Kč." },
   // 14. 11. 2026 (Lucie): partnerský program má být vidět na úvodu, dlaždice vede na stránku programu
   { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší sleva: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
@@ -32,4 +32,4 @@ export const HOME_BISTRO = "Ochutnat nás můžete i v Zahradním bistru Begina 
 export const HOME_STEPS_PHOTO = "/eshop/polevky/dynova-polevka-begina-v3.jpg";
 
 /** Tři hlavní výhody hned pod nadpisem úvodu, viditelné bez posouvání (16. 11. 2026). */
-export const HOME_HERO_POINTS = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"] as const;
+export const HOME_HERO_POINTS = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné polévky a nealko nápoje", "Chlazeně až domů"] as const;

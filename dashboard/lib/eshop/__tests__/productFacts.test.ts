@@ -80,7 +80,7 @@ describe("cena za porci", () => {
   });
 
   it("polévka, sirup se dvěma baleními, koktejl bez počtu porcí", () => {
-    expect(servingPrices(product({})).map((row) => ({ ...row, text: nbsp(row.text) }))).toEqual([{ label: null, text: "Porce 250 ml za 31,60 Kč · 126 Kč/l" }]);
+    expect(servingPrices(product({})).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([{ label: null, text: "Porce 250 ml za 31,60 Kč · 126 Kč/l" }]);
     const syrup = product({
       category: "sirupy",
       variants: [
@@ -88,9 +88,9 @@ describe("cena za porci", () => {
         { sku: "b", label: "650 ml", detail: null, description: null, priceKc: 199, volumeMl: 650, servings: 32, weightGrams: null },
       ],
     });
-    expect(servingPrices(syrup).map((row) => ({ ...row, text: nbsp(row.text) }))).toEqual([
-      { label: "3 l", text: "Sklenice limonády za 3,70 Kč" },
-      { label: "650 ml", text: "Sklenice limonády za 6,20 Kč" },
+    expect(servingPrices(syrup).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([
+      { label: "3 l", text: "Nápoj za 3,70 Kč" },
+      { label: "650 ml", text: "Nápoj za 6,20 Kč" },
     ]);
     const cocktail = product({
       category: "koktejly",
@@ -99,7 +99,7 @@ describe("cena za porci", () => {
         { sku: "b", label: "500 ml", detail: null, description: null, priceKc: 169, volumeMl: 500, servings: null, weightGrams: null },
       ],
     });
-    expect(servingPrices(cocktail).map((row) => ({ ...row, text: nbsp(row.text) }))).toEqual([
+    expect(servingPrices(cocktail).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([
       { label: "3 l", text: "Sklenice 200 ml za 53,30 Kč · 266 Kč/l" },
       { label: "500 ml", text: "Sklenice 200 ml za 67,60 Kč · 338 Kč/l" },
     ]);

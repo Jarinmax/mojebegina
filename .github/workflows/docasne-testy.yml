@@ -10,8 +10,8 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci
       - run: npx next typegen && npx tsc --noEmit
-      - run: npx eslint lib/eshop/productFacts.ts lib/eshop/catalogServer.ts lib/eshop/homeContent.ts components/eshop/HomeHero.tsx components/eshop/ProductCard.tsx "app/eshop/produkt/[slug]/page.tsx"
-      - run: npx vitest run lib/eshop components/__tests__/HomeHero.test.tsx
+      - run: npx eslint lib/eshop/productFacts.ts lib/eshop/catalogServer.ts lib/eshop/homeContent.ts components/eshop/HomeHero.tsx components/eshop/ProductCard.tsx components/eshop/ServingPriceLine.tsx components/eshop/AddToCartButton.tsx "app/eshop/produkt/[slug]/page.tsx"
+      - run: npx vitest run lib/eshop/__tests__/productFacts.test.ts components
   s:
     runs-on: ubuntu-latest
     steps:
@@ -31,7 +31,7 @@ jobs:
             if (cfg.home && h1) {
               const ul = document.createElement("ul");
               ul.style.cssText = `margin-top:${wide ? 16 : 8}px;display:flex;flex-wrap:wrap;align-items:center;justify-content:${desk ? "flex-start" : "center"};column-gap:${wide ? 20 : 12}px;row-gap:4px;font-size:${wide ? 16 : 13}px;font-weight:500;color:#4A5527;list-style:none;padding:0`;
-              ul.innerHTML = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"].map((t) => `<li style="display:inline-flex;align-items:center;gap:4px">${svg(CHECK, wide ? 20 : 16, "#4A5527")}${t}</li>`).join("");
+              ul.innerHTML = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné polévky a nealko nápoje", "Chlazeně až domů"].map((t) => `<li style="display:inline-flex;align-items:center;gap:4px">${svg(CHECK, wide ? 20 : 16, "#4A5527")}${t}</li>`).join("");
               h1.after(ul);
               for (const p of document.querySelectorAll("p")) {
                 if (p.textContent.replace(/\u00a0/g, " ").trim() === "Čerstvě. Jednoduše. S chutí.") { p.remove(); continue; }
@@ -40,6 +40,8 @@ jobs:
               }
               const h3 = [...document.querySelectorAll("h3")].find((e) => e.textContent.trim() === "Vydrží i po otevření");
               const li = h3 && h3.closest("li");
+              const h3r = [...document.querySelectorAll("h3")].find((e) => e.textContent.replace(/\u00a0/g, " ").trim() === "100 % rostlinné");
+              if (h3r) { h3r.textContent = "100% rostlinné polévky a nealko nápoje"; const t = h3r.nextElementSibling; if (t) t.textContent = "Polévky a nealkoholické nápoje jsou bez živočišných surovin."; }
               if (li) li.parentElement.prepend(li);
             }
             if (cfg.badges) {
@@ -80,10 +82,12 @@ jobs:
             const top = () => p.evaluate(() => { const h = document.querySelector("h1"); window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 90); });
             await go("/", { home: true, badges: { "Dýňová polévka": "14 dní po otevření", "Bylinný sirup Šaman": "3 měsíce po otevření", "Lipový sirup": "3 měsíce po otevření", "Svařák Deluxe": "14 dní po otevření" } });
             await p.screenshot({ type: 'jpeg', quality: 75, path: "n1-uvod.jpg" });
-            await go("/produkt/dynova-polevka", { product: { opened: S14, portions: [[null, "Porce 250 ml za 31,60 Kč · 126 Kč/l"]], noPreservatives: true } });
-            await top(); await p.screenshot({ type: 'jpeg', quality: 75, path: "n2-polevka.jpg" });
-            await go("/produkt/kosmopolitan", { product: { opened: "Po otevření vydrží v lednici 14 dní.", portions: [["3 l", "Sklenice 200 ml za 53,30 Kč · 266 Kč/l"], ["500 ml", "Sklenice 200 ml za 67,60 Kč · 338 Kč/l"]], noPreservatives: true } });
-            await top(); await p.screenshot({ type: 'jpeg', quality: 75, path: "n3-koktejl.jpg" });
+            await p.screenshot({ type: 'jpeg', quality: 70, path: "n1b-uvod-cela.jpg", fullPage: true });
+            await go("/produkt/zazvorovy-sirup", { product: { opened: "Po otevření vydrží v lednici 3 měsíce.", portions: [["3 l", "Nápoj za 3,30 Kč"]], noPreservatives: true } });
+            await top(); await p.screenshot({ type: 'jpeg', quality: 75, path: "n2-sirup-3l.jpg" });
+            await go("/produkt/zazvorovy-sirup", { product: { opened: "Po otevření vydrží v lednici 3 měsíce.", portions: [["650 ml", "Nápoj za 6,20 Kč"]], noPreservatives: true } });
+            await p.locator('input[name="variant"]').nth(1).check();
+            await top(); await p.screenshot({ type: 'jpeg', quality: 75, path: "n3-sirup-650.jpg" });
             await ctx.close();
           }
           await b.close();

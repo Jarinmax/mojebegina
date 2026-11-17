@@ -17,6 +17,7 @@ import {
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductGallery from "@/components/eshop/ProductGallery";
+import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
@@ -235,12 +236,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                   {openedLine}
                 </p>
               )}
-              {portions.map((row) => (
-                <p key={row.label ?? "single"} className="pl-6 tabular-nums">
-                  {row.label ? <span className="text-neutral-500">{row.label}: </span> : null}
-                  {row.text}
-                </p>
-              ))}
+              <ServingPriceLine rows={portions} defaultSku={product.variants[0].sku} />
             </div>
           )}
 

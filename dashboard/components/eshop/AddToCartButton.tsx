@@ -10,6 +10,7 @@ import { useCart } from "./useCart";
 import { trackMeta } from "@/lib/eshop/metaPixel";
 import { trackFunnel } from "@/lib/eshop/funnelClient";
 import { packagingKind } from "@/lib/eshop/packaging";
+import { VARIANT_EVENT } from "./ServingPriceLine";
 
 type AddToCartButtonProps = {
   name: string;
@@ -78,6 +79,8 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
                   onChange={() => {
                     setSku(variant.sku);
                     setAdded(false);
+                    // řádek „cena za porci“ pod cenou se přepne na zvolené balení
+                    window.dispatchEvent(new CustomEvent(VARIANT_EVENT, { detail: variant.sku }));
                   }}
                   className="accent-begina-primary-900"
                 />

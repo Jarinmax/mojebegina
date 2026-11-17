@@ -59,7 +59,7 @@ export function formatPerLitre(priceKc: number, volumeMl: number): string {
   return `${Math.round((priceKc * 1000) / volumeMl).toLocaleString("cs-CZ")} Kč/l`;
 }
 
-export type ServingPrice = { label: string | null; text: string };
+export type ServingPrice = { sku: string; label: string | null; text: string };
 
 function servingText(category: string, variant: Variant, fallbackServingMl: number | null): string | null {
   const { priceKc, volumeMl, servings } = variant;
@@ -73,8 +73,9 @@ function servingText(category: string, variant: Variant, fallbackServingMl: numb
     return `Sklenice ${fallbackServingMl} ml za ${perGlass} · ${perLitre}`;
   }
   const perServing = formatServingKc(priceKc / servings);
-  // Sirup se ředí, „porce“ je sklenice limonády; měrná cena za litr sirupu by mátla.
-  if (category === "sirupy") return `Sklenice limonády za ${perServing}`;
+  // Sirup se ředí na studený i horký nápoj (ne jen limonádu – Lucie 17. 11. 2026);
+  // měrná cena za litr sirupu by mátla.
+  if (category === "sirupy") return `Nápoj za ${perServing}`;
   const servingMl = Math.round(volumeMl / servings);
   const noun = category === "polevky" ? "Porce" : "Sklenice";
   return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;
@@ -95,7 +96,7 @@ export function servingPrices(product: Product): ServingPrice[] {
   const fallback = siblingServingMl(product);
   return product.variants.flatMap((variant) => {
     const text = servingText(product.category, variant, fallback);
-    return text ? [{ label: single ? null : variant.label, text }] : [];
+    return text ? [{ sku: variant.sku, label: single ? null : variant.label, text }] : [];
   });
 }
 
