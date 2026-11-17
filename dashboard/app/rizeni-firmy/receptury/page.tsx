@@ -10,7 +10,9 @@ import { loadRecipes, packagingPrices, recipeTablesExist } from "@/lib/receptury
 // ostatním se stránka tváří, že neexistuje.
 export const dynamic = "force-dynamic";
 
-export default async function RecepturyPage() {
+export default async function RecepturyPage({ searchParams }: { searchParams: Promise<{ kat?: string | string[] }> }) {
+  const sp = await searchParams;
+  const katParam = Array.isArray(sp.kat) ? sp.kat[0] : sp.kat;
   const ctx = await getAuthContext();
   if (!ctx || !isInvoiceIssuer(ctx)) notFound();
 
@@ -37,11 +39,51 @@ export default async function RecepturyPage() {
       <p className="mt-2 text-sm text-neutral-600">Přesné složení každého výrobku na 3l beginu, náklad a marže. Ceny surovin se berou z jednoho ceníku — po změně ceny se přepočítá všechno. Marže je po surovinách a obalech; práce, energie, reklama a provize v ní nejsou.</p>
       {recipes.length === 0 && <p className="mt-6 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Zatím tu není žádná receptura.</p>}
 
-      {RECIPE_CATEGORIES.map((category) => {
+      {/* 17. 11. 2026 (Lucie): nejdřív vybrat kategorii, pak vidět jen její výrobky — bez scrollování. */}
+      {(() => {
+        const available = RECIPE_CATEGORIES.map((c) => ({ ...c, count: recipes.filter((r) => r.category === c.key).length })).filter((c) => c.count > 0);
+        const active = available.find((c) => c.key === katParam) ?? null;
+        if (!active) {
+          return (
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {available.map((c) => (
+                <Link
+                  key={c.key}
+                  href={`/rizeni-firmy/receptury?kat=${c.key}`}
+                  className="flex flex-col justify-center min-h-20 rounded-xl border border-neutral-200 bg-white px-4 py-3 hover:border-begina-primary-900"
+                >
+                  <span className="text-base font-medium text-begina-primary-900">{c.label}</span>
+                  <span className="mt-0.5 text-xs text-neutral-500">{c.count} {c.count === 1 ? "výrobek" : c.count <= 4 ? "výrobky" : "výrobků"}</span>
+                </Link>
+              ))}
+            </div>
+          );
+        }
+        return (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {available.map((c) => (
+              <Link
+                key={c.key}
+                href={`/rizeni-firmy/receptury?kat=${c.key}`}
+                className={
+                  "px-3 py-1.5 rounded-full text-sm font-medium border " +
+                  (c.key === active.key
+                    ? "bg-begina-primary-900 text-white border-begina-primary-900"
+                    : "bg-white text-begina-primary-900 border-neutral-300 hover:border-begina-primary-900")
+                }
+              >
+                {c.label}
+              </Link>
+            ))}
+          </div>
+        );
+      })()}
+
+      {RECIPE_CATEGORIES.filter((category) => category.key === katParam).map((category) => {
         const rows = recipes.filter((recipe) => recipe.category === category.key);
         if (rows.length === 0) return null;
         return (
-          <section key={category.key} className="mt-8">
+          <section key={category.key} className="mt-5">
             <h2 className="text-sm font-medium text-begina-primary-900 mb-2">{category.label}</h2>
             <div className="overflow-x-auto bg-white border border-neutral-200 rounded-xl">
               <table className="w-full text-sm">
