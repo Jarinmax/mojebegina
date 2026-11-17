@@ -167,6 +167,10 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "sipkovy-sirup.png",
     "zazvorovy-sirup.png"
   ],
+  "sirupy/ochutnavkovy-set": [
+    "1-vicko-krabice-62x100.png",
+    "2-bok-krabice-62x90.png"
+  ],
   "sirupy/predni-barevne-3l": [
     "bylinny-sirup-saman.jpg",
     "hermankovy-sirup.jpg",
