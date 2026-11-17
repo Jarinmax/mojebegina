@@ -16,6 +16,23 @@ export async function GET(request: Request) {
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
+  // Ukázka pro Beginu: přesně ten e-mail, který dostane zákazník, jen na
+  // interní adresu (info@begina.cz). Zákazníkům nic; odkazy jsou ukázkové.
+  if (new URL(request.url).searchParams.get("nahled") === "1") {
+    const config = emailConfig();
+    const secret = reviewSecret();
+    if (!config || !secret || config.internalTo.length === 0) return Response.json({ sent: 0, reason: "e-mail není nastaven" });
+    const email = reviewRequestEmail({
+      customerName: "Jana Nováková",
+      reviewUrl: `${PUBLIC_ORIGIN}/hodnoceni/${reviewToken("00000000-0000-4000-8000-000000000000", secret)}`,
+      optoutUrl: `${PUBLIC_ORIGIN}/odhlaseni/${optoutToken("ukazka@begina.cz", secret)}`,
+    });
+    const result = await resendTransport(config.apiKey)(
+      { from: config.from, to: config.internalTo, replyTo: config.replyTo, subject: email.subject, html: email.html, text: email.text },
+      `hodnoceni-nahled-${new Date().toISOString().slice(0, 13)}`,
+    );
+    return Response.json({ nahled: result.ok });
+  }
   if (!REVIEW_EMAILS_ENABLED) return Response.json({ sent: 0, reason: "odesílání ještě není zapnuté" });
   const config = emailConfig();
   const secret = reviewSecret();
