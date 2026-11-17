@@ -1,9 +1,9 @@
 // MĚŘENÍ E-SHOPU 1.0 — čtení počítadel a objednávek pro přehled.
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import type { FunnelStep } from "./funnel";
+import type { FunnelStep, GoogleStep } from "./funnel";
 
-export type FunnelDay = { day: string; counts: Partial<Record<FunnelStep | "order" | "paid", number>> };
+export type FunnelDay = { day: string; counts: Partial<Record<FunnelStep | GoogleStep | "order" | "paid", number>> };
 
 /** null = tabulka v databázi ještě není (skript 117 nebyl spuštěn). */
 export async function loadFunnelDays(days: number): Promise<FunnelDay[] | null> {

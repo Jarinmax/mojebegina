@@ -12,6 +12,8 @@ export function sumDays(days: FunnelDay[]): Counts {
   return totals;
 }
 
+const googleVisits = (days: FunnelDay[]) => days.reduce((sum, day) => sum + (day.counts.google_visit ?? 0), 0);
+const googleOrders = (days: FunnelDay[]) => days.reduce((sum, day) => sum + (day.counts.google_order ?? 0), 0);
 const conversion = (counts: Counts) => ((counts.visit ?? 0) > 0 ? Math.round(((counts.paid ?? 0) / (counts.visit ?? 1)) * 1000) / 10 : null);
 const pctText = (value: number | null) => (value === null ? "nelze spočítat (žádné návštěvy)" : `${value.toLocaleString("cs-CZ")} %`);
 const dayText = (iso: string) => `${Number(iso.slice(8, 10))}. ${Number(iso.slice(5, 7))}.`;
@@ -46,6 +48,8 @@ export function buildFunnelReport(week: FunnelDay[], previous: FunnelDay[]): { s
     drop && dropFrom
       ? `Největší odpad: ${dropFrom.label} → ${drop.label}, pokračuje jen ${pctText(drop.ofPreviousPct)}.`
       : "Největší odpad zatím nejde určit, je málo dat.",
+    "",
+    `Z bezplatných výpisů Google: ${googleVisits(week)} návštěv, ${googleOrders(week)} odeslaných objednávek (týden předtím ${googleVisits(previous)} / ${googleOrders(previous)}).`,
     "",
     "Návštěva = jedno načtení e-shopu v prohlížeči, roboti se nepočítají. Počítají se i vaše vlastní návštěvy a zkušební objednávky. Při malých číslech berte procenta s rezervou.",
     "",
