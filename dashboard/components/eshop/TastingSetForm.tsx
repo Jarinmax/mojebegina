@@ -1,11 +1,12 @@
 "use client";
 
 // Ochutnávkový set sirupů (17. 11. 2026): sedm zaškrtávacích políček, zákazník
-// vybírá pět RŮZNÝCH sirupů; množství a Do košíku. Výběr jde do
+// vybírá pět RŮZNÝCH sirupů (na začátku není zaškrtnuté nic, odkaz vybere
+// pět nejoblíbenějších); množství a Do košíku. Výběr jde do
 // košíku jako přípona SKU (lib/eshop/tastingSet.ts).
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { SET_DEFAULT_CHOICE, SET_SIZE, SET_SYRUPS, orderedChoice, setCartSku, type SetSyrupCode } from "@/lib/eshop/tastingSet";
+import { SET_DEFAULT_CHOICE, SET_PICK_FAVOURITES, SET_SIZE, SET_SYRUPS, orderedChoice, setCartSku, type SetSyrupCode } from "@/lib/eshop/tastingSet";
 import { trackFunnel } from "@/lib/eshop/funnelClient";
 import { trackMeta } from "@/lib/eshop/metaPixel";
 import QuantityStepper from "./QuantityStepper";
@@ -14,7 +15,7 @@ import { useCart } from "./useCart";
 
 export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { name: string; sku: string; priceKc: number; maxQuantity?: number }) {
   const { add } = useCart();
-  const [choice, setChoice] = useState<SetSyrupCode[]>([...SET_DEFAULT_CHOICE]);
+  const [choice, setChoice] = useState<SetSyrupCode[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const cartSku = setCartSku(sku, choice);
@@ -60,8 +61,20 @@ export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { na
         </div>
         {choice.length < SET_SIZE && (
           <p className="mt-2 text-sm text-begina-accent-900" role="status">
-            Vyberte ještě {SET_SIZE - choice.length === 1 ? "jeden sirup" : `${SET_SIZE - choice.length} sirupy`}.
+            Vyberte ještě {SET_SIZE - choice.length === 1 ? "jeden sirup" : SET_SIZE - choice.length >= 5 ? `${SET_SIZE - choice.length} sirupů` : `${SET_SIZE - choice.length} sirupy`}.
           </p>
+        )}
+        {choice.length === 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setChoice([...SET_DEFAULT_CHOICE]);
+              setAdded(false);
+            }}
+            className="mt-2 text-sm font-medium underline underline-offset-2 text-begina-primary-900"
+          >
+            {SET_PICK_FAVOURITES}
+          </button>
         )}
       </fieldset>
       <div className="flex items-center gap-3">
@@ -84,6 +97,7 @@ export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { na
           </ShopLink>
         </p>
       )}
+      {choice.length > 0 && (
       <p className="mt-3 text-sm text-neutral-600">
         Složení sirupů:{" "}
         {orderedChoice(choice).map((code, index) => {
@@ -99,6 +113,7 @@ export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { na
         })}
         . Stejné složení najdete na etiketě každého sáčku.
       </p>
+      )}
     </div>
   );
 }

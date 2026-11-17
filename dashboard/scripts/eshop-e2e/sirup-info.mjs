@@ -22,7 +22,7 @@ const CASES = [
 const T = {
   "Skladování": "Před otevřením skladujte v suchu a temnu při teplotě do 20 °C. Po otevření uchovávejte v chladničce při teplotě do 4 °C.",
   "Trvanlivost": "Minimální trvanlivost do data uvedeného na obalu. Po otevření spotřebujte do 3 měsíců při dodržení podmínek skladování, nejpozději však do data uvedeného na obalu.",
-  "Příprava": "Před použitím protřepejte. Doporučené ředění je 1 díl sirupu na 10 dílů vody. Intenzitu chuti upravte podle sebe.",
+  "Příprava": "Před použitím protřepejte. Na sklenici dejte přibližně 20 ml sirupu a doplňte vodou na 200 ml (zhruba 1 : 10). Intenzitu chuti upravte podle sebe.",
   "Vrácení a reklamace": "U neotevřeného sirupu můžete odstoupit od kupní smlouvy do 14 dnů od převzetí. Právo reklamovat vadné zboží tím není dotčeno. Podrobnosti o odstoupení a reklamacích najdete v obchodních podmínkách.",
 };
 for (const [name, device] of CASES) {
