@@ -4,7 +4,7 @@
 // Set je jeden produkt se dvěma baleními v DB:
 //   - SET_CAMPAIGN_SKU: akční cena 189 Kč včetně dopravy Zásilkovnou (od SET_CAMPAIGN_FROM),
 //     prvních 100 setů (počítadlo v tastingSetServer.ts),
-//   - SET_SKU: běžná cena 249 Kč + doprava.
+//   - SET_SKU: běžná cena 349 Kč + doprava.
 // Zákazník vidí vždy jen jedno z nich (catalogServer.ts).
 //
 // Výběr pěti sirupů se nese v řádku košíku jako přípona SKU:
@@ -19,7 +19,7 @@
 export const SET_LAUNCHED = false;
 /**
  * Od kdy platí akční cena (Lucie 17. 11. 2026 „ano“): set se nejdřív týden
- * prodává jen za běžnou cenu 249 Kč + doprava, potom se běžná cena
+ * prodává jen za běžnou cenu 349 Kč + doprava, potom se běžná cena
  * přeškrtne a prvních 100 setů je za 189 Kč včetně dopravy.
  * § 12a zák. 634/1992: přeškrtnutá cena = nejnižší cena, za kterou se set
  * od zahájení prodeje nabízel a prodával. null = akce ještě nemá termín.
