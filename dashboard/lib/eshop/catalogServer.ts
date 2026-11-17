@@ -19,6 +19,11 @@ export const getCatalog = cache(async () => {
   const catalog = await loadCatalog(db, { weights: shippingModeFromEnv() === "weight" });
   return {
     ...catalog,
+    // úvodní text kategorie Koktejly: „sáček 500 ml … (2–3 nápoje)“ bez odhadu
+    categories: catalog.categories.map((category) => ({
+      ...category,
+      intro: category.intro.map((paragraph) => paragraph.replace(/\s*\(\d+\s*[–-]\s*\d+\s+nápoj[eů]\)/giu, "")),
+    })),
     products: catalog.products.map((product) => ({
       ...product,
       shortDescription: withoutServingPrice(product.shortDescription),
