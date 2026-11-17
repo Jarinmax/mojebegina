@@ -20,7 +20,7 @@ import NodeCard from "@/components/company-overview/NodeCard";
 import CompanyNoteForm from "./CompanyNoteForm";
 import CreateNodeForm from "./CreateNodeForm";
 import CompanyOverviewIntro from "./CompanyOverviewIntro";
-import CeoFocusPanel from "./CeoFocusPanel";
+import SectionMenu from "./SectionMenu";
 import OrderSummaryTiles from "./objednavky/OrderSummaryTiles";
 import CrmCockpitTiles from "./obchod/CockpitTiles";
 
@@ -74,240 +74,51 @@ export default async function CompanyOverviewPage() {
     <div>
       <CompanyOverviewIntro lastUpdated={content.lastUpdated} />
 
-      {showCeoFocus && <CeoFocusPanel />}
+      <SectionMenu
+        flags={{
+          ekonomika: showEkonomika,
+          ceoFocus: showCeoFocus,
+          sklad: showSklad,
+          agent: showAgentLink,
+          admin: ctx?.systemRole === "ADMIN",
+        }}
+      />
 
-      {showEkonomika && (
-        <Link
-          href="/rizeni-firmy/projekt"
-          className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-begina-primary-200 bg-begina-primary-50 p-4 hover:border-begina-primary-300"
-        >
-          <div>
-            <p className="font-semibold text-begina-primary-900">Projekt Begina</p>
-            <p className="text-sm text-neutral-600">Stav, rozhodnutí a výstupy po oblastech</p>
-          </div>
-          <span className="text-sm font-medium text-begina-primary-900">Otevřít →</span>
-        </Link>
-      )}
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Obchod / CRM</h2>
-          <Link
-            href="/rizeni-firmy/obchod"
-            className="text-sm font-medium text-begina-primary-900 hover:underline"
-          >
-            Otevřít kokpit →
-          </Link>
-        </div>
-        <CrmCockpitTiles counts={crmCounts} />
-      </div>
-
-      {showAgentLink && (
-        <div className="mb-6 flex items-center justify-between bg-white border border-neutral-200 rounded-xl p-4">
-          <p className="text-sm text-begina-primary-900">Asistent ChatGPT</p>
-          <Link href="/rizeni-firmy/asistent" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Propojení a historie →
-          </Link>
-        </div>
-      )}
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Objednávky</h2>
-          <Link
-            href="/rizeni-firmy/objednavky"
-            className="text-sm font-medium text-begina-primary-900 hover:underline"
-          >
-            Zobrazit vše →
-          </Link>
-        </div>
-        <OrderSummaryTiles counts={orderCounts} />
-        <Link
-          href="/rizeni-firmy/objednavky-po-terminu"
-          className={`mt-2 block rounded-xl p-4 text-sm font-medium border ${overdueCount ? "bg-red-50 border-red-300 text-red-900" : "bg-white border-neutral-200 text-begina-primary-900 hover:border-begina-primary-300"}`}
-        >
-          Objednávky po termínu{overdueCount === null ? "" : `: ${overdueCount}`} — zaplacené nebo odeslané a 5 pracovních dnů nedoručené →
-        </Link>
-      </div>
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Měření e-shopu</h2>
-          <Link href="/rizeni-firmy/mereni-eshopu" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Konverzní poměr →
-          </Link>
-        </div>
-        <Link
-          href="/rizeni-firmy/mereni-eshopu"
-          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
-        >
-          Návštěvy, košík, pokladna, objednávky — kde lidé odpadají
-        </Link>
-      </div>
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Doprava CoolBalík</h2>
-          <Link href="/rizeni-firmy/doprava-kalkulacka" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Kalkulačka →
-          </Link>
-        </div>
-        <Link
-          href="/rizeni-firmy/doprava-kalkulacka"
-          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
-        >
-          Cena chlazené přepravy podle zboží — Česká republika a Slovensko
-        </Link>
-      </div>
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Slovensko</h2>
-          <Link href="/rizeni-firmy/slovenske-listy" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Slovenské listy →
-          </Link>
-        </div>
-        <Link
-          href="/rizeni-firmy/slovenske-listy"
-          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
-        >
-          Složení, alergeny a výživové údaje ve slovenštině k tisku
-        </Link>
-      </div>
-
-      {showEkonomika && (
-        <div className="mb-6">
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <div>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-begina-primary-900">Receptury a náklady</h2>
-            <Link href="/rizeni-firmy/receptury" className="text-sm font-medium text-begina-primary-900 hover:underline">
-              Receptury →
-            </Link>
-          </div>
-          <Link
-            href="/rizeni-firmy/receptury"
-            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
-          >
-            Přesné složení na beginu, náklad, marže a ceník surovin
-          </Link>
-        </div>
-      )}
-
-      {showEkonomika && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-begina-primary-900">Ekonomika</h2>
-            <Link href="/rizeni-firmy/ekonomika" className="text-sm font-medium text-begina-primary-900 hover:underline">
-              Příjmy a náklady →
-            </Link>
-          </div>
-          <Link
-            href="/rizeni-firmy/ekonomika"
-            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
-          >
-            Měsíční přehled, zápis nákladu nebo příjmu
-          </Link>
-        </div>
-      )}
-
-      {showSklad && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-begina-primary-900">Sklad</h2>
+            <h2 className="text-sm font-medium text-begina-primary-900">Obchod / CRM</h2>
             <Link
-              href="/rizeni-firmy/sklad"
+              href="/rizeni-firmy/obchod"
               className="text-sm font-medium text-begina-primary-900 hover:underline"
             >
-              Zobrazit příjemky →
+              Otevřít kokpit →
             </Link>
           </div>
-          <Link
-            href="/rizeni-firmy/sklad/nova-prijemka"
-            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm font-medium text-begina-primary-900 hover:border-begina-primary-300"
-          >
-            + Nová příjemka (vyfotit doklad)
-          </Link>
+          <CrmCockpitTiles counts={crmCounts} />
         </div>
-      )}
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Etikety</h2>
-          <Link href="/rizeni-firmy/etikety" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Otevřít →
-          </Link>
-        </div>
-        <Link
-          href="/rizeni-firmy/etikety"
-          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
-        >
-          Finální etikety k tisku — polévky, sirupy, ovocné nápoje, koktejly, čaje
-        </Link>
-      </div>
-
-      {showEkonomika && (
-        <div className="mb-6">
+        <div>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-begina-primary-900">Legislativní audit</h2>
-            <Link href="/rizeni-firmy/legislativni-audit" className="text-sm font-medium text-begina-primary-900 hover:underline">
-              Otevřít →
+            <h2 className="text-sm font-medium text-begina-primary-900">Objednávky</h2>
+            <Link
+              href="/rizeni-firmy/objednavky"
+              className="text-sm font-medium text-begina-primary-900 hover:underline"
+            >
+              Zobrazit vše →
             </Link>
           </div>
+          <OrderSummaryTiles counts={orderCounts} />
           <Link
-            href="/rizeni-firmy/legislativni-audit"
-            className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
+            href="/rizeni-firmy/objednavky-po-terminu"
+            className={`mt-2 block rounded-xl p-4 text-sm font-medium border ${overdueCount ? "bg-red-50 border-red-300 text-red-900" : "bg-white border-neutral-200 text-begina-primary-900 hover:border-begina-primary-300"}`}
           >
-            Hlídání zákonů ČR a Slovenska a kontrola webu — upozornění a měsíční reporty
+            Objednávky po termínu{overdueCount === null ? "" : `: ${overdueCount}`} — zaplacené nebo odeslané a 5 pracovních dnů nedoručené →
           </Link>
         </div>
-      )}
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">HACCP</h2>
-          <Link href="/rizeni-firmy/haccp" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Otevřít →
-          </Link>
-        </div>
-        <Link
-          href="/rizeni-firmy/haccp"
-          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
-        >
-          Platná příručka HACCP pro hygienu — Zahradní Bistro Begina
-        </Link>
       </div>
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Fotky na e-shop</h2>
-          <Link href="/rizeni-firmy/fotky-eshop" className="text-sm font-medium text-begina-primary-900 hover:underline">
-            Otevřít →
-          </Link>
-        </div>
-        <Link
-          href="/rizeni-firmy/fotky-eshop"
-          className="block bg-white border border-neutral-200 rounded-xl p-4 text-sm text-begina-primary-900 hover:border-begina-primary-300"
-        >
-          Schválené produktové fotky — hlavní, s beginou a se sáčkem
-        </Link>
-      </div>
-
-      {ctx?.systemRole === "ADMIN" ? <div className="mb-6">
-        <div className="mb-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">Spolupracovníci</h2>
-        </div>
-        <div className="grid gap-3">
-          <Link href="/spoluprace/lucie" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
-            <p className="font-medium text-begina-primary-900">Lucie — sociální sítě, med a medové svíčky</p>
-            <p className="mt-1 text-sm text-neutral-600">Práce, čas, odměny, provize 20 %, sklad a prodeje</p>
-          </Link>
-          <Link href="/vyroba/petr" className="block rounded-xl border border-neutral-200 bg-white p-4 hover:border-begina-primary-300">
-            <p className="font-medium text-begina-primary-900">Petr — výroba a kuchyně</p>
-            <p className="mt-1 text-sm text-neutral-600">Fronta objednávek, suroviny skladem, žádosti o doplnění</p>
-          </Link>
-        </div>
-      </div> : null}
-
-      <div className="mb-6">
+      <div id="mapa-firmy" className="mb-6 scroll-mt-4">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-medium text-begina-primary-900">Živá mapa firmy</h2>
           <CreateNodeForm parentId={null} label="Přidat oblast" />

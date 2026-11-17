@@ -38,9 +38,6 @@ export default async function PrijemkaDetailPage({ params }: { params: Promise<{
 
   return (
     <div>
-      <Link href="/rizeni-firmy/sklad" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Sklad
-      </Link>
 
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">

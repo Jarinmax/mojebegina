@@ -1,7 +1,6 @@
 // Fotky na e-shop (11. 11. 2026) — schválené produktové fotky po kategoriích.
 // Přístup: celá sekce /rizeni-firmy (ADMIN + EXECUTIVE, viz layout.tsx).
 // Soubory: public/fotky-eshop/…, seznam: lib/fotky-eshop/manifest.ts.
-import Link from "next/link";
 import { FOTKY_CATEGORIES, fotkyDisplayName } from "@/lib/fotky-eshop/structure";
 import { FOTKY_MANIFEST } from "@/lib/fotky-eshop/manifest";
 
@@ -39,9 +38,6 @@ function PhotoGrid({ folder }: { folder: string }) {
 export default function FotkyEshopPage() {
   return (
     <div>
-      <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Řízení firmy
-      </Link>
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Fotky na e-shop</h1>
         <p className="text-sm text-neutral-500 mt-0.5">Schválené produktové fotky — hlavní fotka, s beginou 3 l a se sáčkem.</p>

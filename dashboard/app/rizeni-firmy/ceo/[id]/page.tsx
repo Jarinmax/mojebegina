@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isCeoFocusAllowed } from "@/lib/data/ceoFocusAuth";
@@ -40,9 +39,6 @@ export default async function FocusProjectDetailPage(
 
   return (
     <div>
-      <Link href="/rizeni-firmy/ceo" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← CEO přehled
-      </Link>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mt-2 mb-4">
         <div className="flex items-start justify-between gap-3 mb-2">

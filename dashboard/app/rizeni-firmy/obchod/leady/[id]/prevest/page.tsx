@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getLeadDetail, findDuplicateOrganizations } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -56,12 +55,6 @@ export default async function ConvertLeadPage(props: PageProps<"/rizeni-firmy/ob
 
   return (
     <div>
-      <Link
-        href={`/rizeni-firmy/obchod/leady/${id}`}
-        className="text-sm text-neutral-500 hover:text-begina-primary-900"
-      >
-        ← {detail.lead.displayName}
-      </Link>
 
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">Převést na zákazníka</h1>

@@ -28,9 +28,6 @@ export default async function RecepturyPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <Link href="/rizeni-firmy" className="text-sm text-begina-primary-900 hover:underline">
-        ← Řízení firmy
-      </Link>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold">Receptury a náklady</h1>
         <Link href="/rizeni-firmy/receptury/cenik" className="rounded-lg bg-begina-primary-900 px-4 py-2 text-sm font-medium text-white">

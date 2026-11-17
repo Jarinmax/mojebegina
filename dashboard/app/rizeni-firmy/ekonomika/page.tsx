@@ -107,7 +107,7 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
           <h1 className="text-2xl font-semibold">Ekonomika {year}</h1>
           <p className="mt-1 text-sm text-neutral-600">Příjmy, náklady a rozdíl po měsících. Vidí jen Jaroslav a Lucie.</p>
         </div>
-        <p className="text-sm flex gap-4">
+        <p className="text-sm flex flex-wrap gap-x-4 gap-y-1">
           <Link className="underline" href={`${BASE}?rok=${year - 1}&mesic=12`}>
             ← {year - 1}
           </Link>
@@ -158,7 +158,7 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
             <h2 className="text-lg font-semibold">
               {MONTH_NAMES[month - 1]} {year}
             </h2>
-            <div className="flex gap-2 text-sm">
+            <div className="flex flex-wrap gap-2 text-sm">
               <Link href={href({ zobrazit: "cost" })} className={`rounded-lg px-3 py-1.5 font-medium ${view === "cost" ? "bg-begina-primary-900 text-white" : "bg-neutral-100 text-neutral-700"}`}>
                 Náklady ({selected.costCount}) · {formatKc(selected.costHal)}
               </Link>

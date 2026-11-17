@@ -60,7 +60,7 @@ function Pill({ href, active, children }: { href: string; active: boolean; child
       href={href}
       scroll={false}
       className={
-        "px-3 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap " +
+        "px-3 py-1.5 rounded-full text-sm font-medium border text-center max-w-full " +
         (active
           ? "bg-begina-primary-900 text-white border-begina-primary-900"
           : "bg-white text-begina-primary-900 border-neutral-300 hover:border-begina-primary-900")
@@ -90,9 +90,6 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
 
   return (
     <div>
-      <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Řízení firmy
-      </Link>
       <div className="mt-3 mb-4">
         <h1 className="text-lg font-medium text-begina-primary-900">Etikety</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
@@ -100,12 +97,12 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
         </p>
       </div>
 
-      <div className="sticky top-0 z-10 bg-neutral-50/95 backdrop-blur py-3 -mx-1 px-1 flex flex-col gap-2 border-b border-neutral-200 mb-5">
-        <div className="flex gap-2">
+      <div className="sm:sticky sm:top-0 z-10 bg-neutral-50/95 backdrop-blur py-3 -mx-1 px-1 flex flex-col gap-2 border-b border-neutral-200 mb-5">
+        <div className="flex flex-wrap gap-2">
           <Pill href={url({ jazyk: "cz" })} active={jazyk === "cz"}>🇨🇿 Česky</Pill>
           <Pill href={url({ jazyk: "sk" })} active={jazyk === "sk"}>🇸🇰 Slovensky</Pill>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex flex-wrap gap-2">
           {cats.map((c) => (
             <Pill key={c.slug} href={url({ kat: c.slug })} active={c.slug === cat?.slug}>
               {label(c)}
@@ -113,7 +110,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
           ))}
         </div>
         {groups.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-wrap gap-2">
             {groups.map((g) => (
               <Pill key={g.slug} href={url({ kat: cat!.slug, typ: g.slug })} active={g.slug === group?.slug}>
                 {g.label}

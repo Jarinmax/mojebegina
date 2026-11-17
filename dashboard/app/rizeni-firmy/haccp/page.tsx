@@ -1,7 +1,6 @@
 // Úložiště HACCP (13. 11. 2026) — platná příručka HACCP pro kontrolu z hygieny.
 // Přístup: celá sekce /rizeni-firmy (ADMIN + EXECUTIVE, viz layout.tsx).
 // Soubory: public/haccp/…, seznam: lib/haccp/documents.ts.
-import Link from "next/link";
 import { HACCP_DOCUMENTS } from "@/lib/haccp/documents";
 
 export const metadata = { title: "HACCP — Řízení firmy" };
@@ -9,9 +8,6 @@ export const metadata = { title: "HACCP — Řízení firmy" };
 export default function HaccpPage() {
   return (
     <div>
-      <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Řízení firmy
-      </Link>
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-medium text-begina-primary-900">HACCP</h1>
         <p className="text-sm text-neutral-500 mt-0.5">

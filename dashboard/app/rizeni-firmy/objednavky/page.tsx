@@ -38,9 +38,6 @@ export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objedna
     <div>
       <div className="flex items-start justify-between gap-3 mb-1">
         <div>
-          <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-            ← Řízení firmy
-          </Link>
           <h1 className="text-lg font-medium text-begina-primary-900 mt-1">Objednávky</h1>
         </div>
         <Link
@@ -56,7 +53,7 @@ export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objedna
       </div>
 
       {activeFilter && (
-        <div className="flex items-center gap-2 mb-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2 mb-3 text-sm">
           <span className="text-neutral-500">Filtr: {FILTER_LABELS[activeFilter]}</span>
           <Link href="/rizeni-firmy/objednavky" className="text-begina-primary-900 hover:underline">
             Zrušit filtr

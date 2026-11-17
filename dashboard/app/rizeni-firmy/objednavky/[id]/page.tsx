@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff, listReplacementOptions } from "@/lib/data/orders";
 import { parseCheckoutAddress } from "@/lib/eshop/invoicing/draft";
@@ -53,12 +52,6 @@ export default async function OrderDetailPage(
 
   return (
     <div>
-      <Link
-        href="/rizeni-firmy/objednavky"
-        className="text-sm text-neutral-500 hover:text-begina-primary-900"
-      >
-        ← Objednávky
-      </Link>
 
       <div className="flex items-start justify-between gap-3 mt-1 mb-1">
         <h1 className="text-lg font-medium text-begina-primary-900">

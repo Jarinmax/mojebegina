@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
@@ -32,9 +31,6 @@ export default async function CenikSurovinPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <Link href="/rizeni-firmy/receptury" className="text-sm text-begina-primary-900 hover:underline">
-        ← Receptury a náklady
-      </Link>
       <h1 className="mt-2 text-2xl font-semibold">Ceník surovin a obalů</h1>
       <p className="mt-2 text-sm text-neutral-600">Když nakoupíte za jinou cenu, přepište ji tady a uložte. Náklady a marže se přepočítají u všech receptur, kde se surovina nebo obal používá. Cena je včetně dopravy, pokud ji tak počítáte.</p>
       {section("Obaly a etikety", ingredients.filter((item) => item.kind === "obal"), false)}

@@ -1,7 +1,6 @@
 // GPT/MCP pilot — přehled vlastního propojení s ChatGPT: aktivní souhlasy
 // (odvolání jedním tlačítkem) a co asistent za posledních 7 dní dělal.
 // Přístup do /rizeni-firmy hlídá layout (ADMIN/EXECUTIVE).
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -33,9 +32,6 @@ export default async function AgentAccessPage() {
 
   return (
     <div>
-      <Link href="/rizeni-firmy" className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Řízení firmy
-      </Link>
       <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-1">Asistent ChatGPT</h1>
       <p className="text-sm text-neutral-600 mb-4">
         ChatGPT jedná za vás a jen s oprávněními vašeho účtu. Odvoláním ho okamžitě odpojíte — pro další použití je

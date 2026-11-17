@@ -32,9 +32,6 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <Link href="/rizeni-firmy/receptury" className="text-sm text-begina-primary-900 hover:underline">
-        ← Receptury a náklady
-      </Link>
       <p className="mt-2 text-xs uppercase tracking-wide text-neutral-500">{category}</p>
       <h1 className="text-2xl font-semibold">{recipe.name}</h1>
       {recipe.archived && <p className="mt-2 inline-block rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-700">Nevyrábí se — archivní receptura</p>}
@@ -56,7 +53,7 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
                 {choice}
               </Link>
             ))}
-            <form action={base} className="flex items-center gap-1 ml-1">
+            <form action={base} className="flex items-center gap-1">
               <input name="beginy" type="number" min={1} max={200} defaultValue={BATCH_CHOICES.includes(count) ? "" : count} placeholder="jiný" aria-label="Jiný počet begin" className="w-16 rounded-md border border-neutral-300 bg-white px-2 py-1 text-neutral-900" />
               <button type="submit" className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-neutral-900">
                 Přepočítat

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -56,9 +55,6 @@ export default async function ProjektOblastPage(props: PageProps<"/rizeni-firmy/
   return (
     <div className="flex flex-col gap-4 text-neutral-900 max-w-3xl">
       <div>
-        <Link href="/rizeni-firmy/projekt" className="text-sm text-neutral-500 hover:underline">
-          ← Projekt Begina
-        </Link>
         <div className="mt-2 flex items-center gap-3">
           <AreaIcon area={area} size="lg" />
           <h1 className={`text-2xl font-semibold ${tone.text}`}>{area.name}</h1>
