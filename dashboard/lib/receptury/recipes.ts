@@ -91,3 +91,66 @@ export function formatQuantity(quantity: number, unit: ItemUnit): string {
 export function priceUnitLabel(unit: PriceUnit): string {
   return unit === "kapka" ? "Kč/kapka" : `Kč/${unit}`;
 }
+
+// NÁKUPY SUROVIN 1.0 — nabídky dodavatelů (balení, cena, doprava, odkaz).
+export type RecipeOffer = {
+  id: string;
+  ingredientId: string | null;
+  itemName: string;
+  url: string | null;
+  packLabel: string;
+  /** Balení v jednotce ceny suroviny (kg / l / ks / kapka). */
+  packQty: number;
+  priceKc: number;
+  shippingKc: number;
+  /** true = do nákladů se nepočítá (akční cena nebo balení, které nebereme). Sloupec is_promo. */
+  isPromo: boolean;
+  note: string | null;
+};
+
+/** Cena za jednotku včetně dopravy: (cena + doprava) / balení, na 4 desetinná místa. */
+export function offerUnitPriceKc(offer: Pick<RecipeOffer, "packQty" | "priceKc" | "shippingKc">): number {
+  if (!(offer.packQty > 0)) return 0;
+  return Math.round(((offer.priceKc + offer.shippingKc) / offer.packQty) * 10_000) / 10_000;
+}
+
+/** Nabídka, podle které se dnes počítá (cena v ceníku = její cena za jednotku, ±0,005 Kč). */
+export function isOfferInUse(offer: Pick<RecipeOffer, "packQty" | "priceKc" | "shippingKc">, ingredientPriceKc: number): boolean {
+  return Math.abs(offerUnitPriceKc(offer) - ingredientPriceKc) < 0.005;
+}
+
+/** Nejnižší běžná (ne akční) cena za jednotku z nabídek, nebo null. */
+export function lowestRegularUnitPriceKc(offers: readonly RecipeOffer[]): number | null {
+  const prices = offers.filter((offer) => !offer.isPromo).map(offerUnitPriceKc);
+  return prices.length ? Math.min(...prices) : null;
+}
+
+/** Odkaz jen http(s); cokoli jiného → null (aby se do stránky nedostal javascript: apod.). */
+export function safeOfferUrl(input: string | null | undefined): string | null {
+  const value = (input ?? "").trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Náklad na beginu (jednu dávku) u receptur, kterých se týká změna ceny jedné suroviny. */
+export function priceChangeImpact(
+  recipes: readonly Pick<Recipe, "name" | "archived" | "items">[],
+  ingredientId: string,
+  newPriceKc: number
+): { name: string; beforeKc: number; afterKc: number; diffKc: number }[] {
+  return recipes
+    .filter((recipe) => !recipe.archived && recipe.items.some((item) => item.ingredient.id === ingredientId))
+    .map((recipe) => {
+      const beforeKc = batchCostKc(recipe);
+      const afterKc = batchCostKc({
+        items: recipe.items.map((item) => (item.ingredient.id === ingredientId ? { ...item, ingredient: { ...item.ingredient, priceKc: newPriceKc } } : item)),
+      });
+      const round = (kc: number) => Math.round(kc * 100) / 100;
+      return { name: recipe.name, beforeKc: round(beforeKc), afterKc: round(afterKc), diffKc: round(afterKc - beforeKc) };
+    });
+}

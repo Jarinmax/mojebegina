@@ -2,8 +2,8 @@
 // MUSÍ předem ověřit isInvoiceIssuer (jen Jaroslav a Lucie).
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { recipeIngredients, recipeItems, recipeVariants, recipes } from "@/lib/db/schema";
-import type { ItemUnit, PriceUnit, Recipe, RecipeIngredient } from "./recipes";
+import { recipeIngredients, recipeItems, recipeOffers, recipeVariants, recipes } from "@/lib/db/schema";
+import type { ItemUnit, PriceUnit, Recipe, RecipeIngredient, RecipeOffer } from "./recipes";
 
 /** false = tabulky v databázi ještě nejsou (skript 123 nebyl spuštěn). */
 export async function recipeTablesExist(): Promise<boolean> {
@@ -66,4 +66,60 @@ export async function updateIngredientPrice(id: string, priceKc: number, note: s
     .update(recipeIngredients)
     .set({ priceKc: priceKc.toFixed(4), note, updatedByUserId: userId, updatedAt: new Date() })
     .where(eq(recipeIngredients.id, id));
+}
+
+// NÁKUPY SUROVIN 1.0 — nabídky dodavatelů s odkazy.
+
+/** false = tabulka nabídek ještě není (skript 128 nebyl spuštěn). */
+export async function offerTableExists(): Promise<boolean> {
+  const result = await db.execute(sql`SELECT to_regclass('public.recipe_offers') IS NOT NULL AS present`);
+  const row = (result.rows?.[0] ?? null) as { present?: boolean } | null;
+  return row?.present === true;
+}
+
+export async function loadOffers(): Promise<RecipeOffer[]> {
+  if (!(await offerTableExists())) return [];
+  const rows = await db.select().from(recipeOffers).orderBy(asc(recipeOffers.sort), asc(recipeOffers.itemName));
+  return rows.map((row) => ({
+    id: row.id,
+    ingredientId: row.ingredientId,
+    itemName: row.itemName,
+    url: row.url,
+    packLabel: row.packLabel,
+    packQty: Number(row.packQty),
+    priceKc: Number(row.priceKc),
+    shippingKc: Number(row.shippingKc),
+    isPromo: row.isPromo,
+    note: row.note,
+  }));
+}
+
+export type OfferInput = Omit<RecipeOffer, "id">;
+
+/** Nová nabídka (id = null) nebo úprava existující. Vrací id, nebo null když id neexistuje. */
+export async function saveOffer(id: string | null, input: OfferInput, userId: string): Promise<string | null> {
+  const values = {
+    ingredientId: input.ingredientId,
+    itemName: input.itemName,
+    url: input.url,
+    packLabel: input.packLabel,
+    packQty: input.packQty.toFixed(4),
+    priceKc: input.priceKc.toFixed(2),
+    shippingKc: input.shippingKc.toFixed(2),
+    isPromo: input.isPromo,
+    note: input.note,
+    updatedByUserId: userId,
+    updatedAt: new Date(),
+  };
+  if (id) {
+    const rows = await db.update(recipeOffers).set(values).where(eq(recipeOffers.id, id)).returning({ id: recipeOffers.id });
+    return rows[0]?.id ?? null;
+  }
+  const rows = await db.insert(recipeOffers).values(values).returning({ id: recipeOffers.id });
+  return rows[0]?.id ?? null;
+}
+
+export async function deleteOffer(id: string): Promise<boolean> {
+  const rows = await db.delete(recipeOffers).where(eq(recipeOffers.id, id)).returning({ id: recipeOffers.id });
+  return rows.length > 0;
 }

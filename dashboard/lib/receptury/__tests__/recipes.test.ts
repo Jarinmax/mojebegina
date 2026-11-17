@@ -74,3 +74,25 @@ describe("receptury – výpočty", () => {
     expect(formatQuantity(3, "kapka")).toBe("3 kapek");
   });
 });
+
+describe("nabídky dodavatelů", () => {
+  it("cena za jednotku včetně dopravy", async () => {
+    const { offerUnitPriceKc, isOfferInUse, lowestRegularUnitPriceKc, safeOfferUrl } = await import("../recipes");
+    expect(offerUnitPriceKc({ packQty: 25, priceKc: 999, shippingKc: 109 })).toBe(44.32);
+    expect(offerUnitPriceKc({ packQty: 750, priceKc: 1068, shippingKc: 0 })).toBe(1.424);
+    expect(isOfferInUse({ packQty: 25, priceKc: 999, shippingKc: 109 }, 44.32)).toBe(true);
+    const offer = (unit: number, isPromo = false) => ({ id: "x", ingredientId: null, itemName: "x", url: null, packLabel: "1 kg", packQty: 1, priceKc: unit, shippingKc: 0, isPromo, note: null });
+    expect(lowestRegularUnitPriceKc([offer(45.96), offer(39.6, true), offer(44.32)])).toBe(44.32);
+    expect(lowestRegularUnitPriceKc([])).toBeNull();
+    expect(safeOfferUrl("javascript:alert(1)")).toBeNull();
+    expect(safeOfferUrl("https://www.profikoreni.cz/x")).toBe("https://www.profikoreni.cz/x");
+  });
+
+  it("dopad změny ceny na náklad beginy", async () => {
+    const { priceChangeImpact } = await import("../recipes");
+    const impact = priceChangeImpact([recipe], "cukr", 50);
+    expect(impact).toHaveLength(1);
+    expect(impact[0].diffKc).toBe(20);
+    expect(priceChangeImpact([recipe], "neni", 50)).toHaveLength(0);
+  });
+});
