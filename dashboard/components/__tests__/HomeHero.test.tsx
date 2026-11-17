@@ -21,14 +21,14 @@ describe("úvod e-shopu", () => {
     render(<HomeHero />);
     // nezalomitelné mezery (a&nbsp;bylinné) porovnáváme jako obyčejné
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
-    expect(text(document.body.textContent)).toContain("Čerstvě. Jednoduše. S chutí.");
+    expect(text(document.body.textContent)).not.toContain("Čerstvě. Jednoduše. S chutí.");
     const h1 = screen.getByRole("heading", { level: 1 });
     // nadpis s hlavní výhodou – begina (11. 11. 2026)
     expect(text(h1.textContent)).toBe("Polévky a nápoje v begině");
     expect(text(document.body.textContent)).toContain("Natočíte si, kolik chcete a kdy chcete. Z čisté filtrované vody.");
     // tři výhody hned pod nadpisem (16. 11. 2026)
     const points = screen.getAllByRole("listitem").map((item) => text(item.textContent));
-    expect(points).toEqual(["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"]);
+    expect(points).toEqual(["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"]);
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
 

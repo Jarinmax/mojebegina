@@ -61,26 +61,52 @@ export function formatPerLitre(priceKc: number, volumeMl: number): string {
 
 export type ServingPrice = { label: string | null; text: string };
 
-function servingText(category: string, variant: Variant): string | null {
+function servingText(category: string, variant: Variant, fallbackServingMl: number | null): string | null {
   const { priceKc, volumeMl, servings } = variant;
   if (!volumeMl || volumeMl <= 0) return null;
   const perLitre = formatPerLitre(priceKc, volumeMl);
-  if (!servings || servings <= 0) return perLitre;
+  if (!servings || servings <= 0) {
+    // Balení bez počtu porcí: stejná sklenice jako u většího balení (rozhodnutí
+    // Lucie 17. 11. 2026 pro půllitrové koktejly – sklenice 200 ml jako u 3 l).
+    if (!fallbackServingMl) return perLitre;
+    const perGlass = formatServingKc((priceKc * fallbackServingMl) / volumeMl);
+    return `Sklenice ${fallbackServingMl} ml za ${perGlass} · ${perLitre}`;
+  }
   const perServing = formatServingKc(priceKc / servings);
   // Sirup se ředí, „porce“ je sklenice limonády; měrná cena za litr sirupu by mátla.
   if (category === "sirupy") return `Sklenice limonády za ${perServing}`;
   const servingMl = Math.round(volumeMl / servings);
   const noun = category === "polevky" ? "Porce" : "Sklenice";
-  return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;
+  return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;
+}
+
+/** Velikost sklenice podle balení, které počet porcí má – jen u koktejlů. */
+function siblingServingMl(product: Product): number | null {
+  if (product.category !== "koktejly") return null;
+  const sizes = new Set(
+    product.variants.flatMap((v) => (v.volumeMl && v.servings && v.servings > 0 ? [Math.round(v.volumeMl / v.servings)] : [])),
+  );
+  return sizes.size === 1 ? [...sizes][0] : null;
 }
 
 /** Jeden řádek na každé balení; u produktu s jedním balením bez popisku. */
 export function servingPrices(product: Product): ServingPrice[] {
   const single = product.variants.length === 1;
+  const fallback = siblingServingMl(product);
   return product.variants.flatMap((variant) => {
-    const text = servingText(product.category, variant);
+    const text = servingText(product.category, variant, fallback);
     return text ? [{ label: single ? null : variant.label, text }] : [];
   });
+}
+
+/**
+ * Krátký popis bez ceny za porci – ta je jen na jednom místě, v řádku pod
+ * cenou (rozhodnutí Lucie 17. 11. 2026). Zbytek popisu se nemění.
+ * „Až 12 porcí polévky (31,60 Kč za porci). …“ → „Až 12 porcí polévky. …“
+ */
+export function withoutServingPrice<T extends string | null>(text: T): T {
+  if (text === null) return text;
+  return (text as string).replace(/\s*\((?:cca\s*)?\d[\d\s,]*Kč za (?:porci|nápoj|sklenici)\)/giu, "") as T;
 }
 
 // ── Alergeny ve složení ────────────────────────────────────────────────────
@@ -155,8 +181,17 @@ export function hasPreservative(ingredients: string): boolean {
 
 export const NO_PRESERVATIVES = "bez konzervantů";
 
-/** „Bez konzervantů“ jen když je složení známé a žádný konzervant v něm není. */
+/** Ve složení jsou barviva označená kódem E 100–E 199 (např. v likéru)? */
+export function hasColourAdditive(ingredients: string): boolean {
+  return /\bE\s?1\d\d\b/u.test(ingredients);
+}
+
+/**
+ * „Bez konzervantů“ jen když je složení známé a žádný konzervant v něm není.
+ * U produktu s přidanými barvivy (E 1xx) se štítek neukazuje vůbec – vedle
+ * „éček“ ve složení by působil zavádějícím dojmem.
+ */
 export function showsNoPreservatives(product: Product): boolean {
   const ingredients = product.foodInfo.ingredients;
-  return ingredients !== null && !hasPreservative(ingredients);
+  return ingredients !== null && !hasPreservative(ingredients) && !hasColourAdditive(ingredients);
 }

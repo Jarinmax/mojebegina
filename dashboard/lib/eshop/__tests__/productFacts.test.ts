@@ -10,6 +10,7 @@ import {
   servingPrices,
   showsNoPreservatives,
   undeclaredAllergenWords,
+  withoutServingPrice,
 } from "../productFacts";
 import type { Product } from "../types";
 
@@ -99,7 +100,7 @@ describe("cena za porci", () => {
     });
     expect(servingPrices(cocktail).map((row) => ({ ...row, text: nbsp(row.text) }))).toEqual([
       { label: "3 l", text: "Sklenice 200 ml za 53,30 Kč · 266 Kč/l" },
-      { label: "500 ml", text: "338 Kč/l" },
+      { label: "500 ml", text: "Sklenice 200 ml za 67,60 Kč · 338 Kč/l" },
     ]);
     expect(servingPrices(product({ variants: [{ sku: "a", label: "3 l", detail: null, description: null, priceKc: 379, volumeMl: null, servings: 12, weightGrams: null }] }))).toEqual([]);
   });
@@ -136,5 +137,16 @@ describe("bez konzervantů", () => {
     expect(showsNoPreservatives(product({}))).toBe(true);
     expect(showsNoPreservatives(product({ ingredients: null }))).toBe(false);
     expect(showsNoPreservatives(product({ ingredients: "víno (SIŘIČITANY)" }))).toBe(false);
+    // Lady Carneval: konzervant nemá, ale vedle barviv E 110 a E 124 se štítek neukazuje
+    expect(showsNoPreservatives(product({ ingredients: "voda, vodka 15 %, Aperol 8 % (pitná voda, cukr, líh, aromata, barviva: E 110, E 124)" }))).toBe(false);
+  });
+
+  it("krátký popis bez ceny za porci, jinak beze změny", () => {
+    expect(withoutServingPrice("Až 12 porcí polévky (31,60 Kč za porci). Jedna porce = 250 ml.")).toBe("Až 12 porcí polévky. Jedna porce = 250 ml.");
+    expect(withoutServingPrice("3 l: až 150 nápojů (cca 3,70 Kč za nápoj). 650 ml: až 32 nápojů. Při ředění 1 : 10.")).toBe("3 l: až 150 nápojů. 650 ml: až 32 nápojů. Při ředění 1 : 10.");
+    expect(withoutServingPrice("Až 15 nápojů (26,60 Kč za nápoj). Jeden nápoj = 200 ml.")).toBe("Až 15 nápojů. Jeden nápoj = 200 ml.");
+    expect(withoutServingPrice("Až 12 nápojů (29 Kč za nápoj). Jeden nápoj = 250 ml.")).toBe("Až 12 nápojů. Jeden nápoj = 250 ml.");
+    expect(withoutServingPrice("Grepový koktejl s vodkou a Aperolem.")).toBe("Grepový koktejl s vodkou a Aperolem.");
+    expect(withoutServingPrice(null)).toBeNull();
   });
 });

@@ -48,9 +48,6 @@ export default function HomeHero() {
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
       <div className="max-w-6xl mx-auto lg:px-4 lg:py-3 grid items-center lg:grid-cols-2 lg:gap-6">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
-          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#5E6B34]">
-            Čerstvě. Jednoduše. S&nbsp;chutí.
-          </p>
           {/* Nadpis s hlavní výhodou (11. 11. 2026): begina = natočíte si, kolik chcete. */}
           <h1 className="mt-1.5 sm:mt-4 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622]">
             <span className="sm:block lg:inline">Polévky a nápoje</span>{" "}

@@ -1,6 +1,17 @@
 name: nahledy
 on: push
 jobs:
+  t:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: dashboard } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx next typegen && npx tsc --noEmit
+      - run: npx eslint lib/eshop/productFacts.ts lib/eshop/catalogDb.ts lib/eshop/homeContent.ts components/eshop/HomeHero.tsx components/eshop/ProductCard.tsx "app/eshop/produkt/[slug]/page.tsx"
+      - run: npx vitest run lib/eshop components/__tests__/HomeHero.test.tsx
   s:
     runs-on: ubuntu-latest
     steps:
@@ -23,6 +34,7 @@ jobs:
               ul.innerHTML = ["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"].map((t) => `<li style="display:inline-flex;align-items:center;gap:4px">${svg(CHECK, wide ? 20 : 16, "#4A5527")}${t}</li>`).join("");
               h1.after(ul);
               for (const p of document.querySelectorAll("p")) {
+                if (p.textContent.replace(/\u00a0/g, " ").trim() === "Čerstvě. Jednoduše. S chutí.") { p.remove(); continue; }
                 if (p.textContent.includes("Natočíte si, kolik chcete")) p.innerHTML = "Natočíte si, kolik chcete a&nbsp;kdy chcete. Z&nbsp;čisté filtrované vody.";
                 if (p.textContent.trim() === "Doručujeme chlazenou přepravou.") p.remove();
               }
@@ -41,6 +53,7 @@ jobs:
               }
             }
             if (cfg.product) {
+              for (const p of document.querySelectorAll("p")) if (/Kč za (porci|nápoj)\)/.test(p.textContent) && !p.children.length) p.textContent = p.textContent.replace(/\s*\((?:cca\s*)?\d[\d\s,]*Kč za (?:porci|nápoj|sklenici)\)/g, "");
               const price = [...document.querySelectorAll("p")].find((p) => p.className.includes("text-2xl") && p.className.includes("font-semibold"));
               const box = document.createElement("div");
               box.style.cssText = "margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:20px;color:#404040";
@@ -59,28 +72,17 @@ jobs:
           };
           const S14 = "Po otevření vydrží v lednici 14 dní – natáčíte postupně.";
           const b = await chromium.launch();
-          for (const [mode, opts] of [["mobil", { ...devices["iPhone 13"], deviceScaleFactor: 2 }], ["pc", { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }]]) {
-            const ctx = await b.newContext(opts);
+          {
+            const ctx = await b.newContext({ ...devices["iPhone 13"] });
             const p = await ctx.newPage();
             const go = async (path, cfg) => { await p.goto(B + path, { waitUntil: "networkidle" }); await p.addStyleTag({ content: ".cky-consent-container,.cky-overlay,.cky-btn-revisit-wrapper{display:none!important}" }); await p.evaluate(inject, cfg); await p.waitForTimeout(300); };
-            await go("/", { home: true, badges: { "Dýňová polévka": "14 dní po otevření", "Bylinný sirup Šaman": "3 měsíce po otevření", "Lipový sirup": "3 měsíce po otevření", "Svařák Deluxe": "14 dní po otevření" } });
-            await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-1-uvod.jpg` });
-            if (mode === "mobil") await p.screenshot({ type: 'jpeg', quality: 70, path: "mobil-1-uvod-cela.jpg", fullPage: true });
-            await go("/produkt/dynova-polevka", { product: { opened: S14, portions: [[null, "Porce 250 ml za 31,60 Kč · 126 Kč/l"]], noPreservatives: true } });
-            await p.evaluate(() => { const h = document.querySelector("h1"); window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 90); });
-            await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-2-polevka.jpg` });
-            await go("/produkt/lipovy-sirup", { product: { opened: "Po otevření vydrží v lednici 3 měsíce.", portions: [["3 l", "Sklenice limonády za 3,70 Kč"], ["650 ml", "Sklenice limonády za 6,20 Kč"]], noPreservatives: true } });
-            await p.evaluate(() => { const h = document.querySelector("h1"); window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 90); });
-            await p.screenshot({ type: 'jpeg', quality: 70, path: `${mode}-3-sirup.jpg` });
-            if (mode === "mobil") {
-              await go("/produkt/svarak-deluxe", { product: { opened: "Po otevření vydrží v lednici 14 dní.", portions: [["3 l", "Sklenice 200 ml za 33,30 Kč · 166 Kč/l"], ["500 ml", "258 Kč/l"]], noPreservatives: false, bold: "SIŘIČITANY" } });
-              const row = p.locator("dt", { hasText: "Složení" }).locator("xpath=..");
-              await row.scrollIntoViewIfNeeded();
-              await row.screenshot({ type: 'jpeg', quality: 80, path: "mobil-4-svarak-slozeni.jpg" });
-              await go("/kategorie/polevky", { badges: { "*": "14 dní po otevření" } });
-              await p.locator("li h2").first().scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -330));
-              await p.screenshot({ type: 'jpeg', quality: 70, path: "mobil-5-kategorie.jpg" });
-            }
+            const top = () => p.evaluate(() => { const h = document.querySelector("h1"); window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 90); });
+            await go("/", { home: true, badges: { "Dýňová polévka": "14 dní po otevření", "Bylinný sirup Šaman": "3 měsíce po otevření", "Lipový sirup": "3 měsíce po otevření", "Svařák Deluxe": "14 dní po otevření" } });
+            await p.screenshot({ type: 'jpeg', quality: 75, path: "n1-uvod.jpg" });
+            await go("/produkt/dynova-polevka", { product: { opened: S14, portions: [[null, "Porce 250 ml za 31,60 Kč · 126 Kč/l"]], noPreservatives: true } });
+            await top(); await p.screenshot({ type: 'jpeg', quality: 75, path: "n2-polevka.jpg" });
+            await go("/produkt/kosmopolitan", { product: { opened: "Po otevření vydrží v lednici 14 dní.", portions: [["3 l", "Sklenice 200 ml za 53,30 Kč · 266 Kč/l"], ["500 ml", "Sklenice 200 ml za 67,60 Kč · 338 Kč/l"]], noPreservatives: true } });
+            await top(); await p.screenshot({ type: 'jpeg', quality: 75, path: "n3-koktejl.jpg" });
             await ctx.close();
           }
           await b.close();

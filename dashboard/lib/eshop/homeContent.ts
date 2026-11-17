@@ -32,4 +32,4 @@ export const HOME_BISTRO = "Ochutnat nás můžete i v Zahradním bistru Begina 
 export const HOME_STEPS_PHOTO = "/eshop/polevky/dynova-polevka-begina-v3.jpg";
 
 /** Tři hlavní výhody hned pod nadpisem úvodu, viditelné bez posouvání (16. 11. 2026). */
-export const HOME_HERO_POINTS = ["Polévky vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"] as const;
+export const HOME_HERO_POINTS = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné", "Chlazeně až domů"] as const;

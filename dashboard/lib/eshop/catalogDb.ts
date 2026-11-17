@@ -11,6 +11,7 @@
 // jsou null → chlazená přeprava podle hmotnosti se nenabídne.
 
 import { asc, eq } from "drizzle-orm";
+import { withoutServingPrice } from "./productFacts";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { allergenLabel } from "./allergens";
@@ -139,7 +140,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
         slug: row.slug,
         name: row.name,
         category,
-        shortDescription: row.shortDescription,
+        shortDescription: withoutServingPrice(row.shortDescription),
         highlights: row.highlights,
         description: row.description,
         taste: row.tasteDescription,
