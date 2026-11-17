@@ -46,8 +46,8 @@ const FROZEN: Record<string, { text: string; pdf: string }> = {
     pdf: "a056f9f8190886c44f26e813b694af687333feb84cca074f8198b34c1b8c966c",
   },
   "2026-11-18": {
-    text: "TEXTHASH",
-    pdf: "PDFHASH",
+    text: "f6f005d9ddcad0a3aadf23ea73c9cd4eec9e23947e1321fa002224ca0b77d3c2",
+    pdf: "2820558875df035ab9ca37d0c7d3ff72dcf4617171fd29e10b542b06b331f651",
   },
 };
 
