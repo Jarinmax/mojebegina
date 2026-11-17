@@ -2081,6 +2081,30 @@ export const economyEntries = pgTable(
   ]
 );
 
+// EKONOMIKA 1.1 (17. 11. 2026) — historie úprav a smazání řádků Ekonomiky
+// (kdo, kdy, co: stará a nová hodnota, u smazání důvod), aby šlo cokoli
+// dohledat a vrátit. Jen přibývá, nic se v ní nemění ani nemaže.
+export const economyEntryChanges = pgTable(
+  "economy_entry_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => economyEntries.id, { onDelete: "restrict" }),
+    action: text("action").notNull(),
+    changes: jsonb("changes").notNull(),
+    reason: text("reason"),
+    source: text("source").notNull().default("agent"),
+    changedByUserId: text("changed_by_user_id"),
+    changedByName: text("changed_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("economy_entry_changes_entry_idx").on(table.entryId, table.createdAt),
+    check("economy_entry_changes_action_check", sql`${table.action} IN ('update','delete')`),
+  ]
+);
+
 // MĚŘENÍ E-SHOPU 1.0 (15. 11. 2026) — anonymní denní počítadla kroků nákupu
 // (návštěva → produkt → košík → pokladna). Jen součty po dnech: žádná IP
 // adresa, žádný identifikátor návštěvníka, nic se neukládá do zařízení.

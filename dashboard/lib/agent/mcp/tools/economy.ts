@@ -2,13 +2,13 @@
 // Jen pro Jaroslava a Lucii (isInvoiceIssuer); zápis jen se souhlasem
 // mojebegina.invoicing (finance), stejně jako fakturace.
 import "server-only";
-import { and, asc, eq, gte, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { economyEntries } from "@/lib/db/schema";
+import { economyEntries, economyEntryChanges } from "@/lib/db/schema";
 import { getAuthContext } from "@/lib/data/authContext";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { parseAmountToHal, parseEntryDate, PAYMENT_FORMS } from "@/lib/ekonomika/economy";
-import { ArgError, idempotencyKey, optionalString, requiredString } from "../args";
+import { ArgError, idempotencyKey, optionalString, requiredString, requiredUuid } from "../args";
 import { defineTool, type AgentTool } from "../define";
 
 const DENIED = `Ekonomiku smí číst a zapisovat jen ${INVOICE_ISSUER_NAMES}.`;
@@ -28,6 +28,83 @@ function monthOf(args: Record<string, unknown>): { from: string; to: string; lab
   const year = Number(match[1]);
   const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
   return { from: `${raw}-01`, to: next, label: raw };
+}
+
+
+const NO_HISTORY = "Úprava a mazání v Ekonomice ještě nejsou zapnuté — nejdřív je potřeba v Neonu spustit skript 129_ekonomika_historie_MAIN.sql.";
+
+async function historyTableExists(): Promise<boolean> {
+  const result = await db.execute(sql`SELECT to_regclass('public.economy_entry_changes') IS NOT NULL AS present`);
+  const row = (result.rows?.[0] ?? null) as { present?: boolean } | null;
+  return row?.present === true;
+}
+
+type EntryRow = typeof economyEntries.$inferSelect;
+type EditableField = "entryDate" | "title" | "counterparty" | "amountHal" | "amountNoShippingHal" | "paymentForm" | "invoiceNumber" | "note";
+type EntryPatch = Partial<Pick<EntryRow, EditableField>>;
+
+const FIELD_LABELS: Record<EditableField, string> = {
+  entryDate: "datum",
+  title: "co / typ",
+  counterparty: "prodávající / klient",
+  amountHal: "částka",
+  amountNoShippingHal: "cena bez dopravy",
+  paymentForm: "forma úhrady",
+  invoiceNumber: "číslo faktury",
+  note: "poznámka",
+};
+
+const has = (args: Record<string, unknown>, key: string) => Object.prototype.hasOwnProperty.call(args, key);
+
+function optionalAmount(args: Record<string, unknown>, key: string): number | null {
+  const raw = args[key];
+  if (raw === null || raw === "") return null;
+  const hal = parseAmountToHal(String(raw));
+  if (hal === null) throw new ArgError(`Argument ${key} musí být kladná částka v Kč.`);
+  return hal;
+}
+
+/** Jen pole, která model opravdu poslal; prázdný text = smazat hodnotu (u nepovinných polí). */
+export function parseEntryPatch(args: Record<string, unknown>): EntryPatch {
+  const patch: EntryPatch = {};
+  if (has(args, "date")) {
+    const entryDate = parseEntryDate(requiredString(args, "date", 10));
+    if (!entryDate) throw new ArgError("Argument date musí být platné datum RRRR-MM-DD.");
+    patch.entryDate = entryDate;
+  }
+  if (has(args, "title")) patch.title = requiredString(args, "title", 300);
+  if (has(args, "counterparty")) patch.counterparty = optionalString(args, "counterparty", 300);
+  if (has(args, "amount_kc")) {
+    const amountHal = parseAmountToHal(String(args.amount_kc ?? ""));
+    if (amountHal === null) throw new ArgError("Argument amount_kc musí být kladná částka v Kč.");
+    patch.amountHal = amountHal;
+  }
+  if (has(args, "amount_no_shipping_kc")) patch.amountNoShippingHal = optionalAmount(args, "amount_no_shipping_kc");
+  if (has(args, "payment_form")) patch.paymentForm = optionalString(args, "payment_form", 60);
+  if (has(args, "invoice_number")) patch.invoiceNumber = optionalString(args, "invoice_number", 40);
+  if (has(args, "note")) patch.note = optionalString(args, "note", 500);
+  if (Object.keys(patch).length === 0) throw new ArgError("Není co měnit — pošlete aspoň jedno pole (např. note: \"\" pro smazání poznámky).");
+  return patch;
+}
+
+const shown = (field: EditableField, value: unknown) =>
+  value === null || value === undefined ? null : field === "amountHal" || field === "amountNoShippingHal" ? Number(value) / 100 : value;
+
+function entryView(row: EntryRow) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    date: row.entryDate,
+    title: row.title,
+    counterparty: row.counterparty,
+    amountKc: row.amountHal / 100,
+    note: row.note,
+  };
+}
+
+async function loadLiveEntry(id: string): Promise<EntryRow | null> {
+  const [row] = await db.select().from(economyEntries).where(and(eq(economyEntries.id, id), isNull(economyEntries.deletedAt))).limit(1);
+  return row ?? null;
 }
 
 export const ECONOMY_TOOLS: AgentTool[] = [
@@ -63,6 +140,7 @@ export const ECONOMY_TOOLS: AgentTool[] = [
           totalKc: totalHal / 100,
           truncated: rows.length > 300,
           entries: rows.slice(0, 300).map((row) => ({
+            id: row.id,
             date: row.entryDate,
             title: row.title,
             counterparty: row.counterparty,
@@ -70,6 +148,7 @@ export const ECONOMY_TOOLS: AgentTool[] = [
             paymentForm: row.paymentForm,
             invoiceNumber: row.invoiceNumber,
             note: row.note,
+            amountNoShippingKc: row.amountNoShippingHal === null ? null : row.amountNoShippingHal / 100,
             source: row.source,
           })),
           url: ECONOMY_URL,
@@ -81,7 +160,7 @@ export const ECONOMY_TOOLS: AgentTool[] = [
     name: "economy_add_entry",
     title: "Ekonomika — zapsat náklad nebo příjem",
     description:
-      "ZÁPIS — přidá jeden řádek do Ekonomiky v MojeBegina: náklad (kind=cost: co se kupovalo, prodávající) nebo příjem (kind=income: typ, klient, forma úhrady, číslo faktury). Zapisuj jen údaje z dokladu nebo od uživatele, nic neodhaduj; částka je celková v Kč. Nejdřív přes economy_list_entries ověř, že řádek ještě neexistuje. Volej až po souhlasu uživatele s tím, co zapíšeš. Existující řádky nemění ani nemaže.",
+      "ZÁPIS — přidá jeden řádek do Ekonomiky v MojeBegina: náklad (kind=cost: co se kupovalo, prodávající) nebo příjem (kind=income: typ, klient, forma úhrady, číslo faktury). Zapisuj jen údaje z dokladu nebo od uživatele, nic neodhaduj; částka je celková v Kč. Nejdřív přes economy_list_entries ověř, že řádek ještě neexistuje. Volej až po souhlasu uživatele s tím, co zapíšeš. Existující řádky nemění ani nemaže — na to jsou economy_update_entry a economy_delete_entry.",
     write: true,
     writeScope: "invoicing",
     visible: issuerOnly,
@@ -136,6 +215,106 @@ export const ECONOMY_TOOLS: AgentTool[] = [
         data: {
           created: inserted.length > 0,
           message: inserted.length > 0 ? `${entry.kind === "cost" ? "Náklad" : "Příjem"} ${entry.amountHal / 100} Kč (${entry.entryDate}, ${entry.title}) je zapsaný.` : "Tento zápis už dřív proběhl (stejný idempotency_key) — nic se nezapsalo podruhé.",
+          url: ECONOMY_URL,
+        },
+      };
+    },
+  }),
+  defineTool({
+    name: "economy_update_entry",
+    title: "Ekonomika — upravit náklad nebo příjem",
+    description:
+      "ZÁPIS — upraví jeden existující řádek Ekonomiky podle id (id vrací economy_list_entries). Pošli jen pole, která se mají změnit; prázdný text u nepovinného pole hodnotu smaže (např. note: \"\" smaže poznámku „není faktura“, když dorazila faktura). Stará i nová hodnota se zapíše do historie. Volej až po souhlasu uživatele s tím, co změníš.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      id: { type: "string", description: "id řádku (UUID) z economy_list_entries." },
+      date: { type: "string", description: "Nové datum dokladu RRRR-MM-DD." },
+      title: { type: "string", description: "Nový popis (náklad: co se kupovalo; příjem: typ)." },
+      counterparty: { type: "string", description: "Prodávající / klient; prázdný text = smazat." },
+      amount_kc: { type: "number", description: "Nová celková částka v Kč (kladná)." },
+      amount_no_shipping_kc: { type: "number", description: "Jen příjem: cena bez dopravy v Kč." },
+      payment_form: { type: "string", description: `Jen příjem: forma úhrady (${PAYMENT_FORMS.join(", ")}); prázdný text = smazat.` },
+      invoice_number: { type: "string", description: "Jen příjem: číslo faktury; prázdný text = smazat." },
+      note: { type: "string", description: "Poznámka; prázdný text = smazat poznámku." },
+    },
+    required: ["id"],
+    parse: (args) => ({ id: requiredUuid(args, "id"), patch: parseEntryPatch(args) }),
+    execute: async ({ id, patch }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      if (!(await historyTableExists())) return { ok: false, error: NO_HISTORY };
+      const row = await loadLiveEntry(id);
+      if (!row) return { ok: false, error: "Řádek s tímto id v Ekonomice není (nebo už je smazaný). Najdi ho přes economy_list_entries." };
+      if (row.kind === "cost" && (patch.amountNoShippingHal || patch.paymentForm || patch.invoiceNumber)) {
+        return { ok: false, error: "U nákladu se nevyplňuje cena bez dopravy, forma úhrady ani číslo faktury — patří do poznámky." };
+      }
+      const changes: Record<string, { field: string; old: unknown; new: unknown }> = {};
+      for (const field of Object.keys(patch) as EditableField[]) {
+        if (row[field] !== patch[field]) changes[field] = { field: FIELD_LABELS[field], old: shown(field, row[field]), new: shown(field, patch[field]) };
+      }
+      if (Object.keys(changes).length === 0) {
+        return { ok: true, summary: { updated: false }, data: { updated: false, message: "Řádek už tyto hodnoty má — nic se neměnilo.", entry: entryView(row), url: ECONOMY_URL } };
+      }
+      const set = Object.fromEntries(Object.keys(changes).map((field) => [field, patch[field as EditableField]])) as EntryPatch;
+      const [updated] = await db.batch([
+        db
+          .update(economyEntries)
+          .set({ ...set, updatedAt: new Date() })
+          .where(and(eq(economyEntries.id, id), isNull(economyEntries.deletedAt)))
+          .returning(),
+        db.insert(economyEntryChanges).values({ entryId: id, action: "update", changes, source: "agent", changedByUserId: ctx.userId, changedByName: ctx.name }),
+      ]);
+      const after = updated[0] ?? { ...row, ...set };
+      return {
+        ok: true,
+        summary: { updated: true },
+        data: {
+          updated: true,
+          message: `Řádek ${row.entryDate} ${row.title} (${row.amountHal / 100} Kč) je upravený: ${Object.values(changes).map((c) => `${c.field} ${c.old ?? "—"} → ${c.new ?? "—"}`).join("; ")}.`,
+          changes: Object.values(changes),
+          entry: entryView(after),
+          url: ECONOMY_URL,
+        },
+      };
+    },
+  }),
+  defineTool({
+    name: "economy_delete_entry",
+    title: "Ekonomika — smazat náklad nebo příjem",
+    description:
+      "ZÁPIS — smaže jeden řádek Ekonomiky podle id (id vrací economy_list_entries). Důvod je povinný. Řádek se přestane počítat do součtu měsíce; celý jeho obsah a důvod zůstane v historii, takže jde vrátit. Volej až po souhlasu uživatele.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      id: { type: "string", description: "id řádku (UUID) z economy_list_entries." },
+      reason: { type: "string", description: "Proč se řádek maže (povinné), např. „není firemní náklad“." },
+    },
+    required: ["id", "reason"],
+    parse: (args) => ({ id: requiredUuid(args, "id"), reason: requiredString(args, "reason", 500) }),
+    execute: async ({ id, reason }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      if (!(await historyTableExists())) return { ok: false, error: NO_HISTORY };
+      const row = await loadLiveEntry(id);
+      if (!row) return { ok: false, error: "Řádek s tímto id v Ekonomice není (nebo už je smazaný). Najdi ho přes economy_list_entries." };
+      const snapshot = Object.fromEntries(
+        (Object.keys(FIELD_LABELS) as EditableField[]).map((field) => [field, { field: FIELD_LABELS[field], old: shown(field, row[field]), new: null }])
+      );
+      const now = new Date();
+      await db.batch([
+        db.update(economyEntries).set({ deletedAt: now, updatedAt: now }).where(and(eq(economyEntries.id, id), isNull(economyEntries.deletedAt))),
+        db.insert(economyEntryChanges).values({ entryId: id, action: "delete", changes: { kind: row.kind, ...snapshot }, reason, source: "agent", changedByUserId: ctx.userId, changedByName: ctx.name }),
+      ]);
+      return {
+        ok: true,
+        summary: { deleted: true },
+        data: {
+          deleted: true,
+          message: `${row.kind === "cost" ? "Náklad" : "Příjem"} ${row.entryDate} ${row.title} (${row.amountHal / 100} Kč) je smazaný a do součtu měsíce se už nepočítá. Důvod: ${reason}.`,
+          entry: entryView(row),
           url: ECONOMY_URL,
         },
       };
