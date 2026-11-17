@@ -1,7 +1,8 @@
 -- 128: Nákupy surovin – nová tabulka recipe_offers (nabídky dodavatelů s odkazy, dřív Google
 -- tabulka „Suroviny nákupy Begina“) + naplnění nabídkami z té tabulky (stav 17. 11. 2026).
 -- Navíc: smaže staré poznámky u položek Ceníku (nahradily je nabídky) a zapíše ceny od Lucie
--- ze 17. 11. 2026: Sencha 329 Kč/kg, Meduňka 292 Kč/kg (5 kg za 1 460 Kč), Grepová šťáva 85,60 Kč/l.
+-- ze 17. 11. 2026: Sencha 329 Kč/kg, Meduňka 292 Kč/kg (5 kg za 1 460 Kč), Grepová šťáva 85,60 Kč/l,
+-- Jablečno-malinová šťáva 47,30 Kč/l (10 l za 473 Kč včetně dopravy).
 -- Receptury (množství) se nemění. Stejné DDL jako drizzle/0050_nakupy_surovin.sql.
 -- Dá se spustit opakovaně: nabídky se nahrají jen do prázdné tabulky.
 -- Spustit v Neon SQL Editoru na Production (větev main).
@@ -109,7 +110,7 @@ SELECT v.* FROM (VALUES
   ((SELECT id FROM recipe_ingredients WHERE code = 'citronova-stava'), 'Citronová šťáva 100 % lisovaná NFC 5 l – Allegro', 'https://allegro.cz/produkt/citronova-stava-100-5-l-lisovana-nfc-e24808ab-e192-452b-ac8b-53ad9a46239f', '5 l', 5, 317, 0, false, NULL, 710),
   ((SELECT id FROM recipe_ingredients WHERE code = 'jablecna-stava'), 'Jablečná šťáva Sadvit – Allegro Business', 'https://business.allegro.cz/produkt/jablecna-stava-sadvit-5000-ml-a2dbd143-a1a2-42bc-a6a0-35aa997e4c10', '10 l', 10, 280, 55, false, NULL, 720),
   ((SELECT id FROM recipe_ingredients WHERE code = 'jablecna-stava'), 'Lisovaná šťáva z jablek 100 % NFC – Allegro Business', 'https://business.allegro.cz/nabidka/lisovana-stava-z-jablek-100-5-l-jablecny-nfc-14772454171', '10 l', 10, 312, 0, false, NULL, 730),
-  ((SELECT id FROM recipe_ingredients WHERE code = 'jablecno-malinova-stava'), 'Šťáva jablko-malina 85/15 lisovaná 5 l – Allegro', 'https://allegro.cz/produkt/stava-jablko-malina-lisovana-prirodni-100-5-l-s-malinou-malinova-pro-rodinu-8971a947-7241-48ff-b276-e32f24ada163', '5 l', 5, 208, 55, false, NULL, 740),
+  ((SELECT id FROM recipe_ingredients WHERE code = 'jablecno-malinova-stava'), 'Šťáva jablko-malina 85/15 lisovaná 2 × 5 l – Allegro', 'https://allegro.cz/produkt/stava-jablko-malina-lisovana-prirodni-100-5-l-s-malinou-malinova-pro-rodinu-8971a947-7241-48ff-b276-e32f24ada163', '10 l (2 × 5 l)', 10, 418, 55, false, 'nákup Lucie 17. 11. 2026 – 473 Kč celkem', 740),
   ((SELECT id FROM recipe_ingredients WHERE code = 'jablecno-malinova-stava'), 'Šťáva jablko-malina 80/20 – Allegro Business', 'https://business.allegro.cz/nabidka/jablko-malinova-stava-5-l-prirodni-lisovana-nfc-11753392742', '10 l', 10, 574, 0, false, 'poměr 80/20', 750),
   ((SELECT id FROM recipe_ingredients WHERE code = 'jablecno-malinova-stava'), 'Šťáva jablko-malina 80/20 bag-in-box – Allegro Business', 'https://business.allegro.cz/nabidka/stava-jablko-malina-100-5-l-lisovana-bib-9565761032', '10 l', 10, 584, 0, false, 'poměr 80/20', 760),
   ((SELECT id FROM recipe_ingredients WHERE code = 'pomerancova-stava'), 'Pomerančový džus 100 % NFC Pure Press 5 l – Allegro', 'https://allegro.cz/produkt/pomerancovy-dzus-100-lisovany-nfc-5-l-pure-press-3266b0ae-189f-4ca9-b8e0-eeb79962cc9f', '5 l', 5, 313, 0, false, NULL, 770),
@@ -141,10 +142,11 @@ SELECT v.* FROM (VALUES
   (NULL, 'Papírový podnos na 2 kávy – shop-obaly.cz', 'https://www.shop-obaly.cz/podnos-2ks-kavy-papirovy-210x110mm-p-11036.html', '200 ks', 200, 479.16, 0, false, NULL, 1030),
   (NULL, 'Etikety Brother QL-800 DK-22251 (s červenou) – Allegro Business', 'https://business.allegro.cz/produkt/paska-fotoenergia-pro-brother-ql-dk-22251-62-mm-x-15-24-m-cervena-a-cerna-c1ec26ef-5743-44a0-92a3-f93bb8ad8d8f', '1 role', 1, 259, 0, false, NULL, 1040),
   (NULL, 'Etikety Brother QL-800 DK-22251 (s červenou) – cdrmarket.cz', 'https://www.cdrmarket.cz/kompatibilni-role-etiket-pro-brother-dk-22251-62mm-x-15-24m-cerveno-cerny-tisk/', '1 role', 1, 329, 0, false, NULL, 1050),
-  (NULL, 'Etikety Brother QL-800 DK-22212 (černobílé) – Allegro Business', 'https://business.allegro.cz/nabidka/termo-paska-pro-brother-ql-dk-22212-62-mmx15-24-12418893383', '1 role', 1, 187, 0, false, NULL, 1060),
-  (NULL, 'Etikety Brother QL-800 DK-22212 (černobílé) – cdrmarket.cz', 'https://www.cdrmarket.cz/kompatibilni-role-etiket-pro-brother-dk-22212-62mm-x-15-24m-plast-bila/', '1 role', 1, 199, 0, false, NULL, 1070),
-  ((SELECT id FROM recipe_ingredients WHERE code = 'vodka'), 'Vodka – BILLA', NULL, '0,5 l', 0.5, 129.9, 0, false, 'kupuje se v BILLA', 1080),
-  ((SELECT id FROM recipe_ingredients WHERE code = 'aperol'), 'Aperol Aperitivo 1 l – alkohol.cz', 'https://www.alkohol.cz/produkty/aperol-aperitivo-1l-11-9186/', '1 l', 1, 359, 0, false, NULL, 1090)
+  (NULL, 'Etikety Brother QL-800 DK-22251 (s červenou), termo páska s držákem – Allegro Business', NULL, '1 role (15,24 m)', 1, 260, 59, false, 'doprava Zásilkovna 59 Kč se dělí počtem rolí v objednávce; odkaz doplnit', 1060),
+  (NULL, 'Etikety Brother QL-800 DK-22212 (černobílé) – Allegro Business', 'https://business.allegro.cz/nabidka/termo-paska-pro-brother-ql-dk-22212-62-mmx15-24-12418893383', '1 role', 1, 187, 0, false, NULL, 1070),
+  (NULL, 'Etikety Brother QL-800 DK-22212 (černobílé) – cdrmarket.cz', 'https://www.cdrmarket.cz/kompatibilni-role-etiket-pro-brother-dk-22212-62mm-x-15-24m-plast-bila/', '1 role', 1, 199, 0, false, NULL, 1080),
+  ((SELECT id FROM recipe_ingredients WHERE code = 'vodka'), 'Vodka – BILLA', NULL, '0,5 l', 0.5, 129.9, 0, false, 'kupuje se v BILLA', 1090),
+  ((SELECT id FROM recipe_ingredients WHERE code = 'aperol'), 'Aperol Aperitivo 1 l – alkohol.cz', 'https://www.alkohol.cz/produkty/aperol-aperitivo-1l-11-9186/', '1 l', 1, 359, 0, false, NULL, 1100)
 ) AS v(ingredient_id, item_name, url, pack_label, pack_qty, price_kc, shipping_kc, is_promo, note, sort)
 WHERE NOT EXISTS (SELECT 1 FROM recipe_offers);
 
@@ -152,7 +154,8 @@ UPDATE recipe_ingredients SET note = NULL, updated_at = now() WHERE note IS NOT 
 UPDATE recipe_ingredients SET price_kc = 329, updated_at = now() WHERE code = 'sencha';
 UPDATE recipe_ingredients SET price_kc = 292, updated_at = now() WHERE code = 'medunka';
 UPDATE recipe_ingredients SET price_kc = 85.6, updated_at = now() WHERE code = 'grepova-stava';
+UPDATE recipe_ingredients SET price_kc = 47.3, updated_at = now() WHERE code = 'jablecno-malinova-stava';
 COMMIT;
 SELECT (SELECT count(*) FROM recipe_offers) AS nabidek,
        (SELECT count(*) FROM recipe_offers WHERE ingredient_id IS NOT NULL) AS u_surovin,
-       (SELECT string_agg(code || ' ' || price_kc, ', ') FROM recipe_ingredients WHERE code IN ('sencha','medunka','grepova-stava')) AS nove_ceny;
+       (SELECT string_agg(code || ' ' || price_kc, ', ') FROM recipe_ingredients WHERE code IN ('sencha','medunka','grepova-stava','jablecno-malinova-stava')) AS nove_ceny;
