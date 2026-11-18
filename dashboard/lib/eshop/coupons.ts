@@ -20,6 +20,7 @@ import { formatKc } from "@/lib/format";
 import type { CatalogIndex } from "./catalogIndex";
 import type { PricedLine } from "./pricing";
 import { partnerTiers, type PartnerTier } from "@/mock/partnerProgram";
+import { SET_COUPON_CODE } from "./tastingSet";
 
 export type CouponDiscountType = "partner" | "percent" | "fixed_cart" | "fixed_product";
 
@@ -256,11 +257,17 @@ export function evaluateCoupons(
     const failure = staticError(code, coupon, usage.get(code), now);
     if (failure || !coupon) return { ok: false, code, error: failure ?? "" };
 
-    if (coupon.minimumAmountKc !== null && subtotalKc < coupon.minimumAmountKc) {
+    // Kód po ochutnávkovém setu (Lucie 17. 11. 2026): minimum se počítá jen
+    // ze zboží, na které kód platí — set sám se do 199 Kč nezapočítá.
+    const minimumBaseKc =
+      code === SET_COUPON_CODE
+        ? eligibleLineIndexes(coupon, lines, index).reduce((sum, i) => sum + lines[i].unitPriceKc * lines[i].quantity, 0)
+        : subtotalKc;
+    if (coupon.minimumAmountKc !== null && minimumBaseKc < coupon.minimumAmountKc) {
       return {
         ok: false,
         code,
-        error: `Slevový kód ${quote(code)} platí pro nákup zboží od ${formatKc(coupon.minimumAmountKc)} (bez dopravy). Do této částky vám chybí ${formatKc(coupon.minimumAmountKc - subtotalKc)}.`,
+        error: `Slevový kód ${quote(code)} platí pro nákup zboží od ${formatKc(coupon.minimumAmountKc)} (bez dopravy${code === SET_COUPON_CODE ? " a bez ochutnávkového setu" : ""}). Do této částky vám chybí ${formatKc(coupon.minimumAmountKc - minimumBaseKc)}.`,
       };
     }
     if (coupon.maximumAmountKc !== null && subtotalKc > coupon.maximumAmountKc) {

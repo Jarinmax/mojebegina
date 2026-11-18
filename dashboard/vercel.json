@@ -67,6 +67,26 @@
     {
       "path": "/api/cron/objednavky-po-terminu?beh=zima",
       "schedule": "1 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/kampan-set?beh=kod",
+      "schedule": "20 10 * * *"
+    },
+    {
+      "path": "/api/cron/kampan-set?beh=provize&cas=zima",
+      "schedule": "2 10 1 * *"
+    },
+    {
+      "path": "/api/cron/kampan-set?beh=provize&cas=leto",
+      "schedule": "2 9 1 * *"
+    },
+    {
+      "path": "/api/cron/kampan-set?beh=sobota&cas=zima",
+      "schedule": "30 9 * * 6"
+    },
+    {
+      "path": "/api/cron/kampan-set?beh=sobota&cas=leto",
+      "schedule": "30 8 * * 6"
     }
   ]
 }

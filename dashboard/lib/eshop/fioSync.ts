@@ -11,6 +11,15 @@
 //   5. sedí-li symbol, ale ne částka, nic se nezapíše jako zaplacené a na
 //      info@begina.cz přijde upozornění (jednou).
 // Každý pohyb se zpracuje nejvýš jednou (payments.source='bank', external_id).
+//
+// Ručně zapsané objednávky (zadání Lucie 18. 11. 2026, případ Café Academia):
+// zákazník platí s číslem faktury z iDokladu, ne se symbolem objednávky. Když
+// symbol nesedí na žádnou objednávku e-shopu, dohledá se v iDokladu faktura
+// s tímto číslem; sedí-li její částka na platbu a odběratel (IČO, jinak jméno)
+// na právě JEDNU nezaplacenou ruční objednávku se stejnou částkou, objednávka
+// se přepne na Zaplaceno. Faktura se nevystavuje (už existuje) a zákazníkovi
+// nic neodchází — jen zpráva na info@begina.cz. Víc možných objednávek = nic
+// se nezapíše a na info@begina.cz přijde upozornění k ručnímu rozhodnutí.
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
@@ -20,12 +29,20 @@ import { fetchFioTransactions, type FioTransaction } from "./fio";
 import { invoiceAndNotifyPaid } from "./invoicing/afterPaid";
 import { issueInvoiceSafe, type IssueResult } from "./invoicing/issue";
 import { settleOrderPaymentSql } from "./payments";
+import { EshopIdokladClient, eqFilter, issuedInvoiceFilter } from "./invoicing/idokladHttp";
+import { eshopIdokladCredentials } from "./invoicing/mode";
+import { assertBeginaAgenda, summarize, type RawInvoice } from "@/lib/idoklad-read/service";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
 
 export const FIO_ACTOR = { type: "system" as const, name: "Fio banka" };
 const LOOKBACK_DAYS = 10;
+/** Ruční objednávka smí být nejvýš tolik dní stará, aby se spárovala s platbou faktury. */
+export const MANUAL_ORDER_MAX_AGE_DAYS = 90;
+
+/** Co je k párování potřeba vědět o faktuře z iDokladu. */
+export type MatchInvoice = { number: string; totalKc: number | null; partnerIco: string | null; partnerName: string | null };
 
 export type FioSyncDeps = {
   env?: Env;
@@ -36,6 +53,8 @@ export type FioSyncDeps = {
   /** vystavení faktury (výchozí issueInvoiceSafe) */
   issue?: (orderId: string) => Promise<IssueResult>;
   mailer?: { config: EmailConfig; transport: EmailTransport } | null;
+  /** faktura z iDokladu podle čísla (jen čtení); výchozí čte iDoklad, bez přístupu vrací null */
+  findInvoice?: (number: string) => Promise<MatchInvoice | null>;
 };
 
 export type FioSyncResult = {
@@ -45,6 +64,8 @@ export type FioSyncResult = {
   paid: { orderNumber: number | null; amountKc: number; invoiceNumber: string | null }[];
   /** symbol sedí, částka ne */
   mismatched: { orderNumber: number | null; receivedKc: number; expectedKc: number }[];
+  /** ruční objednávky zapsané jako zaplacené podle čísla faktury */
+  manualPaid: { orderNumber: number | null; amountKc: number; invoiceNumber: string }[];
 };
 
 function pragueDay(date: Date): string {
@@ -58,7 +79,7 @@ type OrderRow = { id: string; order_number: number | null; total_kc: number; pay
 export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Promise<FioSyncResult> {
   const env = deps.env ?? process.env;
   const token = env.FIO_API_TOKEN?.trim();
-  const empty = { paid: [], mismatched: [] };
+  const empty = { paid: [], mismatched: [], manualPaid: [] };
   if (!token) return { status: "no-token", ...empty };
 
   const from = pragueDay(new Date(now.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000));
@@ -76,14 +97,24 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
   }
 
   const incoming = fetched.transactions.filter((t) => t.amountHal > 0 && t.currency === "CZK" && t.vs);
-  const result: FioSyncResult = { status: "done", paid: [], mismatched: [] };
+  const result: FioSyncResult = { status: "done", paid: [], mismatched: [], manualPaid: [] };
+  const findInvoice = deps.findInvoice ?? defaultFindInvoice(env, deps.fetchImpl, now);
 
   for (const tx of incoming) {
     const found = await db.execute(sql`
       SELECT id, order_number, total_kc, payment_status, contact_name, billing_company FROM orders
       WHERE channel = 'eshop' AND payment_vs = ${tx.vs} AND fulfillment_status <> 'cancelled' LIMIT 1`);
     const order = found.rows[0] as OrderRow | undefined;
-    if (!order) continue;
+    if (!order) {
+      try {
+        const manual = await matchManualOrder(db, tx, findInvoice, mailer, deps.baseUrl);
+        if (manual) result.manualPaid.push(manual);
+      } catch (error) {
+        // výpadek iDokladu nesmí zastavit párování e-shopových plateb; zkusí se při dalším běhu
+        console.error("Fio: párování ruční objednávky selhalo", error instanceof Error ? error.message.slice(0, 200) : "neznámá chyba");
+      }
+      continue;
+    }
     // Už zaplacená objednávka (karta, ruční zápis, dřívější běh): pohyb se nezapisuje,
     // jinak by se platba započítala dvakrát.
     if (order.payment_status === "paid") continue;
@@ -133,6 +164,124 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
     });
   }
   return result;
+}
+
+type ManualRow = {
+  id: string;
+  order_number: number | null;
+  contact_name: string | null;
+  recipient_name: string | null;
+  billing_name: string | null;
+  billing_company: string | null;
+  org_name: string | null;
+  org_ico: string | null;
+};
+
+/** Jméno pro porovnání: bez diakritiky, velikosti písmen a oddělovačů. */
+export function nameKey(name: string | null | undefined): string {
+  return (name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Sedí odběratel faktury na ruční objednávku? IČO má přednost, jinak přesně stejné jméno. */
+export function invoiceFitsOrder(invoice: MatchInvoice, order: Pick<ManualRow, "contact_name" | "recipient_name" | "billing_name" | "billing_company" | "org_name" | "org_ico">): boolean {
+  const ico = invoice.partnerIco?.replace(/\s/g, "") || null;
+  const orderIco = order.org_ico?.replace(/\s/g, "") || null;
+  if (ico && orderIco) return ico === orderIco;
+  const partner = nameKey(invoice.partnerName);
+  if (!partner) return false;
+  return [order.contact_name, order.recipient_name, order.billing_name, order.billing_company, order.org_name].some((n) => nameKey(n) === partner);
+}
+
+async function matchManualOrder(
+  db: Db,
+  tx: FioTransaction,
+  findInvoice: (number: string) => Promise<MatchInvoice | null>,
+  mailer: { config: EmailConfig; transport: EmailTransport } | null,
+  baseUrl: string
+): Promise<FioSyncResult["manualPaid"][number] | null> {
+  if (!tx.vs || tx.amountHal % 100 !== 0) return null; // orders.total_kc jsou celé koruny
+  const seen = await db.execute(sql`SELECT 1 FROM payments WHERE source = 'bank' AND external_id = ${tx.id} LIMIT 1`);
+  if (seen.rows.length > 0) return null;
+  const day = `${tx.date}T23:59:59Z`;
+  const found = await db.execute(sql`
+    SELECT o.id, o.order_number, o.contact_name, o.recipient_name, o.billing_name, o.billing_company, org.name AS org_name, org.ico AS org_ico
+    FROM orders o LEFT JOIN organizations org ON org.id = o.buyer_organization_id
+    WHERE o.channel = 'manual' AND o.payment_status <> 'paid' AND o.fulfillment_status <> 'cancelled'
+      AND o.total_kc = ${tx.amountHal / 100}
+      AND o.ordered_at <= ${day}::timestamptz + interval '1 day'
+      AND o.ordered_at > ${day}::timestamptz - make_interval(days => ${MANUAL_ORDER_MAX_AGE_DAYS})
+    ORDER BY o.ordered_at`);
+  const candidates = found.rows as ManualRow[];
+  if (candidates.length === 0) return null; // bez kandidáta se do iDokladu vůbec nesahá
+
+  const invoice = await findInvoice(tx.vs);
+  if (!invoice || invoice.totalKc === null || Math.round(invoice.totalKc * 100) !== tx.amountHal) return null;
+  const fitting = candidates.filter((c) => invoiceFitsOrder(invoice, c));
+  if (fitting.length === 0) return null;
+  const who = invoice.partnerName ?? tx.counterparty ?? "zákazník";
+
+  if (fitting.length > 1) {
+    await notify(mailer, {
+      subject: `Platba faktury ${invoice.number} – víc možných objednávek (${who})`,
+      text: `Na účet přišlo ${kc(tx.amountHal)} s variabilním symbolem ${tx.vs} (${tx.date}, ${tx.counterparty ?? "neznámý plátce"}). Faktura ${invoice.number} sedí na víc nezaplacených ručních objednávek se stejnou částkou: ${fitting.map((f) => f.order_number ?? "bez čísla").join(", ")}.\n\nNic se nezapsalo. Označte prosím správnou objednávku jako zaplacenou v MojeBegina: ${baseUrl}/rizeni-firmy/objednavky`,
+      key: `fio-rucni-vic-${tx.id}`,
+    });
+    return null;
+  }
+
+  const order = fitting[0];
+  const inserted = await insertBankPayment(db, order.id, tx, "succeeded", "matched", `Fio: ${tx.counterparty ?? "banka"} · faktura ${invoice.number}`);
+  if (!inserted) return null;
+  const occurredAt = `${tx.date}T12:00:00Z`;
+  const meta = JSON.stringify({ amountHal: tx.amountHal, method: "bank_transfer", token: `fio:${tx.id}`, invoiceNumber: invoice.number });
+  const changed = await db.execute(sql`
+    WITH upd AS (
+      UPDATE orders SET payment_status = 'paid', paid_at = ${occurredAt}::timestamptz
+      WHERE id = ${order.id} AND channel = 'manual' AND payment_status <> 'paid' AND fulfillment_status <> 'cancelled'
+      RETURNING id
+    )
+    INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
+    SELECT id, 'system', NULL, ${FIO_ACTOR.name}, 'payment_status_changed',
+      ${JSON.stringify({ to: "paid", provider: "fio", method: "bank_transfer", key: `fio:${tx.id}`, invoiceNumber: invoice.number })}::jsonb
+    FROM upd
+    RETURNING order_id`);
+  if (changed.rows.length === 0) return null;
+  await db.execute(sql`
+    INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
+    VALUES (${order.id}, 'system', NULL, ${FIO_ACTOR.name}, 'payment_recorded', ${meta}::jsonb)`);
+  await notify(mailer, {
+    subject: `Platba přišla – faktura ${invoice.number} (${who}), ${kc(tx.amountHal)}`,
+    text: `Na účet přišlo ${kc(tx.amountHal)} s variabilním symbolem ${tx.vs} (${tx.date}, ${tx.counterparty ?? "neznámý plátce"}). Podle faktury ${invoice.number} je ručně zapsaná objednávka ${order.order_number ?? ""} označená jako zaplacená.\n\nFaktura už existuje, nová se nevystavila a zákazníkovi nic neodešlo.\n\nObjednávka: ${baseUrl}/rizeni-firmy/objednavky/${order.id}`,
+    key: `fio-rucni-zaplaceno-${tx.id}`,
+  });
+  return { orderNumber: order.order_number, amountKc: tx.amountHal / 100, invoiceNumber: invoice.number };
+}
+
+/** Čtení faktury z iDokladu podle čísla (jen GET). Bez přístupových údajů se nepáruje. */
+function defaultFindInvoice(env: Env, fetchImpl: typeof fetch | undefined, now: Date): (number: string) => Promise<MatchInvoice | null> {
+  let client: EshopIdokladClient | null | undefined;
+  let agendaChecked = false;
+  return async (number) => {
+    if (!/^[0-9]{4,10}$/.test(number)) return null;
+    if (client === undefined) {
+      const credentials = eshopIdokladCredentials(env);
+      client = credentials ? new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl }) : null;
+    }
+    if (!client) return null;
+    if (!agendaChecked) {
+      await assertBeginaAgenda(client);
+      agendaChecked = true;
+    }
+    const items = (await client.list<RawInvoice>("/IssuedInvoices", issuedInvoiceFilter(eqFilter("DocumentNumber", number)), 5)).Items;
+    if (items.length !== 1) return null;
+    const summary = summarize(items[0], null, pragueDay(now));
+    return { number: summary.number, totalKc: summary.totalKc, partnerIco: summary.partner.ico, partnerName: summary.partner.name };
+  };
 }
 
 /** true = pohyb byl zapsán teď poprvé. */
