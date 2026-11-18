@@ -48,7 +48,7 @@ const nbsp = (text: string | null) => (text ?? "").replace(/ /g, " ");
 
 describe("poznámka pod fotkou", () => {
   it("u polévek bez ovoce, u nápojů s ovocem", () => {
-    expect(servingPhotoNote({ ...product({}), category: "polevky" } as Product)).toBe("Návrh servírování – miska a ozdoba na fotce nejsou součástí balení.");
+    expect(servingPhotoNote({ ...product({}), category: "polevky" } as Product)).toBe("Návrh servírování – ozdoba a zelenina na fotce nejsou součástí balení.");
     expect(servingPhotoNote({ ...product({}), category: "sirupy" } as Product)).toBe("Návrh servírování – ozdoba a ovoce na fotce nejsou součástí balení.");
   });
 });

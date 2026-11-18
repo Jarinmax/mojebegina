@@ -209,6 +209,6 @@ export function showsNoPreservatives(product: Product): boolean {
 /** Poznámka pod fotkou: u polévek žádné ovoce na fotce není (Lucie 18. 11. 2026). */
 export function servingPhotoNote(product: Product): string {
   return product.category === "polevky"
-    ? "Návrh servírování – miska a ozdoba na fotce nejsou součástí balení."
+    ? "Návrh servírování – ozdoba a zelenina na fotce nejsou součástí balení."
     : "Návrh servírování – ozdoba a ovoce na fotce nejsou součástí balení.";
 }
