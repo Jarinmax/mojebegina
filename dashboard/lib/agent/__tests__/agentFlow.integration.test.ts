@@ -437,7 +437,10 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
       expect(grep('get\\("authorization"\\)')).toEqual([
         "app/api/cron/daily-call-reminders/route.ts",
         "app/api/cron/fio-platby/route.ts",
+        "app/api/cron/hodnoceni/route.ts",
+        "app/api/cron/kampan-set/route.ts",
         "app/api/cron/mereni-eshopu/route.ts",
+        "app/api/cron/meta-leady/route.ts",
         "app/api/cron/objednavky-po-terminu/route.ts",
         "app/api/cron/partner-program/route.ts",
         "app/api/mcp/route.ts",
