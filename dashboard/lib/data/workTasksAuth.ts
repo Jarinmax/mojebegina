@@ -8,6 +8,7 @@
 //     JEN své úkoly: kontrolní karty registru „Kontrola e-shopu – Lucie“
 //     (BEG-01…), u nich opravu schválí nebo vrátí. Žádná práva vedoucí.
 import { isAdmin, isAdminOrExecutive } from "./adminAuth";
+import { isSalesRep } from "./crmAuth";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import type { AuthContext } from "./types";
 
@@ -28,7 +29,8 @@ export function isWorkManager(ctx: AuthContext): boolean {
 }
 
 export function isWorkAssignee(ctx: AuthContext): boolean {
-  return ctx !== null && WORK_ASSIGNEES.some((a) => a.userId === ctx.userId) && isAdminOrExecutive(ctx);
+  // Blahout je od 18. 11. 2026 zaměstnanec (obchodník, crmAuth.ts isSalesRep).
+  return ctx !== null && WORK_ASSIGNEES.some((a) => a.userId === ctx.userId) && (isAdminOrExecutive(ctx) || isSalesRep(ctx));
 }
 
 export function requireWorkAccess(ctx: AuthContext): NonNullable<AuthContext> {

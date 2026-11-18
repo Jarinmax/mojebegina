@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCockpitCounts, listLeads, listCustomers, listNewUnassignedLeads } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
+import { crmSeesAll } from "@/lib/data/crmAuth";
 import MetaImportButton from "./MetaImportButton";
 import CockpitTiles from "./CockpitTiles";
 import LeadCard from "./LeadCard";
@@ -29,9 +30,13 @@ function isView(value: string | undefined): value is View {
 export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod">) {
   const searchParams = await props.searchParams;
   const viewParam = Array.isArray(searchParams.view) ? searchParams.view[0] : searchParams.view;
-  const activeView: View = isView(viewParam) ? viewParam : "moje-leady";
-
   const ctx = await getAuthContext();
+  // Obchodník (zaměstnanec) vidí jen svoje leady a zákazníky — záložky
+  // „Všechny…“ má jen vedení (data hlídá i lib/data/leads.ts).
+  const seesAll = crmSeesAll(ctx);
+  const visibleViews: readonly View[] = seesAll ? VIEWS : ["moje-leady", "moji-zakaznici"];
+  const activeView: View = isView(viewParam) && visibleViews.includes(viewParam) ? viewParam : "moje-leady";
+
   const showDailyCallsLink = isDailyCallCurator(ctx) || isDailyCallWorker(ctx);
 
   const counts = await getCockpitCounts();
@@ -91,7 +96,7 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
       </div>
 
       <div className="flex items-center gap-1 mb-3 flex-wrap">
-        {VIEWS.map((view) => (
+        {visibleViews.map((view) => (
           <Link
             key={view}
             href={`/rizeni-firmy/obchod?view=${view}`}

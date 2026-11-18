@@ -64,7 +64,11 @@ describe("isDailyCallWorker — Security Phase 19", () => {
 
   it("CUSTOMER/EMPLOYEE i kdyby měli Vinerovo userId nejsou pracovníci bez odpovídající role", () => {
     expect(isDailyCallWorker(ctx(VINER_ID, "CUSTOMER"))).toBe(false);
-    expect(isDailyCallWorker(ctx(BLAHOUT_ID, "EMPLOYEE"))).toBe(false);
+    expect(isDailyCallWorker(ctx(VINER_ID, "EMPLOYEE"))).toBe(false);
+  });
+
+  it("Blahout jako zaměstnanec-obchodník (EMPLOYEE, od 18. 11. 2026) zůstává pracovníkem", () => {
+    expect(isDailyCallWorker(ctx(BLAHOUT_ID, "EMPLOYEE"))).toBe(true);
   });
 });
 

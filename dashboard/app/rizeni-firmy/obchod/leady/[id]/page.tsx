@@ -8,6 +8,8 @@ import RewardAssignmentPanel from "./RewardAssignmentPanel";
 import { getLeadRewardAssignment } from "@/lib/data/jardaRewards";
 import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
 import LeadOwnerForm from "./LeadOwnerForm";
+import { getAuthContext } from "@/lib/data/authContext";
+import { crmSeesAll } from "@/lib/data/crmAuth";
 import CompanyNameForm from "./CompanyNameForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
@@ -40,7 +42,9 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
     notFound();
   }
   const { lead, activity } = detail;
-  const [staff, sourceOrders, reward] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id)]);
+  const [staff, sourceOrders, reward, ctx] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getAuthContext()]);
+  // Přiřazení obchodníka a převod na zákazníka dělá vedení; obchodník je jen vidí.
+  const canManage = crmSeesAll(ctx);
 
   const venueTypeLabel = lead.venueType
     ? (VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType)
@@ -115,14 +119,27 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-        <LeadOwnerForm
-          leadId={lead.id}
-          ownerUserId={lead.ownerUserId}
-          ownerName={lead.ownerName}
-          acquiredByUserId={lead.acquiredByUserId}
-          acquiredByName={lead.acquiredByName}
-          staff={staff}
-        />
+        {canManage ? (
+          <LeadOwnerForm
+            leadId={lead.id}
+            ownerUserId={lead.ownerUserId}
+            ownerName={lead.ownerName}
+            acquiredByUserId={lead.acquiredByUserId}
+            acquiredByName={lead.acquiredByName}
+            staff={staff}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Obchodník</p>
+              <p className="text-begina-primary-900">{lead.ownerName ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-neutral-500 mb-0.5">Získal</p>
+              <p className="text-begina-primary-900">{lead.acquiredByName ?? "—"}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {reward.visible && (
@@ -163,7 +180,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           </Link>
         </div>
       ) : (
-        lead.stage !== "not_interested" && (
+        canManage && lead.stage !== "not_interested" && (
           <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
             <p className="text-sm text-begina-primary-900 mb-1">Připraven stát se zákazníkem?</p>
             <p className="text-xs text-neutral-500 mb-3">

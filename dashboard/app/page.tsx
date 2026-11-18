@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { landingForExecutive } from "@/lib/data/workTasksAuth";
+import { isSalesRep } from "@/lib/data/crmAuth";
 import Header from "@/components/Header";
 import DecorativeMark from "@/components/DecorativeMark";
 import MembershipCard from "@/components/MembershipCard";
@@ -27,6 +28,12 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { ctx, organizationId } = await requireCustomerContext();
+
+  // 18. 11. 2026 — obchodník (zaměstnanec) přistává na své práci (/prace:
+  // Denní volání, úkoly, Moji zákazníci a odměny), ne na zákaznickém přehledu.
+  if (isSalesRep(ctx)) {
+    redirect("/prace");
+  }
 
   const collaboratorLanding = await getCurrentCollaboratorLanding(ctx.userId);
   if (collaboratorLanding && ctx.systemRole !== "ADMIN" && ctx.systemRole !== "EXECUTIVE") {
