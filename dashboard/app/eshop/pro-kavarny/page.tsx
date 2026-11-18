@@ -18,6 +18,7 @@ import {
   CAFE_TITLE,
   type CafeIcon,
 } from "@/lib/eshop/cafePage";
+import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 
 export const dynamic = "force-dynamic";
@@ -36,12 +37,22 @@ export default async function Page() {
   const present = new Set((catalog?.categories ?? []).map((c) => c.slug));
   // kategorie bez jediného výrobku (zatím zmrzliny) se ukáže jako „Připravujeme“ a nikam neodkazuje
   const stocked = new Set((catalog?.products ?? []).map((p) => p.category));
+  // druhá věta podnadpisu na počítači celá na nový řádek (Lucie 18. 11. 2026)
+  const [subtitleHead, subtitleLast] = splitLastSentence(CAFE_SUBTITLE);
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
       <header className="text-center max-w-2xl mx-auto">
         <h1 className="font-serif text-3xl sm:text-4xl leading-tight">{CAFE_TITLE}</h1>
-        <p className="mt-3 text-lg leading-normal text-neutral-700">{CAFE_SUBTITLE}</p>
+        <p className="mt-3 text-lg leading-normal text-neutral-700">
+          {subtitleHead}
+          {subtitleLast && (
+            <>
+              {" "}
+              <span className="sm:block">{subtitleLast}</span>
+            </>
+          )}
+        </p>
         <a href="#ochutnavka" className="mt-5 inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
           Chci ochutnávku do provozu
         </a>
