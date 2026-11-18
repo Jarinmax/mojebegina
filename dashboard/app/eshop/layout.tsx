@@ -65,7 +65,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
   // O balení) a MojeBegina (9. 11. 2026).
   const menu = mainMenu(availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)), [
     // 18. 11. 2026 (Lucie): hlavní zákazníci jsou kavárny a bistra — vlastní položka v menu
-    { kind: "link", href: CAFE_PATH, label: CAFE_MENU_LABEL },
+    { kind: "link", href: CAFE_PATH, label: CAFE_MENU_LABEL, mobileFirst: true },
     {
       kind: "group",
       label: "O nás",

@@ -37,7 +37,7 @@ export const CAFE_ALCOHOL_SLUG = "koktejly";
 export const CAFE_COMING_SOON = "Připravujeme";
 
 export const CAFE_STEPS = [
-  { title: "Ochutnávka", text: "Pošleme vám ochutnávku do provozu, ať si vše vyzkoušíte v klidu." },
+  { title: "Ochutnávka", text: "Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou. Vše si vyzkoušíte v klidu u sebe." },
   { title: "Objednávka na fakturu", text: "Objednáte, co vám chutnalo. Platíte převodem na fakturu." },
   { title: "Pravidelné závozy", text: "Vozíme podle vaší spotřeby, abyste měli vždy čerstvé zboží." },
 ] as const;

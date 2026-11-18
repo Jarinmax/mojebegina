@@ -49,7 +49,13 @@ export function stripCategories(categories: HomeCategory[]): (HomeCategory & { i
   return categories.filter((c): c is HomeCategory & { icon: string } => c.icon !== null);
 }
 
-export type MenuLink = { kind: "link"; href: string; label: string; /** absolutní odkaz mimo e-shop (MojeBegina) */ external?: boolean };
+export type MenuLink = { kind: "link"; href: string; label: string; /** absolutní odkaz mimo e-shop (MojeBegina) */ external?: boolean; /** v mobilním menu jako první položka */ mobileFirst?: boolean };
+
+/** Pořadí pro mobilní menu: položky označené mobileFirst nahoře, jinak beze změny. */
+export function mobileMenuOrder(entries: MenuEntry[]): MenuEntry[] {
+  const first = entries.filter((e) => e.kind === "link" && e.mobileFirst);
+  return first.length === 0 ? entries : [...first, ...entries.filter((e) => !first.includes(e))];
+}
 export type MenuGroup = { kind: "group"; label: string; items: MenuLink[] };
 export type MenuEntry = MenuLink | MenuGroup;
 

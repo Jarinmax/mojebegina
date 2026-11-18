@@ -15,7 +15,7 @@
 import { ChevronDown, Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import type { MenuEntry, MenuGroup, MenuLink } from "@/lib/eshop/homeNav";
+import { mobileMenuOrder, type MenuEntry, type MenuGroup, type MenuLink } from "@/lib/eshop/homeNav";
 import ShopLink from "./ShopLink";
 
 /** Rozbalovací položka na počítači — každá skupina (Nápoje, O nás) má vlastní stav. */
@@ -262,5 +262,5 @@ function MobileNav({ entries }: { entries: MenuEntry[] }) {
 }
 
 export default function MainNav({ entries, variant }: { entries: MenuEntry[]; variant: "desktop" | "mobile" }) {
-  return variant === "desktop" ? <DesktopNav entries={entries} /> : <MobileNav entries={entries} />;
+  return variant === "desktop" ? <DesktopNav entries={entries} /> : <MobileNav entries={mobileMenuOrder(entries)} />;
 }
