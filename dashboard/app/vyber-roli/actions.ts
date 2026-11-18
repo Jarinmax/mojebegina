@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { ACTIVE_ROLE_COOKIE } from "@/lib/data/activeRole";
 import { defaultPathForRole } from "@/lib/data/roles";
+import { SALES_REP_USER_IDS } from "@/lib/data/crmAuth";
 import { landingForExecutive } from "@/lib/data/workTasksAuth";
 import type { SystemRole } from "@/lib/data/types";
 
@@ -34,5 +35,7 @@ export async function setActiveRoleAction(role: SystemRole, _formData: FormData)
   });
 
   // Práce 1.0 — pracovník s úkoly (Blahout) přistane po výběru EXECUTIVE na /prace.
-  redirect(role === "EXECUTIVE" ? landingForExecutive(ctx.userId) : defaultPathForRole(role));
+  // Obchodník (zaměstnanec, crmAuth.ts) po výběru zaměstnaneckého přístupu taky na /prace.
+  const salesRepLanding = role === "EMPLOYEE" && SALES_REP_USER_IDS.has(ctx.userId) ? "/prace" : null;
+  redirect(role === "EXECUTIVE" ? landingForExecutive(ctx.userId) : salesRepLanding ?? defaultPathForRole(role));
 }

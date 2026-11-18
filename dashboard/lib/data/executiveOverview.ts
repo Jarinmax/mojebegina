@@ -7,7 +7,7 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { requireCrmContext } from "./leads";
+import { requireCrmManagerContext } from "./leads";
 import { requireOrderContext } from "./orders";
 import { requireCompanyNodeContext } from "./companyNodes";
 import { requireCeoFocusContext } from "./ceoFocus";
@@ -37,7 +37,7 @@ const CALL_WITHOUT_RESULT = sql`coalesce(a.metadata->>'callResult', '') = '' AND
 const CALL_WITHOUT_NOTE = sql`coalesce(trim(a.body), '') = ''`;
 
 export async function overviewCrm(range: CallActivityRange | null, today: string) {
-  await requireCrmContext();
+  await requireCrmManagerContext();
   const todayStart = pragueDayStart(today);
   const tomorrowStart = pragueDayStart(shiftDate(today, 1));
   const [stages, state] = await Promise.all([
@@ -73,7 +73,7 @@ export async function overviewCrm(range: CallActivityRange | null, today: string
 
 /** Zaznamenané hovory v období po autorech (první kontakt = první call_logged leadu vůbec). */
 export async function overviewCalls(range: CallActivityRange | null) {
-  await requireCrmContext();
+  await requireCrmManagerContext();
   const byAuthor = await rows(sql`
     WITH firsts AS (
       SELECT DISTINCT ON (lead_id) id FROM lead_activity
@@ -182,7 +182,7 @@ export async function overviewOrders(range: CallActivityRange | null, today: str
 }
 
 export async function overviewCustomers(range: CallActivityRange | null, today: string) {
-  await requireCrmContext();
+  await requireCrmManagerContext();
   const since90 = pragueDayStart(shiftDate(today, -90));
   const [r] = await rows(sql`
     WITH last_orders AS (

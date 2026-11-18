@@ -17,9 +17,10 @@ export default function CustomerCard({ customer }: { customer: CustomerCardData 
 
       <div className="flex items-center gap-2 flex-wrap text-xs text-neutral-500 mb-2">
         <span>
-          {customer.orderCount} {customer.orderCount === 1 ? "objednávka" : customer.orderCount < 5 ? "objednávky" : "objednávek"}
+          {customer.orderCount} {customer.orderCount === 1 ? "nákup" : customer.orderCount > 1 && customer.orderCount < 5 ? "nákupy" : "nákupů"}
         </span>
         {customer.lastOrderAt && <span>· poslední {formatCzechDate(customer.lastOrderAt)}</span>}
+        {!customer.invoicesLoaded && <span className="text-amber-700">· faktury z iDokladu se teď nenačetly</span>}
       </div>
 
       <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">

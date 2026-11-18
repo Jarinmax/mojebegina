@@ -549,7 +549,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
     expect(mail.sent).toEqual([]);
 
     // PDF v MojeBegina (po přihlášení; čte se z iDokladu) — vystavovatel i vedení s přístupem k objednávkám
-    const { GET } = await import("@/app/rizeni-firmy/objednavky/[id]/faktura-pdf/route");
+    const { GET } = await import("@/app/rizeni-firmy/(vedeni)/objednavky/[id]/faktura-pdf/route");
     const response = await runAsAgent(lucie.ctx, () =>
       GET(new Request(`https://moje.begina.cz/rizeni-firmy/objednavky/${orderId}/faktura-pdf`), { params: Promise.resolve({ id: orderId }) } as never)
     );

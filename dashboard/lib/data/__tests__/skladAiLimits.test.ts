@@ -9,7 +9,7 @@ import { AI_CALL_MAX_RETRIES, AI_CALL_TIMEOUT_MS } from "../aiCallDiagnostics";
 vi.mock("server-only", () => ({}));
 
 const APP = path.join(__dirname, "../../../app");
-const ENTRY_POINTS = ["api/sklad/prijemky/[receiptId]/vytezit/route.ts", "rizeni-firmy/sklad/prijemky/[id]/page.tsx"];
+const ENTRY_POINTS = ["api/sklad/prijemky/[receiptId]/vytezit/route.ts", "rizeni-firmy/(vedeni)/sklad/prijemky/[id]/page.tsx"];
 
 function maxDurationOf(file: string): number | null {
   const match = readFileSync(path.join(APP, file), "utf8").match(/export const maxDuration = (\d+);/);

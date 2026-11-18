@@ -14,6 +14,7 @@
 //   Jaroslav Viner   = de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c (ADMIN)
 //   Jaroslav Blahout = 06240ac4-c050-47ea-998c-6c81389edf9f (EXECUTIVE)
 import { isAdmin, isAdminOrExecutive } from "./adminAuth";
+import { isSalesRep } from "./crmAuth";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import type { AuthContext } from "./types";
 
@@ -41,8 +42,9 @@ export function isDailyCallCurator(ctx: AuthContext): boolean {
 
 // Pracovník — vidí zveřejněnou frontu a zapisuje výsledky hovorů. V1 Viner
 // i Blahout, oba navíc musí mít ADMIN nebo EXECUTIVE (dnešní stav obou).
+// 18. 11. 2026 — Blahout je zaměstnanec (EMPLOYEE, obchodník podle crmAuth.ts).
 export function isDailyCallWorker(ctx: AuthContext): boolean {
-  return ctx !== null && WORKER_USER_IDS.has(ctx.userId) && isAdminOrExecutive(ctx);
+  return ctx !== null && WORKER_USER_IDS.has(ctx.userId) && (isAdminOrExecutive(ctx) || isSalesRep(ctx));
 }
 
 export function requireDailyCallCuratorAccess(ctx: AuthContext): NonNullable<AuthContext> {

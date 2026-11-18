@@ -22,7 +22,7 @@ import CreateNodeForm from "./CreateNodeForm";
 import CompanyOverviewIntro from "./CompanyOverviewIntro";
 import SectionMenu from "./SectionMenu";
 import OrderSummaryTiles from "./objednavky/OrderSummaryTiles";
-import CrmCockpitTiles from "./obchod/CockpitTiles";
+import CrmCockpitTiles from "../obchod/CockpitTiles";
 
 // Security Phase 8 — obsahová stránka "Řízení firmy". Autorizace (ADMIN
 // nebo EXECUTIVE) řeší výhradně app/rizeni-firmy/layout.tsx nad touhle

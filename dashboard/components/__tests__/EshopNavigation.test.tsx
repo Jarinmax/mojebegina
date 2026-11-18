@@ -15,7 +15,7 @@ import MembershipCard from "../MembershipCard";
 import AdminHeader from "../admin/AdminHeader";
 import ExecutiveHeader from "../executive/ExecutiveHeader";
 import CompanyOverviewHeader from "../company-overview/CompanyOverviewHeader";
-import CompanyOverviewIntro from "../../app/rizeni-firmy/CompanyOverviewIntro";
+import CompanyOverviewIntro from "../../app/rizeni-firmy/(vedeni)/CompanyOverviewIntro";
 
 afterEach(() => cleanup());
 

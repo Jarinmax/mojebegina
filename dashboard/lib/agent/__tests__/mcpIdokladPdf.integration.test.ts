@@ -170,7 +170,7 @@ describe("PDF faktury z iDokladu přes MCP (ChatGPT) a MojeBegina", { timeout: 1
   });
 
   it("stažení PDF v MojeBegina: jen přihlášený vystavovatel faktur, audit kanálu ui", async () => {
-    const { GET } = await import("@/app/rizeni-firmy/faktury/idoklad/[id]/pdf/route");
+    const { GET } = await import("@/app/rizeni-firmy/(vedeni)/faktury/idoklad/[id]/pdf/route");
     const request = new Request(`https://moje.begina.cz/rizeni-firmy/faktury/idoklad/${INVOICE_ID}/pdf`);
     const params = { params: Promise.resolve({ id: String(INVOICE_ID) }) } as never;
     const response = await runAsAgent(lucieRead.ctx, () => GET(request, params));

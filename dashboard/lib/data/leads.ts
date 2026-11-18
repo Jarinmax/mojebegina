@@ -11,16 +11,18 @@
 // (linkLeadToExistingOrganization / convertLeadToNewOrganization).
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
-import { requireCrmAccess } from "./crmAuth";
+import { crmSeesAll, requireCrmAccess, requireCrmManager } from "./crmAuth";
+import { ForbiddenError } from "./errors";
 import { claimUnownedLeadOnReach } from "./leadClaim";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { distinctOrganizationIds } from "./orderBuyer";
+import { loadCustomerPurchases, loadCustomerPurchasesFor, type CustomerPurchasesResult } from "./customerPurchases";
 import {
   validateCreateLeadInput,
   validateStageInput,
@@ -63,7 +65,7 @@ async function reconcileCalendarAfterCommit(leadId: string): Promise<void> {
 // takže sem žádná speciální logika navíc nejde — jen ověření přístupu,
 // zavolání a přečtení výsledného stavu pro srozumitelnou chybu uživateli.
 export async function retryLeadCalendarSync(leadId: string): Promise<LeadResult> {
-  await requireCrmContext();
+  await requireLeadAccess(leadId);
   await reconcileLeadCalendarEvent(leadId);
 
   const [row] = await db
@@ -81,6 +83,36 @@ export async function retryLeadCalendarSync(leadId: string): Promise<LeadResult>
 export async function requireCrmContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
   return requireCrmAccess(ctx);
+}
+
+// Vedení (ADMIN/EXECUTIVE) — přiřazování, převody na zákazníka, nové leady
+// bez obchodníka. Obchodník (EMPLOYEE) sem nesmí.
+export async function requireCrmManagerContext(): Promise<NonNullable<AuthContext>> {
+  const ctx = await getAuthContext();
+  return requireCrmManager(ctx);
+}
+
+// Obchodník smí jen na lead, který mu patří; vedení na jakýkoli.
+async function canAccessLead(ctx: NonNullable<AuthContext>, leadId: string): Promise<boolean> {
+  if (crmSeesAll(ctx)) return true;
+  const [row] = await db.select({ ownerUserId: leads.ownerUserId }).from(leads).where(eq(leads.id, leadId)).limit(1);
+  return !!row && row.ownerUserId === ctx.userId;
+}
+
+async function requireLeadAccess(leadId: string): Promise<NonNullable<AuthContext>> {
+  const ctx = await requireCrmContext();
+  if (!(await canAccessLead(ctx, leadId))) throw new ForbiddenError();
+  return ctx;
+}
+
+async function canAccessCustomer(ctx: NonNullable<AuthContext>, organizationId: string): Promise<boolean> {
+  if (crmSeesAll(ctx)) return true;
+  const [row] = await db
+    .select({ ownerUserId: organizations.ownerUserId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  return !!row && row.ownerUserId === ctx.userId;
 }
 
 // --- Pickery -------------------------------------------------------------
@@ -173,8 +205,9 @@ export type LeadListFilter = "mine" | "all";
 // konverze dál žije zákazník přes organizations/orders (viz
 // listMyCustomers/listAllCustomers), lead zůstává jen jako historická
 // stopa dohledatelná z detailu organizace v budoucnu.
-export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]> {
+export async function listLeads(requestedFilter: LeadListFilter): Promise<LeadCardData[]> {
   const ctx = await requireCrmContext();
+  const filter: LeadListFilter = crmSeesAll(ctx) ? requestedFilter : "mine";
 
   const rows = await db
     .select()
@@ -202,7 +235,9 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
 // Nové leady bez obchodníka (např. z formuláře Meta) — samostatný blok nahoře
 // na stránce Obchod, ať je vidí každý bez ohledu na vybranou záložku.
 export async function listNewUnassignedLeads(): Promise<LeadCardData[]> {
-  await requireCrmContext();
+  const ctx = await requireCrmContext();
+  // Obchodník nové leady bez obchodníka nevidí — přidělí mu je vedení.
+  if (!crmSeesAll(ctx)) return [];
   const rows = await db
     .select()
     .from(leads)
@@ -436,7 +471,7 @@ export async function createLead(rawInput: CreateLeadInput): Promise<CreateLeadR
 // atomicky v jednom db.batch (stejný vzor jako updateFulfillmentStatus
 // v orders.ts).
 export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireLeadAccess(leadId);
 
   const validated = validateCallLogInput(rawInput);
   if (!validated.ok) {
@@ -505,7 +540,7 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
 // "smazat") — bez vlastní akce by nešlo rozlišit, že uživatel termín
 // doopravdy chce odstranit, ne jen že ho v tomhle zápisu nevyplnil.
 export async function removeLeadFollowUp(leadId: string): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireLeadAccess(leadId);
 
   const [current] = await db
     .select({ nextFollowUpAt: leads.nextFollowUpAt })
@@ -537,7 +572,7 @@ export async function removeLeadFollowUp(leadId: string): Promise<LeadResult> {
 // dřív uvedený v schema.ts u lead_activity). Nemění fázi ani
 // lastContactedAt — poznámka není hovor (na to je logCallOutcome).
 export async function addLeadNote(leadId: string, rawBody: string): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireLeadAccess(leadId);
 
   const validated = validateNoteInput(rawBody);
   if (!validated.ok) {
@@ -564,7 +599,7 @@ export async function addLeadNote(leadId: string, rawBody: string): Promise<Lead
 // Stejná pole jako v rychlém zápisu hovoru, ale bez lastContactedAt (nastavit
 // si připomínku není kontakt se zákazníkem). Prázdné pole se nemění.
 export async function setLeadNextStep(leadId: string, rawInput: NextStepInput): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireLeadAccess(leadId);
 
   const validated = validateNextStepInput(rawInput);
   if (!validated.ok) {
@@ -622,7 +657,7 @@ export async function setLeadNextStep(leadId: string, rawInput: NextStepInput): 
 // schema.ts komentář u `leads`). Vlastní akce mimo logCallOutcome, protože
 // se může hodit i kdykoliv jindy, ne jen bezprostředně po telefonátu.
 export async function updateLeadCompanyName(leadId: string, rawCompanyName: string): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireLeadAccess(leadId);
 
   const validated = validateCompanyNameInput(rawCompanyName);
   if (!validated.ok) {
@@ -656,7 +691,7 @@ export async function updateLeadCompanyName(leadId: string, rawCompanyName: stri
 }
 
 export async function updateLeadStage(leadId: string, rawStage: string): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireLeadAccess(leadId);
 
   const validated = validateStageInput(rawStage);
   if (!validated.ok) {
@@ -693,7 +728,7 @@ export async function updateLeadStage(leadId: string, rawStage: string): Promise
 }
 
 export async function assignLeadOwner(leadId: string, ownerUserId: string): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireCrmManagerContext();
 
   const owner = await getUserProfile(ownerUserId);
   if (!owner) {
@@ -724,7 +759,7 @@ export async function assignLeadOwner(leadId: string, ownerUserId: string): Prom
 // je prázdné (viz lead detail), ale zápis to nevynucuje natvrdo (ADMIN
 // může opravit omyl).
 export async function setLeadAcquiredBy(leadId: string, acquiredByUserId: string): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireCrmManagerContext();
 
   const acquirer = await getUserProfile(acquiredByUserId);
   if (!acquirer) {
@@ -771,7 +806,7 @@ export type DuplicateCandidates = {
 // Nikdy nic neslučuje sama — jen navrhuje kandidáty, finální propojení
 // vždy potvrzuje člověk přes linkLeadToExistingOrganization.
 export async function findDuplicateOrganizations(leadId: string): Promise<DuplicateCandidates> {
-  await requireCrmContext();
+  await requireCrmManagerContext();
 
   const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
   if (!lead) {
@@ -827,7 +862,7 @@ export async function linkLeadToExistingOrganization(
   leadId: string,
   organizationId: string
 ): Promise<LeadResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireCrmManagerContext();
 
   const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
   if (!lead) {
@@ -895,7 +930,7 @@ export async function convertLeadToNewOrganization(
   leadId: string,
   rawInput: CreateCustomerInput
 ): Promise<CreateCustomerResult> {
-  const ctx = await requireCrmContext();
+  const ctx = await requireCrmManagerContext();
 
   const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
   if (!lead) {
@@ -951,6 +986,8 @@ export type CustomerCardData = {
   orderCount: number;
   totalRevenueKc: number;
   lastOrderAt: Date | null;
+  /** false = faktury z iDokladu se nepodařilo načíst, čísla jsou jen z objednávek */
+  invoicesLoaded: boolean;
 };
 
 export type CustomerListFilter = "mine" | "all";
@@ -959,8 +996,9 @@ export type CustomerListFilter = "mine" | "all";
 // se ze VŠECH objednávek kromě zrušených (fulfillmentStatus != cancelled),
 // bez ohledu na paymentStatus (schváleno explicitně: "Objednáno" a
 // "Uhrazeno" jsou dvě různé věci, tohle číslo je "Objednáno").
-export async function listCustomers(filter: CustomerListFilter): Promise<CustomerCardData[]> {
+export async function listCustomers(requestedFilter: CustomerListFilter): Promise<CustomerCardData[]> {
   const ctx = await requireCrmContext();
+  const filter: CustomerListFilter = crmSeesAll(ctx) ? requestedFilter : "mine";
 
   const orgRows = await db
     .select({
@@ -978,27 +1016,9 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
     return [];
   }
 
-  const orgIds = orgRows.map((o) => o.id);
-  const activeOrders = await db
-    .select({
-      buyerOrganizationId: orders.buyerOrganizationId,
-      totalKc: orders.totalKc,
-      orderedAt: orders.orderedAt,
-    })
-    .from(orders)
-    .where(and(inArray(orders.buyerOrganizationId, orgIds), ne(orders.fulfillmentStatus, "cancelled")));
-
-  const statsByOrg = new Map<string, { count: number; total: number; last: Date | null }>();
-  for (const row of activeOrders) {
-    if (!row.buyerOrganizationId) continue; // soukromý zákazník (SQL ho sem nepustí, jen pro typy)
-    const current = statsByOrg.get(row.buyerOrganizationId) ?? { count: 0, total: 0, last: null };
-    current.count += 1;
-    current.total += row.totalKc;
-    if (!current.last || row.orderedAt.getTime() > current.last.getTime()) {
-      current.last = row.orderedAt;
-    }
-    statsByOrg.set(row.buyerOrganizationId, current);
-  }
+  // Objednávky z MojeBegina + faktury z iDokladu podle IČO (ruční faktury
+  // dřív na kartě chyběly — Art-n-coffee ukazoval 0 Kč).
+  const purchasesByOrg = await loadCustomerPurchases(orgRows.map((o) => ({ id: o.id, ico: o.ico })));
 
   const staffIds = [
     ...new Set(
@@ -1008,7 +1028,7 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
   const staff = await getUserProfiles(staffIds);
 
   return orgRows.map((org) => {
-    const stats = statsByOrg.get(org.id) ?? { count: 0, total: 0, last: null };
+    const purchases = purchasesByOrg.get(org.id);
     const owner = org.ownerUserId ? staff.get(org.ownerUserId) : null;
     const acquiredBy = org.acquiredByUserId ? staff.get(org.acquiredByUserId) : null;
     return {
@@ -1019,15 +1039,16 @@ export async function listCustomers(filter: CustomerListFilter): Promise<Custome
       ownerName: owner?.name ?? owner?.email ?? null,
       acquiredByUserId: org.acquiredByUserId,
       acquiredByName: acquiredBy?.name ?? acquiredBy?.email ?? null,
-      orderCount: stats.count,
-      totalRevenueKc: stats.total,
-      lastOrderAt: stats.last,
+      orderCount: purchases?.count ?? 0,
+      totalRevenueKc: purchases?.totalKc ?? 0,
+      lastOrderAt: purchases?.lastAt ?? null,
+      invoicesLoaded: purchases?.invoicesLoaded ?? false,
     };
   });
 }
 
 export async function assignCustomerOwner(organizationId: string, ownerUserId: string): Promise<LeadResult> {
-  await requireCrmContext();
+  await requireCrmManagerContext();
 
   const owner = await getUserProfile(ownerUserId);
   if (!owner) {
@@ -1042,7 +1063,7 @@ export async function setCustomerAcquiredBy(
   organizationId: string,
   acquiredByUserId: string
 ): Promise<LeadResult> {
-  await requireCrmContext();
+  await requireCrmManagerContext();
 
   const acquirer = await getUserProfile(acquiredByUserId);
   if (!acquirer) {
@@ -1071,11 +1092,18 @@ export type CustomerActivityEntry = {
 
 export type CustomerDetail = CustomerCardData & {
   recentOrders: CustomerOrderSummary[];
+  /** Všechny nákupy (objednávky + faktury z iDokladu), nejnovější první. */
+  purchases: CustomerPurchasesResult["purchases"];
+  partner: CustomerPurchasesResult["partner"];
   activity: CustomerActivityEntry[];
 };
 
 export async function getCustomerDetail(organizationId: string): Promise<CustomerDetail | null> {
-  await requireCrmContext();
+  const ctx = await requireCrmContext();
+  // Obchodník vidí jen své zákazníky — cizí karta se tváří jako neexistující.
+  if (!(await canAccessCustomer(ctx, organizationId))) {
+    return null;
+  }
 
   const [org] = await db
     .select({
@@ -1103,10 +1131,7 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     .where(eq(orders.buyerOrganizationId, organizationId))
     .orderBy(desc(orders.orderedAt));
 
-  const activeOrders = orderRows.filter((o) => o.fulfillmentStatus !== "cancelled");
-  const orderCount = activeOrders.length;
-  const totalRevenueKc = activeOrders.reduce((sum, o) => sum + o.totalKc, 0);
-  const lastOrderAt = activeOrders.length > 0 ? activeOrders[0].orderedAt : null;
+  const purchases = await loadCustomerPurchasesFor({ id: org.id, ico: org.ico });
 
   const activityRows = await db
     .select()
@@ -1127,10 +1152,13 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     ownerName: owner?.name ?? owner?.email ?? null,
     acquiredByUserId: org.acquiredByUserId,
     acquiredByName: acquiredBy?.name ?? acquiredBy?.email ?? null,
-    orderCount,
-    totalRevenueKc,
-    lastOrderAt,
+    orderCount: purchases.count,
+    totalRevenueKc: purchases.totalKc,
+    lastOrderAt: purchases.lastAt,
+    invoicesLoaded: purchases.invoicesLoaded,
     recentOrders: orderRows.slice(0, 10),
+    purchases: purchases.purchases,
+    partner: purchases.partner,
     activity: activityRows.map((r) => ({
       id: r.id,
       kind: r.kind,
@@ -1147,6 +1175,9 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
 // organization_activity.
 export async function addCustomerNote(organizationId: string, rawBody: string): Promise<LeadResult> {
   const ctx = await requireCrmContext();
+  if (!(await canAccessCustomer(ctx, organizationId))) {
+    throw new ForbiddenError();
+  }
 
   const validated = validateNoteInput(rawBody);
   if (!validated.ok) {
@@ -1186,7 +1217,8 @@ const SEARCH_LIMIT = 20;
 // nebo IČO. Na rozdíl od listLeads hledá i v ukončených leadech
 // (not_interested, converted) — kvůli otázkám typu "co jsme řešili s X".
 export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
-  await requireCrmContext();
+  const ctx = await requireCrmContext();
+  const onlyMine = !crmSeesAll(ctx);
 
   const query = rawQuery.trim();
   if (query.length < 2) {
@@ -1198,6 +1230,7 @@ export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
     .select()
     .from(leads)
     .where(
+      and(
       or(
         ilike(leads.companyName, pattern),
         ilike(leads.contactName, pattern),
@@ -1205,6 +1238,8 @@ export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
         ilike(leads.contactEmail, pattern),
         ilike(leads.city, pattern),
         ilike(leads.ico, pattern)
+      ),
+      onlyMine ? eq(leads.ownerUserId, ctx.userId) : undefined
       )
     )
     .orderBy(desc(leads.updatedAt))
@@ -1213,7 +1248,12 @@ export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
   const customerRows = await db
     .select({ id: organizations.id, name: organizations.name, ico: organizations.ico })
     .from(organizations)
-    .where(or(ilike(organizations.name, pattern), ilike(organizations.ico, pattern)))
+    .where(
+      and(
+        or(ilike(organizations.name, pattern), ilike(organizations.ico, pattern)),
+        onlyMine ? eq(organizations.ownerUserId, ctx.userId) : undefined
+      )
+    )
     .orderBy(asc(organizations.name))
     .limit(SEARCH_LIMIT);
 
@@ -1227,7 +1267,7 @@ export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
 // Jardova karta (audit 15. 11. 2026): objednávky soukromé osoby navázané na
 // kontakt přes orders.source_lead_id — pro detail kontaktu.
 export async function listLeadSourceOrders(leadId: string) {
-  await requireCrmContext();
+  await requireLeadAccess(leadId);
   return db
     .select({ id: orders.id, orderNumber: orders.orderNumber, orderedAt: orders.orderedAt, totalKc: orders.totalKc })
     .from(orders)

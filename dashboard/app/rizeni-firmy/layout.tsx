@@ -7,6 +7,7 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isAdminOrExecutive } from "@/lib/data/adminAuth";
+import { isSalesRep } from "@/lib/data/crmAuth";
 import CompanyOverviewHeader from "@/components/company-overview/CompanyOverviewHeader";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +25,14 @@ export default async function CompanyOverviewLayout({
   if (ctx.roleSelectionRequired) {
     redirect("/vyber-roli");
   }
-  if (!isAdminOrExecutive(ctx)) {
+  // Obchodník (zaměstnanec) sem smí kvůli Obchodu; zbytek sekce hlídá
+  // (vedeni)/layout.tsx.
+  const salesRep = isSalesRep(ctx);
+  if (!isAdminOrExecutive(ctx) && !salesRep) {
     redirect("/");
   }
 
-  const backHref = ctx.systemRole === "ADMIN" ? "/admin" : "/executive";
+  const backHref = salesRep ? "/prace" : ctx.systemRole === "ADMIN" ? "/admin" : "/executive";
 
   return (
     <div className="min-h-screen bg-neutral-50">

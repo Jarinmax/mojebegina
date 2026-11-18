@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getLeadDetail, findDuplicateOrganizations } from "@/lib/data/leads";
+import { crmSeesAll } from "@/lib/data/crmAuth";
 import { getAuthContext } from "@/lib/data/authContext";
 import LinkOrganizationButton from "./LinkOrganizationButton";
 import NewOrganizationForm from "./NewOrganizationForm";
@@ -21,6 +22,11 @@ export default async function ConvertLeadPage(props: PageProps<"/rizeni-firmy/ob
 
   if (!UUID_RE.test(id)) {
     notFound();
+  }
+
+  // Převod na zákazníka dělá vedení (obchodník sem nesmí — crmAuth.ts).
+  if (!crmSeesAll(await getAuthContext())) {
+    redirect(`/rizeni-firmy/obchod/leady/${id}`);
   }
 
   const detail = await getLeadDetail(id);

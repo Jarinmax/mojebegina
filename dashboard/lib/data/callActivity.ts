@@ -7,7 +7,7 @@ import "server-only";
 import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leadActivity, leads } from "@/lib/db/schema";
-import { listStaffOptions, requireCrmContext } from "./leads";
+import { listStaffOptions, requireCrmManagerContext } from "./leads";
 import { importedLeadIds } from "./agentLeads";
 import {
   CALL_ACTIVITY_TIME_ZONE,
@@ -33,7 +33,7 @@ export async function getSalespersonCallActivity(input: {
   dateFrom: string;
   dateTo: string | null;
 }): Promise<SalespersonCallActivityResult> {
-  await requireCrmContext();
+  await requireCrmManagerContext();
 
   const range = validateCallActivityRange(input.dateFrom, input.dateTo);
   if (!range.ok) {
