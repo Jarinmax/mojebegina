@@ -45,7 +45,7 @@ describe("historie nákupů: párování", () => {
     });
   });
   it("podle jména jen když je mezi kontakty jedinečné", () => {
-    expect(result.get("b")).toMatchObject({ matchedBy: "name", invoices: 1, items: [{ name: "Lipový sirup – 3 l", quantity: 3 }] });
+    expect(result.get("b")).toMatchObject({ matchedBy: "name", invoices: 1, items: [{ name: "Lipový sirup 3 l", quantity: 3 }] });
     expect(result.has("c")).toBe(false);
     expect(result.has("d")).toBe(false);
     expect(result.has("e")).toBe(false);
