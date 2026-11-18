@@ -16,7 +16,8 @@
  * Set je na webu vidět až po schválení (Lucie řekne „ano“). Do té doby ho
  * vidí jen náhled s cookie SET_PREVIEW_COOKIE (catalogServer.ts).
  */
-export const SET_LAUNCHED = false;
+// Spuštěno 18. 11. 2026 večer (Lucie: „Spusť set.“)
+export const SET_LAUNCHED = true;
 /**
  * Od kdy platí akční cena (Lucie 17. 11. 2026 „ano“): set se nejdřív týden
  * prodává jen za běžnou cenu 349 Kč + doprava, potom se běžná cena
@@ -25,7 +26,8 @@ export const SET_LAUNCHED = false;
  * od zahájení prodeje nabízel a prodával. null = akce ještě nemá termín.
  * Nastavuje se při spuštění setu na „spuštění + 7 dní“.
  */
-export const SET_CAMPAIGN_FROM: string | null = null;
+// spuštění 18. 11. 2026 + 7 celých dní → akce od 26. 11. 2026 0:00 (Praha)
+export const SET_CAMPAIGN_FROM: string | null = "2026-11-26T00:00:00+01:00";
 export function campaignRunning(now: Date, from: string | null = SET_CAMPAIGN_FROM): boolean {
   return from !== null && now.getTime() >= new Date(from).getTime();
 }
