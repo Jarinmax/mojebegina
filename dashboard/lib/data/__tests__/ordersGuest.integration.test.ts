@@ -71,7 +71,7 @@ describe("objednávka bez organizace v MojeBegina", DB_TEST, () => {
       orderNumber: null,
     });
     expect(orders.find((o) => o.id === ORG_ORDER)?.buyerOrganizationName).toBe("The Cup s.r.o.");
-    expect(counts).toEqual({ new: 2, inProcess: 0, readyForDelivery: 0, awaitingPayment: 1 });
+    expect(counts).toEqual({ new: 2, inProcess: 0, readyForDelivery: 0, awaitingPayment: 1, cancelled: 0 });
   });
 
   it("detail objednávky soukromého zákazníka se načte včetně kontaktu a položek", async () => {

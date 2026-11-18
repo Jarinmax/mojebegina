@@ -94,6 +94,17 @@ function describeEntry(entry: OrderActivityEntry): string {
       return `⚠ objednávka je přeplacená — přeplatek ${money(meta.amountHal)} je k vrácení zákazníkovi (závazek, zatím nevráceno)`;
     case "payment_transferred_in":
       return `převedl(a) sem platbu ${money(meta.amountHal)} ze stornované objednávky ${String(meta.fromReference ?? "—")} se souhlasem zákazníka`;
+    // Odesláno / Faktura poslána (Lucie 18. 11. 2026)
+    case "shipped_marked":
+      return `označil(a) objednávku jako odeslanou${typeof meta.trackingNumber === "string" && meta.trackingNumber ? ` (číslo zásilky ${meta.trackingNumber})` : ""}`;
+    case "shipped_unmarked":
+      return "vrátil(a) zpět „Odesláno“";
+    case "invoice_sent_marked":
+      return meta.method === "email"
+        ? `označil(a) „Faktura poslána“ — faktura odešla e-mailem${Array.isArray(meta.to) && meta.to.length ? ` na ${meta.to.map(String).join(", ")}` : ""}`
+        : "označil(a) fakturu jako poslanou (ručně)";
+    case "invoice_sent_unmarked":
+      return "vrátil(a) zpět „Faktura poslána“";
     case "responsible_assigned":
       return meta.responsibleUserId
         ? `přiřadil(a) odpovědnou osobu: ${String(meta.responsibleName ?? meta.responsibleUserId)}`

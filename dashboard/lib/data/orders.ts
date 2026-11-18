@@ -156,6 +156,13 @@ export type OrderCardData = {
   /** AKTUÁLNÍ přepravce/tracking (MCP objednávky 1.1) — historie je v order_activity. */
   carrier: string | null;
   trackingNumber: string | null;
+  /** Odesláno / Faktura poslána (Lucie 18. 11. 2026) — null = nezaškrtnuto. */
+  shippedAt: Date | null;
+  shippedByName: string | null;
+  invoiceSentAt: Date | null;
+  invoiceSentByName: string | null;
+  invoiceSentTo: string | null;
+  invoiceSentMethod: "email" | "manual" | null;
 };
 
 export type OrderCounts = {
@@ -163,6 +170,8 @@ export type OrderCounts = {
   inProcess: number;
   readyForDelivery: number;
   awaitingPayment: number;
+  /** Stornované — v seznamu schované pod tlačítkem „Zrušené“, do ostatních počtů se nepočítají. */
+  cancelled: number;
 };
 
 export type OrderList = { orders: OrderCardData[]; counts: OrderCounts };
@@ -230,6 +239,12 @@ export async function buildOrderCards(
       moneyAlert: money.get(o.id) ?? null,
       carrier: o.carrier,
       trackingNumber: o.trackingNumber,
+      shippedAt: o.shippedAt,
+      shippedByName: o.shippedByName,
+      invoiceSentAt: o.invoiceSentAt,
+      invoiceSentByName: o.invoiceSentByName,
+      invoiceSentTo: o.invoiceSentTo,
+      invoiceSentMethod: o.invoiceSentMethod === "email" || o.invoiceSentMethod === "manual" ? o.invoiceSentMethod : null,
     };
   });
 }
@@ -244,8 +259,13 @@ export async function listOrders(): Promise<OrderList> {
   // v obou skupinách zůstává pořadí podle orderedAt (nejnovější první).
   cards.sort((a, b) => Number(a.fulfillmentStatus === "cancelled") - Number(b.fulfillmentStatus === "cancelled"));
 
-  const counts: OrderCounts = { new: 0, inProcess: 0, readyForDelivery: 0, awaitingPayment: 0 };
+  const counts: OrderCounts = { new: 0, inProcess: 0, readyForDelivery: 0, awaitingPayment: 0, cancelled: 0 };
   for (const card of cards) {
+    // Zrušená objednávka se nepočítá nikam jinam (ani do „Čeká na platbu“).
+    if (card.fulfillmentStatus === "cancelled") {
+      counts.cancelled += 1;
+      continue;
+    }
     if (card.fulfillmentStatus === "new") counts.new += 1;
     if (card.fulfillmentStatus === "confirmed" || card.fulfillmentStatus === "preparing") {
       counts.inProcess += 1;

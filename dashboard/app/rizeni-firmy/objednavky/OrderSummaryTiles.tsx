@@ -4,7 +4,8 @@ import type { OrderCounts } from "@/lib/data/orders";
 // Security Phase 15 (Objednávky 1.0) — executive přehled, použitý jak na
 // /rizeni-firmy (souhrn s prokliky), tak nahoře na /rizeni-firmy/objednavky.
 // "Čeká na platbu" záměrně nezávisí na fulfillment stavu — i doručená,
-// nezaplacená objednávka tu má zůstat (schváleno explicitně).
+// nezaplacená objednávka tu má zůstat (schváleno explicitně). Zrušené
+// (stornované) objednávky se nepočítají nikam (Lucie 18. 11. 2026).
 const TILES: { key: keyof OrderCounts; label: string; filter: string }[] = [
   { key: "new", label: "Nové", filter: "new" },
   { key: "inProcess", label: "V procesu", filter: "in_process" },

@@ -32,6 +32,7 @@ export const SECTION_GROUPS: Group[] = [
   {
     title: "Výroba",
     items: [
+      { href: "/rizeni-firmy/vyroba", label: "Výroba a expedice", icon: "🏭" },
       { href: "/rizeni-firmy/receptury", label: "Receptury a náklady", icon: "🥣", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/etikety", label: "Etikety", icon: "🏷️" },
       { href: "/rizeni-firmy/sklad/nova-prijemka", label: "Nová příjemka (foto)", icon: "📸", show: (f) => f.sklad },

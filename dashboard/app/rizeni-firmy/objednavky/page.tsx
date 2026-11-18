@@ -17,6 +17,8 @@ const FILTERS = {
     o.fulfillmentStatus === "ready" || o.fulfillmentStatus === "out_for_delivery",
   awaiting_payment: (o: Awaited<ReturnType<typeof listOrders>>["orders"][number]) =>
     o.paymentStatus === "unpaid" || o.paymentStatus === "invoiced",
+  // Zrušené (stornované) objednávky jsou standardně schované — jen pod tímto filtrem.
+  zrusene: (o: Awaited<ReturnType<typeof listOrders>>["orders"][number]) => o.fulfillmentStatus === "cancelled",
 } as const;
 
 const FILTER_LABELS: Record<keyof typeof FILTERS, string> = {
@@ -24,6 +26,7 @@ const FILTER_LABELS: Record<keyof typeof FILTERS, string> = {
   in_process: "V procesu",
   ready_for_delivery: "K doručení",
   awaiting_payment: "Čeká na platbu",
+  zrusene: "Zrušené",
 };
 
 export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objednavky">) {
@@ -32,7 +35,9 @@ export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objedna
   const activeFilter = filterParam && filterParam in FILTERS ? (filterParam as keyof typeof FILTERS) : null;
 
   const { orders, counts } = await listOrders();
-  const visibleOrders = activeFilter ? orders.filter(FILTERS[activeFilter]) : orders;
+  const showCancelled = activeFilter === "zrusene";
+  const activeOrders = showCancelled ? orders : orders.filter((o) => o.fulfillmentStatus !== "cancelled");
+  const visibleOrders = activeFilter ? activeOrders.filter(FILTERS[activeFilter]) : activeOrders;
 
   return (
     <div>
@@ -48,8 +53,27 @@ export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objedna
         </Link>
       </div>
 
-      <div className="mb-4 mt-3">
+      <div className="mb-3 mt-3">
         <OrderSummaryTiles counts={counts} />
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Link
+          href={showCancelled ? "/rizeni-firmy/objednavky" : "/rizeni-firmy/objednavky?filter=zrusene"}
+          className={`text-sm rounded-full border px-4 py-2 ${
+            showCancelled
+              ? "bg-begina-primary-900 text-begina-primary-50 border-begina-primary-900"
+              : "bg-white text-begina-primary-900 border-neutral-300"
+          }`}
+        >
+          Zrušené ({counts.cancelled})
+        </Link>
+        <Link
+          href="/rizeni-firmy/vyroba"
+          className="text-sm rounded-full border px-4 py-2 bg-white text-begina-primary-900 border-neutral-300"
+        >
+          Výroba →
+        </Link>
       </div>
 
       {activeFilter && (
@@ -63,7 +87,7 @@ export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objedna
 
       {visibleOrders.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
-          {orders.length === 0 ? "Zatím žádná objednávka." : "V tomto filtru žádná objednávka."}
+          {orders.length === 0 ? "Zatím žádná objednávka." : showCancelled ? "Žádná zrušená objednávka." : "V tomto filtru žádná objednávka."}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
