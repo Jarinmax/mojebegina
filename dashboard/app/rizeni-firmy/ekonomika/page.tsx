@@ -125,8 +125,8 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
 
       <EntryForm today={today} initialKind={view} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-6 items-start">
-        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(26rem,auto)_1fr] gap-6 items-start">
+        <div className="bg-white border border-neutral-200 rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
               <tr>
@@ -146,7 +146,7 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{formatKc(item.incomeHal)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{formatKc(item.costHal)}</td>
-                  <td className={`px-3 py-2 text-right whitespace-nowrap ${differenceTone(item.differenceHal)}`}>{formatKc(item.differenceHal)}</td>
+                  <td className={`px-3 py-2 text-right whitespace-nowrap font-medium ${differenceTone(item.differenceHal)}`}>{item.differenceHal > 0 ? "+" : ""}{formatKc(item.differenceHal)}</td>
                 </tr>
               ))}
             </tbody>
@@ -165,6 +165,9 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
               <Link href={href({ zobrazit: "income" })} className={`rounded-lg px-3 py-1.5 font-medium ${view === "income" ? "bg-begina-primary-900 text-white" : "bg-neutral-100 text-neutral-700"}`}>
                 Příjmy ({selected.incomeCount}) · {formatKc(selected.incomeHal)}
               </Link>
+              <span className={`rounded-lg px-3 py-1.5 font-medium bg-neutral-50 border border-neutral-200 ${differenceTone(selected.differenceHal)}`}>
+                Rozdíl · {selected.differenceHal > 0 ? "+" : ""}{formatKc(selected.differenceHal)}
+              </span>
             </div>
           </div>
           <EntryTable rows={monthRows.filter((row) => row.kind === view)} kind={view} />
