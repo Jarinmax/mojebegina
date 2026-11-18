@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import Image from "next/image";
 import ProductImage from "./ProductImage";
@@ -40,13 +41,13 @@ export default function ProductGallery({ name, photos, note }: { name: string; p
       ) : (
         <ProductImage name={name} src={null} size="lg" />
       )}
-      {zoomed && current?.url && (
+      {zoomed && current?.url && createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-label={current.alt ?? name}
           onClick={() => setZoomed(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-8 cursor-zoom-out"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-3 sm:p-8 cursor-zoom-out"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- plná velikost bez ořezu */}
           <img src={current.url} alt={current.alt ?? name} className="max-h-full max-w-full object-contain rounded-lg" />
@@ -58,7 +59,9 @@ export default function ProductGallery({ name, photos, note }: { name: string; p
           >
             <X className="w-6 h-6" />
           </button>
-        </div>
+        </div>,
+        // do <body>: rodič detailu produktu tvoří vlastní vrstvu a hlavička by jinak překryla fotku
+        document.body
       )}
       {note && <p className="mt-1.5 text-xs text-neutral-500">{note}</p>}
       {photos.length > 1 && (
