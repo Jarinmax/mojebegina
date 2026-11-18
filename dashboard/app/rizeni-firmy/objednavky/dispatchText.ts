@@ -1,4 +1,4 @@
-import { formatCzechDateTime } from "@/lib/format";
+import { formatCzechDate, formatCzechDateTime } from "@/lib/format";
 import type { OrderCardData } from "@/lib/data/orders";
 
 // Texty pro „Odesláno“ / „Faktura poslána“ (Lucie 18. 11. 2026) — počítají se
@@ -16,7 +16,13 @@ export type DispatchView = {
   shipped: { done: boolean; title: string; lines: string[] };
   invoice: { done: boolean; title: string; lines: string[] };
   trackingNumber: string | null;
+  /** datum odeslání pro formulář (RRRR-MM-DD, Europe/Prague) */
+  shippedOn: string | null;
+  /** dnešek pro výchozí hodnotu a max (RRRR-MM-DD, Europe/Prague) */
+  today: string;
 };
+
+const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" });
 
 type DispatchSource = Pick<
   OrderCardData,
@@ -35,7 +41,7 @@ export function dispatchView(order: DispatchSource): DispatchView {
   const shippedLines: string[] = [];
   if (order.shippedAt) {
     shippedLines.push(
-      [formatCzechDateTime(order.shippedAt), order.shippedByName, order.carrier].filter(Boolean).join(" · ")
+      [`odesláno ${formatCzechDate(order.shippedAt)}`, order.shippedByName, order.carrier].filter(Boolean).join(" · ")
     );
     if (order.trackingNumber) shippedLines.push(`Číslo zásilky: ${order.trackingNumber}`);
   }
@@ -57,5 +63,7 @@ export function dispatchView(order: DispatchSource): DispatchView {
     shipped: { done: Boolean(order.shippedAt), title: "Odesláno", lines: shippedLines },
     invoice: { done: Boolean(order.invoiceSentAt), title: "Faktura poslána", lines: invoiceLines },
     trackingNumber: order.trackingNumber,
+    shippedOn: order.shippedAt ? ymd.format(order.shippedAt) : null,
+    today: ymd.format(new Date()),
   };
 }

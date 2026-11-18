@@ -28,6 +28,7 @@ import {
 import {
   markOrderShipped,
   unmarkOrderShipped,
+  changeShippedDate,
   markOrderInvoiceSent,
   unmarkOrderInvoiceSent,
 } from "@/lib/data/orderDispatch";
@@ -397,7 +398,9 @@ export async function dispatchAction(
   const op = String(formData.get("op") ?? "");
   const result =
     op === "ship"
-      ? await markOrderShipped(orderId, String(formData.get("trackingNumber") ?? ""))
+      ? await markOrderShipped(orderId, String(formData.get("trackingNumber") ?? ""), String(formData.get("shippedOn") ?? ""))
+      : op === "shipdate"
+        ? await changeShippedDate(orderId, String(formData.get("shippedOn") ?? ""))
       : op === "unship"
         ? await unmarkOrderShipped(orderId)
         : op === "invoice"
@@ -408,7 +411,8 @@ export async function dispatchAction(
   if (!result.ok) return { error: result.error };
   revalidateOrder(orderId);
   const messages: Record<string, string> = {
-    ship: "Označeno jako odeslané.",
+    ship: "Odesláno — stav je „Předáno přepravci“, zaplacené e-shopové objednávce odešla faktura.",
+    shipdate: "Datum odeslání opraveno.",
     unship: "Odesláno vráceno zpět.",
     invoice: "Označeno: faktura poslána.",
     uninvoice: "Faktura poslána vráceno zpět.",

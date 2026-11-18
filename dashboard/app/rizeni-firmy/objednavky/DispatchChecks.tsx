@@ -32,6 +32,9 @@ function Check({
   hint,
   withTracking,
   trackingNumber,
+  shippedOn,
+  today,
+  undoWarning,
 }: {
   orderId: string;
   kind: "ship" | "invoice";
@@ -41,13 +44,18 @@ function Check({
   hint: string;
   withTracking?: boolean;
   trackingNumber?: string | null;
+  shippedOn?: string | null;
+  today?: string;
+  undoWarning?: string;
 }) {
   const [state, formAction, pending] = useActionState(dispatchAction.bind(null, orderId), initialState);
   const [confirmUndo, setConfirmUndo] = useState(false);
+  const [editDate, setEditDate] = useState(false);
   const [processed, setProcessed] = useState(state);
   if (state !== processed) {
     setProcessed(state);
     setConfirmUndo(false);
+    setEditDate(false);
   }
   const undoOp = kind === "ship" ? "unship" : "uninvoice";
 
@@ -62,17 +70,48 @@ function Check({
               {line}
             </p>
           ))}
+          {kind === "ship" && editDate && (
+            <form action={formAction} className="mt-2 flex flex-wrap items-center gap-2">
+              <input type="hidden" name="op" value="shipdate" />
+              <input
+                type="date"
+                name="shippedOn"
+                defaultValue={shippedOn ?? today}
+                max={today}
+                required
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-[15px] text-begina-primary-900 bg-white"
+              />
+              <button
+                type="submit"
+                disabled={pending}
+                className="text-sm font-medium text-white bg-begina-primary-900 rounded-lg px-4 py-2 disabled:opacity-50"
+              >
+                {pending ? "Ukládám…" : "Uložit datum"}
+              </button>
+              <button type="button" onClick={() => setEditDate(false)} className="text-sm text-neutral-600 px-3 py-2">
+                Zrušit
+              </button>
+            </form>
+          )}
           {!confirmUndo ? (
-            <button
-              type="button"
-              onClick={() => setConfirmUndo(true)}
-              className="mt-1.5 text-sm text-red-700 underline py-1"
-            >
-              Vrátit zpět
-            </button>
+            <span className="mt-1.5 flex flex-wrap gap-x-4">
+              {kind === "ship" && !editDate && (
+                <button type="button" onClick={() => setEditDate(true)} className="text-sm text-begina-primary-900 underline py-1">
+                  Změnit datum
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setConfirmUndo(true)}
+                className="text-sm text-red-700 underline py-1"
+              >
+                Vrátit zpět
+              </button>
+            </span>
           ) : (
             <form action={formAction} className="mt-2 flex flex-wrap items-center gap-2">
               <input type="hidden" name="op" value={undoOp} />
+              {undoWarning && <span className="basis-full text-xs text-neutral-600">{undoWarning}</span>}
               <span className="text-sm text-neutral-700">Opravdu vrátit?</span>
               <button
                 type="submit"
@@ -109,6 +148,18 @@ function Check({
         </span>
       </button>
       {withTracking && (
+        <label className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-700">
+          Datum odeslání
+          <input
+            type="date"
+            name="shippedOn"
+            defaultValue={today}
+            max={today}
+            className="px-3 py-2 border border-neutral-300 rounded-lg text-[15px] text-begina-primary-900 bg-white"
+          />
+        </label>
+      )}
+      {withTracking && (
         <input
           name="trackingNumber"
           defaultValue={trackingNumber ?? ""}
@@ -131,9 +182,12 @@ export default function DispatchChecks({ view }: { view: DispatchView }) {
         done={view.shipped.done}
         title={view.shipped.title}
         lines={view.shipped.lines}
-        hint="Klepni, až to předáš CoolBalíku / dopravci"
+        hint="Klepni, až to předáš CoolBalíku / dopravci. Stav se přepne na „Předáno přepravci“ a zákazníkovi odejde faktura. Když jsi to odeslal dřív, změň datum níž."
         withTracking
         trackingNumber={view.trackingNumber}
+        shippedOn={view.shippedOn}
+        today={view.today}
+        undoWarning="Stav se vrátí na „Připravená“. Faktura, která už zákazníkovi odešla, zůstane odeslaná."
       />
       <Check
         orderId={view.orderId}
@@ -191,6 +245,7 @@ export function DispatchTile({
           {pending ? "Ukládám…" : "Zaškrtnout"}
         </button>
       )}
+      {!done && kind === "ship" && <span className="text-[11px] leading-tight">odejde i faktura</span>}
       {done && !confirmUndo && (
         <button type="button" onClick={() => setConfirmUndo(true)} className="text-xs text-red-700 underline py-1">
           Vrátit zpět

@@ -7,7 +7,7 @@
 // "kdo objednal".
 import "server-only";
 import { createHash, randomUUID } from "crypto";
-import { desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { orders, orderItems, orderActivity, organizations, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -548,6 +548,18 @@ function conflictResult(current: string, wanted: string, labels: Readonly<Record
   };
 }
 
+/**
+ * Stav „Předáno přepravci / Na rozvozu / Doručená“ = objednávka je odeslaná:
+ * „Odesláno“ se zaškrtne samo, pokud ještě není (Lucie 18. 11. 2026 — jedno
+ * klepnutí místo dvou kolonek).
+ */
+async function markShippedOnDispatch(orderId: string, ctx: { userId: string; name: string | null; email: string }) {
+  await db
+    .update(orders)
+    .set({ shippedAt: new Date(), shippedByUserId: ctx.userId, shippedByName: ctx.name ?? ctx.email })
+    .where(and(eq(orders.id, orderId), isNull(orders.shippedAt)));
+}
+
 export async function updateFulfillmentStatus(
   orderId: string,
   rawStatus: string,
@@ -593,6 +605,7 @@ export async function updateFulfillmentStatus(
     validated.value === "cancelled"
       ? await afterOrderCancelled(db, orderId, await getAppOrigin())
       : undefined;
+  if ((DISPATCHED_STATUSES as readonly string[]).includes(validated.value)) await markShippedOnDispatch(orderId, ctx);
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(validated.value)
     ? await sendInvoiceOnDispatch(db, orderId, await getAppOrigin())
     : undefined;
@@ -680,6 +693,7 @@ export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrder
   const cancellation =
     input.targetStatus === "cancelled" ? await afterOrderCancelled(db, input.orderId, await getAppOrigin()) : undefined;
   // Expedice: faktura zákazníkovi (jen zaplacená e-shopová objednávka, nejvýš jednou).
+  if ((DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)) await markShippedOnDispatch(input.orderId, ctx);
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)
     ? await sendInvoiceOnDispatch(db, input.orderId, await getAppOrigin())
     : undefined;
