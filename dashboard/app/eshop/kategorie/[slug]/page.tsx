@@ -7,6 +7,7 @@ import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { imageBackdrop } from "@/lib/eshop/productImages";
 import { SHARE_DESCRIPTION } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
+import { splitLastSentence } from "@/lib/eshop/typography";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
 
 export const dynamic = "force-dynamic";
@@ -58,11 +59,20 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
 
       <section className="text-center max-w-3xl mx-auto mb-8">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{category.name}</h1>
-        {category.intro.map((paragraph, index) => (
-          <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "text-neutral-600"}`}>
-            {paragraph}
-          </p>
-        ))}
+        {category.intro.map((paragraph, index) => {
+          const [head, last] = splitLastSentence(paragraph);
+          return (
+            <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "text-neutral-600"}`}>
+              {head}
+              {last && (
+                <>
+                  {" "}
+                  <span className="sm:block">{last}</span>
+                </>
+              )}
+            </p>
+          );
+        })}
         {category.ageRestricted && <p className="mt-3 font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>}
       </section>
 
