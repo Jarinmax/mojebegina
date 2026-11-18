@@ -71,6 +71,17 @@ export function validateCafeInquiry(raw: CafeInquiryRaw): { ok: true; value: Caf
   return { ok: true, value: { venue, name, phone, email, city: city || null, note: note || null } };
 }
 
+/** Porovnávací tvar telefonu: posledních 9 číslic (bez předvolby) — stejné pravidlo jako u leadů z Mety. */
+export function phoneMatchKey(raw: string | null): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  return digits.length >= 9 ? digits.slice(-9) : null;
+}
+
+export function emailMatchKey(raw: string | null): string | null {
+  const t = (raw ?? "").trim().toLowerCase();
+  return t.includes("@") ? t : null;
+}
+
 /** Text do historie kontaktu v CRM. */
 export function describeCafeInquiry(inquiry: CafeInquiry, submittedLabel: string): string {
   return [

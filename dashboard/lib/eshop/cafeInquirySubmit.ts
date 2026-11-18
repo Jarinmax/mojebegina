@@ -5,13 +5,11 @@
 //      k jeho kontaktu se jen zapíše poznámka,
 //   2. upozornění na info@begina.cz (odpověď jde rovnou zájemci).
 // Zájemci žádný e-mail neodchází — potvrzení vidí na stránce.
-import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
-import { emailMatchKey, phoneMatchKey } from "@/lib/data/metaLeadsValidation";
-import { describeCafeInquiry, validateCafeInquiry, type CafeField, type CafeInquiry, type CafeInquiryRaw } from "./cafePage";
+import { describeCafeInquiry, emailMatchKey, phoneMatchKey, validateCafeInquiry, type CafeField, type CafeInquiry, type CafeInquiryRaw } from "./cafePage";
 import { emailConfig, resolveRecipients, type EmailConfig } from "./email/config";
 import { resendTransport, type EmailTransport } from "./email/resend";
 import { OPERATOR } from "./operator";
