@@ -9,7 +9,8 @@
 // 3 měsíce (ovocné nápoje 5 dní — proto se u nich výdrž neuvádí).
 
 export const CAFE_PATH = "/pro-kavarny";
-export const CAFE_MENU_LABEL = "Pro kavárny a bistra";
+// V menu kratší název: s „Pro kavárny a bistra“ se menu na šířce 1280 px nevešlo vedle košíku.
+export const CAFE_MENU_LABEL = "Kavárny a bistra";
 export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
 export const CAFE_SUBTITLE = "Natočíte z kohoutku, nic nevyhodíte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
 export const CAFE_DESCRIPTION = "Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině pro kavárny a bistra. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
