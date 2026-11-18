@@ -12,14 +12,15 @@ export const CAFE_PATH = "/pro-kavarny";
 // V menu kratší název: s „Pro kavárny a bistra“ se menu na šířce 1280 px nevešlo vedle košíku.
 export const CAFE_MENU_LABEL = "Kavárny a bistra";
 export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
-export const CAFE_SUBTITLE = "Natočíte z kohoutku, nic nevyhodíte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
+// „nic nevyhodíte“ pryč (Lucie 18. 11. 2026): obal se vyhazuje, myšleno bylo jen jídlo
+export const CAFE_SUBTITLE = "Natočíte z kohoutku jen tolik, kolik prodáte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
 export const CAFE_DESCRIPTION = "Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině pro kavárny a bistra. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
 export const CAFE_HOME_STRIP = "Jste kavárna nebo bistro? Polévky a nápoje v begině pro váš provoz";
 
 export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" | "truck";
 
 export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = [
-  { icon: "recycle", title: "Bez odpadu", text: "Natáčíte jen tolik, kolik prodáte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
+  { icon: "recycle", title: "Žádné zbytky", text: "Natáčíte jen tolik, kolik prodáte, takže nic nevyléváte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
   { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát a podávat, nápoje jen naředit." },
   { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,60 Kč, nápoj ze sirupu od 3,30 Kč – při ceně z e-shopu." },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },
@@ -43,7 +44,8 @@ export const CAFE_STEPS = [
 
 export const CAFE_FORM_HEADING = "Chci ochutnávku do provozu";
 export const CAFE_FORM_DONE = "Děkujeme, ozveme se vám do 2 pracovních dnů.";
-export const CAFE_PRICE_LIST_NOTE = "Ceník pro provozy pošleme na vyžádání.";
+// Zvláštní ceník pro provozy neexistuje (Lucie 18. 11. 2026): ceny jako na e-shopu + partnerský program.
+export const CAFE_PRICE_NOTE = { before: "Ceny jsou stejné jako na e-shopu. Při pravidelném odběru získáte slevu 3 až 7 % v ", link: "partnerském programu", href: "/partnersky-program", after: "." } as const;
 
 export type CafeInquiryRaw = { venue: string; name: string; phone: string; email: string; city: string; note: string };
 export type CafeInquiry = { venue: string; name: string; phone: string; email: string; city: string | null; note: string | null };
