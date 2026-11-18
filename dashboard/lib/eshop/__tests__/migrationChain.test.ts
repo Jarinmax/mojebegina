@@ -66,7 +66,7 @@ const CALENDAR = ["0038_google_kalendar", "0039_denni_volani_1_1_historie"];
 const EKONOMIKA = ["0040_ekonomika"];
 const JARDA_CARD = ["0041_jarda_karta_zdroj_objednavky", "0042_jarda_karta_evidence_odmenovani", "0043_jarda_karta_potvrzeni_navrhu"];
 /** Měření e-shopu (0044) a import leadů z formuláře Meta (0045). */
-const AFTER_JARDA_CARD = ["0044_mereni_eshopu", "0045_meta_leady_import", "0046_receptury", "0047_legislativni_audit", "0048_projekt_begina", "0049_hodnoceni"];
+const AFTER_JARDA_CARD = ["0044_mereni_eshopu", "0045_meta_leady_import", "0046_receptury", "0047_legislativni_audit", "0048_projekt_begina", "0049_hodnoceni", "0050_nakupy_surovin", "0051_ekonomika_historie", "0052_kampan_set"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 /** Index migrace 0039 (Denní volání 1.1). */
