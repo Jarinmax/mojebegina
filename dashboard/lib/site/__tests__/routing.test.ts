@@ -83,6 +83,7 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
     ["/o-nas", "/eshop/o-nas"],
     ["/o-vode", "/eshop/o-vode"],
     ["/partnersky-program", "/eshop/partnersky-program"],
+    ["/pro-kavarny", "/eshop/pro-kavarny"],
     ["/obchodni-podminky", "/eshop/obchodni-podminky"],
     ["/ochrana-osobnich-udaju", "/eshop/ochrana-osobnich-udaju"],
     ["/robots.txt", "/eshop/robots.txt"],

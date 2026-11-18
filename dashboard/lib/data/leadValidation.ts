@@ -25,6 +25,8 @@ export const LEAD_SOURCES = [
   "inbound",
   "vlastni_akvizice",
   "meta",
+  // formulář „Chci ochutnávku do provozu“ na begina.cz/pro-kavarny (18. 11. 2026)
+  "web_kavarny",
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 

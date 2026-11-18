@@ -7,7 +7,8 @@ import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import { Clock, Leaf, Percent, Soup } from "lucide-react";
+import { Clock, Coffee, Leaf, Percent, Soup } from "lucide-react";
+import { CAFE_HOME_STRIP, CAFE_PATH } from "@/lib/eshop/cafePage";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import ProductCard from "@/components/eshop/ProductCard";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
@@ -83,6 +84,14 @@ export default async function EshopPage() {
             })}
           </ul>
         </section>
+      </div>
+      {/* Pruh pro provozy (Lucie 18. 11. 2026) — hned pod řádkem výhod */}
+      <div className="w-full max-w-6xl mx-auto px-4 pt-6 lg:pt-2">
+        <ShopLink href={CAFE_PATH} className="flex items-center gap-3 rounded-2xl border border-[#5E6B34] bg-white px-4 py-3.5 text-base leading-snug text-[#2A2622] hover:bg-[#FAF6EF]">
+          <Coffee className="flex-none w-6 h-6 text-[#5E6B34]" aria-hidden="true" />
+          <span>{CAFE_HOME_STRIP}</span>
+          <span className="ml-auto text-xl" aria-hidden="true">→</span>
+        </ShopLink>
       </div>
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
         {/* Jak funguje begina */}
