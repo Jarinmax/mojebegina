@@ -97,6 +97,8 @@ function describeEntry(entry: OrderActivityEntry): string {
     // Odesláno / Faktura poslána (Lucie 18. 11. 2026)
     case "shipped_marked":
       return `označil(a) objednávku jako odeslanou${typeof meta.trackingNumber === "string" && meta.trackingNumber ? ` (číslo zásilky ${meta.trackingNumber})` : ""}`;
+    case "shipped_date_changed":
+      return `opravil(a) datum odeslání${typeof meta.shippedOn === "string" ? ` na ${meta.shippedOn.split("-").reverse().map((p) => String(Number(p))).join(". ")}` : ""}`;
     case "shipped_unmarked":
       return "vrátil(a) zpět „Odesláno“";
     case "invoice_sent_marked":
