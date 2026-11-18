@@ -43,8 +43,8 @@ export const DELIVERY_ADDRESS = {
 } as const;
 
 /**
- * Slovensko (rozhodnutí Lucie 12. 11. 2026): e-shop tam nedoručuje;
- * zájemce má objednávku poslat e-mailem. Věta se ukazuje v pokladně,
+ * Slovensko (rozhodnutí Lucie 17.–18. 11. 2026): e-shop tam nedoručuje a
+ * objednávky e-mailem se už nenabízejí. Věta se ukazuje v pokladně,
  * v chybách serveru i na stránce Doprava.
  */
-export const SLOVAKIA_ORDER_NOTE = `Na Slovensko přes e-shop nedoručujeme — objednávku na Slovensko nám prosím pošlete e-mailem na ${OPERATOR.email}.`;
+export const SLOVAKIA_ORDER_NOTE = "Na Slovensko zatím nedoručujeme.";

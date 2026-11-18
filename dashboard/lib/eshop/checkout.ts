@@ -212,7 +212,7 @@ export function validateCheckoutInput(
     const rawDic = input.billingDic.trim();
     const dic = rawDic ? normalizeDic(rawDic) : null;
     if (rawDic && !dic) {
-      return { ok: false, error: "DIČ zadejte ve tvaru CZ12345678 (nebo ho nechte prázdné)." };
+      return { ok: false, error: "DIČ zadejte ve tvaru CZ12345678, slovenské IČ DPH ve tvaru SK1234567890 (nebo pole nechte prázdné)." };
     }
     if (tooLong(companyName)) {
       return { ok: false, error: `Název firmy může mít nejvýše ${MAX_TEXT_LENGTH} znaků.` };
