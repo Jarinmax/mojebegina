@@ -26,12 +26,14 @@ describe("historie nákupů: párování", () => {
     { id: "c", name: "Eva Malá", email: "eva1@example.cz" },
     { id: "d", name: "Eva Malá", email: "eva2@example.cz" },
     { id: "e", name: "Bez Faktur", email: "nic@example.cz" },
+    { id: "f", name: "Jiné Jméno", email: "jiny@example.cz", phone: "+420 777 111 222" },
   ];
   const invoices = [
     inv("1", "2025-05-02", { email: "JANA@example.cz", name: "Jana Nováková" }, [["Ledová káva 3 l", 2], ["Doprava", 1]], 900),
     inv("2", "2025-08-10", { name: "Nováková Jana" }, [["Bylinný čaj Šaman – 3 l", 3], ["Ledová káva 3 l", 1]], 1500),
     inv("3", "2026-01-15", { name: "Ing. Petr Dvořák" }, [["Lipový sirup 3 l", 1], ["Lipový sirup – 3 l", 2], ["Sleva", 1]], 1400),
     inv("4", "2026-02-01", { name: "Eva Malá" }, [["Kulajda 3 l", 1]], 379),
+    inv("5", "2026-03-01", { name: "Firma s.r.o.", phone: "777111222" }, [["Kulajda 3 l", 2], ["Partnerská sleva 7 %", 1], ["Chlazená doprava", 1]], 700),
   ];
   const result = matchPurchaseHistory(leads, invoices);
 
@@ -49,5 +51,6 @@ describe("historie nákupů: párování", () => {
     expect(result.has("c")).toBe(false);
     expect(result.has("d")).toBe(false);
     expect(result.has("e")).toBe(false);
+    expect(result.get("f")).toMatchObject({ matchedBy: "phone", invoices: 1, items: [{ name: "Kulajda 3 l", quantity: 2 }] });
   });
 });

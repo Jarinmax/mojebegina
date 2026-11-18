@@ -36,6 +36,16 @@ export const metadata: Metadata = {
   ...brandShareMeta("/"),
 };
 
+function CafeStrip() {
+  return (
+    <ShopLink href={CAFE_PATH} className="flex items-center gap-3 rounded-2xl border border-[#5E6B34] bg-white px-4 py-3.5 text-base leading-snug text-[#2A2622] hover:bg-[#FAF6EF]">
+      <Coffee className="flex-none w-6 h-6 text-[#5E6B34]" aria-hidden="true" />
+      <span>{CAFE_HOME_STRIP}</span>
+      <span className="ml-auto text-xl" aria-hidden="true">→</span>
+    </ShopLink>
+  );
+}
+
 export default async function EshopPage() {
   const { categories, products } = await getCatalog();
   const tastingSet = products.find((p) => p.slug === SET_SLUG);
@@ -54,6 +64,10 @@ export default async function EshopPage() {
         </div>
         <div>
           <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
+        </div>
+        {/* Pruh pro provozy na mobilu (Lucie 18. 11. 2026): hned pod kategoriemi, aby ho kavárna nemusela hledat */}
+        <div className="lg:hidden w-full max-w-6xl mx-auto px-4 pt-5">
+          <CafeStrip />
         </div>
         {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
         <section className="w-full max-w-6xl mx-auto px-4 pt-8 sm:pt-10 lg:pt-0 lg:pb-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
@@ -85,13 +99,9 @@ export default async function EshopPage() {
           </ul>
         </section>
       </div>
-      {/* Pruh pro provozy (Lucie 18. 11. 2026) — hned pod řádkem výhod */}
-      <div className="w-full max-w-6xl mx-auto px-4 pt-6 lg:pt-2">
-        <ShopLink href={CAFE_PATH} className="flex items-center gap-3 rounded-2xl border border-[#5E6B34] bg-white px-4 py-3.5 text-base leading-snug text-[#2A2622] hover:bg-[#FAF6EF]">
-          <Coffee className="flex-none w-6 h-6 text-[#5E6B34]" aria-hidden="true" />
-          <span>{CAFE_HOME_STRIP}</span>
-          <span className="ml-auto text-xl" aria-hidden="true">→</span>
-        </ShopLink>
+      {/* Pruh pro provozy na počítači — pod řádkem výhod (na mobilu je výš, hned pod kategoriemi) */}
+      <div className="hidden lg:block w-full max-w-6xl mx-auto px-4 pt-2">
+        <CafeStrip />
       </div>
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
         {/* Jak funguje begina */}

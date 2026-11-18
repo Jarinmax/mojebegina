@@ -9,6 +9,8 @@ export type HistoryInvoice = {
   day: string | null;
   totalKc: number | null;
   email: string | null;
+  /** telefon z adresáře iDokladu (kontakt odběratele) */
+  phone?: string | null;
   name: string | null;
   ico: string | null;
   items: { name: string; quantity: number }[];
@@ -17,7 +19,7 @@ export type HistoryInvoice = {
 export type PurchasedItem = { name: string; quantity: number; lastDay: string | null };
 
 export type PurchaseHistory = {
-  matchedBy: "email" | "name";
+  matchedBy: "email" | "phone" | "name";
   invoices: number;
   totalKc: number;
   firstDay: string | null;
@@ -25,7 +27,13 @@ export type PurchaseHistory = {
   items: PurchasedItem[];
 };
 
-export type HistoryLead = { id: string; name: string | null; email: string | null };
+export type HistoryLead = { id: string; name: string | null; email: string | null; phone?: string | null };
+
+/** Porovnávací tvar telefonu: posledních 9 číslic (bez předvolby). */
+export function phoneKey(raw: string | null | undefined): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  return digits.length >= 9 ? digits.slice(-9) : null;
+}
 
 /** Jméno / název pro porovnání: bez diakritiky, velikosti písmen, titulů a oddělovačů. */
 export function personKey(raw: string | null | undefined): string {
@@ -51,7 +59,7 @@ export function emailKey(raw: string | null | undefined): string | null {
 
 /** Řádky faktury, které nejsou zboží (doprava, sleva, obal, zaokrouhlení…). */
 export function isGoodsLine(name: string): boolean {
-  return !/^(sleva|doprava|dopravn|chlazen[aá] p[rř]eprava|p[rř]eprava|po[sš]tovn|bal[ií]k|z[aá]silkovna|krabice|obal|zaokrouhlen|z[aá]loha|dob[ií]rk|osobn[ií] odb[eě]r)/i.test(name.trim());
+  return !/^(sleva|partnersk[aá] sleva|doprava|dopravn|chlazen[aá] (p[rř]eprava|doprava)|p[rř]eprava|po[sš]tovn|bal[ií]k|z[aá]silkovna|krabice|obal|zaokrouhlen|z[aá]loha|dob[ií]rk|osobn[ií] odb[eě]r)/i.test(name.trim());
 }
 
 /** Název výrobku pro sčítání: „Lipový sirup – 3 l“ a „Lipový sirup 3 l“ je totéž. */
@@ -84,7 +92,7 @@ function addInvoice(history: PurchaseHistory, invoice: HistoryInvoice, byItem: M
 }
 
 /**
- * Historie nákupů pro každý kontakt. Shoda e-mailu má přednost; podle jména se
+ * Historie nákupů pro každý kontakt. Shoda e-mailu má přednost, pak telefon; podle jména se
  * páruje jen tehdy, když je jméno mezi KONTAKTY jedinečné (dva lidé stejného
  * jména = nic, aby se historie nepřipsala cizímu člověku) a kontakt nemá
  * shodu e-mailem. Stornované a nulové doklady se počítají tak, jak v iDokladu jsou.
@@ -92,7 +100,10 @@ function addInvoice(history: PurchaseHistory, invoice: HistoryInvoice, byItem: M
 export function matchPurchaseHistory(leads: readonly HistoryLead[], invoices: readonly HistoryInvoice[]): Map<string, PurchaseHistory> {
   const byEmail = new Map<string, HistoryInvoice[]>();
   const byName = new Map<string, HistoryInvoice[]>();
+  const byPhone = new Map<string, HistoryInvoice[]>();
   for (const invoice of invoices) {
+    const phone = phoneKey(invoice.phone);
+    if (phone) byPhone.set(phone, [...(byPhone.get(phone) ?? []), invoice]);
     const email = emailKey(invoice.email);
     if (email) byEmail.set(email, [...(byEmail.get(email) ?? []), invoice]);
     const name = nameMatchKey(invoice.name);
@@ -109,12 +120,14 @@ export function matchPurchaseHistory(leads: readonly HistoryLead[], invoices: re
     const email = emailKey(lead.email);
     const name = nameMatchKey(lead.name);
     const emailHits = email ? (byEmail.get(email) ?? []) : [];
+    const phone = phoneKey(lead.phone);
+    const phoneHits = phone ? (byPhone.get(phone) ?? []) : [];
     const nameHits = name && nameCount.get(name) === 1 ? (byName.get(name) ?? []) : [];
-    const matchedBy = emailHits.length > 0 ? "email" : nameHits.length > 0 ? "name" : null;
+    const matchedBy = emailHits.length > 0 ? "email" : phoneHits.length > 0 ? "phone" : nameHits.length > 0 ? "name" : null;
     if (!matchedBy) continue;
     // e-mailová shoda + faktury téhož jména (starší faktury často e-mail nemají); každá faktura jednou
     const seen = new Set<string>();
-    const mine = [...emailHits, ...nameHits].filter((i) => (seen.has(i.number) ? false : (seen.add(i.number), true)));
+    const mine = [...emailHits, ...phoneHits, ...nameHits].filter((i) => (seen.has(i.number) ? false : (seen.add(i.number), true)));
     const history: PurchaseHistory = { matchedBy, invoices: 0, totalKc: 0, firstDay: null, lastDay: null, items: [] };
     const byItem = new Map<string, PurchasedItem>();
     for (const invoice of mine) addInvoice(history, invoice, byItem);
