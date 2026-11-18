@@ -12,6 +12,9 @@ import CompanyNameForm from "./CompanyNameForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
 import { leadBackLink } from "@/lib/data/callHistoryValidation";
+import { db } from "@/lib/db/client";
+import { getLeadPurchaseHistory } from "@/lib/data/purchaseHistorySync";
+import PurchaseHistoryCard from "./PurchaseHistoryCard";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +43,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
     notFound();
   }
   const { lead, activity } = detail;
-  const [staff, sourceOrders, reward] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id)]);
+  const [staff, sourceOrders, reward, purchases] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getLeadPurchaseHistory(db, lead.id)]);
 
   const venueTypeLabel = lead.venueType
     ? (VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType)
@@ -178,6 +181,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           </div>
         )
       )}
+
+      <PurchaseHistoryCard history={purchases.history} lastSync={purchases.lastSync} />
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">

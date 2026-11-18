@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/kampan-set?beh=sobota&cas=leto",
       "schedule": "30 8 * * 6"
+    },
+    {
+      "path": "/api/cron/historie-nakupu",
+      "schedule": "20 2 * * *"
     }
   ]
 }

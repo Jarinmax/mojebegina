@@ -16,7 +16,7 @@ export type HistoryInvoice = {
   items: { name: string; quantity: number }[];
 };
 
-export type PurchasedItem = { name: string; quantity: number; lastDay: string | null };
+export type PurchasedItem = { name: string; quantity: number; lastDay: string | null; /** false = dnes už v nabídce není (doplní se při ukládání) */ current?: boolean };
 
 export type PurchaseHistory = {
   matchedBy: "email" | "phone" | "name";
@@ -64,7 +64,28 @@ export function isGoodsLine(name: string): boolean {
 
 /** Název výrobku pro sčítání: „Lipový sirup – 3 l“ a „Lipový sirup 3 l“ je totéž. */
 export function itemKey(name: string): string {
-  return personKey(name.replace(/[–—-]/g, " "));
+  return personKey(
+    name
+      .replace(/[–—-]/g, " ")
+      // velikost balení a slovo „begina“ výrobek nerozlišují: „Dýňová polévka Begina 3 l“ = „Dýňová polévka“
+      .replace(/\b\d+(?:[.,]\d+)?\s*(?:l|ml|g|kg|ks)\b/gi, " ")
+      .replace(/\bbegin[ayu]\b/gi, " ")
+  );
+}
+
+/**
+ * Je výrobek z faktury v dnešní nabídce e-shopu? Porovnává se název bez
+ * velikosti balení: stačí, když jeden název obsahuje druhý („Gulášová polévka
+ * z hlívy“ ↔ „Gulášová polévka z hlívy ústřičné“). Co nesedí na nic (ledová
+ * káva, staré koktejly), obchodník dnes nabídnout nemůže.
+ */
+export function isCurrentProduct(itemName: string, currentProductNames: readonly string[]): boolean {
+  const key = itemKey(itemName);
+  if (!key) return false;
+  return currentProductNames.some((product) => {
+    const p = itemKey(product);
+    return p.length > 0 && (key.includes(p) || p.includes(key));
+  });
 }
 
 function addInvoice(history: PurchaseHistory, invoice: HistoryInvoice, byItem: Map<string, PurchasedItem>): void {

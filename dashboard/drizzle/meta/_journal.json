@@ -379,6 +379,13 @@
       "when": 1794995928628,
       "tag": "0053_objednavky_odeslano_faktura",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1795011729152,
+      "tag": "0054_historie_nakupu",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,13 @@
 // Načtení vydaných faktur z iDokladu (jen čtení) pro historii nákupů kontaktů
-// v CRM — viz purchaseHistory.ts. Zatím jen zkušební spárování (počty), nic
-// se neukládá.
+// v CRM — viz purchaseHistory.ts. syncPurchaseHistory uloží výsledek do
+// lead_purchase_history (noční běh); summarizeTrial jen spočítá počty.
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
 import { EshopIdokladClient, issuedInvoiceFilter, sinceDayFilter } from "@/lib/eshop/invoicing/idokladHttp";
 import { eshopIdokladCredentials } from "@/lib/eshop/invoicing/mode";
 import { assertBeginaAgenda, type RawInvoice } from "@/lib/idoklad-read/service";
-import { matchPurchaseHistory, type HistoryInvoice, type HistoryLead, type PurchaseHistory } from "./purchaseHistory";
+import { isCurrentProduct, matchPurchaseHistory, type HistoryInvoice, type HistoryLead, type PurchaseHistory, type PurchasedItem } from "./purchaseHistory";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
@@ -119,4 +119,72 @@ export function summarizeTrial(leads: HistoryLead[], load: Extract<HistoryLoad, 
       .slice(0, 8)
       .map((v) => ({ matchedBy: v.matchedBy, invoices: v.invoices, lastDay: v.lastDay, totalKc: v.totalKc, items: v.items.slice(0, 8).map((i) => `${i.quantity}× ${i.name}`) })),
   };
+}
+
+export type StoredPurchaseHistory = {
+  matchedBy: "email" | "phone" | "name";
+  invoices: number;
+  totalKc: number;
+  firstDay: string | null;
+  lastDay: string | null;
+  items: PurchasedItem[];
+  syncedAt: string;
+};
+
+export type SyncResult = { status: "not_configured" } | { status: "ok"; invoices: number; leads: number; matched: number; removed: number };
+
+/**
+ * Noční běh: načte faktury, spáruje s kontakty a přepíše lead_purchase_history
+ * (kontakty, které už shodu nemají, se odstraní). Když iDoklad selže, výjimka
+ * projde ven a tabulka zůstane, jak byla.
+ */
+export async function syncPurchaseHistory(db: Db, options: { env?: Env; fetchImpl?: typeof fetch; load?: HistoryLoad } = {}): Promise<SyncResult> {
+  const load = options.load ?? (await loadIdokladInvoices(options.env, options.fetchImpl));
+  if (load.status !== "ok") return { status: "not_configured" };
+  if (load.truncated) throw new Error("Faktur je víc, než se načte — historie se neuložila.");
+  const leads = await loadHistoryLeads(db);
+  const products = ((await db.execute(sql`SELECT name FROM products`)).rows as { name: string }[]).map((r) => r.name);
+  const matched = matchPurchaseHistory(leads, load.invoices);
+  const started = new Date();
+  for (const [leadId, h] of matched) {
+    const items = h.items.map((i) => ({ ...i, current: isCurrentProduct(i.name, products) }));
+    await db.execute(sql`
+      INSERT INTO lead_purchase_history (lead_id, matched_by, invoices, total_kc, first_day, last_day, items, synced_at)
+      VALUES (${leadId}::uuid, ${h.matchedBy}, ${h.invoices}, ${h.totalKc}, ${h.firstDay}::date, ${h.lastDay}::date, ${JSON.stringify(items)}::jsonb, now())
+      ON CONFLICT (lead_id) DO UPDATE SET matched_by = EXCLUDED.matched_by, invoices = EXCLUDED.invoices, total_kc = EXCLUDED.total_kc,
+        first_day = EXCLUDED.first_day, last_day = EXCLUDED.last_day, items = EXCLUDED.items, synced_at = now()`);
+  }
+  const removed = await db.execute(sql`DELETE FROM lead_purchase_history WHERE synced_at < ${started.toISOString()}::timestamptz RETURNING lead_id`);
+  return { status: "ok", invoices: load.invoices.length, leads: leads.length, matched: matched.size, removed: removed.rows.length };
+}
+
+/** Historie jednoho kontaktu; null = v iDokladu žádná faktura (nebo tabulka ještě není založená / naplněná). */
+export async function getLeadPurchaseHistory(db: Db, leadId: string): Promise<{ history: StoredPurchaseHistory | null; lastSync: string | null }> {
+  try {
+    const rows = (
+      await db.execute(sql`
+        SELECT h.matched_by, h.invoices, h.total_kc, h.first_day::text AS first_day, h.last_day::text AS last_day, h.items, h.synced_at,
+               (SELECT max(synced_at) FROM lead_purchase_history) AS last_sync
+        FROM (SELECT 1) one LEFT JOIN lead_purchase_history h ON h.lead_id = ${leadId}::uuid`)
+    ).rows as { matched_by: string | null; invoices: number | null; total_kc: string | null; first_day: string | null; last_day: string | null; items: PurchasedItem[] | null; synced_at: string | Date | null; last_sync: string | Date | null }[];
+    const row = rows[0];
+    const lastSync = row?.last_sync ? new Date(row.last_sync).toISOString() : null;
+    if (!row || row.matched_by === null) return { history: null, lastSync };
+    return {
+      lastSync,
+      history: {
+        matchedBy: row.matched_by as StoredPurchaseHistory["matchedBy"],
+        invoices: Number(row.invoices),
+        totalKc: Number(row.total_kc),
+        firstDay: row.first_day,
+        lastDay: row.last_day,
+        items: row.items ?? [],
+        syncedAt: new Date(row.synced_at ?? Date.now()).toISOString(),
+      },
+    };
+  } catch (error) {
+    // tabulka na dané větvi ještě není — kontakt se zobrazí bez historie
+    console.error("Historie nákupů: nepodařilo se načíst", error instanceof Error ? error.message.slice(0, 160) : error);
+    return { history: null, lastSync: null };
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isGoodsLine, itemKey, matchPurchaseHistory, nameMatchKey, type HistoryInvoice } from "../purchaseHistory";
+import { isCurrentProduct, isGoodsLine, itemKey, matchPurchaseHistory, nameMatchKey, type HistoryInvoice } from "../purchaseHistory";
 
 const inv = (number: string, day: string, who: Partial<HistoryInvoice>, items: [string, number][], totalKc = 100): HistoryInvoice => ({
   number, day, totalKc, email: null, name: null, ico: null, ...who, items: items.map(([name, quantity]) => ({ name, quantity })),
@@ -16,6 +16,17 @@ describe("historie nákupů: pomocné funkce", () => {
     expect(["Chlazená přeprava", "Doprava", "Sleva", "Krabice", "Zaokrouhlení"].map(isGoodsLine)).toEqual([false, false, false, false, false]);
     expect(isGoodsLine("Ledová káva 3 l")).toBe(true);
     expect(itemKey("Lipový sirup – 3 l")).toBe(itemKey("Lipový sirup 3 l"));
+    expect(itemKey("Dýňová polévka Begina 3 l")).toBe(itemKey("Dýňová polévka"));
+    expect(itemKey("Dýňová polévka 3l")).toBe("dynova polevka");
+  });
+  it("co je v dnešní nabídce a co už ne", () => {
+    const offer = ["Dýňová polévka – 3 l", "Gulášová polévka z hlívy ústřičné – 3 l", "Heřmánkový čaj – 3 l", "Lipový sirup – 650 ml"];
+    expect(isCurrentProduct("Dýňová polévka 3L", offer)).toBe(true);
+    expect(isCurrentProduct("Gulášová polévka z hlívy", offer)).toBe(true);
+    expect(isCurrentProduct("Heřmánkový čaj - neslazený", offer)).toBe(true);
+    expect(isCurrentProduct("Lipový sirup 3 l", offer)).toBe(true);
+    expect(isCurrentProduct("Ledová káva 3 l", offer)).toBe(false);
+    expect(isCurrentProduct("Zoro", offer)).toBe(false);
   });
 });
 
