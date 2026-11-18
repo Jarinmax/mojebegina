@@ -18,46 +18,35 @@ const BASE = "/rizeni-firmy/ekonomika";
 function EntryTable({ rows, kind }: { rows: EconomyRow[]; kind: EconomyKind }) {
   const isCost = kind === "cost";
   if (rows.length === 0) return <p className="text-sm text-neutral-500">{isCost ? "V tomto měsíci není zapsaný žádný náklad." : "V tomto měsíci není zapsaný žádný příjem."}</p>;
+  // 18. 11. 2026 (Lucie): místo široké tabulky, se kterou se muselo jezdit do
+  // stran, je každý záznam jeden řádek na dvě až tři linky — poznámka se
+  // zalomí pod položku, nic neujíždí.
   return (
-    <div className="overflow-x-auto bg-white border border-neutral-200 rounded-xl">
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
-          <tr>
-            <th className="px-3 py-2 font-medium">Datum</th>
-            <th className="px-3 py-2 font-medium">{isCost ? "Zboží" : "Typ"}</th>
-            <th className="px-3 py-2 font-medium">{isCost ? "Prodávající" : "Klient"}</th>
-            {!isCost && <th className="px-3 py-2 font-medium">Úhrada</th>}
-            {!isCost && <th className="px-3 py-2 font-medium">Faktura</th>}
-            <th className="px-3 py-2 font-medium text-right">Částka</th>
-            {!isCost && <th className="px-3 py-2 font-medium text-right">Bez dopravy</th>}
-            <th className="px-3 py-2 font-medium">Poznámka</th>
-            <th className="px-3 py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b border-neutral-100 last:border-0 align-top">
-              <td className="px-3 py-2 whitespace-nowrap">{formatCzDate(row.entryDate)}</td>
-              <td className="px-3 py-2">{row.title}</td>
-              <td className="px-3 py-2">{row.counterparty ?? ""}</td>
-              {!isCost && <td className="px-3 py-2">{row.paymentForm ?? ""}</td>}
-              {!isCost && <td className="px-3 py-2 whitespace-nowrap">{row.invoiceNumber ?? ""}</td>}
-              <td className="px-3 py-2 text-right whitespace-nowrap font-medium">{formatKc(row.amountHal)}</td>
-              {!isCost && <td className="px-3 py-2 text-right whitespace-nowrap">{row.amountNoShippingHal === null ? "" : formatKc(row.amountNoShippingHal)}</td>}
-              <td className="px-3 py-2 text-neutral-600">{row.note ?? ""}</td>
-              <td className="px-3 py-2 text-right">
-                <form action={deleteEconomyEntryAction}>
-                  <input type="hidden" name="id" value={row.id} />
-                  <button type="submit" className="text-xs text-neutral-400 hover:text-red-700" aria-label={`Smazat ${row.title}`}>
-                    smazat
-                  </button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ul className="bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100 text-sm">
+      {rows.map((row) => {
+        const meta = [row.counterparty, !isCost ? row.paymentForm : null, !isCost && row.invoiceNumber ? `faktura ${row.invoiceNumber}` : null].filter(Boolean);
+        return (
+          <li key={row.id} className="px-3 py-2.5 flex gap-3">
+            <div className="w-16 shrink-0 text-neutral-500 whitespace-nowrap">{formatCzDate(row.entryDate).replace(/ \d{4}$/, "")}</div>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-neutral-900 break-words">{row.title}</p>
+              {meta.length > 0 && <p className="text-neutral-600 break-words">{meta.join(" · ")}</p>}
+              {row.note && <p className="mt-0.5 text-xs text-neutral-500 break-words">{row.note}</p>}
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="font-medium whitespace-nowrap">{formatKc(row.amountHal)}</p>
+              {!isCost && row.amountNoShippingHal !== null && <p className="text-xs text-neutral-500 whitespace-nowrap">bez dopravy {formatKc(row.amountNoShippingHal)}</p>}
+              <form action={deleteEconomyEntryAction} className="mt-1">
+                <input type="hidden" name="id" value={row.id} />
+                <button type="submit" className="text-xs text-neutral-400 hover:text-red-700" aria-label={`Smazat ${row.title}`}>
+                  smazat
+                </button>
+              </form>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -125,28 +114,28 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
 
       <EntryForm today={today} initialKind={view} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(26rem,auto)_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-start">
         <div className="bg-white border border-neutral-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
               <tr>
-                <th className="px-3 py-2 font-medium">Měsíc</th>
-                <th className="px-3 py-2 font-medium text-right">Příjmy</th>
-                <th className="px-3 py-2 font-medium text-right">Náklady</th>
-                <th className="px-3 py-2 font-medium text-right">Rozdíl</th>
+                <th className="px-2 sm:px-3 py-2 font-medium">Měsíc</th>
+                <th className="px-2 sm:px-3 py-2 font-medium text-right">Příjmy</th>
+                <th className="px-2 sm:px-3 py-2 font-medium text-right">Náklady</th>
+                <th className="px-2 sm:px-3 py-2 font-medium text-right">Rozdíl</th>
               </tr>
             </thead>
             <tbody>
               {months.map((item) => (
                 <tr key={item.month} className={`border-b border-neutral-100 last:border-0 ${item.month === month ? "bg-begina-primary-50" : ""}`}>
-                  <td className="px-3 py-2">
+                  <td className="px-2 sm:px-3 py-2">
                     <Link className="font-medium text-begina-primary-900 hover:underline" href={href({ mesic: item.month })} aria-current={item.month === month ? "true" : undefined}>
                       {MONTH_NAMES[item.month - 1]}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">{formatKc(item.incomeHal)}</td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">{formatKc(item.costHal)}</td>
-                  <td className={`px-3 py-2 text-right whitespace-nowrap font-medium ${differenceTone(item.differenceHal)}`}>{item.differenceHal > 0 ? "+" : ""}{formatKc(item.differenceHal)}</td>
+                  <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">{formatKc(item.incomeHal)}</td>
+                  <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">{formatKc(item.costHal)}</td>
+                  <td className={`px-2 sm:px-3 py-2 text-right whitespace-nowrap font-medium ${differenceTone(item.differenceHal)}`}>{item.differenceHal > 0 ? "+" : ""}{formatKc(item.differenceHal)}</td>
                 </tr>
               ))}
             </tbody>
