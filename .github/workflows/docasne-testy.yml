@@ -1,0 +1,23 @@
+name: docasne
+on: push
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: dashboard } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - name: migrace
+        run: |
+          DATABASE_URL=postgres://x:x@localhost/x npx drizzle-kit generate --name historie_nakupu
+          git status --short drizzle
+          tar czf /tmp/m.tgz $(git status --short drizzle | awk '{print $2}' | sed 's#^dashboard/##')
+          echo "SOUBOR m.tgz $(base64 -w0 /tmp/m.tgz)"
+      - run: npx next typegen && npx tsc --noEmit
+        if: always()
+      - run: npx eslint lib/data/purchaseHistory.ts lib/data/purchaseHistorySync.ts app/api/cron/historie-nakupu "app/rizeni-firmy/obchod/leady/[[]id]/page.tsx" "app/rizeni-firmy/obchod/leady/[[]id]/PurchaseHistoryCard.tsx"
+        if: always()
+      - run: npx vitest run lib/data/__tests__/purchaseHistory.test.ts
+        if: always()

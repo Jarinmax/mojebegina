@@ -2331,3 +2331,18 @@ export const emailOptouts = pgTable("email_optouts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   source: text("source").notNull().default("odkaz v e-mailu"),
 });
+
+// Historie nákupů kontaktu podle faktur v iDokladu (zadání Lucie 18. 11. 2026):
+// obchodník před hovorem vidí, co zákazník opravdu kupoval. Plní noční běh
+// /api/cron/historie-nakupu (lib/data/purchaseHistorySync.ts); kontakt bez
+// faktury v iDokladu tu řádek nemá. items = [{ name, quantity, lastDay }].
+export const leadPurchaseHistory = pgTable("lead_purchase_history", {
+  leadId: uuid("lead_id").primaryKey().references(() => leads.id),
+  matchedBy: text("matched_by").notNull(), // "email" | "phone" | "name"
+  invoices: integer("invoices").notNull(),
+  totalKc: numeric("total_kc", { precision: 12, scale: 2 }).notNull(),
+  firstDay: date("first_day"),
+  lastDay: date("last_day"),
+  items: jsonb("items").notNull(),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+});
