@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
-import { MONTH_NAMES, formatCzDate, formatKc, summarizeYear, type EconomyKind, type EconomyRow } from "@/lib/ekonomika/economy";
+import { MONTH_NAMES, formatCzDate, formatKc, isMissingInvoice, missingInvoiceSummary, newestFirst, summarizeYear, type EconomyKind, type EconomyRow } from "@/lib/ekonomika/economy";
 import { economyTableExists, loadEconomyYear } from "@/lib/ekonomika/economyServer";
 import { pragueYearMonth } from "@/lib/eshop/partnerMonthlyServer";
 import EntryForm from "./EntryForm";
@@ -26,12 +26,17 @@ function EntryTable({ rows, kind }: { rows: EconomyRow[]; kind: EconomyKind }) {
       {rows.map((row) => {
         const meta = [row.counterparty, !isCost ? row.paymentForm : null, !isCost && row.invoiceNumber ? `faktura ${row.invoiceNumber}` : null].filter(Boolean);
         return (
-          <li key={row.id} className="px-3 py-2.5 flex gap-3">
+          <li
+            key={row.id}
+            className={`px-3 py-2.5 flex gap-3 ${isMissingInvoice(row.note) ? "bg-red-50 border-l-4 border-red-600" : "border-l-4 border-transparent"}`}
+          >
             <div className="w-16 shrink-0 text-neutral-500 whitespace-nowrap">{formatCzDate(row.entryDate).replace(/ \d{4}$/, "")}</div>
             <div className="min-w-0 flex-1">
               <p className="font-medium text-neutral-900 break-words">{row.title}</p>
               {meta.length > 0 && <p className="text-neutral-600 break-words">{meta.join(" · ")}</p>}
-              {row.note && <p className="mt-0.5 text-xs text-neutral-500 break-words">{row.note}</p>}
+              {row.note && (
+                <p className={`mt-0.5 text-xs break-words ${isMissingInvoice(row.note) ? "font-bold text-red-700" : "text-neutral-500"}`}>{row.note}</p>
+              )}
             </div>
             <div className="shrink-0 text-right">
               <p className="font-medium whitespace-nowrap">{formatKc(row.amountHal)}</p>
@@ -78,6 +83,7 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
   const yearCost = months.reduce((sum, item) => sum + item.costHal, 0);
   const monthKeyPrefix = `${year}-${String(month).padStart(2, "0")}`;
   const monthRows = rows.filter((row) => row.entryDate.startsWith(monthKeyPrefix));
+  const missingInvoice = missingInvoiceSummary(monthRows.filter((row) => row.kind === "cost"));
   const selected = months[month - 1];
   const href = (params: { rok?: number; mesic?: number; zobrazit?: EconomyKind }) =>
     `${BASE}?rok=${params.rok ?? year}&mesic=${params.mesic ?? month}&zobrazit=${(params.zobrazit ?? view) === "income" ? "prijmy" : "naklady"}`;
@@ -159,7 +165,12 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
               </span>
             </div>
           </div>
-          <EntryTable rows={monthRows.filter((row) => row.kind === view)} kind={view} />
+          {view === "cost" && missingInvoice.count > 0 && (
+            <p className="rounded-lg bg-red-50 border border-red-300 px-3 py-2 text-sm font-medium text-red-800">
+              Bez faktury: {missingInvoice.count} {missingInvoice.count === 1 ? "položka" : missingInvoice.count <= 4 ? "položky" : "položek"} za {formatKc(missingInvoice.amountHal)}
+            </p>
+          )}
+          <EntryTable rows={newestFirst(monthRows.filter((row) => row.kind === view))} kind={view} />
         </div>
       </div>
     </div>

@@ -71,3 +71,19 @@ export function formatKc(hal: number): string {
 export function formatCzDate(iso: string): string {
   return `${Number(iso.slice(8, 10))}. ${Number(iso.slice(5, 7))}. ${iso.slice(0, 4)}`;
 }
+
+// 18. 11. 2026 (Lucie): poznámka „není faktura“ (libovolná velikost písmen)
+// označí řádek červeně a počítá se do „Bez faktury“ — co je třeba urgovat.
+export function isMissingInvoice(note: string | null | undefined): boolean {
+  return !!note && note.toLocaleLowerCase("cs").includes("není faktura");
+}
+
+export function missingInvoiceSummary(rows: EconomyRow[]): { count: number; amountHal: number } {
+  const missing = rows.filter((row) => isMissingInvoice(row.note));
+  return { count: missing.length, amountHal: missing.reduce((sum, row) => sum + row.amountHal, 0) };
+}
+
+/** Řádky ze serveru jdou od nejstaršího (datum, pak čas zápisu) — pro výpis měsíce obráceně: nahoře nejnovější. */
+export function newestFirst(rows: EconomyRow[]): EconomyRow[] {
+  return [...rows].reverse();
+}
