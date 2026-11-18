@@ -39,6 +39,9 @@ export const SET_CAMPAIGN_LIMIT = 100;
 export const SET_CAMPAIGN_PRICE_KC = 189;
 export const SET_SIZE = 5;
 /** Slevový kód pro další nákup po setu (e-mail 5 dní po odeslání, viz setCampaign.ts). */
+/** Popisek pod fotkou setu (Lucie 18. 11. 2026) — na fotce není ovoce, jen nápoje. */
+export const SET_PHOTO_NOTE = "Sklenice s limonádou a hrnek s čajem na fotce nejsou součástí balení.";
+
 export const SET_COUPON_CODE = "ochutnavka50";
 const SEPARATOR = "~";
 
