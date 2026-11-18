@@ -9,12 +9,12 @@ import { createMigratedDb } from "./helpers/migratedDb";
 const raw = { venue: "  Kavárna  U Lípy ", name: "Jana Nováková", phone: "+420 777 123 456", email: " Jana@Example.cz ", city: "Kolín", note: "Máme 30 míst." };
 
 describe("Pro kavárny: texty", () => {
-  it("žádná zdravotní tvrzení, žádný alkohol, výdrž podle e-shopu", () => {
+  it("žádná zdravotní tvrzení, alkohol se nevydává za rostlinný, výdrž podle e-shopu", () => {
     const all = [CAFE_SUBTITLE, ...CAFE_BENEFITS.flatMap((b) => [b.title, b.text])].join(" ");
     expect(all).not.toMatch(/zdrav|imunit|léč|detox|vitam|koktejl|svařák|alkohol(?!ick)/i);
     expect(all).toContain("Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce");
     expect(all).toContain("při ceně z e-shopu");
-    expect([...CAFE_CATEGORY_SLUGS]).toEqual(["polevky", "sirupy", "caje", "ovocne-napoje"]);
+    expect([...CAFE_CATEGORY_SLUGS]).toEqual(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly"]);
   });
 });
 

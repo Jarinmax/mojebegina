@@ -4,7 +4,7 @@
 // lib/eshop/__tests__/cafePage.test.ts).
 //
 // Pravidla: vykání, žádná zdravotní tvrzení, žádné velkoobchodní ceny
-// (ceny porcí jsou z běžného e-shopu), alkoholické nápoje se tu nepropagují.
+// (ceny porcí jsou z běžného e-shopu), alkoholické nápoje se nepropagují jako rostlinné.
 // Trvanlivost po otevření podle e-shopu: polévky a čaje 14 dní, sirupy
 // 3 měsíce (ovocné nápoje 5 dní — proto se u nich výdrž neuvádí).
 
@@ -27,8 +27,8 @@ export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = 
   { icon: "truck", title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
 ];
 
-/** Kategorie, které provozům dodáváme (alkoholické koktejly úmyslně chybí). */
-export const CAFE_CATEGORY_SLUGS = ["polevky", "sirupy", "caje", "ovocne-napoje"] as const;
+/** Kategorie, které provozům dodáváme — včetně alkoholických koktejlů (Lucie 18. 11. 2026); jen se nepropagují jako rostlinné. */
+export const CAFE_CATEGORY_SLUGS = ["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly"] as const;
 
 export const CAFE_STEPS = [
   { title: "Ochutnávka", text: "Pošleme vám ochutnávku do provozu, ať si vše vyzkoušíte v klidu." },
