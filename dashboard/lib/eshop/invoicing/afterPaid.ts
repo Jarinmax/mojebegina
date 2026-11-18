@@ -5,6 +5,7 @@
 //      vystavení v iDokladu (issue.ts) a PDF faktury. V režimu „manual“
 //      se tu NIC nevystavuje — faktura čeká na tlačítko v detailu
 //      objednávky (issueAndSendInvoice níže, tentýž motor),
+//      Zákazníkovi faktura odchází až s expedicí (sendInvoiceOnDispatch níže),
 //   3. e-mail zákazníkovi „Platbu jsme přijali“ (resp. potvrzení
 //      zaplacené objednávky kartou) — s PDF faktury v příloze, pokud je,
 //   4. Meta „Purchase“ (dokončený nákup) — jen se souhlasem zákazníka
@@ -121,6 +122,52 @@ export async function issueAndSendInvoice(
     await db
       .execute(sql`UPDATE invoice_provider_links SET next_attempt_at = NULL, updated_at = now() WHERE id = ${lease[0].id}`)
       .catch((error: unknown) => console.error("Fakturace: zámek odeslání PDF se nepodařilo uvolnit", orderId, error));
+  }
+}
+
+/** Stavy vyřízení, od kterých je objednávka „na cestě k zákazníkovi“. */
+export const DISPATCHED_STATUSES = ["handed_to_carrier", "out_for_delivery", "delivered"] as const;
+export const DISPATCH_ACTOR: InvoiceActor = { type: "system", name: "Expedice" };
+
+export type DispatchInvoiceOutcome =
+  | { status: "sent"; invoiceNumber: string | null }
+  | { status: "already_sent" | "not_eshop" | "not_dispatched" | "not_paid" }
+  | { status: "not_sent"; reason: string; invoiceNumber?: string | null };
+
+export type DispatchInvoiceDeps = AfterPaidDeps & {
+  /** vystavení + odeslání PDF (výchozí issueAndSendInvoice) */
+  issueAndSend?: typeof issueAndSendInvoice;
+};
+
+/**
+ * Faktura zákazníkovi až s expedicí (rozhodnutí Lucie 18. 11. 2026): po
+ * zaplacení se faktura jen připraví; zákazníkovi odejde ve chvíli, kdy je
+ * e-shopová objednávka předaná dopravci / na rozvozu / doručená. Tehdy se
+ * (pokud ještě není) vystaví v iDokladu a PDF odejde e-mailem — nejvýš jednou
+ * (pdf_sent_at + zámek v issueAndSendInvoice). Nezaplacená objednávka nic
+ * neposílá; zaplatí-li se až po expedici, volá se tatáž funkce po platbě.
+ * Nikdy nevyhodí výjimku — stav objednávky se kvůli faktuře nesmí vrátit.
+ */
+export async function sendInvoiceOnDispatch(db: Db, orderId: string, baseUrl: string, deps: DispatchInvoiceDeps = {}): Promise<DispatchInvoiceOutcome> {
+  try {
+    const order = (
+      await db.execute(sql`
+        SELECT o.channel, o.payment_status, o.fulfillment_status,
+               (SELECT i.pdf_sent_at FROM invoices i WHERE i.order_id = o.id AND i.document_type = 'invoice' AND i.doc_state = 'issued' LIMIT 1) AS pdf_sent_at
+        FROM orders o WHERE o.id = ${orderId}`)
+    ).rows[0] as { channel: string; payment_status: string; fulfillment_status: string; pdf_sent_at: Date | string | null } | undefined;
+    if (!order || order.channel !== "eshop") return { status: "not_eshop" };
+    if (!(DISPATCHED_STATUSES as readonly string[]).includes(order.fulfillment_status)) return { status: "not_dispatched" };
+    if (order.payment_status !== "paid") return { status: "not_paid" };
+    if (order.pdf_sent_at) return { status: "already_sent" };
+    const result = await (deps.issueAndSend ?? issueAndSendInvoice)(db, orderId, baseUrl, DISPATCH_ACTOR, deps);
+    if (result.status === "skipped") return { status: "not_sent", reason: result.reason };
+    if (result.status === "failed") return { status: "not_sent", reason: result.error };
+    if (result.emailed) return { status: "sent", invoiceNumber: result.invoiceNumber };
+    return { status: "not_sent", reason: result.emailInProgress ? "odesílání právě probíhá" : "fakturu se nepodařilo odeslat e-mailem", invoiceNumber: result.invoiceNumber };
+  } catch (error) {
+    console.error("Faktura při expedici selhala", orderId, error instanceof Error ? error.message.slice(0, 200) : error);
+    return { status: "not_sent", reason: "neočekávaná chyba — fakturu odešlete tlačítkem v objednávce" };
   }
 }
 

@@ -16,7 +16,7 @@ import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
-import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice } from "@/lib/eshop/invoicing/afterPaid";
+import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice, sendInvoiceOnDispatch, DISPATCHED_STATUSES, type DispatchInvoiceOutcome } from "@/lib/eshop/invoicing/afterPaid";
 import { issueInvoice, linkExternalInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
 import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
@@ -500,6 +500,8 @@ export type StatusChangeResult =
       status: string;
       /** jen u storna: držené peníze a e-mail zákazníkovi */
       cancellation?: CancellationOutcome;
+      /** jen při expedici e-shopové objednávky: faktura zákazníkovi */
+      dispatchInvoice?: DispatchInvoiceOutcome;
     }
   | { ok: false; error: string };
 
@@ -587,11 +589,14 @@ export async function updateFulfillmentStatus(
     validated.value === "cancelled"
       ? await afterOrderCancelled(db, orderId, await getAppOrigin())
       : undefined;
-  return { ok: true, changed: true, status: validated.value, ...(cancellation ? { cancellation } : {}) };
+  const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(validated.value)
+    ? await sendInvoiceOnDispatch(db, orderId, await getAppOrigin())
+    : undefined;
+  return { ok: true, changed: true, status: validated.value, ...(cancellation ? { cancellation } : {}), ...(dispatchInvoice ? { dispatchInvoice } : {}) };
 }
 
 export type AgentFulfillmentResult =
-  | { ok: true; changed: boolean; status: FulfillmentStatus; activityId: string | null; cancellation?: CancellationOutcome }
+  | { ok: true; changed: boolean; status: FulfillmentStatus; activityId: string | null; cancellation?: CancellationOutcome; dispatchInvoice?: DispatchInvoiceOutcome }
   | { ok: false; error: string };
 
 /**
@@ -670,6 +675,10 @@ export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrder
   // účinek jako u lidské cesty výše (e-mail zákazníkovi nejvýš jednou).
   const cancellation =
     input.targetStatus === "cancelled" ? await afterOrderCancelled(db, input.orderId, await getAppOrigin()) : undefined;
+  // Expedice: faktura zákazníkovi (jen zaplacená e-shopová objednávka, nejvýš jednou).
+  const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)
+    ? await sendInvoiceOnDispatch(db, input.orderId, await getAppOrigin())
+    : undefined;
 
   return {
     ok: true,
@@ -677,6 +686,7 @@ export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrder
     status: input.targetStatus,
     activityId: result.rows[0].id,
     ...(cancellation ? { cancellation } : {}),
+    ...(dispatchInvoice ? { dispatchInvoice } : {}),
   };
 }
 

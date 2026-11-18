@@ -104,6 +104,10 @@ function statusMessage(
     else if (c.email?.status === "no-recipient") parts.push("Zákazník nemá e-mail — informujte ho jinak.");
     if (c.heldHal > 0) parts.push("Objednávka je zaplacená — kontaktujte zákazníka (jiný produkt, nebo vrácení peněz).");
   }
+  const d = result.dispatchInvoice;
+  if (d?.status === "sent") parts.push(`Zákazníkovi odešla faktura${d.invoiceNumber ? ` ${d.invoiceNumber}` : ""}.`);
+  else if (d?.status === "not_paid") parts.push("Objednávka není zaplacená — faktura zákazníkovi neodešla.");
+  else if (d?.status === "not_sent") parts.push(`⚠ Faktura zákazníkovi NEODEŠLA (${d.reason}) — zkontrolujte ji v objednávce.`);
   return { success: parts.join(" ") };
 }
 
