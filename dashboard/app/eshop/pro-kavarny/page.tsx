@@ -4,7 +4,6 @@ import { Calculator, Droplets, Leaf, Recycle, Timer, Truck } from "lucide-react"
 import ShopLink from "@/components/eshop/ShopLink";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
-import { OPERATOR } from "@/lib/eshop/operator";
 import {
   CAFE_ALCOHOL_NOTE,
   CAFE_ALCOHOL_SLUG,
@@ -19,6 +18,7 @@ import {
   CAFE_TITLE,
   type CafeIcon,
 } from "@/lib/eshop/cafePage";
+import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 
 export const dynamic = "force-dynamic";
@@ -37,12 +37,22 @@ export default async function Page() {
   const present = new Set((catalog?.categories ?? []).map((c) => c.slug));
   // kategorie bez jediného výrobku (zatím zmrzliny) se ukáže jako „Připravujeme“ a nikam neodkazuje
   const stocked = new Set((catalog?.products ?? []).map((p) => p.category));
+  // druhá věta podnadpisu na počítači celá na nový řádek (Lucie 18. 11. 2026)
+  const [subtitleHead, subtitleLast] = splitLastSentence(CAFE_SUBTITLE);
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
       <header className="text-center max-w-2xl mx-auto">
         <h1 className="font-serif text-3xl sm:text-4xl leading-tight">{CAFE_TITLE}</h1>
-        <p className="mt-3 text-lg leading-normal text-neutral-700">{CAFE_SUBTITLE}</p>
+        <p className="mt-3 text-lg leading-normal text-neutral-700">
+          {subtitleHead}
+          {subtitleLast && (
+            <>
+              {" "}
+              <span className="sm:block">{subtitleLast}</span>
+            </>
+          )}
+        </p>
         <a href="#ochutnavka" className="mt-5 inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
           Chci ochutnávku do provozu
         </a>
@@ -68,11 +78,11 @@ export default async function Page() {
       {categories.length > 0 && (
         <section>
           <h2 className="font-serif text-2xl sm:text-3xl text-center mb-5">Co dodáváme</h2>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <ul className="grid grid-cols-3 lg:grid-cols-6 gap-3 max-w-3xl mx-auto">
             {categories.map((category) => {
-              const box = "h-full rounded-2xl border border-[#EDE5D8] bg-white p-4 flex flex-col items-center gap-2 text-center";
+              const box = "h-full rounded-xl border border-[#EDE5D8] bg-white p-2.5 flex flex-col items-center gap-1 text-center";
               const icon = category.icon && category.iconSize && (
-                <Image src={category.icon} alt="" width={category.iconSize[0]} height={category.iconSize[1]} className="h-20 w-auto mb-1" />
+                <Image src={category.icon} alt="" width={category.iconSize[0]} height={category.iconSize[1]} className="h-12 w-auto" />
               );
               return (
                 <li key={category.slug}>
@@ -119,15 +129,6 @@ export default async function Page() {
             {CAFE_PRICE_NOTE.link}
           </ShopLink>
           {CAFE_PRICE_NOTE.after}
-        </p>
-        <p className="mt-2 text-center text-base text-neutral-700">
-          <a href={`mailto:${OPERATOR.email}`} className="font-medium underline underline-offset-4">
-            {OPERATOR.email}
-          </a>
-          ,{" "}
-          <a href={OPERATOR.phoneHref} className="font-medium underline underline-offset-4 whitespace-nowrap">
-            {OPERATOR.phone}
-          </a>
         </p>
       </section>
     </article>

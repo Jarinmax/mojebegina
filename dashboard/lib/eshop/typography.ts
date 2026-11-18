@@ -26,3 +26,17 @@ export function asSentence(text: string | null | undefined): string | null {
   const ended = /[.!?…]$/.test(capital) ? capital : `${capital}.`;
   return keepTogether(ended);
 }
+
+/**
+ * Úvod kategorie: poslední věta odstavce na počítači celá na nový řádek, aby
+ * na konci nevisela jedna slova jako „kuchyně.“ (Lucie 18. 11. 2026).
+ * Vrací [začátek, poslední věta]; odstavec s jedinou větou → [text, null].
+ */
+export function splitLastSentence(paragraph: string): [string, string | null] {
+  const text = paragraph.trim();
+  const matches = [...text.matchAll(/[.!?…] (?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])/g)];
+  const last = matches.at(-1);
+  if (last?.index === undefined) return [text, null];
+  const cut = last.index + 1;
+  return [text.slice(0, cut), text.slice(cut + 1)];
+}

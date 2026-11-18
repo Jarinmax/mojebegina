@@ -28,10 +28,10 @@ export function durationText({ amount, unit }: AfterOpening): string {
   return `${amount} ${word}`;
 }
 
-/** Štítek na kartičku: „14 dní po otevření“. */
+/** Štítek na kartičku jako věta: „Vydrží 14 dní po otevření“ (Lucie 18. 11. 2026). */
 export function afterOpeningBadge(product: Product): string | null {
   const value = afterOpening(product.foodInfo.shelfLife);
-  return value ? `${durationText(value)} po otevření` : null;
+  return value ? `Vydrží ${durationText(value)} po otevření` : null;
 }
 
 /** Kategorie, kde se obsah natáčí postupně z jedné beginy (dovětek „natáčíte postupně“). */
@@ -204,4 +204,11 @@ export function hasColourAdditive(ingredients: string): boolean {
 export function showsNoPreservatives(product: Product): boolean {
   const ingredients = product.foodInfo.ingredients;
   return ingredients !== null && !hasPreservative(ingredients) && !hasColourAdditive(ingredients);
+}
+
+/** Poznámka pod fotkou: u polévek žádné ovoce na fotce není (Lucie 18. 11. 2026). */
+export function servingPhotoNote(product: Product): string {
+  return product.category === "polevky"
+    ? "Návrh servírování – miska a ozdoba na fotce nejsou součástí balení."
+    : "Návrh servírování – ozdoba a ovoce na fotce nejsou součástí balení.";
 }

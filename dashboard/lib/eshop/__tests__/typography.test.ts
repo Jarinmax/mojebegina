@@ -1,7 +1,7 @@
 // Typografie tabulky „Informace o potravině“ (10. 11. 2026): jen zápis,
 // obsah beze změny.
 import { describe, expect, it } from "vitest";
-import { asSentence, keepTogether } from "../typography";
+import { asSentence, keepTogether, splitLastSentence } from "../typography";
 
 const NB = " ";
 
@@ -29,5 +29,16 @@ describe("typografie Informací o potravině", () => {
     expect(asSentence(null)).toBeNull();
     expect(asSentence("  ")).toBeNull();
     expect(keepTogether("barviva: E110, E124")).toBe("barviva: E110, E124");
+  });
+});
+
+describe("splitLastSentence", () => {
+  it("poslední věta zvlášť", () => {
+    expect(splitLastSentence("Stačí zalít vodou v poměru přibližně 1 : 10 – studenou na limonádu, horkou na čaj. Hodí se i do koktejlů a do kuchyně.")).toEqual([
+      "Stačí zalít vodou v poměru přibližně 1 : 10 – studenou na limonádu, horkou na čaj.",
+      "Hodí se i do koktejlů a do kuchyně.",
+    ]);
+    expect(splitLastSentence("Ovocné nápoje mícháme z vody. Bez přidaného cukru – obsahují jen přirozeně přítomné cukry z ovoce.")[1]).toBe("Bez přidaného cukru – obsahují jen přirozeně přítomné cukry z ovoce.");
+    expect(splitLastSentence("Jediná věta.")).toEqual(["Jediná věta.", null]);
   });
 });
