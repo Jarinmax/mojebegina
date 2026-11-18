@@ -116,11 +116,14 @@ const kg = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFr
 export type ShippingDestination = "cz" | "sk";
 
 /**
- * Doručení na Slovensko je ZAPNUTÉ (Lucie 16. 11. 2026 — slovenské etikety
- * hotové). Vypnout jde proměnnou ESHOP_SLOVAKIA=off ve Vercelu.
+ * Doručení na Slovensko je VYPNUTÉ (Lucie 18. 11. 2026 — slovenské povinnosti
+ * k obalům; zapnuté bylo 16.–18. 11. 2026). Znovu zapnout jde jen úpravou
+ * tady v kódu — proměnná ve Vercelu ho úmyslně nezapne, aby se neobešlo
+ * rozhodnutí. Ceník, zóny a texty pro Slovensko zůstávají připravené.
  */
+export const SLOVAKIA_DELIVERY_ALLOWED = false;
 export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
-  return env.ESHOP_SLOVAKIA !== "off";
+  return SLOVAKIA_DELIVERY_ALLOWED && env.ESHOP_SLOVAKIA !== "off";
 }
 
 const SK_ZIP = /^[089]\d{2} ?\d{2}$/;
