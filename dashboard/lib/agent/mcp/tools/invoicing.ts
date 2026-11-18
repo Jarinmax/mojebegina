@@ -37,6 +37,8 @@ import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
 import { emailConfig, resolveRecipients, invoiceCopyRecipients, invoiceEmailSender } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
+import { db } from "@/lib/db/client";
+import { orderIdsForInvoiceNumber, recordInvoiceEmailed } from "@/lib/eshop/invoiceSentFlag";
 import { fetchFioTransactions } from "@/lib/eshop/fio";
 import { PARTNER_EMAIL_SIGNATURE } from "@/lib/eshop/partnerMonthly";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
@@ -357,6 +359,15 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
         `idoklad-invoice-${key}`
       );
       if (!sent.ok) return { ok: false, error: `E-mail se nepodařilo odeslat: ${sent.error}` };
+      // „Faktura poslána“ u objednávky v MojeBegina, ke které faktura patří —
+      // jen když odešla zákazníkovi (odběrateli z faktury), ne interně nebo v testu
+      const partner = pdf.partnerEmail?.trim().toLowerCase() || null;
+      if (!test && partner && resolved.to.some((e) => e.trim().toLowerCase() === partner)) {
+        await recordInvoiceEmailed(db, await orderIdsForInvoiceNumber(db, invoiceNumber), resolved.to, {
+          userId: ctx.userId,
+          name: `${ctx.name ?? ctx.email} (přes ChatGPT)`,
+        });
+      }
       return {
         ok: true,
         summary: { sent: true, recipients: resolved.to.length },

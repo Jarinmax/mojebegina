@@ -215,6 +215,18 @@ export const orders = pgTable("orders", {
   billingCountry: text("billing_country"),
   recipientCompany: text("recipient_company"),
   deliverySameAsBilling: boolean("delivery_same_as_billing"),
+  // Odesláno / Faktura poslána (migrace 0053, Lucie 18. 11. 2026) — ruční
+  // zaškrtnutí nezávislé na fulfillment_status; vrátit zpět = NULL.
+  // Číslo zásilky se ukládá do tracking_number výše. invoice_sent_method:
+  // "email" (odešla z MojeBegina, zaškrtne se samo) | "manual" (ručně).
+  shippedAt: timestamp("shipped_at", { withTimezone: true }),
+  shippedByUserId: text("shipped_by_user_id"),
+  shippedByName: text("shipped_by_name"),
+  invoiceSentAt: timestamp("invoice_sent_at", { withTimezone: true }),
+  invoiceSentByUserId: text("invoice_sent_by_user_id"),
+  invoiceSentByName: text("invoice_sent_by_name"),
+  invoiceSentTo: text("invoice_sent_to"),
+  invoiceSentMethod: text("invoice_sent_method"),
 }, (table) => [
   index("orders_source_lead_idx").on(table.sourceLeadId),
   uniqueIndex("orders_order_number_key").on(table.orderNumber),

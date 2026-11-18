@@ -15,6 +15,9 @@ import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
 import CancelledMoneyPanel from "../CancelledMoneyPanel";
 import CancelledMoneyBadge from "../CancelledMoneyBadge";
+import DispatchChecks from "../DispatchChecks";
+import { DispatchBadges } from "../OrderStatusBadges";
+import { dispatchView } from "../dispatchText";
 import { hasBillingDetails, orderPartyBlocks, shippingMethodText } from "@/lib/eshop/orderParties";
 
 // Security Phase 15 (Objednávky 1.0) — detail objednávky. Autorizace (ADMIN
@@ -69,6 +72,7 @@ export default async function OrderDetailPage(
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
         <CancelledMoneyBadge money={order.moneyAlert} />
+        <DispatchBadges order={order} />
       </div>
 
       {order.moneyAlert && (
@@ -214,6 +218,11 @@ export default async function OrderDetailPage(
             <span>{formatKc(order.totalKc)}</span>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+        <p className="text-sm font-medium text-begina-primary-900 mb-2">Expedice a faktura</p>
+        <DispatchChecks view={dispatchView(order)} />
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">

@@ -25,6 +25,12 @@ import {
   createReplacementFromCancelled,
   type StatusChangeResult,
 } from "@/lib/data/orders";
+import {
+  markOrderShipped,
+  unmarkOrderShipped,
+  markOrderInvoiceSent,
+  unmarkOrderInvoiceSent,
+} from "@/lib/data/orderDispatch";
 import { parseAuditNumbers } from "@/lib/eshop/invoicing/numberingAudit";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/data/orderLabels";
 
@@ -43,6 +49,7 @@ export type PreflightActionState =
 function revalidateOrder(orderId?: string) {
   revalidatePath("/rizeni-firmy");
   revalidatePath("/rizeni-firmy/objednavky");
+  revalidatePath("/rizeni-firmy/vyroba");
   if (orderId) {
     revalidatePath(`/rizeni-firmy/objednavky/${orderId}`);
   }
@@ -374,4 +381,33 @@ export async function createReplacementAction(
         ? " ⚠ E-mail zákazníkovi se nepodařilo odeslat — kontaktujte ho."
         : "";
   return { success: `Náhradní objednávka ${ref} vytvořena a platba převedena — ${state}.${email}` };
+}
+
+// --- Odesláno / Faktura poslána (Lucie 18. 11. 2026) ----------------------
+
+export async function dispatchAction(
+  orderId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const op = String(formData.get("op") ?? "");
+  const result =
+    op === "ship"
+      ? await markOrderShipped(orderId, String(formData.get("trackingNumber") ?? ""))
+      : op === "unship"
+        ? await unmarkOrderShipped(orderId)
+        : op === "invoice"
+          ? await markOrderInvoiceSent(orderId)
+          : op === "uninvoice"
+            ? await unmarkOrderInvoiceSent(orderId)
+            : { ok: false as const, error: "Neznámá akce." };
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  const messages: Record<string, string> = {
+    ship: "Označeno jako odeslané.",
+    unship: "Odesláno vráceno zpět.",
+    invoice: "Označeno: faktura poslána.",
+    uninvoice: "Faktura poslána vráceno zpět.",
+  };
+  return { success: messages[op] ?? "Uloženo." };
 }

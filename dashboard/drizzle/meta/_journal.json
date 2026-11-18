@@ -372,6 +372,13 @@
       "when": 1794994391562,
       "tag": "0052_kampan_set",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794995928628,
+      "tag": "0053_objednavky_odeslano_faktura",
+      "breakpoints": true
     }
   ]
 }

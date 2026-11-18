@@ -52,6 +52,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderActivity, orderItems, orders } from "@/lib/db/schema";
+import { recordInvoiceEmailed } from "@/lib/eshop/invoiceSentFlag";
 import { ESHOP_ACTOR_NAME } from "../orderWrite";
 import { emailConfig, invoiceCopyRecipients, invoiceEmailSender, resolveRecipients, type EmailConfig } from "./config";
 import { resendTransport, type EmailTransport } from "./resend";
@@ -398,6 +399,9 @@ export async function sendOrderEmails(
           await db.execute(sql`
             UPDATE invoices SET pdf_sent_at = now(), updated_at = now()
             WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued' AND pdf_sent_at IS NULL`);
+          // „Faktura poslána“ u objednávky (ne v testovacím režimu — tam e-mail
+          // reálnému zákazníkovi neodešel)
+          if (!test) await recordInvoiceEmailed(db, [orderId], to, { userId: null, name: "MojeBegina (automaticky)" });
         }
         outcomes.push({ template, status: "sent" });
       } else {

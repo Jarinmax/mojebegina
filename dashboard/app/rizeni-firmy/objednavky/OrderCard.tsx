@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatCzechDate, formatKc } from "@/lib/format";
-import { FulfillmentBadge, PaymentBadge } from "./OrderStatusBadges";
+import { DispatchBadges, FulfillmentBadge, PaymentBadge } from "./OrderStatusBadges";
 import type { OrderCardData } from "@/lib/data/orders";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import CancelledMoneyBadge from "./CancelledMoneyBadge";
@@ -32,6 +32,7 @@ export default function OrderCard({ order }: { order: OrderCardData }) {
         <FulfillmentBadge status={order.fulfillmentStatus} />
         <PaymentBadge status={order.paymentStatus} overdue={order.paymentOverdue} />
         <CancelledMoneyBadge money={order.moneyAlert} />
+        <DispatchBadges order={order} />
       </div>
 
       <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">
