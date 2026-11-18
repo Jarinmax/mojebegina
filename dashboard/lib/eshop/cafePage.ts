@@ -21,7 +21,7 @@ export const CAFE_HOME_STRIP = "Jste kavárna nebo bistro? Polévky a nápoje v 
 export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" | "truck";
 
 export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = [
-  { icon: "recycle", title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
+  { icon: "recycle", title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
   { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát a podávat, nápoje jen naředit." },
   { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,60 Kč, nápoj ze sirupu od 3,30 Kč – při ceně z e-shopu." },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },

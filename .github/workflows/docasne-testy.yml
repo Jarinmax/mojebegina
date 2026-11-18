@@ -12,3 +12,5 @@ jobs:
       - run: npx next typegen && npx tsc --noEmit
       - run: npx eslint components/eshop/ProductCard.tsx
         if: always()
+      - run: npx vitest run lib/eshop/__tests__/productFacts.test.ts lib/eshop/__tests__/cafePage.test.ts
+        if: always()
