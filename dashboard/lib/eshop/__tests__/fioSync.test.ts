@@ -100,7 +100,7 @@ describe("Fio: párování plateb s objednávkami (PGlite)", () => {
 
     const paidMail = mails.find((m) => m.subject.startsWith("Platba přišla"));
     expect(paidMail?.to).toEqual(["info@begina.cz"]);
-    expect(paidMail?.text).toContain("Faktura 9260004 je vystavená a je v příloze. Zákazníkovi zatím NEODEŠLA");
+    expect(paidMail?.text).toContain("Faktura 9260004 je vystavená a je v příloze. Zákazníkovi faktura odejde sama, až objednávku označíte jako předanou dopravci.");
     expect(paidMail?.attachments?.[0]).toMatchObject({ filename: "faktura-9260004.pdf", contentType: "application/pdf" });
     const wrong = mails.find((m) => m.subject.startsWith("Platba nesedí"));
     expect(wrong?.text).toContain("přišlo 400 Kč");

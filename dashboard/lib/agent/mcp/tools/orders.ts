@@ -557,6 +557,8 @@ export const ORDER_TOOLS: AgentTool[] = [
           statusLabel: FULFILLMENT_LABELS[result.status],
           activityId: result.activityId,
           ...(result.cancellation ? { cancellation: result.cancellation } : {}),
+          // faktura zákazníkovi při expedici: sent = odešla, not_sent = NEODEŠLA (sděl uživateli důvod)
+          ...(result.dispatchInvoice ? { dispatchInvoice: result.dispatchInvoice } : {}),
           url: orderUrl(issuer, parsed.orderId),
           message: result.changed
             ? `Stav objednávky nastaven na „${FULFILLMENT_LABELS[result.status]}“.`

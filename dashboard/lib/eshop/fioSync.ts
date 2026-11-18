@@ -26,7 +26,7 @@ import type * as schema from "@/lib/db/schema";
 import { emailConfig, type EmailConfig } from "./email/config";
 import { resendTransport, type EmailTransport } from "./email/resend";
 import { fetchFioTransactions, type FioTransaction } from "./fio";
-import { invoiceAndNotifyPaid } from "./invoicing/afterPaid";
+import { invoiceAndNotifyPaid, sendInvoiceOnDispatch } from "./invoicing/afterPaid";
 import { issueInvoiceSafe, type IssueResult } from "./invoicing/issue";
 import { settleOrderPaymentSql } from "./payments";
 import { EshopIdokladClient, eqFilter, issuedInvoiceFilter } from "./invoicing/idokladHttp";
@@ -149,10 +149,17 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
     const invoiceNumber = issued.status === "issued" || issued.status === "already_issued" ? issued.invoiceNumber : null;
     result.paid.push({ orderNumber: order.order_number, amountKc: tx.amountHal / 100, invoiceNumber });
 
+    // Zaplaceno až po expedici (zboží už je na cestě): faktura zákazníkovi hned.
+    // Jinak odejde sama ve chvíli, kdy se objednávka označí jako předaná dopravci.
+    const dispatched = await sendInvoiceOnDispatch(db, order.id, deps.baseUrl, { env });
+    const customerLine =
+      dispatched?.status === "sent" || dispatched?.status === "already_sent"
+        ? "Objednávka už je expedovaná, faktura proto zákazníkovi odešla hned."
+        : "Zákazníkovi faktura odejde sama, až objednávku označíte jako předanou dopravci.";
     const pdf = issued.status === "issued" ? issued.pdf : null;
     const invoiceLine =
       issued.status === "issued"
-        ? `Faktura ${issued.invoiceNumber} je vystavená${pdf ? " a je v příloze" : ""}. Zákazníkovi zatím NEODEŠLA — zkontrolujte ji a odešlete z MojeBegina.`
+        ? `Faktura ${issued.invoiceNumber} je vystavená${pdf ? " a je v příloze" : ""}. ${customerLine}`
         : issued.status === "already_issued"
           ? `Faktura ${issued.invoiceNumber ?? ""} už byla vystavená dřív.`
           : `Fakturu se nepodařilo vystavit automaticky (${issued.status === "failed" ? issued.error : issued.reason}) — vystavte ji prosím v MojeBegina.`;
