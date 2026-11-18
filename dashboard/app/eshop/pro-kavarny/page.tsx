@@ -63,7 +63,7 @@ export default async function Page() {
       {categories.length > 0 && (
         <section>
           <h2 className="font-serif text-2xl sm:text-3xl text-center mb-5">Co dodáváme</h2>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map((category) => (
               <li key={category.slug}>
                 <ShopLink

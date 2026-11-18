@@ -28,7 +28,7 @@ export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = 
 ];
 
 /** Kategorie, které provozům dodáváme — včetně alkoholických koktejlů (Lucie 18. 11. 2026); jen se nepropagují jako rostlinné. */
-export const CAFE_CATEGORY_SLUGS = ["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly"] as const;
+export const CAFE_CATEGORY_SLUGS = ["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"] as const;
 
 export const CAFE_STEPS = [
   { title: "Ochutnávka", text: "Pošleme vám ochutnávku do provozu, ať si vše vyzkoušíte v klidu." },

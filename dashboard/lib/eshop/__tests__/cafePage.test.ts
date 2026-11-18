@@ -14,7 +14,7 @@ describe("Pro kavárny: texty", () => {
     expect(all).not.toMatch(/zdrav|imunit|léč|detox|vitam|koktejl|svařák|alkohol(?!ick)/i);
     expect(all).toContain("Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce");
     expect(all).toContain("při ceně z e-shopu");
-    expect([...CAFE_CATEGORY_SLUGS]).toEqual(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly"]);
+    expect([...CAFE_CATEGORY_SLUGS]).toEqual(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"]);
   });
 });
 
