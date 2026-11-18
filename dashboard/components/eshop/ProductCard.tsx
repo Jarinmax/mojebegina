@@ -5,6 +5,7 @@ import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import AddToCartButton from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
+import { splitLastSentence } from "@/lib/eshop/typography";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import Stars from "./Stars";
 import { isTastingSet } from "@/lib/eshop/tastingSet";
@@ -34,7 +35,9 @@ export default function ProductCard({ product }: { product: Product }) {
             </p>
           )}
           {product.shortDescription && (
-            <p className="text-sm text-neutral-500 mt-0.5">{product.shortDescription}</p>
+            <p className="text-sm text-neutral-500 mt-0.5">
+              {isSet ? <SentencesOnLines text={product.shortDescription} /> : product.shortDescription}
+            </p>
           )}
           {isSet && <p className="mt-1.5 inline-block rounded-full bg-[#2A2622] px-2.5 py-0.5 text-xs font-medium text-white">Novinka</p>}
           {opened && (
@@ -84,5 +87,21 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
     </li>
+  );
+}
+
+/** Ochutnávkový set: poslední věta popisku na vlastním řádku (Lucie 18. 11. 2026). */
+function SentencesOnLines({ text }: { text: string }) {
+  const [head, last] = splitLastSentence(text);
+  return (
+    <>
+      {head}
+      {last && (
+        <>
+          {" "}
+          <span className="block">{last}</span>
+        </>
+      )}
+    </>
   );
 }
