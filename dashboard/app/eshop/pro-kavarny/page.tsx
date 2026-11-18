@@ -6,7 +6,10 @@ import { getCatalog } from "@/lib/eshop/catalogServer";
 import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
 import { OPERATOR } from "@/lib/eshop/operator";
 import {
+  CAFE_ALCOHOL_NOTE,
+  CAFE_ALCOHOL_SLUG,
   CAFE_BENEFITS,
+  CAFE_COMING_SOON,
   CAFE_CATEGORY_SLUGS,
   CAFE_DESCRIPTION,
   CAFE_PATH,
@@ -32,6 +35,8 @@ const ICONS: Record<CafeIcon, typeof Leaf> = { recycle: Recycle, timer: Timer, c
 export default async function Page() {
   const catalog = await getCatalog().catch(() => null);
   const present = new Set((catalog?.categories ?? []).map((c) => c.slug));
+  // kategorie bez jediného výrobku (zatím zmrzliny) se ukáže jako „Připravujeme“ a nikam neodkazuje
+  const stocked = new Set((catalog?.products ?? []).map((p) => p.category));
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
@@ -64,19 +69,29 @@ export default async function Page() {
         <section>
           <h2 className="font-serif text-2xl sm:text-3xl text-center mb-5">Co dodáváme</h2>
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category) => (
-              <li key={category.slug}>
-                <ShopLink
-                  href={`/kategorie/${category.slug}`}
-                  className="h-full rounded-2xl border border-[#EDE5D8] bg-white p-4 flex flex-col items-center gap-3 text-center hover:border-[#5E6B34] transition-colors"
-                >
-                  {category.icon && category.iconSize && (
-                    <Image src={category.icon} alt="" width={category.iconSize[0]} height={category.iconSize[1]} className="h-20 w-auto" />
+            {categories.map((category) => {
+              const box = "h-full rounded-2xl border border-[#EDE5D8] bg-white p-4 flex flex-col items-center gap-2 text-center";
+              const icon = category.icon && category.iconSize && (
+                <Image src={category.icon} alt="" width={category.iconSize[0]} height={category.iconSize[1]} className="h-20 w-auto mb-1" />
+              );
+              return (
+                <li key={category.slug}>
+                  {stocked.has(category.slug) ? (
+                    <ShopLink href={`/kategorie/${category.slug}`} className={`${box} hover:border-[#5E6B34] transition-colors`}>
+                      {icon}
+                      <span className="text-base font-medium underline underline-offset-4">{category.menuLabel}</span>
+                      {category.slug === CAFE_ALCOHOL_SLUG && <span className="text-sm text-neutral-600">{CAFE_ALCOHOL_NOTE}</span>}
+                    </ShopLink>
+                  ) : (
+                    <div className={box}>
+                      {icon}
+                      <span className="text-base font-medium">{category.menuLabel}</span>
+                      <span className="text-sm text-neutral-600">{CAFE_COMING_SOON}</span>
+                    </div>
                   )}
-                  <span className="text-base font-medium underline underline-offset-4">{category.menuLabel}</span>
-                </ShopLink>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
