@@ -221,7 +221,11 @@ export async function buildOrderCards(
       id: o.id,
       orderNumber: o.orderNumber,
       buyerOrganizationId: o.buyerOrganizationId,
-      buyerOrganizationName: buyerDisplayName(o.buyerOrganizationId, orgNameById),
+      // Soukromý zákazník (bez organizace): místo „Soukromý zákazník“ firma
+      // z objednávky, jinak jméno (Lucie 18. 11. 2026 — jinak nejde poznat, kdo to je).
+      buyerOrganizationName: o.buyerOrganizationId
+        ? buyerDisplayName(o.buyerOrganizationId, orgNameById)
+        : o.billingCompany?.trim() || o.recipientCompany?.trim() || o.contactName?.trim() || buyerDisplayName(null, orgNameById),
       contactName: o.contactName,
       itemsSummary: (itemsByOrder.get(o.id) ?? []).join(", "),
       totalKc: o.totalKc,

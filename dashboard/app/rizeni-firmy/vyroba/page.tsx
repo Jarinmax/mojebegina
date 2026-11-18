@@ -5,9 +5,12 @@ import { formatKc } from "@/lib/format";
 import { DispatchTile } from "../objednavky/DispatchChecks";
 import { shortPragueDate } from "../objednavky/dispatchText";
 import { FULFILLMENT_LABELS } from "@/lib/data/orderLabels";
+import { listProductionOrders } from "@/lib/data/productionBoard";
+import ProductionSummary from "./ProductionSummary";
 
-// Výroba (Lucie 18. 11. 2026) — u každé objednávky hned vidět:
-// vyrobeno → odesláno → zaplaceno → faktura poslána.
+// Výroba (Lucie 18. 11. 2026) — „K výrobě“: souhrnná výrobní tabulka
+// zaplacených neodeslaných objednávek + karty pro Jarina; „Expedice“:
+// u každé objednávky vyrobeno → odesláno → zaplaceno → faktura poslána.
 // Zrušené (stornované) objednávky jen pod záložkou „Zrušené“.
 // Autorizaci (ADMIN/EXECUTIVE) řeší app/rizeni-firmy/layout.tsx,
 // listOrders si ji ověřuje sama.
@@ -30,7 +33,8 @@ function steps(o: OrderCardData): Steps {
 const allDone = (s: Steps) => s.produced && s.shipped && s.paid && s.invoiceSent;
 
 const TABS = [
-  { key: "k-vyrizeni", label: "K vyřízení" },
+  { key: "k-vyrobe", label: "K výrobě" },
+  { key: "k-vyrizeni", label: "Expedice" },
   { key: "hotove", label: "Hotové" },
   { key: "zrusene", label: "Zrušené" },
 ] as const;
@@ -52,16 +56,17 @@ function StaticTile({ done, title, note }: { done: boolean; title: string; note:
 export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba">) {
   const searchParams = await props.searchParams;
   const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
-  const tab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : "k-vyrizeni";
+  const tab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : "k-vyrobe";
 
-  const { orders } = await listOrders();
+  const [{ orders }, production] = await Promise.all([listOrders(), listProductionOrders()]);
   const active = orders.filter((o) => o.fulfillmentStatus !== "cancelled");
-  const groups: Record<TabKey, OrderCardData[]> = {
+  const groups: Record<Exclude<TabKey, "k-vyrobe">, OrderCardData[]> = {
     "k-vyrizeni": active.filter((o) => !allDone(steps(o))),
     hotove: active.filter((o) => allDone(steps(o))),
     zrusene: orders.filter((o) => o.fulfillmentStatus === "cancelled"),
   };
-  const visible = groups[tab];
+  const visible = tab === "k-vyrobe" ? [] : groups[tab];
+  const tabCount = (key: TabKey) => (key === "k-vyrobe" ? production.length : groups[key].length);
 
   return (
     <div>
@@ -71,19 +76,21 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={t.key === "k-vyrizeni" ? "/rizeni-firmy/vyroba" : `/rizeni-firmy/vyroba?tab=${t.key}`}
+            href={t.key === "k-vyrobe" ? "/rizeni-firmy/vyroba" : `/rizeni-firmy/vyroba?tab=${t.key}`}
             className={`text-sm rounded-full border px-4 py-2 ${
               tab === t.key
                 ? "bg-begina-primary-900 text-begina-primary-50 border-begina-primary-900"
                 : "bg-white text-begina-primary-900 border-neutral-300"
             }`}
           >
-            {t.label} ({groups[t.key].length})
+            {t.label} ({tabCount(t.key)})
           </Link>
         ))}
       </div>
 
-      {visible.length === 0 ? (
+      {tab === "k-vyrobe" ? (
+        <ProductionSummary orders={production} />
+      ) : visible.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
           {tab === "k-vyrizeni" ? "Vše vyřízeno — nic nečeká." : "Tady zatím nic není."}
         </div>
