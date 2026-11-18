@@ -67,8 +67,8 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                     <Image
                       src={block.image.src}
                       alt={block.image.alt}
-                      width={1200}
-                      height={1200}
+                      width={block.image.width ?? 1200}
+                      height={block.image.height ?? 1200}
                       sizes="(min-width: 640px) 24rem, 90vw"
                       className="my-5 w-full max-w-sm mx-auto rounded-2xl"
                     />
