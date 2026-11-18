@@ -58,6 +58,7 @@ export default function ProductCard({ product }: { product: Product }) {
           </ul>
         ) : (
           <p className="font-semibold tabular-nums leading-snug">
+            {isSet && product.tastingCampaign && <s className="mr-1.5 font-normal text-neutral-500">{formatKc(product.tastingCampaign.regularPriceKc)}</s>}
             {formatKc(product.variants[0].priceKc)}
             {isSet && product.tastingCampaign && <span className="block text-[13px] font-normal text-neutral-500">vč. dopravy</span>}
           </p>

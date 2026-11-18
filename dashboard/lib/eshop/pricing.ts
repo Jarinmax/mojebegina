@@ -148,7 +148,7 @@ export function priceCart(
 
   // Úvodní cena setu platí jen pro zbývající kusy ze 100.
   if (campaignLeft !== null && setCount > campaignLeft) {
-    return { ok: false, error: `Za úvodní cenu už ${campaignLeft === 0 ? "žádný set nezbývá" : `zbývá jen ${campaignLeft} ks`} (${remainingLabel(campaignLeft)}). Upravte prosím množství v košíku.` };
+    return { ok: false, error: `Za akční cenu už ${campaignLeft === 0 ? "žádný set nezbývá" : `zbývá jen ${campaignLeft} ks`} (${remainingLabel(campaignLeft)}). Upravte prosím množství v košíku.` };
   }
   // Samotný set nejde chlazenou přepravou (ani na Slovensko) — jen Zásilkovnou nebo osobně.
   if (setCount > 0 && !otherGoods && shipping.id === "rozvoz") return { ok: false, error: SET_ONLY_NOT_COLD };
