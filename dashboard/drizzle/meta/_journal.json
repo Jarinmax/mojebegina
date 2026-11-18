@@ -386,6 +386,13 @@
       "when": 1795011729152,
       "tag": "0054_historie_nakupu",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1795025092023,
+      "tag": "0055_vyrobni_karta",
+      "breakpoints": true
     }
   ]
 }

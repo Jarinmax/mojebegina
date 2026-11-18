@@ -271,6 +271,10 @@ export const orderItems = pgTable("order_items", {
     onDelete: "restrict",
   }),
   skuSnapshot: text("sku_snapshot"),
+  // Výrobní karta (Lucie 18. 11. 2026, migrace 0054): Jarin zaškrtne, že má
+  // položku vyrobenou; vrátit zpět = NULL.
+  producedAt: timestamp("produced_at", { withTimezone: true }),
+  producedByName: text("produced_by_name"),
 }, (table) => [
   index("order_items_product_variant_idx").on(table.productVariantId),
   check("order_items_quantity_positive", sql`${table.quantity} > 0`),

@@ -59,12 +59,12 @@ describe("objednávka bez organizace v MojeBegina", DB_TEST, () => {
       INSERT INTO leads (id, source, contact_email) VALUES ('${LEAD}', 'eshop', 'jana@example.cz');`);
   }, DB_TEST.timeout);
 
-  it("seznam Objednávek ukáže soukromého zákazníka jako „Soukromý zákazník“ se jménem kontaktu", async () => {
+  it("seznam Objednávek ukáže soukromého zákazníka jménem (ne „Soukromý zákazník“ — Lucie 18. 11. 2026)", async () => {
     const { orders, counts } = await listOrders();
     const guest = orders.find((o) => o.id === GUEST_ORDER);
     expect(guest).toMatchObject({
       buyerOrganizationId: null,
-      buyerOrganizationName: "Soukromý zákazník",
+      buyerOrganizationName: "Jana Nováková",
       contactName: "Jana Nováková",
       itemsSummary: "1× Rajčatová polévka",
       totalKc: 478,
@@ -77,7 +77,7 @@ describe("objednávka bez organizace v MojeBegina", DB_TEST, () => {
   it("detail objednávky soukromého zákazníka se načte včetně kontaktu a položek", async () => {
     const detail = await getOrderDetail(GUEST_ORDER);
     expect(detail?.order).toMatchObject({
-      buyerOrganizationName: "Soukromý zákazník",
+      buyerOrganizationName: "Jana Nováková",
       contactEmail: "jana@example.cz",
       shippingKc: 99,
     });
