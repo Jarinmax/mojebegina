@@ -181,12 +181,12 @@ describe("Fio: ruční objednávka zaplacená s číslem faktury (PGlite)", () =
     const created = await createMigratedDb();
     db = created.db as unknown as Parameters<typeof syncFioPayments>[0];
     await created.db.execute(sql`INSERT INTO organizations (id, ico, name, registered_address) VALUES (${ORG}, '76043894', 'Café Academia', 'Korunní 1208/74, Praha')`);
-    await created.db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, contact_name, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs) VALUES
-      (${CAFE}, 'manual', ${ORG}, 'Milan Kašpárek', 1516, 0, 0, 1516, 'unpaid', 'delivered', '2026-11-10T10:00:00Z', '70000012'),
-      ('d2222222-2222-4222-8222-222222222222', 'manual', NULL, 'Lubomir Simko', 900, 0, 0, 900, 'invoiced', 'new', '2026-11-09T10:00:00Z', '70000016'),
-      ('d3333333-3333-4333-8333-333333333333', 'manual', NULL, 'Jan Dvojí', 700, 0, 0, 700, 'unpaid', 'new', '2026-11-08T10:00:00Z', '70000018'),
-      ('d4444444-4444-4444-8444-444444444444', 'manual', NULL, 'Jan Dvojí', 700, 0, 0, 700, 'unpaid', 'new', '2026-11-09T10:00:00Z', '70000019'),
-      ('d5555555-5555-4555-8555-555555555555', 'manual', NULL, 'Eva Jiná', 500, 0, 0, 500, 'unpaid', 'new', '2026-11-09T10:00:00Z', '70000021')`);
+    await created.db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, contact_email, contact_name, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs) VALUES
+      (${CAFE}, 'manual', ${ORG}, 'milan@example.cz', 'Milan Kašpárek', 1516, 0, 0, 1516, 'unpaid', 'delivered', '2026-11-10T10:00:00Z', '70000012'),
+      ('d2222222-2222-4222-8222-222222222222', 'manual', NULL, 'simko@example.sk', 'Lubomir Simko', 900, 0, 0, 900, 'invoiced', 'new', '2026-11-09T10:00:00Z', '70000016'),
+      ('d3333333-3333-4333-8333-333333333333', 'manual', NULL, 'jan@example.cz', 'Jan Dvojí', 700, 0, 0, 700, 'unpaid', 'new', '2026-11-08T10:00:00Z', '70000018'),
+      ('d4444444-4444-4444-8444-444444444444', 'manual', NULL, 'jan@example.cz', 'Jan Dvojí', 700, 0, 0, 700, 'unpaid', 'new', '2026-11-09T10:00:00Z', '70000019'),
+      ('d5555555-5555-4555-8555-555555555555', 'manual', NULL, 'eva@example.cz', 'Eva Jiná', 500, 0, 0, 500, 'unpaid', 'new', '2026-11-09T10:00:00Z', '70000021')`);
   });
 
   it("porovnání jmen a IČO", () => {
