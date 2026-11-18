@@ -7,6 +7,7 @@ import {
   formatServingKc,
   hasPreservative,
   highlightAllergens,
+  servingPhotoNote,
   servingPrices,
   showsNoPreservatives,
   undeclaredAllergenWords,
@@ -45,6 +46,13 @@ function product(over: Partial<Product> & { shelfLife?: string | null; storage?:
 
 const nbsp = (text: string | null) => (text ?? "").replace(/ /g, " ");
 
+describe("poznámka pod fotkou", () => {
+  it("u polévek bez ovoce, u nápojů s ovocem", () => {
+    expect(servingPhotoNote({ ...product({}), category: "polevky" } as Product)).toBe("Návrh servírování – miska a ozdoba na fotce nejsou součástí balení.");
+    expect(servingPhotoNote({ ...product({}), category: "sirupy" } as Product)).toBe("Návrh servírování – ozdoba a ovoce na fotce nejsou součástí balení.");
+  });
+});
+
 describe("trvanlivost po otevření", () => {
   it("čte dny i měsíce z textu trvanlivosti, jinak nic", () => {
     expect(afterOpening(shelf("14 dnů"))).toEqual({ amount: 14, unit: "days" });
@@ -55,11 +63,11 @@ describe("trvanlivost po otevření", () => {
   });
 
   it("štítek a řádek podle kategorie", () => {
-    expect(nbsp(afterOpeningBadge(product({})))).toBe("14 dní po otevření");
+    expect(nbsp(afterOpeningBadge(product({})))).toBe("Vydrží 14 dní po otevření");
     expect(nbsp(afterOpeningLine(product({})))).toBe("Po otevření vydrží v lednici 14 dní – natáčíte postupně.");
     expect(nbsp(afterOpeningLine(product({ category: "caje" })))).toBe("Po otevření vydrží v lednici 14 dní – natáčíte postupně.");
     const syrup = product({ category: "sirupy", shelfLife: shelf("3 měsíců"), storage: "Před otevřením skladujte v suchu. Po otevření uchovávejte v chladničce při teplotě do 4 °C." });
-    expect(nbsp(afterOpeningBadge(syrup))).toBe("3 měsíce po otevření");
+    expect(nbsp(afterOpeningBadge(syrup))).toBe("Vydrží 3 měsíce po otevření");
     expect(nbsp(afterOpeningLine(syrup))).toBe("Po otevření vydrží v lednici 3 měsíce.");
     expect(nbsp(afterOpeningLine(product({ category: "ovocne-napoje", shelfLife: shelf("5 dnů") })))).toBe("Po otevření vydrží v lednici 5 dní.");
   });

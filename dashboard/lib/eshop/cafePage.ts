@@ -13,14 +13,15 @@ export const CAFE_PATH = "/pro-kavarny";
 export const CAFE_MENU_LABEL = "Kavárny a bistra";
 export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
 // „nic nevyhodíte“ pryč (Lucie 18. 11. 2026): obal se vyhazuje, myšleno bylo jen jídlo
-export const CAFE_SUBTITLE = "Natočíte z kohoutku jen tolik, kolik prodáte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
+// „kolik prodáte“ → „objednanou porci“ (Lucie 18. 11. 2026, večer)
+export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
 export const CAFE_DESCRIPTION = "Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině pro kavárny a bistra. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
 export const CAFE_HOME_STRIP = "Jste kavárna nebo bistro? Polévky a nápoje v begině pro váš provoz";
 
 export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" | "truck";
 
 export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = [
-  { icon: "recycle", title: "Žádné zbytky", text: "Natáčíte jen tolik, kolik prodáte, takže nic nevyléváte. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
+  { icon: "recycle", title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
   { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát a podávat, nápoje jen naředit." },
   { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,60 Kč, nápoj ze sirupu od 3,30 Kč – při ceně z e-shopu." },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },
@@ -32,14 +33,15 @@ export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = 
 export const CAFE_CATEGORY_SLUGS = ["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"] as const;
 
 /** Povinná poznámka u alkoholu a štítek kategorie, která je na e-shopu zatím prázdná (bez odkazu). */
-export const CAFE_ALCOHOL_NOTE = "Obsahuje alkohol (18+)";
+export const CAFE_ALCOHOL_NOTE = "18+";
 export const CAFE_ALCOHOL_SLUG = "koktejly";
 export const CAFE_COMING_SOON = "Připravujeme";
 
 export const CAFE_STEPS = [
   { title: "Ochutnávka", text: "Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou. Vše si vyzkoušíte v klidu u sebe." },
-  { title: "Objednávka na fakturu", text: "Objednáte, co vám chutnalo. Platíte převodem na fakturu." },
-  { title: "Pravidelné závozy", text: "Vozíme podle vaší spotřeby, abyste měli vždy čerstvé zboží." },
+  // Objednávky jdou přes e-shop a chlazenou přepravu, žádné „závozy“ (Lucie 18. 11. 2026)
+  { title: "Objednávka na e-shopu", text: "Objednáte, co vám chutnalo, přímo tady na e-shopu, na firmu i s IČO." },
+  { title: "Sleva za pravidelné objednávky", text: "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %)." },
 ] as const;
 
 export const CAFE_FORM_HEADING = "Chci ochutnávku do provozu";

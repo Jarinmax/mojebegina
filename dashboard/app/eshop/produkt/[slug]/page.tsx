@@ -35,7 +35,7 @@ import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
 import { productDeliveryNote } from "@/lib/eshop/zasilkovna";
 import { zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
-import { afterOpeningLine, highlightAllergens, NO_PRESERVATIVES, servingPrices, showsNoPreservatives } from "@/lib/eshop/productFacts";
+import { afterOpeningLine, highlightAllergens, NO_PRESERVATIVES, servingPhotoNote, servingPrices, showsNoPreservatives } from "@/lib/eshop/productFacts";
 import { breadcrumbJsonLd, jsonLd, productDescription, productJsonLd, productTitle } from "@/lib/eshop/seo";
 
 export const dynamic = "force-dynamic";
@@ -225,7 +225,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
         <div className="md:sticky md:top-20">
           <ProductGallery
             name={product.name}
-            note={isSet ? SET_PHOTO_NOTE : "Návrh servírování – ozdoba a ovoce na fotce nejsou součástí balení."}
+            note={isSet ? SET_PHOTO_NOTE : servingPhotoNote(product)}
             photos={product.gallery?.length ? product.gallery : product.image ? [{ url: product.image, alt: product.name }] : []}
           />
         </div>

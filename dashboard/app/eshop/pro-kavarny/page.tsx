@@ -4,7 +4,6 @@ import { Calculator, Droplets, Leaf, Recycle, Timer, Truck } from "lucide-react"
 import ShopLink from "@/components/eshop/ShopLink";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
-import { OPERATOR } from "@/lib/eshop/operator";
 import {
   CAFE_ALCOHOL_NOTE,
   CAFE_ALCOHOL_SLUG,
@@ -68,11 +67,11 @@ export default async function Page() {
       {categories.length > 0 && (
         <section>
           <h2 className="font-serif text-2xl sm:text-3xl text-center mb-5">Co dodáváme</h2>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <ul className="grid grid-cols-3 lg:grid-cols-6 gap-3 max-w-3xl mx-auto">
             {categories.map((category) => {
-              const box = "h-full rounded-2xl border border-[#EDE5D8] bg-white p-4 flex flex-col items-center gap-2 text-center";
+              const box = "h-full rounded-xl border border-[#EDE5D8] bg-white p-2.5 flex flex-col items-center gap-1 text-center";
               const icon = category.icon && category.iconSize && (
-                <Image src={category.icon} alt="" width={category.iconSize[0]} height={category.iconSize[1]} className="h-20 w-auto mb-1" />
+                <Image src={category.icon} alt="" width={category.iconSize[0]} height={category.iconSize[1]} className="h-12 w-auto" />
               );
               return (
                 <li key={category.slug}>
@@ -119,15 +118,6 @@ export default async function Page() {
             {CAFE_PRICE_NOTE.link}
           </ShopLink>
           {CAFE_PRICE_NOTE.after}
-        </p>
-        <p className="mt-2 text-center text-base text-neutral-700">
-          <a href={`mailto:${OPERATOR.email}`} className="font-medium underline underline-offset-4">
-            {OPERATOR.email}
-          </a>
-          ,{" "}
-          <a href={OPERATOR.phoneHref} className="font-medium underline underline-offset-4 whitespace-nowrap">
-            {OPERATOR.phone}
-          </a>
         </p>
       </section>
     </article>
