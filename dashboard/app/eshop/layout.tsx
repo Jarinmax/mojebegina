@@ -14,6 +14,7 @@ import EshopFooter from "@/components/eshop/EshopFooter";
 import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
 import { MOJE_BEGINA_LINK, availableHomeCategories, mainMenu } from "@/lib/eshop/homeNav";
 import MainNav from "@/components/eshop/MainNav";
+import { CAFE_MENU_LABEL, CAFE_PATH } from "@/lib/eshop/cafePage";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
@@ -63,6 +64,8 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
   // v rozbalovací nabídce, za nimi rozbalovací „O nás“ (Náš příběh, O vodě,
   // O balení) a MojeBegina (9. 11. 2026).
   const menu = mainMenu(availableHomeCategories((catalog ?? EMPTY_CATALOG).categories.map((c) => c.slug)), [
+    // 18. 11. 2026 (Lucie): hlavní zákazníci jsou kavárny a bistra — vlastní položka v menu
+    { kind: "link", href: CAFE_PATH, label: CAFE_MENU_LABEL },
     {
       kind: "group",
       label: "O nás",

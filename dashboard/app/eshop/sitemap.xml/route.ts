@@ -7,6 +7,7 @@ import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { currentSite } from "@/lib/eshop/siteServer";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { sitemapXml } from "@/lib/site/seo";
+import { CAFE_PATH } from "@/lib/eshop/cafePage";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export async function GET() {
     ...catalog.categories.filter((category) => withProducts.has(category.slug)).map((category) => `/kategorie/${category.slug}`),
     ...catalog.products.map((product) => `/produkt/${product.slug}`),
     ...Object.values(INFO_PAGES).map((page) => page.path),
+    CAFE_PATH,
   ];
   return new Response(sitemapXml(paths), {
     headers: { "Content-Type": "application/xml; charset=utf-8" },
