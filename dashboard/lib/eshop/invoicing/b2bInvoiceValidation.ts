@@ -71,12 +71,21 @@ function text(value: unknown, max: number, label: string): string | null {
 }
 
 /** Kč na 2 desetinná místa (iDoklad počítá v haléřích). */
-function money(value: unknown, label: string): number {
+function money(value: unknown, label: string, allowNegative = false): number {
   const n = typeof value === "string" ? Number(value.replace(",", ".")) : value;
-  if (typeof n !== "number" || !Number.isFinite(n) || n < 0 || Math.round(n * 100) !== n * 100) {
-    throw new B2bInputError(`${label} musí být nezáporné číslo nejvýš na haléře.`);
+  if (typeof n !== "number" || !Number.isFinite(n) || (n < 0 && !allowNegative) || Math.round(n * 100) !== n * 100) {
+    throw new B2bInputError(`${label} musí být ${allowNegative ? "" : "nezáporné "}číslo nejvýš na haléře.`);
   }
   return n;
+}
+
+/**
+ * Řádek slevy (Lucie 18. 11. 2026): položka pojmenovaná „Sleva…“ smí mít
+ * zápornou cenu — stejně jako řádek „Sleva“ na fakturách z e-shopu. Jiná
+ * položka zápornou cenu mít nesmí a faktura nesmí vyjít záporná.
+ */
+export function isDiscountLine(name: string): boolean {
+  return /^sleva(\s|$|:|–|-)/i.test(name.trim());
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -95,10 +104,11 @@ export function validateB2bInvoice(raw: B2bInvoiceRaw, today: string): { ok: tru
       if (!name) throw new B2bInputError(`Zadejte název u položky ${i + 1}.`);
       const quantity = money(item.quantity, `Množství u „${name}“`);
       if (quantity <= 0) throw new B2bInputError(`Množství u „${name}“ musí být kladné.`);
-      const unitPriceKc = money(item.unitPriceKc, `Cena u „${name}“`);
+      const unitPriceKc = money(item.unitPriceKc, `Cena u „${name}“`, isDiscountLine(name));
       return { name, quantity, unit: text(item.unit, 10, `Jednotka u „${name}“`) ?? "ks", unitPriceKc, totalKc: round2(quantity * unitPriceKc) };
     });
     const totalKc = round2(items.reduce((sum, i) => sum + i.totalKc, 0));
+    if (totalKc < 0) throw new B2bInputError("Faktura nemůže vyjít záporná — sleva je vyšší než zboží.");
     if (raw.expectedTotalKc !== undefined && raw.expectedTotalKc !== null) {
       const expected = money(raw.expectedTotalKc, "Kontrolní celková částka");
       if (expected !== totalKc) throw new B2bInputError(`Celková částka nesedí: položky dávají ${totalKc} Kč, podklad uvádí ${expected} Kč. Nic se nevystavilo.`);

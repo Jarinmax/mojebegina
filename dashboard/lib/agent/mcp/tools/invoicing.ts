@@ -392,7 +392,7 @@ const B2B_PROPERTIES: Record<string, unknown> = {
         name: { type: "string", description: "Název položky." },
         quantity: { type: "number", description: "Množství (kladné, nejvýš na 2 desetinná místa)." },
         unit: { type: "string", description: "Jednotka (výchozí ks)." },
-        unit_price_kc: { type: "number", description: "Jednotková cena v Kč (Begina je neplátce DPH)." },
+        unit_price_kc: { type: "number", description: "Jednotková cena v Kč (Begina je neplátce DPH). Záporná smí být jen u řádku slevy pojmenovaného „Sleva“ (např. Sleva, −24)." },
       },
       required: ["name", "quantity", "unit_price_kc"],
       additionalProperties: false,

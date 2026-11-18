@@ -36,6 +36,16 @@ describe("B2B faktura — kontrola vstupu", () => {
     expect(err({ paymentMethod: "dobirka" })).toMatch(/Způsob úhrady/);
   });
 
+  it("řádek „Sleva“ smí být záporný; jiná položka ne a faktura nesmí vyjít záporná", () => {
+    const withDiscount = validateB2bInvoice({ ...base, items: [{ name: "Lipový sirup – 3 l", quantity: 2, unitPriceKc: 549 }, { name: "Sleva", quantity: 1, unitPriceKc: -24 }], expectedTotalKc: 1074 }, TODAY);
+    expect(withDiscount).toMatchObject({ ok: true, value: { totalKc: 1074, items: [{ totalKc: 1098 }, { name: "Sleva", unitPriceKc: -24, totalKc: -24 }] } });
+    expect(validateB2bInvoice({ ...base, items: [{ name: "Sleva – kód SIMEK24", quantity: 1, unitPriceKc: -24 }, { name: "A", quantity: 1, unitPriceKc: 100 }] }, TODAY)).toMatchObject({ ok: true, value: { totalKc: 76 } });
+    const negativeItem = validateB2bInvoice({ ...base, items: [{ name: "Slevněný sirup", quantity: 1, unitPriceKc: -24 }] }, TODAY);
+    expect(negativeItem).toEqual({ ok: false, error: "Cena u „Slevněný sirup“ musí být nezáporné číslo nejvýš na haléře." });
+    const tooMuch = validateB2bInvoice({ ...base, items: [{ name: "A", quantity: 1, unitPriceKc: 10 }, { name: "Sleva", quantity: 1, unitPriceKc: -24 }] }, TODAY);
+    expect(tooMuch).toEqual({ ok: false, error: "Faktura nemůže vyjít záporná — sleva je vyšší než zboží." });
+  });
+
   it("varování: poznámka „uhrazena“ u neuhrazené faktury; uhrazeno převodem", () => {
     const value = (raw: Record<string, unknown>) => {
       const r = validateB2bInvoice({ ...base, ...raw } as never, TODAY);

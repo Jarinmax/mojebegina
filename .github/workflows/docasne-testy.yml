@@ -1,0 +1,16 @@
+name: docasne
+on: push
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: dashboard } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx next typegen && npx tsc --noEmit
+      - run: npx eslint lib/eshop/invoicing/b2bInvoiceValidation.ts lib/agent/mcp/tools/invoicing.ts
+        if: always()
+      - run: npx vitest run lib/eshop/__tests__/b2bInvoiceValidation.test.ts lib/agent/__tests__/mcpB2bInvoice.integration.test.ts
+        if: always()
