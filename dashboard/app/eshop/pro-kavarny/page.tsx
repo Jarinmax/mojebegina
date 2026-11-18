@@ -13,7 +13,7 @@ import {
   CAFE_CATEGORY_SLUGS,
   CAFE_DESCRIPTION,
   CAFE_PATH,
-  CAFE_PRICE_LIST_NOTE,
+  CAFE_PRICE_NOTE,
   CAFE_STEPS,
   CAFE_SUBTITLE,
   CAFE_TITLE,
@@ -114,7 +114,13 @@ export default async function Page() {
       <section className="max-w-2xl mx-auto w-full">
         <CafeForm />
         <p className="mt-5 text-center text-base text-neutral-700">
-          {CAFE_PRICE_LIST_NOTE}{" "}
+          {CAFE_PRICE_NOTE.before}
+          <ShopLink href={CAFE_PRICE_NOTE.href} className="font-medium underline underline-offset-4">
+            {CAFE_PRICE_NOTE.link}
+          </ShopLink>
+          {CAFE_PRICE_NOTE.after}
+        </p>
+        <p className="mt-2 text-center text-base text-neutral-700">
           <a href={`mailto:${OPERATOR.email}`} className="font-medium underline underline-offset-4">
             {OPERATOR.email}
           </a>

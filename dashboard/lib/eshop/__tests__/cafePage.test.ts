@@ -1,7 +1,7 @@
 // Stránka Pro kavárny a bistra: texty a formulář „Chci ochutnávku do provozu“.
 import { beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import { CAFE_BENEFITS, CAFE_CATEGORY_SLUGS, CAFE_SUBTITLE, describeCafeInquiry, normalizeCafePhone, validateCafeInquiry } from "../cafePage";
+import { CAFE_BENEFITS, CAFE_CATEGORY_SLUGS, CAFE_PRICE_NOTE, CAFE_SUBTITLE, describeCafeInquiry, normalizeCafePhone, validateCafeInquiry } from "../cafePage";
 import { submitCafeInquiry, CAFE_LEAD_SOURCE } from "../cafeInquirySubmit";
 import type { EmailMessage } from "../email/resend";
 import { createMigratedDb } from "./helpers/migratedDb";
@@ -14,6 +14,8 @@ describe("Pro kavárny: texty", () => {
     expect(all).not.toMatch(/zdrav|imunit|léč|detox|vitam|koktejl|svařák|alkohol(?!ick)/i);
     expect(all).toContain("Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce");
     expect(all).toContain("při ceně z e-shopu");
+    expect(all).not.toMatch(/nevyhod|bez odpadu/i); // obal se vyhazuje
+    expect(`${CAFE_PRICE_NOTE.before}${CAFE_PRICE_NOTE.link}${CAFE_PRICE_NOTE.after}`).toBe("Ceny jsou stejné jako na e-shopu. Při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.");
     expect([...CAFE_CATEGORY_SLUGS]).toEqual(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"]);
   });
 });
