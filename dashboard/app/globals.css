@@ -13,11 +13,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * 19. 11. 2026 (Lucie): MojeBegina je jen ve světlém vzhledu. Dřív se při
+ * tmavém režimu systému/prohlížeče (Firefox, Safari) přepnula barva písma na
+ * světle šedou, ale karty a tabulky zůstaly bílé → text skoro nečitelný
+ * (Výroba, tabulky). Prohlížeči proto říkáme „jen světlé“ a písmo je vždy tmavé.
+ */
+:root {
+  color-scheme: light;
 }
 
 body {
