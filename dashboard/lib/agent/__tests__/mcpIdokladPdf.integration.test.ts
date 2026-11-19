@@ -75,8 +75,12 @@ function fakeIdoklad(input: RequestInfo | URL, init?: RequestInit): Response {
   };
   if (path === "/Account/CurrentAgenda") return ok({ Contact: { IdentificationNumber: "74337297" } });
   if (path === "/NumericSequences") return ok({ Items: [{ Id: 2032369, Name: "Výchozí", DocumentType: 0, IsDefault: true, NumberFormat: "{RRRR}{NNNN}" }], TotalItems: 1, TotalPages: 1 });
+  if (path === "/Contacts") {
+    const items = /IdentificationNumber~eq~12345679/.test(filter) ? [{ Id: 501, IdentificationNumber: "12345679", CompanyName: "Test Odběratel s.r.o." }] : [];
+    return ok({ Items: items, TotalItems: items.length, TotalPages: 1 });
+  }
   if (path === "/IssuedInvoices") {
-    const items = /DocumentNumber~eq~20260202/.test(filter) ? [invoice] : [];
+    const items = /DocumentNumber~eq~20260202|PartnerId~eq~501/.test(filter) ? [invoice] : [];
     return ok({ Items: items, TotalItems: items.length, TotalPages: 1 });
   }
   if (path === `/IssuedInvoices/${INVOICE_ID}`) return ok(invoice);
@@ -243,6 +247,12 @@ describe("PDF faktury z iDokladu přes MCP (ChatGPT) a MojeBegina", { timeout: 1
     // odběratel z faktury (e-mail z iDokladu) je povolený
     const customer = await call(lucieInvoicing, "send_idoklad_invoice_email", { number: "20260202", to: ["fakturace@firma.example"], confirm: true, idempotency_key: randomUUID() });
     expect(customer!.data).toMatchObject({ sent: true, recipientKinds: { "fakturace@firma.example": "customer" } });
+    // nový zákazník (jiná faktura v iDokladu ani objednávka není) → představení partnerského programu
+    expect(customer!.data).toMatchObject({ partnerProgramIntro: true });
+    expect(mail.sent.at(-1)!.text).toContain("partnerský program");
+    expect(mail.sent.at(-1)!.text).toContain("/partnersky-program");
+    // interní kopie (bez zákazníka) partnerský program nepřidává
+    expect(mail.sent[0].text).not.toContain("partnerský program");
     expect(idoklad.calls.every((c) => c.startsWith("GET "))).toBe(true);
 
     const audit = await rows(sql`SELECT user_id, status, result FROM agent_audit_log WHERE tool = 'send_idoklad_invoice_email' AND status = 'ok' ORDER BY created_at`);
