@@ -1,4 +1,4 @@
-// Fio banka — čtení příchozích plateb přes API Bankovnictví (jen čtení).
+// Fio banka — čtení pohybů na účtu přes API Bankovnictví (jen čtení).
 // Token má právo „Pouze sledovat účet“ (vytvořil Jarin 15. 11. 2026, je
 // v nastavení Vercelu jako FIO_API_TOKEN) — platbu s ním zadat nelze.
 // Návod Fio: https://www.fio.cz/docs/cz/API_Bankovnictvi.pdf (kap. 5 URL
@@ -15,6 +15,14 @@ export type FioTransaction = {
   vs: string | null;
   counterparty: string | null;
   message: string | null;
+  /** typ pohybu, např. „Platba kartou“ (column8) */
+  kind?: string;
+  /** uživatelská identifikace — u karet obchodník, např. „VERCEL INC.“ (column7) */
+  ident?: string;
+  /** upřesnění — u plateb v cizí měně částka a měna, např. „24.20 USD“ (column18) */
+  detail?: string;
+  /** komentář (column25) */
+  comment?: string;
 };
 
 const FIO_BASE = "https://fioapi.fio.cz/v1/rest";
@@ -60,6 +68,10 @@ export function parseFioTransactions(json: unknown): FioTransaction[] {
       vs: vs && /^[0-9]{1,10}$/.test(vs) ? vs : null,
       counterparty: text(columnValue(raw, 10)),
       message: text(columnValue(raw, 16)),
+      kind: text(columnValue(raw, 8)) ?? undefined,
+      ident: text(columnValue(raw, 7)) ?? undefined,
+      detail: text(columnValue(raw, 18)) ?? undefined,
+      comment: text(columnValue(raw, 25)) ?? undefined,
     });
   }
   return result;
