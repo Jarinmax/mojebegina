@@ -61,7 +61,25 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
             </form>
           </div>
         </div>
-        <div className="overflow-x-auto bg-white border border-neutral-200 rounded-xl">
+        {/* Mobil (19. 11. 2026, Lucie): surovina a množství na jednom řádku, ceny pod tím. */}
+        <ul className="sm:hidden bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100">
+          {recipe.items.map((item, index) => (
+            <li key={index} className="px-3 py-2.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 break-words text-[15px] text-neutral-900">{item.ingredient.name}</span>
+                <span className="whitespace-nowrap text-[15px] font-semibold text-neutral-900">{formatQuantity(item.quantity * count, item.unit)}</span>
+              </div>
+              <div className="text-xs text-neutral-500">
+                {formatUnitPrice(item.ingredient.priceKc)} {priceUnitLabel(item.ingredient.priceUnit)} · náklad {formatKcValue(itemCostKc(item) * count)}
+              </div>
+            </li>
+          ))}
+          <li className="px-3 py-2.5 flex justify-between font-medium text-neutral-900">
+            <span>Suroviny celkem</span>
+            <span className="whitespace-nowrap">{formatKcValue(batchCost * count)}</span>
+          </li>
+        </ul>
+        <div className="hidden sm:block overflow-x-auto bg-white border border-neutral-200 rounded-xl">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
               <tr>
@@ -97,7 +115,30 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
 
       <section className="mt-8">
         <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Kalkulace balení (na 1 kus)</h2>
-        <div className="overflow-x-auto bg-white border border-neutral-200 rounded-xl">
+        <div className="sm:hidden flex flex-col gap-2">
+          {recipe.variants.map((variant, index) => {
+            const calc = calcVariant(recipe, variant, packaging);
+            return (
+              <div key={index} className="bg-white border border-neutral-200 rounded-xl px-3 py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-medium text-neutral-900">{variant.label}</span>
+                  <span className="whitespace-nowrap font-semibold text-neutral-900">
+                    {calc.marginKc !== null && calc.marginPct !== null ? `${calc.marginPct.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %` : ""}
+                  </span>
+                </div>
+                <div className="text-xs text-neutral-500 break-words">{variant.packagingCodes.map((code) => packagingNames.get(code) ?? `${code} (chybí v ceníku)`).join(" + ")}</div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
+                  <dt className="text-neutral-500">Obsah</dt><dd className="text-right">{formatKcValue(calc.contentKc)}</dd>
+                  <dt className="text-neutral-500">Obal a etiketa</dt><dd className="text-right">{formatKcValue(calc.packagingKc)}</dd>
+                  <dt className="text-neutral-500">Náklad celkem</dt><dd className="text-right font-medium">{formatKcValue(calc.totalKc)}</dd>
+                  <dt className="text-neutral-500">Prodejní cena</dt><dd className="text-right">{calc.saleKc !== null ? formatKcValue(calc.saleKc) : "neprodává se"}</dd>
+                  {calc.marginKc !== null && (<><dt className="text-neutral-500">Marže</dt><dd className="text-right font-medium">{formatKcValue(calc.marginKc)}</dd></>)}
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden sm:block overflow-x-auto bg-white border border-neutral-200 rounded-xl">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
               <tr>

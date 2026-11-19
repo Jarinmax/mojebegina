@@ -85,7 +85,34 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
         return (
           <section key={category.key} className="mt-5">
             <h2 className="text-sm font-medium text-begina-primary-900 mb-2">{category.label}</h2>
-            <div className="overflow-x-auto bg-white border border-neutral-200 rounded-xl">
+            {/* Mobil (19. 11. 2026, Lucie): karta za výrobek místo široké tabulky. */}
+            <ul className="sm:hidden bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100">
+              {rows.map((recipe) => {
+                const main = recipe.variants[0] ? calcVariant(recipe, recipe.variants[0], packaging) : null;
+                return (
+                  <li key={recipe.slug}>
+                    <Link href={`/rizeni-firmy/receptury/${recipe.slug}`} className="flex items-center gap-3 px-3 py-3">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-medium text-begina-primary-900 break-words">
+                          {recipe.name}
+                          {recipe.archived && <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-normal text-neutral-600">nevyrábí se</span>}
+                        </span>
+                        <span className="block text-xs text-neutral-600">
+                          náklad {main ? formatKcValue(main.totalKc) : "—"} · prodej {main?.saleKc != null ? formatKcValue(main.saleKc) : "—"}
+                        </span>
+                        <span className="block text-xs text-neutral-500">{main?.label ?? ""}</span>
+                      </span>
+                      <span className="text-right">
+                        <span className="block text-sm font-semibold text-neutral-900 whitespace-nowrap">{main?.marginPct != null ? `${main.marginPct.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %` : "—"}</span>
+                        <span className="block text-xs text-neutral-500 whitespace-nowrap">{main?.marginKc != null ? formatKcValue(main.marginKc) : ""}</span>
+                      </span>
+                      <span aria-hidden className="text-neutral-400 text-lg">›</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden sm:block overflow-x-auto bg-white border border-neutral-200 rounded-xl">
               <table className="w-full text-sm">
                 <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
                   <tr>
