@@ -117,5 +117,8 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
   ],
   "uvodni-fotka/aktualni": [
     "uvodni-fotka.png"
+  ],
+  "uvodni-fotka/tisk": [
+    "uvodni-fotka-tisk.jpg"
   ]
 };

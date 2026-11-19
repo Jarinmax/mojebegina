@@ -19,7 +19,14 @@ export const FOTKY_CATEGORIES: FotkyCategory[] = [
       { slug: "facebook-uvodni", label: "Úvodní fotka Facebooku" },
     ],
   },
-  { slug: "uvodni-fotka", label: "Úvodní fotka", groups: [{ slug: "aktualni", label: "Aktuální úvodní fotka webu" }] },
+  {
+    slug: "uvodni-fotka",
+    label: "Úvodní fotka",
+    groups: [
+      { slug: "aktualni", label: "Aktuální úvodní fotka webu" },
+      { slug: "tisk", label: "Pro tisk (5400 × 4200 px)" },
+    ],
+  },
   { slug: "o-nas", label: "O nás", groups: [{ slug: "fotka", label: "Fotka Jarina a Lucie (stránka O nás)" }] },
   { slug: "ikonky", label: "Ikonky", groups: [{ slug: "kategorie", label: "Ikonky kategorií na úvodní stránce" }] },
   { slug: "polevky", label: "Polévky", groups: [HLAVNI, BEGINA] },
@@ -49,6 +56,7 @@ export function fotkyFolderKeys(): string[] {
 
 const EXTRA_NAMES: Record<string, string> = {
   "uvodni-fotka": "Úvodní fotka",
+  "uvodni-fotka-tisk": "Úvodní fotka – pro tisk",
   "jarin-a-lucie": "Jarin a Lucie (na webu, čtverec)",
   "jarin-a-lucie-original": "Jarin a Lucie (originál)",
   "ochutnavkovy-set-sirupu": "Ochutnávkový set sirupů",
