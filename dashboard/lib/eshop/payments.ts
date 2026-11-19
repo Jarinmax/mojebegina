@@ -13,7 +13,7 @@
 // zatím vrací člověk ručně (Stripe / banka) a stav objednávky nemění.
 // Stornovaná objednávka se na Zaplaceno NIKDY nepřepne: platba po stornu
 // se jen eviduje a čeká na rozhodnutí zákazníka (lib/eshop/cancellation.ts).
-import { desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { orderPaymentBalance, payments } from "@/lib/db/schema";
@@ -213,6 +213,20 @@ export type OrderPaymentSummary = {
   balanceState: BalanceState;
   payments: OrderPaymentRow[];
 };
+
+/**
+ * Objednávky, za které už Begina nic nedrží, protože peníze vrátila celé
+ * (balance_state 'refunded'). orders.payment_status zůstává 'paid' (kdy
+ * přišly peníze); „Vráceno“ se jen zobrazí místo „Zaplaceno“.
+ */
+export async function refundedOrderIds(db: Db, orderIds: string[]): Promise<Set<string>> {
+  if (orderIds.length === 0) return new Set();
+  const rows = await db
+    .select({ orderId: orderPaymentBalance.orderId })
+    .from(orderPaymentBalance)
+    .where(and(inArray(orderPaymentBalance.orderId, orderIds), eq(orderPaymentBalance.balanceState, "refunded")));
+  return new Set(rows.map((r) => r.orderId));
+}
 
 export async function loadOrderPayments(db: Db, orderId: string): Promise<OrderPaymentSummary | null> {
   const [balance] = await db.select().from(orderPaymentBalance).where(eq(orderPaymentBalance.orderId, orderId)).limit(1);
