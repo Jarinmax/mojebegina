@@ -20,9 +20,19 @@ export const FOTKY_CATEGORIES: FotkyCategory[] = [
     ],
   },
   { slug: "uvodni-fotka", label: "Úvodní fotka", groups: [{ slug: "aktualni", label: "Aktuální úvodní fotka webu" }] },
+  { slug: "o-nas", label: "O nás", groups: [{ slug: "fotka", label: "Fotka Jarina a Lucie (stránka O nás)" }] },
   { slug: "ikonky", label: "Ikonky", groups: [{ slug: "kategorie", label: "Ikonky kategorií na úvodní stránce" }] },
   { slug: "polevky", label: "Polévky", groups: [HLAVNI, BEGINA] },
-  { slug: "sirupy", label: "Sirupy", groups: [HLAVNI, BEGINA, { slug: "sacek-650ml", label: "Se stříbrným sáčkem 650 ml" }] },
+  {
+    slug: "sirupy",
+    label: "Sirupy",
+    groups: [
+      HLAVNI,
+      BEGINA,
+      { slug: "sacek-650ml", label: "Se stříbrným sáčkem 650 ml" },
+      { slug: "set", label: "Ochutnávkový set sirupů" },
+    ],
+  },
   { slug: "ovocne-napoje", label: "Ovocné nápoje", groups: [HLAVNI, BEGINA] },
   {
     slug: "alkoholicke-koktejly",
@@ -39,6 +49,9 @@ export function fotkyFolderKeys(): string[] {
 
 const EXTRA_NAMES: Record<string, string> = {
   "uvodni-fotka": "Úvodní fotka",
+  "jarin-a-lucie": "Jarin a Lucie (na webu, čtverec)",
+  "jarin-a-lucie-original": "Jarin a Lucie (originál)",
+  "ochutnavkovy-set-sirupu": "Ochutnávkový set sirupů",
   "logo-begina": "Logo Begina",
   "profilovka-facebook-instagram": "Profilovka (FB / IG)",
   "facebook-uvodni-fotka": "Úvodní fotka Facebooku",

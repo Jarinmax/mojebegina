@@ -55,6 +55,10 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
   "logo/profilovka": [
     "profilovka-facebook-instagram.png"
   ],
+  "o-nas/fotka": [
+    "jarin-a-lucie-original.jpg",
+    "jarin-a-lucie.jpg"
+  ],
   "ovocne-napoje/begina-3l": [
     "cervankove-nebe.jpg",
     "dum-u-jezera.jpg",
@@ -108,7 +112,10 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "sipkovy-sirup.jpg",
     "zazvorovy-sirup.jpg"
   ],
+  "sirupy/set": [
+    "ochutnavkovy-set-sirupu.jpg"
+  ],
   "uvodni-fotka/aktualni": [
-    "uvodni-fotka.webp"
+    "uvodni-fotka.png"
   ]
 };
