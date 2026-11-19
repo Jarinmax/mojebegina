@@ -47,7 +47,7 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
     <div>
       {/* Počítač / tablet: tabulka */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full border-collapse bg-white text-sm">
+        <table className="w-full border-collapse bg-white text-sm text-neutral-900">
           <thead>
             <tr>
               <th className="border border-neutral-300 bg-neutral-100 text-left p-2 w-56">Zákazník</th>
@@ -65,7 +65,7 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
           </thead>
           <tbody>
             <tr>
-              <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium">Doručit na</th>
+              <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium text-neutral-900">Doručit na</th>
               {orders.map((o) => (
                 <td key={o.id} className="border border-neutral-300 p-2 align-top text-xs text-neutral-700">
                   {o.deliveryAddress ?? "—"}
@@ -75,7 +75,7 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
               <td className="border border-neutral-300" />
             </tr>
             <tr>
-              <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium">Termín dodání</th>
+              <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium text-neutral-900">Termín dodání</th>
               {orders.map((o) => (
                 <td key={o.id} className="border border-neutral-300 p-2">
                   {o.deadline ? (
@@ -90,7 +90,7 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
               <td className="border border-neutral-300" />
             </tr>
             <tr>
-              <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium">Vyrobeno</th>
+              <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium text-neutral-900">Vyrobeno</th>
               {orders.map((o) => (
                 <td key={o.id} className="border border-neutral-300 p-2 text-xs text-neutral-700">
                   {o.producedCount} z {o.items.length} položek
@@ -108,13 +108,13 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
               <GroupRows key={g.slug} slug={g.slug} label={g.label} rows={g.rows} orders={orders} />
             ))}
             <tr>
-              <td className="border border-neutral-300 bg-neutral-200 p-2 font-bold">Celkem kusů</td>
+              <td className="border border-neutral-300 bg-neutral-200 p-2 font-bold text-neutral-900">Celkem kusů</td>
               {orders.map((o) => (
-                <td key={o.id} className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold">
+                <td key={o.id} className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold text-neutral-900">
                   {totalPerOrder(o.id)}
                 </td>
               ))}
-              <td className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold">{grandTotal}</td>
+              <td className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold text-neutral-900">{grandTotal}</td>
             </tr>
           </tbody>
         </table>
@@ -122,7 +122,7 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
       </div>
 
       {/* Mobil: po produktech, pod tím klienti */}
-      <div className="sm:hidden flex flex-col gap-1.5">
+      <div className="sm:hidden flex flex-col gap-1.5 text-neutral-900">
         {groups.map((g) => (
           <div key={g.slug}>
             <p className={`rounded-lg px-3 py-2 mt-2 text-xs font-bold uppercase tracking-wide text-begina-primary-900 ${GROUP_STYLE[g.slug].band}`}>
@@ -187,22 +187,22 @@ function GroupRows({
   return (
     <>
       <tr>
-        <td colSpan={orders.length + 2} className={`border border-neutral-300 p-2 text-xs font-bold uppercase tracking-wide ${style.band}`}>
+        <td colSpan={orders.length + 2} className={`border border-neutral-300 p-2 text-xs font-bold uppercase tracking-wide text-neutral-900 ${style.band}`}>
           {label}
         </td>
       </tr>
       {rows.map((r) => (
         <tr key={r.name} className={style.row}>
-          <td className="border border-neutral-300 p-2">{r.name}</td>
+          <td className="border border-neutral-300 p-2 font-medium text-neutral-900">{r.name}</td>
           {orders.map((o) => {
             const cell = r.cells.get(o.id);
             return (
-              <td key={o.id} className="border border-neutral-300 p-2 text-center font-semibold text-[15px]">
+              <td key={o.id} className="border border-neutral-300 p-2 text-center font-bold text-[16px] text-neutral-900">
                 {cell ? `${cell.qty}${cell.done ? " ✓" : ""}` : ""}
               </td>
             );
           })}
-          <td className="border border-neutral-300 p-2 text-center font-semibold text-[15px]">{r.total}</td>
+          <td className="border border-neutral-300 p-2 text-center font-bold text-[16px] text-neutral-900">{r.total}</td>
         </tr>
       ))}
     </>

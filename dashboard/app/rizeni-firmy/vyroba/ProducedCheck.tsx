@@ -36,9 +36,9 @@ export default function ProducedCheck({
           produced ? "border-emerald-600" : "border-transparent"
         }`}
       >
-        <span className="text-2xl font-extrabold min-w-[3rem] text-center text-begina-primary-900">{quantity}×</span>
+        <span className="text-2xl font-extrabold min-w-[3rem] text-center text-neutral-900">{quantity}×</span>
         <span className="flex-1 min-w-0">
-          <span className={`block text-[15px] break-words ${produced ? "line-through text-neutral-500" : "text-begina-primary-900"}`}>
+          <span className={`block text-[15px] break-words ${produced ? "line-through text-neutral-600" : "text-neutral-900"}`}>
             {name}
           </span>
           {produced && producedNote && <span className="block text-xs text-neutral-500">{producedNote}</span>}
