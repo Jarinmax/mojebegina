@@ -3,22 +3,25 @@ import { PRODUCTION_GROUPS, type AwaitingPaymentOrder, type ProductionOrder } fr
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { formatDeadlineShort } from "@/lib/czWorkdays";
 import { GROUP_STYLE } from "./productionColors";
+import ProducedCell from "./ProducedCell";
 
 // Souhrnná výrobní tabulka (Lucie 18. 11. 2026) — jako „Objednávky výroba
 // Jarda“: sloupce = zaplacení klienti, řádky = objednané produkty po
 // skupinách, vpravo Celkem. Na mobilu seznam po produktech (nic neujíždí).
 
-type Row = { name: string; group: string; cells: Map<string, { qty: number; done: boolean }>; total: number };
+type Row = { name: string; group: string; cells: Map<string, { qty: number; done: boolean; itemIds: string[] }>; total: number; doneQty: number };
 
 function buildRows(orders: ProductionOrder[]) {
   const rows = new Map<string, Row>();
   for (const o of orders) {
     for (const it of o.items) {
       const key = `${it.group}|${it.name}`;
-      const row = rows.get(key) ?? { name: it.name, group: it.group, cells: new Map(), total: 0 };
-      const cell = row.cells.get(o.id) ?? { qty: 0, done: true };
+      const row = rows.get(key) ?? { name: it.name, group: it.group, cells: new Map(), total: 0, doneQty: 0 };
+      const cell = row.cells.get(o.id) ?? { qty: 0, done: true, itemIds: [] };
       cell.qty += it.quantity;
       cell.done = cell.done && Boolean(it.producedAt);
+      cell.itemIds.push(it.id);
+      if (it.producedAt) row.doneQty += it.quantity;
       row.cells.set(o.id, cell);
       row.total += it.quantity;
       rows.set(key, row);
@@ -125,7 +128,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
             </tr>
           </tbody>
         </table>
-        <p className="text-xs text-neutral-500 mt-2">✓ = už vyrobeno. Termín = 5 pracovních dnů od zaplacení.</p>
+        <p className="text-xs text-neutral-600 mt-2">Kliknutím na číslo označíš produkt jako vyrobený (zelená ✓), dalším kliknutím vrátíš zpět. Termín = 5 pracovních dnů od zaplacení.</p>
       </div>
 
       {/* Mobil: karta za každého klienta (co vyrobit, kam, do kdy), pod tím součty */}
@@ -257,12 +260,19 @@ function GroupRows({
           {orders.map((o) => {
             const cell = r.cells.get(o.id);
             return (
-              <td key={o.id} className="border border-neutral-300 p-2 text-center font-bold text-[16px] text-neutral-900">
-                {cell ? `${cell.qty}${cell.done ? " ✓" : ""}` : ""}
+              <td key={o.id} className="border border-neutral-300 p-1.5 text-center">
+                {cell ? <ProducedCell orderId={o.id} itemIds={cell.itemIds} qty={cell.qty} done={cell.done} /> : null}
               </td>
             );
           })}
-          <td className="border border-neutral-300 p-2 text-center font-bold text-[16px] text-neutral-900">{r.total}</td>
+          <td className="border border-neutral-300 p-2 text-center text-neutral-900">
+            <span className="block font-bold text-[16px]">{r.total}</span>
+            {r.doneQty >= r.total ? (
+              <span className="block text-xs font-semibold text-emerald-700">hotovo</span>
+            ) : r.doneQty > 0 ? (
+              <span className="block text-xs font-semibold text-red-700">zbývá {r.total - r.doneQty}</span>
+            ) : null}
+          </td>
         </tr>
       ))}
     </>
