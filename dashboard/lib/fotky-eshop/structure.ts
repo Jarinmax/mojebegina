@@ -24,7 +24,7 @@ export const FOTKY_CATEGORIES: FotkyCategory[] = [
     label: "Úvodní fotka",
     groups: [
       { slug: "aktualni", label: "Aktuální úvodní fotka webu" },
-      { slug: "tisk", label: "Pro tisk (5400 × 4200 px)" },
+      { slug: "tisk", label: "Předchozí úvodní fotka – pro tisk (5400 × 4200 px)" },
     ],
   },
   { slug: "o-nas", label: "O nás", groups: [{ slug: "fotka", label: "Fotka Jarina a Lucie (stránka O nás)" }] },
