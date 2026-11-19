@@ -143,7 +143,14 @@ export async function loadHandoffPrefill(db: Db, payload: HandoffPayload): Promi
     .limit(1);
   if (!member) return null;
   const [org] = await db
-    .select({ id: schema.organizations.id, name: schema.organizations.name, ico: schema.organizations.ico, dic: schema.organizations.dic, registeredAddress: schema.organizations.registeredAddress })
+    .select({
+      id: schema.organizations.id,
+      // na fakturu (pokladna e-shopu) fakturační jméno, když se liší od názvu karty (migrace 0056)
+      name: sql<string>`COALESCE(NULLIF(btrim(${schema.organizations.billingName}), ''), ${schema.organizations.name})`,
+      ico: schema.organizations.ico,
+      dic: schema.organizations.dic,
+      registeredAddress: schema.organizations.registeredAddress,
+    })
     .from(schema.organizations)
     .where(eq(schema.organizations.id, payload.o))
     .limit(1);

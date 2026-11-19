@@ -10,6 +10,7 @@
 // leads.convertedOrganizationId, nastavené atomicky při konverzi
 // (linkLeadToExistingOrganization / convertLeadToNewOrganization).
 import "server-only";
+import { planCustomerCardChange } from "./customerCard";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -1070,6 +1071,8 @@ export type CustomerActivityEntry = {
 };
 
 export type CustomerDetail = CustomerCardData & {
+  /** Fakturační jméno, když se liší od názvu karty (migrace 0056); null = faktura na name. */
+  billingName: string | null;
   recentOrders: CustomerOrderSummary[];
   activity: CustomerActivityEntry[];
 };
@@ -1081,6 +1084,7 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     .select({
       id: organizations.id,
       name: organizations.name,
+      billingName: organizations.billingName,
       ico: organizations.ico,
       ownerUserId: organizations.ownerUserId,
       acquiredByUserId: organizations.acquiredByUserId,
@@ -1122,6 +1126,7 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
   return {
     id: org.id,
     name: org.name,
+    billingName: org.billingName ?? null,
     ico: org.ico,
     ownerUserId: org.ownerUserId,
     ownerName: owner?.name ?? owner?.email ?? null,
@@ -1213,7 +1218,7 @@ export async function searchCrm(rawQuery: string): Promise<CrmSearchResult> {
   const customerRows = await db
     .select({ id: organizations.id, name: organizations.name, ico: organizations.ico })
     .from(organizations)
-    .where(or(ilike(organizations.name, pattern), ilike(organizations.ico, pattern)))
+    .where(or(ilike(organizations.name, pattern), ilike(organizations.billingName, pattern), ilike(organizations.ico, pattern)))
     .orderBy(asc(organizations.name))
     .limit(SEARCH_LIMIT);
 
@@ -1233,4 +1238,91 @@ export async function listLeadSourceOrders(leadId: string) {
     .from(orders)
     .where(eq(orders.sourceLeadId, leadId))
     .orderBy(asc(orders.orderedAt));
+}
+
+// --- Karta zákazníka: název, fakturační jméno, napojení leadu ----------------
+// Jarin 19. 11. 2026: zákazník je ten, kdo s námi obchoduje (karta „Marek
+// Baroš“), i když fakturační údaje dá na jiné jméno a IČO („Lenka Kermes“).
+// name = název karty (CRM, objednávky, přehledy); billing_name = jméno na
+// faktuře (NULL = faktura na name). IČO, DIČ a sídlo se tu nemění.
+
+export type CustomerCardInput = {
+  /** Nový název karty zákazníka; undefined = beze změny. */
+  name?: string;
+  /** Fakturační jméno; undefined = beze změny, null = smazat (faktura na name). */
+  billingName?: string | null;
+  /** Lead, který se ke kartě připojí (konverze na tuto existující kartu). */
+  leadId?: string;
+};
+
+export { planCustomerCardChange };
+
+export type CustomerCardResult =
+  | {
+      ok: true;
+      changed: string[];
+      customer: { id: string; name: string; billingName: string | null; invoiceName: string; ico: string };
+      linkedLeadId: string | null;
+    }
+  | { ok: false; error: string };
+
+export async function updateCustomerCard(organizationId: string, input: CustomerCardInput): Promise<CustomerCardResult> {
+  const ctx = await requireCrmContext();
+  if (input.name !== undefined && !input.name.trim()) return { ok: false, error: "Název karty nesmí být prázdný." };
+
+  const [org] = await db
+    .select({ id: organizations.id, name: organizations.name, billingName: organizations.billingName, ico: organizations.ico })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) return { ok: false, error: "Zákazník nebyl nalezen." };
+
+  let lead: { id: string; convertedOrganizationId: string | null } | null = null;
+  if (input.leadId) {
+    const [row] = await db
+      .select({ id: leads.id, convertedOrganizationId: leads.convertedOrganizationId })
+      .from(leads)
+      .where(eq(leads.id, input.leadId))
+      .limit(1);
+    if (!row) return { ok: false, error: "Lead nebyl nalezen." };
+    if (row.convertedOrganizationId && row.convertedOrganizationId !== organizationId) {
+      return { ok: false, error: "Lead je už připojený k jiné kartě zákazníka — nic se nezměnilo." };
+    }
+    lead = row;
+  }
+
+  const plan = planCustomerCardChange({ name: org.name, billingName: org.billingName }, input);
+  const changed = [...plan.changed];
+
+  if (plan.changed.length > 0) {
+    await db.batch([
+      db.update(organizations).set({ name: plan.name, billingName: plan.billingName }).where(eq(organizations.id, organizationId)),
+      db.insert(organizationActivity).values({
+        organizationId,
+        authorUserId: ctx.userId,
+        authorName: ctx.name,
+        kind: "customer_updated",
+        body: [
+          plan.changed.includes("name") ? `Název karty: „${org.name}“ → „${plan.name}“` : null,
+          plan.changed.includes("billing_name") ? `Fakturační jméno: ${org.billingName ? `„${org.billingName}“` : "—"} → ${plan.billingName ? `„${plan.billingName}“` : "— (faktura na název karty)"}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        metadata: { before: { name: org.name, billingName: org.billingName }, after: { name: plan.name, billingName: plan.billingName } },
+      }),
+    ]);
+  }
+
+  if (lead && lead.convertedOrganizationId !== organizationId) {
+    const linked = await linkLeadToExistingOrganization(lead.id, organizationId);
+    if (!linked.ok) return { ok: false, error: `Karta ${changed.length ? "je upravená, ale " : ""}lead se nepodařilo připojit: ${linked.error}` };
+    changed.push("lead");
+  }
+
+  return {
+    ok: true,
+    changed,
+    customer: { id: org.id, name: plan.name, billingName: plan.billingName, invoiceName: plan.billingName ?? plan.name, ico: org.ico },
+    linkedLeadId: lead?.id ?? null,
+  };
 }

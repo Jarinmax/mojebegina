@@ -77,6 +77,10 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   // DIČ firmy (faktura; migrace 0022). NULL = neuvedeno / neplátce.
   dic: text("dic"),
+  // Fakturační jméno (migrace 0056): když zákazník (karta = name, např. „Marek
+  // Baroš“) fakturuje na jiné jméno/IČO (např. „Lenka Kermes“). NULL = faktura
+  // na name. Na fakturu jde COALESCE(billing_name, name) — viz organizationBillingName.
+  billingName: text("billing_name"),
 }, (table) => [
   check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
 ]);
