@@ -29,14 +29,15 @@ import ShopLink from "./ShopLink";
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
 // Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
 // rámečku a stínu — splývá s podkladem (9. 11. 2026).
-// v12 (19. 11. 2026): nová čistá fotka z ChatGPT (hladká miska, čisté sklo), pozadí doladěné na #FAF6EF, posílá se v kvalitě 90.
+// v13 (19. 11. 2026, Lucie): skutečná „fotka“ na dřevěném stole u okna, v rámečku se zaoblenými rohy
+// (pozadí už nesplývá s úvodem). Dřív v12: nová čistá fotka z ChatGPT (hladká miska, čisté sklo), pozadí doladěné na #FAF6EF, posílá se v kvalitě 90.
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-napoje-v12.webp",
-  width: 1422,
-  height: 1106,
-  alt: "Dýňová polévka v misce, koktejl Lady Carneval s grepem, horký Svařák Deluxe a skleněný hrnek horkého čaje s citronem",
+  src: "/eshop/hero/polevka-a-napoje-v13.webp",
+  width: 1448,
+  height: 1010,
+  alt: "Dýňová polévka v keramické misce na dřevěném stole u okna, koktejl s grepem, hrnek čaje s citronem a svařák, kolem bylinky a ovoce",
 };
 
 export const HERO_LINKS = {
@@ -92,7 +93,7 @@ export default function HomeHero() {
             priority
             quality={90}
             sizes="(min-width: 1024px) 34rem, (min-width: 640px) 36rem, 100vw"
-            className="block w-full h-auto"
+            className="block w-full h-auto rounded-2xl shadow-[0_8px_24px_rgba(60,40,20,0.12)]"
           />
         </div>
       </div>
