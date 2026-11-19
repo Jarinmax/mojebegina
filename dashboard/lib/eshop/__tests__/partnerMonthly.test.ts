@@ -150,6 +150,13 @@ describe("partnerský program: schválení, kódy a rozesílka (PGlite)", () => 
     expect(sentMail.every((m) => m.to[0] === "info@begina.cz")).toBe(true);
   });
 
+  it("schválené oslovení se nabídne i v dalších měsících (19. 11. 2026)", async () => {
+    const { loadRememberedSalutations } = await import("../partnerMonthlyServer");
+    // listopadové vyhodnocení platí v prosinci → lednové vyhodnocení (platnost únor) vidí prosincové oslovení
+    expect(await loadRememberedSalutations(db, { year: 2027, month: 2 })).toEqual({ "ico:12345678": "paní Kavárníková" });
+    expect(await loadRememberedSalutations(db, { year: 2026, month: 12 })).toEqual({});
+  });
+
   it("doplnění individuální slevy: klient nad 20 000 Kč dostane vlastní procento; odhlášený slevu má, e-mail nedostane", async () => {
     const { addPartnerOptOut, approvePartnerMonth, finalizePartnerMonth } = await import("../partnerMonthlyServer");
     sentMail.length = 0;
