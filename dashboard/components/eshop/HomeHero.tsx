@@ -29,10 +29,11 @@ import ShopLink from "./ShopLink";
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
 // Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
 // rámečku a stínu — splývá s podkladem (9. 11. 2026).
+// v11 (19. 11. 2026): jemně vyhlazená a doostřená, posílá se v kvalitě 90 (bez čtverečků).
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-napoje-v10.webp",
+  src: "/eshop/hero/polevka-a-napoje-v11.webp",
   width: 1422,
   height: 1106,
   alt: "Dýňová polévka v misce, koktejl Lady Carneval s grepem, horký Svařák Deluxe a skleněný hrnek horkého čaje s citronem",
@@ -89,6 +90,7 @@ export default function HomeHero() {
             width={HERO_PHOTO.width}
             height={HERO_PHOTO.height}
             priority
+            quality={90}
             sizes="(min-width: 1024px) 34rem, (min-width: 640px) 36rem, 100vw"
             className="block w-full h-auto"
           />
