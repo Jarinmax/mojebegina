@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PRODUCTION_GROUPS, type ProductionOrder } from "@/lib/data/productionBoard";
+import { PRODUCTION_GROUPS, type AwaitingPaymentOrder, type ProductionOrder } from "@/lib/data/productionBoard";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { formatDeadlineShort } from "@/lib/czWorkdays";
 import { GROUP_STYLE } from "./productionColors";
@@ -30,11 +30,18 @@ function buildRows(orders: ProductionOrder[]) {
   })).filter((g) => g.rows.length > 0);
 }
 
-export default function ProductionSummary({ orders }: { orders: ProductionOrder[] }) {
+export default function ProductionSummary({ orders, awaiting = [] }: { orders: ProductionOrder[]; awaiting?: AwaitingPaymentOrder[] }) {
   if (orders.length === 0) {
     return (
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
-        Teď není nic k výrobě — žádná zaplacená neodeslaná objednávka.
+      <div className="flex flex-col gap-3">
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
+          Teď není nic k výrobě — žádná zaplacená neodeslaná objednávka.
+        </div>
+        {awaiting.length > 0 && (
+          <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-3 text-sm text-neutral-700">
+            Čeká na zaplacení: {awaiting.map((a) => `${a.orderNumber ?? ""} ${a.customer}`.trim()).join(", ")}
+          </div>
+        )}
       </div>
     );
   }
@@ -121,32 +128,68 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
         <p className="text-xs text-neutral-500 mt-2">✓ = už vyrobeno. Termín = 5 pracovních dnů od zaplacení.</p>
       </div>
 
-      {/* Mobil: po produktech, pod tím klienti */}
-      <div className="sm:hidden flex flex-col gap-1.5 text-neutral-900">
-        {groups.map((g) => (
-          <div key={g.slug}>
-            <p className={`rounded-lg px-3 py-2 mt-2 text-xs font-bold uppercase tracking-wide text-begina-primary-900 ${GROUP_STYLE[g.slug].band}`}>
-              {g.label}
-            </p>
-            {g.rows.map((r) => (
-              <div key={r.name} className={`rounded-lg p-2.5 mt-1 ${GROUP_STYLE[g.slug].row}`}>
-                <p className="text-[15px] font-semibold text-begina-primary-900">
-                  {r.name} – {r.total} ks
+      {/* Mobil: karta za každého klienta (co vyrobit, kam, do kdy), pod tím součty */}
+      <div className="sm:hidden flex flex-col gap-3 text-neutral-900">
+        {orders.map((o) => {
+          const byGroup = PRODUCTION_GROUPS.map((g) => ({ ...g, items: o.items.filter((i) => i.group === g.slug) })).filter((g) => g.items.length > 0);
+          return (
+            <div key={o.id} className="bg-white border-2 border-red-300 rounded-2xl p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-base font-bold text-neutral-900 break-words min-w-0">
+                  {o.orderNumber !== null && <span className="text-neutral-500 font-normal text-sm mr-1">{formatOrderNumber(o.orderNumber)}</span>}
+                  {o.customer}
                 </p>
-                <p className="text-xs text-neutral-700">
-                  {orders
-                    .filter((o) => r.cells.has(o.id))
-                    .map((o) => `${o.customer} ${r.cells.get(o.id)!.qty}${r.cells.get(o.id)!.done ? " ✓" : ""}`)
-                    .join(" · ")}
-                </p>
+                {o.deadline && (
+                  <span className="flex-none rounded-md bg-red-100 text-red-800 text-xs font-bold px-2 py-1">do {formatDeadlineShort(o.deadline)}</span>
+                )}
               </div>
-            ))}
-          </div>
-        ))}
+              {o.deliveryAddress && <p className="text-sm text-neutral-800 mt-1 break-words">📍 {o.deliveryAddress}</p>}
+              {o.deliveryPhone && (
+                <a href={`tel:${o.deliveryPhone.replace(/\s+/g, "")}`} className="text-sm text-neutral-800 underline">
+                  📞 {o.deliveryPhone}
+                </a>
+              )}
+              {byGroup.map((g) => (
+                <div key={g.slug} className="mt-2">
+                  <p className={`rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-900 ${GROUP_STYLE[g.slug].band}`}>{g.label}</p>
+                  {g.items.map((it) => (
+                    <p key={it.id} className={`flex items-center gap-2 px-2 py-1.5 text-[15px] ${GROUP_STYLE[g.slug].row} ${it.producedAt ? "line-through text-neutral-500" : "text-neutral-900"}`}>
+                      <span className="font-extrabold min-w-[2.2rem]">{it.quantity}×</span>
+                      <span className="flex-1 min-w-0 break-words">{it.name}</span>
+                      {it.producedAt && <span className="no-underline text-emerald-700 font-bold">✓</span>}
+                    </p>
+                  ))}
+                </div>
+              ))}
+              <Link
+                href={`/rizeni-firmy/vyroba/${o.id}`}
+                className="mt-3 block text-center rounded-xl bg-begina-primary-900 text-begina-primary-50 py-3 text-[15px] font-medium"
+              >
+                Otevřít kartu a odškrtat ({o.producedCount}/{o.items.length})
+              </Link>
+            </div>
+          );
+        })}
+
+        <details className="bg-white border border-neutral-200 rounded-xl p-3">
+          <summary className="text-sm font-semibold text-neutral-900">Celkem k výrobě (všichni klienti)</summary>
+          {groups.map((g) => (
+            <div key={g.slug} className="mt-2">
+              <p className={`rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-900 ${GROUP_STYLE[g.slug].band}`}>{g.label}</p>
+              {g.rows.map((r) => (
+                <p key={r.name} className={`flex justify-between gap-2 px-2 py-1.5 text-[15px] text-neutral-900 ${GROUP_STYLE[g.slug].row}`}>
+                  <span className="min-w-0 break-words">{r.name}</span>
+                  <span className="font-extrabold whitespace-nowrap">{r.total} ks</span>
+                </p>
+              ))}
+            </div>
+          ))}
+        </details>
       </div>
 
-      <h2 className="text-sm font-medium text-begina-primary-900 mt-5 mb-2">Klienti k výrobě</h2>
-      <div className="flex flex-col gap-2">
+      {/* Počítač: seznam klientů s tlačítkem na kartu */}
+      <h2 className="hidden sm:block text-sm font-medium text-begina-primary-900 mt-5 mb-2">Klienti k výrobě</h2>
+      <div className="hidden sm:flex flex-col gap-2">
         {orders.map((o) => (
           <Link
             key={o.id}
@@ -168,6 +211,23 @@ export default function ProductionSummary({ orders }: { orders: ProductionOrder[
           </Link>
         ))}
       </div>
+
+      {awaiting.length > 0 && (
+        <div className="mt-5 bg-neutral-100 border border-neutral-200 rounded-xl p-3">
+          <p className="text-sm font-semibold text-neutral-800">Čeká na zaplacení — do výroby přijde až po platbě ({awaiting.length})</p>
+          <ul className="mt-1 text-sm text-neutral-700">
+            {awaiting.map((a) => (
+              <li key={a.id}>
+                <Link href={`/rizeni-firmy/objednavky/${a.id}`} className="underline">
+                  {a.orderNumber !== null ? `${formatOrderNumber(a.orderNumber)} ` : ""}
+                  {a.customer}
+                </Link>{" "}
+                · {a.totalKc.toLocaleString("cs-CZ")} Kč · {a.paymentMethod ?? "platba"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
