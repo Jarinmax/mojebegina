@@ -323,7 +323,7 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
     const ORG = "00000000-0000-4000-8000-00000000b0b0";
     const LEAD = "00000000-0000-4000-8000-00000000b0b1";
     await db.execute(sql.raw(`INSERT INTO organizations (id, ico, name, registered_address, dic) VALUES ('${ORG}', '13579258', 'Lenka Kermes', 'Šárecká 1928/28, 160 00 Praha 6 – Dejvice', 'CZ7261251184')`));
-    await db.execute(sql.raw(`INSERT INTO leads (id, source, company_name, contact_name, city, stage) VALUES ('${LEAD}', 'akce', 'Marek Baroš', 'Marek Baroš', 'Praha', 'interested')`));
+    await db.execute(sql.raw(`INSERT INTO leads (id, source, company_name, contact_name, contact_email, contact_phone, city, stage) VALUES ('${LEAD}', 'akce', 'Marek Baroš', 'Marek Baroš', 'Marek.Baros@example.cz', '+420 725 156 602', 'Praha', 'interested')`));
 
     expect(listed(other)).not.toContain("update_customer");
     expect(await call(other, "update_customer", { customer_id: ORG, name: "Marek Baroš", idempotency_key: randomUUID() })).toMatchObject({ isError: true });
@@ -352,9 +352,14 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
     const found = await call(lucieRead, "search_mojebegina", { query: "Kermes", domains: ["customers"] });
     expect(found.data.customers.data).toEqual([expect.objectContaining({ id: ORG, name: "Marek Baroš" })]);
 
-    const prepared = await call(lucie, "prepare_b2b_invoice", { customer_ico: "13579258", items: [{ name: "Zázvorový sirup – 3 l", quantity: 1, unit_price_kc: 499 }], payment_method: "cash", paid: true });
-    expect(prepared.isError, prepared.text).toBe(false);
-    expect(prepared.data.customer).toMatchObject({ status: "new", name: "Lenka Kermes", ico: "13579258", street: "Šárecká 1928/28", zip: "16000" });
+    const args = { customer_ico: "13579258", items: [{ name: "Zázvorový sirup – 3 l", quantity: 1, unit_price_kc: 499 }], payment_method: "cash", paid: true, order_number: "70000019" };
+    const { prepared, issued } = await issue(lucie, args);
+    expect(prepared.data.customer).toMatchObject({ status: "new", name: "Lenka Kermes", ico: "13579258", street: "Šárecká 1928/28", zip: "16000", email: "marek.baros@example.cz", phone: "+420 725 156 602" });
+    expect(issued.isError, issued.text).toBe(false);
+    // kontakt v iDokladu: fakturační jméno majitele IČO + e-mail a telefon člověka, se kterým obchodujeme
+    expect(store.calls.find((c) => c.method === "POST" && c.path === "/Contacts")!.body).toMatchObject({ CompanyName: "Lenka Kermes", Email: "marek.baros@example.cz", Phone: "+420 725 156 602" });
+    // uhrazená faktura: text „uhrazeno“ místo výchozího textu o prodlení; popis se doplní (iDoklad ho vyžaduje)
+    expect(store.calls.find((c) => c.method === "POST" && c.path === "/IssuedInvoices")!.body).toMatchObject({ ItemsTextSuffix: "Faktura je již uhrazena – neplaťte.", Description: "Objednávka 70000019" });
   });
 });
 
