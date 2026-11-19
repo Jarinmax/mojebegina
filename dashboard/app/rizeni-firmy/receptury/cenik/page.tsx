@@ -3,6 +3,8 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { formatUnitPrice, isOfferInUse, lowestRegularUnitPriceKc, offerUnitPriceKc, priceUnitLabel, type PriceUnit, type RecipeIngredient, type RecipeOffer } from "@/lib/receptury/recipes";
 import { loadOffers, loadRecipes, offerTableExists, recipeTablesExist } from "@/lib/receptury/recipesServer";
+import Link from "next/link";
+import { INGREDIENT_GROUPS, ingredientGroupKey } from "@/lib/receptury/ingredientGroups";
 import OfferForm from "./OfferForm";
 import OfferRow, { type OfferView } from "./OfferRow";
 import PriceRow from "./PriceRow";
@@ -37,7 +39,9 @@ function offerView(offer: RecipeOffer, priceKc: number | null, lowest: number | 
 
 const emptyOffer = (ingredientId: string | null) => ({ ingredientId, itemName: "", url: null, packLabel: "", packQty: "", priceKc: "", shippingKc: "0", isPromo: false, note: null });
 
-export default async function CenikSurovinPage() {
+export default async function CenikSurovinPage({ searchParams }: { searchParams: Promise<{ skupina?: string | string[] }> }) {
+  const sp = await searchParams;
+  const groupParam = Array.isArray(sp.skupina) ? sp.skupina[0] : sp.skupina;
   const ctx = await getAuthContext();
   if (!ctx || !isInvoiceIssuer(ctx)) notFound();
   if (!(await recipeTablesExist())) notFound();
@@ -73,14 +77,15 @@ export default async function CenikSurovinPage() {
     );
   };
 
-  const section = (title: string, rows: RecipeIngredient[], withUsage: boolean) => (
-    <section className="mt-6">
-      <h2 className="text-sm font-medium text-begina-primary-900 mb-2">{title}</h2>
-      <div className="bg-white border border-neutral-200 rounded-xl">{rows.map((row) => card(row, withUsage))}</div>
-    </section>
-  );
-
   const other = offers.filter((offer) => offer.ingredientId === null);
+  const sortCz = (rows: RecipeIngredient[]) => [...rows].sort((x, y) => x.name.localeCompare(y.name, "cs"));
+  const groups = INGREDIENT_GROUPS.map((g) => {
+    const rows = g.key === "mimo" ? [] : sortCz(ingredients.filter((item) => ingredientGroupKey(item.name, item.kind) === g.key));
+    const count = g.key === "mimo" ? other.length : rows.length;
+    return { ...g, rows, count };
+  }).filter((g) => (g.key === "mimo" ? hasOffers : g.count > 0));
+  const active = groups.find((g) => g.key === groupParam) ?? null;
+  const countLabel = (n: number) => `${n} ${n === 1 ? "položka" : n >= 2 && n <= 4 ? "položky" : "položek"}`;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
@@ -89,22 +94,59 @@ export default async function CenikSurovinPage() {
         Cena v ceníku platí pro všechny receptury — po uložení se náklady a marže přepočítají všude, kde se surovina nebo obal používá. Pod každou položkou jsou nabídky dodavatelů s odkazem na nákup; cena za jednotku je včetně dopravy. Zeleně je nabídka, podle které se dnes počítá; tlačítkem „Počítat touto cenou“ ji změníte.
       </p>
       {!hasOffers && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Nabídky dodavatelů ještě nejsou v databázi — je potřeba spustit v Neonu skript 128_nakupy_surovin_MAIN.</p>}
-      {section("Obaly a etikety", ingredients.filter((item) => item.kind === "obal"), false)}
-      {section("Suroviny", ingredients.filter((item) => item.kind === "surovina"), true)}
-      {hasOffers && (
-        <section className="mt-6">
-          <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Ostatní nákupy (mimo receptury)</h2>
-          <div className="bg-white border border-neutral-200 rounded-xl px-3 py-3">
-            {other.length > 0 && (
-              <ul className="rounded-lg border border-neutral-100">
-                {other.map((offer) => (
-                  <OfferRow key={offer.id} offer={offerView(offer, null, null)} unitLabel="Kč/jedn." canUse={false} />
-                ))}
-              </ul>
-            )}
-            <div className="mt-1"><OfferForm values={emptyOffer(null)} label="+ Přidat nákup" /></div>
+      {/* 19. 11. 2026 (Lucie): nejdřív skupina, pak jen její položky — na mobilu bez nekonečného scrollování. */}
+      {!active ? (
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {groups.map((g) => (
+            <Link
+              key={g.key}
+              href={`/rizeni-firmy/receptury/cenik?skupina=${g.key}`}
+              className="flex flex-col justify-center min-h-20 rounded-xl border border-neutral-200 bg-white px-4 py-3 hover:border-begina-primary-900"
+            >
+              <span className="text-base font-medium text-begina-primary-900">{g.label}</span>
+              <span className="mt-0.5 text-xs text-neutral-500">{countLabel(g.count)}</span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Link href="/rizeni-firmy/receptury/cenik" className="px-3 py-1.5 rounded-full text-sm font-medium border bg-white text-neutral-600 border-neutral-300">
+              ← Všechny skupiny
+            </Link>
+            {groups.map((g) => (
+              <Link
+                key={g.key}
+                href={`/rizeni-firmy/receptury/cenik?skupina=${g.key}`}
+                className={
+                  "px-3 py-1.5 rounded-full text-sm font-medium border " +
+                  (g.key === active.key
+                    ? "bg-begina-primary-900 text-white border-begina-primary-900"
+                    : "bg-white text-begina-primary-900 border-neutral-300 hover:border-begina-primary-900")
+                }
+              >
+                {g.label}
+              </Link>
+            ))}
           </div>
-        </section>
+          <section className="mt-5">
+            <h2 className="text-sm font-medium text-begina-primary-900 mb-2">{active.label}</h2>
+            {active.key === "mimo" ? (
+              <div className="bg-white border border-neutral-200 rounded-xl px-3 py-3">
+                {other.length > 0 && (
+                  <ul className="rounded-lg border border-neutral-100">
+                    {other.map((offer) => (
+                      <OfferRow key={offer.id} offer={offerView(offer, null, null)} unitLabel="Kč/jedn." canUse={false} />
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-1"><OfferForm values={emptyOffer(null)} label="+ Přidat nákup" /></div>
+              </div>
+            ) : (
+              <div className="bg-white border border-neutral-200 rounded-xl">{active.rows.map((row) => card(row, row.kind !== "obal"))}</div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );
