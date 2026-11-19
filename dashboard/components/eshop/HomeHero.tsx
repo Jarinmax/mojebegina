@@ -29,11 +29,11 @@ import ShopLink from "./ShopLink";
 // Fotografie se nikdy neořezává ani nedeformuje (vždy celá v původním poměru).
 // Její pozadí je přímo v obrázku přebarvené na béžovou úvodu (#FAF6EF), bez
 // rámečku a stínu — splývá s podkladem (9. 11. 2026).
-// v11 (19. 11. 2026): jemně vyhlazená a doostřená, posílá se v kvalitě 90 (bez čtverečků).
+// v12 (19. 11. 2026): nová čistá fotka z ChatGPT (hladká miska, čisté sklo), pozadí doladěné na #FAF6EF, posílá se v kvalitě 90.
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-napoje-v11.webp",
+  src: "/eshop/hero/polevka-a-napoje-v12.webp",
   width: 1422,
   height: 1106,
   alt: "Dýňová polévka v misce, koktejl Lady Carneval s grepem, horký Svařák Deluxe a skleněný hrnek horkého čaje s citronem",
