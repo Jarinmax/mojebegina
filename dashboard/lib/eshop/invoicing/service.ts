@@ -83,7 +83,8 @@ async function loadInputs(db: Db, orderId: string) {
     ? await db
         .select({
           id: organizations.id,
-          name: organizations.name,
+          // fakturační jméno, když se liší od názvu karty zákazníka (migrace 0056)
+          name: sql<string>`COALESCE(NULLIF(btrim(${organizations.billingName}), ''), ${organizations.name})`,
           ico: organizations.ico,
           dic: organizations.dic,
           registeredAddress: organizations.registeredAddress,

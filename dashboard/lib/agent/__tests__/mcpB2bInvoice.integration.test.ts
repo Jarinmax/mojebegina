@@ -318,6 +318,44 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
     const [audit] = await rows(sql`SELECT status, error FROM agent_audit_log WHERE tool = 'issue_b2b_invoice' ORDER BY created_at DESC LIMIT 1`);
     expect(audit).toMatchObject({ status: "error", error: expect.stringMatching(/PaymentOptionId: Pole je povinné/) });
   });
+
+  it("karta „Marek Baroš“ s fakturačním jménem: update_customer přejmenuje kartu, připojí lead, faktura jde na majitele IČO", async () => {
+    const ORG = "00000000-0000-4000-8000-00000000b0b0";
+    const LEAD = "00000000-0000-4000-8000-00000000b0b1";
+    await db.execute(sql.raw(`INSERT INTO organizations (id, ico, name, registered_address, dic) VALUES ('${ORG}', '13579258', 'Lenka Kermes', 'Šárecká 1928/28, 160 00 Praha 6 – Dejvice', 'CZ7261251184')`));
+    await db.execute(sql.raw(`INSERT INTO leads (id, source, company_name, contact_name, city, stage) VALUES ('${LEAD}', 'akce', 'Marek Baroš', 'Marek Baroš', 'Praha', 'interested')`));
+
+    expect(listed(other)).not.toContain("update_customer");
+    expect(await call(other, "update_customer", { customer_id: ORG, name: "Marek Baroš", idempotency_key: randomUUID() })).toMatchObject({ isError: true });
+    expect(listed(lucieRead)).toContain("update_customer");
+
+    const updated = await call(lucieRead, "update_customer", { customer_id: ORG, name: "Marek Baroš", lead_id: LEAD, idempotency_key: randomUUID() });
+    expect(updated.isError, updated.text).toBe(false);
+    expect(updated.data).toMatchObject({
+      saved: true,
+      changed: ["name", "billing_name", "lead"],
+      customer: { name: "Marek Baroš", billingName: "Lenka Kermes", invoiceName: "Lenka Kermes", ico: "13579258" },
+      linkedLead: { id: LEAD },
+    });
+    const [org] = await rows(sql`SELECT name, billing_name FROM organizations WHERE id = ${ORG}`);
+    expect(org).toEqual({ name: "Marek Baroš", billing_name: "Lenka Kermes" });
+    const [lead] = await rows(sql`SELECT stage, converted_organization_id FROM leads WHERE id = ${LEAD}`);
+    expect(lead).toEqual({ stage: "converted", converted_organization_id: ORG });
+    const [activity] = await rows(sql`SELECT kind, body FROM organization_activity WHERE organization_id = ${ORG} AND kind = 'customer_updated'`);
+    expect(String(activity.body)).toMatch(/Název karty: „Lenka Kermes“ → „Marek Baroš“/);
+
+    // jinou kartu k už připojenému leadu nepřipojí
+    expect(await call(lucieRead, "update_customer", { customer_id: ORG_KAVARNA, lead_id: LEAD, idempotency_key: randomUUID() })).toMatchObject({ isError: true, text: expect.stringMatching(/jiné kartě/) });
+
+    const detail = await call(lucieRead, "get_customer", { customer_id: ORG });
+    expect(detail.data.customer).toMatchObject({ name: "Marek Baroš", billingName: "Lenka Kermes", invoiceName: "Lenka Kermes" });
+    const found = await call(lucieRead, "search_mojebegina", { query: "Kermes", domains: ["customers"] });
+    expect(found.data.customers.data).toEqual([expect.objectContaining({ id: ORG, name: "Marek Baroš" })]);
+
+    const prepared = await call(lucie, "prepare_b2b_invoice", { customer_ico: "13579258", items: [{ name: "Zázvorový sirup – 3 l", quantity: 1, unit_price_kc: 499 }], payment_method: "cash", paid: true });
+    expect(prepared.isError, prepared.text).toBe(false);
+    expect(prepared.data.customer).toMatchObject({ status: "new", name: "Lenka Kermes", ico: "13579258", street: "Šárecká 1928/28", zip: "16000" });
+  });
 });
 
 describe("pojistky řad v klientovi iDokladu", () => {

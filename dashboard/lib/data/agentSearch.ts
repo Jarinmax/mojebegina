@@ -40,7 +40,8 @@ export async function searchOrders(query: string) {
         ilike(orders.contactEmail, pattern),
         ilike(orders.contactPhone, pattern),
         ilike(orders.recipientName, pattern),
-        ilike(organizations.name, pattern)
+        ilike(organizations.name, pattern),
+        ilike(organizations.billingName, pattern)
       )
     )
     .orderBy(desc(orders.orderedAt))

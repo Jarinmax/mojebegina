@@ -72,9 +72,11 @@ function splitAddress(raw: string | null): { street: string | null; zip: string 
 }
 
 async function findPartner(db: Db, client: EshopIdokladClient, ico: string): Promise<{ partner: B2bPartner; organization: B2bPreview["organization"]; problem: string | null }> {
-  const [org] = (await db.execute(sql`SELECT id, name, registered_address, dic FROM organizations WHERE ico = ${ico}`)).rows as {
+  // name = název karty zákazníka (např. „Marek Baroš“); na fakturu jde fakturační jméno (billing_name), když je vyplněné
+  const [org] = (await db.execute(sql`SELECT id, name, COALESCE(NULLIF(btrim(billing_name), ''), name) AS billing_name, registered_address, dic FROM organizations WHERE ico = ${ico}`)).rows as {
     id: string;
     name: string;
+    billing_name: string;
     registered_address: string;
     dic: string | null;
   }[];
@@ -85,10 +87,10 @@ async function findPartner(db: Db, client: EshopIdokladClient, ico: string): Pro
   if (found.length > 1) {
     return { partner: { status: "missing" }, organization, problem: `V iDokladu je víc kontaktů s IČO ${ico} (${found.map((c) => c.Id).join(", ")}) — sjednoťte je v iDokladu.` };
   }
-  if (found.length === 1) return { partner: { status: "existing", idokladId: found[0].Id, name: found[0].CompanyName?.trim() || org?.name || ico }, organization, problem: null };
+  if (found.length === 1) return { partner: { status: "existing", idokladId: found[0].Id, name: found[0].CompanyName?.trim() || org?.billing_name || ico }, organization, problem: null };
   if (org) {
     const address = splitAddress(org.registered_address);
-    return { partner: { status: "new", name: org.name, ico, dic: org.dic, ...address }, organization, problem: null };
+    return { partner: { status: "new", name: org.billing_name, ico, dic: org.dic, ...address }, organization, problem: null };
   }
   return {
     partner: { status: "missing" },
