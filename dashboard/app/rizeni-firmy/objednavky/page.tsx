@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listOrders } from "@/lib/data/orders";
 import OrderCard from "./OrderCard";
+import { GROUP_META, groupOrders } from "./orderGroups";
 import OrderSummaryTiles from "./OrderSummaryTiles";
 
 // Security Phase 15 (Objednávky 1.0) — provozní seznam objednávek.
@@ -90,9 +91,18 @@ export default async function OrdersPage(props: PageProps<"/rizeni-firmy/objedna
           {orders.length === 0 ? "Zatím žádná objednávka." : showCancelled ? "Žádná zrušená objednávka." : "V tomto filtru žádná objednávka."}
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {visibleOrders.map((order) => (
-            <OrderCard key={order.id} order={order} />
+        <div className="flex flex-col gap-5">
+          {groupOrders(visibleOrders).map(({ group, orders: list }) => (
+            <section key={group}>
+              <h2 className={`text-sm font-semibold mb-2 ${GROUP_META[group].heading}`}>
+                {GROUP_META[group].title} ({list.length})
+              </h2>
+              <div className="flex flex-col gap-2">
+                {list.map((order) => (
+                  <OrderCard key={order.id} order={order} tone={GROUP_META[group].card} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

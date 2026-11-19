@@ -5,11 +5,11 @@ import type { OrderCardData } from "@/lib/data/orders";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import CancelledMoneyBadge from "./CancelledMoneyBadge";
 
-export default function OrderCard({ order }: { order: OrderCardData }) {
+export default function OrderCard({ order, tone }: { order: OrderCardData; tone?: string }) {
   return (
     <Link
       href={`/rizeni-firmy/objednavky/${order.id}`}
-      className="block bg-white border border-neutral-200 rounded-xl p-4 hover:border-begina-primary-300 transition-colors"
+      className={`block border rounded-xl p-4 hover:border-begina-primary-300 transition-colors ${tone ?? "bg-white border-neutral-200"}`}
     >
       <div className="flex items-start justify-between gap-3 mb-1">
         <p className="text-sm font-medium text-begina-primary-900">
