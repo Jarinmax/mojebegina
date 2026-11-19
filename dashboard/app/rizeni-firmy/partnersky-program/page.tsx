@@ -33,7 +33,8 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
     percent: client.percent,
     individual: state.individual[client.key] ?? null,
     // 19. 11. 2026 (Lucie): neschválený měsíc → návrh oslovení ze jména (s titulem, když ho zákazník uvedl).
-    salutation: state.salutations[client.key] ?? (state.approvedAt ? "" : suggestSalutation(client.personName)),
+    // Neschválený měsíc: dřív schválené oslovení klienta, jinak návrh ze jména.
+    salutation: state.salutations[client.key] ?? (state.approvedAt ? "" : overview.rememberedSalutations[client.key] ?? suggestSalutation(client.personName)),
     optedOut: client.emails.length > 0 && client.emails.every((email) => optOuts.has(email)),
     sent: client.emails.some((email) => sent.has(email)),
   }));

@@ -161,12 +161,31 @@ export type PartnerMonthOverview = {
   clients: PartnerClient[];
   state: PartnerMonthState;
   optOuts: string[];
+  /** Naposledy schválené oslovení klienta z předchozích měsíců (19. 11. 2026, Lucie). */
+  rememberedSalutations: Record<string, string>;
 };
+
+/** Projde stavy až 12 předchozích měsíců; novější schválené oslovení má přednost. */
+export async function loadRememberedSalutations<T extends PgQueryResultHKT>(db: AnyDb<T>, validMonth: YearMonth, months = 12): Promise<Record<string, string>> {
+  const earlier = await Promise.all(Array.from({ length: months }, (_, i) => loadPartnerMonthState(db, addMonths(validMonth, -(i + 1)))));
+  const remembered: Record<string, string> = {};
+  for (const state of earlier) {
+    for (const [key, value] of Object.entries(state.salutations ?? {})) {
+      if (value && !(key in remembered)) remembered[key] = value;
+    }
+  }
+  return remembered;
+}
 
 export async function loadPartnerMonthOverview<T extends PgQueryResultHKT>(db: AnyDb<T>, evaluatedMonth: YearMonth): Promise<PartnerMonthOverview> {
   const validMonth = addMonths(evaluatedMonth, 1);
-  const [rows, state, optOuts] = await Promise.all([loadPartnerMonthRows(db, evaluatedMonth), loadPartnerMonthState(db, validMonth), loadPartnerOptOuts(db)]);
-  return { evaluatedMonth, validMonth, clients: evaluatePartnerMonth(rows), state, optOuts };
+  const [rows, state, optOuts, rememberedSalutations] = await Promise.all([
+    loadPartnerMonthRows(db, evaluatedMonth),
+    loadPartnerMonthState(db, validMonth),
+    loadPartnerOptOuts(db),
+    loadRememberedSalutations(db, validMonth),
+  ]);
+  return { evaluatedMonth, validMonth, clients: evaluatePartnerMonth(rows), state, optOuts, rememberedSalutations };
 }
 
 /** Schválení (Lucie): uloží individuální procenta a oslovení. Klientům nic neodchází. */
