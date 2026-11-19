@@ -41,6 +41,10 @@ import { db } from "@/lib/db/client";
 import { orderIdsForInvoiceNumber, recordInvoiceEmailed } from "@/lib/eshop/invoiceSentFlag";
 import { fetchFioTransactions } from "@/lib/eshop/fio";
 import { PARTNER_EMAIL_SIGNATURE } from "@/lib/eshop/partnerMonthly";
+import { loadPartnerOptOuts } from "@/lib/eshop/partnerMonthlyServer";
+import { PARTNER_INTRO_TEXT } from "@/lib/eshop/email/templates";
+import { eshopAbsoluteUrl } from "@/lib/eshop/paths";
+import { sql } from "drizzle-orm";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
 import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS } from "@/lib/idoklad-read/recipients";
 import type { InvoicePdfFile } from "@/lib/idoklad-read/service";
@@ -53,6 +57,35 @@ import { idokladAgentTools } from "@/lib/idoklad-read/mcp";
 import { ArgError, optionalString, requiredString } from "../args";
 import { defineTool, type AgentTool } from "../define";
 import { orderUrl } from "./orders";
+
+/**
+ * Nový zákazník (Lucie 15. 11. / Jarin 19. 11. 2026): novým zákazníkům se
+ * k první faktuře vždy přidá představení partnerského programu — i u faktur
+ * mimo e-shop (B2B, prodej na ochutnávce). Nový = odběratel nemá v iDokladu
+ * jinou fakturu (podle IČO) a e-mail zákazníka nemá v MojeBegina víc než
+ * jednu nezrušenou objednávku; kdo odmítl obchodní sdělení, nic nedostane.
+ */
+async function isNewInvoiceCustomer(invoice: { id: number; partner: { ico: string | null } }, customerEmails: string[]): Promise<boolean> {
+  try {
+    if (customerEmails.length === 0) return false;
+    const optOuts = await loadPartnerOptOuts(db);
+    if (customerEmails.some((e) => optOuts.includes(e))) return false;
+    const ico = invoice.partner.ico;
+    if (ico) {
+      const read = await runIdokladRead("idoklad_search_invoices", { ico, limit: 5 }, "mcp:chatgpt");
+      if (!read.ok) return false;
+      const others = ((read.data.invoices ?? []) as { id: number }[]).filter((i) => i.id !== invoice.id);
+      if (others.length > 0) return false;
+    }
+    const rows = (await db.execute(sql`
+      SELECT count(*)::int AS n FROM orders
+       WHERE fulfillment_status <> 'cancelled' AND lower(btrim(contact_email)) IN (${sql.join(customerEmails.map((e) => sql`${e}`), sql`, `)})`)).rows as { n: number }[];
+    return (rows[0]?.n ?? 0) <= 1;
+  } catch (error) {
+    console.error("Faktura: nepodařilo se ověřit nového zákazníka", error instanceof Error ? error.message.slice(0, 200) : error);
+    return false;
+  }
+}
 
 export const PREVIEW_TOKEN_MINUTES = 30;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -330,6 +363,10 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       if (!check.ok) return check;
 
       const resolved = resolveRecipients(check.to, config);
+      const customerTo = check.to.filter((e) => check.reasons[e] === "customer");
+      const partnerIntro = await isNewInvoiceCustomer(pdf.invoice, customerTo);
+      const partnerUrl = eshopAbsoluteUrl(await appOrigin(), "/partnersky-program");
+      const partnerText = partnerIntro ? `${PARTNER_INTRO_TEXT} ${partnerUrl}` : "";
       const test = config.testRecipients !== null;
       const invoiceNumber = pdf.invoice.number;
       const intro = message?.trim() || "Dobrý den,";
@@ -338,9 +375,9 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       const testNote = test && resolved.withheld.length ? `\n\n[TEST] Určeno pro: ${resolved.withheld.join(", ")}` : "";
       // Podpis jako v poště info@begina.cz (Lucie 15. 11. 2026).
       const [team, ...contacts] = PARTNER_EMAIL_SIGNATURE;
-      const text = `${intro}\n\n${body ? `${body}\n\n` : ""}S přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}${testNote}`;
+      const text = `${intro}\n\n${body ? `${body}\n\n` : ""}${partnerText ? `${partnerText}\n\n` : ""}S přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}${testNote}`;
       const paragraphs = intro.split(/\n{2,}/).map((part) => `<p>${escapeHtml(part).replace(/\n/g, "<br>")}</p>`).join("");
-      const html = `${paragraphs}${body ? `<p>${escapeHtml(body)}</p>` : ""}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(team)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
+      const html = `${paragraphs}${body ? `<p>${escapeHtml(body)}</p>` : ""}${partnerIntro ? `<p>${escapeHtml(PARTNER_INTRO_TEXT)} <a href="${escapeHtml(partnerUrl)}">${escapeHtml(partnerUrl)}</a></p>` : ""}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(team)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
       const key = createHash("sha256").update(`${pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
       // odesílatel info@begina.cz, skrytá kopie Begině (info@begina.cz)
       const sender = invoiceEmailSender(config);
@@ -380,6 +417,7 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
           from: sender.from,
           withheldInTestMode: resolved.withheld,
           recipientKinds: check.reasons,
+          partnerProgramIntro: partnerIntro,
           messageId: sent.id,
           message: `PDF faktury ${invoiceNumber} je odeslané z ${sender.from} na ${resolved.to.join(", ")}${bcc.length ? ` (skrytá kopie ${bcc.join(", ")})` : ""}.`,
         },
