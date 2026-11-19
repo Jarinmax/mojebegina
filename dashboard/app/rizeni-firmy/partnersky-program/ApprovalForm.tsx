@@ -95,7 +95,7 @@ export default function ApprovalForm({ month, rows }: { month: string; rows: App
                   <input
                     name={`salut:${row.key}`}
                     defaultValue={row.salutation}
-                    placeholder="paní Nováková"
+                    placeholder="bez oslovení"
                     aria-label={`Oslovení – ${row.name}`}
                     className="w-full min-w-0 border border-neutral-300 rounded px-2 py-1"
                   />

@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { addMonths, buildPartnerEmail, monthKey, monthName, parseMonthKey } from "@/lib/eshop/partnerMonthly";
 import { loadPartnerMonthOverview, pragueYearMonth } from "@/lib/eshop/partnerMonthlyServer";
 import ApprovalForm, { type ApprovalRow } from "./ApprovalForm";
+import { suggestSalutation } from "@/lib/eshop/salutation";
 
 // Partnerský program — měsíční vyhodnocení a schválení (15. 11. 2026).
 // Autorizaci (ADMIN/EXECUTIVE) řeší app/rizeni-firmy/layout.tsx, akce si ji
@@ -31,7 +32,8 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
     tierLabel: client.tierLabel,
     percent: client.percent,
     individual: state.individual[client.key] ?? null,
-    salutation: state.salutations[client.key] ?? "",
+    // 19. 11. 2026 (Lucie): neschválený měsíc → návrh oslovení ze jména (s titulem, když ho zákazník uvedl).
+    salutation: state.salutations[client.key] ?? (state.approvedAt ? "" : suggestSalutation(client.personName)),
     optedOut: client.emails.length > 0 && client.emails.every((email) => optOuts.has(email)),
     sent: client.emails.some((email) => sent.has(email)),
   }));
