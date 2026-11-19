@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
-import { IDOKLAD_ENUMS, idokladDate, type ItemPricing } from "./idoklad";
+import { IDOKLAD_ENUMS, INVOICE_PAID_TEXT, idokladDate, type ItemPricing } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter } from "./idokladHttp";
 import { ESHOP_SERIES, eshopIdokladCredentials, liveInvoicingGate } from "./mode";
 import { B2B_NUMBER_RE, preflightFailureSummary, runIdokladPreflight, type PreflightResolved } from "./preflight";
@@ -36,7 +36,7 @@ export function b2bSeriesId(env: Env = process.env): string | null {
 
 export type B2bPartner =
   | { status: "existing"; idokladId: number; name: string }
-  | { status: "new"; name: string; ico: string; dic: string | null; street: string | null; city: string | null; zip: string | null }
+  | { status: "new"; name: string; ico: string; dic: string | null; street: string | null; city: string | null; zip: string | null; email: string | null; phone: string | null }
   | { status: "missing" };
 
 export type B2bExistingInvoice = { idokladId: number; number: string; totalKc: number | null; dateOfIssue: string | null };
@@ -71,6 +71,24 @@ function splitAddress(raw: string | null): { street: string | null; zip: string 
   return m ? { street: m[1].trim(), zip: `${m[2]}${m[3]}`, city: m[4].trim() } : { street: raw.trim(), zip: null, city: null };
 }
 
+/**
+ * E-mail a telefon člověka, se kterým obchodujeme (Jarin 19. 11. 2026: do
+ * kontaktu v iDokladu se mají doplňovat vždy). Zdroj jen MojeBegina: kontakt
+ * z poslední objednávky na kartu, jinak z leadu připojeného ke kartě.
+ */
+async function cardContact(db: Db, organizationId: string): Promise<{ email: string | null; phone: string | null }> {
+  const rows = (await db.execute(sql`
+    SELECT email, phone FROM (
+      SELECT contact_email AS email, contact_phone AS phone, ordered_at AS at, 0 AS pref FROM orders
+       WHERE buyer_organization_id = ${organizationId} AND fulfillment_status <> 'cancelled'
+      UNION ALL
+      SELECT contact_email, contact_phone, updated_at, 1 FROM leads WHERE converted_organization_id = ${organizationId}
+    ) c ORDER BY pref, at DESC`)).rows as { email: string | null; phone: string | null }[];
+  const email = rows.map((r) => r.email?.trim().toLowerCase() ?? "").find((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) ?? null;
+  const phone = rows.map((r) => r.phone?.trim() ?? "").find((p) => p.replace(/\D/g, "").length >= 9) ?? null;
+  return { email, phone };
+}
+
 async function findPartner(db: Db, client: EshopIdokladClient, ico: string): Promise<{ partner: B2bPartner; organization: B2bPreview["organization"]; problem: string | null }> {
   // name = název karty zákazníka (např. „Marek Baroš“); na fakturu jde fakturační jméno (billing_name), když je vyplněné
   const [org] = (await db.execute(sql`SELECT id, name, COALESCE(NULLIF(btrim(billing_name), ''), name) AS billing_name, registered_address, dic FROM organizations WHERE ico = ${ico}`)).rows as {
@@ -90,7 +108,8 @@ async function findPartner(db: Db, client: EshopIdokladClient, ico: string): Pro
   if (found.length === 1) return { partner: { status: "existing", idokladId: found[0].Id, name: found[0].CompanyName?.trim() || org?.billing_name || ico }, organization, problem: null };
   if (org) {
     const address = splitAddress(org.registered_address);
-    return { partner: { status: "new", name: org.billing_name, ico, dic: org.dic, ...address }, organization, problem: null };
+    const contact = await cardContact(db, org.id);
+    return { partner: { status: "new", name: org.billing_name, ico, dic: org.dic, ...address, ...contact }, organization, problem: null };
   }
   return {
     partner: { status: "missing" },
@@ -163,6 +182,18 @@ export async function prepareB2bInvoice(db: Db, value: B2bInvoiceInput, deps: De
   };
 }
 
+/**
+ * Text pod položkami. Uhrazená faktura (např. hotově na místě) vždy nese
+ * „Faktura je již uhrazena – neplaťte.“ místo výchozího textu iDokladu
+ * o úroku z prodlení (Jarin 19. 11. 2026, faktura 20260214).
+ */
+export function itemsTextSuffix(value: Pick<B2bInvoiceInput, "note" | "paid">): string | null {
+  const note = value.note?.trim() || null;
+  if (!value.paid) return note;
+  if (note && /uhrazen/i.test(note)) return note;
+  return note ? `${INVOICE_PAID_TEXT}\n${note}` : INVOICE_PAID_TEXT;
+}
+
 function invoiceBody(value: B2bInvoiceInput, partnerId: number, resolved: PreflightResolved): Record<string, unknown> {
   const fromDefaults: Record<string, unknown> = {};
   for (const key of ["AccountNumber", "BankId", "Iban", "Swift", "ConstantSymbolId", "IsIncomeTax", "ItemsTextPrefix"]) {
@@ -182,11 +213,12 @@ function invoiceBody(value: B2bInvoiceInput, partnerId: number, resolved: Prefli
     CurrencyId: resolved.currencyId,
     PaymentOptionId: resolved.paymentOptionIds[value.paymentMethod],
     OrderNumber: value.orderNumber,
-    Description: value.description,
+    // iDoklad popis vyžaduje (400 „The Description field is required“, 19. 11. 2026)
+    Description: value.description || (value.orderNumber ? `Objednávka ${value.orderNumber}` : "Faktura"),
     DiscountPercentage: 0,
     IsEet: false,
     ReportLanguage: IDOKLAD_ENUMS.Language.Cz,
-    ItemsTextSuffix: value.note,
+    ItemsTextSuffix: itemsTextSuffix(value),
     Items: value.items.map((item) => ({
       Name: item.name,
       Amount: item.quantity,
@@ -271,6 +303,8 @@ export async function issueB2bInvoice(
         City: partner.city,
         PostalCode: partner.zip,
         CountryId: resolved.countryId,
+        ...(partner.email ? { Email: partner.email } : {}),
+        ...(partner.phone ? { Phone: partner.phone } : {}),
       });
     } catch (error) {
       const problem = idokladProblem(error);
