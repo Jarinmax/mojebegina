@@ -5,7 +5,7 @@ import { formatKc } from "@/lib/format";
 import { DispatchTile } from "../objednavky/DispatchChecks";
 import { shortPragueDate } from "../objednavky/dispatchText";
 import { FULFILLMENT_LABELS } from "@/lib/data/orderLabels";
-import { listProductionOrders } from "@/lib/data/productionBoard";
+import { listAwaitingPaymentOrders, listProductionOrders } from "@/lib/data/productionBoard";
 import ProductionSummary from "./ProductionSummary";
 
 // Výroba (Lucie 18. 11. 2026) — „K výrobě“: souhrnná výrobní tabulka
@@ -58,7 +58,7 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
   const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
   const tab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : "k-vyrobe";
 
-  const [{ orders }, production] = await Promise.all([listOrders(), listProductionOrders()]);
+  const [{ orders }, production, awaiting] = await Promise.all([listOrders(), listProductionOrders(), listAwaitingPaymentOrders()]);
   const active = orders.filter((o) => o.fulfillmentStatus !== "cancelled");
   const groups: Record<Exclude<TabKey, "k-vyrobe">, OrderCardData[]> = {
     "k-vyrizeni": active.filter((o) => !allDone(steps(o))),
@@ -89,7 +89,7 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
       </div>
 
       {tab === "k-vyrobe" ? (
-        <ProductionSummary orders={production} />
+        <ProductionSummary orders={production} awaiting={awaiting} />
       ) : visible.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
           {tab === "k-vyrizeni" ? "Vše vyřízeno — nic nečeká." : "Tady zatím nic není."}

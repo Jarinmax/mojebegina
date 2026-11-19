@@ -250,3 +250,32 @@ export async function setItemProduced(itemId: string, produced: boolean): Promis
   }
   return { ok: true };
 }
+
+export type AwaitingPaymentOrder = {
+  id: string;
+  orderNumber: number | null;
+  customer: string;
+  totalKc: number;
+  paymentMethod: string | null;
+};
+
+/** Nezaplacené nestornované objednávky — do výroby přijdou až po platbě. */
+export async function listAwaitingPaymentOrders(): Promise<AwaitingPaymentOrder[]> {
+  await requireOrderContext();
+  const rows = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      orgName: organizations.name,
+      billingCompany: orders.billingCompany,
+      recipientCompany: orders.recipientCompany,
+      contactName: orders.contactName,
+      totalKc: orders.totalKc,
+      paymentMethod: orders.paymentMethodLabel,
+    })
+    .from(orders)
+    .leftJoin(organizations, eq(organizations.id, orders.buyerOrganizationId))
+    .where(and(notInArray(orders.paymentStatus, ["paid"]), notInArray(orders.fulfillmentStatus, [...NOT_FOR_PRODUCTION]), isNull(orders.shippedAt)))
+    .orderBy(asc(orders.orderedAt));
+  return rows.map((r) => ({ id: r.id, orderNumber: r.orderNumber, customer: customerName(r), totalKc: r.totalKc, paymentMethod: r.paymentMethod }));
+}
