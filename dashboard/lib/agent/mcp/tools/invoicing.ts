@@ -38,7 +38,6 @@ import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 import { INVOICE_PAID_TEXT } from "@/lib/eshop/invoicing/idoklad";
 import { emailConfig, resolveRecipients, invoiceCopyRecipients, invoiceEmailSender } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
-import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { orderIdsForInvoiceNumber, recordInvoiceEmailed } from "@/lib/eshop/invoiceSentFlag";
 import { fetchFioTransactions } from "@/lib/eshop/fio";
