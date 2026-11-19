@@ -25,6 +25,10 @@ describe("Fio: čtení pohybů", () => {
       { id: "1", date: "2026-11-13", amountHal: 46600, currency: "CZK", vs: "70000013", counterparty: "Monika Chuda", message: "objednavka" },
       { id: "2", date: "2026-11-14", amountHal: 123450, currency: "CZK", vs: null, counterparty: "Monika Chuda", message: "objednavka" },
     ]);
+    const card = parseFioTransactions(statement([{ ...tx(3, "2026-11-18+0100", -512.37, null, ""), column8: col("Platba kartou", 8), column7: col("Nákup: VERCEL INC., COVINA, US", 7), column18: col("24.20 USD", 18) }]));
+    expect(card).toEqual([
+      { id: "3", date: "2026-11-18", amountHal: -51237, currency: "CZK", vs: null, counterparty: null, message: "objednavka", kind: "Platba kartou", ident: "Nákup: VERCEL INC., COVINA, US", detail: "24.20 USD" },
+    ]);
     expect(parseFioTransactions({})).toEqual([]);
     expect(parseFioTransactions({ accountStatement: { transactionList: null } })).toEqual([]);
   });

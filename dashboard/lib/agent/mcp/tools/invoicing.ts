@@ -724,14 +724,14 @@ const CORRECTION_TOOLS: AgentTool[] = [
 // Fio banka — příchozí platby na účtu (jen čtení, token „Pouze sledovat účet“).
 // Zadání Lucie 15. 11. 2026: asistent má umět sám ověřit, jestli klient už
 // zaplatil (dřív se muselo čekat, až se Jarin podívá do bankovnictví).
-// Jen pro vystavovatele faktur (Jaroslav, Lucie); odchozí platby nevrací.
+// Jen pro vystavovatele faktur (Jaroslav, Lucie). Odchozí platby: fio_outgoing_payments níže.
 const FIO_MAX_DAYS = 90;
 const FIO_TOOLS: AgentTool[] = [
   defineTool({
     name: "fio_incoming_payments",
     title: "Příchozí platby na účtu ve Fio",
     description:
-      "JEN ČTENÍ — příchozí platby na firemním účtu Begina ve Fio bance za posledních N dní (výchozí 31, nejvýš 90). Volitelně jen platby s danou částkou (amount_kc), variabilním symbolem nebo částí názvu protiúčtu. Vrací datum, částku, variabilní symbol, název protiúčtu a zprávu pro příjemce; odchozí platby ani zůstatek nevrací. Slouží k ověření, zda klient zaplatil fakturu. Údaje jsou důvěrné — nepředávej je mimo konverzaci s oprávněnou osobou. Fio dovoluje dotaz nejvýš jednou za 30 sekund.",
+      "JEN ČTENÍ — příchozí platby na firemním účtu Begina ve Fio bance za posledních N dní (výchozí 31, nejvýš 90). Volitelně jen platby s danou částkou (amount_kc), variabilním symbolem nebo částí názvu protiúčtu. Vrací datum, částku, variabilní symbol, název protiúčtu a zprávu pro příjemce; odchozí platby vrací fio_outgoing_payments, zůstatek nevrací. Slouží k ověření, zda klient zaplatil fakturu. Údaje jsou důvěrné — nepředávej je mimo konverzaci s oprávněnou osobou. Fio dovoluje dotaz nejvýš jednou za 30 sekund.",
     write: false,
     visible: issuerOnly,
     properties: {
@@ -781,5 +781,72 @@ const FIO_TOOLS: AgentTool[] = [
     },
   }),
 ];
+
+// Fio banka — odchozí platby z účtu (jen čtení, stejný token).
+// Zadání Lucie 19. 11. 2026: asistent má sám dohledat skutečnou částku v Kč
+// u plateb kartou v cizí měně (Vercel, Anthropic) a umět zkontrolovat, že
+// žádná platba z účtu nechybí v nákladech. Jen pro vystavovatele faktur.
+FIO_TOOLS.push(
+  defineTool({
+    name: "fio_outgoing_payments",
+    title: "Odchozí platby z účtu ve Fio",
+    description:
+      "JEN ČTENÍ — odchozí platby z firemního účtu Begina ve Fio bance (platby kartou, převody, inkasa) za posledních N dní (výchozí 31, nejvýš 90). Volitelně jen platby s danou částkou v Kč (amount_kc, kladné číslo) nebo s textem (text) v protiúčtu, identifikaci obchodníka, zprávě, upřesnění či komentáři — např. „vercel“. Vrací datum, částku v Kč (kladně), typ pohybu, obchodníka/protiúčet, zprávu a upřesnění (u plateb v cizí měně původní částka a měna, např. „24.20 USD“). Slouží k doplnění skutečné částky v Kč do nákladů a ke kontrole, že žádná platba v nákladech nechybí. Zůstatek nevrací. Údaje jsou důvěrné. Fio dovoluje dotaz nejvýš jednou za 30 sekund.",
+    write: false,
+    visible: issuerOnly,
+    properties: {
+      days: { type: "integer", minimum: 1, maximum: FIO_MAX_DAYS, description: "Kolik dní zpět hledat (výchozí 31)." },
+      amount_kc: { type: "number", description: "Jen platby přesně v této částce v Kč (kladné číslo, např. 512.37)." },
+      text: { type: "string", description: "Část textu v protiúčtu, obchodníkovi, zprávě, upřesnění nebo komentáři (bez ohledu na velikost písmen a diakritiku), např. „vercel“." },
+    },
+    required: [],
+    parse: (args) => {
+      const rawDays = args.days === undefined || args.days === null ? 31 : Number(args.days);
+      if (!Number.isInteger(rawDays) || rawDays < 1 || rawDays > FIO_MAX_DAYS) throw new ArgError(`Argument days musí být celé číslo 1–${FIO_MAX_DAYS}.`);
+      const rawAmount = args.amount_kc === undefined || args.amount_kc === null ? null : Number(String(args.amount_kc).replace(",", "."));
+      if (rawAmount !== null && (!Number.isFinite(rawAmount) || rawAmount <= 0)) throw new ArgError("Argument amount_kc musí být kladné číslo.");
+      return { days: rawDays, amountHal: rawAmount === null ? null : Math.round(rawAmount * 100), text: optionalString(args, "text", 80) };
+    },
+    execute: async ({ days, amountHal, text }) => {
+      const token = process.env.FIO_API_TOKEN?.trim();
+      if (!token) return { ok: false, error: "Napojení na Fio není nastavené (chybí FIO_API_TOKEN)." };
+      const day = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+      const now = new Date();
+      const from = day(new Date(now.getTime() - days * 24 * 60 * 60 * 1000));
+      const fetched = await fetchFioTransactions(token, from, day(now));
+      if (!fetched.ok) return { ok: false, error: `${fetched.error}. Fio dovoluje dotaz jednou za 30 sekund — zkuste to za chvíli znovu.` };
+      const plain = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const outgoing = fetched.transactions.filter((t) => t.amountHal < 0);
+      const matches = outgoing.filter((t) => {
+        if (amountHal !== null && -t.amountHal !== amountHal) return false;
+        if (text === null) return true;
+        const haystack = plain([t.counterparty, t.ident, t.message, t.detail, t.comment].filter(Boolean).join(" "));
+        return haystack.includes(plain(text));
+      });
+      return {
+        ok: true,
+        summary: { found: matches.length },
+        data: {
+          period: { from, to: day(now) },
+          outgoingInPeriod: outgoing.length,
+          found: matches.length,
+          truncated: matches.length > 100,
+          payments: matches.slice(0, 100).map((t) => ({
+            date: t.date,
+            amountKc: -t.amountHal / 100,
+            currency: t.currency,
+            kind: t.kind ?? null,
+            counterparty: t.counterparty,
+            merchant: t.ident ?? null,
+            message: t.message,
+            detail: t.detail ?? null,
+            comment: t.comment ?? null,
+          })),
+          source: { system: "Fio banka", readOnly: true },
+        },
+      };
+    },
+  })
+);
 
 export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS, ...B2B_TOOLS, ...CORRECTION_TOOLS, ...FIO_TOOLS];

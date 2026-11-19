@@ -252,6 +252,7 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "prepare_b2b_invoice",
       "prepare_invoice_correction",
       "fio_incoming_payments",
+      "fio_outgoing_payments",
       // ekonomika — jen Jaroslav a Lucie (zápis economy_add_entry jen se souhlasem fakturace)
       "economy_list_entries",
       // legislativní audit — jen Jaroslav a Lucie (uložení reportu jen se zápisem)
