@@ -66,7 +66,7 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
 
         {groups.map((g) => (
           <div key={g.slug} className="mt-4">
-            <p className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wide text-begina-primary-900 ${GROUP_STYLE[g.slug].band}`}>
+            <p className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-900 ${GROUP_STYLE[g.slug].band}`}>
               {g.label}
             </p>
             {g.items.map((item) => (
