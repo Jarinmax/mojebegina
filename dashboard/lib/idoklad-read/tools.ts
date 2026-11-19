@@ -111,6 +111,8 @@ export type IdokladReadTool = {
   name: string;
   /** jen pro server (stažení PDF v MojeBegina, odeslání e-mailem) — asistentovi se nenabízí */
   internal?: boolean;
+  /** vlastní strop požadavků na iDoklad pro jedno volání (výchozí READ_REQUEST_BUDGET) */
+  requestBudget?: number;
   title: string;
   description: string;
   properties: Record<string, unknown>;
@@ -336,6 +338,33 @@ export const IDOKLAD_INTERNAL_TOOLS: IdokladReadTool[] = [
       return pdf ? { data: { found: true, ...pdf }, count: 1, summary: { found: true } } : { data: { found: false }, count: 0, summary: { found: false } };
     },
   }),
+  // Doklady (Lucie 19. 11. 2026): všechna PDF vydaných faktur za měsíc
+  // najednou pro „Stáhnout vše (ZIP)“ — jedno volání = jeden záznam v auditu
+  // a jedna položka limitu, na jednu fakturu jen jeden požadavek na PDF.
+  tool({
+    name: "idoklad_month_pdfs",
+    internal: true,
+    requestBudget: 140,
+    title: "iDoklad: PDF vydaných faktur za měsíc",
+    description: "Obsah PDF všech vydaných faktur v období (nejvýš 100) pro ZIP v Dokladech.",
+    properties: {},
+    required: [],
+    parse: (args) => {
+      only(args, ["date_from", "date_to"]);
+      return { dateFrom: str(args, "date_from", 10, DATE)!, dateTo: str(args, "date_to", 10, DATE)! };
+    },
+    run: async (input, { client, now }) => {
+      const found = await searchInvoices(client, { dateFrom: input.dateFrom, dateTo: input.dateTo, limit: 100 }, now);
+      const files: { filename: string; contentBase64: string }[] = [];
+      for (const inv of found.invoices) {
+        const base64 = await client.get<string>(`/Reports/IssuedInvoice/${inv.id}/Pdf`);
+        if (typeof base64 === "string" && base64.length > 0) {
+          files.push({ filename: `faktura-${(inv.number ?? String(inv.id)).replace(/[^0-9A-Za-z-]/g, "") || inv.id}.pdf`, contentBase64: base64 });
+        }
+      }
+      return { data: { files, truncated: found.truncated }, count: files.length, summary: { files: files.length, truncated: found.truncated } };
+    },
+  }),
 ];
 
 export function findIdokladReadTool(name: string): IdokladReadTool | null {
@@ -424,7 +453,7 @@ export async function runIdokladRead(name: string, rawArgs: unknown, channel: Re
     return { ok: false, status: "unavailable", error: "Auditní záznam se nepodařilo zapsat — čtení iDokladu je zablokované." };
   }
 
-  const client = new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl: deps.fetchImpl, requestBudget: READ_REQUEST_BUDGET });
+  const client = new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl: deps.fetchImpl, requestBudget: t.requestBudget ?? READ_REQUEST_BUDGET });
   const reader: IdokladReader = client;
   const startedAt = Date.now();
   try {

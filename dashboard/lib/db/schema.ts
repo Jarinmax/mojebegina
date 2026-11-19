@@ -2101,6 +2101,34 @@ export const economyEntries = pgTable(
   ]
 );
 
+// DOKLADY (Lucie 19. 11. 2026, migrace 0057) — PDF / fotky dokladů nákladů
+// v privátním Blobu (storage_key = pathname, nikdy veřejná URL), po
+// měsících; entry_id = přiřazený řádek Ekonomiky (NULL = nepřiřazený).
+// Mazání jen měkké (deleted_at).
+export const economyDocuments = pgTable(
+  "economy_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryId: uuid("entry_id").references(() => economyEntries.id, { onDelete: "set null" }),
+    month: text("month").notNull(),
+    storageKey: text("storage_key").notNull(),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    uploadedByUserId: text("uploaded_by_user_id"),
+    uploadedByName: text("uploaded_by_name"),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("economy_documents_storage_key_key").on(table.storageKey),
+    index("economy_documents_month_idx").on(table.month),
+    index("economy_documents_entry_idx").on(table.entryId),
+    check("economy_documents_month_check", sql`${table.month} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  ]
+);
+
 // EKONOMIKA 1.1 (17. 11. 2026) — historie úprav a smazání řádků Ekonomiky
 // (kdo, kdy, co: stará a nová hodnota, u smazání důvod), aby šlo cokoli
 // dohledat a vrátit. Jen přibývá, nic se v ní nemění ani nemaže.
