@@ -10,6 +10,7 @@ import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { parseAmountToHal, parseEntryDate, PAYMENT_FORMS } from "@/lib/ekonomika/economy";
 import { ArgError, idempotencyKey, optionalString, requiredString, requiredUuid } from "../args";
 import { defineTool, type AgentTool } from "../define";
+import { attachDocumentBytes, documentCounts } from "@/lib/doklady/documents";
 
 const DENIED = `Ekonomiku smí číst a zapisovat jen ${INVOICE_ISSUER_NAMES}.`;
 const issuerOnly = (ctx: Parameters<typeof isInvoiceIssuer>[0]) => isInvoiceIssuer(ctx);
@@ -130,6 +131,7 @@ export const ECONOMY_TOOLS: AgentTool[] = [
         .where(and(eq(economyEntries.kind, kind), isNull(economyEntries.deletedAt), gte(economyEntries.entryDate, month.from), lt(economyEntries.entryDate, month.to)))
         .orderBy(asc(economyEntries.entryDate), asc(economyEntries.createdAt));
       const totalHal = rows.reduce((sum, row) => sum + row.amountHal, 0);
+      const docs = kind === "cost" ? await documentCounts(rows.slice(0, 300).map((r) => r.id)).catch(() => new Map<string, number>()) : new Map<string, number>();
       return {
         ok: true,
         summary: { count: rows.length },
@@ -150,9 +152,48 @@ export const ECONOMY_TOOLS: AgentTool[] = [
             note: row.note,
             amountNoShippingKc: row.amountNoShippingHal === null ? null : row.amountNoShippingHal / 100,
             source: row.source,
+            ...(kind === "cost" ? { documents: docs.get(row.id) ?? 0 } : {}),
           })),
           url: ECONOMY_URL,
         },
+      };
+    },
+  }),
+  defineTool({
+    name: "economy_attach_document",
+    title: "Doklady — připojit PDF/fotku dokladu k nákladu",
+    description:
+      "ZÁPIS — připojí soubor dokladu (PDF nebo fotku účtenky, např. přílohu faktury z e-mailu) k jednomu řádku nákladu v Ekonomice; uvidí se v Řízení firmy → Doklady. " +
+      "entry_id zjisti přes economy_list_entries (sloupec documents = kolik dokladů už má). Připojuj jen doklad, který k řádku prokazatelně patří (stejný prodávající, datum a částka). " +
+      "Stejný soubor ke stejnému řádku se nezapíše dvakrát. Nic nemaže a částky nemění. Max. 20 MB.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      entry_id: { type: "string", description: "id řádku nákladu (UUID) z economy_list_entries." },
+      filename: { type: "string", description: "Název souboru, např. faktura-makro-2026-11-11.pdf." },
+      mime_type: { type: "string", enum: ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"], description: "Typ souboru." },
+      content_base64: { type: "string", description: "Obsah souboru v base64." },
+    },
+    required: ["entry_id", "filename", "mime_type", "content_base64"],
+    parse: (args) => {
+      const entryId = requiredUuid(args, "entry_id");
+      const filename = requiredString(args, "filename", 200);
+      const mimeType = requiredString(args, "mime_type", 40);
+      const raw = typeof args.content_base64 === "string" ? args.content_base64.replace(/\s+/g, "") : "";
+      if (!raw || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) throw new ArgError("Argument content_base64 musí být obsah souboru v base64.");
+      const bytes = new Uint8Array(Buffer.from(raw, "base64"));
+      return { entryId, filename, mimeType, bytes };
+    },
+    execute: async ({ entryId, filename, mimeType, bytes }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      const result = await attachDocumentBytes({ entryId, filename, mimeType, bytes });
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        summary: { attached: !result.duplicate },
+        data: { documentId: result.id, duplicate: result.duplicate === true, url: "https://moje.begina.cz/rizeni-firmy/doklady" },
       };
     },
   }),

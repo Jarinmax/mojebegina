@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createHash } from "crypto";
-import { del, get } from "@vercel/blob";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { del, get, put } from "@vercel/blob";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { economyDocuments, economyEntries } from "@/lib/db/schema";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -236,5 +236,76 @@ export async function readMonthDocumentFiles(month: string): Promise<{ filename:
     if (!blob || blob.statusCode !== 200) continue;
     out.push({ filename: d.filename, bytes: new Uint8Array(await new Response(blob.stream).arrayBuffer()) });
   }
+  return out;
+}
+
+/**
+ * Připojení dokladu poslaného přímo serveru (asistent: PDF z e-mailu) —
+ * uloží do privátního Blobu a zapíše k řádku Ekonomiky. Stejný soubor
+ * (stejný otisk) u stejného řádku se nezapíše dvakrát.
+ */
+export async function attachDocumentBytes(input: {
+  entryId: string;
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}): Promise<DocResult & { duplicate?: boolean }> {
+  const ctx = await requireDocumentAccess();
+  const ext = extensionForMime(input.mimeType);
+  if (!ext) return { ok: false, error: "Připojit jde jen PDF nebo fotky (JPG, PNG, HEIC)." };
+  if (input.bytes.byteLength === 0 || input.bytes.byteLength > DOC_MAX_BYTES) return { ok: false, error: "Soubor je prázdný nebo větší než 20 MB." };
+  const [entry] = await db
+    .select({ entryDate: economyEntries.entryDate, deletedAt: economyEntries.deletedAt })
+    .from(economyEntries)
+    .where(eq(economyEntries.id, input.entryId))
+    .limit(1);
+  if (!entry || entry.deletedAt) return { ok: false, error: "Řádek Ekonomiky nebyl nalezen." };
+  const month = entry.entryDate.slice(0, 7);
+  const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+  const [dup] = await db
+    .select({ id: economyDocuments.id })
+    .from(economyDocuments)
+    .where(and(eq(economyDocuments.entryId, input.entryId), eq(economyDocuments.sha256, sha256), isNull(economyDocuments.deletedAt)))
+    .limit(1);
+  if (dup) return { ok: true, id: dup.id, duplicate: true };
+  const pathname = `doklady/${month}/${crypto.randomUUID()}.${ext}`;
+  try {
+    await put(pathname, Buffer.from(input.bytes), { access: "private", contentType: input.mimeType, addRandomSuffix: false });
+  } catch (error) {
+    console.error("Doklady: uložení do Blobu selhalo", error);
+    return { ok: false, error: "Soubor se nepodařilo uložit do úložiště." };
+  }
+  try {
+    const [row] = await db
+      .insert(economyDocuments)
+      .values({
+        entryId: input.entryId,
+        month,
+        storageKey: pathname,
+        filename: safeFilename(input.filename),
+        mimeType: input.mimeType,
+        sizeBytes: input.bytes.byteLength,
+        sha256,
+        uploadedByUserId: ctx.userId,
+        uploadedByName: `${ctx.name ?? ctx.email} (asistent)`,
+      })
+      .returning({ id: economyDocuments.id });
+    return { ok: true, id: row.id };
+  } catch (error) {
+    console.error("Doklady: zápis dokladu selhal", error);
+    await cleanup(pathname);
+    return { ok: false, error: "Doklad se nepodařilo uložit." };
+  }
+}
+
+/** Počty připojených dokladů k řádkům Ekonomiky. */
+export async function documentCounts(entryIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (entryIds.length === 0) return out;
+  const rows = await db
+    .select({ entryId: economyDocuments.entryId })
+    .from(economyDocuments)
+    .where(and(inArray(economyDocuments.entryId, entryIds), isNull(economyDocuments.deletedAt)));
+  for (const r of rows) if (r.entryId) out.set(r.entryId, (out.get(r.entryId) ?? 0) + 1);
   return out;
 }
