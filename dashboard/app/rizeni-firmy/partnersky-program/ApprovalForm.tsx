@@ -37,65 +37,72 @@ export default function ApprovalForm({ month, rows }: { month: string; rows: App
     <div className="flex flex-col gap-6">
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="month" value={month} />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left border-b border-neutral-300">
-                <th className="py-2 pr-3">#</th>
-                <th className="py-2 pr-3">Zákazník</th>
-                <th className="py-2 pr-3 text-right">Objednávek</th>
-                <th className="py-2 pr-3 text-right">S dopravou</th>
-                <th className="py-2 pr-3 text-right">Zboží bez dopravy</th>
-                <th className="py-2 pr-3">Sleva na další měsíc</th>
-                <th className="py-2">Oslovení v e-mailu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={row.key} className="border-b border-neutral-200 align-top">
-                  <td className="py-2 pr-3">{index + 1}</td>
-                  <td className="py-2 pr-3">
-                    <div className="font-medium">{row.name}</div>
-                    <div className="text-neutral-500">{row.emails.join(", ") || "bez e-mailu"}</div>
-                    {row.optedOut && <div className="text-amber-700">odhlášen z e-mailů — slevu má, e-mail nedostane</div>}
-                    {row.sent && <div className="text-green-700">e-mail odeslán</div>}
-                  </td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{row.orders}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{kc(row.totalKc)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums font-medium">{kc(row.goodsKc)}</td>
-                  <td className="py-2 pr-3">
-                    {row.percent === null ? (
-                      <label className="flex items-center gap-2">
-                        <span>individuální sleva</span>
-                        <input
-                          name={`percent:${row.key}`}
-                          defaultValue={row.individual ?? ""}
-                          inputMode="decimal"
-                          placeholder="%"
-                          className="w-16 border border-neutral-300 rounded px-2 py-1"
-                        />
-                        <span>%</span>
-                      </label>
-                    ) : row.percent > 0 ? (
-                      <strong>{row.tierLabel}</strong>
-                    ) : (
-                      <span className="text-neutral-500">bez slevy</span>
-                    )}
-                  </td>
-                  <td className="py-2">
-                    {(row.percent === null || row.percent > 0) && (
-                      <input
-                        name={`salut:${row.key}`}
-                        defaultValue={row.salutation}
-                        placeholder="paní Nováková"
-                        className="w-44 border border-neutral-300 rounded px-2 py-1"
-                      />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* 19. 11. 2026 (Lucie): jedna mřížka — na počítači řádky jako tabulka, na mobilu karta pod sebou (pole jen jednou, aby se formulář neodesílal dvakrát). */}
+        <div className="text-sm">
+          <div className="hidden lg:grid lg:grid-cols-[2rem_minmax(0,1fr)_5.5rem_7rem_8rem_11rem_12rem] gap-x-3 border-b border-neutral-300 py-2 font-semibold">
+            <span>#</span>
+            <span>Zákazník</span>
+            <span className="text-right">Objednávek</span>
+            <span className="text-right">S dopravou</span>
+            <span className="text-right">Zboží bez dopravy</span>
+            <span>Sleva na další měsíc</span>
+            <span>Oslovení v e-mailu</span>
+          </div>
+          {rows.map((row, index) => (
+            <div
+              key={row.key}
+              className="grid grid-cols-2 gap-x-3 gap-y-1 border-b border-neutral-200 py-3 lg:grid-cols-[2rem_minmax(0,1fr)_5.5rem_7rem_8rem_11rem_12rem] lg:items-start lg:py-2"
+            >
+              <span className="hidden lg:block">{index + 1}</span>
+              <div className="col-span-2 lg:col-span-1 min-w-0">
+                <div className="font-medium break-words">
+                  <span className="lg:hidden text-neutral-500 font-normal mr-1">{index + 1}.</span>
+                  {row.name}
+                </div>
+                <div className="text-neutral-500 break-words">{row.emails.join(", ") || "bez e-mailu"}</div>
+                {row.optedOut && <div className="text-amber-700">odhlášen z e-mailů — slevu má, e-mail nedostane</div>}
+                {row.sent && <div className="text-green-700">e-mail odeslán</div>}
+              </div>
+              <span className="text-neutral-500 lg:hidden">Objednávek</span>
+              <span className="text-right tabular-nums">{row.orders}</span>
+              <span className="text-neutral-500 lg:hidden">S dopravou</span>
+              <span className="text-right tabular-nums">{kc(row.totalKc)}</span>
+              <span className="text-neutral-500 lg:hidden">Zboží bez dopravy</span>
+              <span className="text-right tabular-nums font-medium">{kc(row.goodsKc)}</span>
+              <span className="text-neutral-500 lg:hidden">Sleva</span>
+              <div className="text-right lg:text-left">
+                {row.percent === null ? (
+                  <label className="inline-flex items-center gap-2">
+                    <span>individuální sleva</span>
+                    <input
+                      name={`percent:${row.key}`}
+                      defaultValue={row.individual ?? ""}
+                      inputMode="decimal"
+                      placeholder="%"
+                      className="w-16 border border-neutral-300 rounded px-2 py-1"
+                    />
+                    <span>%</span>
+                  </label>
+                ) : row.percent > 0 ? (
+                  <strong>{row.tierLabel}</strong>
+                ) : (
+                  <span className="text-neutral-500">bez slevy</span>
+                )}
+              </div>
+              {(row.percent === null || row.percent > 0) && (
+                <>
+                  <span className="text-neutral-500 lg:hidden self-center">Oslovení</span>
+                  <input
+                    name={`salut:${row.key}`}
+                    defaultValue={row.salutation}
+                    placeholder="paní Nováková"
+                    aria-label={`Oslovení – ${row.name}`}
+                    className="w-full min-w-0 border border-neutral-300 rounded px-2 py-1"
+                  />
+                </>
+              )}
+            </div>
+          ))}
         </div>
         <p className="text-sm text-neutral-600">
           Oslovení se vloží za „Dobrý den,“ (například „paní Nováková“ nebo „pane Nováku“). Prázdné pole = jen „Dobrý den,“.
@@ -110,8 +117,8 @@ export default function ApprovalForm({ month, rows }: { month: string; rows: App
         <label className="text-sm font-medium" htmlFor="optout-email">
           Klient odpověděl „NE“ — už mu neposílat e-maily o partnerském programu
         </label>
-        <div className="flex gap-2">
-          <input id="optout-email" name="email" type="email" required placeholder="e-mail klienta" className="w-72 border border-neutral-300 rounded px-2 py-1.5 text-sm" />
+        <div className="flex flex-wrap gap-2">
+          <input id="optout-email" name="email" type="email" required placeholder="e-mail klienta" className="w-full sm:w-72 border border-neutral-300 rounded px-2 py-1.5 text-sm" />
           <button type="submit" disabled={optPending} className="rounded-lg border border-neutral-400 px-4 py-1.5 text-sm font-medium disabled:opacity-60">
             Odhlásit
           </button>
