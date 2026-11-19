@@ -28,6 +28,7 @@ import {
   getOrderInvoiceSummary,
   invoicePdfUrl,
   issueOrderInvoiceDetailed,
+  linkOrderExternalInvoice,
   previewOrderInvoice,
   sendOrderInvoiceToCustomer,
   type InvoicePreviewLookup,
@@ -300,6 +301,35 @@ const ISSUE_TOOLS: AgentTool[] = [
       };
     },
   }),
+  defineTool({
+    name: "link_order_invoice",
+    title: "Propojit objednávku s už vystavenou fakturou",
+    description:
+      "ZÁPIS — propojí objednávku v MojeBegina s fakturou, která už v iDokladu existuje (např. ruční faktura 2026xxxx vystavená k objednávce z e-shopu), " +
+      "aby k objednávce nevznikla druhá faktura. Stejná akce jako „Propojit s touto fakturou“ v detailu objednávky: číslo se ověří v iDokladu. " +
+      "Nic nevystavuje ani neposílá. Volej jen po souhlasu uživatele, s confirm=true a idempotency_key.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      order_id: { type: "string", description: "id objednávky (UUID)." },
+      invoice_number: { type: "string", description: "Číslo už vystavené faktury v iDokladu, např. 20260213." },
+      confirm: { type: "boolean", description: "true = uživatel s propojením souhlasí." },
+    },
+    required: ["order_id", "invoice_number", "confirm"],
+    parse: (args) => {
+      const lookup = lookupOf({ order_id: args.order_id });
+      if (args.confirm !== true) throw new ArgError("Propojit lze jen s confirm=true po souhlasu uživatele.");
+      const invoiceNumber = requiredString(args, "invoice_number", 20);
+      if (!/^[0-9A-Za-z/-]{1,20}$/.test(invoiceNumber)) throw new ArgError("Číslo faktury není platné.");
+      return { orderId: (lookup as { orderId: string }).orderId, invoiceNumber };
+    },
+    execute: async ({ orderId, invoiceNumber }) => {
+      const result = await linkOrderExternalInvoice(orderId, invoiceNumber);
+      if (!result.ok) return result;
+      return { ok: true, summary: { linked: true }, data: { orderId, invoiceNumber, message: result.message, url: orderUrl(await appOrigin(), orderId) } };
+    },
+  }),
 ];
 
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -483,6 +513,40 @@ function b2bRawOf(args: Record<string, unknown>, extra: string[]): B2bInvoiceRaw
   };
 }
 
+/**
+ * Pojistka proti míchání řad (Lucie 19. 11. 2026): objednávka z e-shopu
+ * se fakturuje JEN v řadě E-shop Begina (invoice_preview / issue_invoice),
+ * nikdy ruční B2B fakturou v řadě 2026xxxx — jinak MojeBegina o faktuře
+ * neví a hrozí druhá faktura. Vrací důvod zablokování, nebo null.
+ */
+async function eshopOrderBlockingB2b(ico: unknown, totalKc: number, orderNumberRaw: unknown): Promise<string | null> {
+  const orderNumber = typeof orderNumberRaw === "string" ? orderNumberRaw.trim() : "";
+  if (/^\d{8}$/.test(orderNumber)) {
+    const rows = await db.execute<{ order_number: number; channel: string }>(sql`
+      SELECT order_number, channel FROM orders WHERE order_number = ${Number(orderNumber)} LIMIT 1`);
+    const row = rows.rows[0];
+    if (row && row.channel === "eshop") {
+      return `Objednávka ${row.order_number} je z e-shopu — fakturu k ní vystav v řadě E-shop Begina (invoice_preview → issue_invoice), ne ruční fakturou 2026xxxx.`;
+    }
+  }
+  const icoStr = typeof ico === "string" ? ico.replace(/\s+/g, "") : "";
+  if (!/^\d{8}$/.test(icoStr)) return null;
+  const rows = await db.execute<{ order_number: number }>(sql`
+    SELECT o.order_number FROM orders o
+    LEFT JOIN organizations org ON org.id = o.buyer_organization_id
+    WHERE o.channel = 'eshop'
+      AND o.fulfillment_status <> 'cancelled'
+      AND (o.billing_ico = ${icoStr} OR org.ico = ${icoStr})
+      AND o.total_kc = ${Math.round(totalKc)}
+      AND o.ordered_at > now() - interval '60 days'
+      AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.order_id = o.id AND i.doc_state = 'issued')
+    ORDER BY o.ordered_at DESC LIMIT 1`);
+  const match = rows.rows[0];
+  return match
+    ? `Odběratel má objednávku ${match.order_number} z e-shopu na stejnou částku bez vystavené faktury — vystav fakturu k ní v řadě E-shop Begina (invoice_preview → issue_invoice), nebo ji v detailu objednávky propoj s už vystavenou fakturou (link_order_invoice). Ruční faktura 2026xxxx by vytvořila druhou fakturu.`
+    : null;
+}
+
 const B2B_TOKEN_ORDER = "b2b";
 
 const B2B_TOOLS: AgentTool[] = [
@@ -490,7 +554,7 @@ const B2B_TOOLS: AgentTool[] = [
     name: "prepare_b2b_invoice",
     title: "Připravit fakturu odběrateli (náhled, nic nevystaví)",
     description:
-      "JEN ČTENÍ — nic nevystaví. Návrh faktury v iDokladu v Luciině řadě (2026xxxx) pro libovolného odběratele podle IČO — i bez objednávky v e-shopu: " +
+      "JEN ČTENÍ — nic nevystaví. Návrh faktury v iDokladu v Luciině řadě (2026xxxx) pro odběratele BEZ objednávky z e-shopu (kavárny, B2B) podle IČO. NIKDY pro objednávku z e-shopu (čísla 7000xxxx) — ta se fakturuje jen přes invoice_preview / issue_invoice v řadě E-shop Begina 9260xxx: " +
       "položky, způsob úhrady (převodem / hotově / kartou), otevřená (neuhrazená) nebo uhrazená, splatnost, vlastní poznámka. Ověří iDoklad, odběratele, další číslo a možné duplicity. " +
       "Celý náhled ukaž uživateli. Když canIssue=true, vrací preview_token pro issue_b2b_invoice (30 minut, jen pro tebe a jen pro tyto údaje).",
     write: false,
@@ -503,7 +567,8 @@ const B2B_TOOLS: AgentTool[] = [
       const result = await previewB2bInvoice(raw);
       if (!result.ok || !ctx) return result.ok ? { ok: false, error: "Nepřihlášený uživatel." } : result;
       const p = result.preview;
-      const reasons = [...(p.canIssueLive ? [] : [p.liveReason ?? "Ostré vystavování je vypnuté."]), ...p.blocking];
+      const eshopGuard = await eshopOrderBlockingB2b(raw.ico, p.value.totalKc, raw.orderNumber);
+      const reasons = [...(p.canIssueLive ? [] : [p.liveReason ?? "Ostré vystavování je vypnuté."]), ...p.blocking, ...(eshopGuard ? [eshopGuard] : [])];
       const canIssue = reasons.length === 0;
       const v = p.value;
       return {
