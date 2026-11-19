@@ -22,6 +22,8 @@ export type PartnerOrderRow = {
   ico: string | null;
   company: string | null;
   name: string | null;
+  /** jméno člověka (kontakt, jinak fakturační) — pro návrh oslovení */
+  personName?: string | null;
 };
 
 export type PartnerClient = {
@@ -35,6 +37,8 @@ export type PartnerClient = {
   tierLabel: string;
   /** 0 = bez slevy, null = individuální dohoda (nad 20 000 Kč) */
   percent: number | null;
+  /** jméno člověka z objednávky (i u firmy) — pro návrh oslovení */
+  personName?: string;
 };
 
 const MONTH_NOMINATIVE = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
@@ -109,6 +113,8 @@ export function evaluatePartnerMonth(rows: PartnerOrderRow[]): PartnerClient[] {
     }
     const name = clean(row.company) || clean(row.name);
     if (name && !client.name) client.name = name;
+    const person = clean(row.personName ?? row.name);
+    if (person && !client.personName) client.personName = person;
     if (email && !client.emails.includes(email)) client.emails.push(email);
     client.orders += 1;
     client.goodsKc += row.goodsKc;

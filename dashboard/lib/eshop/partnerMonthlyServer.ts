@@ -102,6 +102,7 @@ export async function loadPartnerMonthRows<T extends PgQueryResultHKT>(db: AnyDb
             ico: row.ico,
             company: row.company,
             name: row.billingName ?? row.contactName,
+            personName: row.contactName ?? row.billingName,
           },
         ]
       : []
