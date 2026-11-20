@@ -29,6 +29,7 @@ export const LEAD_SOURCES = [
   "web_kavarny",
   // stejný formulář na úvodní stránce (20. 11. 2026)
   "web_uvod",
+  "web_ochutnavka",
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 

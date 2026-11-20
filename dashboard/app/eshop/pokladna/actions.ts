@@ -29,6 +29,8 @@ import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
 import { isAgentRequest } from "@/lib/site/hosts";
+import { CAFE_TASTING_ALREADY, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
+import { cafeTastingOrdered, recordCafeTastingLead } from "@/lib/eshop/cafeTastingServer";
 import { findCardByMemberEmail, handoffSecret, loadHandoffPrefill, verifyHandoff } from "@/lib/eshop/customerHandoff";
 
 export type CheckoutState =
@@ -160,6 +162,14 @@ export async function submitCheckoutAction(
   }
   result.value.buyerOrganizationId = card ? card.organizationId : await findCardByMemberEmail(db, result.value.email);
 
+  // Ochutnávka do provozu (20. 11. 2026): jedna na jedno IČO. Když kontrolu nejde
+  // provést (výpadek DB), objednávka projde — Begina ji uvidí v upozornění.
+  const tasting = result.value.pricedCart.lines.some((line) => isCafeTastingSku(line.sku));
+  const tastingIco = result.value.billing.company?.ico ?? null;
+  if (tasting && tastingIco && (await cafeTastingOrdered(db, tastingIco)) === true) {
+    return { error: CAFE_TASTING_ALREADY };
+  }
+
   if (!isOrderWriteEnabled()) {
     return { confirmation: result.value, savedOrderId: null, orderNumber: null, email: "off" };
   }
@@ -181,6 +191,28 @@ export async function submitCheckoutAction(
       await addPartnerOptOut(db, result.value.email).catch((error) => console.error("Pokladna: odhlášení obchodních sdělení se nepodařilo uložit", error));
     }
     const baseUrl = await currentBaseUrl();
+    // Ochutnávka do provozu: lead v MojeBegina + upozornění na info@begina.cz (jen u nové objednávky).
+    if (tasting && tastingIco && !saved.alreadySaved) {
+      const value = result.value;
+      await recordCafeTastingLead(
+        db,
+        {
+          orderId: saved.orderId,
+          orderNumber: saved.orderNumber,
+          venue: field("tastingVenue").trim().slice(0, 120),
+          company: value.billing.company?.name ?? value.billing.name,
+          ico: tastingIco,
+          name: value.name,
+          email: value.email,
+          phone: value.phone,
+          city: value.billing.city || null,
+          items: value.pricedCart.lines.map((line) => ({ sku: line.sku, name: line.name })),
+          shippingLabel: value.pricedCart.shipping.label,
+          totalKc: value.pricedCart.totalKc,
+        },
+        { baseUrl }
+      ).catch((error) => console.error("Ochutnávka do provozu: lead/upozornění selhalo", error));
+    }
     if (result.value.payment.id === CARD_PAYMENT_METHOD && stripe) {
       // Objednávka je uložená i když platbu nejde otevřít (výpadek Stripe) —
       // zákazník ji zaplatí znovu ze stránky objednávky.

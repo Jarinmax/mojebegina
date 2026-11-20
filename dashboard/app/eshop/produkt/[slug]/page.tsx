@@ -31,6 +31,7 @@ import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
 import { CAFE_PATH, CAFE_PRODUCT_LINE } from "@/lib/eshop/cafePage";
+import { isCafeTasting } from "@/lib/eshop/cafeTasting";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
@@ -174,6 +175,8 @@ function foodInfoRows(product: Product): { label: string; value: ReactNode | nul
 export default async function ProductPage({ params }: PageProps<"/eshop/produkt/[slug]">) {
   const { slug } = await params;
   const index = await getCatalogIndex();
+  // Ochutnávka do provozu nemá vlastní stránku — objednává se na Pro kavárny a bistra.
+  if (isCafeTasting({ slug })) redirect(eshopHref(await eshopBase(), `${CAFE_PATH}#ochutnavka`));
   const product = index.getProduct(slug);
   const category = product ? index.findCategory(product.category) : undefined;
   if (!product || !category) {

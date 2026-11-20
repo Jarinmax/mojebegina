@@ -15,6 +15,7 @@ import { SK_FOOD_INFO } from "./skFoodInfo";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
+import { CAFE_TASTING_MAX_PER_ITEM, CAFE_TASTING_NO_ZASILKOVNA, CAFE_TASTING_ONE_EACH, isCafeTastingSku } from "./cafeTasting";
 import { SET_NEEDS_CHOICE, SET_ONLY_NOT_COLD, choiceFromSku, isTastingSet, remainingLabel, withChoice } from "./tastingSet";
 import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
@@ -116,6 +117,11 @@ export function priceCart(
         ok: false,
         error: `Množství u položky "${name}" musí být 1 až ${MAX_QUANTITY_PER_LINE}.`,
       };
+    }
+    // ochutnávka do provozu: z každé položky nejvýš 1 kus, jen chlazeně nebo osobně
+    if (isCafeTastingSku(variant.sku)) {
+      if (item.quantity > CAFE_TASTING_MAX_PER_ITEM) return { ok: false, error: CAFE_TASTING_ONE_EACH };
+      if (shipping.id === "zasilkovna") return { ok: false, error: CAFE_TASTING_NO_ZASILKOVNA };
     }
     containsAgeRestricted ||= product.isAgeRestricted;
     // set se na Slovensko přibaluje k chlazenému zboží (sirupy slovenské etikety mají)

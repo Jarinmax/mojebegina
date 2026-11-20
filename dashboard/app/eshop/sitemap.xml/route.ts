@@ -10,6 +10,7 @@ import { sitemapXml } from "@/lib/site/seo";
 import { CAFE_PATH } from "@/lib/eshop/cafePage";
 import { FAQ_PATH } from "@/lib/eshop/faq";
 import { LANDING_PATHS } from "@/lib/eshop/landingPages";
+import { isCafeTasting } from "@/lib/eshop/cafeTasting";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function GET() {
   const paths = [
     "/",
     ...catalog.categories.filter((category) => withProducts.has(category.slug)).map((category) => `/kategorie/${category.slug}`),
-    ...catalog.products.map((product) => `/produkt/${product.slug}`),
+    ...catalog.products.filter((product) => !isCafeTasting(product)).map((product) => `/produkt/${product.slug}`),
     ...Object.values(INFO_PAGES).map((page) => page.path),
     CAFE_PATH,
     FAQ_PATH,
