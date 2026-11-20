@@ -85,6 +85,7 @@ describe("begina.cz — stránky e-shopu bez /eshop", () => {
     ["/partnersky-program", "/eshop/partnersky-program"],
     ["/pro-kavarny", "/eshop/pro-kavarny"],
     ["/caste-otazky", "/eshop/caste-otazky"],
+    ["/nakupuji-domu", "/eshop/nakupuji-domu"],
     ["/polevky-pro-kavarny", "/eshop/polevky-pro-kavarny"],
     ["/veganske-polevky", "/eshop/veganske-polevky"],
     ["/bylinne-sirupy-pro-kavarny", "/eshop/bylinne-sirupy-pro-kavarny"],

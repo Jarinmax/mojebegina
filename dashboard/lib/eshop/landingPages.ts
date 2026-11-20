@@ -20,7 +20,7 @@ export type LandingPage = {
   links: LandingLink[];
 };
 
-const TASTING = { label: "Chci ochutnávku do provozu", href: `${CAFE_PATH}#ochutnavka` };
+const TASTING = { label: "Chci ochutnávku do provozu", href: CAFE_PATH };
 export const LANDING_TASTING_LINK = TASTING;
 
 const DELIVERY_ANSWER =
@@ -28,7 +28,7 @@ const DELIVERY_ANSWER =
 const ORDER_ANSWER =
   "Objednáte přímo na e-shopu begina.cz, na firmu i s IČO. Ceny jsou stejné jako na e-shopu a při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.";
 const TASTING_ANSWER =
-  "Vyplňte formulář „Chci ochutnávku do provozu“ na stránce Pro kavárny a bistra. Ozveme se vám do 2 pracovních dnů. Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou.";
+  "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každou položku za 49 Kč. Objednáte na firmu s IČO a pošleme vám je chlazenou přepravou, nebo si je vyzvednete ve Viticích.";
 
 const product = (label: string, slug: string): LandingLink => ({ label, href: `/produkt/${slug}` });
 

@@ -71,6 +71,7 @@ const ESHOP_PAGES = new Set([
   "/partnersky-program",
   "/pro-kavarny",
   "/caste-otazky",
+  "/nakupuji-domu",
   // stránky pro konkrétní dotazy ve vyhledávačích a AI (20. 11. 2026, lib/eshop/landingPages.ts)
   "/polevky-pro-kavarny",
   "/veganske-polevky",

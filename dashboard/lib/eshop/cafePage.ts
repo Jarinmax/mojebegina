@@ -43,7 +43,7 @@ export const CAFE_ALCOHOL_SLUG = "koktejly";
 export const CAFE_COMING_SOON = "Připravujeme";
 
 export const CAFE_STEPS = [
-  { title: "Ochutnávka", text: "Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou. Vše si vyzkoušíte v klidu u sebe." },
+  { title: "Ochutnávka", text: "Ochutnávku si objednáte níž na této stránce a pošleme ji chlazenou přepravou, nebo si ji vyzvednete ve Viticích. Vše si vyzkoušíte v klidu u sebe." },
   // Objednávky jdou přes e-shop a chlazenou přepravu, žádné „závozy“ (Lucie 18. 11. 2026)
   { title: "Objednávka na e-shopu", text: "Objednáte, co vám chutnalo, přímo tady na e-shopu, na firmu i s IČO." },
   { title: "Sleva za pravidelné objednávky", text: "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %)." },

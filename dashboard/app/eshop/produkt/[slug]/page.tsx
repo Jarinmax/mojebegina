@@ -176,7 +176,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const { slug } = await params;
   const index = await getCatalogIndex();
   // Ochutnávka do provozu nemá vlastní stránku — objednává se na Pro kavárny a bistra.
-  if (isCafeTasting({ slug })) redirect(eshopHref(await eshopBase(), `${CAFE_PATH}#ochutnavka`));
+  if (isCafeTasting({ slug })) redirect(eshopHref(await eshopBase(), CAFE_PATH));
   const product = index.getProduct(slug);
   const category = product ? index.findCategory(product.category) : undefined;
   if (!product || !category) {
@@ -303,7 +303,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           {isOrderable(product) && !isSet && (
             <p className="mt-3 text-sm text-neutral-700">
               {CAFE_PRODUCT_LINE.text}{" "}
-              <ShopLink href={`${CAFE_PATH}#ochutnavka`} className="font-medium text-[#4A5527] underline underline-offset-4">
+              <ShopLink href={CAFE_PATH} className="font-medium text-[#4A5527] underline underline-offset-4">
                 {CAFE_PRODUCT_LINE.link} →
               </ShopLink>
             </p>
