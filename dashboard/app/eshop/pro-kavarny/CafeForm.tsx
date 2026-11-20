@@ -2,13 +2,13 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { useActionState } from "react";
-import { CAFE_FORM_DONE, CAFE_FORM_HEADING, type CafeField } from "@/lib/eshop/cafePage";
+import { CAFE_FORM_DONE, CAFE_FORM_HEADING, type CafeField, type CafeFormPlace } from "@/lib/eshop/cafePage";
 import { submitCafeInquiryAction, type CafeFormState } from "./actions";
 
 const input =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 h-12 text-base text-[#2A2622] focus:outline-none focus:ring-2 focus:ring-[#5E6B34] aria-[invalid=true]:border-[#A51C1C]";
 
-export default function CafeForm() {
+export default function CafeForm({ place = "kavarny" }: { place?: CafeFormPlace }) {
   const [state, action, pending] = useActionState<CafeFormState, FormData>(submitCafeInquiryAction, { status: "idle" });
   const invalid = (field: CafeField) => (state.status === "error" && state.field === field ? true : undefined);
 
@@ -24,6 +24,7 @@ export default function CafeForm() {
   return (
     <form id="ochutnavka" action={action} className="rounded-2xl border border-[#EDE5D8] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4 scroll-mt-24" noValidate>
       <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_FORM_HEADING}</h2>
+      <input type="hidden" name="misto" value={place} />
       <label className="flex flex-col gap-1 text-base">
         <span className="font-medium">Název provozu</span>
         <input name="venue" autoComplete="organization" required aria-invalid={invalid("venue")} className={input} />

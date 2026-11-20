@@ -30,6 +30,7 @@ import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
+import { CAFE_PATH, CAFE_PRODUCT_LINE } from "@/lib/eshop/cafePage";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
@@ -294,6 +295,16 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
               </div>
             )}
           </div>
+
+          {/* Odkaz pro provozy pod Do košíku (Lucie 20. 11. 2026) */}
+          {isOrderable(product) && !isSet && (
+            <p className="mt-3 text-sm text-neutral-700">
+              {CAFE_PRODUCT_LINE.text}{" "}
+              <ShopLink href={`${CAFE_PATH}#ochutnavka`} className="font-medium text-[#4A5527] underline underline-offset-4">
+                {CAFE_PRODUCT_LINE.link} →
+              </ShopLink>
+            </p>
+          )}
 
           {showSetLink && (
             <p className="mt-3 text-sm">

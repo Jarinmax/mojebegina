@@ -23,22 +23,20 @@ describe("úvod e-shopu", () => {
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
     expect(text(document.body.textContent)).not.toContain("Čerstvě. Jednoduše. S chutí.");
     const h1 = screen.getByRole("heading", { level: 1 });
-    // nadpis s hlavní výhodou – begina (11. 11. 2026)
-    expect(text(h1.textContent)).toBe("Polévky a nápoje v begině");
-    expect(text(document.body.textContent)).toContain("Natočíte si, kolik chcete a kdy chcete. Z čisté filtrované vody.");
+    // úvod primárně pro kavárny a bistra, vítaní i zákazníci domů (20. 11. 2026)
+    expect(text(h1.textContent)).toBe("Polévky a nápoje pro kavárny a bistra");
+    expect(text(document.body.textContent)).toContain("Z kohoutku natočíte vždy jen objednanou porci. Objednat si můžete i domů.");
     // tři výhody hned pod nadpisem (16. 11. 2026)
     const points = screen.getAllByRole("listitem").map((item) => text(item.textContent));
     expect(points).toEqual(["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné polévky a nealko nápoje", "Chlazeně až domů"]);
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
 
-  it("Vybrat polévku → Čerstvé polévky, Objevit sirupy → Bylinné sirupy (existující kategorie)", () => {
+  it("tlačítka v úvodu nahradily dlaždice pod ním (20. 11. 2026)", () => {
     render(<HomeHero />);
-    expect(screen.getByRole("link", { name: "Vybrat polévku" }).getAttribute("href")).toBe("/eshop/kategorie/polevky");
-    expect(screen.getByRole("link", { name: "Objevit sirupy" }).getAttribute("href")).toBe("/eshop/kategorie/sirupy");
+    expect(screen.queryByRole("link")).toBeNull();
     const slugs = HOME_CATEGORIES.map((c) => c.slug);
     expect(slugs).toContain("polevky");
-    expect(slugs).toContain("sirupy");
     expect(existsSync(path.join(__dirname, "../../app/eshop/kategorie/[slug]/page.tsx"))).toBe(true);
   });
 

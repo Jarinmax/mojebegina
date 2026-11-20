@@ -33,3 +33,37 @@ export const HOME_STEPS_PHOTO = "/eshop/polevky/dynova-polevka-begina-v3.jpg";
 
 /** Tři hlavní výhody hned pod nadpisem úvodu, viditelné bez posouvání (16. 11. 2026). */
 export const HOME_HERO_POINTS = ["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné polévky a nealko nápoje", "Chlazeně až domů"] as const;
+
+// Přestavba úvodu pro kavárny a bistra (Lucie 20. 11. 2026): kavárny a bistra dělají 80–90 %
+// objednávek, ale zákazník nakupující domů musí vidět, že je vítaný. Texty jen z webu
+// (hlavně ze stránky Pro kavárny a bistra), nic nového.
+export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny a bistra";
+export const HOME_HERO_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Objednat si můžete i domů.";
+
+export const HOME_TILE_CAFE = {
+  title: "Pro kavárny a bistra",
+  points: [
+    "Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou.",
+    "Objednáte přímo tady na e-shopu, na firmu i s IČO.",
+    "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %).",
+  ],
+  button: "Chci ochutnávku do provozu",
+  href: "/pro-kavarny#ochutnavka",
+} as const;
+
+// Bez „zdarma“ a bez kampaňové ceny 189 Kč (Lucie 20. 11. 2026).
+export const HOME_TILE_HOME = {
+  title: "Nakupuji domů",
+  points: ["Sirupy už od 199 Kč za 650 ml.", "Ochutnávkový set 5 sirupů za 349 Kč.", "Chlazená doprava po celé ČR, sáčky se sirupem i Zásilkovnou."],
+  button: "Nakoupit domů",
+  href: "/kategorie/polevky",
+} as const;
+
+export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
+
+/**
+ * „Kde nás najdete“ — kavárny a bistra, které Beginu odebírají. Sekce je schovaná,
+ * dokud je seznam prázdný; doplňuje se jen se souhlasem kaváren (Lucie 20. 11. 2026).
+ */
+export const HOME_VENUES: { name: string; city: string }[] = [];
+export const HOME_VENUES_TITLE = "Kde nás najdete";

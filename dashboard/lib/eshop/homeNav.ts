@@ -49,7 +49,7 @@ export function stripCategories(categories: HomeCategory[]): (HomeCategory & { i
   return categories.filter((c): c is HomeCategory & { icon: string } => c.icon !== null);
 }
 
-export type MenuLink = { kind: "link"; href: string; label: string; /** absolutní odkaz mimo e-shop (MojeBegina) */ external?: boolean; /** v mobilním menu jako první položka */ mobileFirst?: boolean };
+export type MenuLink = { kind: "link"; href: string; label: string; /** absolutní odkaz mimo e-shop (MojeBegina) */ external?: boolean; /** v mobilním menu jako první položka */ mobileFirst?: boolean; /** zvýrazněná položka (Pro kavárny a bistra, 20. 11. 2026) */ highlight?: boolean };
 
 /** Pořadí pro mobilní menu: položky označené mobileFirst nahoře, jinak beze změny. */
 export function mobileMenuOrder(entries: MenuEntry[]): MenuEntry[] {
@@ -68,8 +68,8 @@ export const MOJE_BEGINA_LINK: MenuLink = { kind: "link", href: "https://moje.be
  * `extra` (od 9. 11. 2026 skupina „O nás“ — Náš příběh, O vodě, O balení —
  * a MojeBegina). Bez nápojových kategorií se „Nápoje“ nezobrazí.
  */
-export function mainMenu(categories: HomeCategory[], extra: MenuEntry[] = []): MenuEntry[] {
-  const entries: MenuEntry[] = [];
+export function mainMenu(categories: HomeCategory[], extra: MenuEntry[] = [], leading: MenuEntry[] = []): MenuEntry[] {
+  const entries: MenuEntry[] = [...leading];
   let drinks: MenuGroup | null = null;
   for (const c of categories) {
     const link: MenuLink = { kind: "link", href: `/kategorie/${c.slug}`, label: c.menuLabel };
