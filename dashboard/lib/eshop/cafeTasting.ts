@@ -13,11 +13,12 @@
 //   - doprava jen chlazená nebo osobní odběr (Zásilkovna ne),
 //   - objednávka se zároveň zapíše jako lead „web – ochutnávka do provozu“.
 //
-// Trvanlivost polévky v sáčku 200 ml se zatím nevypisuje (Lucie doplní po testu),
-// proto je ochutnávka do té doby schovaná (CAFE_TASTING_LAUNCHED) a vidí ji jen
-// náhled s cookie (stejný mechanismus jako u setu sirupů).
+// Trvanlivost polévky v sáčku 200 ml se zatím nevypisuje (Lucie doplní po testu).
+// Ochutnávka je zapnutá (CAFE_TASTING_LAUNCHED); objeví se, jakmile jsou v DB
+// balení ochutnávky (SQL 135).
 
-export const CAFE_TASTING_LAUNCHED = false;
+// Spuštěno 20. 11. 2026 večer (Lucie: „nečekejme na test trvanlivosti, zapnout hned“).
+export const CAFE_TASTING_LAUNCHED = true;
 export const CAFE_TASTING_PREVIEW_COOKIE = "begina_nahled";
 export const CAFE_TASTING_PREVIEW_VALUE = "ochutnavka-provoz-8m2x";
 

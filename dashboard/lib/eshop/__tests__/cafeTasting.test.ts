@@ -46,8 +46,8 @@ describe("Ochutnávka do provozu", () => {
     expect(isCafeTastingSku("set-sirupy-5x100")).toBe(false);
   });
 
-  it("zatím nespuštěno, volitelná sleva vypnutá", () => {
-    expect(CAFE_TASTING_LAUNCHED).toBe(false);
+  it("spuštěno (20. 11. 2026), volitelná sleva vypnutá", () => {
+    expect(CAFE_TASTING_LAUNCHED).toBe(true);
     expect(CAFE_TASTING_CREDIT_ENABLED).toBe(false);
     expect(cafeTastingCredit({ ico: "12345678", tastingGoodsKc: 98, deliveredAt: new Date() })).toBeNull();
   });
