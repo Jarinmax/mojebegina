@@ -33,3 +33,29 @@ export function brandShareMeta(url = "/"): Pick<Metadata, "openGraph" | "twitter
     },
   };
 }
+
+/**
+ * Náhled odkazu pro konkrétní stránku (Lucie 20. 11. 2026): při sdílení např.
+ * begina.cz/pro-kavarny se dřív ukazoval jen obecný titulek úvodní stránky.
+ * Logo zůstává, titulek, popis a adresa jsou z dané stránky.
+ */
+export function pageShareMeta(title: string, description: string, path: string): Pick<Metadata, "openGraph" | "twitter"> {
+  const shareTitle = `${title} | Begina`;
+  return {
+    openGraph: {
+      type: "website",
+      siteName: "Begina",
+      locale: "cs_CZ",
+      url: path,
+      title: shareTitle,
+      description,
+      images: SHARE_IMAGES,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: shareTitle,
+      description,
+      images: [SHARE_IMAGES[0].url],
+    },
+  };
+}

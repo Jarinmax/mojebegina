@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import InfoPageView from "@/components/eshop/InfoPageView";
 import ShopLink from "@/components/eshop/ShopLink";
 import { FAQ_CTA, FAQ_ITEMS, FAQ_PAGE } from "@/lib/eshop/faq";
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
   title: FAQ_PAGE.title,
   description: FAQ_PAGE.description,
   alternates: { canonical: FAQ_PAGE.path },
+  ...pageShareMeta(FAQ_PAGE.title, FAQ_PAGE.description, FAQ_PAGE.path),
 };
 
 export default function Page() {
