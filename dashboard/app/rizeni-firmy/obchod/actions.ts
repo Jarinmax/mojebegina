@@ -73,6 +73,8 @@ export async function logCallOutcomeAction(
     nextFollowUpAtTime: String(formData.get("nextFollowUpAtTime") ?? ""),
     nextStepNote: String(formData.get("nextStepNote") ?? ""),
     reached: formData.get("reached") === "1",
+    heardFrom: String(formData.get("heardFrom") ?? ""),
+    heardFromDetail: String(formData.get("heardFromDetail") ?? ""),
   });
 
   if (!result.ok) {

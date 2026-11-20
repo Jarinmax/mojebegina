@@ -182,6 +182,9 @@ export type CallLogInput = {
   nextStepNote: string;
   /** „Dovolal/a jsem se“ — u kontaktu bez vlastníka ho přiřadí volajícímu (leadClaim.ts). */
   reached?: boolean;
+  /** „Odkud nás zná“ (heardFrom.ts) — povinnost řeší logCallOutcome podle stavu leadu. */
+  heardFrom?: string;
+  heardFromDetail?: string;
 };
 
 export type ValidatedCallLogInput = {
@@ -234,7 +237,7 @@ export function validateCallLogInput(
   // logCallOutcome — prázdné pole se nikdy nepřepisuje na NULL), ale jde o
   // zbytečný zápis "call_logged" bez jakéhokoliv obsahu. Odmítnout dřív, než
   // se cokoliv uloží.
-  if (!note && !nextStage && !nextFollowUpAt && !nextStepNote) {
+  if (!note && !nextStage && !nextFollowUpAt && !nextStepNote && !input.reached && !(input.heardFrom ?? "").trim()) {
     return { ok: false, error: "Zápis je prázdný — vyplňte alespoň jedno pole (poznámku, fázi, další kontakt nebo další krok)." };
   }
 

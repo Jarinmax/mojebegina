@@ -18,6 +18,7 @@ import { leads, leadActivity, leadCalendarSync, organizations, organizationActiv
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { claimUnownedLeadOnReach } from "./leadClaim";
+import { validateHeardFromInput } from "./heardFrom";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
@@ -134,6 +135,9 @@ export type LeadCardData = {
   createdAt: Date;
   /** Bez obchodníka a ve fázi „nový“ — viz isNewUnassignedLead. */
   isNew: boolean;
+  /** „Odkud nás zná“ (heardFrom.ts); null = zatím nezjištěno. */
+  heardFrom: string | null;
+  heardFromDetail: string | null;
 };
 
 async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<LeadCardData[]> {
@@ -165,6 +169,8 @@ async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<Lead
       followUpOverdue: isFollowUpOverdue(stage, r.nextFollowUpAt),
       createdAt: r.createdAt,
       isNew: isNewUnassignedLead({ ownerUserId: r.ownerUserId, stage }),
+      heardFrom: r.heardFrom,
+      heardFromDetail: r.heardFromDetail,
     };
   });
 }
@@ -208,6 +214,24 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
  * kontaktu — i když už mají obchodníka (přiřazený lead tam zůstane, dokud
  * mu někdo nezavolá, a je u něj vidět komu patří).
  */
+// Souhrn pro marketing (20. 11. 2026): odkud nás zákazníci znají.
+export type HeardFromSummary = { counts: { key: string; count: number }[]; missing: number };
+
+export async function getHeardFromSummary(): Promise<HeardFromSummary> {
+  await requireCrmContext();
+  const rows = await db
+    .select({ heardFrom: leads.heardFrom, lastContactedAt: leads.lastContactedAt })
+    .from(leads);
+  const map = new Map<string, number>();
+  let missing = 0;
+  for (const r of rows) {
+    if (r.heardFrom) map.set(r.heardFrom, (map.get(r.heardFrom) ?? 0) + 1);
+    else if (r.lastContactedAt) missing += 1;
+  }
+  const counts = [...map.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+  return { counts, missing };
+}
+
 export async function listFreshLeads(): Promise<LeadCardData[]> {
   await requireCrmContext();
   const rows = await db
@@ -472,15 +496,32 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   }
   const value = validated.value;
 
-  const [current] = await db.select({ stage: leads.stage }).from(leads).where(eq(leads.id, leadId)).limit(1);
+  const [current] = await db
+    .select({ stage: leads.stage, heardFrom: leads.heardFrom })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
   if (!current) {
     return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  // „Odkud nás zná“ — po dovolání povinné, dokud lead nemá uloženo (20. 11. 2026).
+  const heard = validateHeardFromInput(
+    { heardFrom: rawInput.heardFrom ?? "", heardFromDetail: rawInput.heardFromDetail ?? "" },
+    { reached: rawInput.reached === true, alreadyKnown: current.heardFrom !== null }
+  );
+  if (!heard.ok) {
+    return { ok: false, error: heard.error };
   }
 
   const updates: Partial<typeof leads.$inferInsert> = {
     lastContactedAt: new Date(),
     updatedAt: new Date(),
   };
+  if (heard.value) {
+    updates.heardFrom = heard.value.heardFrom;
+    updates.heardFromDetail = heard.value.heardFromDetail;
+  }
   if (value.nextStage) {
     updates.stage = value.nextStage;
   }
@@ -507,6 +548,7 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
         stageChangedTo: value.nextStage,
         nextFollowUpAt: value.nextFollowUpAt,
         from: current.stage,
+        ...(heard.value ? { heardFrom: heard.value.heardFrom, heardFromDetail: heard.value.heardFromDetail } : {}),
       },
     }),
     upsertPendingLeadCalendarSync(leadId),
@@ -518,7 +560,9 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   // Až PO uloženém zápisu hovoru; selhání ho nesmí vrátit.
   if (rawInput.reached) {
     try {
-      await claimUnownedLeadOnReach(leadId, { userId: ctx.userId, name: ctx.name }, "lead_detail");
+      const claimed = await claimUnownedLeadOnReach(leadId, { userId: ctx.userId, name: ctx.name }, "lead_detail");
+      // Teď už má vlastníka → termín do jeho kalendáře.
+      if (claimed) await reconcileCalendarAfterCommit(leadId);
     } catch (error) {
       console.error("claimUnownedLeadOnReach (lead detail)", error);
     }
@@ -749,6 +793,11 @@ export async function assignLeadOwner(leadId: string, ownerUserId: string): Prom
   // (ne když si lead přiřadí sám sobě nebo se obchodník nemění).
   if (lead.ownerUserId !== ownerUserId && ownerUserId !== ctx.userId) {
     await notifyLeadOwner(leadId, ownerUserId, ctx.name ?? "Kolega", assignedAt);
+  }
+
+  // Termín dalšího kontaktu se přestěhuje do kalendáře nového obchodníka.
+  if (lead.ownerUserId !== ownerUserId) {
+    await reconcileCalendarAfterCommit(leadId);
   }
 
   return { ok: true };

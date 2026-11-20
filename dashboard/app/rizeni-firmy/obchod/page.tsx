@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getCockpitCounts, listLeads, listCustomers, listFreshLeads } from "@/lib/data/leads";
+import { getCockpitCounts, listLeads, listCustomers, listFreshLeads, getHeardFromSummary } from "@/lib/data/leads";
+import { HEARD_FROM_SHORT, isHeardFrom } from "@/lib/data/heardFrom";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import MetaImportButton from "./MetaImportButton";
@@ -40,10 +41,11 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   const leadFilter = activeView === "moje-leady" ? "mine" : "all";
   const customerFilter = activeView === "moji-zakaznici" ? "mine" : "all";
 
-  const [leadCards, customerCards, newLeads] = await Promise.all([
+  const [leadCards, customerCards, newLeads, heardSummary] = await Promise.all([
     isLeadsView ? listLeads(leadFilter) : Promise.resolve(null),
     !isLeadsView ? listCustomers(customerFilter) : Promise.resolve(null),
     listFreshLeads(),
+    getHeardFromSummary(),
   ]);
   // Na záložce „Všechny leady“ jsou nové leady už nahoře v seznamu — blok by je zdvojil.
   const showNewLeadsBlock = newLeads.length > 0 && activeView !== "vsechny-leady";
@@ -91,6 +93,24 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
       <div className="mb-4 mt-4">
         <CockpitTiles counts={counts} />
       </div>
+
+      <section className="mb-4 rounded-xl border border-neutral-200 bg-white p-4">
+        <h2 className="text-sm font-medium text-begina-primary-900">Odkud nás zákazníci znají</h2>
+        {heardSummary.counts.length === 0 ? (
+          <p className="mt-1 text-sm text-neutral-500">Zatím nic zjištěno — vyplňuje se po každém hovoru, kdy se obchodník dovolá.</p>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {heardSummary.counts.map((c) => (
+              <li key={c.key} className="rounded-full bg-begina-primary-50 px-3 py-1 text-sm text-begina-primary-900">
+                {isHeardFrom(c.key) ? HEARD_FROM_SHORT[c.key] : c.key} <strong>{c.count}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+        {heardSummary.missing > 0 && (
+          <p className="mt-2 text-xs text-red-700">U {heardSummary.missing} kontaktů, kterým už někdo volal, to zatím chybí.</p>
+        )}
+      </section>
 
       <div className="flex items-center gap-1 mb-3 flex-wrap">
         {VIEWS.map((view) => (
