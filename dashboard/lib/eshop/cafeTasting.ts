@@ -71,7 +71,7 @@ export function cafeTastingTotalKc(skus: readonly string[]): number {
 }
 
 // Texty (vykání, bez zdravotních tvrzení).
-export const CAFE_TASTING_HEADING = "Objednejte si ochutnávku do provozu";
+export const CAFE_TASTING_HEADING = "Objednejte si ochutnávku do podniku";
 export const CAFE_TASTING_INTRO = "Vyberte si, co chcete ochutnat. Z každé polévky a sirupu nejvýš 1 kus.";
 export const CAFE_TASTING_SOUPS_HEADING = "Polévky – 200 ml ve stříbrném sáčku se šroubovacím uzávěrem, 49 Kč za kus";
 export const CAFE_TASTING_SYRUPS_HEADING = "Sirupy – 100 ml v sáčku se šroubovacím uzávěrem, 49 Kč za kus";
