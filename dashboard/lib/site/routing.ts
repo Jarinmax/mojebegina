@@ -71,13 +71,20 @@ const ESHOP_PAGES = new Set([
   "/partnersky-program",
   "/pro-kavarny",
   "/caste-otazky",
+  // stránky pro konkrétní dotazy ve vyhledávačích a AI (20. 11. 2026, lib/eshop/landingPages.ts)
+  "/polevky-pro-kavarny",
+  "/veganske-polevky",
+  "/bylinne-sirupy-pro-kavarny",
+  "/caje-a-limonady-pro-gastro",
   "/obchodni-podminky",
   "/odstoupeni-od-smlouvy",
   "/ochrana-osobnich-udaju",
 ]);
 
 /** Soubory pro vyhledávače — na begina.cz je obslouží app/eshop/{robots.txt,sitemap.xml,feed-google.xml}. */
-const SEO_FILES = new Set(["/robots.txt", "/sitemap.xml", "/feed-google.xml"]);
+const SEO_FILES = new Set(["/robots.txt", "/sitemap.xml", "/feed-google.xml",
+  // popis webu pro jazykové modely a klíč IndexNow (20. 11. 2026, lib/site/indexNow.ts)
+  "/llms.txt", "/8f3c2a9e1d7b4c6a0e5f2b9d3c7a1e48.txt"]);
 
 // Staré adresy z WordPressu/WooCommerce (begina.cz) → 301. Produkty
 // WooCommerce mají tvar /produkt/<slug>/ — stejný jako nový e-shop; tady

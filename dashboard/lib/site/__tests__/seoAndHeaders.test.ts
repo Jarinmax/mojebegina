@@ -26,7 +26,7 @@ describe("robots.txt a sitemap.xml", () => {
 
   it("výslovně povoluje vyhledávání ChatGPT, Google a Bing (20. 11. 2026), každý se zákazem košíku", () => {
     const txt = publicRobotsTxt(true);
-    for (const agent of ["OAI-SearchBot", "ChatGPT-User", "Googlebot", "Bingbot"]) {
+    for (const agent of ["Googlebot", "Google-Extended", "Bingbot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot"]) {
       const group = txt.split("\n\n").find((g) => g.startsWith(`User-agent: ${agent}\n`));
       expect(group).toBeDefined();
       expect(group).toContain("Allow: /");
