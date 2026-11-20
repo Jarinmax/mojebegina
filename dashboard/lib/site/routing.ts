@@ -70,6 +70,7 @@ const ESHOP_PAGES = new Set([
   "/o-baleni",
   "/partnersky-program",
   "/pro-kavarny",
+  "/caste-otazky",
   "/obchodni-podminky",
   "/odstoupeni-od-smlouvy",
   "/ochrana-osobnich-udaju",

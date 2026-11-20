@@ -5,10 +5,16 @@ import { coldShippingPrice } from "./shippingRates";
 import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import { isOrderable } from "./productRules";
 import type { Category, Product } from "./types";
+import { OPERATOR, PICKUP_PLACE } from "./operator";
 
 export const HOME_TITLE = "Begina – bylinné sirupy, polévky, čaje a nápoje";
+// Od 20. 11. 2026 (Lucie): primárně kavárny a bistra, jasně „dovážíme po celé ČR chlazenou přepravou“.
 export const HOME_DESCRIPTION =
-  "Bylinné sirupy, polévky, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny od Beginy. Balení 3 l s kohoutkem i menší balení, doručujeme chlazenou přepravou.";
+  "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Polévky, bylinné sirupy a čaje v begině s kohoutkem – i domů.";
+
+/** Popis firmy ve strukturovaných datech (Organization, LocalBusiness). */
+export const ORGANIZATION_DESCRIPTION =
+  "Begina dováží hotové polévky a nápoje pro kavárny a bistra po celé ČR chlazenou přepravou: čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině, 3l sáčku s kohoutkem. Objednat si můžete i domů.";
 
 /** Markdown z popisů (**tučně**, ## nadpisy, - odrážky) → prostý text. */
 export function plainText(text: string): string {
@@ -149,15 +155,58 @@ export function breadcrumbJsonLd(items: { name: string; path: string }[]) {
   };
 }
 
+// Organizace a provozovna (Lucie 20. 11. 2026, viditelnost v ChatGPT a AI vyhledávání):
+// telefon, e-mail, oblast doručení celá ČR a Slovensko; LocalBusiness = Zahradní Bistro
+// Begina ve Viticích (provozovna a osobní odběr). Údaje jen z webu (operator.ts).
+const AREA_SERVED = [
+  { "@type": "Country", name: "Česká republika" },
+  { "@type": "Country", name: "Slovensko" },
+];
+
 export function organizationJsonLd() {
+  const orgId = `${PUBLIC_ORIGIN}/#organizace`;
   return [
     {
       "@context": "https://schema.org",
       "@type": "Organization",
+      "@id": orgId,
       name: "Begina",
       url: `${PUBLIC_ORIGIN}/`,
       logo: `${PUBLIC_ORIGIN}/og-begina-ctverec.png`,
-      email: "info@begina.cz",
+      description: ORGANIZATION_DESCRIPTION,
+      email: OPERATOR.email,
+      telephone: OPERATOR.phone,
+      areaServed: AREA_SERVED,
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "customer service",
+        email: OPERATOR.email,
+        telephone: OPERATOR.phone,
+        areaServed: ["CZ", "SK"],
+        availableLanguage: ["cs"],
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "@id": `${PUBLIC_ORIGIN}/#provozovna`,
+      name: `Begina – ${PICKUP_PLACE.name}`,
+      alternateName: PICKUP_PLACE.name,
+      url: `${PUBLIC_ORIGIN}/`,
+      image: `${PUBLIC_ORIGIN}/og-begina-ctverec.png`,
+      description: ORGANIZATION_DESCRIPTION,
+      email: OPERATOR.email,
+      telephone: OPERATOR.phone,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "Vitice 119",
+        addressLocality: "Vitice",
+        postalCode: "281 06",
+        addressCountry: "CZ",
+      },
+      hasMap: PICKUP_PLACE.mapHref,
+      areaServed: AREA_SERVED,
+      parentOrganization: { "@id": orgId },
     },
     {
       "@context": "https://schema.org",
@@ -167,4 +216,17 @@ export function organizationJsonLd() {
       inLanguage: "cs",
     },
   ];
+}
+
+/** FAQPage pro stránku Časté otázky — ze stejných textů, které jsou na stránce vidět. */
+export function faqJsonLd(items: { question: string; answer: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  };
 }

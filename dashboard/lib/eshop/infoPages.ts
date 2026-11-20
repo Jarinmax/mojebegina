@@ -13,6 +13,7 @@ import { ZASILKOVNA_BOX_KC, ZASILKOVNA_STANDARD_KC } from "./zasilkovna";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { COLD_SHIPPING_SK_BANDS } from "./shippingRates";
 import { slovakiaEnabledFromEnv } from "./shipping";
+import { FAQ_PAGE } from "./faq";
 import { OPERATOR, SLOVAKIA_ORDER_NOTE } from "./operator";
 export { SLOVAKIA_ORDER_NOTE };
 import { PACKAGING_PAGE_PATH } from "./packaging";
@@ -318,4 +319,5 @@ export const INFO_PAGES = {
 } as const;
 
 /** Pořadí odkazů v patičce. */
-export const FOOTER_LINKS: InfoPage[] = [aboutPage, partnerPage, shippingPage, termsPage, privacyPage];
+// Časté otázky (Lucie 20. 11. 2026) za Dopravou.
+export const FOOTER_LINKS: InfoPage[] = [aboutPage, partnerPage, shippingPage, FAQ_PAGE, termsPage, privacyPage];

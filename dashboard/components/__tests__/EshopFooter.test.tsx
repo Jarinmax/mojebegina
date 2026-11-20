@@ -25,6 +25,7 @@ describe("patička e-shopu", () => {
       ["O nás", "/eshop/o-nas"],
       ["Partnerský program", "/eshop/partnersky-program"],
       ["Doprava", "/eshop/doprava"],
+      ["Časté otázky", "/eshop/caste-otazky"],
       ["Obchodní podmínky", "/eshop/obchodni-podminky"],
       ["GDPR", "/eshop/ochrana-osobnich-udaju"],
       ["Odstoupit od smlouvy", "/eshop/odstoupeni-od-smlouvy"],

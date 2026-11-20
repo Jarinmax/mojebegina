@@ -9,6 +9,7 @@ import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
 import { Check } from "lucide-react";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
+import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import ProductCard from "@/components/eshop/ProductCard";
@@ -65,7 +66,9 @@ export default async function EshopPage() {
         </div>
       </section>
       <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
-        <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_WHY_TITLE}</h2>
+        <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622]">{HOME_WHY_TITLE}</h2>
+        {/* Jasná věta pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) */}
+        <p className="mt-2 mb-5 text-center text-lg leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
         <CafeBenefits headingLevel="h3" />
       </section>
       {HOME_VENUES.length > 0 && (

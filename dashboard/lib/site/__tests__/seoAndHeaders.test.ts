@@ -24,6 +24,16 @@ describe("robots.txt a sitemap.xml", () => {
     expect(txt).not.toMatch(/^Disallow: \/$/m);
   });
 
+  it("výslovně povoluje vyhledávání ChatGPT, Google a Bing (20. 11. 2026), každý se zákazem košíku", () => {
+    const txt = publicRobotsTxt(true);
+    for (const agent of ["OAI-SearchBot", "ChatGPT-User", "Googlebot", "Bingbot"]) {
+      const group = txt.split("\n\n").find((g) => g.startsWith(`User-agent: ${agent}\n`));
+      expect(group).toBeDefined();
+      expect(group).toContain("Allow: /");
+      expect(group).toContain("Disallow: /kosik");
+    }
+  });
+
   it("moje.begina.cz: robots.txt vždy zakazuje vše", () => {
     expect(INTERNAL_ROBOTS_TXT).toBe("User-agent: *\nDisallow: /\n");
     expect(robots()).toEqual({ rules: { userAgent: "*", disallow: "/" } });

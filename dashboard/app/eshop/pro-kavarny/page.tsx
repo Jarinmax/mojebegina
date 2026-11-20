@@ -8,6 +8,7 @@ import {
   CAFE_ALCOHOL_NOTE,
   CAFE_ALCOHOL_SLUG,
   CAFE_COMING_SOON,
+  CAFE_DELIVERY_LINE,
   CAFE_CATEGORY_SLUGS,
   CAFE_DESCRIPTION,
   CAFE_PATH,
@@ -40,7 +41,8 @@ export default async function Page() {
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
       <header className="text-center max-w-2xl mx-auto">
         <h1 className="font-serif text-3xl sm:text-4xl leading-tight">{CAFE_TITLE}</h1>
-        <p className="mt-3 text-lg leading-normal text-neutral-700">
+        <p className="mt-3 text-lg leading-normal font-medium text-[#4A5527]">{CAFE_DELIVERY_LINE}</p>
+        <p className="mt-2 text-lg leading-normal text-neutral-700">
           {subtitleHead}
           {subtitleLast && (
             <>

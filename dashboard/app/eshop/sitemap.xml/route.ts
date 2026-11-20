@@ -8,6 +8,7 @@ import { currentSite } from "@/lib/eshop/siteServer";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { sitemapXml } from "@/lib/site/seo";
 import { CAFE_PATH } from "@/lib/eshop/cafePage";
+import { FAQ_PATH } from "@/lib/eshop/faq";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export async function GET() {
     ...catalog.products.map((product) => `/produkt/${product.slug}`),
     ...Object.values(INFO_PAGES).map((page) => page.path),
     CAFE_PATH,
+    FAQ_PATH,
   ];
   return new Response(sitemapXml(paths), {
     headers: { "Content-Type": "application/xml; charset=utf-8" },
