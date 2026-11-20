@@ -87,7 +87,7 @@ export function useCoupons(cart: CartLine[], checkoutEmail?: string) {
   const codes = useSyncExternalStore(subscribe, readCodes, () => EMPTY);
   const remembered = useSyncExternalStore(noopSubscribe, storedEmail, () => undefined);
   const email = checkoutEmail ?? remembered;
-  // Nabídka automatické partnerské slevy (zákazník ji uplatní tlačítkem).
+  // Partnerská úroveň zákazníka podle e-mailu — sleva se pak přidá automaticky.
   const [offer, setOffer] = useState<PartnerOffer | null>(null);
   const [preview, setPreview] = useState<CouponPreview>(NO_PREVIEW);
   const [pending, setPending] = useState(false);
@@ -106,7 +106,12 @@ export function useCoupons(cart: CartLine[], checkoutEmail?: string) {
     previewCouponsAction({ cart: cartKey, codes: [PARTNER_CODE], email })
       .then((result) => {
         const partner = result.applied.find((a) => a.code === PARTNER_CODE);
-        if (!cancelled) setOffer(partner && partner.discountKc > 0 && partner.partnerPercent ? { percent: partner.partnerPercent, discountKc: partner.discountKc } : null);
+        if (cancelled) return;
+        const eligible = partner && partner.discountKc > 0 && partner.partnerPercent ? { percent: partner.partnerPercent, discountKc: partner.discountKc } : null;
+        setOffer(eligible);
+        // Partnerská sleva se odečte sama (Lucie 20. 11. 2026) — žádné „Uplatnit“.
+        const current = readCodes();
+        if (eligible && !current.includes(PARTNER_CODE) && current.length < MAX_COUPONS) writeCodes([...current, PARTNER_CODE]);
       })
       .catch(() => {
         if (!cancelled) setOffer(null);
@@ -125,7 +130,13 @@ export function useCoupons(cart: CartLine[], checkoutEmail?: string) {
     setPending(true);
     previewCouponsAction({ cart: cartKey, codes, email })
       .then((result) => {
-        if (!cancelled) setPreview(result);
+        if (cancelled) return;
+        // partnerská sleva, na kterou e-mail nárok nemá (jiný e-mail v pokladně), se tiše odebere
+        if (codes.includes(PARTNER_CODE) && result.rejected.some((r) => r.code === PARTNER_CODE)) {
+          writeCodes(codes.filter((c) => c !== PARTNER_CODE));
+          return;
+        }
+        setPreview(result);
       })
       .catch(() => {
         if (!cancelled) setPreview({ ...NO_PREVIEW, rejected: codes.map((code) => ({ code, error: "Slevový kód se teď nepodařilo ověřit. Zkuste to prosím znovu." })) });

@@ -6,7 +6,7 @@
 //   2. Lucie v MojeBegina schválí (approvePartnerMonth) — klientům nic neodchází,
 //   3. první den měsíce po půlnoci → finalizePartnerMonth: přepočet podle
 //      konečného stavu, zapnutí slev (vnitřní řádky „partner-RRRR-MM-procento“
-//      jen pro e-maily klientů — pokladna podle nich nabídne „Uplatnit“)
+//      jen pro e-maily klientů — pokladna podle nich slevu odečte automaticky)
 //      a rozeslání e-mailů. Bez schválení se nic nezapne ani neodešle.
 //
 // Stav se drží v tabulce eshop_coupons (žádná nová tabulka):
@@ -340,7 +340,7 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   if (mailer) {
     const subject = `Partnerský program: slevy na ${monthName(validMonth)} zapnuty, e-mailů odesláno ${emailed.length}`;
     const text = [
-      `Zapnuté slevy (v pokladně tlačítkem „Uplatnit“): ${codes.join(", ") || "žádné"}.`,
+      `Zapnuté slevy (v pokladně se odečtou automaticky): ${codes.join(", ") || "žádné"}.`,
       `E-mail odešel: ${emailed.join(", ") || "nikomu"}.`,
       failed.length ? `NEPODAŘILO SE odeslat: ${failed.join(", ")}.` : "",
       waiting.length ? `Čekají na určení individuální slevy (nad 20 000 Kč): ${waiting.join(", ")} — ${PARTNER_APPROVAL_URL}` : "",
