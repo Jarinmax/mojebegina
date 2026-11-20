@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import logoMark from "@/public/logo-begina-mark.png";
 import AdminSignOutButton from "@/components/admin/AdminSignOutButton";
 import SwitchRoleLink from "@/components/roles/SwitchRoleLink";
@@ -25,9 +26,16 @@ export default function CompanyOverviewHeader({
   return (
     <header className="bg-white border-b border-neutral-200">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Image src={logoMark} alt="Begina" className="h-7 w-auto" priority />
-          <span className="text-sm font-medium text-begina-primary-900">Begina — Řízení firmy</span>
+        {/* 19. 11. 2026 (Jarin): logo = hlavní stránka, „Řízení firmy“ = rozcestník — bez proklikávání Zpět. */}
+        <div className="flex items-center gap-2 text-sm font-medium text-begina-primary-900">
+          <Link href={backHref} className="flex items-center gap-3 hover:underline" title="Hlavní stránka">
+            <Image src={logoMark} alt="Begina – hlavní stránka" className="h-7 w-auto" priority />
+            <span>Begina</span>
+          </Link>
+          <span aria-hidden className="text-neutral-400">—</span>
+          <Link href="/rizeni-firmy" className="hover:underline" title="Řízení firmy">
+            Řízení firmy
+          </Link>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-neutral-500 hidden sm:inline">{name ?? email}</span>
