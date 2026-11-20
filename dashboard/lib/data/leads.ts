@@ -21,6 +21,7 @@ import { claimUnownedLeadOnReach } from "./leadClaim";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
+import { notifyLeadOwner } from "./leadAssignmentNotify";
 import { distinctOrganizationIds } from "./orderBuyer";
 import {
   validateCreateLeadInput,
@@ -202,6 +203,21 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
 
 // Nové leady bez obchodníka (např. z formuláře Meta) — samostatný blok nahoře
 // na stránce Obchod, ať je vidí každý bez ohledu na vybranou záložku.
+/**
+ * 20. 11. 2026 (Lucie): „Nové leady“ = ve fázi nový a ještě bez zaznamenaného
+ * kontaktu — i když už mají obchodníka (přiřazený lead tam zůstane, dokud
+ * mu někdo nezavolá, a je u něj vidět komu patří).
+ */
+export async function listFreshLeads(): Promise<LeadCardData[]> {
+  await requireCrmContext();
+  const rows = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.stage, "new"), isNull(leads.lastContactedAt)))
+    .orderBy(desc(leads.createdAt), asc(leads.id));
+  return buildLeadCards(rows);
+}
+
 export async function listNewUnassignedLeads(): Promise<LeadCardData[]> {
   await requireCrmContext();
   const rows = await db
@@ -701,13 +717,14 @@ export async function assignLeadOwner(leadId: string, ownerUserId: string): Prom
     return { ok: false, error: "Uživatele se nepodařilo najít." };
   }
 
-  const [lead] = await db.select({ id: leads.id }).from(leads).where(eq(leads.id, leadId)).limit(1);
+  const [lead] = await db.select({ id: leads.id, ownerUserId: leads.ownerUserId }).from(leads).where(eq(leads.id, leadId)).limit(1);
   if (!lead) {
     return { ok: false, error: "Lead nebyl nalezen." };
   }
 
+  const assignedAt = new Date();
   await db.batch([
-    db.update(leads).set({ ownerUserId, updatedAt: new Date() }).where(eq(leads.id, leadId)),
+    db.update(leads).set({ ownerUserId, updatedAt: assignedAt }).where(eq(leads.id, leadId)),
     db.insert(leadActivity).values({
       leadId,
       authorUserId: ctx.userId,
@@ -716,6 +733,12 @@ export async function assignLeadOwner(leadId: string, ownerUserId: string): Prom
       metadata: { ownerUserId, ownerName: owner.name ?? owner.email },
     }),
   ]);
+
+  // 20. 11. 2026 (Lucie): přiřazený obchodník dostane e-mail, komu volat
+  // (ne když si lead přiřadí sám sobě nebo se obchodník nemění).
+  if (lead.ownerUserId !== ownerUserId && ownerUserId !== ctx.userId) {
+    await notifyLeadOwner(leadId, ownerUserId, ctx.name ?? "Kolega", assignedAt);
+  }
 
   return { ok: true };
 }
