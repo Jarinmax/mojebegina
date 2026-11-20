@@ -12,7 +12,7 @@
 import "server-only";
 import { planCustomerCardChange } from "./customerCard";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -213,10 +213,21 @@ export async function listFreshLeads(): Promise<LeadCardData[]> {
   const rows = await db
     .select()
     .from(leads)
-    .where(and(eq(leads.stage, "new"), isNull(leads.lastContactedAt)))
+    .where(
+      and(
+        eq(leads.stage, "new"),
+        isNull(leads.lastContactedAt),
+        // Jen opravdu nové poptávky: ne 85 kontaktů ze staré databáze
+        // (import 26. 9. 2026, už mají obchodníka) a nic staršího než 30 dní.
+        ne(leads.source, "existing_database"),
+        gte(leads.createdAt, new Date(Date.now() - FRESH_LEAD_DAYS * 24 * 60 * 60 * 1000))
+      )
+    )
     .orderBy(desc(leads.createdAt), asc(leads.id));
   return buildLeadCards(rows);
 }
+
+const FRESH_LEAD_DAYS = 30;
 
 export async function listNewUnassignedLeads(): Promise<LeadCardData[]> {
   await requireCrmContext();
