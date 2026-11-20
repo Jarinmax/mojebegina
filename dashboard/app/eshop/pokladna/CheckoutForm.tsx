@@ -28,6 +28,7 @@ import {
   type ZasilkovnaPoint,
 } from "@/lib/eshop/zasilkovna";
 import { isTastingSet } from "@/lib/eshop/tastingSet";
+import { isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -203,6 +204,37 @@ export default function CheckoutForm({
       cancelled = true;
     };
   }, [handoff]);
+
+  // Ochutnávka do provozu (20. 11. 2026): vždy na firmu s IČO; údaje z výběru
+  // na stránce Pro kavárny a bistra (IČO ověřené v ARES) se předvyplní.
+  const hasTasting = cartHasCafeTasting(cart);
+  const [tastingVenue, setTastingVenue] = useState("");
+  useEffect(() => {
+    if (!hasTasting) return;
+    let stored = null;
+    try {
+      stored = parseCafeTastingCompany(sessionStorage.getItem(CAFE_TASTING_COMPANY_STORAGE));
+    } catch {
+      stored = null;
+    }
+    const company = stored;
+    if (company) setTastingVenue(company.venue);
+    setValues((prev) => ({
+      ...prev,
+      companyPurchase: true,
+      ...(company
+        ? {
+            billingCompany: prev.billingCompany || company.company,
+            billingIco: prev.billingIco || company.ico,
+            billingDic: prev.billingDic || company.dic || "",
+            billingStreet: prev.billingStreet || company.street,
+            billingCity: prev.billingCity || company.city,
+            billingZip: prev.billingZip || company.zip,
+            billingCountry: "Česká republika",
+          }
+        : {}),
+    }));
+  }, [hasTasting]);
 
   function chooseLocation(id: string) {
     setLocationId(id);
@@ -383,7 +415,7 @@ export default function CheckoutForm({
   }
 
   const lines = resolveCartLines(cart, catalog);
-  const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted);
+  const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted || isCafeTastingAlcohol(line.variant.sku));
   // Server objednávku s neověřenými alergeny odmítne (priceCart); tady jen
   // zákazníkovi řekneme proč, ještě před vyplněním formuláře.
   const blockedLines = lines.filter((line) => !isOrderable(line.product));
@@ -550,17 +582,24 @@ export default function CheckoutForm({
             <label htmlFor="name" className={labelClass}>Jméno a příjmení</label>
             <input id="name" name="name" autoComplete="billing name" required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
           </div>
+          {hasTasting && (
+            <>
+              <p className="rounded-lg border border-begina-primary-700/30 bg-begina-primary-50 px-3 py-2 text-sm text-begina-primary-900">{CAFE_TASTING_CHECKOUT_NOTE}</p>
+              <input type="hidden" name="tastingVenue" value={tastingVenue} />
+            </>
+          )}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               name="companyPurchase"
-              checked={values.companyPurchase}
-              onChange={(e) => set("companyPurchase", e.target.checked)}
+              checked={values.companyPurchase || hasTasting}
+              onChange={(e) => set("companyPurchase", hasTasting || e.target.checked)}
+              aria-disabled={hasTasting || undefined}
               className="accent-begina-primary-900"
             />
-            Nakupuji na firmu
+            Nakupuji na firmu{hasTasting ? " (u ochutnávky povinné)" : ""}
           </label>
-          {values.companyPurchase && (
+          {(values.companyPurchase || hasTasting) && (
             <div className="flex flex-col gap-3">
               <div>
                 <label htmlFor="billingCompany" className={labelClass}>Název firmy</label>

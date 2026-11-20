@@ -19,6 +19,8 @@ import {
 } from "@/lib/eshop/cafePage";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
+import CafeTastingForm from "@/components/eshop/CafeTastingForm";
+import { CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,8 @@ export default async function Page() {
   const stocked = new Set((catalog?.products ?? []).map((p) => p.category));
   // druhá věta podnadpisu na počítači celá na nový řádek (Lucie 18. 11. 2026)
   const [subtitleHead, subtitleLast] = splitLastSentence(CAFE_SUBTITLE);
+  // balení ochutnávky, která jsou v katalogu (produkt je v katalogu jen po spuštění / v náhledu)
+  const tastingSkus = (catalog?.products.find(isCafeTasting)?.variants ?? []).map((variant) => variant.sku).filter(isCafeTastingSku);
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
@@ -106,8 +110,16 @@ export default async function Page() {
         </ol>
       </section>
 
-      <section className="max-w-2xl mx-auto w-full">
-        <CafeForm />
+      <section className="max-w-2xl mx-auto w-full flex flex-col gap-8">
+        {/* Ochutnávka do provozu (20. 11. 2026): objednávka na e-shopu; dosavadní formulář zůstává jako druhá možnost */}
+        {tastingSkus.length > 0 ? (
+          <>
+            <CafeTastingForm available={tastingSkus} />
+            <CafeForm heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" />
+          </>
+        ) : (
+          <CafeForm />
+        )}
         <p className="mt-5 text-center text-base text-neutral-700">
           {CAFE_PRICE_NOTE.before}
           <ShopLink href={CAFE_PRICE_NOTE.href} className="font-medium underline underline-offset-4">

@@ -8,6 +8,7 @@
 import type { CatalogIndex } from "./catalogIndex";
 import { lineName } from "./productRules";
 import { withChoice } from "./tastingSet";
+import { CAFE_TASTING_MAX_PER_ITEM, isCafeTastingSku } from "./cafeTasting";
 import type { Product, Variant } from "./types";
 
 export type CartLine = { sku: string; quantity: number };
@@ -15,8 +16,10 @@ export type CartLine = { sku: string; quantity: number };
 export const MAX_QUANTITY_PER_LINE = 99;
 export const MAX_CART_LINES = 50;
 
-function clampQuantity(quantity: number): number {
-  return Math.min(MAX_QUANTITY_PER_LINE, Math.max(0, Math.floor(quantity)));
+function clampQuantity(quantity: number, sku = ""): number {
+  // ochutnávka do provozu: z každé položky nejvýš 1 kus (cafeTasting.ts)
+  const max = isCafeTastingSku(sku) ? CAFE_TASTING_MAX_PER_ITEM : MAX_QUANTITY_PER_LINE;
+  return Math.min(max, Math.max(0, Math.floor(quantity)));
 }
 
 export function addToCart(cart: CartLine[], sku: string, quantity = 1): CartLine[] {
@@ -27,13 +30,13 @@ export function addToCart(cart: CartLine[], sku: string, quantity = 1): CartLine
   if (cart.length >= MAX_CART_LINES) {
     return cart;
   }
-  const clamped = clampQuantity(quantity);
+  const clamped = clampQuantity(quantity, sku);
   return clamped > 0 ? [...cart, { sku, quantity: clamped }] : cart;
 }
 
 /** Množství 0 (nebo méně) řádek odebere. */
 export function setLineQuantity(cart: CartLine[], sku: string, quantity: number): CartLine[] {
-  const clamped = clampQuantity(quantity);
+  const clamped = clampQuantity(quantity, sku);
   if (clamped === 0) {
     return cart.filter((line) => line.sku !== sku);
   }

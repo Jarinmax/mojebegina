@@ -3,6 +3,7 @@
 // spojuje g:item_group_id. Data jen z katalogu; nic se nevymýšlí.
 // Alkoholické produkty (18+) se do katalogu nedávají — zvláštní pravidla Google.
 import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
+import { isCafeTasting } from "./cafeTasting";
 import { isOrderable } from "./productRules";
 import { plainText, truncate } from "./seo";
 import type { Catalog, Product } from "./types";
@@ -41,7 +42,7 @@ function description(product: Product): string {
 export function googleMerchantFeed(catalog: Catalog): string {
   const categoryName = new Map(catalog.categories.map((c) => [c.slug, c.name]));
   const items = catalog.products
-    .filter((product) => !product.isAgeRestricted && product.variants.length > 0)
+    .filter((product) => !product.isAgeRestricted && product.variants.length > 0 && !isCafeTasting(product))
     .flatMap((product) => {
       const images = photos(product);
       if (!images.length) return [];

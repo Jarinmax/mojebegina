@@ -4,6 +4,7 @@
 // je jen pohodlí navíc.
 
 import { parseStoredCart } from "./cart";
+import { CAFE_TASTING_NEED_COMPANY, cartHasCafeTasting } from "./cafeTasting";
 import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
@@ -200,6 +201,10 @@ export function validateCheckoutInput(
     return { ok: false, error: `Adresa může mít nejvýše ${MAX_TEXT_LENGTH} znaků.` };
   }
   let company: CheckoutValue["billing"]["company"] = null;
+  // Ochutnávka do provozu jen na firmu s IČO (20. 11. 2026).
+  if (cartHasCafeTasting(cartLines) && (!input.companyPurchase || !input.billingIco.trim())) {
+    return { ok: false, error: CAFE_TASTING_NEED_COMPANY };
+  }
   if (input.companyPurchase) {
     const companyName = input.billingCompany.trim();
     if (!companyName) {

@@ -8,13 +8,14 @@ import { submitCafeInquiryAction, type CafeFormState } from "./actions";
 const input =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 h-12 text-base text-[#2A2622] focus:outline-none focus:ring-2 focus:ring-[#5E6B34] aria-[invalid=true]:border-[#A51C1C]";
 
-export default function CafeForm({ place = "kavarny" }: { place?: CafeFormPlace }) {
+/** heading/anchorId: na Pro kavárny a bistra je při objednávce ochutnávky tenhle formulář druhá možnost (20. 11. 2026). */
+export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADING, anchorId = "ochutnavka" }: { place?: CafeFormPlace; heading?: string; anchorId?: string }) {
   const [state, action, pending] = useActionState<CafeFormState, FormData>(submitCafeInquiryAction, { status: "idle" });
   const invalid = (field: CafeField) => (state.status === "error" && state.field === field ? true : undefined);
 
   if (state.status === "done") {
     return (
-      <section id="ochutnavka" className="rounded-2xl border border-[#5E6B34] bg-[#FAF6EF] p-6 text-center" aria-live="polite">
+      <section id={anchorId} className="rounded-2xl border border-[#5E6B34] bg-[#FAF6EF] p-6 text-center" aria-live="polite">
         <CheckCircle2 aria-hidden="true" className="w-10 h-10 mx-auto text-[#5E6B34]" />
         <p className="mt-3 text-lg font-semibold text-[#2A2622]">{CAFE_FORM_DONE}</p>
       </section>
@@ -22,8 +23,8 @@ export default function CafeForm({ place = "kavarny" }: { place?: CafeFormPlace 
   }
 
   return (
-    <form id="ochutnavka" action={action} className="rounded-2xl border border-[#EDE5D8] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4 scroll-mt-24" noValidate>
-      <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_FORM_HEADING}</h2>
+    <form id={anchorId} action={action} className="rounded-2xl border border-[#EDE5D8] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4 scroll-mt-24" noValidate>
+      <h2 className="font-serif text-2xl text-[#2A2622]">{heading}</h2>
       <input type="hidden" name="misto" value={place} />
       <label className="flex flex-col gap-1 text-base">
         <span className="font-medium">Název podniku</span>
