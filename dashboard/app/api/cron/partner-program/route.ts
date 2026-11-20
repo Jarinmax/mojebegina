@@ -2,9 +2,10 @@
 // Dva běhy denně, každý dělá něco jen ve správný den (pražský čas):
 //   ?beh=vecer  (17:00 UTC)  — upozornění, když někdo přesáhl 20 000 Kč;
 //                              poslední den měsíce navíc report na info@begina.cz,
-//   ?beh=pulnoc (23:05 UTC)  — první den měsíce: po schválení založí kódy
+//   ?beh=pulnoc (23:05 UTC)  — první den měsíce: založí kódy
 //                              a rozešle e-maily klientům (jinak jen upozorní).
-// Klientům nic neodejde bez schválení v MojeBegina (partnerMonthlyServer.ts).
+// Pevné úrovně 3 / 5 / 7 % odcházejí automaticky; individuální sleva nad 20 000 Kč
+// jen po zadání procenta v MojeBegina (partnerMonthlyServer.ts).
 // Autorizace jako u ostatních cronů: "Authorization: Bearer $CRON_SECRET".
 import { db } from "@/lib/db/client";
 import { daysInMonth } from "@/lib/eshop/partnerMonthly";

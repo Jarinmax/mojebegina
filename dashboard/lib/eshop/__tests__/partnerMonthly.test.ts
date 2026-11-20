@@ -108,22 +108,30 @@ describe("partnerský program: schválení, kódy a rozesílka (PGlite)", () => 
     expect(overview.state.approvedAt).toBeNull();
   });
 
-  it("bez schválení se nezaloží kódy a klientům nic neodejde", async () => {
-    const { finalizePartnerMonth } = await import("../partnerMonthlyServer");
-    const result = await finalizePartnerMonth(db, DEC1, mailer);
-    expect(result.status).toBe("not-approved");
+  it("report v 18:00 jde jen na info@begina.cz, uloží snímek a nic nezapne", async () => {
+    const { reportPartnerMonth, loadPartnerMonthState } = await import("../partnerMonthlyServer");
+    const result = await reportPartnerMonth(db, new Date("2026-11-30T17:00:00Z"), mailer);
+    expect(result).toEqual({ clients: 3, sent: true });
     expect(sentMail.map((m) => m.to)).toEqual([["info@begina.cz"]]);
+    expect(sentMail[0].text).toContain("e-maily odejdou automaticky");
     const codes = await db.execute(sql`SELECT code FROM eshop_coupons WHERE is_active`);
     expect(codes.rows).toEqual([]);
+    expect((await loadPartnerMonthState(db, { year: 2026, month: 12 })).reported).toEqual({ "email:velky@example.cz": -1, "ico:12345678": 5, "email:maly@example.cz": 0 });
   });
 
-  it("po schválení: sleva 5 % jen pro e-mail klienta do konce prosince (v pokladně automaticky), e-mail s kopií na info; individuální čeká", async () => {
+  it("bez schválení po půlnoci: sleva 5 % jen pro e-mail klienta do konce prosince, e-mail s kopií na info; změna po 18:00 nahlášena; individuální čeká", async () => {
     const { approvePartnerMonth, finalizePartnerMonth, loadPartnerMonthState } = await import("../partnerMonthlyServer");
     const { loadCouponContext } = await import("../couponsServer");
     sentMail.length = 0;
+    // jako by klient v reportu měl 3 % a do půlnoci přikoupil na 5 %
+    await db.execute(sql`UPDATE eshop_coupons SET note = jsonb_set(note::jsonb, '{reported,ico:12345678}', '3')::text WHERE code = 'partner-program-2026-12'`);
     await approvePartnerMonth(db, { evaluatedMonth: NOV, approvedBy: "Lucie", individual: {}, salutations: { "ico:12345678": "paní Kavárníková" }, now: new Date("2026-11-30T18:00:00Z") });
     const result = await finalizePartnerMonth(db, DEC1, mailer);
     expect(result).toMatchObject({ status: "done", codes: ["5 %"], emailed: ["majitel@kavarna.cz"], failed: [], waiting: ["Velký odběr"] });
+    const summary = sentMail.find((m) => m.subject.startsWith("Partnerský program: slevy na prosinec"));
+    expect(summary?.subject).toContain("změny po 18:00: 1");
+    expect(summary?.text).toContain("ZMĚNY PO REPORTU V 18:00");
+    expect(summary?.text).toContain("3 % → 5 %");
     const client = sentMail.find((m) => m.to[0] === "majitel@kavarna.cz");
     expect(client?.bcc).toEqual(["info@begina.cz"]);
     expect(client?.text).toContain("Dobrý den, paní Kavárníková,");

@@ -8,7 +8,8 @@
 //     odečte automaticky podle e-mailu v pokladně (Lucie 20. 11. 2026). Nárok se
 //     drží ve vnitřním řádku eshop_coupons „partner-RRRR-MM-procento“,
 //   • nad 20 000 Kč je sleva individuální — procento určuje Lucie při schválení,
-//   • klientům nic neodejde bez schválení (viz partnerMonthlyServer.ts).
+//   • pevné úrovně odcházejí automaticky po půlnoci; schvaluje se jen
+//     individuální sleva nad 20 000 Kč (Lucie 20. 11. 2026).
 import { partnerTiers } from "@/mock/partnerProgram";
 
 export type PartnerOrderRow = {
@@ -199,7 +200,7 @@ export function buildPartnerReport(input: {
   const withDiscount = input.clients.filter((c) => c.percent === null || c.percent > 0).length;
   const intro = [
     `Nákupy přes e-shop uhrazené v ${monthName(input.evaluatedMonth, "locative")} ${input.evaluatedMonth.year}. Klientů: ${input.clients.length}, z toho se slevou na ${monthName(valid)}: ${withDiscount}.`,
-    `Klientům zatím nic neodešlo. Slevy se zapnou a e-maily odejdou po půlnoci jen po schválení: ${input.approvalUrl}`,
+    `Klientům zatím nic neodešlo. Po půlnoci se slevy 3 / 5 / 7 % zapnou a e-maily odejdou automaticky (s nákupy do půlnoci). Schválit je potřeba jen individuální slevu nad 20 000 Kč: ${input.approvalUrl}`,
   ];
   const text = [title, "", ...intro, "", ...(lines.length ? lines : ["Žádné uhrazené objednávky z e-shopu."])].join("\n");
   const rows = input.clients
@@ -211,7 +212,7 @@ export function buildPartnerReport(input: {
   const html = [
     `<h2>${escapeHtml(title)}</h2>`,
     `<p>${escapeHtml(intro[0])}</p>`,
-    `<p>Klientům zatím nic neodešlo. Slevy se zapnou a e-maily odejdou po půlnoci jen po schválení: <a href="${input.approvalUrl}">schválit v MojeBegina</a></p>`,
+    `<p>Klientům zatím nic neodešlo. Po půlnoci se slevy 3 / 5 / 7 % zapnou a e-maily odejdou automaticky (s nákupy do půlnoci). Schválit je potřeba jen individuální slevu nad 20 000 Kč: <a href="${input.approvalUrl}">MojeBegina</a></p>`,
     lines.length
       ? `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse"><tr><th>#</th><th>Zákazník</th><th>Objednávek</th><th>S dopravou</th><th>Zboží bez dopravy</th><th>Úroveň na ${escapeHtml(monthName(valid))}</th></tr>${rows}</table>`
       : "<p>Žádné uhrazené objednávky z e-shopu.</p>",
