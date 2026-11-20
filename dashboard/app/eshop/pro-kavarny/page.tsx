@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import Image from "next/image";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
 import ShopLink from "@/components/eshop/ShopLink";
@@ -28,6 +29,7 @@ export const metadata: Metadata = {
   title: CAFE_TITLE,
   description: CAFE_DESCRIPTION,
   alternates: { canonical: CAFE_PATH },
+  ...pageShareMeta(CAFE_TITLE, CAFE_DESCRIPTION, CAFE_PATH),
 };
 
 // Stránka pro provozy (zadání Lucie 18. 11. 2026). Texty: lib/eshop/cafePage.ts.

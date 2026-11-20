@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import { Check } from "lucide-react";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   title: HOME_SHOP_HOME.title,
   description: HOME_SHOP_HOME.description,
   alternates: { canonical: HOME_SHOP_HOME.path },
+  ...pageShareMeta(HOME_SHOP_HOME.title, HOME_SHOP_HOME.description, HOME_SHOP_HOME.path),
 };
 
 export default async function Page() {
