@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity } from "@/lib/db/schema";
 import { getAppOrigin } from "@/lib/appOrigin";
-import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
+import { DEFAULT_INTERNAL_EMAIL, emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
 import { getUserProfile } from "./userProfiles";
 import { buildLeadAssignmentEmail } from "./leadAssignmentEmail";
@@ -50,7 +50,7 @@ export async function notifyLeadOwner(leadId: string, ownerUserId: string, assig
         from: config.from,
         to: recipients.to,
         bcc: invoiceCopyRecipients(config, recipients.to),
-        replyTo: lead.contactEmail,
+        replyTo: DEFAULT_INTERNAL_EMAIL, // Lucie 20. 11.: odpověď obchodníka jde Begině, ne zákazníkovi
         subject: mail.subject,
         text: mail.text,
         html: mail.html,
