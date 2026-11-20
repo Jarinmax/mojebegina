@@ -9,14 +9,16 @@
 // 3 měsíce (ovocné nápoje 5 dní — proto se u nich výdrž neuvádí).
 
 export const CAFE_PATH = "/pro-kavarny";
-// V menu kratší název: s „Pro kavárny a bistra“ se menu na šířce 1280 px nevešlo vedle košíku.
-export const CAFE_MENU_LABEL = "Kavárny a bistra";
+// Od 20. 11. 2026 (Lucie) plný název a první, zvýrazněná položka menu.
+export const CAFE_MENU_LABEL = "Pro kavárny a bistra";
 export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
 // „nic nevyhodíte“ pryč (Lucie 18. 11. 2026): obal se vyhazuje, myšleno bylo jen jídlo
 // „kolik prodáte“ → „objednanou porci“ (Lucie 18. 11. 2026, večer)
 export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
 export const CAFE_DESCRIPTION = "Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině pro kavárny a bistra. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
-export const CAFE_HOME_STRIP = "Jste kavárna nebo bistro? Polévky a nápoje v begině pro váš provoz";
+
+/** Řádek pod tlačítkem Do košíku na stránce produktu (Lucie 20. 11. 2026). */
+export const CAFE_PRODUCT_LINE = { text: "Odebíráte pro kavárnu nebo bistro?", link: "Ochutnávka do provozu" } as const;
 
 export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" | "truck";
 
@@ -65,8 +67,8 @@ export function normalizeCafePhone(raw: string): string | null {
 
 export function validateCafeInquiry(raw: CafeInquiryRaw): { ok: true; value: CafeInquiry } | { ok: false; error: string; field: CafeField } {
   const venue = clean(raw.venue);
-  if (venue.length < 2) return { ok: false, field: "venue", error: "Vyplňte prosím název provozu." };
-  if (venue.length > 120) return { ok: false, field: "venue", error: "Název provozu může mít nejvýše 120 znaků." };
+  if (venue.length < 2) return { ok: false, field: "venue", error: "Vyplňte prosím název podniku." };
+  if (venue.length > 120) return { ok: false, field: "venue", error: "Název podniku může mít nejvýše 120 znaků." };
   const name = clean(raw.name);
   if (name.length < 2) return { ok: false, field: "name", error: "Vyplňte prosím své jméno." };
   if (name.length > 120) return { ok: false, field: "name", error: "Jméno může mít nejvýše 120 znaků." };
@@ -92,10 +94,20 @@ export function emailMatchKey(raw: string | null): string | null {
   return t.includes("@") ? t : null;
 }
 
+/** Kde byl formulář vyplněn: stránka Pro kavárny a bistra, nebo úvodní stránka (Lucie 20. 11. 2026). */
+export type CafeFormPlace = "kavarny" | "uvod";
+export const CAFE_FORM_PLACES: Record<CafeFormPlace, { leadSource: string; pageLabel: string }> = {
+  kavarny: { leadSource: "web_kavarny", pageLabel: "begina.cz/pro-kavarny" },
+  uvod: { leadSource: "web_uvod", pageLabel: "úvodní stránce begina.cz" },
+};
+export function cafeFormPlace(raw: string | null | undefined): CafeFormPlace {
+  return raw === "uvod" ? "uvod" : "kavarny";
+}
+
 /** Text do historie kontaktu v CRM. */
-export function describeCafeInquiry(inquiry: CafeInquiry, submittedLabel: string): string {
+export function describeCafeInquiry(inquiry: CafeInquiry, submittedLabel: string, place: CafeFormPlace = "kavarny"): string {
   return [
-    `Formulář „Chci ochutnávku do provozu“ na begina.cz/pro-kavarny vyplněn ${submittedLabel}.`,
+    `Formulář „Chci ochutnávku do provozu“ na ${CAFE_FORM_PLACES[place].pageLabel} vyplněn ${submittedLabel}.`,
     `Provoz: ${inquiry.venue}`,
     `Jméno: ${inquiry.name}`,
     `Telefon: ${inquiry.phone}`,

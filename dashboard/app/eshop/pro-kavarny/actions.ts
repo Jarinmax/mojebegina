@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { submitCafeInquiry } from "@/lib/eshop/cafeInquirySubmit";
-import type { CafeField } from "@/lib/eshop/cafePage";
+import { cafeFormPlace, type CafeField } from "@/lib/eshop/cafePage";
 
 export type CafeFormState = { status: "idle" } | { status: "error"; error: string; field?: CafeField } | { status: "done" };
 
@@ -28,7 +28,7 @@ export async function submitCafeInquiryAction(_prev: CafeFormState, formData: Fo
   const result = await submitCafeInquiry(
     db,
     { venue: field("venue"), name: field("name"), phone: field("phone"), email: field("email"), city: field("city"), note: field("note") },
-    { baseUrl: await crmBaseUrl() }
+    { baseUrl: await crmBaseUrl(), place: cafeFormPlace(field("misto")) }
   );
   if (!result.ok) return { status: "error", error: result.error, field: result.field };
   return { status: "done" };

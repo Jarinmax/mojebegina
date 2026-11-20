@@ -132,11 +132,18 @@ function DesktopNav({ entries }: { entries: MenuEntry[] }) {
   return (
     <div className="hidden xl:block min-w-0">
       <nav aria-label="Hlavní menu">
-        <ul className="flex items-center gap-6 2xl:gap-9 text-[18px]">
+        <ul className="flex items-center gap-5 2xl:gap-9 text-[17px] 2xl:text-[18px]">
           {entries.map((entry) =>
             entry.kind === "link" ? (
               <li key={entry.href}>
-                <EntryLink link={entry} className="hover:underline underline-offset-4 whitespace-nowrap" />
+                <EntryLink
+                  link={entry}
+                  className={
+                    entry.highlight
+                      ? "whitespace-nowrap rounded-full bg-[#5E6B34] px-3.5 py-1.5 font-medium text-white hover:bg-[#4A5527]"
+                      : "hover:underline underline-offset-4 whitespace-nowrap"
+                  }
+                />
               </li>
             ) : (
               <DesktopGroup key={entry.label} group={entry} />
@@ -225,7 +232,7 @@ function MobileNav({ entries }: { entries: MenuEntry[] }) {
               {entries.map((entry, i) =>
                 entry.kind === "link" ? (
                   <li key={entry.href}>
-                    <EntryLink link={entry} onClick={close} className={row} />
+                    <EntryLink link={entry} onClick={close} className={entry.highlight ? `${row} font-semibold text-[#4A5527] bg-[#FAF6EF]` : row} />
                   </li>
                 ) : (
                   <li key={entry.label}>

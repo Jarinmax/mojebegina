@@ -1,7 +1,6 @@
 import Image from "next/image";
-import { ArrowRight, Check } from "lucide-react";
-import { HOME_HERO_POINTS } from "@/lib/eshop/homeContent";
-import ShopLink from "./ShopLink";
+import { Check } from "lucide-react";
+import { HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -40,22 +39,18 @@ export const HERO_PHOTO = {
   alt: "Dýňová polévka v keramické misce na dřevěném stole u okna, koktejl s grepem, hrnek čaje s citronem a svařák, kolem bylinky a ovoce",
 };
 
-export const HERO_LINKS = {
-  soups: "/kategorie/polevky",
-  syrups: "/kategorie/sirupy",
-};
-
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
       <div className="max-w-6xl mx-auto lg:px-4 lg:py-3 grid items-center lg:grid-cols-2 lg:gap-6">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
-          {/* Nadpis s hlavní výhodou (11. 11. 2026): begina = natočíte si, kolik chcete. */}
-          <h1 className="mt-1.5 sm:mt-4 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622]">
-            <span className="sm:block lg:inline">Polévky a nápoje</span>{" "}
-            <span className="sm:block lg:inline">v&nbsp;begině</span>
+          {/* Od 20. 11. 2026 (Lucie): úvod primárně pro kavárny a bistra, podnadpis zve i zákazníky domů.
+              Tlačítka nahradily dvě dlaždice hned pod úvodem (Pro kavárny a bistra / Nakupuji domů). */}
+          <h1 className="mt-1.5 sm:mt-4 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622] text-balance">
+            {HOME_HERO_TITLE}
           </h1>
-          {/* Tři výhody hned pod nadpisem, i na mobilu (16. 11. 2026, Lucie). */}
+          <p className="mt-2 sm:mt-4 text-base sm:text-lg leading-snug sm:leading-relaxed text-[#3B3631] max-w-md mx-auto lg:mx-0 text-balance">{HOME_HERO_SUBTITLE}</p>
+          {/* Tři výhody (16. 11. 2026, Lucie), beze změny. */}
           <ul className="mt-2 sm:mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-x-3 gap-y-1 sm:gap-x-5 text-[13px] sm:text-base font-medium text-[#4A5527]">
             {HOME_HERO_POINTS.map((point) => (
               <li key={point} className="inline-flex items-center gap-1">
@@ -64,24 +59,6 @@ export default function HomeHero() {
               </li>
             ))}
           </ul>
-          <p className="hidden sm:block sm:mt-4 sm:text-lg sm:leading-relaxed text-[#3B3631] max-w-md mx-auto lg:mx-0 text-balance">
-            Natočíte si, kolik chcete a&nbsp;kdy chcete. Z&nbsp;čisté filtrované vody.
-          </p>
-          <div className="hidden sm:flex sm:mt-7 lg:mt-5 flex-row items-stretch sm:items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
-            <ShopLink
-              href={HERO_LINKS.soups}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-4 sm:px-7 py-2.5 sm:py-3.5 text-base sm:text-lg font-medium text-white shadow-md shadow-[#A51C1C]/20"
-            >
-              Vybrat polévku
-              <ArrowRight className="w-5 h-5" aria-hidden="true" />
-            </ShopLink>
-            <ShopLink
-              href={HERO_LINKS.syrups}
-              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5E6B34] transition-colors px-4 sm:px-7 py-2 sm:py-3 text-base sm:text-lg font-medium text-[#4A5527]"
-            >
-              Objevit sirupy
-            </ShopLink>
-          </div>
         </div>
 
         <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">

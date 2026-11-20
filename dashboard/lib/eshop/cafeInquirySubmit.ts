@@ -9,7 +9,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
-import { describeCafeInquiry, emailMatchKey, phoneMatchKey, validateCafeInquiry, type CafeField, type CafeInquiry, type CafeInquiryRaw } from "./cafePage";
+import { CAFE_FORM_PLACES, describeCafeInquiry, emailMatchKey, phoneMatchKey, validateCafeInquiry, type CafeField, type CafeFormPlace, type CafeInquiry, type CafeInquiryRaw } from "./cafePage";
 import { emailConfig, resolveRecipients, type EmailConfig } from "./email/config";
 import { resendTransport, type EmailTransport } from "./email/resend";
 import { OPERATOR } from "./operator";
@@ -29,6 +29,8 @@ export type CafeSubmitOptions = {
   now?: Date;
   config?: EmailConfig | null;
   transport?: EmailTransport;
+  /** kde byl formulář vyplněn — určuje zdroj leadu (web_kavarny / web_uvod) */
+  place?: CafeFormPlace;
 };
 
 function pragueLabel(date: Date): string {
@@ -42,8 +44,10 @@ export async function submitCafeInquiry(db: Db, raw: CafeInquiryRaw, options: Ca
   if (!validated.ok) return validated;
   const inquiry: CafeInquiry = validated.value;
   const now = options.now ?? new Date();
-  const body = describeCafeInquiry(inquiry, pragueLabel(now));
-  const meta = JSON.stringify({ source: CAFE_LEAD_SOURCE, venue: inquiry.venue, city: inquiry.city });
+  const place = options.place ?? "kavarny";
+  const leadSource = CAFE_FORM_PLACES[place].leadSource;
+  const body = describeCafeInquiry(inquiry, pragueLabel(now), place);
+  const meta = JSON.stringify({ source: leadSource, venue: inquiry.venue, city: inquiry.city });
 
   let leadId: string;
   let outcome: "created" | "matched";
@@ -68,7 +72,7 @@ export async function submitCafeInquiry(db: Db, raw: CafeInquiryRaw, options: Ca
       await db.execute(sql`
         WITH ins AS (
           INSERT INTO leads (id, company_name, contact_name, contact_phone, contact_email, city, source, stage, owner_user_id)
-          VALUES (${leadId}::uuid, ${inquiry.venue}, ${inquiry.name}, ${inquiry.phone}, ${inquiry.email}, ${inquiry.city}, ${CAFE_LEAD_SOURCE}, 'new', NULL)
+          VALUES (${leadId}::uuid, ${inquiry.venue}, ${inquiry.name}, ${inquiry.phone}, ${inquiry.email}, ${inquiry.city}, ${leadSource}, 'new', NULL)
           RETURNING id
         )
         INSERT INTO lead_activity (lead_id, author_user_id, author_name, kind, body, metadata)
@@ -85,7 +89,8 @@ export async function submitCafeInquiry(db: Db, raw: CafeInquiryRaw, options: Ca
   if (config) {
     const internal = resolveRecipients(config.internalTo, config);
     const leadUrl = `${options.baseUrl}/rizeni-firmy/obchod/leady/${leadId}`;
-    const intro = outcome === "created" ? "Nový zájemce z webu – stránka Pro kavárny a bistra." : "Zájemce z webu (Pro kavárny a bistra), který už v CRM je – formulář vyplnil znovu.";
+    const where = place === "uvod" ? "úvodní stránka" : "stránka Pro kavárny a bistra";
+    const intro = outcome === "created" ? `Nový zájemce z webu – ${where}.` : `Zájemce z webu (${where}), který už v CRM je – formulář vyplnil znovu.`;
     const text = `${intro}\n\n${body}\n\nKontakt v MojeBegina: ${leadUrl}\n\nSlíbili jsme odpověď do 2 pracovních dnů.`;
     if (internal.to.length > 0) {
       const key = createHash("sha256").update(`${leadId}|${now.toISOString()}`).digest("hex").slice(0, 40);

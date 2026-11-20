@@ -7,16 +7,27 @@ import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import { Clock, Coffee, Leaf, Percent, Soup } from "lucide-react";
-import { CAFE_HOME_STRIP, CAFE_PATH } from "@/lib/eshop/cafePage";
+import { Check } from "lucide-react";
+import CafeBenefits from "@/components/eshop/CafeBenefits";
+import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import ProductCard from "@/components/eshop/ProductCard";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
-import { HOME_ABOUT, HOME_BESTSELLERS, HOME_BISTRO, HOME_STEPS, HOME_STEPS_PHOTO, HOME_WHY } from "@/lib/eshop/homeContent";
+import {
+  HOME_ABOUT,
+  HOME_BESTSELLERS,
+  HOME_BISTRO,
+  HOME_STEPS,
+  HOME_STEPS_PHOTO,
+  HOME_TILE_CAFE,
+  HOME_TILE_HOME,
+  HOME_VENUES,
+  HOME_VENUES_TITLE,
+  HOME_WHY_TITLE,
+} from "@/lib/eshop/homeContent";
 
-const WHY_ICONS = { leaf: Leaf, soup: Soup, clock: Clock, percent: Percent } as const;
-
-// Úvodní stránka: hero podle návrhu z 8. 11. 2026 (fotografie polévky
+// Od 20. 11. 2026 úvod primárně pro kavárny a bistra (viz komentář v těle).
+// Původně: hero podle návrhu z 8. 11. 2026 (fotografie polévky
 // s bylinným nápojem, tlačítka Vybrat polévku / Objevit sirupy), pruh
 // kategorií s ikonami; od 11. 11. 2026 pod nimi Proč Begina (3 konkrétní důvody),
 // Jak funguje begina, Nejoblíbenější a Kdo za tím stojí (lib/eshop/homeContent.ts). Dlaždice kategorií s fotkami odebrány (3. 10. 2026) — úvod
@@ -36,16 +47,6 @@ export const metadata: Metadata = {
   ...brandShareMeta("/"),
 };
 
-function CafeStrip() {
-  return (
-    <ShopLink href={CAFE_PATH} className="flex items-center gap-3 rounded-2xl border border-[#5E6B34] bg-white px-4 py-3.5 text-base leading-snug text-[#2A2622] hover:bg-[#FAF6EF]">
-      <Coffee className="flex-none w-6 h-6 text-[#5E6B34]" aria-hidden="true" />
-      <span>{CAFE_HOME_STRIP}</span>
-      <span className="ml-auto text-xl" aria-hidden="true">→</span>
-    </ShopLink>
-  );
-}
-
 export default async function EshopPage() {
   const { categories, products } = await getCatalog();
   const tastingSet = products.find((p) => p.slug === SET_SLUG);
@@ -53,55 +54,34 @@ export default async function EshopPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd()) }} />
-      {/* Pořadí (Lucie 15. 11. 2026): na počítači i na mobilu stejně — úvod a pod
-          ním oddělený pruh kategorií; na mobilu se obojí vejde na první obrazovku. */}
-      {/* První obrazovka na počítači (15. 11. 2026): úvod, pruh kategorií a Proč Begina
-          vyplní přesně výšku okna (pod hlavičkou) — končí čtyřmi dlaždicemi,
-          „Jak funguje begina“ je až po posunutí. */}
-      <div className="flex flex-col lg:min-h-[calc(100svh-4rem)] xl:min-h-[calc(100svh-5.25rem)]">
-        <div>
-          <HomeHero />
+      {/* Přestavba úvodu (Lucie 20. 11. 2026): primárně pro kavárny a bistra, ale vítaní
+          i zákazníci domů — hero, pod ním dvě dlaždice (na mobilu pod sebou, gastro první),
+          Proč Beginu berou kavárny a bistra, Kde nás najdete (jen se souhlasem kaváren). */}
+      <HomeHero />
+      <section aria-label="Pro koho je Begina" className="w-full max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <HomeTile tile={HOME_TILE_CAFE} prominent />
+          <HomeTile tile={HOME_TILE_HOME} />
         </div>
-        <div>
-          <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-        </div>
-        {/* Pruh pro provozy na mobilu (Lucie 18. 11. 2026): hned pod kategoriemi, aby ho kavárna nemusela hledat */}
-        <div className="lg:hidden w-full max-w-6xl mx-auto px-4 pt-5">
-          <CafeStrip />
-        </div>
-        {/* Proč Begina – tři konkrétní důvody (11. 11. 2026) a partnerský program (14. 11. 2026) */}
-        <section className="w-full max-w-6xl mx-auto px-4 pt-8 sm:pt-10 lg:pt-0 lg:pb-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-2xl text-center text-[#2A2622] mb-5 lg:mb-3">Proč Begina</h2>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-4">
-            {HOME_WHY.map((item) => {
-              const Icon = WHY_ICONS[item.icon];
-              const body = (
-                <>
-                  <Icon className="w-8 h-8 lg:w-6 lg:h-6 mx-auto text-[#5E6B34]" aria-hidden="true" />
-                  <h3 className="mt-3 lg:mt-1.5 font-semibold text-lg lg:text-base text-[#2A2622]">{item.title}</h3>
-                  <p className="mt-1.5 lg:mt-1 text-base lg:text-[15px] leading-normal lg:leading-snug text-neutral-700">{item.text}</p>
-                </>
-              );
-              const box = "rounded-2xl bg-[#FAF6EF] border border-[#EDE5D8] p-6 lg:p-4 text-center h-full";
-              return (
-                <li key={item.title}>
-                  {"href" in item ? (
-                    <ShopLink href={item.href} className={`${box} block group hover:border-[#5E6B34] transition-colors`}>
-                      {body}
-                      <span className="mt-2 lg:mt-1 inline-block text-base lg:text-[15px] font-medium text-[#4A5527] underline underline-offset-4">{item.linkLabel}</span>
-                    </ShopLink>
-                  ) : (
-                    <div className={box}>{body}</div>
-                  )}
-                </li>
-              );
-            })}
+      </section>
+      <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
+        <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_WHY_TITLE}</h2>
+        <CafeBenefits headingLevel="h3" />
+      </section>
+      {HOME_VENUES.length > 0 && (
+        <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
+          <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_VENUES_TITLE}</h2>
+          <ul className="flex flex-wrap justify-center gap-3">
+            {HOME_VENUES.map((v) => (
+              <li key={`${v.name}-${v.city}`} className="rounded-full border border-[#EDE5D8] bg-[#FAF6EF] px-4 py-2 text-base text-[#2A2622]">
+                <span className="font-semibold">{v.name}</span>, {v.city}
+              </li>
+            ))}
           </ul>
         </section>
-      </div>
-      {/* Pruh pro provozy na počítači — pod řádkem výhod (na mobilu je výš, hned pod kategoriemi) */}
-      <div className="hidden lg:block w-full max-w-6xl mx-auto px-4 pt-2">
-        <CafeStrip />
+      )}
+      <div className="pt-10 sm:pt-14">
+        <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
       </div>
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
         {/* Jak funguje begina */}
@@ -162,6 +142,44 @@ export default async function EshopPage() {
           </div>
         </section>
       </div>
+      {/* Formulář ochutnávky před Kontaktem v patičce (Lucie 20. 11. 2026), zdroj leadu „web – úvod“ */}
+      <div className="max-w-6xl mx-auto px-4 pb-12 sm:pb-14">
+        <CafeForm place="uvod" />
+      </div>
     </>
+  );
+}
+
+type Tile = { title: string; points: readonly string[]; button: string; href: string };
+
+function HomeTile({ tile, prominent = false }: { tile: Tile; prominent?: boolean }) {
+  return (
+    <div
+      className={
+        prominent
+          ? "rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col"
+          : "rounded-2xl border border-[#EDE5D8] bg-white p-5 sm:p-6 flex flex-col"
+      }
+    >
+      <h2 className="font-serif text-2xl text-[#2A2622]">{tile.title}</h2>
+      <ul className="mt-3 flex flex-col gap-2 text-base leading-normal text-neutral-800">
+        {tile.points.map((point) => (
+          <li key={point} className="flex gap-2.5">
+            <Check className="flex-none mt-0.5 w-5 h-5 text-[#5E6B34]" aria-hidden="true" />
+            <span>{point}</span>
+          </li>
+        ))}
+      </ul>
+      <ShopLink
+        href={tile.href}
+        className={
+          prominent
+            ? "mt-5 self-start rounded-full bg-[#A51C1C] px-6 py-3 text-base font-semibold text-white hover:bg-[#8A1717]"
+            : "mt-5 self-start rounded-full border-2 border-[#5E6B34] px-6 py-2.5 text-base font-semibold text-[#4A5527] hover:bg-[#FAF6EF]"
+        }
+      >
+        {tile.button}
+      </ShopLink>
+    </div>
   );
 }
