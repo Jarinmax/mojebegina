@@ -6,6 +6,7 @@ import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import { isOrderable } from "./productRules";
 import type { Category, Product } from "./types";
 import { OPERATOR, PICKUP_PLACE } from "./operator";
+import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
 
 export const HOME_TITLE = "Begina – bylinné sirupy, polévky, čaje a nápoje";
 // Od 20. 11. 2026 (Lucie): primárně kavárny a bistra, jasně „dovážíme po celé ČR chlazenou přepravou“.
@@ -158,10 +159,12 @@ export function breadcrumbJsonLd(items: { name: string; path: string }[]) {
 // Organizace a provozovna (Lucie 20. 11. 2026, viditelnost v ChatGPT a AI vyhledávání):
 // telefon, e-mail, oblast doručení celá ČR a Slovensko; LocalBusiness = Zahradní Bistro
 // Begina ve Viticích (provozovna a osobní odběr). Údaje jen z webu (operator.ts).
+// Slovensko jen při zapnutém doručení (SLOVAKIA_DELIVERY_ALLOWED, od 18. 11. 2026 vypnuto).
 const AREA_SERVED = [
   { "@type": "Country", name: "Česká republika" },
-  { "@type": "Country", name: "Slovensko" },
+  ...(SLOVAKIA_DELIVERY_ALLOWED ? [{ "@type": "Country", name: "Slovensko" }] : []),
 ];
+const AREA_CODES = SLOVAKIA_DELIVERY_ALLOWED ? ["CZ", "SK"] : ["CZ"];
 
 export function organizationJsonLd() {
   const orgId = `${PUBLIC_ORIGIN}/#organizace`;
@@ -182,7 +185,7 @@ export function organizationJsonLd() {
         contactType: "customer service",
         email: OPERATOR.email,
         telephone: OPERATOR.phone,
-        areaServed: ["CZ", "SK"],
+        areaServed: AREA_CODES,
         availableLanguage: ["cs"],
       },
     },

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { FAQ_ITEMS, FAQ_PAGE, FAQ_PATH } from "../faq";
 import { faqJsonLd, organizationJsonLd } from "../seo";
 import { FOOTER_LINKS } from "../infoPages";
+import { SLOVAKIA_DELIVERY_ALLOWED } from "../shipping";
 
 describe("Časté otázky", () => {
   it("obsahuje otázky ze zadání", () => {
@@ -37,10 +38,12 @@ describe("Časté otázky", () => {
     expect(ld.mainEntity[0].acceptedAnswer.text).toBe(FAQ_ITEMS[0].answer);
   });
 
-  it("Organization a LocalBusiness: telefon, e-mail, Vitice 119, doručení ČR a Slovensko", () => {
+  it("Organization a LocalBusiness: telefon, e-mail, Vitice 119, doručení ČR (Slovensko jen při zapnutém doručení)", () => {
     const [org, local] = organizationJsonLd() as Record<string, any>[]; // eslint-disable-line @typescript-eslint/no-explicit-any
     expect(org).toMatchObject({ "@type": "Organization", telephone: "+420 774 199 975", email: "info@begina.cz" });
     expect(local).toMatchObject({ "@type": "LocalBusiness", address: { streetAddress: "Vitice 119", postalCode: "281 06" } });
-    expect(JSON.stringify(local.areaServed)).toContain("Slovensko");
+    expect(JSON.stringify(local.areaServed)).toContain("Česká republika");
+    expect(JSON.stringify(local.areaServed).includes("Slovensko")).toBe(SLOVAKIA_DELIVERY_ALLOWED);
+    expect(FAQ_ITEMS.map((i) => i.answer).join(" ").includes("Slovensko")).toBe(SLOVAKIA_DELIVERY_ALLOWED);
   });
 });

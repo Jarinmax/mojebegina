@@ -6,6 +6,8 @@
 // Ze stejných dat se skládá i FAQPage JSON-LD (seo.ts → faqJsonLd).
 import { CAFE_PATH } from "./cafePage";
 import type { InfoPage } from "./infoPages";
+// Slovensko jen když je doručení zapnuté (od 18. 11. 2026 vypnuté kvůli povinnostem k obalům).
+import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
 
 export const FAQ_PATH = "/caste-otazky";
 
@@ -20,7 +22,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Dovezete polévky po celé ČR?",
     answer:
-      "Ano. Polévky i nápoje vozíme chlazenou přepravou po celé České republice, cena se řídí hmotností objednávky. Doručujeme i na Slovensko (kromě alkoholických nápojů). Sáčky se sirupem posíláme také Zásilkovnou a objednávku si můžete po domluvě vyzvednout osobně v Zahradním bistru Begina ve Viticích.",
+      `Ano. Polévky i nápoje vozíme chlazenou přepravou po celé České republice, cena se řídí hmotností objednávky.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Sáčky se sirupem posíláme také Zásilkovnou a objednávku si můžete po domluvě vyzvednout osobně v Zahradním bistru Begina ve Viticích.`,
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
