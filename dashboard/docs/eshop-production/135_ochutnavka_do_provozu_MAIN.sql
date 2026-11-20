@@ -1,6 +1,6 @@
 -- 135: Ochutnávka do provozu – jen pro kavárny a bistra (zadání Lucie 20. 11. 2026).
--- Přidá skrytou kategorii „ochutnavka-provoz“, jeden produkt a 13 balení po 49 Kč:
---   6 polévek po 200 ml (hmotnost 250 g) a 7 sirupů po 100 ml (hmotnost 140 g).
+-- Přidá skrytou kategorii „ochutnavka-provoz“, jeden produkt a 14 balení po 49 Kč:
+--   6 polévek po 200 ml (250 g), 7 sirupů po 100 ml (140 g) a Svařák Deluxe 200 ml (250 g, 18+).
 -- Na webu se nikde neukáže (kategorie i produkt jsou v kódu skryté); objednávka jde
 -- jen přes stránku Pro kavárny a bistra a jen po spuštění v kódu (CAFE_TASTING_LAUNCHED).
 -- SPOUŠTĚT AŽ PO ZVEŘEJNĚNÍ KÓDU (starší verze webu by kategorii ukázala).
@@ -42,7 +42,8 @@ BEGIN
          (pid, 'ochutnavka-sirup-ibiskovy-sirup',                      'Ibiškový sirup 100 ml',                     'Sirup 100 ml',   100, NULL, 49, 140, 140, true),
          (pid, 'ochutnavka-sirup-sipkovy-sirup',                       'Šípkový sirup 100 ml',                      'Sirup 100 ml',   100, NULL, 49, 140, 150, true),
          (pid, 'ochutnavka-sirup-hermankovy-sirup',                    'Heřmánkový sirup 100 ml',                   'Sirup 100 ml',   100, NULL, 49, 140, 160, true),
-         (pid, 'ochutnavka-sirup-medunkovy-sirup-s-levanduli',         'Meduňkový sirup s levandulí 100 ml',        'Sirup 100 ml',   100, NULL, 49, 140, 170, true)
+         (pid, 'ochutnavka-sirup-medunkovy-sirup-s-levanduli',         'Meduňkový sirup s levandulí 100 ml',        'Sirup 100 ml',   100, NULL, 49, 140, 170, true),
+         (pid, 'ochutnavka-svarak-svarak-deluxe',                      'Svařák Deluxe 200 ml',                      'Svařák 200 ml (18+)', 200, NULL, 49, 250, 210, true)
   ON CONFLICT (sku) DO NOTHING;
 END $$;
 COMMIT;

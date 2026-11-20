@@ -28,7 +28,7 @@ import {
   type ZasilkovnaPoint,
 } from "@/lib/eshop/zasilkovna";
 import { isTastingSet } from "@/lib/eshop/tastingSet";
-import { CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
+import { isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -415,7 +415,7 @@ export default function CheckoutForm({
   }
 
   const lines = resolveCartLines(cart, catalog);
-  const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted);
+  const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted || isCafeTastingAlcohol(line.variant.sku));
   // Server objednávku s neověřenými alergeny odmítne (priceCart); tady jen
   // zákazníkovi řekneme proč, ještě před vyplněním formuláře.
   const blockedLines = lines.filter((line) => !isOrderable(line.product));

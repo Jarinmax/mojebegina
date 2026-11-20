@@ -1,8 +1,8 @@
 // Ochutnávka do provozu — jen pro kavárny a bistra (zadání Lucie 20. 11. 2026).
 // Čistá pravidla bez DB a bez Reactu.
 //
-// V DB je to jeden produkt (CAFE_TASTING_SLUG) ve vlastní kategorii a 13 balení:
-// 6 polévek po 200 ml a 7 sirupů po 100 ml, každé za 49 Kč. Provoz si na stránce
+// V DB je to jeden produkt (CAFE_TASTING_SLUG) ve vlastní kategorii a 14 balení:
+// 6 polévek po 200 ml, 7 sirupů po 100 ml a Svařák Deluxe 200 ml, každé za 49 Kč. Provoz si na stránce
 // Pro kavárny a bistra zaškrtne, co chce ochutnat (z každého nejvýš 1 kus), balení
 // se vloží do košíku a objednávka jde běžnou pokladnou — vždy na firmu s IČO.
 //
@@ -27,10 +27,12 @@ export const CAFE_TASTING_SKU_PREFIX = "ochutnavka-";
 export const CAFE_TASTING_PRICE_KC = 49;
 export const CAFE_TASTING_LEAD_SOURCE = "web_ochutnavka";
 
-export type CafeTastingKind = "polevka" | "sirup";
+export type CafeTastingKind = "polevka" | "sirup" | "svarak";
 export type CafeTastingItem = { sku: string; productSlug: string; name: string; kind: CafeTastingKind; volumeMl: number; weightGrams: number };
 
 const soup = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}polevka-${productSlug}`, productSlug, name, kind: "polevka", volumeMl: 200, weightGrams: 250 });
+// Svařák Deluxe 200 ml za 49 Kč (Lucie 20. 11. 2026), stejný sáček jako polévky, 18+.
+const mulled = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}svarak-${productSlug}`, productSlug, name, kind: "svarak", volumeMl: 200, weightGrams: 250 });
 const syrup = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}sirup-${productSlug}`, productSlug, name, kind: "sirup", volumeMl: 100, weightGrams: 140 });
 
 /** Názvy přesně podle e-shopu; hmotnosti zadala Lucie (polévka 0,25 kg, sirup 0,14 kg). */
@@ -48,7 +50,13 @@ export const CAFE_TASTING_ITEMS: readonly CafeTastingItem[] = [
   syrup("sipkovy-sirup", "Šípkový sirup"),
   syrup("hermankovy-sirup", "Heřmánkový sirup"),
   syrup("medunkovy-sirup-s-levanduli", "Meduňkový sirup s levandulí"),
+  mulled("svarak-deluxe", "Svařák Deluxe"),
 ];
+
+/** Alkoholické položky ochutnávky — v pokladně vyžadují potvrzení věku 18+. */
+export function isCafeTastingAlcohol(sku: string): boolean {
+  return CAFE_TASTING_ITEMS.some((item) => item.sku === sku && item.kind === "svarak");
+}
 
 const SKUS = new Set(CAFE_TASTING_ITEMS.map((item) => item.sku));
 
@@ -72,9 +80,10 @@ export function cafeTastingTotalKc(skus: readonly string[]): number {
 
 // Texty (vykání, bez zdravotních tvrzení).
 export const CAFE_TASTING_HEADING = "Objednejte si ochutnávku do podniku";
-export const CAFE_TASTING_INTRO = "Vyberte si, co chcete ochutnat. Z každé polévky a sirupu nejvýš 1 kus.";
+export const CAFE_TASTING_INTRO = "Vyberte si, co chcete ochutnat. Z každé položky nejvýš 1 kus.";
 export const CAFE_TASTING_SOUPS_HEADING = "Polévky – 200 ml ve stříbrném sáčku se šroubovacím uzávěrem, 49 Kč za kus";
 export const CAFE_TASTING_SYRUPS_HEADING = "Sirupy – 100 ml v sáčku se šroubovacím uzávěrem, 49 Kč za kus";
+export const CAFE_TASTING_MULLED_HEADING = "Svařák – 200 ml ve stříbrném sáčku se šroubovacím uzávěrem, 49 Kč (jen pro osoby starší 18 let)";
 export const CAFE_TASTING_DELIVERY = "Doprava chlazenou přepravou podle ceníku dopravy, nebo osobní odběr ve Viticích.";
 export const CAFE_TASTING_ICO_NOTE = "Ochutnávka je jen pro kavárny a bistra – objednává se na firmu s IČO, jedna na jedno IČO.";
 export const CAFE_TASTING_ALREADY = "Ochutnávku jste už objednali, ozveme se vám.";
