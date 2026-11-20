@@ -9,12 +9,20 @@ import { PUBLIC_ORIGIN } from "./hosts";
 const PUBLIC_DISALLOW = ["/kosik", "/pokladna", "/objednavka/"];
 
 /** Roboti s vlastní, výslovně povolující skupinou. */
-export const PUBLIC_AGENTS = ["OAI-SearchBot", "ChatGPT-User", "Googlebot", "Bingbot"];
+export const PUBLIC_AGENTS = [
+  "Googlebot",
+  "Google-Extended",
+  "Bingbot",
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "PerplexityBot",
+  "ClaudeBot",
+];
 
 export function publicRobotsTxt(indexing: boolean): string {
   if (!indexing) return "User-agent: *\nDisallow: /\n";
-  // Výslovně povolené vyhledávání ChatGPT (OAI-SearchBot, ChatGPT-User), Google a Bing
-  // (Lucie 20. 11. 2026: zákaznice nás našla přes ChatGPT). Vlastní skupina pro robota
+  // Výslovně povolené vyhledávače a AI (Lucie 20. 11. 2026: zákaznice nás našla přes ChatGPT;
+  // večer doplněno Google-Extended, PerplexityBot a ClaudeBot). Vlastní skupina pro robota
   // nahrazuje skupinu „*“, proto má každá stejné zákazy košíku a pokladny.
   const group = (agent: string) => [`User-agent: ${agent}`, "Allow: /", ...PUBLIC_DISALLOW.map((path) => `Disallow: ${path}`), ""];
   return [

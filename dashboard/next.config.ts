@@ -54,6 +54,8 @@ const ORDER_PAGE_HEADERS = [noStoreHeader, { key: "Referrer-Policy", value: "no-
 // (lib/site/routing.ts) — next.config redirects běží PŘED proxy a na
 // begina.cz by vedla na /eshop/…
 const nextConfig: NextConfig = {
+  // čas buildu pro IndexNow: po novém nasazení se ohlásí všechny stránky (lib/site/indexNow.ts)
+  env: { BEGINA_BUILD_TIME: new Date().toISOString() },
   // 90 = úvodní fotka e-shopu bez čtverečků z komprese (Lucie 19. 11. 2026); ostatní obrázky 75
   images: { qualities: [75, 90] },
   async headers() {
