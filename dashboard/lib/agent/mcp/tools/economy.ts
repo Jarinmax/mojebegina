@@ -11,6 +11,7 @@ import { parseAmountToHal, parseEntryDate, PAYMENT_FORMS } from "@/lib/ekonomika
 import { ArgError, idempotencyKey, optionalString, requiredString, requiredUuid } from "../args";
 import { defineTool, type AgentTool } from "../define";
 import { attachDocumentBytes, documentCounts } from "@/lib/doklady/documents";
+import { emailDocumentPdf } from "@/lib/doklady/emailDocumentPdf";
 
 const DENIED = `Ekonomiku smí číst a zapisovat jen ${INVOICE_ISSUER_NAMES}.`;
 const issuerOnly = (ctx: Parameters<typeof isInvoiceIssuer>[0]) => isInvoiceIssuer(ctx);
@@ -194,6 +195,52 @@ export const ECONOMY_TOOLS: AgentTool[] = [
         ok: true,
         summary: { attached: !result.duplicate },
         data: { documentId: result.id, duplicate: result.duplicate === true, url: "https://moje.begina.cz/rizeni-firmy/doklady" },
+      };
+    },
+  }),
+  defineTool({
+    name: "economy_attach_email_document",
+    title: "Doklady — připojit fakturu z textu e-mailu (bez PDF)",
+    description:
+      "ZÁPIS — pro faktury a účtenky, které přišly jen jako TEXT e-mailu bez PDF přílohy (např. Apple, některé e-shopy): server z textu e-mailu vytvoří PDF „Doklad převedený z e-mailu“ (odesílatel, datum, předmět a celý text) a připojí ho k řádku nákladu v Ekonomice — uvidí se v Řízení firmy → Doklady. " +
+      "body_text = celý textový obsah e-mailu s fakturou (plaintextBody z Gmailu), nic nezkracuj ani neupravuj. Připojuj jen k řádku, ke kterému doklad prokazatelně patří (stejný prodávající, datum a částka). " +
+      "Více e-mailů k jednomu nákladu (faktura + dobropis) spoj do body_text za sebou. Stejný doklad ke stejnému řádku se nezapíše dvakrát. Nic nemaže a částky nemění.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      entry_id: { type: "string", description: "id řádku nákladu (UUID) z economy_list_entries." },
+      sender: { type: "string", description: "Odesílatel e-mailu, např. „Apple <no_reply@email.apple.com>“." },
+      subject: { type: "string", description: "Předmět e-mailu." },
+      received_at: { type: "string", description: "Kdy e-mail přišel, např. „20. 11. 2026 18:50“." },
+      body_text: { type: "string", description: "Celý text e-mailu s fakturou (nejvýš 60 000 znaků)." },
+      filename: { type: "string", description: "Název PDF, např. apple-claude-2026-11-20.pdf (nepovinné)." },
+    },
+    required: ["entry_id", "sender", "subject", "received_at", "body_text"],
+    parse: (args) => {
+      const entryId = requiredUuid(args, "entry_id");
+      const bodyText = requiredString(args, "body_text", 60_000);
+      const rawName = optionalString(args, "filename", 150);
+      const base = (rawName ?? "doklad-z-emailu").replace(/\.pdf$/i, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "doklad-z-emailu";
+      return {
+        entryId,
+        sender: requiredString(args, "sender", 300),
+        subject: requiredString(args, "subject", 300),
+        receivedAt: requiredString(args, "received_at", 100),
+        bodyText,
+        filename: `${base}.pdf`,
+      };
+    },
+    execute: async ({ entryId, sender, subject, receivedAt, bodyText, filename }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      const bytes = await emailDocumentPdf({ sender, subject, receivedAt, bodyText });
+      const result = await attachDocumentBytes({ entryId, filename, mimeType: "application/pdf", bytes });
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        summary: { attached: !result.duplicate },
+        data: { documentId: result.id, duplicate: result.duplicate === true, filename, url: "https://moje.begina.cz/rizeni-firmy/doklady" },
       };
     },
   }),
