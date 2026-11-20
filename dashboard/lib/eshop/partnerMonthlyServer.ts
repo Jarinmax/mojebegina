@@ -1,4 +1,4 @@
-// Partnerský program — měsíční vyhodnocení: čtení objednávek, stav schválení,
+// Partnerský program — měsíční vyhodnocení: čtení objednávek, stav měsíce,
 // zakládání kódů a rozesílka. Pravidla viz partnerMonthly.ts.
 //
 // Průběh (cron app/api/cron/partner-program):
@@ -7,7 +7,8 @@
 //   3. první den měsíce po půlnoci → finalizePartnerMonth: přepočet podle
 //      konečného stavu, zapnutí slev (vnitřní řádky „partner-RRRR-MM-procento“
 //      jen pro e-maily klientů — pokladna podle nich slevu odečte automaticky)
-//      a rozeslání e-mailů. Bez schválení se nic nezapne ani neodešle.
+//      a rozeslání e-mailů. Pevné úrovně bez schválení (Lucie 20. 11. 2026),
+//      individuální sleva nad 20 000 Kč jen s procentem od Lucie.
 //
 // Stav se drží v tabulce eshop_coupons (žádná nová tabulka):
 //   • „partner-program-RRRR-MM“ — neaktivní řádek se stavem měsíce platnosti
@@ -20,6 +21,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { eshopCoupons, orders } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 import { pragueMonthStart } from "./couponsServer";
+import { suggestSalutation } from "./salutation";
 import { emailConfig, resolveRecipients, type EmailConfig } from "./email/config";
 import { resendTransport, type EmailTransport } from "./email/resend";
 import {
@@ -52,6 +54,8 @@ export type PartnerMonthState = {
   /** e-maily, kterým už sdělení odešlo */
   sent: string[];
   finalizedAt: string | null;
+  /** stav v reportu (poslední den v 18:00): klient (key) → procento (0 = bez slevy, -1 = individuální) */
+  reported?: Record<string, number>;
 };
 
 const EMPTY_STATE: PartnerMonthState = { approvedAt: null, approvedBy: null, individual: {}, salutations: {}, sent: [], finalizedAt: null };
@@ -228,6 +232,11 @@ export async function reportPartnerMonth<T extends PgQueryResultHKT>(db: AnyDb<T
   const today = pragueYearMonth(now);
   const evaluatedMonth = { year: today.year, month: today.month };
   const clients = evaluatePartnerMonth(await loadPartnerMonthRows(db, evaluatedMonth));
+  // snímek reportu — po půlnoci se podle něj hlásí, co se do půlnoci změnilo
+  const validMonth = addMonths(evaluatedMonth, 1);
+  const reported: Record<string, number> = {};
+  for (const client of clients) reported[client.key] = client.percent ?? -1;
+  await savePartnerMonthState(db, validMonth, { ...(await loadPartnerMonthState(db, validMonth)), reported });
   if (!mailer) return { clients: clients.length, sent: false };
   const report = buildPartnerReport({ evaluatedMonth, clients, preliminary: true, approvalUrl: PARTNER_APPROVAL_URL });
   const sent = await sendInternal(mailer, report, `partner-report-${monthKey(evaluatedMonth)}`);
@@ -250,7 +259,7 @@ export async function alertIndividualLimit<T extends PgQueryResultHKT>(db: AnyDb
 }
 
 export type FinalizeResult = {
-  status: "not-approved" | "done";
+  status: "done";
   codes: string[];
   emailed: string[];
   failed: string[];
@@ -260,7 +269,7 @@ export type FinalizeResult = {
 
 /**
  * První den měsíce po půlnoci: přepočet podle konečného stavu minulého měsíce,
- * založení kódů a rozeslání e-mailů. Bez schválení nic nezaloží ani neodešle.
+ * založení kódů a rozeslání e-mailů. Pevné úrovně automaticky, individuální jen s procentem od Lucie.
  * Dá se spustit opakovaně — komu už e-mail odešel, tomu znovu neodejde.
  */
 export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb<T>, now: Date, mailer: Mailer | null = defaultMailer()): Promise<FinalizeResult> {
@@ -270,15 +279,8 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   const overview = await loadPartnerMonthOverview(db, evaluatedMonth);
   const state = overview.state;
 
-  if (!state.approvedAt) {
-    if (mailer) {
-      const subject = `Partnerský program: ${monthName(evaluatedMonth)} není schválený — klientům nic neodešlo`;
-      const text = `Vyhodnocení za ${monthName(evaluatedMonth)} ${evaluatedMonth.year} nikdo neschválil, proto se nezaložily kódy a klientům neodešly e-maily. Schválit: ${PARTNER_APPROVAL_URL}`;
-      await sendInternal(mailer, { subject, text, html: `<p>${text}</p>` }, `partner-neschvaleno-${monthKey(validMonth)}`);
-    }
-    return { status: "not-approved", codes: [], emailed: [], failed: [], waiting: [] };
-  }
-
+  // Od 20. 11. 2026 (Lucie): pevné úrovně 3 / 5 / 7 % se zapnou a e-maily
+  // odejdou bez schválení. Schvaluje se jen individuální sleva nad 20 000 Kč.
   // klient → procento (pevné úrovně podle konečného stavu, individuální podle schválení)
   const waiting: string[] = [];
   const entitled: { client: PartnerClient; percent: number }[] = [];
@@ -297,7 +299,7 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   const byPercent = new Map<number, string[]>();
   for (const { client, percent } of entitled) byPercent.set(percent, [...(byPercent.get(percent) ?? []), ...client.emails]);
   const expiresAt = monthRange(validMonth).to;
-  const note = `Partnerský program ${monthKey(validMonth)} (nákupy ${monthKey(evaluatedMonth)}), schválil(a) ${state.approvedBy ?? "?"}`;
+  const note = `Partnerský program ${monthKey(validMonth)} (nákupy ${monthKey(evaluatedMonth)}), automaticky${state.approvedBy ? `, individuální slevy: ${state.approvedBy}` : ""}`;
   const codes: string[] = [];
   for (const [percent, emails] of byPercent) {
     const code = partnerEntitlementCode(validMonth, percent);
@@ -316,7 +318,8 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   const optOuts = new Set(overview.optOuts);
   if (mailer) {
     for (const { client, percent } of entitled) {
-      const message = buildPartnerEmail({ salutation: state.salutations[client.key], evaluatedMonth, goodsKc: client.goodsKc, percent });
+      const salutation = state.salutations[client.key] ?? overview.rememberedSalutations[client.key] ?? suggestSalutation(client.personName);
+      const message = buildPartnerEmail({ salutation, evaluatedMonth, goodsKc: client.goodsKc, percent });
       for (const email of client.emails) {
         if (sent.has(email) || optOuts.has(email)) continue;
         const { to } = resolveRecipients([email], mailer.config);
@@ -337,17 +340,30 @@ export async function finalizePartnerMonth<T extends PgQueryResultHKT>(db: AnyDb
   }
   await savePartnerMonthState(db, validMonth, { ...state, sent: [...sent].sort(), finalizedAt: now.toISOString() });
 
+  // co se změnilo mezi reportem v 18:00 a půlnocí (nový klient / jiné procento)
+  const describe = (p: number | undefined) => (p === undefined ? "v reportu nebyl" : p === -1 ? "individuální" : p === 0 ? "bez slevy" : `${p} %`);
+  const changes: string[] = [];
+  if (state.reported) {
+    for (const client of overview.clients) {
+      const now_ = client.percent ?? -1;
+      const before = state.reported[client.key];
+      if (before === now_) continue;
+      changes.push(`${client.name} (${client.emails.join(", ")}) — zboží ${Math.round(client.goodsKc).toLocaleString("cs-CZ")} Kč: ${describe(before)} → ${describe(now_)}`);
+    }
+  }
+
   if (mailer) {
-    const subject = `Partnerský program: slevy na ${monthName(validMonth)} zapnuty, e-mailů odesláno ${emailed.length}`;
+    const subject = `Partnerský program: slevy na ${monthName(validMonth)} zapnuty, e-mailů odesláno ${emailed.length}${changes.length ? `, změny po 18:00: ${changes.length}` : ""}`;
     const text = [
       `Zapnuté slevy (v pokladně se odečtou automaticky): ${codes.join(", ") || "žádné"}.`,
       `E-mail odešel: ${emailed.join(", ") || "nikomu"}.`,
       failed.length ? `NEPODAŘILO SE odeslat: ${failed.join(", ")}.` : "",
+      changes.length ? `ZMĚNY PO REPORTU V 18:00 (nákupy do půlnoci, procento je už upravené):\n${changes.join("\n")}` : state.reported ? "Od reportu v 18:00 se nic nezměnilo." : "",
       waiting.length ? `Čekají na určení individuální slevy (nad 20 000 Kč): ${waiting.join(", ")} — ${PARTNER_APPROVAL_URL}` : "",
     ]
       .filter(Boolean)
       .join("\n");
-    await sendInternal(mailer, { subject, text, html: `<p>${text.replace(/\n/g, "<br>")}</p>` }, `partner-hotovo-${monthKey(validMonth)}-${emailed.length}-${failed.length}`);
+    await sendInternal(mailer, { subject, text, html: `<p>${text.replace(/\n/g, "<br>")}</p>` }, `partner-hotovo-${monthKey(validMonth)}-${emailed.length}-${failed.length}-${changes.length}`);
   }
   return { status: "done", codes, emailed, failed, waiting };
 }

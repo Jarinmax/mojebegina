@@ -34,7 +34,7 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
     individual: state.individual[client.key] ?? null,
     // 19. 11. 2026 (Lucie): neschválený měsíc → návrh oslovení ze jména (s titulem, když ho zákazník uvedl).
     // Neschválený měsíc: dřív schválené oslovení klienta, jinak návrh ze jména.
-    salutation: state.salutations[client.key] ?? (state.approvedAt ? "" : overview.rememberedSalutations[client.key] ?? suggestSalutation(client.personName)),
+    salutation: state.salutations[client.key] ?? overview.rememberedSalutations[client.key] ?? suggestSalutation(client.personName),
     optedOut: client.emails.length > 0 && client.emails.every((email) => optOuts.has(email)),
     sent: client.emails.some((email) => sent.has(email)),
   }));
@@ -64,8 +64,8 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
 
       <p className="text-sm rounded-lg bg-neutral-100 px-3 py-2">
         {state.approvedAt
-          ? `Schváleno ${new Date(state.approvedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })} (${state.approvedBy ?? "?"}).`
-          : "Zatím neschváleno — klientům nic neodejde."}{" "}
+          ? `Uloženo ${new Date(state.approvedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })} (${state.approvedBy ?? "?"}).`
+          : "Slevy 3 / 5 / 7 % se zapnou a e-maily odejdou automaticky — schvalovat je nemusíte. Ukládá se jen individuální sleva nad 20 000 Kč, případně úprava oslovení."}{" "}
         {state.finalizedAt ? `Slevy zapnuty a e-maily rozeslány ${new Date(state.finalizedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}.` : "Slevy se zapnou a e-maily odejdou po půlnoci prvního dne měsíce. Klient nic neuplatňuje — sleva se mu v košíku a pokladně odečte automaticky podle e-mailu."}
       </p>
 

@@ -1,6 +1,6 @@
 "use server";
 
-// Schválení měsíčního vyhodnocení partnerského programu (jen ADMIN/EXECUTIVE).
+// Uložení individuálních slev (nad 20 000 Kč) a oslovení partnerského programu (jen ADMIN/EXECUTIVE).
 // Schválení samo klientům nic neposílá — e-maily odcházejí po půlnoci
 // prvního dne měsíce (cron). Když se schvaluje až v měsíci platnosti
 // (pozdní schválení, doplnění individuální slevy), rozešle se hned.
@@ -44,10 +44,10 @@ export async function approvePartnerMonthAction(_prev: PartnerActionState, formD
   if (monthKey(addMonths(evaluatedMonth, 1)) === monthKey(today)) {
     const result = await finalizePartnerMonth(db, now);
     return {
-      success: `Schváleno. Zapnuté slevy: ${result.codes.join(", ") || "žádné"}. E-mail odešel: ${result.emailed.join(", ") || "nikomu novému"}.${result.failed.length ? ` Nepodařilo se: ${result.failed.join(", ")}.` : ""}`,
+      success: `Uloženo. Zapnuté slevy: ${result.codes.join(", ") || "žádné"}. E-mail odešel: ${result.emailed.join(", ") || "nikomu novému"}.${result.failed.length ? ` Nepodařilo se: ${result.failed.join(", ")}.` : ""}`,
     };
   }
-  return { success: "Schváleno. Slevy se zapnou a e-maily klientům odejdou po půlnoci prvního dne měsíce." };
+  return { success: "Uloženo. Slevy se zapnou a e-maily klientům odejdou automaticky po půlnoci prvního dne měsíce." };
 }
 
 export async function addPartnerOptOutAction(_prev: PartnerActionState, formData: FormData): Promise<PartnerActionState> {
