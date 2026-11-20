@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+import ShopLink from "./ShopLink";
 import { HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
@@ -39,13 +40,19 @@ export const HERO_PHOTO = {
   alt: "Dýňová polévka v keramické misce na dřevěném stole u okna, koktejl s grepem, hrnek čaje s citronem a svařák, kolem bylinky a ovoce",
 };
 
+/** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
+export const HERO_LINKS = {
+  soups: "/kategorie/polevky",
+  syrups: "/kategorie/sirupy",
+};
+
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
       <div className="max-w-6xl mx-auto lg:px-4 lg:py-3 grid items-center lg:grid-cols-2 lg:gap-6">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           {/* Od 20. 11. 2026 (Lucie): úvod primárně pro kavárny a bistra, podnadpis zve i zákazníky domů.
-              Tlačítka nahradily dvě dlaždice hned pod úvodem (Pro kavárny a bistra / Nakupuji domů). */}
+              Tlačítka rychlého nákupu (Vybrat polévku / Objevit sirupy) jsou zpět od večera 20. 11. 2026. */}
           <h1 className="mt-1.5 sm:mt-4 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622] text-balance">
             {HOME_HERO_TITLE}
           </h1>
@@ -59,6 +66,22 @@ export default function HomeHero() {
               </li>
             ))}
           </ul>
+          {/* Rychlý nákup vrácen 20. 11. 2026 (Lucie) — na všech zařízeních, i na mobilu. */}
+          <div className="mt-4 sm:mt-7 lg:mt-5 flex flex-row items-stretch sm:items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
+            <ShopLink
+              href={HERO_LINKS.soups}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-4 sm:px-7 py-2.5 sm:py-3.5 text-base sm:text-lg font-medium text-white shadow-md shadow-[#A51C1C]/20"
+            >
+              Vybrat polévku
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </ShopLink>
+            <ShopLink
+              href={HERO_LINKS.syrups}
+              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5E6B34] transition-colors px-4 sm:px-7 py-2 sm:py-3 text-base sm:text-lg font-medium text-[#4A5527]"
+            >
+              Objevit sirupy
+            </ShopLink>
+          </div>
         </div>
 
         <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">

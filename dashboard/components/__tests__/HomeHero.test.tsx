@@ -32,9 +32,10 @@ describe("úvod e-shopu", () => {
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
 
-  it("tlačítka v úvodu nahradily dlaždice pod ním (20. 11. 2026)", () => {
+  it("rychlý nákup: Vybrat polévku a Objevit sirupy (vráceno 20. 11. 2026)", () => {
     render(<HomeHero />);
-    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByRole("link", { name: /Vybrat polévku/ }).getAttribute("href")).toBe("/eshop/kategorie/polevky");
+    expect(screen.getByRole("link", { name: "Objevit sirupy" }).getAttribute("href")).toBe("/eshop/kategorie/sirupy");
     const slugs = HOME_CATEGORIES.map((c) => c.slug);
     expect(slugs).toContain("polevky");
     expect(existsSync(path.join(__dirname, "../../app/eshop/kategorie/[slug]/page.tsx"))).toBe(true);
