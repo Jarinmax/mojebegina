@@ -16,7 +16,7 @@ import { db } from "@/lib/db/client";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { shippingModeFromEnv, zasilkovnaEnabledFromEnv, slovakiaEnabledFromEnv } from "@/lib/eshop/shipping";
 import { validateCheckoutInput, type CheckoutValue } from "@/lib/eshop/checkout";
-import { parseCouponCodes } from "@/lib/eshop/coupons";
+import { MAX_COUPONS, parseCouponCodes, PARTNER_CODE } from "@/lib/eshop/coupons";
 import { loadCouponContext } from "@/lib/eshop/couponsServer";
 import { addPartnerOptOut } from "@/lib/eshop/partnerMonthlyServer";
 import { eshopHref, orderStatusPath } from "@/lib/eshop/paths";
@@ -83,8 +83,8 @@ export async function submitCheckoutAction(
   }
 
   const stripe = stripeConfig();
-  const couponCodes = field("couponCodes");
-  const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes), new Date(), { email: field("email").trim() || null });
+  const requestedCouponCodes = field("couponCodes");
+  const couponEmail = field("email").trim() || null;
   // Karta zákazníka k objednávce (8. 11. 2026):
   //   1) pas z MojeBegina („Objednat znovu“) — ověří se znovu (podpis,
   //      platnost, členství),
@@ -102,7 +102,17 @@ export async function submitCheckoutAction(
   if (handoffToken && !card) {
     return { error: "Odkaz z MojeBegina už neplatí. Otevřete prosím „Objednat znovu“ v MojeBegina ještě jednou, nebo zvolte „Nakupovat bez údajů firmy“." };
   }
-  const result = validateCheckoutInput(
+  const catalogIndex = await getCatalogIndex();
+  const now = new Date();
+  // Partnerská sleva se odečte automaticky (Lucie 20. 11. 2026): zákazník nic
+  // neuplatňuje. Pokud ji e-mail z pokladny nemá nebo nejde zkombinovat
+  // s jiným kódem, objednávka projde bez ní (druhý pokus níže).
+  const requestedCodes = parseCouponCodes(requestedCouponCodes);
+  const autoPartnerCodes =
+    couponEmail && !requestedCodes.includes(PARTNER_CODE) && requestedCodes.length < MAX_COUPONS ? JSON.stringify([...requestedCodes, PARTNER_CODE]) : null;
+  const validate = async (couponCodes: string) => {
+    const coupons = await loadCouponContext(db, parseCouponCodes(couponCodes), now, { email: couponEmail });
+    return validateCheckoutInput(
     {
       cart: field("cart"),
       name: field("name"),
@@ -138,9 +148,12 @@ export async function submitCheckoutAction(
       pickupPointCity: field("pickupPointCity"),
       pickupPointZip: field("pickupPointZip"),
     },
-    await getCatalogIndex(),
+    catalogIndex,
     { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons, zasilkovna: zasilkovnaEnabledFromEnv(), slovakia: slovakiaEnabledFromEnv() }
-  );
+    );
+  };
+  let result = autoPartnerCodes ? await validate(autoPartnerCodes) : await validate(requestedCouponCodes);
+  if (autoPartnerCodes && !result.ok) result = await validate(requestedCouponCodes);
 
   if (!result.ok) {
     return { error: result.error };

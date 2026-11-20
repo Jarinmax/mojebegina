@@ -46,7 +46,7 @@ describe("partnerský program: čistá logika", () => {
     expect(clients[1]).toMatchObject({ key: "email:a@firma.cz", percent: 0 });
   });
 
-  it("e-mail klientovi: částka, procento, platnost, Uplatnit bez kódu, označení a možnost odmítnout", () => {
+  it("e-mail klientovi: částka, procento, platnost, sleva automaticky, označení a možnost odmítnout", () => {
     const mail = buildPartnerEmail({ salutation: "paní Nováková", evaluatedMonth: NOV, goodsKc: 9842, percent: 5 });
     expect(mail.subject).toBe("Vaše partnerská sleva na prosinec (obchodní sdělení)");
     expect(mail.text).toContain("Dobrý den, paní Nováková,");
@@ -54,7 +54,8 @@ describe("partnerský program: čistá logika", () => {
     expect(mail.text).toContain("9 842 Kč");
     expect(mail.text).toContain("slevou 5 %");
     expect(mail.text).toContain("od 1. do 31. prosince");
-    expect(mail.text).toContain("klikněte na „Uplatnit“");
+    expect(mail.text).toContain("sleva se Vám z ceny zboží odečte automaticky");
+    expect(mail.text).not.toContain("Uplatnit");
     expect(mail.text).not.toContain("PROSINEC");
     expect(mail.text).toContain("S přátelským pozdravem\ntým Begina\n+420 774 199 975\ninfo@begina.cz\nwww.begina.cz");
     expect(mail.text).toContain("IČO 74337297");
@@ -116,7 +117,7 @@ describe("partnerský program: schválení, kódy a rozesílka (PGlite)", () => 
     expect(codes.rows).toEqual([]);
   });
 
-  it("po schválení: sleva 5 % jen pro e-mail klienta do konce prosince (v pokladně Uplatnit), e-mail s kopií na info; individuální čeká", async () => {
+  it("po schválení: sleva 5 % jen pro e-mail klienta do konce prosince (v pokladně automaticky), e-mail s kopií na info; individuální čeká", async () => {
     const { approvePartnerMonth, finalizePartnerMonth, loadPartnerMonthState } = await import("../partnerMonthlyServer");
     const { loadCouponContext } = await import("../couponsServer");
     sentMail.length = 0;

@@ -17,7 +17,7 @@ export default function CouponBox({
 }: {
   coupons: Coupons;
   className?: string;
-  /** v košíku: upozornění, že partnerskou slevu e-shop nabídne podle e-mailu v pokladně */
+  /** v košíku: upozornění, že partnerská sleva se odečte automaticky podle e-mailu v pokladně */
   partnerHint?: boolean;
 }) {
   const [value, setValue] = useState("");
@@ -31,23 +31,15 @@ export default function CouponBox({
 
   return (
     <div className={className}>
-      {offer && (
+      {offer && codes.includes(PARTNER_CODE) && (
         <div className="mb-4 rounded-xl border border-begina-primary-900 bg-white p-3.5" role="status">
           <p className="flex items-start gap-2 text-sm font-medium text-begina-primary-900">
             <BadgePercent aria-hidden="true" className="w-5 h-5 shrink-0" />
-            Dosáhli jste partnerské úrovně — sleva {offer.percent} % na zboží.
+            Partnerská sleva {offer.percent} % je odečtená automaticky.
           </p>
           <p className="mt-1 text-xs text-neutral-600 pl-7">
-            Podle vašich uhrazených nákupů za minulý měsíc. Na tento košík ušetříte {formatKc(offer.discountKc)}.
+            Podle vašich uhrazených nákupů za minulý měsíc. Nemusíte nic uplatňovat.
           </p>
-          <button
-            type="button"
-            onClick={() => void apply(PARTNER_CODE)}
-            disabled={pending}
-            className="mt-3 w-full bg-begina-primary-900 hover:bg-begina-primary-800 disabled:opacity-60 text-white text-sm font-medium rounded-lg h-10"
-          >
-            Uplatnit partnerskou slevu {offer.percent} %
-          </button>
         </div>
       )}
       <label htmlFor="coupon-code" className="text-sm font-semibold block mb-1.5">
@@ -109,6 +101,7 @@ export default function CouponBox({
                       </span>
                     )}
                     {!ok && !error && pending && <span className="text-xs text-neutral-500">ověřuji…</span>}
+                    {code !== PARTNER_CODE && (
                     <button
                       type="button"
                       onClick={() => remove(code)}
@@ -117,6 +110,7 @@ export default function CouponBox({
                     >
                       <X aria-hidden="true" className="w-4 h-4" />
                     </button>
+                    )}
                   </span>
                 </div>
                 {!ok && !error && preview.pendingEmail.includes(code) && (
@@ -134,7 +128,7 @@ export default function CouponBox({
       )}
       {partnerHint && !offer && !coupons.email && !codes.includes(PARTNER_CODE) && (
         <p className="mt-3 text-xs text-neutral-500">
-          Jste partner Beginy? Partnerskou slevu podle nákupů za minulý měsíc vám nabídneme v pokladně po zadání e-mailu.
+          Jste partner Beginy? Partnerská sleva podle nákupů za minulý měsíc se vám odečte automaticky, jakmile v pokladně zadáte e-mail.
         </p>
       )}
       {preview.emailCheckPending && (

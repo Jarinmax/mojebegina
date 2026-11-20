@@ -66,7 +66,7 @@ export default async function PartnerProgramPage(props: PageProps<"/rizeni-firmy
         {state.approvedAt
           ? `Schváleno ${new Date(state.approvedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })} (${state.approvedBy ?? "?"}).`
           : "Zatím neschváleno — klientům nic neodejde."}{" "}
-        {state.finalizedAt ? `Slevy zapnuty a e-maily rozeslány ${new Date(state.finalizedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}.` : "Slevy se zapnou a e-maily odejdou po půlnoci prvního dne měsíce. Klient v pokladně zadá e-mail a klikne na „Uplatnit“, žádný kód nepíše."}
+        {state.finalizedAt ? `Slevy zapnuty a e-maily rozeslány ${new Date(state.finalizedAt).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}.` : "Slevy se zapnou a e-maily odejdou po půlnoci prvního dne měsíce. Klient nic neuplatňuje — sleva se mu v košíku a pokladně odečte automaticky podle e-mailu."}
       </p>
 
       {rows.length === 0 ? (

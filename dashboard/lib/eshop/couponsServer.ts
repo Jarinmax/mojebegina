@@ -58,7 +58,7 @@ function isMissingTable(error: unknown): boolean {
 // Partnerský program (Lucie 15. 11. 2026): do úrovně se počítají JEN objednávky
 // z e-shopu; faktury z iDokladu mimo e-shop ne (podmínka programu na webu).
 const COUNT_IDOKLAD_INVOICES: boolean = false;
-// Od 1. 12. 2026 se partnerská sleva v pokladně („Uplatnit“) řídí schváleným
+// Od 1. 12. 2026 se partnerská sleva v pokladně (odečte se automaticky) řídí schváleným
 // měsíčním vyhodnocením (partnerMonthlyServer.ts): e-shop ji nabídne jen
 // e-mailům, kterým ji vyhodnocení přiznalo — už si ji nepočítá sám.
 export const MONTHLY_PARTNER_CODES_FROM = new Date("2026-11-30T23:00:00Z");

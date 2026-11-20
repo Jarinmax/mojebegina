@@ -4,8 +4,8 @@
 //   • počítají se JEN objednávky z e-shopu uhrazené v daném kalendářním měsíci,
 //     hodnota zboží po slevě, bez dopravy; faktury mimo e-shop se nepočítají,
 //   • jeden klient = firma podle IČO z objednávky; kde IČO není, podle e-mailu,
-//   • sleva platí celý následující měsíc; klient žádný kód nepíše — v pokladně
-//     zadá svůj e-mail a klikne na „Uplatnit“ (Lucie 15. 11. 2026). Nárok se
+//   • sleva platí celý následující měsíc; klient nic neuplatňuje — sleva se
+//     odečte automaticky podle e-mailu v pokladně (Lucie 20. 11. 2026). Nárok se
 //     drží ve vnitřním řádku eshop_coupons „partner-RRRR-MM-procento“,
 //   • nad 20 000 Kč je sleva individuální — procento určuje Lucie při schválení,
 //   • klientům nic neodejde bez schválení (viz partnerMonthlyServer.ts).
@@ -165,7 +165,7 @@ export function buildPartnerEmail(input: {
   const percent = `${formatPercent(input.percent)} %`;
   const paragraphs = [
     `děkujeme za Vaše objednávky v e-shopu Begina v ${monthName(input.evaluatedMonth, "locative")}. Za zboží jste nakoupili celkem ${formatKc(input.goodsKc)}, a tím jste dosáhli partnerské úrovně se slevou ${percent}.`,
-    `Sleva platí na všechny objednávky v e-shopu od 1. do ${daysInMonth(valid)}. ${monthName(valid, "genitive")}. Žádný kód nepotřebujete: v pokladně zadejte tento e-mail a u partnerské slevy klikněte na „Uplatnit“.`,
+    `Sleva platí na všechny objednávky v e-shopu od 1. do ${daysInMonth(valid)}. ${monthName(valid, "genitive")}. Nemusíte nic uplatňovat: jakmile v pokladně zadáte tento e-mail, sleva se Vám z ceny zboží odečte automaticky.`,
     `Jak partnerský program funguje: ${PARTNER_PROGRAM_URL}`,
   ];
   const optOut = "Pokud si nepřejete dostávat informace o partnerském programu, odpovězte na tento e-mail slovem NE.";
