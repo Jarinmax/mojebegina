@@ -67,8 +67,8 @@ export function normalizeCafePhone(raw: string): string | null {
 
 export function validateCafeInquiry(raw: CafeInquiryRaw): { ok: true; value: CafeInquiry } | { ok: false; error: string; field: CafeField } {
   const venue = clean(raw.venue);
-  if (venue.length < 2) return { ok: false, field: "venue", error: "Vyplňte prosím název provozu." };
-  if (venue.length > 120) return { ok: false, field: "venue", error: "Název provozu může mít nejvýše 120 znaků." };
+  if (venue.length < 2) return { ok: false, field: "venue", error: "Vyplňte prosím název podniku." };
+  if (venue.length > 120) return { ok: false, field: "venue", error: "Název podniku může mít nejvýše 120 znaků." };
   const name = clean(raw.name);
   if (name.length < 2) return { ok: false, field: "name", error: "Vyplňte prosím své jméno." };
   if (name.length > 120) return { ok: false, field: "name", error: "Jméno může mít nejvýše 120 znaků." };

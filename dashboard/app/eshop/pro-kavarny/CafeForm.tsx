@@ -26,7 +26,7 @@ export default function CafeForm({ place = "kavarny" }: { place?: CafeFormPlace 
       <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_FORM_HEADING}</h2>
       <input type="hidden" name="misto" value={place} />
       <label className="flex flex-col gap-1 text-base">
-        <span className="font-medium">Název provozu</span>
+        <span className="font-medium">Název podniku</span>
         <input name="venue" autoComplete="organization" required aria-invalid={invalid("venue")} className={input} />
       </label>
       <label className="flex flex-col gap-1 text-base">
