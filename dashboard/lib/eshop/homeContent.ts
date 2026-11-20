@@ -51,12 +51,13 @@ export const HOME_TILE_CAFE = {
   href: "/pro-kavarny#ochutnavka",
 } as const;
 
-// Bez „zdarma“ a bez kampaňové ceny 189 Kč (Lucie 20. 11. 2026); vede na Bylinné sirupy, protože o nich jsou všechny tři body (schváleno 20. 11. 2026).
+// Bez „zdarma“ a bez kampaňové ceny 189 Kč (Lucie 20. 11. 2026).
 export const HOME_TILE_HOME = {
   title: "Nakupuji domů",
   points: ["Sirupy už od 199 Kč za 650 ml.", "Ochutnávkový set 5 sirupů za 349 Kč.", "Chlazená doprava po celé ČR, sáčky se sirupem i Zásilkovnou."],
   button: "Nakoupit domů",
-  href: "/kategorie/sirupy",
+  // Všechny kategorie (pás s ikonami na úvodu) — Lucie 20. 11. 2026: zákazník domů musí hned vidět celou nabídku.
+  href: "/#nabidka",
 } as const;
 
 export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
