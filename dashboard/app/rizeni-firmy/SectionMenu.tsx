@@ -13,6 +13,8 @@ export type SectionMenuFlags = {
   agent: boolean;
   /** Spolupracovníci — jen role ADMIN. */
   admin: boolean;
+  /** Manuál pro obchodníky — jen Viner, Lucie a Blahout (canReadSalesManual). */
+  manual?: boolean;
 };
 
 type Item = { href: string; label: string; icon: string; show?: (f: SectionMenuFlags) => boolean };
@@ -20,11 +22,17 @@ type Group = { title: string; items: Item[] };
 
 export const SECTION_GROUPS: Group[] = [
   {
+    title: "Obchod",
+    items: [
+      { href: "/rizeni-firmy/obchod", label: "Obchod / CRM", icon: "📞" },
+      { href: "/rizeni-firmy/obchod/manual", label: "Manuál pro obchodníky", icon: "📘", show: (f) => f.manual === true },
+    ],
+  },
+  {
     title: "Prodej",
     items: [
       { href: "/rizeni-firmy/objednavky", label: "Objednávky", icon: "📦" },
       { href: "/rizeni-firmy/objednavky-po-terminu", label: "Objednávky po termínu", icon: "⏰" },
-      { href: "/rizeni-firmy/obchod", label: "Obchod / CRM", icon: "📞" },
       { href: "/rizeni-firmy/partnersky-program", label: "Partnerský program", icon: "🤝" },
       { href: "/rizeni-firmy/kampan-set", label: "Kampaň set", icon: "🎁", show: (f) => f.ekonomika },
     ],
