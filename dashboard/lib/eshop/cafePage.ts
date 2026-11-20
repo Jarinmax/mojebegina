@@ -15,7 +15,10 @@ export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
 // „nic nevyhodíte“ pryč (Lucie 18. 11. 2026): obal se vyhazuje, myšleno bylo jen jídlo
 // „kolik prodáte“ → „objednanou porci“ (Lucie 18. 11. 2026, večer)
 export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
-export const CAFE_DESCRIPTION = "Čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině pro kavárny a bistra. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
+export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
+
+/** Jasná věta „co děláme“ pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) — Pro kavárny a bistra i úvod. */
+export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům dovážíme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
 
 /** Řádek pod tlačítkem Do košíku na stránce produktu (Lucie 20. 11. 2026). */
 export const CAFE_PRODUCT_LINE = { text: "Odebíráte pro kavárnu nebo bistro?", link: "Ochutnávka do provozu" } as const;
