@@ -43,12 +43,13 @@ export const HOME_HERO_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou po
 export const HOME_TILE_CAFE = {
   title: "Pro kavárny a bistra",
   points: [
-    "Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou.",
+    "Ochutnávku si objednáte tady na e-shopu, pošleme ji chlazenou přepravou.",
     "Objednáte přímo tady na e-shopu, na firmu i s IČO.",
     "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %).",
   ],
   button: "Chci ochutnávku do provozu",
-  href: "/pro-kavarny#ochutnavka",
+  // na začátek stránky, ať si podnik nejdřív přečte, jak spolupráce funguje (Lucie 20. 11. 2026 večer)
+  href: "/pro-kavarny",
 } as const;
 
 // Bez „zdarma“ a bez kampaňové ceny 189 Kč (Lucie 20. 11. 2026).
@@ -56,8 +57,16 @@ export const HOME_TILE_HOME = {
   title: "Nakupuji domů",
   points: ["Sirupy už od 199 Kč za 650 ml.", "Ochutnávkový set 5 sirupů za 349 Kč.", "Chlazená doprava po celé ČR, sáčky se sirupem i Zásilkovnou."],
   button: "Nakoupit domů",
-  // Všechny kategorie (pás s ikonami na úvodu) — Lucie 20. 11. 2026: zákazník domů musí hned vidět celou nabídku.
-  href: "/#nabidka",
+  // Stránka jen pro zákazníky domů: kategorie a nejoblíbenější (Lucie 20. 11. 2026 večer).
+  href: "/nakupuji-domu",
+} as const;
+
+/** Stránka Nakupuji domů (/nakupuji-domu) — texty z dlaždice Nakupuji domů. */
+export const HOME_SHOP_HOME = {
+  path: "/nakupuji-domu",
+  title: "Nakupuji domů",
+  description: "Čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, koktejly a zmrzliny Begina domů. Chlazená doprava po celé ČR, sáčky se sirupem i Zásilkovnou.",
+  points: ["Sirupy už od 199 Kč za 650 ml", "Ochutnávkový set 5 sirupů za 349 Kč", "Chlazená doprava po celé ČR"],
 } as const;
 
 export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";

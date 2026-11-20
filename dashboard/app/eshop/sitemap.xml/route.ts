@@ -27,6 +27,7 @@ export async function GET() {
     ...Object.values(INFO_PAGES).map((page) => page.path),
     CAFE_PATH,
     FAQ_PATH,
+    "/nakupuji-domu",
     ...LANDING_PATHS,
   ];
   return new Response(sitemapXml(paths), {

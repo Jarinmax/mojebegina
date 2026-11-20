@@ -94,7 +94,7 @@ export const CAFE_TASTING_ONE_EACH = "Z každé položky ochutnávky lze objedna
 export const CAFE_TASTING_NO_ZASILKOVNA = "Ochutnávku do provozu posíláme jen chlazenou přepravou, nebo si ji vyzvednete osobně ve Viticích.";
 export const CAFE_TASTING_CHECKOUT_NOTE = "Ochutnávka do provozu: objednáváte na firmu s IČO (jedna ochutnávka na jedno IČO). Doprava chlazenou přepravou, nebo osobní odběr ve Viticích.";
 /** Dosavadní formulář zůstává jako druhá možnost (Lucie 20. 11. 2026). */
-export const CAFE_TASTING_FORM_HEADING = "Chcete ochutnávku přivézt? Napište nám";
+export const CAFE_TASTING_FORM_HEADING = "Chcete se nejdřív domluvit? Vyplňte formulář a ozveme se vám";
 
 /**
  * VOLITELNĚ — zatím vypnuto, zapne se po rozhodnutí (Lucie 20. 11. 2026):

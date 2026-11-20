@@ -47,7 +47,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Jak objednat ochutnávku do provozu?",
     answer:
-      "Vyplňte formulář „Chci ochutnávku do provozu“ na stránce Pro kavárny a bistra nebo na úvodní stránce. Ozveme se vám do 2 pracovních dnů. Ochutnávku vám přivezeme, nebo pošleme chlazenou přepravou.",
+      "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každou položku za 49 Kč. Objednáte na firmu s IČO a pošleme vám je chlazenou přepravou, nebo si je vyzvednete ve Viticích.",
   },
   {
     question: "Mají kavárny a bistra zvláštní ceník?",
@@ -72,4 +72,4 @@ export const FAQ_PAGE: InfoPage = {
   hideOperatorLine: true,
 };
 
-export const FAQ_CTA = { text: "Chci ochutnávku do provozu", href: `${CAFE_PATH}#ochutnavka` } as const;
+export const FAQ_CTA = { text: "Chci ochutnávku do provozu", href: CAFE_PATH } as const;
