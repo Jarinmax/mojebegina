@@ -170,3 +170,9 @@ export function formatCzDate(isoDate: string | null): string {
   const [y, m, d] = isoDate.split("-");
   return `${Number(d)}. ${Number(m)}. ${y}`;
 }
+
+/** Pole pro SQL jako jeden parametr ('{a,b}'), protože drizzle by JS pole v sql`` rozložil na seznam ($1, $2) a ANY()/ALL() by spadlo. Jen pro bezpečné hodnoty (slugy, UUID). */
+export function pgArrayLiteral(values: readonly string[]): string {
+  for (const v of values) if (!/^[0-9A-Za-z-]+$/.test(v)) throw new Error("Neplatná hodnota pro pole v SQL.");
+  return `{${values.join(",")}}`;
+}
