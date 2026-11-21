@@ -8,8 +8,6 @@ import { authClient } from "@/lib/auth/client";
 // žádná self-service registrace.
 // `next` už ověřený na serveru (safeNextPath v app/login/page.tsx).
 export default function LoginForm({ next = "/" }: { next?: string }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -17,6 +15,13 @@ export default function LoginForm({ next = "/" }: { next?: string }) {
     event.preventDefault();
     setBusy(true);
     setError(null);
+
+    // Safari may autofill credentials without firing React's onChange event.
+    // Read the submitted DOM values so autofill works even when React state
+    // has not been synchronized with the inputs.
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
     // Auth request jde přes proxy na upstream Neon Auth server — může
     // selhat i mimo běžnou "špatné heslo" odpověď (nedostupný/špatně
@@ -49,11 +54,10 @@ export default function LoginForm({ next = "/" }: { next?: string }) {
         </label>
         <input
           id="email"
+          name="email"
           type="email"
           autoComplete="email"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
       </div>
@@ -63,11 +67,10 @@ export default function LoginForm({ next = "/" }: { next?: string }) {
         </label>
         <input
           id="password"
+          name="password"
           type="password"
           autoComplete="current-password"
           required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
       </div>
@@ -76,7 +79,7 @@ export default function LoginForm({ next = "/" }: { next?: string }) {
 
       <button
         type="submit"
-        disabled={busy || !email || !password}
+        disabled={busy}
         className="w-full text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg py-2.5 disabled:opacity-50"
       >
         {busy ? "Přihlašuji…" : "Přihlásit"}
