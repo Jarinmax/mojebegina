@@ -13,6 +13,8 @@ export type SectionMenuFlags = {
   agent: boolean;
   /** Spolupracovníci — jen role ADMIN. */
   admin: boolean;
+  /** Manuál pro obchodníky — jen Viner, Lucie a Blahout (canReadSalesManual). */
+  manual?: boolean;
 };
 
 type Item = { href: string; label: string; icon: string; show?: (f: SectionMenuFlags) => boolean };
@@ -20,11 +22,17 @@ type Group = { title: string; items: Item[] };
 
 export const SECTION_GROUPS: Group[] = [
   {
+    title: "Obchod",
+    items: [
+      { href: "/rizeni-firmy/obchod", label: "Obchod / CRM", icon: "📞" },
+      { href: "/rizeni-firmy/obchod/manual", label: "Manuál pro obchodníky", icon: "📘", show: (f) => f.manual === true },
+    ],
+  },
+  {
     title: "Prodej",
     items: [
       { href: "/rizeni-firmy/objednavky", label: "Objednávky", icon: "📦" },
       { href: "/rizeni-firmy/objednavky-po-terminu", label: "Objednávky po termínu", icon: "⏰" },
-      { href: "/rizeni-firmy/obchod", label: "Obchod / CRM", icon: "📞" },
       { href: "/rizeni-firmy/partnersky-program", label: "Partnerský program", icon: "🤝" },
       { href: "/rizeni-firmy/kampan-set", label: "Kampaň set", icon: "🎁", show: (f) => f.ekonomika },
     ],
@@ -34,9 +42,11 @@ export const SECTION_GROUPS: Group[] = [
     items: [
       { href: "/rizeni-firmy/vyroba", label: "Výroba a expedice", icon: "🏭" },
       { href: "/rizeni-firmy/receptury", label: "Receptury a náklady", icon: "🥣", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/receptury/cenik", label: "Ceník surovin a obalů", icon: "🧾", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/etikety", label: "Etikety", icon: "🏷️" },
-      { href: "/rizeni-firmy/sklad/nova-prijemka", label: "Nová příjemka (foto)", icon: "📸", show: (f) => f.sklad },
-      { href: "/rizeni-firmy/sklad", label: "Sklad a příjemky", icon: "🗄️", show: (f) => f.sklad },
+      // 21. 11. 2026 (Lucie): „Nová příjemka (foto)“ a „Sklad a příjemky“ z
+      // rozcestníku pryč — dělaly zmatek s vláknem Účtenky (nákupy se zapisují
+      // tam → Ekonomika a Doklady). Stránky /rizeni-firmy/sklad i data zůstávají.
       { href: "/rizeni-firmy/slovenske-listy", label: "Slovenské listy", icon: "🇸🇰" },
       { href: "/rizeni-firmy/haccp", label: "HACCP", icon: "🧼" },
     ],
@@ -52,8 +62,8 @@ export const SECTION_GROUPS: Group[] = [
   {
     title: "Peníze a vedení",
     items: [
-      { href: "/rizeni-firmy/ekonomika", label: "Ekonomika", icon: "💰", show: (f) => f.ekonomika },
-      { href: "/rizeni-firmy/doklady", label: "Doklady (faktury po měsících)", icon: "🗂️", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/ekonomika", label: "Ekonomika (příjmy a náklady)", icon: "💰", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/doklady", label: "Doklady", icon: "📁", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/projekt", label: "Projekt Begina", icon: "🗂️", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ceo", label: "CEO přehled", icon: "🎯", show: (f) => f.ceoFocus },
       { href: "/rizeni-firmy/legislativni-audit", label: "Legislativní audit", icon: "⚖️", show: (f) => f.ekonomika },

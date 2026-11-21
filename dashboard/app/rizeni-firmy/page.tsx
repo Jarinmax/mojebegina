@@ -21,6 +21,7 @@ import CompanyNoteForm from "./CompanyNoteForm";
 import CreateNodeForm from "./CreateNodeForm";
 import CompanyOverviewIntro from "./CompanyOverviewIntro";
 import SectionMenu from "./SectionMenu";
+import { canReadSalesManual } from "@/lib/data/salesManualAuth";
 import OrderSummaryTiles from "./objednavky/OrderSummaryTiles";
 import CrmCockpitTiles from "./obchod/CockpitTiles";
 
@@ -81,6 +82,7 @@ export default async function CompanyOverviewPage() {
           sklad: showSklad,
           agent: showAgentLink,
           admin: ctx?.systemRole === "ADMIN",
+          manual: canReadSalesManual(ctx),
         }}
       />
 

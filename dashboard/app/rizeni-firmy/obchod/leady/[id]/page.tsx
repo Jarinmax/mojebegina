@@ -15,6 +15,8 @@ import { leadBackLink } from "@/lib/data/callHistoryValidation";
 import { db } from "@/lib/db/client";
 import { getLeadPurchaseHistory } from "@/lib/data/purchaseHistorySync";
 import PurchaseHistoryCard from "./PurchaseHistoryCard";
+import { getAuthContext } from "@/lib/data/authContext";
+import { canReadSalesManual } from "@/lib/data/salesManualAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
   }
   const { lead, activity } = detail;
   const [staff, sourceOrders, reward, purchases] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getLeadPurchaseHistory(db, lead.id)]);
+
+  const showManual = canReadSalesManual(await getAuthContext());
 
   const venueTypeLabel = lead.venueType
     ? (VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType)
@@ -87,6 +91,15 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             </a>
           )}
           {locationLine && <p className="text-xs text-neutral-500">{locationLine}</p>}
+          {showManual && (
+            <Link
+              href="/rizeni-firmy/obchod/manual"
+              target="_blank"
+              className="inline-flex items-center gap-1 self-start text-sm font-medium text-begina-primary-900 hover:underline"
+            >
+              📘 Manuál pro obchodníky
+            </Link>
+          )}
         </div>
       </div>
 

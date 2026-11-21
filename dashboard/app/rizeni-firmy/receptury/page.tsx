@@ -30,13 +30,21 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Receptury a náklady</h1>
-        <Link href="/rizeni-firmy/receptury/cenik" className="rounded-lg bg-begina-primary-900 px-4 py-2 text-sm font-medium text-white">
-          Ceník surovin a obalů
-        </Link>
-      </div>
+      <h1 className="mt-2 text-2xl font-semibold">Receptury a náklady</h1>
       <p className="mt-2 text-sm text-neutral-600">Přesné složení každého výrobku na 3l beginu, náklad a marže. Ceny surovin se berou z jednoho ceníku — po změně ceny se přepočítá všechno. Marže je po surovinách a obalech; práce, energie, reklama a provize v ní nejsou.</p>
+      {/* 21. 11. 2026 (Lucie): ceník už ne jako černé tlačítko vpravo nahoře, ale
+          jako samostatný, jinak označený blok — je to podklad pro všechny receptury. */}
+      <Link
+        href="/rizeni-firmy/receptury/cenik"
+        className="mt-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 hover:border-amber-400"
+      >
+        <span className="text-2xl" aria-hidden>🧾</span>
+        <span className="flex-1">
+          <span className="block text-base font-medium text-begina-primary-900">Ceník surovin a obalů</span>
+          <span className="block text-xs text-neutral-600">Tady se mění ceny surovin a obalů — receptury se podle nich přepočítají samy.</span>
+        </span>
+        <span className="text-sm text-neutral-500">→</span>
+      </Link>
       {recipes.length === 0 && <p className="mt-6 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Zatím tu není žádná receptura.</p>}
 
       {/* 17. 11. 2026 (Lucie): nejdřív vybrat kategorii, pak vidět jen její výrobky — bez scrollování. */}
