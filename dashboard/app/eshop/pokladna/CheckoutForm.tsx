@@ -35,7 +35,7 @@ import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES, OPERATOR, SLOVAKIA_ORDER_NOTE } from "@/lib/eshop/infoPages";
 import { checkoutMetaSignals, trackMeta } from "@/lib/eshop/metaPixel";
-import { trackGoogleOrder } from "@/lib/eshop/funnelClient";
+import { trackCompanyCheckout, trackOrderSource } from "@/lib/eshop/funnelClient";
 import CouponBox from "@/components/eshop/CouponBox";
 import { clearStoredCoupons, rememberCheckoutEmail, useCoupons } from "@/components/eshop/useCoupons";
 import PendingOrderNotice from "@/components/eshop/PendingOrderNotice";
@@ -276,9 +276,15 @@ export default function CheckoutForm({
     });
   }, [hydrated, cart, catalog]);
 
+  // Měření: pokladna na firmu (kavárny a bistra) — zaškrtnuto ručně,
+  // předvyplněno z účtu kavárny nebo povinně u ochutnávky do podniku.
+  useEffect(() => {
+    if (values.companyPurchase || hasTasting) trackCompanyCheckout();
+  }, [values.companyPurchase, hasTasting]);
+
   useEffect(() => {
     if (confirmation) {
-      trackGoogleOrder();
+      trackOrderSource();
       clear();
       clearStoredCoupons();
     }
@@ -290,7 +296,7 @@ export default function CheckoutForm({
   // objednávku“ místo nové objednávky (PendingOrderNotice).
   useEffect(() => {
     if (redirect) {
-      trackGoogleOrder();
+      trackOrderSource();
       rememberPendingOrder(redirect.orderId, redirect.orderNumber);
       clear();
       clearStoredCoupons();

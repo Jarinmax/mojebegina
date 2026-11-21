@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FUNNEL_STEPS, GOOGLE_LABELS, buildFunnel, type FunnelStep } from "@/lib/eshop/funnel";
+import { FUNNEL_STEPS, GOOGLE_LABELS, buildFunnel, segmentSplit, sourceRows, type FunnelStep } from "@/lib/eshop/funnel";
 import { loadFunnelDays } from "@/lib/eshop/funnelServer";
 
 // MĚŘENÍ E-SHOPU 1.0 (15. 11. 2026) — trychtýř nákupu a konverzní poměr.
@@ -35,6 +35,8 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
   const max = Math.max(1, ...funnel.map((row) => row.count));
   const googleVisits = days.reduce((sum, day) => sum + (day.counts.google_visit ?? 0), 0);
   const googleOrders = days.reduce((sum, day) => sum + (day.counts.google_order ?? 0), 0);
+  const sources = sourceRows(days);
+  const segments = segmentSplit(days);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6 text-neutral-900">
@@ -65,6 +67,42 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
           <p className="text-xs text-neutral-500">Zaplacené objednávky</p>
           <p className="mt-1 text-2xl font-semibold">{paid.toLocaleString("cs-CZ")}</p>
         </div>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <h2 className="font-semibold">Kavárny a bistra / domácnosti</h2>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <p>Pokladna „Nakupuji na firmu“: <strong>{segments.companyCheckout.toLocaleString("cs-CZ")}</strong></p>
+          <p>Zaplaceno kavárny (IČO): <strong>{segments.paidCompany.toLocaleString("cs-CZ")}</strong></p>
+          <p>Zaplaceno domácnosti: <strong>{segments.paidHome.toLocaleString("cs-CZ")}</strong></p>
+        </div>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <h2 className="font-semibold">Odkud lidé přišli</h2>
+        {sources.length === 0 ? (
+          <p className="mt-2 text-sm text-neutral-600">Zatím bez dat — zdroje se měří od 21. 11. 2026.</p>
+        ) : (
+          <table className="mt-2 w-full text-sm">
+            <thead className="text-left text-xs text-neutral-500">
+              <tr>
+                <th className="py-1 font-medium">Zdroj</th>
+                <th className="py-1 font-medium text-right">Návštěvy</th>
+                <th className="py-1 font-medium text-right">Odeslané objednávky</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((row) => (
+                <tr key={row.source} className="border-t border-neutral-100">
+                  <td className="py-1">{row.label}{row.isAi ? " · AI" : ""}</td>
+                  <td className="py-1 text-right tabular-nums">{row.visits.toLocaleString("cs-CZ")}</td>
+                  <td className="py-1 text-right tabular-nums">{row.orders.toLocaleString("cs-CZ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <p className="mt-2 text-xs text-neutral-500">Zdroj se pozná z adresy první stránky a ze stránky, odkud člověk klikl. Objednávka se zdroji připíše, jen když ji člověk odešle ve stejné návštěvě. Vlastní zařízení vyřadíte z měření jednorázovým otevřením begina.cz/?nemerit=1 (zpět: ?nemerit=0).</p>
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4">
