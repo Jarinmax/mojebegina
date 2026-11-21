@@ -21,7 +21,7 @@ export function productShippingNote(): string {
   const first = COLD_SHIPPING_RULES[0];
   const nextFromKg = COLD_SHIPPING_RULES[1].fromKg;
   const fits = Math.floor(((nextFromKg * 1000) - 1) / BEGINA_GRAMS);
-  return `Chlazená doprava po celé ČR od ${formatKc(first.priceKc)} (do ${nextFromKg} kg, to jsou ${beginyText(fits)}). Osobní odběr ve Viticích zdarma.`;
+  return `Chlazená doprava po celé ČR od ${formatKc(first.priceKc)} (pod ${nextFromKg} kg, to jsou až ${beginyText(fits)}). Osobní odběr ve Viticích zdarma.`;
 }
 
 type HintLine = {
@@ -56,12 +56,13 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
   const index = COLD_SHIPPING_RULES.indexOf(cold.rule);
   const next = COLD_SHIPPING_RULES[index + 1];
   if (!next) return { main, extra: "Osobní odběr ve Viticích zdarma." };
-  const room = next.fromKg * 1000 - weight.grams;
-  const fits = Math.floor(room / BEGINA_GRAMS);
+  // Další pásmo začíná PŘESNĚ na své hranici (15 kg = už 379 Kč), proto −1 g.
+  const room = next.fromKg * 1000 - weight.grams - 1;
+  const fits = room > 0 ? Math.floor(room / BEGINA_GRAMS) : 0;
   const upTo = `${next.fromKg.toLocaleString("cs-CZ")} kg`;
   const extra =
     fits >= 1
-      ? `Do ${upTo} platíte pořád ${formatKc(cold.priceKc)} — ${fits === 1 ? "vejde se" : "vejdou se"} ještě ${beginyText(fits)}. Osobní odběr ve Viticích zdarma.`
+      ? `Pod ${upTo} platíte pořád ${formatKc(cold.priceKc)} — ${fits === 1 ? "vejde se" : "vejdou se"} ještě ${beginyText(fits)}. Osobní odběr ve Viticích zdarma.`
       : "Osobní odběr ve Viticích zdarma.";
   return { main, extra };
 }
