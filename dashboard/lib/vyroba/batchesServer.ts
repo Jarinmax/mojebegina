@@ -9,7 +9,7 @@ import { requireOrderContext } from "@/lib/data/orders";
 import { todayPrague } from "@/lib/projekt/projectServer";
 import { emailConfig, resolveRecipients } from "@/lib/eshop/email/config";
 import { resendTransport } from "@/lib/eshop/email/resend";
-import { VOLUME_LABELS, batchCode, bestBefore, daysUntil, formatCzDate, type BatchInput, type BatchVolume } from "./batches";
+import { VOLUME_LABELS, pgArrayLiteral, batchCode, bestBefore, daysUntil, formatCzDate, type BatchInput, type BatchVolume } from "./batches";
 
 export const BATCH_SCRIPT = "140_sarze_MAIN";
 export const NO_BATCH_TABLE = `Šarže v databázi ještě nejsou — je potřeba spustit v Neonu skript ${BATCH_SCRIPT}.`;
@@ -31,7 +31,7 @@ export async function listBatchProducts(): Promise<BatchProduct[]> {
     FROM products p
     JOIN product_categories c ON c.id = p.category_id
     LEFT JOIN product_variants v ON v.product_id = p.id
-    WHERE p.is_active AND c.slug <> ALL(${HIDDEN_CATEGORIES}) AND p.slug NOT LIKE '%set%'
+    WHERE p.is_active AND c.slug <> ALL(${pgArrayLiteral(HIDDEN_CATEGORIES)}::text[]) AND p.slug NOT LIKE '%set%'
     GROUP BY p.id, p.slug, p.name, c.slug, c.name, c.sort_order, p.sort_order
     ORDER BY c.sort_order, p.sort_order, p.name`);
   return (rows.rows as Record<string, unknown>[]).map((r) => ({

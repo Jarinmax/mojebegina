@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productCode, batchCode, bestBefore, daysUntil, productAbbr, shelfLifeLabel, validateBatchInput } from "../batches";
+import { pgArrayLiteral, productCode, batchCode, bestBefore, daysUntil, productAbbr, shelfLifeLabel, validateBatchInput } from "../batches";
 
 describe("šarže – trvanlivost", () => {
   it("polévky a čaje 3 týdny", () => {
@@ -55,5 +55,12 @@ describe("šarže – vstup", () => {
   });
   it("dny do spotřeby", () => {
     expect(daysUntil("2026-11-24", "2026-11-21")).toBe(3);
+  });
+});
+
+describe("šarže – pole do SQL", () => {
+  it("jeden parametr místo seznamu", () => {
+    expect(pgArrayLiteral(["ochutnavka-provoz"])).toBe("{ochutnavka-provoz}");
+    expect(() => pgArrayLiteral(["x'); drop"])).toThrow();
   });
 });
