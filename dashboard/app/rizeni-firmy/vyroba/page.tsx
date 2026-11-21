@@ -70,7 +70,12 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-3">Výroba</h1>
+      <div className="flex items-center justify-between gap-2 mt-1 mb-3">
+        <h1 className="text-lg font-medium text-begina-primary-900">Výroba</h1>
+        <Link href="/rizeni-firmy/vyroba/sarze" className="rounded-full bg-begina-primary-900 text-white text-sm px-4 py-2">
+          ＋ Nová šarže
+        </Link>
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
         {TABS.map((t) => (
