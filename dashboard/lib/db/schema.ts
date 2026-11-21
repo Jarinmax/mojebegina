@@ -2424,10 +2424,38 @@ export const productionBatchLines = pgTable(
     quantity: integer("quantity").notNull(),
     bestBefore: date("best_before"),
     soldOutAt: timestamp("sold_out_at", { withTimezone: true }),
+    // true = vyprodáno samo (všechny kusy přiřazené k objednávkám), ne ručně
+    soldOutAuto: boolean("sold_out_auto").notNull().default(false),
   },
   (table) => [
     uniqueIndex("production_batch_lines_batch_volume_key").on(table.batchId, table.volumeMl),
     check("production_batch_lines_quantity_check", sql`${table.quantity} > 0`),
     check("production_batch_lines_volume_check", sql`${table.volumeMl} IN (100, 200, 500, 650, 3000)`),
+  ]
+);
+
+// Šarže → objednávky (Lucie 21. 11. 2026, krok 4): při expedici se ke každé
+// položce přiřadí šarže (nejdřív ty s nejbližším datem spotřeby). Kvůli
+// dohledatelnosti (kdo dostal kterou šarži) a odečtu prodaných kusů.
+export const productionBatchAllocations = pgTable(
+  "production_batch_allocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    batchLineId: uuid("batch_line_id")
+      .notNull()
+      .references(() => productionBatchLines.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => orderItems.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("production_batch_allocations_line_item_key").on(table.batchLineId, table.orderItemId),
+    index("production_batch_allocations_order_idx").on(table.orderId),
+    check("production_batch_allocations_quantity_check", sql`${table.quantity} > 0`),
   ]
 );

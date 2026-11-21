@@ -16,6 +16,7 @@ import { getUserProfile, getUserProfiles } from "./userProfiles";
 import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
+import { allocateOrderBatches, releaseOrderBatches } from "@/lib/vyroba/batchAllocation";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice, sendInvoiceOnDispatch, DISPATCHED_STATUSES, type DispatchInvoiceOutcome } from "@/lib/eshop/invoicing/afterPaid";
 import { issueInvoice, linkExternalInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
 import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
@@ -287,7 +288,7 @@ export async function listOrders(): Promise<OrderList> {
 
 // --- Detail --------------------------------------------------------------
 
-export type OrderItemData = { name: string; quantity: number; unitPriceKc: number; lineTotalKc: number };
+export type OrderItemData = { id?: string; name: string; quantity: number; unitPriceKc: number; lineTotalKc: number };
 
 export type OrderActivityEntry = {
   id: string;
@@ -369,6 +370,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
 
   const items = await db
     .select({
+      id: orderItems.id,
       name: orderItems.name,
       quantity: orderItems.quantity,
       unitPriceKc: orderItems.unitPriceKc,
@@ -553,6 +555,17 @@ function conflictResult(current: string, wanted: string, labels: Readonly<Record
  * „Odesláno“ se zaškrtne samo, pokud ještě není (Lucie 18. 11. 2026 — jedno
  * klepnutí místo dvou kolonek).
  */
+/** Šarže (Lucie 21. 11. 2026): při expedici přiřadit, při vrácení/stornu uvolnit. Nikdy neshodí změnu stavu. */
+async function syncBatchesOnStatus(orderId: string, from: string, to: string) {
+  const dispatched = DISPATCHED_STATUSES as readonly string[];
+  try {
+    if (dispatched.includes(to)) await allocateOrderBatches(orderId);
+    else if (dispatched.includes(from) || to === "cancelled") await releaseOrderBatches(orderId);
+  } catch (error) {
+    console.error("Šarže: přiřazení k objednávce selhalo", error instanceof Error ? error.message.slice(0, 200) : error);
+  }
+}
+
 async function markShippedOnDispatch(orderId: string, ctx: { userId: string; name: string | null; email: string }) {
   await db
     .update(orders)
@@ -606,6 +619,7 @@ export async function updateFulfillmentStatus(
       ? await afterOrderCancelled(db, orderId, await getAppOrigin())
       : undefined;
   if ((DISPATCHED_STATUSES as readonly string[]).includes(validated.value)) await markShippedOnDispatch(orderId, ctx);
+  await syncBatchesOnStatus(orderId, from, validated.value);
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(validated.value)
     ? await sendInvoiceOnDispatch(db, orderId, await getAppOrigin())
     : undefined;
@@ -694,6 +708,7 @@ export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrder
     input.targetStatus === "cancelled" ? await afterOrderCancelled(db, input.orderId, await getAppOrigin()) : undefined;
   // Expedice: faktura zákazníkovi (jen zaplacená e-shopová objednávka, nejvýš jednou).
   if ((DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)) await markShippedOnDispatch(input.orderId, ctx);
+  await syncBatchesOnStatus(input.orderId, from, input.targetStatus);
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)
     ? await sendInvoiceOnDispatch(db, input.orderId, await getAppOrigin())
     : undefined;
