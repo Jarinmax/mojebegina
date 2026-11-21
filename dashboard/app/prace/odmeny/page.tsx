@@ -23,20 +23,8 @@ const monthLabel = (ym: string) => {
 // ze dne 14. 11. 2026, měsíční vyúčtování a výplaty.
 export default async function JardaOdmenyPage() {
   const ctx = await getAuthContext();
-  const showRewards = canViewJardaRewards(ctx);
-  const showTrust = canViewJardaTrust(ctx);
-  if (!showRewards && !showTrust) redirect("/prace");
-  const trust = showTrust ? await getJardaTrustView() : null;
-  // Lucie vidí jen svěřené peníze, ne Jardovy zákazníky a provize.
-  if (!showRewards) {
-    return (
-      <div className="flex flex-col gap-5">
-        <Link href="/prace" className="text-sm text-neutral-500 min-h-8">← Moje práce</Link>
-        <h1 className="text-xl font-medium text-begina-primary-900">Jarda – svěřené peníze</h1>
-        {trust && <TrustSection trust={trust} />}
-      </div>
-    );
-  }
+  if (!canViewJardaRewards(ctx)) redirect("/prace");
+  const trust = canViewJardaTrust(ctx) ? await getJardaTrustView() : null;
   const view = await getJardaRewardsView();
   const { summary } = view;
 

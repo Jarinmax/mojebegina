@@ -10,20 +10,19 @@ import { db } from "@/lib/db/client";
 import { collaboratorCards, trustEntries, trustRecurring } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
-import { isWorkManager, LUCIE_USER_ID } from "./workTasksAuth";
-import { JARDA_CARD_ID, JARDA_USER_ID } from "./jardaRewards";
+import { canViewJardaRewards, isJardaCardManager, JARDA_CARD_ID, JARDA_USER_ID } from "./jardaRewards";
 import { pragueDateString } from "./pragueTime";
 import { addMonths, computeTrust, isDate, isMonth, type TrustEntry, type TrustPlan } from "./trustValidation";
 import type { AuthContext } from "./types";
 
-const isLucie = (ctx: AuthContext) => ctx !== null && !ctx.roleSelectionRequired && ctx.userId === LUCIE_USER_ID;
-
+/** Stejný okruh jako celá Jardova karta: Jarda, Viner, Lucie. */
 export function canViewJardaTrust(ctx: AuthContext): boolean {
-  return ctx !== null && !ctx.roleSelectionRequired && (ctx.userId === JARDA_USER_ID || isWorkManager(ctx) || isLucie(ctx));
+  return canViewJardaRewards(ctx);
 }
 
+/** Zapisují vedení karty (Viner, Lucie); Jarda jen čte. */
 export function canEditJardaTrust(ctx: AuthContext): boolean {
-  return isWorkManager(ctx) || isLucie(ctx);
+  return isJardaCardManager(ctx);
 }
 
 async function requireView() {

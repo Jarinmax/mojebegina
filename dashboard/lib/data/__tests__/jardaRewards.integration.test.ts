@@ -21,6 +21,7 @@ const VINER = "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c";
 const BLAHOUT = "06240ac4-c050-47ea-998c-6c81389edf9f";
 const asViner = () => (holder.ctx = { userId: VINER, systemRole: "ADMIN", grantedRoles: ["ADMIN"], roleSelectionRequired: false, name: "Jaroslav Viner", email: "v@begina.cz" });
 const asBlahout = () => (holder.ctx = { userId: BLAHOUT, systemRole: "EXECUTIVE", grantedRoles: ["EXECUTIVE"], roleSelectionRequired: false, name: "Jaroslav Blahout", email: "b@begina.cz" });
+const asLucie = () => (holder.ctx = { userId: "f9f93f03-92b0-4724-becd-c0a3576b5275", systemRole: "EXECUTIVE", grantedRoles: ["EXECUTIVE"], roleSelectionRequired: false, name: "Lucie Königsbergová", email: "l@begina.cz" });
 const asStrelec = () => (holder.ctx = { userId: "user-strelec", systemRole: "EXECUTIVE", grantedRoles: ["EXECUTIVE"], roleSelectionRequired: false, name: "Jiří Střelec", email: "s@begina.cz" });
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -172,5 +173,15 @@ describe("Jardova karta nad DB", { timeout: 120_000 }, () => {
     expect(await jr.getLeadRewardAssignment(L_TATIANA)).toMatchObject({ visible: false });
     holder.ctx = null;
     await expect(jr.getJardaRewardsView()).rejects.toThrow();
+  });
+
+  it("Lucie má na Jardově kartě stejná práva jako Viner (celá karta, výplaty, návrhy)", async () => {
+    asLucie();
+    const v = await jr.getJardaRewardsView();
+    expect(v.isManager).toBe(true);
+    expect(v.customers.map((c) => c.displayName)).toEqual(["Tatiana Lisichkina", "Monika Chuda"]);
+    expect(v.excluded.length).toBeGreaterThan(0); // kontrolní seznam jako vedoucí
+    expect(await jr.addJardaPayout({ amountKc: 10, note: "Lucie", paidOn: "2026-12-16" })).toEqual({ ok: true });
+    expect(await jr.getLeadRewardAssignment(L_TATIANA)).toMatchObject({ visible: true, isManager: true, canCancel: true });
   });
 });
