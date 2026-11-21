@@ -37,6 +37,10 @@ export type VariantCalc = {
   volumeMl: number;
   contentKc: number;
   packagingKc: number;
+  /** Část packagingKc: obal (bag, krabice, kapsička). */
+  containerKc: number;
+  /** Část packagingKc: etikety (kódy začínající „etiketa“ — složení, přední). */
+  labelKc: number;
   totalKc: number;
   saleKc: number | null;
   marginKc: number | null;
@@ -45,15 +49,22 @@ export type VariantCalc = {
   missingPackaging: string[];
 };
 
+/** Etiketa (složení, přední…) — kód položky ceníku začíná „etiketa“. */
+export function isLabelCode(code: string): boolean {
+  return code.startsWith("etiketa");
+}
+
 export function calcVariant(recipe: Pick<Recipe, "items" | "batchMl">, variant: RecipeVariant, packagingPriceByCode: ReadonlyMap<string, number>): VariantCalc {
   const contentKc = recipe.batchMl > 0 ? (batchCostKc(recipe) * variant.volumeMl) / recipe.batchMl : 0;
   const missingPackaging = variant.packagingCodes.filter((code) => !packagingPriceByCode.has(code));
   const packagingKc = variant.packagingCodes.reduce((sum, code) => sum + (packagingPriceByCode.get(code) ?? 0), 0);
+  const labelKc = variant.packagingCodes.filter(isLabelCode).reduce((sum, code) => sum + (packagingPriceByCode.get(code) ?? 0), 0);
+  const containerKc = packagingKc - labelKc;
   const totalKc = contentKc + packagingKc;
   const saleKc = variant.salePriceHal === null ? null : variant.salePriceHal / 100;
   const marginKc = saleKc === null ? null : saleKc - totalKc;
   const marginPct = saleKc === null || saleKc <= 0 || marginKc === null ? null : (marginKc / saleKc) * 100;
-  return { label: variant.label, volumeMl: variant.volumeMl, contentKc, packagingKc, totalKc, saleKc, marginKc, marginPct, missingPackaging };
+  return { label: variant.label, volumeMl: variant.volumeMl, contentKc, packagingKc, containerKc, labelKc, totalKc, saleKc, marginKc, marginPct, missingPackaging };
 }
 
 /** "44,32" / "1 361" / "0,157 Kč" → číslo; záporné a nesmysly → null. Nula je povolená. */

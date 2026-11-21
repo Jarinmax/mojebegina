@@ -96,3 +96,13 @@ describe("nabídky dodavatelů", () => {
     expect(priceChangeImpact([recipe], "neni", 50)).toHaveLength(0);
   });
 });
+
+describe("obal a etikety zvlášť", () => {
+  it("rozdělí náklad balení na obal a etikety", () => {
+    const prices = new Map([["bag-3l", 12.41], ["etiketa", 1.47], ["etiketa-predni", 2.51]]);
+    const calc = calcVariant(recipe, { label: "3 l", volumeMl: 3000, packagingCodes: ["bag-3l", "etiketa", "etiketa-predni"], salePriceHal: null }, prices);
+    expect(calc.containerKc).toBeCloseTo(12.41);
+    expect(calc.labelKc).toBeCloseTo(3.98);
+    expect(calc.packagingKc).toBeCloseTo(16.39);
+  });
+});
