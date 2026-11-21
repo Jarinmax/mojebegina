@@ -21,7 +21,7 @@ export function productShippingNote(): string {
   const first = COLD_SHIPPING_RULES[0];
   const nextFromKg = COLD_SHIPPING_RULES[1].fromKg;
   const fits = Math.floor(((nextFromKg * 1000) - 1) / BEGINA_GRAMS);
-  return `Chlazená doprava po celé ČR od ${formatKc(first.priceKc)} (do ${nextFromKg} kg, to jsou ${beginyText(fits)}). Osobní odběr ve Viticích zdarma.`;
+  return `Chlazená doprava po celé ČR od ${formatKc(first.priceKc)} (pod ${nextFromKg} kg, to jsou až ${beginyText(fits)}). Osobní odběr ve Viticích zdarma.`;
 }
 
 type HintLine = {
@@ -62,7 +62,7 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
   const upTo = `${next.fromKg.toLocaleString("cs-CZ")} kg`;
   const extra =
     fits >= 1
-      ? `Do ${upTo} platíte pořád ${formatKc(cold.priceKc)} — ${fits === 1 ? "vejde se" : "vejdou se"} ještě ${beginyText(fits)}. Osobní odběr ve Viticích zdarma.`
+      ? `Pod ${upTo} platíte pořád ${formatKc(cold.priceKc)} — ${fits === 1 ? "vejde se" : "vejdou se"} ještě ${beginyText(fits)}. Osobní odběr ve Viticích zdarma.`
       : "Osobní odběr ve Viticích zdarma.";
   return { main, extra };
 }
