@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInfoMail, checkInfoMailRecipients } from "../email/infoMail";
+import { buildInfoMail, checkInfoMailAttachments, checkInfoMailRecipients } from "../email/infoMail";
 
 describe("e-mail z info@", () => {
   it("příjemci: platné adresy, bez duplicit, nejvýš pět", () => {
@@ -22,5 +22,29 @@ describe("e-mail z info@", () => {
     expect(buildInfoMail("x", "jaroslav").text).toContain("Jaroslav Viner\nBegina\n+420 774 199 975");
     expect(buildInfoMail("x", "tym").text).toContain("tým Begina");
     expect(buildInfoMail("a <b> & c", "tym").html).toContain("a &lt;b&gt; &amp; c");
+  });
+});
+
+describe("checkInfoMailAttachments (přílohy z info@, 21. 11. 2026)", () => {
+  const png = Buffer.from("fake-png-bytes").toString("base64");
+  it("bez příloh je v pořádku", () => {
+    expect(checkInfoMailAttachments(undefined)).toEqual({ ok: true, attachments: [] });
+  });
+  it("přijme obrázek a PDF", () => {
+    const r = checkInfoMailAttachments([
+      { filename: "foto.png", mime_type: "image/png", content_base64: png },
+      { filename: "faktura.pdf", mime_type: "application/pdf", content_base64: png },
+    ]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.attachments.map((a) => a.filename)).toEqual(["foto.png", "faktura.pdf"]);
+  });
+  it("odmítne zakázaný typ, chybný base64 i název s lomítkem", () => {
+    expect(checkInfoMailAttachments([{ filename: "x.exe", mime_type: "application/x-msdownload", content_base64: png }]).ok).toBe(false);
+    expect(checkInfoMailAttachments([{ filename: "a.png", mime_type: "image/png", content_base64: "%%%" }]).ok).toBe(false);
+    expect(checkInfoMailAttachments([{ filename: "../a.png", mime_type: "image/png", content_base64: png }]).ok).toBe(false);
+  });
+  it("odmítne víc než 15 MB dohromady", () => {
+    const big = "A".repeat(16 * 1024 * 1024 * (4 / 3));
+    expect(checkInfoMailAttachments([{ filename: "big.pdf", mime_type: "application/pdf", content_base64: big }]).ok).toBe(false);
   });
 });
