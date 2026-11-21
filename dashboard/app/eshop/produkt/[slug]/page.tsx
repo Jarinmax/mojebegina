@@ -262,7 +262,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           )}
           {!isSet && shippingModeFromEnv() === "weight" && (
             <p className="mt-2 text-sm text-neutral-700">
-              🚚 {productShippingNote()}{" "}
+              🚚 {productShippingNote(product.variants.find((variant) => (variant.volumeMl ?? 0) >= 2900)?.weightGrams ?? null)}{" "}
               <ShopLink href="/doprava" className="underline underline-offset-2 whitespace-nowrap">Ceník dopravy</ShopLink>
             </p>
           )}
