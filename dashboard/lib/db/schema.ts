@@ -2382,3 +2382,52 @@ export const leadPurchaseHistory = pgTable("lead_purchase_history", {
   items: jsonb("items").notNull(),
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Šarže (Lucie 21. 11. 2026): když Jarin uvaří, zapíše šarži — produkt,
+// datum výroby a kolik kterých balení naplnil. Datum spotřeby se dopočítá
+// podle trvanlivosti (lib/vyroba/batches.ts), u šarže se dá ručně změnit.
+// Řádky šarže = balení (3 l, 650 ml, 500 ml, 200 ml, 100 ml).
+export const productionBatches = pgTable(
+  "production_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    productName: text("product_name").notNull(),
+    producedOn: date("produced_on").notNull(),
+    note: text("note"),
+    source: text("source").notNull().default("web"),
+    sourceRef: text("source_ref"),
+    createdByUserId: text("created_by_user_id"),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("production_batches_code_key").on(table.code),
+    uniqueIndex("production_batches_source_ref_key").on(table.source, table.sourceRef).where(sql`${table.sourceRef} IS NOT NULL`),
+    index("production_batches_produced_idx").on(table.producedOn),
+    check("production_batches_source_check", sql`${table.source} IN ('web','agent')`),
+  ]
+);
+
+export const productionBatchLines = pgTable(
+  "production_batch_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => productionBatches.id, { onDelete: "cascade" }),
+    volumeMl: integer("volume_ml").notNull(),
+    quantity: integer("quantity").notNull(),
+    bestBefore: date("best_before"),
+    soldOutAt: timestamp("sold_out_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("production_batch_lines_batch_volume_key").on(table.batchId, table.volumeMl),
+    check("production_batch_lines_quantity_check", sql`${table.quantity} > 0`),
+    check("production_batch_lines_volume_check", sql`${table.volumeMl} IN (100, 200, 500, 650, 3000)`),
+  ]
+);

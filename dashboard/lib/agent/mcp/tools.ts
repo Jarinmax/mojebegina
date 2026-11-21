@@ -28,6 +28,7 @@ import { INVOICING_TOOLS } from "./tools/invoicing";
 import { ECONOMY_TOOLS } from "./tools/economy";
 import { LEGAL_AUDIT_TOOLS } from "./tools/legalAudit";
 import { PROJECT_TOOLS } from "./tools/project";
+import { BATCH_TOOLS } from "./tools/batches";
 import { RECIPE_TOOLS } from "./tools/recipes";
 import { MAIL_TOOLS } from "./tools/mail";
 import { ORDER_TOOLS } from "./tools/orders";
@@ -386,6 +387,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   ...ECONOMY_TOOLS,
   ...LEGAL_AUDIT_TOOLS,
   ...PROJECT_TOOLS,
+  ...BATCH_TOOLS,
   ...RECIPE_TOOLS,
   ...MAIL_TOOLS,
 ];
