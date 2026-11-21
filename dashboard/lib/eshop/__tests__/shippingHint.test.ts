@@ -20,6 +20,17 @@ describe("doprava vidět dřív", () => {
     expect(nbsp(five.main)).toBe("Chlazená doprava pro váš košík: 379 Kč (15 kg).");
     expect(nbsp(five.extra)).toContain("Pod 20 kg platíte pořád 379 Kč — vejde se ještě 1 begina 3 l");
   });
+  it("sirupy jsou těžší (3 826 g i s krabicí)", () => {
+    const syrup = (quantity: number) => ({ sku: "lipovy-sirup-3l", quantity, product: { category: "sirupy", slug: "lipovy-sirup" }, variant: { sku: "lipovy-sirup-3l", volumeMl: 3000, weightGrams: 3826 } });
+    expect(nbsp(productShippingNote(3826))).toContain("(pod 15 kg, to jsou až 3 beginy 3 l)");
+    const three = cartShippingHint([syrup(3)], opts)!;
+    expect(nbsp(three.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (11,5 kg).");
+    expect(nbsp(three.extra)).toBe("Osobní odběr ve Viticích zdarma.");
+    const four = cartShippingHint([syrup(4)], opts)!;
+    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 379 Kč (15,3 kg).");
+    const mixed = cartShippingHint([syrup(1), soup(1)], opts)!;
+    expect(nbsp(mixed.extra)).toContain("vejdou se ještě 2 beginy 3 l");
+  });
   it("paušál, set nebo chybějící hmotnost → původní věta", () => {
     expect(cartShippingHint([soup(1)], { weightMode: false, zasilkovna: true })).toBeNull();
     expect(cartShippingHint([{ ...soup(1), variant: { ...soup(1).variant, weightGrams: null } }], opts)).toBeNull();

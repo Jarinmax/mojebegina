@@ -6,8 +6,10 @@ import { COLD_SHIPPING_RULES, cartWeight, coldShippingPrice } from "./shippingRa
 import { isTastingSet } from "./tastingSet";
 import { quoteZasilkovna } from "./zasilkovna";
 
-/** Begina 3 l počítáme jako 3 kg (litry = kilogramy, zadání Lucie). */
+/** Begina 3 l: polévky, čaje a nápoje 3 kg; sirupy jsou těžší (3 826 g
+ *  i s krabicí, vážila Lucie) — proto se bere skutečná hmotnost z katalogu. */
 const BEGINA_GRAMS = 3000;
+const isBegina = (variant: { volumeMl: number | null }) => (variant.volumeMl ?? 0) >= 2900;
 const kgText = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFractionDigits: 1 });
 
 function beginyText(count: number): string {
@@ -17,10 +19,10 @@ function beginyText(count: number): string {
 }
 
 /** Nejlevnější pásmo chlazené dopravy, např. „od 267 Kč (do 15 kg, to jsou 4 beginy 3 l)“. */
-export function productShippingNote(): string {
+export function productShippingNote(beginaGrams: number | null = null): string {
   const first = COLD_SHIPPING_RULES[0];
   const nextFromKg = COLD_SHIPPING_RULES[1].fromKg;
-  const fits = Math.floor(((nextFromKg * 1000) - 1) / BEGINA_GRAMS);
+  const fits = Math.floor(((nextFromKg * 1000) - 1) / (beginaGrams && beginaGrams > 0 ? beginaGrams : BEGINA_GRAMS));
   return `Chlazená doprava po celé ČR od ${formatKc(first.priceKc)} (pod ${nextFromKg} kg, to jsou až ${beginyText(fits)}). Osobní odběr ve Viticích zdarma.`;
 }
 
@@ -58,7 +60,9 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
   if (!next) return { main, extra: "Osobní odběr ve Viticích zdarma." };
   // Další pásmo začíná PŘESNĚ na své hranici (15 kg = už 379 Kč), proto −1 g.
   const room = next.fromKg * 1000 - weight.grams - 1;
-  const fits = room > 0 ? Math.floor(room / BEGINA_GRAMS) : 0;
+  // Počítá se nejtěžší begina v košíku (sirup 3 826 g), ať slib platí vždy.
+  const unit = Math.max(BEGINA_GRAMS, ...lines.filter((line) => isBegina(line.variant)).map((line) => line.variant.weightGrams ?? 0));
+  const fits = room > 0 ? Math.floor(room / unit) : 0;
   const upTo = `${next.fromKg.toLocaleString("cs-CZ")} kg`;
   const extra =
     fits >= 1
