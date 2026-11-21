@@ -37,10 +37,6 @@
       "schedule": "12 18 * * *"
     },
     {
-      "path": "/api/cron/mereni-eshopu",
-      "schedule": "0 15 * * 1"
-    },
-    {
       "path": "/api/cron/meta-leady?beh=1",
       "schedule": "5 6 * * *"
     },
