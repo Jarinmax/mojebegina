@@ -107,6 +107,14 @@ export default function BatchForm({ products, today }: { products: Product[]; to
         </div>
       )}
 
+      <details className="text-sm">
+        <summary className="cursor-pointer text-neutral-600">Etiketa už je vytištěná s vlastním číslem šarže?</summary>
+        <label className="block mt-2">
+          <span className="block text-neutral-600 mb-1">Číslo šarže z etikety (jinak ho systém vytvoří sám)</span>
+          <input name="code" placeholder="L-20261117-MEL-01" className="w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono uppercase" />
+        </label>
+      </details>
+
       <label className="text-sm">
         <span className="block text-neutral-600 mb-1">Poznámka (nepovinné)</span>
         <input name="note" maxLength={500} className="w-full rounded-lg border border-neutral-300 px-3 py-2" placeholder="např. dýně od Jandla" />

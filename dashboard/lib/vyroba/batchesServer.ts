@@ -149,11 +149,18 @@ export async function createBatch(input: BatchInput, actor: Actor): Promise<Crea
     .limit(1);
   if (!product) return { ok: false, error: "Produkt nebyl nalezen." };
 
-  const base = batchCode(product.categorySlug, product.slug, input.producedOn);
-  const taken = await db.select({ code: productionBatches.code }).from(productionBatches).where(like(productionBatches.code, `${base}%`));
-  let seq = 1;
-  while (taken.some((t) => t.code === batchCode(product.categorySlug, product.slug, input.producedOn, seq))) seq += 1;
-  const code = batchCode(product.categorySlug, product.slug, input.producedOn, seq);
+  let code: string;
+  if (input.code) {
+    const [dup] = await db.select({ id: productionBatches.id }).from(productionBatches).where(eq(productionBatches.code, input.code)).limit(1);
+    if (dup) return { ok: false, error: `Šarže ${input.code} už je zapsaná.` };
+    code = input.code;
+  } else {
+    const base = batchCode(product.categorySlug, product.slug, input.producedOn).slice(0, -2);
+    const taken = await db.select({ code: productionBatches.code }).from(productionBatches).where(like(productionBatches.code, `${base}%`));
+    let seq = 1;
+    while (taken.some((t) => t.code === batchCode(product.categorySlug, product.slug, input.producedOn, seq))) seq += 1;
+    code = batchCode(product.categorySlug, product.slug, input.producedOn, seq);
+  }
 
   const lines = input.lines.map((l) => ({
     volumeMl: l.volumeMl,
