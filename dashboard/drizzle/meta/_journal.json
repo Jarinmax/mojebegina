@@ -421,6 +421,13 @@
       "when": 1795288175039,
       "tag": "0059_sarze_objednavky",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1795291858209,
+      "tag": "0060_sverene_penize",
+      "breakpoints": true
     }
   ]
 }

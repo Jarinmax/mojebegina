@@ -1537,6 +1537,57 @@ export const sellerRewardAssignments = pgTable(
   ]
 );
 
+// Svěřené peníze spolupracovníka (21. 11. 2026). Soukromé — vidí jen daný
+// spolupracovník, vedení a Lucie; zapisují vedení a Lucie. Nic se nemaže:
+// oprava = zrušení záznamu (cancelled_at) a nový záznam.
+//   kind: "deposit" = vklad (svěřeno), "withdrawal" = jednorázová platba/výběr.
+export const trustEntries = pgTable(
+  "trust_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id").notNull().references(() => collaboratorCards.id),
+    entryDate: date("entry_date", { mode: "string" }).notNull(),
+    kind: text("kind").notNull(),
+    amountKc: integer("amount_kc").notNull(),
+    description: text("description").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
+  },
+  (table) => [
+    index("trust_entries_card_date_idx").on(table.cardId, table.entryDate),
+    check("trust_entries_kind_check", sql`${table.kind} IN ('deposit', 'withdrawal')`),
+    check("trust_entries_amount_check", sql`${table.amountKc} > 0`),
+  ]
+);
+
+// Pravidelná platba ze svěřených peněz: odečítá se automaticky
+// k danému dni každého měsíce od start_month (YYYY-MM) do end_month včetně
+// (NULL = bez konce, dokud peníze stačí). Změna výše = ukončit pravidlo
+// a založit nové od dalšího měsíce — historie zůstane.
+export const trustRecurring = pgTable(
+  "trust_recurring",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id").notNull().references(() => collaboratorCards.id),
+    label: text("label").notNull(),
+    amountKc: integer("amount_kc").notNull(),
+    dayOfMonth: integer("day_of_month").notNull(),
+    startMonth: text("start_month").notNull(),
+    endMonth: text("end_month"),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("trust_recurring_card_idx").on(table.cardId),
+    check("trust_recurring_amount_check", sql`${table.amountKc} > 0`),
+    check("trust_recurring_day_check", sql`${table.dayOfMonth} BETWEEN 1 AND 28`),
+    check("trust_recurring_months_check", sql`${table.startMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' AND (${table.endMonth} IS NULL OR (${table.endMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' AND ${table.endMonth} >= ${table.startMonth}))`),
+  ]
+);
+
 export const collaboratorPayouts = pgTable(
   "collaborator_payouts",
   {
