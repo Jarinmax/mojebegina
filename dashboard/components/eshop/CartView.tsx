@@ -13,8 +13,9 @@ import { useCart, useHydrated } from "./useCart";
 import PendingOrderNotice from "./PendingOrderNotice";
 import CouponBox from "./CouponBox";
 import { useCoupons } from "./useCoupons";
+import { cartShippingHint } from "@/lib/eshop/shippingHint";
 
-export default function CartView() {
+export default function CartView({ weightShipping = false, zasilkovna = false }: { weightShipping?: boolean; zasilkovna?: boolean }) {
   const { cart, setQuantity } = useCart();
   const catalog = useCatalog();
   const hydrated = useHydrated();
@@ -46,6 +47,7 @@ export default function CartView() {
   const subtotalKc = lines.reduce((sum, line) => sum + line.lineTotalKc, 0);
   // Produkt mohl do košíku přijít dřív, než se zablokoval (neověřené alergeny).
   const blocked = lines.some((line) => !isOrderable(line.product));
+  const shippingHint = coupons.preview.freeShipping ? null : cartShippingHint(lines, { weightMode: weightShipping, zasilkovna });
 
   return (
     <>
@@ -113,9 +115,20 @@ export default function CartView() {
             </div>
           </>
         )}
-        <p className="text-xs text-neutral-500 mt-1">
-          Doprava se vybírá v dalším kroku{coupons.preview.freeShipping ? " — slevový kód vám dává dopravu zdarma" : ""}.
-        </p>
+        {shippingHint ? (
+          <div className="mt-2 text-sm">
+            <p className="font-medium text-begina-primary-900">{shippingHint.main}</p>
+            {shippingHint.extra && <p className="text-xs text-neutral-600 mt-0.5">{shippingHint.extra}</p>}
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Způsob dopravy vyberete v dalším kroku.{" "}
+              <ShopLink href="/doprava" className="underline underline-offset-2">Ceník dopravy</ShopLink>
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-neutral-500 mt-1">
+            Doprava se vybírá v dalším kroku{coupons.preview.freeShipping ? " — slevový kód vám dává dopravu zdarma" : ""}.
+          </p>
+        )}
         <CouponBox coupons={coupons} partnerHint className="mt-4 pt-4 border-t border-neutral-200" />
         {blocked ? (
           <p className="mt-5 text-sm text-begina-accent-900 bg-begina-accent-100 rounded-lg px-3 py-2">

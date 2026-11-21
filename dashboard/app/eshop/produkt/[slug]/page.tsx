@@ -36,7 +36,8 @@ import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
 import { PACKAGING_MORE_LABEL, PACKAGING_PAGE_PATH, packagingCopy } from "@/lib/eshop/packaging";
 import { productDeliveryNote } from "@/lib/eshop/zasilkovna";
-import { zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
+import { shippingModeFromEnv, zasilkovnaEnabledFromEnv } from "@/lib/eshop/shipping";
+import { productShippingNote } from "@/lib/eshop/shippingHint";
 import { afterOpeningLine, highlightAllergens, NO_PRESERVATIVES, servingPhotoNote, servingPrices, showsNoPreservatives } from "@/lib/eshop/productFacts";
 import { breadcrumbJsonLd, jsonLd, productDescription, productJsonLd, productTitle } from "@/lib/eshop/seo";
 
@@ -258,6 +259,12 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
               {campaign && <p className="text-[13px] text-neutral-500">{lowestPriceNote(campaign.regularPriceKc)}</p>}
               <p>{SET_UNDER_PRICE}</p>
             </div>
+          )}
+          {!isSet && shippingModeFromEnv() === "weight" && (
+            <p className="mt-2 text-sm text-neutral-700">
+              🚚 {productShippingNote()}{" "}
+              <ShopLink href="/doprava" className="underline underline-offset-2 whitespace-nowrap">Ceník dopravy</ShopLink>
+            </p>
           )}
 
           {/* Trvanlivost po otevření a cena za porci (16. 11. 2026) — odvozeno z údajů
