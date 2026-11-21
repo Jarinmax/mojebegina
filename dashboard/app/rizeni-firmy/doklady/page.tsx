@@ -78,7 +78,11 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-begina-primary-900 mt-1 mb-3">Doklady</h1>
+      <h1 className="text-lg font-medium text-begina-primary-900 mt-1">Doklady</h1>
+      <p className="text-sm text-neutral-600 mb-3">
+        Všechny faktury a účtenky po měsících. <strong>Příjmy</strong> = naše vydané faktury z iDokladu.{" "}
+        <strong>Náklady</strong> = účtenky a faktury za nákupy — přicházejí z vlákna Účtenky, nebo je nahraješ tady.
+      </p>
 
       <div className="flex flex-wrap gap-2 mb-2">
         {[nowY - 1, nowY, ...(nowM === 12 ? [nowY + 1] : [])].filter((y) => y >= 2025).map((y) => (
@@ -137,7 +141,13 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
 
       {tab === "prijmy" ? (
         <div>
-          {!read.ok && <p className="text-sm text-red-700 mb-2">Faktury z iDokladu se nepodařilo načíst: {read.error}</p>}
+          {!read.ok && (
+            <p className="text-sm text-red-700 mb-2">
+              {read.error.includes("402")
+                ? "iDoklad odmítá přístup (kód 402 — nejspíš nezaplacené nebo vypršelé předplatné s API). Zkontroluj předplatné v iDokladu — dokud nepůjde, e-shop nevystaví faktury automaticky."
+                : `Faktury z iDokladu se nepodařilo načíst: ${read.error}`}
+            </p>
+          )}
           {issuedTruncated && <p className="text-sm text-amber-700 mb-2">Zobrazeno prvních 100 faktur.</p>}
           {read.ok && issued.length === 0 && <p className="text-sm text-neutral-600">V tomto měsíci není vystavená žádná faktura.</p>}
           <ul className="flex flex-col gap-1.5">
