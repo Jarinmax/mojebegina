@@ -6,13 +6,13 @@
 import { headers } from "next/headers";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { isBotUserAgent, isTrackedStep } from "./funnel";
+import { hasOptOutCookie, isBotUserAgent, isTrackedStep } from "./funnel";
 
 export async function recordFunnelStep(step: string): Promise<void> {
   try {
     if (!isTrackedStep(step)) return;
-    const userAgent = (await headers()).get("user-agent");
-    if (isBotUserAgent(userAgent)) return;
+    const h = await headers();
+    if (isBotUserAgent(h.get("user-agent")) || hasOptOutCookie(h.get("cookie"))) return;
     await db.execute(sql`
       INSERT INTO eshop_funnel_daily (day, step, count)
       VALUES ((now() AT TIME ZONE 'Europe/Prague')::date, ${step}, 1)

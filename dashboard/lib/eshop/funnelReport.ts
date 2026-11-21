@@ -1,5 +1,5 @@
 // MĚŘENÍ E-SHOPU 1.0 — týdenní report na info@begina.cz (čistá funkce).
-import { FUNNEL_STEPS, buildFunnel, type FunnelStep } from "./funnel";
+import { FUNNEL_STEPS, buildFunnel, segmentSplit, sourceRows, type FunnelStep } from "./funnel";
 import type { FunnelDay } from "./funnelServer";
 
 type Counts = Partial<Record<FunnelStep | "order" | "paid", number>>;
@@ -49,9 +49,13 @@ export function buildFunnelReport(week: FunnelDay[], previous: FunnelDay[]): { s
       ? `Největší odpad: ${dropFrom.label} → ${drop.label}, pokračuje jen ${pctText(drop.ofPreviousPct)}.`
       : "Největší odpad zatím nejde určit, je málo dat.",
     "",
+    ...segmentLines(week, previous),
+    "",
+    ...sourceLines(week, previous),
+    "",
     `Z bezplatných výpisů Google: ${googleVisits(week)} návštěv, ${googleOrders(week)} odeslaných objednávek (týden předtím ${googleVisits(previous)} / ${googleOrders(previous)}).`,
     "",
-    "Návštěva = jedno načtení e-shopu v prohlížeči, roboti se nepočítají. Počítají se i vaše vlastní návštěvy a zkušební objednávky. Při malých číslech berte procenta s rezervou.",
+    "Návštěva = jedno načtení e-shopu v prohlížeči, roboti se nepočítají. Vaše vlastní návštěvy se nepočítají jen na zařízeních, kde jste jednou otevřeli begina.cz/?nemerit=1. Při malých číslech berte procenta s rezervou.",
     "",
     `Podrobný přehled po dnech: ${FUNNEL_REPORT_URL}`,
   ].filter((line): line is string => typeof line === "string");
@@ -61,4 +65,29 @@ export function buildFunnelReport(week: FunnelDay[], previous: FunnelDay[]): { s
     text,
     html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5">${lines.map((line) => (line ? `<p style="margin:0 0 6px">${escapeHtml(line)}</p>` : "<br>")).join("")}</div>`,
   };
+}
+
+function segmentLines(week: FunnelDay[], previous: FunnelDay[]): string[] {
+  const now = segmentSplit(week);
+  const before = segmentSplit(previous);
+  return [
+    "Kavárny a bistra (IČO) / domácnosti: tento týden (týden předtím)",
+    `Pokladna se zaškrtnutým „Nakupuji na firmu“: ${now.companyCheckout} (${before.companyCheckout})`,
+    `Zaplacené objednávky kavárny: ${now.paidCompany} (${before.paidCompany}), domácnosti: ${now.paidHome} (${before.paidHome})`,
+  ];
+}
+
+function sourceLines(week: FunnelDay[], previous: FunnelDay[]): string[] {
+  const rows = sourceRows(week);
+  const beforeRows = sourceRows(previous);
+  if (rows.length === 0) return ["Zdroje návštěv: zatím bez dat (měření zdrojů běží od 21. 11. 2026)."];
+  const ai = rows.filter((row) => row.isAi);
+  return [
+    "Zdroje návštěv: návštěvy / odeslané objednávky (týden předtím)",
+    ...rows.map((row) => {
+      const b = beforeRows.find((x) => x.source === row.source);
+      return `${row.label}: ${row.visits} / ${row.orders} (${b?.visits ?? 0} / ${b?.orders ?? 0})`;
+    }),
+    ai.length > 0 ? `Z AI asistentů celkem: ${ai.reduce((s, r) => s + r.visits, 0)} návštěv, ${ai.reduce((s, r) => s + r.orders, 0)} objednávek.` : "Z AI asistentů tento týden žádná návštěva.",
+  ];
 }
