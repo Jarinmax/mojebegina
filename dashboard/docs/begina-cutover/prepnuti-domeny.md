@@ -8,13 +8,32 @@ Kód domén je v `main` od PR #17 (`lib/site/*`, testy 124/124 OK 16. 10.).
 
 | # | Krok | Kdo | Stav |
 |---|---|---|---|
-| 1 | Vercel → mojebegina → Settings → Domains: přidat `begina.cz` (Production) a `www.begina.cz` → 301 na `begina.cz`. Vercel ukáže „Invalid Configuration“ — správně, DNS se zatím nemění. | majitel | |
-| 2 | Opsat z Vercelu požadované hodnoty: A záznam pro `begina.cz`, CNAME pro `www` (případně TXT pro ověření vlastnictví). | majitel → Claude | |
-| 3 | U správce DNS: snímek celé zóny `begina.cz` (původní hodnoty A, CNAME `www`, MX, TXT/SPF, `_dmarc`, `send`, `resend._domainkey`, `moje`). Uložit pro návrat. | majitel | |
-| 4 | TTL záznamů `@` (A) a `www` (CNAME) snížit na 300 s — nejpozději den před přepnutím. Nic jiného neměnit. | majitel | |
+| 1 | Vercel → mojebegina → Settings → Domains: přidat `begina.cz` (Production) a `www.begina.cz` → 301 na `begina.cz`. Vercel ukáže „Invalid Configuration“ — správně, DNS se zatím nemění. | majitel | ✅ 27. 10. 2026 — `begina.cz` → Production, `www.begina.cz` → 308 na `begina.cz` (bez „apex → www“) |
+| 2 | Opsat z Vercelu požadované hodnoty: A záznam pro `begina.cz`, CNAME pro `www` (případně TXT pro ověření vlastnictví). | majitel → Claude | ✅ 27. 10. 2026 — `@` A `216.198.79.1`, `www` CNAME `6e5c4dc7d4a00105.vercel-dns-017.com.` (stejný cíl jako `moje`); TXT ověření Vercel nežádá |
+| 3 | U správce DNS: snímek celé zóny `begina.cz` (původní hodnoty A, CNAME `www`, MX, TXT/SPF, `_dmarc`, `send`, `resend._domainkey`, `moje`). Uložit pro návrat. | majitel | ✅ 27. 10. 2026 — export BIND z Active24: `dns-begina.cz-2026-10-27.bind.txt` |
+| 3a | **SPF před přepnutím:** dnes `v=spf1 a mx include:_spf.websupport.cz -all`. Mechanismus `a` povoluje odesílat poštu ze serveru, na který míří `begina.cz` (dnes hosting `37.9.175.164`). Po přepnutí `@` na Vercel by e-maily odesílané ze starého WordPressu přímo ze serveru (PHP mail — objednávky, hesla, oznámení WooCommerce) neprošly (`-all`). Den před přepnutím přidat do SPF `ip4:37.9.175.164 ip6:2a00:4b40:aaaa:2005::5` (nebo ověřit, že WordPress posílá přes SMTP Active24 — pak stačí `include`). | majitel (Claude připraví přesný záznam) | |
+| 4 | TTL záznamů `@` a `www` (A i AAAA, dnes 3600 s) snížit na 300 s — nejpozději den před přepnutím. Nic jiného neměnit. | majitel | |
 
-**Nikdy neměnit:** MX, SPF/TXT kořene, `_dmarc`, `send`, `resend._domainkey`,
-záznam `moje` (MojeBegina), jmenné servery.
+**Nikdy neměnit:** MX, `_dmarc`, `send`, `rsend`, `resend._domainkey`,
+`mail._domainkey`, `ecomail._domainkey`, `tracking`, `mailin1/2`, `mail`,
+`webmail`, `smtp`, `pop3`, `imap`, `autodiscover`, `autoconfig`,
+`_autodiscover._tcp`, `admin`, wildcard `*`, `moje` (MojeBegina), `gpt-pilot`,
+jmenné servery (Websupport/Active24). SPF jen podle bodu 3a.
+
+### Změny DNS v den přepnutí (a návrat) — podle zálohy 27. 10. 2026
+
+| Záznam | Dnes (návrat) | Den D |
+|---|---|---|
+| `@` A | `37.9.175.164` | **`216.198.79.1`** (Vercel; starší `76.76.21.21` funguje také) |
+| `@` AAAA | `2a00:4b40:aaaa:2005::5` | **smazat** (Vercel IPv6 pro kořen nemá) |
+| `www` A | `37.9.175.164` | **smazat** |
+| `www` AAAA | `2a00:4b40:aaaa:2005::5` | **smazat** |
+| `www` CNAME | — | **`6e5c4dc7d4a00105.vercel-dns-017.com.`** (CNAME nesmí mít vedle sebe A/AAAA → nejdřív smazat `www` A a AAAA) |
+| `stary` A / AAAA | — | `37.9.175.164` / `2a00:4b40:aaaa:2005::5` (už před dnem D, `stary-woocommerce.md`) |
+
+Před změnou vypnout automatiku „Active24 Web“ (spravuje A/AAAA/ANAME/CNAME
+kořene a `www`), „Active24 Mail“ nechat. Návrat: obnovit levý sloupec
+a automatiku „Active24 Web“ zapnout.
 
 ## Fáze 2 — podmínky před přepnutím
 
@@ -25,10 +44,51 @@ záznam `moje` (MojeBegina), jmenné servery.
       Stripe → v MojeBegina zaplaceno, e-mail jednou.
 - [ ] Obsah: produkty k prodeji, obchodní podmínky, doprava.
 
+Starý WooCommerce (přístup k administraci, nevyřízené objednávky, platby
+WooPayments): **`stary-woocommerce.md`** — archiv a přístup připravit PŘED
+fází 3.
+
+## Průběh přepnutí 5. 11. 2026 (provedeno)
+
+- 4. 11.: kontrolní objednávka 70000006 (převod) — potvrzovací e-mail s PDF
+  podmínek 2026-10-27 (otisk sedí), interní upozornění odešlo; stornována.
+  TTL `@`/`www` A+AAAA → 300; SPF doplněno o `ip4:37.9.175.164 ip6:2a00:4b40:aaaa:2005::5`.
+- 5. 11. 5:06: export BIND (záloha před změnou). Automatiku „Active24 Web“ nelze
+  vypnout — je to jen ukazatel shody se šablonou (po změně záznamů přejde do
+  stavu „Nastavit“); **tlačítko „Nastavit“ u Web/Mail nikdy nemačkat** (přepsalo
+  by záznamy). „Active24 Webadmin“ (admin.begina.cz) beze změny.
+- 5. 11. ~7:55–8:10: `@` A → `216.198.79.1`; smazány `@` AAAA, `www` A, `www` AAAA;
+  přidán `www` CNAME `6e5c4dc7d4a00105.vercel-dns-017.com` (TTL 300). Vercel:
+  obě domény verified, `www` → 308 na `begina.cz` (ověřila Lucie přes API).
+- **Incident ~11:00:** Safari „nepodařilo se navázat zabezpečené připojení“ —
+  Vercel nevydal certifikát (domény přidané 27. 10. při starém DNS, automatický
+  pokus se nechytil). Oprava: Lucie přes Vercel API `POST /v8/certs`
+  `{"cns":["begina.cz","www.begina.cz"]}` → `cert_bnrjOYu6wqUDeczkvoLccs8L`,
+  platný do 3. 2. 2027, automatická obnova. Poučení: po přepnutí DNS vždy
+  ověřit certifikát v seznamu Vercelu.
+- Vercel Production: `ESHOP_CANONICAL_ORIGIN` a `NEXT_PUBLIC_ESHOP_URL` =
+  `https://begina.cz` → Redeploy. Stripe: Business name (Trading name) „Begina“.
+- 6. 11. kontrola: `moje.begina.cz/eshop` → `begina.cz` ✅, košík na
+  `https://begina.cz` ✅, `/robots.txt` = `Disallow: /` ✅ (indexace zatím
+  vypnutá), `moje.begina.cz/login` ✅. Zkušební objednávky 70000006–07 stornovány.
+- Zbývá: WordPress na `stary.begina.cz` (`stary-woocommerce.md`, B1 kroky 4–7),
+  `ESHOP_INDEXING=on` po kontrole obsahu (dlouhý `Disallow` škodí SEO).
+
 ## Fáze 3 — den přepnutí (pořadí závazné)
 
 1. WooCommerce: vypnout pokladnu (údržba), nechat doběhnout platby.
-2. DNS: `@` A a `www` CNAME na hodnoty z Vercelu (bod 2).
+2. DNS (Active24 → Domény → begina.cz → DNS nastavení):
+   - **nejdřív vypnout automatiku „Active24 Web“** (spravuje A, AAAA, ANAME,
+     CNAME pro begina.cz — jinak může ruční záznamy přepsat zpět na hosting).
+     **„Active24 Mail“ NECHAT zapnutou** (MX, TXT — e-maily).
+   - `@` A a `www` CNAME na hodnoty z Vercelu (bod 2),
+   - **smazat AAAA (IPv6) u `@` i `www`** — jinak návštěvníci s IPv6 skončí
+     dál na starém WordPressu,
+   - wildcard `*.begina.cz` nechat beze změny; `stary.begina.cz` má vlastní
+     záznamy (`stary-woocommerce.md`).
+   - Záloha zóny před přepnutím: Active24 → DNS → **Export BIND souboru**.
+     Návrat = obnovit `@`/`www` A `37.9.175.164` + AAAA `2a00:4b40:aaaa:2005::5`
+     a znovu zapnout „Active24 Web“.
 3. Kontrola (do ~15 min): `https://begina.cz` (certifikát), `https://www.begina.cz`
    → 301, `/produkt/kulajda`, staré `/produkt/kulajda/` → nová adresa,
    `/login` = 404, `https://moje.begina.cz/login` funguje, `/robots.txt` = Disallow,
