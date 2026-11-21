@@ -30,7 +30,7 @@ export default function BatchForm({ products, today }: { products: Product[]; to
       <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-4 text-sm text-emerald-900">
         <p className="font-medium">✓ Šarže zapsaná: {state.created.productName}</p>
         <p className="mt-1">
-          Číslo šarže: <strong className="text-base">{state.created.code}</strong> — napište ho na etiketu.
+          Číslo šarže: <strong className="text-base">{state.created.code}</strong> — etikety s ním vytisknete níž v seznamu („Etiketa k tisku“).
         </p>
         <p className="mt-1 text-xs">{state.created.notified ? "Upozornění odešlo na info@begina.cz." : "Upozornění na info@begina.cz se nepodařilo odeslat."}</p>
         <a href="/rizeni-firmy/vyroba/sarze" className="inline-block mt-3 rounded-full bg-begina-primary-900 text-white px-4 py-2">

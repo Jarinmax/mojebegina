@@ -2,6 +2,8 @@ import Link from "next/link";
 import { formatCzDate, daysUntil } from "@/lib/vyroba/batches";
 import { NO_BATCH_TABLE, batchesTableExists, expiringLines, listBatches, listBatchProducts, todayPrague } from "@/lib/vyroba/batchesServer";
 import { requireOrderContext } from "@/lib/data/orders";
+import { lineRecipients, shippedWithoutBatch } from "@/lib/vyroba/batchAllocation";
+import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import BatchForm from "./BatchForm";
 import { toggleSoldOutAction } from "./actions";
 
@@ -28,6 +30,9 @@ export default async function SarzePage() {
   }
   const [products, batches] = await Promise.all([listBatchProducts(), listBatches(150)]);
   const expiring = expiringLines(batches, today, 3);
+  const recipients = await lineRecipients(batches.flatMap((b) => b.lines.map((l) => l.id))).catch(() => new Map());
+  // šarže k objednávkám běží od nasazení kroku 4 (21. 11. 2026)
+  const unbatched = await shippedWithoutBatch("2026-11-21T00:00:00+01:00").catch(() => []);
 
   return (
     <div className="max-w-3xl">
@@ -45,6 +50,22 @@ export default async function SarzePage() {
             {expiring.map(({ batch, line, daysLeft }) => (
               <li key={line.id}>
                 {batch.productName}, {line.label}, šarže {batch.code}: {daysLeft < 0 ? `prošlo ${formatCzDate(line.bestBefore)}` : daysLeft === 0 ? "končí dnes" : `končí za ${daysLeft} d (${formatCzDate(line.bestBefore)})`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {unbatched.length > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4 text-sm">
+          <p className="font-medium text-red-900 mb-1">Odesláno bez šarže — zapište šarži, ať je dohledatelné, kdo co dostal</p>
+          <ul className="list-disc pl-5">
+            {unbatched.map((u, i) => (
+              <li key={i}>
+                <Link href={`/rizeni-firmy/objednavky/${u.orderId}`} className="underline">
+                  {u.orderNumber !== null ? formatOrderNumber(u.orderNumber) : "objednávka"}
+                </Link>
+                : {u.quantity}× {u.name}
               </li>
             ))}
           </ul>
@@ -73,14 +94,36 @@ export default async function SarzePage() {
               <ul className="mt-2 flex flex-col gap-1">
                 {b.lines.map((l) => {
                   const left = l.bestBefore ? daysUntil(l.bestBefore, today) : null;
+                  const sent = (recipients.get(l.id) ?? []) as Array<{ orderId: string; orderNumber: number | null; customer: string; quantity: number }>;
+                  const used = sent.reduce((n, r) => n + r.quantity, 0);
                   return (
-                    <li key={l.id} className={`flex flex-wrap items-center gap-2 text-sm ${l.soldOut ? "opacity-50" : ""}`}>
-                      <span className="w-40">{l.label}</span>
-                      <span className="w-16">{l.quantity} ks</span>
-                      <span className={left === null ? "text-neutral-500" : expiryClass(left)}>do {formatCzDate(l.bestBefore)}</span>
-                      <form action={toggleSoldOutAction.bind(null, l.id, !l.soldOut)} className="ml-auto">
-                        <button className="text-xs rounded-full border border-neutral-300 px-3 py-1">{l.soldOut ? "Vrátit" : "Vyprodáno"}</button>
-                      </form>
+                    <li key={l.id} className="text-sm">
+                      <div className={`flex flex-wrap items-center gap-2 ${l.soldOut ? "opacity-50" : ""}`}>
+                        <span className="w-40">{l.label}</span>
+                        <span className="w-28">{used > 0 ? `zbývá ${Math.max(0, l.quantity - used)} z ${l.quantity}` : `${l.quantity} ks`}</span>
+                        <span className={left === null ? "text-neutral-500" : expiryClass(left)}>do {formatCzDate(l.bestBefore)}</span>
+                        <a href={`/rizeni-firmy/vyroba/sarze/etiketa/${l.id}`} target="_blank" rel="noopener" className="text-xs underline text-begina-primary-900">
+                          Etiketa k tisku
+                        </a>
+                        <form action={toggleSoldOutAction.bind(null, l.id, !l.soldOut)} className="ml-auto">
+                          <button className="text-xs rounded-full border border-neutral-300 px-3 py-1">{l.soldOut ? "Vrátit" : "Vyprodáno"}</button>
+                        </form>
+                      </div>
+                      {sent.length > 0 && (
+                        <details className="ml-1 mt-0.5 text-xs text-neutral-600">
+                          <summary className="cursor-pointer">Komu šlo ({sent.length})</summary>
+                          <ul className="pl-4 list-disc">
+                            {sent.map((r, i) => (
+                              <li key={i}>
+                                <Link href={`/rizeni-firmy/objednavky/${r.orderId}`} className="underline">
+                                  {r.orderNumber !== null ? formatOrderNumber(r.orderNumber) : "objednávka"}
+                                </Link>{" "}
+                                {r.customer} – {r.quantity} ks
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
                     </li>
                   );
                 })}

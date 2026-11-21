@@ -18,6 +18,7 @@ import CancelledMoneyBadge from "../CancelledMoneyBadge";
 import DispatchChecks from "../DispatchChecks";
 import { DispatchBadges } from "../OrderStatusBadges";
 import { dispatchView } from "../dispatchText";
+import { orderBatchCodes } from "@/lib/vyroba/batchAllocation";
 import { hasBillingDetails, orderPartyBlocks, shippingMethodText } from "@/lib/eshop/orderParties";
 
 // Security Phase 15 (Objednávky 1.0) — detail objednávky. Autorizace (ADMIN
@@ -46,6 +47,7 @@ export default async function OrderDetailPage(
   }
   const { order, items, activity, payments, invoice } = detail;
   const staff = await listInternalStaff();
+  const batchCodes = await orderBatchCodes(id).catch(() => new Map<string, string[]>());
   const invoiceAccess = order.invoiceable ? await getInvoiceIssueAccess() : null;
   const cancelled = order.fulfillmentStatus === "cancelled";
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" }).format(new Date());
@@ -197,6 +199,9 @@ export default async function OrderDetailPage(
             <div key={i} className="flex items-center justify-between text-sm">
               <span className="text-neutral-700">
                 {item.quantity}× {item.name}
+                {item.id && batchCodes.get(item.id) && (
+                  <span className="block text-xs text-neutral-500">šarže {batchCodes.get(item.id)!.join(", ")}</span>
+                )}
               </span>
               <span className="text-neutral-500">{formatKc(item.lineTotalKc)}</span>
             </div>

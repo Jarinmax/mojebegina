@@ -28,3 +28,12 @@ if (present) {
   await sql.transaction((tx) => statements.map((s) => tx.query(s)));
   console.log("Sarze migration (preview): schema 0058 applied (production_batches).");
 }
+const [{ present: allocPresent }] = await sql.query(`SELECT to_regclass('public.production_batch_allocations') IS NOT NULL AS present`);
+if (allocPresent) {
+  console.log("Sarze migration (preview): 0059 already applied.");
+} else {
+  const text = await readFile(fileURLToPath(new URL("../drizzle/0059_sarze_objednavky.sql", import.meta.url)), "utf8");
+  const statements = text.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+  await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+  console.log("Sarze migration (preview): schema 0059 applied (production_batch_allocations).");
+}

@@ -84,8 +84,16 @@ async function loadBatches(where: ReturnType<typeof and> | undefined, limit: num
     .orderBy(desc(productionBatches.producedOn), desc(productionBatches.createdAt))
     .limit(limit);
   if (heads.length === 0) return [];
+  // explicitní sloupce: sold_out_auto přidává až skript 142 (do té doby by select() spadl)
   const lines = await db
-    .select()
+    .select({
+      id: productionBatchLines.id,
+      batchId: productionBatchLines.batchId,
+      volumeMl: productionBatchLines.volumeMl,
+      quantity: productionBatchLines.quantity,
+      bestBefore: productionBatchLines.bestBefore,
+      soldOutAt: productionBatchLines.soldOutAt,
+    })
     .from(productionBatchLines)
     .where(inArray(productionBatchLines.batchId, heads.map((h) => h.id)))
     .orderBy(desc(productionBatchLines.volumeMl));
@@ -168,7 +176,10 @@ export async function createBatch(input: BatchInput, actor: Actor): Promise<Crea
     })
     .returning({ id: productionBatches.id });
   try {
-    await db.insert(productionBatchLines).values(lines.map((l) => ({ batchId: head.id, ...l })));
+    // raw SQL: drizzle by vložil i sloupec sold_out_auto, který přidává až skript 142
+    for (const l of lines) {
+      await db.execute(sql`INSERT INTO production_batch_lines (batch_id, volume_ml, quantity, best_before) VALUES (${head.id}::uuid, ${l.volumeMl}, ${l.quantity}, ${l.bestBefore})`);
+    }
   } catch (error) {
     await db.delete(productionBatches).where(eq(productionBatches.id, head.id));
     throw error;
