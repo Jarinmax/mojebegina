@@ -14,7 +14,8 @@ describe("doprava vidět dřív", () => {
     expect(nbsp(hint.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (9 kg).");
     expect(nbsp(hint.extra)).toBe("Do 15 kg platíte pořád 267 Kč — vejdou se ještě 2 beginy 3 l. Osobní odběr ve Viticích zdarma.");
     const four = cartShippingHint([soup(4)], opts)!;
-    expect(nbsp(four.extra)).toContain("vejde se ještě 1 begina 3 l");
+    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (12 kg).");
+    expect(nbsp(four.extra)).toBe("Osobní odběr ve Viticích zdarma.");
     const five = cartShippingHint([soup(5)], opts)!;
     expect(nbsp(five.main)).toBe("Chlazená doprava pro váš košík: 379 Kč (15 kg).");
     expect(nbsp(five.extra)).toContain("Do 20 kg platíte pořád 379 Kč — vejde se ještě 1 begina 3 l");

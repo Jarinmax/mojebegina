@@ -56,8 +56,9 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
   const index = COLD_SHIPPING_RULES.indexOf(cold.rule);
   const next = COLD_SHIPPING_RULES[index + 1];
   if (!next) return { main, extra: "Osobní odběr ve Viticích zdarma." };
-  const room = next.fromKg * 1000 - weight.grams;
-  const fits = Math.floor(room / BEGINA_GRAMS);
+  // Další pásmo začíná PŘESNĚ na své hranici (15 kg = už 379 Kč), proto −1 g.
+  const room = next.fromKg * 1000 - weight.grams - 1;
+  const fits = room > 0 ? Math.floor(room / BEGINA_GRAMS) : 0;
   const upTo = `${next.fromKg.toLocaleString("cs-CZ")} kg`;
   const extra =
     fits >= 1
