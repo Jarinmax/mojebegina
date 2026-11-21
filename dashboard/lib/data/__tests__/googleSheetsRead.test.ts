@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateKeyPairSync, createVerify } from "node:crypto";
+import { generateKeyPairSync, createSign, createVerify } from "node:crypto";
 
 vi.mock("server-only", () => ({}));
-import { parseServiceAccountKey, readSheetValues, serviceAccountKey } from "../googleSheetsRead";
+import { DEFAULT_SERVICE_ACCOUNT_EMAIL, parseServiceAccountKey, readSheetValues, serviceAccountKey } from "../googleSheetsRead";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const KEY = { client_email: "mojebegina-leady@projekt.iam.gserviceaccount.com", private_key: privateKey.export({ type: "pkcs8", format: "pem" }).toString() };
@@ -20,32 +20,46 @@ describe("googleSheetsRead", () => {
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY = Buffer.from(JSON.stringify(KEY)).toString("base64");
     expect(serviceAccountKey()).toEqual(KEY);
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({ client_email: "x" });
-    expect(() => serviceAccountKey()).toThrow("chybí client_email nebo private_key");
+    expect(() => serviceAccountKey()).toThrow("není klíč servisního účtu");
   });
 
-  it("snese, jak se klíč do Vercelu typicky vloží (soubor obsahuje i další pole)", () => {
+  it("z jakékoli podoby vytáhne e-mail a soukromý klíč, který jde použít k podpisu", () => {
     const file = JSON.stringify({ type: "service_account", project_id: "mojebegina", ...KEY }, null, 2);
-    expect(parseServiceAccountKey(file)).toEqual(KEY); // celý soubor, víc řádků
-    expect(parseServiceAccountKey(`\uFEFF${file}\n`)).toEqual(KEY); // BOM a nový řádek
-    expect(parseServiceAccountKey(JSON.stringify(file))).toEqual(KEY); // escapovaný řetězec v uvozovkách
-    expect(parseServiceAccountKey(`'${file}'`)).toEqual(KEY); // v apostrofech
-    expect(parseServiceAccountKey(`"${file}"`)).toEqual(KEY); // v uvozovkách bez escapování
-    expect(parseServiceAccountKey(`GOOGLE_SERVICE_ACCOUNT_KEY=${file}`)).toEqual(KEY); // i s názvem proměnné
-    expect(parseServiceAccountKey(Buffer.from(file).toString("base64"))).toEqual(KEY); // base64
-    const escaped = JSON.stringify({ ...KEY, private_key: KEY.private_key.replace(/\n/g, "\\n") }).replace(/\\\\n/g, "\\n");
-    expect(parseServiceAccountKey(escaped).private_key).toBe(KEY.private_key);
+    const firefoxTable = `type\tservice_account\nproject_id\tmojebegina\nprivate_key\t${KEY.private_key}\nclient_email\t${KEY.client_email}\n`;
+    const variants = {
+      celySoubor: file,
+      bomANovyRadek: `\uFEFF${file}\n`,
+      neviditelnaMezera: `\u200B${file}`,
+      escapovanyRetezec: JSON.stringify(file),
+      vApostrofech: `'${file}'`,
+      vUvozovkach: `"${file}"`,
+      sNazvemPromenne: `GOOGLE_SERVICE_ACCOUNT_KEY=${file}`,
+      base64: Buffer.from(file).toString("base64"),
+      jednoRadkoveEscapovane: JSON.stringify(JSON.parse(file)),
+      nahledFirefoxu: firefoxTable,
+    };
+    for (const [name, raw] of Object.entries(variants)) {
+      const key = parseServiceAccountKey(raw);
+      expect(key.client_email, name).toBe(KEY.client_email);
+      // klíč musí jít opravdu použít k podpisu (stejný jako originál)
+      const sig = createSign("RSA-SHA256").update("x").sign(key.private_key);
+      expect(createVerify("RSA-SHA256").update("x").verify(publicKey, sig), name).toBe(true);
+    }
   });
 
-  it("srozumitelné chyby bez obsahu klíče", () => {
-    expect(() => parseServiceAccountKey(KEY.private_key)).toThrow("obsahuje jen soukromý klíč");
-    expect(() => parseServiceAccountKey("{nedokončený")).toThrow("není obsah JSON souboru servisního účtu");
-    expect(() => parseServiceAccountKey("ahoj světe")).toThrow("není obsah JSON souboru servisního účtu");
-    expect(() => parseServiceAccountKey("YWhvag==")).toThrow("není obsah JSON souboru servisního účtu"); // base64 něčeho jiného
-    try {
-      parseServiceAccountKey(KEY.private_key);
-    } catch (e) {
-      expect(String(e)).not.toContain("MII");
-    }
+  it("jen soukromý klíč (i s rozbitými řádky) → použije známý e-mail servisního účtu", () => {
+    const onlyPem = parseServiceAccountKey(KEY.private_key);
+    expect(onlyPem.client_email).toBe(DEFAULT_SERVICE_ACCOUNT_EMAIL);
+    const oneLine = KEY.private_key.replace(/\n/g, " ");
+    const sig = createSign("RSA-SHA256").update("x").sign(parseServiceAccountKey(oneLine).private_key);
+    expect(createVerify("RSA-SHA256").update("x").verify(publicKey, sig)).toBe(true);
+    expect(parseServiceAccountKey(`"${KEY.private_key.replace(/\n/g, "\\n")}"`).client_email).toBe(DEFAULT_SERVICE_ACCOUNT_EMAIL);
+  });
+
+  it("bez soukromého klíče: srozumitelná chyba s bezpečným popisem obsahu, bez obsahu klíče", () => {
+    expect(() => parseServiceAccountKey("{nedokončený")).toThrow(/není klíč servisního účtu \(délka 12 znaků, začíná znakem „\{“ \(U\+007B\), soukromý klíč: ne, e-mail servisního účtu: ne\)/);
+    expect(() => parseServiceAccountKey("YWhvag==")).toThrow("není klíč servisního účtu");
+    expect(() => parseServiceAccountKey(`{"client_email": "${KEY.client_email}"}`)).toThrow("e-mail servisního účtu: ano");
   });
 
   it("podepsaný JWT (jen čtení tabulek) → token → hodnoty prvního listu", async () => {
