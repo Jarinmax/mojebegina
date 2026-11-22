@@ -129,7 +129,7 @@ describe("Leady z Mety nad DB", { timeout: 120_000 }, () => {
     expect((await rows(`SELECT owner_user_id FROM leads WHERE id = '${marekId}'`))[0].owner_user_id).toBeNull();
 
     expect(
-      await leadsApi.logCallOutcome(marekId, { note: "chce ochutnávku", nextStage: "interested", nextFollowUpAtDate: "", nextFollowUpAtTime: "", nextStepNote: "", reached: true })
+      await leadsApi.logCallOutcome(marekId, { note: "chce ochutnávku", nextStage: "interested", nextFollowUpAtDate: "", nextFollowUpAtTime: "", nextStepNote: "", reached: true, heardFrom: "facebook_instagram" })
     ).toEqual({ ok: true });
     expect((await rows(`SELECT owner_user_id FROM leads WHERE id = '${marekId}'`))[0].owner_user_id).toBe(BLAHOUT);
     const owners = await rows(`SELECT author_user_id, body, metadata->>'reason' AS reason, metadata->>'via' AS via FROM lead_activity WHERE lead_id = '${marekId}' AND kind = 'owner_assigned'`);
@@ -156,7 +156,7 @@ describe("Leady z Mety nad DB", { timeout: 120_000 }, () => {
     expect((await rows(`SELECT owner_user_id FROM leads WHERE id = '${novaId}'`))[0].owner_user_id).toBeNull();
 
     const second = await queue(2);
-    expect(await daily.logDailyCallOutcome(second, { result: "reached_interested", note: "chce vzorky", stageChange: "", nextFollowUpAtDate: "", nextFollowUpAtTime: "" })).toMatchObject({ ok: true });
+    expect(await daily.logDailyCallOutcome(second, { result: "reached_interested", note: "chce vzorky", stageChange: "", nextFollowUpAtDate: "", nextFollowUpAtTime: "", heardFrom: "google" })).toMatchObject({ ok: true });
     expect((await rows(`SELECT owner_user_id FROM leads WHERE id = '${novaId}'`))[0].owner_user_id).toBe(BLAHOUT);
     expect(await rows(`SELECT metadata->>'via' AS via FROM lead_activity WHERE lead_id = '${novaId}' AND kind = 'owner_assigned'`)).toEqual([{ via: "daily_call" }]);
   });
