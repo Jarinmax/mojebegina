@@ -135,6 +135,8 @@ export const SLOVAKIA_SELF_TRANSPORT_NOTE =
 export const SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL = "Platíte dopravci";
 export const SLOVAKIA_SELF_TRANSPORT_SUMMARY = "platíte dopravci zvlášť";
 export const SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL = "Chlazená přeprava CoolBalík na Slovensko";
+/** krátký název do souhrnu objednávky (úzký sloupec — dlouhý název se lámal do 3 řádků) */
+export const SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL = "Doprava CoolBalík";
 /** Popis způsobu doručení v pokladně pro slovenskou adresu. */
 export const SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE =
   "Doprava není v ceně. Až bude objednávka připravená, napíšeme Vám. Chlazenou přepravu CoolBalík si pak objednáte a zaplatíte sami, zásilku na jejich depo v Jenči dovezeme my.";

@@ -19,6 +19,7 @@ import { shippingDestination, slovakiaDeliveryZone,
   SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL,
   SLOVAKIA_SELF_TRANSPORT_SUMMARY,
   SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL,
+  SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL,
   SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE,
   defaultPaymentMethodId,
   quoteLabel,
@@ -386,7 +387,7 @@ export default function CheckoutForm({
               </li>
             )}
             <li className="py-2 flex justify-between gap-3">
-              <span>{confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk") ? SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL : confirmation.pricedCart.shipping.label}</span>
+              <span>{confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk") ? SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL : confirmation.pricedCart.shipping.label}</span>
               <span className="tabular-nums whitespace-nowrap">
                 {confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk")
                   ? SLOVAKIA_SELF_TRANSPORT_SUMMARY
@@ -944,7 +945,7 @@ export default function CheckoutForm({
             </li>
           )}
           <li className="py-2.5 flex justify-between gap-3 text-neutral-700">
-            <span>{shipping.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL : shipping.label}</span>
+            <span>{shipping.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL : shipping.label}</span>
             <span className="tabular-nums whitespace-nowrap">
               {shipping.id === "rozvoz" && slovakiaSelfTransport(destination)
                 ? SLOVAKIA_SELF_TRANSPORT_SUMMARY
