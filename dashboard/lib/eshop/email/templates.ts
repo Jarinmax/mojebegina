@@ -632,7 +632,7 @@ ${detailsTable(rows)}
 
 export type SkTransportEmailInfo = { grams: number | null };
 
-const SK_HANDOVER = "depo CoolBalík, Jeneč 360 (zásilku tam dovezeme my)";
+const SK_HANDOVER = "na depo CoolBalíku (zásilku tam dovezeme my)";
 const SK_PICKUP_PHONE = "+420 774 199 975";
 const COOLBALIK_SK_URL = "https://www.coolbalik.sk/";
 

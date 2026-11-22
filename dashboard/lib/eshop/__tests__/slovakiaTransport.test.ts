@@ -58,7 +58,7 @@ describe("Slovensko – vlastní CoolBalík zákazníka", () => {
     const mail = customerSkTransportEmail(order, { baseUrl: "https://begina.cz", withheld: [], test: false, skTransport: { grams: 8850 } });
     expect(mail.subject).toContain("70000099");
     expect(mail.text).toContain("CoolBalík");
-    expect(mail.text).toContain("Jeneč 360");
+    expect(mail.text).toContain("na depo CoolBalíku");
     expect(mail.text).not.toContain("Vitice");
     expect(mail.text).toContain("cca 9 kg");
     expect(mail.text).toContain("platíte dopravci zvlášť");
