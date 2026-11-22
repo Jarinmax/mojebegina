@@ -56,8 +56,11 @@ export default function ProductCard({ product }: { product: Product }) {
                 <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5">
                   {v.soldOut === true ? (
                     <>
+                      <span className="text-neutral-500 whitespace-nowrap">
+                        {formatKc(v.priceKc)}
+                        {v.label ? <span className="font-normal"> / {v.label}</span> : null}
+                      </span>
                       <SoldOutBadge className="h-5 px-1.5 text-[10px]" />
-                      {v.label ? <span className="font-normal text-neutral-500 whitespace-nowrap">{v.label}</span> : null}
                     </>
                   ) : (
                     <span>
