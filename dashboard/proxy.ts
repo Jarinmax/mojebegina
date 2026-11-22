@@ -5,7 +5,7 @@
 // a stránka MojeBegina si přihlášení a roli ověřuje sama (requireOrderContext,
 // requireCustomerContext…) — na begina.cz se k nim navíc vůbec nedá dostat.
 import { NextResponse, type NextRequest } from "next/server";
-import { SITE_HEADER } from "@/lib/site/hosts";
+import { PATH_HEADER, SITE_HEADER } from "@/lib/site/hosts";
 import { indexingEnabled } from "@/lib/site/flags";
 import { PUBLIC_NOT_FOUND_PATH, route } from "@/lib/site/routing";
 
@@ -15,6 +15,7 @@ function withSite(request: NextRequest, site: "public" | "internal"): Headers {
   const headers = new Headers(request.headers);
   // Vždy přepsat — hodnota od klienta se nesmí dostat ke stránkám.
   headers.set(SITE_HEADER, site);
+  headers.set(PATH_HEADER, request.nextUrl.pathname);
   return headers;
 }
 

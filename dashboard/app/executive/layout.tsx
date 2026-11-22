@@ -7,6 +7,7 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isExecutive } from "@/lib/data/adminAuth";
+import { isSalesOnly, SALES_ONLY_HOME } from "@/lib/data/salesOnlyAuth";
 import ExecutiveHeader from "@/components/executive/ExecutiveHeader";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,10 @@ export default async function ExecutiveLayout({
   }
   if (!isExecutive(ctx)) {
     redirect("/");
+  }
+  // 22. 11. 2026 (Lucie): obchodník (Blahout) nevidí přehled organizací ani mapu firmy.
+  if (isSalesOnly(ctx)) {
+    redirect(SALES_ONLY_HOME);
   }
 
   return (

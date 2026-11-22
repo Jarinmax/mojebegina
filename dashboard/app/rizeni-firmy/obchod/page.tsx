@@ -134,7 +134,7 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
             Nové leady — zatím nikdo nevolal ({newLeads.length})
           </h2>
           <p className="text-xs text-neutral-500">
-            Přiřazený obchodník dostane e-mail a volá on. Bez obchodníka: kdo zavolá a dovolá se, tomu se kontakt přiřadí.
+            Zůstanou tu, dokud obchodník neuloží první zápis po hovoru. Přiřazený obchodník dostal e-mail a volá on; bez obchodníka: kdo zavolá a dovolá se, tomu se kontakt přiřadí.
           </p>
           {newLeads.map((lead) => (
             <LeadCard key={lead.id} lead={lead} fresh />

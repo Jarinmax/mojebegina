@@ -23,7 +23,13 @@ import {
 } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
-import { isWorkManager } from "./workTasksAuth";
+import { isWorkManager as isWorkManagerOnly, LUCIE_USER_ID } from "./workTasksAuth";
+
+// 22. 11. 2026 (Lucie): provize Jardy kontroluje i Lucie — v odměnách má
+// stejná práva jako vedoucí (Jarin).
+function isWorkManager(ctx: AuthContext): boolean {
+  return isWorkManagerOnly(ctx) || (ctx !== null && ctx.userId === LUCIE_USER_ID);
+}
 import { leadDisplayName } from "./leadValidation";
 import { DAILY_CALL_LEAD_OWNER_USER_ID } from "./dailyCallsAuth";
 import {

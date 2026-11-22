@@ -20,7 +20,7 @@ export default function LeadCard({ lead, fresh = false }: { lead: LeadCardData; 
           <span className="rounded-full bg-amber-500 px-2 py-0.5 font-semibold text-white">Nový</span>
           <span className="text-amber-900">
             přišel {formatCzechDate(lead.createdAt)} · {SOURCE_LABELS[lead.source as LeadSource] ?? lead.source} ·{" "}
-            {lead.ownerName ? <strong>volá: {lead.ownerName}</strong> : "zatím bez obchodníka"}
+            {lead.ownerName ? <strong>přiřazeno: {lead.ownerName} — ještě nevolal</strong> : "zatím bez obchodníka"}
           </span>
         </p>
       )}

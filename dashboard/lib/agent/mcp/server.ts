@@ -8,6 +8,7 @@
 //      oprávnění rozhodují stávající brány datové vrstvy,
 //   5. auditní záznam (vždy — i chyba a zamítnutí).
 import "server-only";
+import { isSalesOnly, SALES_ONLY_AGENT_TOOLS } from "@/lib/data/salesOnlyAuth";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
 import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
@@ -47,6 +48,8 @@ async function runTool(
 }
 
 function visibleTo(tool: AgentTool, session: AgentSession): boolean {
+  // 22. 11. 2026 (Lucie): obchodník (Blahout) má v ChatGPT jen leady a zákazníky.
+  if (isSalesOnly(session.ctx) && !SALES_ONLY_AGENT_TOOLS.has(tool.definition.name)) return false;
   return tool.visible ? tool.visible(session.ctx) : true;
 }
 
