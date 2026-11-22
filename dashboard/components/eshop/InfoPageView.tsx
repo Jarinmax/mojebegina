@@ -84,7 +84,25 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                   ))}
                 </p>
               )}
-              {block.rows && (
+              {block.rows && block.rowsHeader && (
+                <table className="w-full max-w-md my-3 text-sm sm:text-base tabular-nums border border-neutral-200 rounded-xl overflow-hidden border-separate border-spacing-0">
+                  <thead>
+                    <tr className="bg-begina-primary-900/5 text-begina-primary-900">
+                      <th scope="col" className="text-left font-medium px-4 py-2">{block.rowsHeader[0]}</th>
+                      <th scope="col" className="text-right font-medium px-4 py-2">{block.rowsHeader[1]}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map(([left, right], j) => (
+                      <tr key={left} className={j % 2 === 1 ? "bg-neutral-50" : "bg-white"}>
+                        <th scope="row" className="text-left font-normal px-4 py-1.5 border-t border-neutral-100">{left}</th>
+                        <td className="text-right font-medium text-begina-primary-900 whitespace-nowrap px-4 py-1.5 border-t border-neutral-100">{right}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {block.rows && !block.rowsHeader && (
                 <table className="w-full my-1 border-separate border-spacing-y-1">
                   <tbody>
                     {block.rows.map(([left, right]) => (
