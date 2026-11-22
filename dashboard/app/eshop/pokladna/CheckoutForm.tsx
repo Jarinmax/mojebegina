@@ -14,6 +14,9 @@ import { shippingDestination, slovakiaDeliveryZone,
   paymentMethodsFor,
   slovakPayer,
   SLOVAKIA_CARD_ONLY_NOTE,
+  SLOVAKIA_SELF_TRANSPORT,
+  SLOVAKIA_SELF_TRANSPORT_NOTE,
+  slovakiaSelfTransport,
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
@@ -678,7 +681,11 @@ export default function CheckoutForm({
                       <span className="tabular-nums whitespace-nowrap">{quoteLabel(methodQuote)}</span>
                     </span>
                     <span className="block text-xs text-neutral-500 mt-0.5">
-                      {method.id === "rozvoz" && destination === "sk" ? method.description.replace("v České republice", "na Slovensku") : method.description}
+                      {method.id === "rozvoz" && slovakiaSelfTransport(destination)
+                        ? "Chlazenou přepravu CoolBalík si objednáte a zaplatíte sami, zboží předáme Vámi objednanému dopravci."
+                        : method.id === "rozvoz" && destination === "sk"
+                          ? method.description.replace("v České republice", "na Slovensku")
+                          : method.description}
                     </span>
                     {!methodQuote.available && (
                       <span className="block text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5 mt-2" role="note">
@@ -794,9 +801,15 @@ export default function CheckoutForm({
                 </>
               )}
               {slovakia ? (
-                <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ.</p>
+                <p className="text-xs text-neutral-500">
+                  {SLOVAKIA_SELF_TRANSPORT
+                    ? "Doručujeme v České republice. Zákazníci ze Slovenska si chlazenou přepravu objednají sami, alkoholické nápoje na Slovensko neprodáváme; zemi určíme podle PSČ."
+                    : "Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ."}
+                </p>
               ) : null}
-              {slovakia && destination === "sk" ? (
+              {slovakia && destination === "sk" && slovakiaSelfTransport(destination) ? (
+                <p role="note" className="text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">{SLOVAKIA_SELF_TRANSPORT_NOTE}</p>
+              ) : slovakia && destination === "sk" ? (
                 slovakiaDeliveryZone(values.deliverySameAsBilling ? values.billingZip : values.zip) === "daily" ? (
                   <p role="note" className="text-xs text-neutral-600">Do vaší oblasti na Slovensku doručujeme chlazenou přepravou jen od úterý do pátku. V pondělí a o víkendu se nedoručuje, zásilka odeslaná na konci týdne proto dorazí až v úterý.</p>
                 ) : (

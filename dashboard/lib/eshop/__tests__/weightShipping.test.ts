@@ -446,7 +446,7 @@ describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
     expect(text).toContain("839 Kč");
     expect(text).toContain("nad 350 do 400 kg — 4");
     expect(text).toContain("Objednávky nad 400 kg");
-    expect(text).toContain("Doručujeme jen v České republice.");
+    expect(text).toContain("chlazenou přepravu si objednáte a zaplatíte sami u CoolBalíku");
     expect(text).not.toMatch(/zdarma od|doprava zdarma/i);
     expect(JSON.stringify(shippingPageFor("flat").blocks)).not.toContain("Ceník chlazené přepravy");
   });
