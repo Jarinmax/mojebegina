@@ -29,6 +29,8 @@ export type Variant = {
   servings: number | null;
   /** Hmotnost balení v gramech (doprava podle hmotnosti); null = neznámá nebo nenačtená. */
   weightGrams: number | null;
+  /** Vyprodáno: balení je vidět s červeným „Vyprodáno“, ale nejde koupit (sold_out, migrace 0060). */
+  soldOut?: boolean;
 };
 
 export type FoodInfo = {

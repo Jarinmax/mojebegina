@@ -6,7 +6,9 @@ import type { Product, Variant } from "./types";
 export const AGE_RESTRICTION_NOTICE = "Prodej alkoholických nápojů osobám mladším 18 let je zakázán.";
 
 export function lowestPriceKc(product: Product): number {
-  return Math.min(...product.variants.map((variant) => variant.priceKc));
+  // „od … Kč“ jen z balení, která jdou koupit (vyprodaná se nepočítají)
+  const available = product.variants.filter((variant) => variant.soldOut !== true);
+  return Math.min(...(available.length > 0 ? available : product.variants).map((variant) => variant.priceKc));
 }
 
 /** Název řádku do košíku/objednávky — snapshot jako order_items.name. */
@@ -25,6 +27,19 @@ export function lineName(product: Product, variant: Variant): string {
  */
 export function isOrderable(product: Product): boolean {
   return product.foodInfo.allergens !== null;
+}
+
+/** Červený štítek místo „Do košíku“ u vyprodaného balení (Lucie 22. 11. 2026). */
+export const SOLD_OUT_LABEL = "Vyprodáno";
+
+/** Jsou vyprodaná všechna balení produktu? Pak karta ukáže jen „Vyprodáno“. */
+export function isSoldOut(product: Pick<Product, "variants">): boolean {
+  return product.variants.length > 0 && product.variants.every((variant) => variant.soldOut === true);
+}
+
+/** Balení, která jdou koupit (nevyprodaná). */
+export function availableVariants(product: Pick<Product, "variants">): Variant[] {
+  return product.variants.filter((variant) => variant.soldOut !== true);
 }
 
 /** Text tlačítka místo „Do košíku“ u neobjednatelného produktu. */
