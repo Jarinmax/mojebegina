@@ -5,7 +5,6 @@ import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
 import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
-import HomeTile from "@/components/eshop/HomeTile";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
@@ -21,9 +20,6 @@ import {
   HOME_BISTRO,
   HOME_STEPS,
   HOME_STEPS_PHOTO,
-  HOME_TILE_CAFE,
-  HOME_TILE_HOME,
-  homeSyrupPoint,
   HOME_VENUES,
   HOME_VENUES_TITLE,
   HOME_WHY_TITLE,
@@ -63,12 +59,8 @@ export default async function EshopPage() {
       <HomeHero />
       {/* Ikony kategorií hned pod úvodem pro rychlý nákup (Lucie 20. 11. 2026 večer). */}
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-      <section aria-label="Pro koho je Begina" className="w-full max-w-6xl mx-auto px-4 pt-4 sm:pt-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          <HomeTile tile={HOME_TILE_CAFE} prominent />
-          <HomeTile tile={{ ...HOME_TILE_HOME, points: [homeSyrupPoint(products), ...HOME_TILE_HOME.points.slice(1)] }} />
-        </div>
-      </section>
+      {/* 22. 11. 2026 (Lucie): dlaždice Pro kavárny / Nakupuji domů pryč — do formuláře pro kavárny vedla
+          třetí cesta navíc; zůstává červené tlačítko u fotky (a menu). Domů nakupují přes ikony kategorií. */}
       <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
         <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622]">{HOME_WHY_TITLE}</h2>
         {/* Jasná věta pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) */}

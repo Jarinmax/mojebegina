@@ -40,6 +40,9 @@ export const HOME_HERO_POINTS = ["Polévky a čaje vydrží 14 dní po otevřen�
 export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny a bistra";
 export const HOME_HERO_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Objednat si můžete i domů.";
 
+/** Věta pod červeným tlačítkem v úvodu (22. 11. 2026). */
+export const HOME_HERO_OFFER = "K první begině 2 polévky a 2 sirupy na ochutnání zdarma.";
+
 export const HOME_TILE_CAFE = {
   title: "Pro kavárny a bistra",
   points: [

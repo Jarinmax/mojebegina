@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowRight, Check } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { HOME_HERO_OFFER, HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -78,6 +78,8 @@ export default function HomeHero() {
               Vyzkoušet Beginu v provozu
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </ShopLink>
+            {/* nabídka přímo u jediného tlačítka pro kavárny (22. 11. 2026, Lucie) */}
+            <p className="w-full text-sm sm:text-base font-medium text-[#4A5527]">{HOME_HERO_OFFER}</p>
           </div>
         </div>
 
