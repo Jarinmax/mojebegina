@@ -10,6 +10,8 @@ export default function HeardFromField({
   idPrefix,
   required,
   known,
+  knownText = null,
+  submit = true,
   value,
   detail,
   onChange,
@@ -18,6 +20,10 @@ export default function HeardFromField({
   required: boolean;
   /** Lead už má uloženo — pole jde jen změnit. */
   known: boolean;
+  /** Uložená odpověď jako text (např. „Google“), když už je zjištěno. */
+  knownText?: string | null;
+  /** false = pole se neodešle (předvyplněný návrh u nedovolaného hovoru se neukládá). */
+  submit?: boolean;
   value: string;
   detail: string;
   onChange: (next: { value?: string; detail?: string }) => void;
@@ -33,10 +39,11 @@ export default function HeardFromField({
     >
       <label htmlFor={`${idPrefix}-heardFrom`} className="text-sm font-medium text-begina-primary-900 block mb-1">
         Odkud nás zná?{!known && <span className="text-red-700"> *</span>}
+        {known && knownText && <span className="ml-1 font-normal text-emerald-700">✓ {knownText}</span>}
       </label>
       <select
         id={`${idPrefix}-heardFrom`}
-        name="heardFrom"
+        name={submit ? "heardFrom" : undefined}
         value={value}
         onChange={(e) => onChange({ value: e.target.value })}
         required={required}
@@ -51,7 +58,7 @@ export default function HeardFromField({
       </select>
       {hint && (
         <input
-          name="heardFromDetail"
+          name={submit ? "heardFromDetail" : undefined}
           type="text"
           value={detail}
           onChange={(e) => onChange({ detail: e.target.value })}
@@ -63,7 +70,7 @@ export default function HeardFromField({
       <p className={`text-xs mt-1 ${missing ? "text-red-700" : "text-neutral-500"}`}>
         {known
           ? "Už zjištěno — měň jen, když je to špatně."
-          : "Povinné po každém hovoru, kdy ses dovolal/a. Bez toho zápis neuložíš."}
+          : "Zeptej se zákazníka. Povinné, jakmile zaškrtneš „Dovolal/a jsem se“ — bez toho zápis neuložíš."}
       </p>
     </div>
   );

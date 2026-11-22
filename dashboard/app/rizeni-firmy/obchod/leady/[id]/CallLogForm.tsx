@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import HeardFromField from "./HeardFromField";
+import DictateButton from "./DictateButton";
 import { heardFromText, isHeardFrom, type HeardFrom } from "@/lib/data/heardFrom";
 import {
   logCallOutcomeAction,
@@ -146,6 +147,17 @@ export default function CallLogForm({
     return result;
   }, initialState);
 
+  // Diktovaný text se přidává na konec poznámky (funkční setState — diktát
+  // přichází po kouscích rychle za sebou).
+  const appendNote = (text: string) => {
+    setDraft((d) => {
+      const base = d ?? saved ?? emptyDraft();
+      const next = { ...base, note: base.note.trim() ? `${base.note.trimEnd()} ${text}` : text };
+      writeDraft(leadId, next);
+      return next;
+    });
+  };
+
   const update = (patch: Partial<Draft>) => {
     const next = { ...current, ...patch };
     setDraft(next);
@@ -230,10 +242,11 @@ export default function CallLogForm({
         name="note"
         value={current.note}
         onChange={(e) => update({ note: e.target.value })}
-        rows={2}
+        rows={3}
         placeholder="Co bylo domluveno…"
         className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
       />
+      <DictateButton onText={appendNote} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
@@ -340,24 +353,23 @@ export default function CallLogForm({
         </span>
       </label>
 
-      {current.reached && (
-        <HeardFromField
-          idPrefix={`lead-${leadId}`}
-          required={!knownHeardFrom}
-          known={knownHeardFrom}
-          value={current.heardFrom ?? (knownHeardFrom ? "" : (suggestedHeardFrom ?? ""))}
-          detail={current.heardFromDetail}
-          onChange={(next) =>
-            update({
-              ...(next.value !== undefined ? { heardFrom: next.value } : {}),
-              ...(next.detail !== undefined ? { heardFromDetail: next.detail } : {}),
-            })
-          }
-        />
-      )}
-      {!current.reached && knownHeardFrom && (
-        <p className="text-xs text-neutral-500">Odkud nás zná: {heardFromText(heardFrom, heardFromDetail)}</p>
-      )}
+      {/* 22. 11. 2026 (Lucie): „Odkud nás zná“ je vidět vždy, ne až po
+          zaškrtnutí — povinné je jen po dovolání. */}
+      <HeardFromField
+        idPrefix={`lead-${leadId}`}
+        required={current.reached && !knownHeardFrom}
+        known={knownHeardFrom}
+        knownText={knownHeardFrom ? heardFromText(heardFrom, heardFromDetail) : null}
+        submit={current.reached || current.heardFrom !== null}
+        value={current.heardFrom ?? (knownHeardFrom ? "" : (suggestedHeardFrom ?? ""))}
+        detail={current.heardFromDetail}
+        onChange={(next) =>
+          update({
+            ...(next.value !== undefined ? { heardFrom: next.value } : {}),
+            ...(next.detail !== undefined ? { heardFromDetail: next.detail } : {}),
+          })
+        }
+      />
 
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
