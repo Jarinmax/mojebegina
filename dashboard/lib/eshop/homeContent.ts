@@ -47,10 +47,11 @@ export const HOME_TILE_CAFE = {
     "Objednáte přímo tady na e-shopu, na firmu i s IČO.",
     "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %).",
   ],
-  button: "Vyzkoušet Beginu v provozu",
+  // 22. 11. 2026 (Lucie): červené „Vyzkoušet Beginu v provozu“ jen u fotky nahoře; tady obrysové tlačítko s jiným textem
+  button: "Jak to funguje pro kavárny",
   // Odkaz na nabídku polévek (dokument ChatGPT „SEO pro kavárny“, Lucie 22. 11. 2026)
-  extraText: "Provozujete kavárnu nebo bistro? Podívejte se, které polévky dodáváme, kolik stojí porce s dopravou a jak si vybrat vzorky pro svůj podnik.",
-  extraLink: { label: "Polévky pro kavárny s dovozem", href: "/polevky-pro-kavarny" },
+  extraText: "Ceny porcí s dopravou:",
+  extraLink: { label: "Polévky pro kavárny", href: "/polevky-pro-kavarny" },
   // na začátek stránky, ať si podnik nejdřív přečte, jak spolupráce funguje (Lucie 20. 11. 2026 večer)
   href: "/pro-kavarny",
 } as const;
@@ -65,6 +66,21 @@ export const HOME_TILE_HOME = {
 } as const;
 
 /** Stránka Nakupuji domů (/nakupuji-domu) — texty z dlaždice Nakupuji domů. */
+type SyrupProduct = { category: string; variants: readonly { priceKc: number; volumeMl: number | null; label: string | null; soldOut?: boolean }[] };
+
+/**
+ * 22. 11. 2026 (Lucie): „od 499 Kč za 3 l“ neplatilo — sirupy jsou i v sáčku. Bod se počítá
+ * z katalogu: nejlevnější sáček, který je skladem (vyprodané se nepočítají), a nejlevnější begina 3 l.
+ */
+export function homeSyrupPoint(products: readonly SyrupProduct[]): string {
+  const variants = products.filter((p) => p.category === "sirupy").flatMap((p) => p.variants).filter((v) => v.soldOut !== true);
+  const small = variants.filter((v) => v.volumeMl !== null && v.volumeMl < 3000).sort((a, b) => a.priceKc - b.priceKc)[0];
+  const big = variants.filter((v) => v.volumeMl === 3000).sort((a, b) => a.priceKc - b.priceKc)[0];
+  if (small && big) return `Bylinné sirupy od ${small.priceKc}\u00a0Kč (sáček ${small.label}), begina 3\u00a0l od ${big.priceKc}\u00a0Kč.`;
+  if (big) return `Bylinné sirupy v begině 3 l od ${big.priceKc} Kč.`;
+  return "Bylinné sirupy z bylinek a třtinového cukru.";
+}
+
 export const HOME_SHOP_HOME = {
   path: "/nakupuji-domu",
   title: "Nakupuji domů",

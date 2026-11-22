@@ -23,6 +23,7 @@ import {
   HOME_STEPS_PHOTO,
   HOME_TILE_CAFE,
   HOME_TILE_HOME,
+  homeSyrupPoint,
   HOME_VENUES,
   HOME_VENUES_TITLE,
   HOME_WHY_TITLE,
@@ -65,7 +66,7 @@ export default async function EshopPage() {
       <section aria-label="Pro koho je Begina" className="w-full max-w-6xl mx-auto px-4 pt-4 sm:pt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <HomeTile tile={HOME_TILE_CAFE} prominent />
-          <HomeTile tile={HOME_TILE_HOME} />
+          <HomeTile tile={{ ...HOME_TILE_HOME, points: [homeSyrupPoint(products), ...HOME_TILE_HOME.points.slice(1)] }} />
         </div>
       </section>
       <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">

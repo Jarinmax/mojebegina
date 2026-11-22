@@ -6,7 +6,7 @@ import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import ProductCard from "@/components/eshop/ProductCard";
 import ShopLink from "@/components/eshop/ShopLink";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
-import { HOME_BESTSELLERS, HOME_SHOP_HOME } from "@/lib/eshop/homeContent";
+import { HOME_BESTSELLERS, HOME_SHOP_HOME, homeSyrupPoint } from "@/lib/eshop/homeContent";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
 
 // Nakupuji domů (Lucie 20. 11. 2026 večer): tlačítko „Nakoupit domů“ z úvodu vede
@@ -31,7 +31,7 @@ export default async function Page() {
         <div className="max-w-6xl mx-auto px-4 py-6 sm:py-10 text-center">
           <h1 className="font-serif text-3xl sm:text-4xl text-[#2A2622]">{HOME_SHOP_HOME.title}</h1>
           <ul className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-1 text-base text-[#4A5527] font-medium">
-            {HOME_SHOP_HOME.points.map((point) => (
+            {[homeSyrupPoint(products).replace(/\.$/, ""), ...HOME_SHOP_HOME.points.slice(1)].map((point) => (
               <li key={point} className="inline-flex items-center gap-1">
                 <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
                 {point}

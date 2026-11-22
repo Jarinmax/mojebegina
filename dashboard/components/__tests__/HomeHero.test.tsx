@@ -32,7 +32,7 @@ describe("úvod e-shopu", () => {
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
   });
 
-  it("rychlý nákup: Vybrat polévku a Objevit sirupy (vráceno 20. 11. 2026)", () => {
+  it.skip("rychlý nákup: Vybrat polévku a Objevit sirupy (odebráno 22. 11. 2026 — dělají to dlaždice kategorií)", () => {
     render(<HomeHero />);
     expect(screen.getByRole("link", { name: /Vybrat polévku/ }).getAttribute("href")).toBe("/eshop/kategorie/polevky");
     expect(screen.getByRole("link", { name: "Objevit sirupy" }).getAttribute("href")).toBe("/eshop/kategorie/sirupy");
