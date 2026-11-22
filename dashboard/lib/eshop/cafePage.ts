@@ -132,10 +132,14 @@ export const VAT_NOTE = "Nejsme plátci DPH – uvedené ceny jsou konečné, ni
  * se vzorky na e-shopu objednat nedají (Svařák Deluxe vzorek má). Jinak null.
  */
 export const ASK_SAMPLES_CATEGORIES = ["caje", "ovocne-napoje", "koktejly"] as const;
-export const ASK_SAMPLES_EXCEPT_SLUGS = ["svarak-deluxe"] as const;
+export const ASK_SAMPLES_EXCEPT_SLUGS = ["svarak-deluxe", "lady-carneval"] as const;
 export function askSamplesLink(product: { category: string; slug: string }): { text: string; label: string; href: string } | null {
   if (!(ASK_SAMPLES_CATEGORIES as readonly string[]).includes(product.category)) return null;
   if ((ASK_SAMPLES_EXCEPT_SLUGS as readonly string[]).includes(product.slug)) return null;
+  // 22. 11. 2026 (Lucie): u čajů a ovocných nápojů jediná nabídka „Domluvit ochutnání“
+  if (product.category === "caje" || product.category === "ovocne-napoje") {
+    return { text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnání", href: `${CAFE_PATH}#napiste-nam` };
+  }
   return { text: "Provozujete kavárnu nebo bistro?", label: "Zeptat se na vzorky", href: `${CAFE_PATH}#napiste-nam` };
 }
 
@@ -146,10 +150,14 @@ export const CAFE_SOUPS_TEASER = {
   label: "Prohlédnout polévky pro svůj podnik",
   href: SOUPS_FOR_CAFES_PATH,
 } as const;
+// 22. 11. 2026 (Lucie): odkaz na ceny porcí + první objednávka rovnou na výběr beginy
 export const CATEGORY_SOUPS_TEASER = {
-  text: "Vybíráte polévky do svého podniku? K první begině Vám přibalíme 2 polévky a 2 sirupy na ochutnání zdarma.",
-  label: "Vyzkoušet Beginu v provozu",
-  href: SOUPS_FOR_CAFES_PATH,
+  text: "Vybíráte polévky do svého podniku?",
+  pricesLabel: "Kolik stojí porce s dopravou?",
+  pricesHref: SOUPS_FOR_CAFES_PATH,
+  offerText: "K první begině Vám přibalíme 2 polévky a 2 sirupy na ochutnání zdarma.",
+  label: "Vybrat první balení",
+  href: `${CAFE_PATH}#ochutnavka`,
 } as const;
 /** SEO titulek a popis kategorie Čerstvé polévky (dokument ChatGPT). */
 export const SOUPS_CATEGORY_SEO = {

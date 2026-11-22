@@ -33,6 +33,7 @@ import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
 import { CAFE_PATH, CAFE_PRODUCT_LINE } from "@/lib/eshop/cafePage";
+import { isTastingBegina } from "@/lib/eshop/cafeTasting";
 import { isCafeTasting } from "@/lib/eshop/cafeTasting";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
@@ -321,7 +322,8 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           </div>
 
           {/* Odkaz pro provozy pod Do košíku (Lucie 20. 11. 2026) */}
-          {isOrderable(product) && !isSet && (
+          {/* 22. 11. 2026 (Lucie): „První begina + 4 vzorky zdarma“ jen u produktů, jejichž begina 3 l jde v akci vybrat */}
+          {isOrderable(product) && !isSet && product.variants.some((variant) => variant.soldOut !== true && isTastingBegina(product, variant)) && (
             <p className="mt-3 text-sm text-neutral-700">
               {CAFE_PRODUCT_LINE.text}{" "}
               <ShopLink href={`${CAFE_PATH}#ochutnavka`} className="font-medium text-[#4A5527] underline underline-offset-4">
