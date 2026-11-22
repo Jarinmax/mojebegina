@@ -36,6 +36,8 @@ export type InfoBlock = {
   lines?: string[];
   /** dvousloupcová tabulka (např. partnerské úrovně): [vlevo, vpravo tučně] */
   rows?: [string, string][];
+  /** Ceník: záhlaví sloupců, cena zarovnaná vpravo (Doprava, Lucie 22. 11. 2026). */
+  rowsHeader?: [string, string];
   items?: string[];
   /** "check" = odrážky ✔ (jako na begina.cz), jinak tečky */
   itemStyle?: "check";
@@ -180,8 +182,9 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
     title: "Doprava a platba",
     description: "Způsoby doručení a platby v e-shopu Begina.",
     blocks: [
+      // 22. 11. 2026 (Lucie): zvlášť Česká republika a Slovensko, ceníky jako tabulky.
       {
-        heading: "Doručení",
+        heading: "Doručení po České republice",
         items: methods.map((method) =>
           method.id === "zasilkovna"
             ? `${method.label} — ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)}. ${method.description}`
@@ -193,10 +196,11 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
       ...(byWeight
         ? [
             {
-              heading: "Ceník chlazené přepravy",
-              paragraphs: ["Cena podle celkové hmotnosti objednávky:"],
-              items: COLD_SHIPPING_RULES.map(
-                (rule) => `${rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`} — ${formatKc(rule.priceKc)}`
+              subheading: "Ceník chlazené přepravy po České republice",
+              paragraphs: ["Cena podle celkové hmotnosti objednávky. Ceny jsou konečné, nejsme plátci DPH."],
+              rowsHeader: ["Hmotnost objednávky", "Cena dopravy"] as [string, string],
+              rows: COLD_SHIPPING_RULES.map(
+                (rule) => [rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`, formatKc(rule.priceKc)] as [string, string]
               ),
               afterParagraphs: [
                 // 22. 11. 2026 (Lucie, návrh ChatGPT): lhůta z obchodních podmínek místo „doplníme“ + kdo doručuje
@@ -216,14 +220,17 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
                         ? [
                             "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
                             SLOVAKIA_SELF_TRANSPORT_NOTE,
-                            "Pro představu: ceník chlazené přepravy CoolBalík na Slovensko podle hmotnosti zásilky (platíte přímo dopravci):",
+                            "Pro představu ceník chlazené přepravy CoolBalík na Slovensko (platíte přímo dopravci):",
                           ]
                         : [
                             "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
                             "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
                           ]),
                     ],
-                    items: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map((band) => `do ${kgText(band.toKg)} kg — ${formatKc(band.priceKc)}`),
+                    rowsHeader: ["Hmotnost zásilky", "Cena dopravy"] as [string, string],
+                    rows: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map(
+                      (band) => [`do ${kgText(band.toKg)} kg`, formatKc(band.priceKc)] as [string, string]
+                    ),
                     afterParagraphs: [
                       "Zásilkovna doručuje jen v České republice. Osobní odběr je možný v naší provozovně ve Viticích i pro zákazníky ze Slovenska.",
                     ],
