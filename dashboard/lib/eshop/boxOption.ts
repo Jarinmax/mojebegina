@@ -50,5 +50,32 @@ export function boxWeightLines(boxes: number): { sku: string; name: string; quan
 export function boxNote(product: { category: string; variants: readonly { volumeMl: number | null }[] }): string | null {
   if (!product.variants.some((variant) => isBoxEligible(product, variant))) return null;
   const what = product.category === "polevky" ? "Polévku" : "Nápoj";
-  return `${what} dodáváme ve třílitrovém sáčku s kohoutkem. V pokladně si můžete přidat kartonovou krabici za ${BOX_PRICE_KC} Kč.`;
+  return `${what} dodáváme ve třílitrovém sáčku s kohoutkem. V košíku si můžete přidat kartonovou krabici za ${BOX_PRICE_KC} Kč.`;
+}
+
+/**
+ * 22. 11. 2026 (Lucie): krabice se volí už v košíku, zaškrtnutím u každého
+ * balení 3 l. Počet krabic = součet kusů zaškrtnutých balení (jen ta, ke
+ * kterým jde krabici přikoupit).
+ */
+export function boxesFromSelection(
+  lines: readonly (BoxLine & { sku: string })[],
+  boxedSkus: readonly string[]
+): number {
+  const chosen = new Set(boxedSkus);
+  return lines.reduce(
+    (sum, line) => sum + (chosen.has(line.sku) && isBoxEligible(line.product, line.variant) ? line.quantity : 0),
+    0
+  );
+}
+
+/** Uložený výběr krabic (localStorage) → seznam sku; cokoli neplatného = prázdný. */
+export function parseBoxedSkus(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const data: unknown = JSON.parse(raw);
+    return Array.isArray(data) ? data.filter((sku): sku is string => typeof sku === "string").slice(0, 100) : [];
+  } catch {
+    return [];
+  }
 }

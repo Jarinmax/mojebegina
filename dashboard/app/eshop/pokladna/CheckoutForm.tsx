@@ -33,7 +33,8 @@ import {
 import { isTastingSet } from "@/lib/eshop/tastingSet";
 import { isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
 import { VAT_NOTE } from "@/lib/eshop/cafePage";
-import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
+import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
+import { useCartBoxes } from "@/components/eshop/useCartBoxes";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
@@ -140,6 +141,7 @@ export default function CheckoutForm({
   // chyba ze serveru, kterou zákazník mezitím napravil výběrem výdejního místa
   const [resolvedError, setResolvedError] = useState<string | null>(null);
   const { cart, clear } = useCart();
+  const cartBoxes = useCartBoxes();
   const catalog = useCatalog();
   const href = useEshopHref();
   const hydrated = useHydrated();
@@ -290,9 +292,10 @@ export default function CheckoutForm({
     if (confirmation) {
       trackOrderSource();
       clear();
+      cartBoxes.clear();
       clearStoredCoupons();
     }
-  }, [confirmation, clear]);
+  }, [confirmation, clear, cartBoxes]);
 
   // Platba kartou: objednávka je uložená (server vrátil její id). Nejdřív si
   // ji prohlížeč zapamatuje, teprve pak vyprázdní košík a otevře Stripe —
@@ -303,10 +306,11 @@ export default function CheckoutForm({
       trackOrderSource();
       rememberPendingOrder(redirect.orderId, redirect.orderNumber);
       clear();
+      cartBoxes.clear();
       clearStoredCoupons();
       window.location.assign(redirect.redirectTo);
     }
-  }, [redirect, clear]);
+  }, [redirect, clear, cartBoxes]);
 
   // Meta: souhlas s reklamními cookies a _fbp/_fbc se odešlou s objednávkou;
   // nákup (Purchase) pak pošle server až po úplném zaplacení.
@@ -447,7 +451,8 @@ export default function CheckoutForm({
   // Cena dopravy jen pro zobrazení — server ji spočítá znovu (priceCart).
   // Volitelné krabice (boxOption.ts): jedna na každé balení 3 l mimo sirupy.
   const boxesMax = boxCount(lines);
-  const boxes = clampBoxes(values.boxes, boxesMax);
+  // 22. 11. 2026 (Lucie): krabice se volí v košíku u každého balení (useCartBoxes).
+  const boxes = clampBoxes(boxesFromSelection(lines, cartBoxes.boxed), boxesMax);
   const boxesKc = boxes * BOX_PRICE_KC;
   // Ochutnávkový set sirupů se do chlazeného balíku přibaluje (hmotnost dopravu
   // nezdražuje); samotný set chlazenou přepravou nejde (tastingSet.ts).
@@ -863,51 +868,13 @@ export default function CheckoutForm({
           </div>
         </fieldset>
 
+        {/* Krabice: vybrané v košíku (22. 11. 2026, Lucie) */}
+        <input type="hidden" name="boxes" value={boxes} />
         {boxesMax > 0 && (
-          <fieldset>
-            <legend className="font-medium mb-3">Balení</legend>
-            <div className="border border-neutral-200 rounded-xl p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor="boxes" className="text-sm font-medium">Zabalit do kartonové krabice</label>
-                <span className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label="Ubrat krabici"
-                    disabled={boxes <= 0}
-                    onClick={() => set("boxes", Math.max(0, boxes - 1))}
-                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
-                  >
-                    −
-                  </button>
-                  <input
-                    id="boxes"
-                    name="boxes"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={boxesMax}
-                    value={boxes}
-                    onChange={(e) => set("boxes", clampBoxes(e.target.value, boxesMax))}
-                    className="w-14 h-9 text-center border border-neutral-300 rounded-lg tabular-nums"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Přidat krabici"
-                    disabled={boxes >= boxesMax}
-                    onClick={() => set("boxes", Math.min(boxesMax, boxes + 1))}
-                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
-                  >
-                    +
-                  </button>
-                  <span className="text-sm tabular-nums whitespace-nowrap w-20 text-right">+{formatKc(boxesKc)}</span>
-                </span>
-              </div>
-              <p className="text-xs text-neutral-500 mt-2">
-                Balení 3 l běžně posíláme bez vnější krabice. Krabice stojí {formatKc(BOX_PRICE_KC)} za kus — zvolte, kolik
-                balení chcete zabalit (nejvýše {boxesMax}). Sirupy 3 l posíláme v krabici vždy, bez příplatku.
-              </p>
-            </div>
-          </fieldset>
+          <p className="text-sm text-neutral-600 -mt-2">
+            {boxes > 0 ? `Kartonová krabice: ${boxes}× (+${formatKc(boxes * BOX_PRICE_KC)}). ` : "Bez kartonové krabice. "}
+            <ShopLink href="/kosik" className="underline underline-offset-2">Změnit v košíku</ShopLink>
+          </p>
         )}
 
         <div>

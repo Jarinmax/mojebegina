@@ -43,7 +43,7 @@ export const CAFE_ALCOHOL_SLUG = "koktejly";
 export const CAFE_COMING_SOON = "Připravujeme";
 
 export const CAFE_STEPS = [
-  { title: "První begina + 4 vzorky zdarma", text: "Objednáte si první beginu a my přibalíme 2 polévky a 2 sirupy na ochutnání zdarma. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích." },
+  { title: "1 begina + 4 vzorky zdarma", text: "Objednáte si první beginu a my přibalíme 2 polévky a 2 sirupy na ochutnání zdarma. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích." },
   // Objednávky jdou přes e-shop a chlazenou přepravu, žádné „závozy“ (Lucie 18. 11. 2026)
   { title: "Objednávka na e-shopu", text: "Objednáte, co vám chutnalo, přímo tady na e-shopu, na firmu i s IČO." },
   { title: "Sleva za pravidelné objednávky", text: "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %)." },
@@ -158,7 +158,7 @@ export const SOUPS_CATEGORY_SEO = {
 
 /** Nabídka nahoře na Pro kavárny a bistra (Lucie 22. 11. 2026). */
 export const CAFE_OFFER = {
-  title: "První objednávka: begina + 4 vzorky zdarma",
+  title: "První objednávka: 1 begina + 4 vzorky zdarma",
   text: "Objednejte si první beginu 3 l polévky, sirupu nebo koktejlu a přibalíme Vám 2 polévky a 2 sirupy na ochutnání zdarma. Další vzorky po 49 Kč. Platí jednou pro každé IČO.",
   orderButton: "Objednat první beginu",
   callButton: "Chci, abyste mi zavolali",
