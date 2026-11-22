@@ -10,6 +10,7 @@ import { currentSite, eshopBase } from "@/lib/eshop/siteServer";
 import { indexingEnabled } from "@/lib/site/flags";
 import { PUBLIC_ORIGIN } from "@/lib/site/hosts";
 import PreviewBanner from "@/components/eshop/PreviewBanner";
+import ShippingNoticeBanner from "@/components/eshop/ShippingNoticeBanner";
 import EshopFooter from "@/components/eshop/EshopFooter";
 import { isEshopPublic, storeMode } from "@/lib/eshop/storeMode";
 import { MOJE_BEGINA_LINK, availableHomeCategories, mainMenu } from "@/lib/eshop/homeNav";
@@ -88,6 +89,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     <CatalogProvider catalog={catalog ?? EMPTY_CATALOG}>
     <div data-eshop className="min-h-screen flex flex-col bg-white text-begina-primary-900">
       <PreviewBanner mode={storeMode()} />
+      <ShippingNoticeBanner />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20 print:hidden">
         <div className="max-w-6xl mx-auto px-4 h-16 xl:h-[5.25rem] flex items-center justify-between gap-4 xl:gap-6">
           {/* Počítač (xl+): logo větší (9. 11. 2026: +20 %, pak značka ještě +15 %;
