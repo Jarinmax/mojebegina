@@ -29,6 +29,7 @@ import {
 } from "@/lib/eshop/zasilkovna";
 import { isTastingSet } from "@/lib/eshop/tastingSet";
 import { isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
+import { VAT_NOTE } from "@/lib/eshop/cafePage";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -938,6 +939,7 @@ export default function CheckoutForm({
             <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc - discountKc + shippingKc + boxesKc)}</span>
           </li>
         </ul>
+        <p className="mt-2 text-xs text-neutral-600">{VAT_NOTE}</p>
 
         <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-neutral-200" />
 

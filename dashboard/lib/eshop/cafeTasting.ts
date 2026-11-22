@@ -94,7 +94,9 @@ export const CAFE_TASTING_ONE_EACH = "Z každé položky ochutnávky lze objedna
 export const CAFE_TASTING_NO_ZASILKOVNA = "Ochutnávku do provozu posíláme jen chlazenou přepravou, nebo si ji vyzvednete osobně ve Viticích.";
 export const CAFE_TASTING_CHECKOUT_NOTE = "Ochutnávka do provozu: objednáváte na firmu s IČO (jedna ochutnávka na jedno IČO). Doprava chlazenou přepravou, nebo osobní odběr ve Viticích.";
 /** Dosavadní formulář zůstává jako druhá možnost (Lucie 20. 11. 2026). */
-export const CAFE_TASTING_FORM_HEADING = "Chcete se nejdřív domluvit? Vyplňte formulář a ozveme se vám";
+// Dokument ChatGPT (Lucie 22. 11. 2026): krátká poptávka po telefonu.
+export const CAFE_TASTING_FORM_HEADING = "Domluvíme dodávky do Vaší kavárny";
+export const CAFE_CALLBACK_TEXT = "Nechte nám na sebe telefon. Do dvou dnů Vám zavoláme a probereme, které polévky a nápoje chcete vyzkoušet a kam je potřebujete doručit.";
 
 /**
  * VOLITELNĚ — zatím vypnuto, zapne se po rozhodnutí (Lucie 20. 11. 2026):

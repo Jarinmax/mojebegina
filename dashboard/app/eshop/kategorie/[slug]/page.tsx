@@ -9,6 +9,7 @@ import { SHARE_DESCRIPTION } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
+import { CATEGORY_SOUPS_TEASER, SOUPS_CATEGORY_SEO } from "@/lib/eshop/cafePage";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,11 @@ export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[
   // zapečeného textu (polévky = hlavní fotka Dýňové); jinak logo z layoutu.
   const shareImage = imageBackdrop(category.image) ? category.image : null;
   // vlastní popis pro vyhledávače: názvy produktů + úvod kategorie (12. 11. 2026)
-  const description = categoryDescription(category, index.productsInCategory(category.slug)) || SHARE_DESCRIPTION;
+  const soups = category.slug === "polevky";
+  const description = soups ? SOUPS_CATEGORY_SEO.description : categoryDescription(category, index.productsInCategory(category.slug)) || SHARE_DESCRIPTION;
   return {
-    title: category.name,
+    // polévky: vlastní SEO titulek z dokumentu ChatGPT (bez šablony layoutu)
+    title: soups ? { absolute: SOUPS_CATEGORY_SEO.title } : category.name,
     description,
     alternates: { canonical: `/kategorie/${category.slug}` },
     ...(shareImage
@@ -74,6 +77,14 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
           );
         })}
         {category.ageRestricted && <p className="mt-3 font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>}
+        {category.slug === "polevky" && (
+          <p className="mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-base text-neutral-800">
+            {CATEGORY_SOUPS_TEASER.text}{" "}
+            <ShopLink href={CATEGORY_SOUPS_TEASER.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+              {CATEGORY_SOUPS_TEASER.label} →
+            </ShopLink>
+          </p>
+        )}
       </section>
 
       {items.length === 0 ? (

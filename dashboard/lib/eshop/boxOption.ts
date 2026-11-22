@@ -42,3 +42,13 @@ export function clampBoxes(requested: unknown, eligible: number): number {
 export function boxWeightLines(boxes: number): { sku: string; name: string; quantity: number; weightGrams: number }[] {
   return boxes > 0 ? [{ sku: BOX_SKU, name: BOX_NAME, quantity: boxes, weightGrams: BOX_WEIGHT_GRAMS }] : [];
 }
+
+/**
+ * Věta pod „Do košíku“ na stránce produktu (Lucie 22. 11. 2026, podle návrhu ChatGPT):
+ * jen u produktů, ke kterým jde krabici přikoupit (3 l mimo sirupy). Jinak null.
+ */
+export function boxNote(product: { category: string; variants: readonly { volumeMl: number | null }[] }): string | null {
+  if (!product.variants.some((variant) => isBoxEligible(product, variant))) return null;
+  const what = product.category === "polevky" ? "Polévku" : "Nápoj";
+  return `${what} dodáváme ve třílitrovém sáčku s kohoutkem. V pokladně si můžete přidat kartonovou krabici za ${BOX_PRICE_KC} Kč.`;
+}
