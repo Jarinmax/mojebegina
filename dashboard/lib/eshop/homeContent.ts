@@ -55,7 +55,7 @@ export const HOME_TILE_CAFE = {
 // Bez „zdarma“ a bez kampaňové ceny 189 Kč (Lucie 20. 11. 2026).
 export const HOME_TILE_HOME = {
   title: "Nakupuji domů",
-  points: ["Bylinné sirupy v begině 3 l od 499 Kč.", "Ochutnávkový set 5 sirupů za 349 Kč.", "Chlazená doprava po celé ČR."],
+  points: ["Bylinné sirupy v begině 3 l od 499 Kč.", "Ochutnávkový set 5 sirupů za 349 Kč, poslat jde i Zásilkovnou.", "Chlazená doprava po celé ČR."],
   button: "Nakoupit domů",
   // Stránka jen pro zákazníky domů: kategorie a nejoblíbenější (Lucie 20. 11. 2026 večer).
   href: "/nakupuji-domu",
@@ -65,8 +65,8 @@ export const HOME_TILE_HOME = {
 export const HOME_SHOP_HOME = {
   path: "/nakupuji-domu",
   title: "Nakupuji domů",
-  description: "Čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, koktejly a zmrzliny Begina domů. Chlazená doprava po celé ČR.",
-  points: ["Bylinné sirupy v begině 3 l od 499 Kč", "Ochutnávkový set 5 sirupů za 349 Kč", "Chlazená doprava po celé ČR"],
+  description: "Čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, koktejly a zmrzliny Begina domů. Chlazená doprava po celé ČR, ochutnávkový set sirupů i Zásilkovnou.",
+  points: ["Bylinné sirupy v begině 3 l od 499 Kč", "Ochutnávkový set 5 sirupů za 349 Kč, i Zásilkovnou", "Chlazená doprava po celé ČR"],
 } as const;
 
 export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
