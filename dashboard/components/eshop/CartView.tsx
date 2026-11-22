@@ -154,10 +154,16 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
 
       <aside className="bg-begina-primary-50 border border-neutral-200 rounded-2xl p-5">
         {boxesCount > 0 && (
-          <div className="flex justify-between text-sm mb-1.5">
-            <span className="text-neutral-600">Krabice ({boxesCount}×)</span>
-            <span className="tabular-nums">{formatKc(boxesKc)}</span>
-          </div>
+          <>
+            <div className="flex justify-between text-sm mb-1.5">
+              <span className="text-neutral-600">Zboží</span>
+              <span className="tabular-nums">{formatKc(goodsKc)}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-1.5">
+              <span className="text-neutral-600">Kartonová krabice ({boxesCount}×)</span>
+              <span className="tabular-nums">{formatKc(boxesKc)}</span>
+            </div>
+          </>
         )}
         <div className="flex justify-between text-sm">
           <span className="text-neutral-600">Mezisoučet</span>

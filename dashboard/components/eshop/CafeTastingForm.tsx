@@ -74,12 +74,12 @@ const samples = (n: number) => (n === 1 ? "vzorek" : n >= 2 && n <= 4 ? "vzorky"
 
 export type TastingBeginaOption = { sku: string; name: string; priceKc: number };
 
-export default function CafeTastingForm({ available, beginas = [] }: { available: readonly string[]; beginas?: readonly TastingBeginaOption[] }) {
+export default function CafeTastingForm({ available, beginas = [], initialChosen = [], initialBegina = "" }: { available: readonly string[]; beginas?: readonly TastingBeginaOption[]; /** jen pro náhled */ initialChosen?: readonly string[]; initialBegina?: string }) {
   const { add } = useCart();
   const router = useRouter();
   const href = useEshopHref();
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [begina, setBegina] = useState<string>("");
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(initialChosen));
+  const [begina, setBegina] = useState<string>(initialBegina);
   const [venue, setVenue] = useState("");
   const [ico, setIco] = useState("");
   const [error, setError] = useState<string | null>(null);
