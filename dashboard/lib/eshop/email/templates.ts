@@ -634,7 +634,7 @@ export type SkTransportEmailInfo = { grams: number | null };
 
 const SK_HANDOVER = "na depo CoolBalíku (zásilku tam dovezeme my)";
 const SK_PICKUP_PHONE = "+420 774 199 975";
-const COOLBALIK_SK_URL = "https://www.coolbalik.sk/";
+const COOLBALIK_SK_URL = "https://orders.coolbalik.cz/"; // objednávkový formulář CoolBalíku (odkaz z coolbalik.sk/kontakt, jednorázová přeprava)
 
 function skWeightText(grams: number | null): string | null {
   if (grams === null || grams <= 0) return null;
@@ -656,7 +656,7 @@ export function customerSkTransportEmail(order: EmailOrder, ctx: Context & { skT
     ...(weight ? ([["Hmotnost zásilky", weight]] as [string, string][]) : []),
   ];
   const after = "Dopravu platíte přímo CoolBalíku. Až ji objednáte, odpovězte nám prosím na tento e-mail a napište den doručení. Zásilku na depo dovezeme den předem.";
-  const linkLabel = "Přejít na CoolBalík";
+  const linkLabel = "Objednat přepravu u CoolBalíku";
   const greeting = customerGreeting(order.contactName);
   const html = layout(
     ctx,
