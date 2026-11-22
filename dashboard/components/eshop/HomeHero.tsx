@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ArrowRight, Check } from "lucide-react";
 import ShopLink from "./ShopLink";
+import { formatKc } from "@/lib/format";
 import { HOME_HERO_OFFER, HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
@@ -44,12 +45,14 @@ export const HERO_PHOTO = {
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
 export const HERO_LINKS = {
   tasting: "/pro-kavarny",
-  home: "/nakupuji-domu",
+  portions: "/polevky-pro-kavarny",
   soups: "/kategorie/polevky",
   syrups: "/kategorie/sirupy",
 };
 
-export default function HomeHero() {
+export type HeroPortion = { count: number; portions: number; totalKc: number; perPortionKc: number };
+
+export default function HomeHero({ portion }: { portion?: HeroPortion }) {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
       <div className="max-w-6xl mx-auto lg:px-4 lg:py-5 grid items-center lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)] lg:gap-8">
@@ -79,15 +82,17 @@ export default function HomeHero() {
               Vyzkoušet Beginu v provozu
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </ShopLink>
-            {/* 22. 11. 2026 (Lucie): druhá a poslední cesta — zákazníci domů */}
-            <ShopLink
-              href={HERO_LINKS.home}
-              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 transition-colors px-5 py-2 sm:py-2.5 lg:py-2 text-base sm:text-lg lg:text-base font-medium text-[#4A5527]"
-            >
-              Nakupuji domů
-            </ShopLink>
             {/* nabídka přímo u jediného tlačítka pro kavárny (22. 11. 2026, Lucie) */}
             <p className="w-full text-sm sm:text-base font-medium text-[#4A5527]">{HOME_HERO_OFFER}</p>
+            {/* dokument ChatGPT „SEO pro kavárny“: z úvodu odkaz na ceny porcí s dopravou (22. 11. 2026) */}
+            {portion && (
+              <p className="w-full -mt-1 text-sm sm:text-base text-[#3B3631]">
+                {portion.count} beginy = {portion.portions} porcí, i s dopravou {formatKc(portion.totalKc)} ({formatKc(Math.round(portion.perPortionKc))} za porci).{" "}
+                <ShopLink href={HERO_LINKS.portions} className="font-semibold text-[#4A5527] underline underline-offset-4 whitespace-nowrap">
+                  Ceny porcí s dopravou →
+                </ShopLink>
+              </p>
+            )}
           </div>
         </div>
 

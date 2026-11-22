@@ -99,3 +99,19 @@ export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
  */
 export const HOME_VENUES: { name: string; city: string }[] = [];
 export const HOME_VENUES_TITLE = "Kde nás najdete";
+
+type PricedProduct = { slug: string; category: string; variants: readonly { priceKc: number; volumeMl: number | null; label: string | null; soldOut?: boolean }[] };
+
+/** Ceny pro pruh Nakupuji domů na úvodu (22. 11. 2026) — jen balení skladem. */
+export function homeShopPrices(products: readonly PricedProduct[], setSlug: string) {
+  const live = (category: string) => products.filter((p) => p.category === category).flatMap((p) => p.variants).filter((v) => v.soldOut !== true);
+  const soup = live("polevky").filter((v) => v.volumeMl === 3000).sort((a, b) => a.priceKc - b.priceKc)[0];
+  const syrup = live("sirupy").sort((a, b) => a.priceKc - b.priceKc)[0];
+  const set = products.find((p) => p.slug === setSlug)?.variants.find((v) => v.soldOut !== true);
+  return {
+    soupKc: soup?.priceKc ?? null,
+    syrupKc: syrup?.priceKc ?? null,
+    syrupLabel: syrup && syrup.volumeMl !== null && syrup.volumeMl < 3000 ? syrup.label : null,
+    setKc: set?.priceKc ?? null,
+  };
+}
