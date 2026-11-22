@@ -44,6 +44,7 @@ export const HERO_PHOTO = {
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
 export const HERO_LINKS = {
   tasting: "/pro-kavarny",
+  home: "/nakupuji-domu",
   soups: "/kategorie/polevky",
   syrups: "/kategorie/sirupy",
 };
@@ -51,7 +52,7 @@ export const HERO_LINKS = {
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:py-5 grid items-center lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-8">
+      <div className="max-w-6xl mx-auto lg:px-4 lg:py-5 grid items-center lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)] lg:gap-8">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           {/* Od 20. 11. 2026 (Lucie): úvod primárně pro kavárny a bistra, podnadpis zve i zákazníky domů.
               Tlačítka rychlého nákupu (Vybrat polévku / Objevit sirupy) jsou zpět od večera 20. 11. 2026. */}
@@ -73,10 +74,17 @@ export default function HomeHero() {
           <div className="mt-4 sm:mt-6 lg:mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
             <ShopLink
               href={HERO_LINKS.tasting}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-5 sm:px-6 py-2.5 sm:py-3 lg:py-2.5 text-base sm:text-lg font-semibold text-white shadow-md shadow-[#A51C1C]/20"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-5 sm:px-6 lg:px-5 py-2.5 sm:py-3 lg:py-2.5 text-base sm:text-lg lg:text-base font-semibold text-white shadow-md shadow-[#A51C1C]/20"
             >
               Vyzkoušet Beginu v provozu
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </ShopLink>
+            {/* 22. 11. 2026 (Lucie): druhá a poslední cesta — zákazníci domů */}
+            <ShopLink
+              href={HERO_LINKS.home}
+              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 transition-colors px-5 py-2 sm:py-2.5 lg:py-2 text-base sm:text-lg lg:text-base font-medium text-[#4A5527]"
+            >
+              Nakupuji domů
             </ShopLink>
             {/* nabídka přímo u jediného tlačítka pro kavárny (22. 11. 2026, Lucie) */}
             <p className="w-full text-sm sm:text-base font-medium text-[#4A5527]">{HOME_HERO_OFFER}</p>
