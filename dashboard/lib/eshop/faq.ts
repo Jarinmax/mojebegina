@@ -18,12 +18,12 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Kdo dováží hotové polévky do kavárny?",
     answer:
-      "Begina. Kavárnám a bistrům dodáváme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat. Objednáte přímo na e-shopu begina.cz, na firmu i s IČO.",
+      "Begina. Kavárnám a bistrům dodáváme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat. Objednat můžete přímo na našem e-shopu.",
   },
   {
     question: "Dovezete polévky po celé ČR?",
     answer:
-      `Ano. Chlazené objednávky Vám po celé ČR doručí CoolBalík, cena se řídí hmotností objednávky podle ceníku dopravy.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Sáčky se sirupem a ochutnávkový set sirupů posíláme také Zásilkovnou (${ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC} Kč včetně krabice) a objednávku si můžete po domluvě zdarma vyzvednout osobně v Zahradním bistru Begina ve Viticích.`,
+      `Ano. Chlazené objednávky Vám po celé ČR doručí CoolBalík, cena se řídí hmotností objednávky podle ceníku dopravy.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Vybrané kapsičky se sirupem a ochutnávkový set sirupů posíláme také Zásilkovnou (${ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC} Kč včetně krabice) a objednávku si můžete po domluvě zdarma vyzvednout osobně v Zahradním bistru Begina ve Viticích. Aktuální ceník dopravy: www.begina.cz/doprava`,
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",

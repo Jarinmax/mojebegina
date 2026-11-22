@@ -138,10 +138,28 @@ export function askSamplesLink(product: { category: string; slug: string }): { t
   if ((ASK_SAMPLES_EXCEPT_SLUGS as readonly string[]).includes(product.slug)) return null;
   // 22. 11. 2026 (Lucie): u čajů a ovocných nápojů jediná nabídka „Domluvit ochutnání“
   if (product.category === "caje" || product.category === "ovocne-napoje") {
-    return { text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnání", href: `${CAFE_PATH}#napiste-nam` };
+    return { text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnávku", href: `${CAFE_PATH}#napiste-nam` };
   }
   return { text: "Provozujete kavárnu nebo bistro?", label: "Zeptat se na vzorky", href: `${CAFE_PATH}#napiste-nam` };
 }
+
+/** Tři otázky před telefonním formulářem na Pro kavárny a bistra (Lucie 22. 11. 2026), odpověď po kliknutí. */
+export const CAFE_FAQ_TITLE = "Časté otázky";
+export const CAFE_FAQ: { question: string; answer: string }[] = [
+  {
+    question: "Co dostaneme k první begině zdarma?",
+    answer: "K první třílitrové begině polévky, sirupu nebo koktejlu Vám jednou na IČO zdarma přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml. Další vzorky si můžete k této objednávce přikoupit za 49 Kč za kus.",
+  },
+  {
+    question: "Kdy nám objednávka dorazí?",
+    answer: "Chlazené objednávky Vám po celé ČR doručí CoolBalík. Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme.",
+  },
+  {
+    question: "Jak dlouho vydrží polévka po otevření?",
+    answer: "Polévky vydrží po otevření v lednici 14 dní. Skladujte je v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu.",
+  },
+];
+export const CAFE_FAQ_ALL = { label: "Všechny časté otázky", href: "/caste-otazky" } as const;
 
 /** Odkazy na nabídku polévek pro kavárny (dokument ChatGPT „SEO pro kavárny“, Lucie 22. 11. 2026). */
 export const SOUPS_FOR_CAFES_PATH = "/polevky-pro-kavarny";
@@ -155,7 +173,7 @@ export const CATEGORY_SOUPS_TEASER = {
   text: "Vybíráte polévky do svého podniku?",
   pricesLabel: "Kolik stojí porce s dopravou?",
   pricesHref: SOUPS_FOR_CAFES_PATH,
-  offerText: "K první begině Vám přibalíme 2 polévky a 2 sirupy na ochutnání zdarma.",
+  offerText: "K první třílitrové begině na IČO Vám zdarma přibalíme 2 vzorky polévek a 2 vzorky sirupů.",
   label: "Vybrat první balení",
   href: `${CAFE_PATH}#ochutnavka`,
 } as const;

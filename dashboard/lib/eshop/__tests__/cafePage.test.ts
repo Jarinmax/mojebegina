@@ -98,9 +98,9 @@ describe("Pro kavárny: odeslání (PGlite)", () => {
 
 import { askSamplesLink, CATEGORY_SOUPS_TEASER } from "../cafePage";
 describe("nabídky pro kavárny u produktů (22. 11. 2026)", () => {
-  it("čaje a ovocné nápoje: Domluvit ochutnání", () => {
-    expect(askSamplesLink({ category: "caje", slug: "x" })).toEqual({ text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnání", href: "/pro-kavarny#napiste-nam" });
-    expect(askSamplesLink({ category: "ovocne-napoje", slug: "x" })?.label).toBe("Domluvit ochutnání");
+  it("čaje a ovocné nápoje: Domluvit ochutnávku", () => {
+    expect(askSamplesLink({ category: "caje", slug: "x" })).toEqual({ text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnávku", href: "/pro-kavarny#napiste-nam" });
+    expect(askSamplesLink({ category: "ovocne-napoje", slug: "x" })?.label).toBe("Domluvit ochutnávku");
     expect(askSamplesLink({ category: "koktejly", slug: "lady-carneval" })).toBeNull();
     expect(askSamplesLink({ category: "polevky", slug: "kulajda" })).toBeNull();
   });
