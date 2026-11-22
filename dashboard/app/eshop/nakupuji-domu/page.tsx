@@ -45,7 +45,7 @@ export default async function Page() {
           </ul>
         </div>
       </section>
-      <CategoryIconStrip id="kategorie" categories={availableHomeCategories(categories.map((c) => c.slug))} />
+      <CategoryIconStrip id="kategorie" categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} />
       <div className="max-w-6xl mx-auto px-4 pt-8 pb-12 flex flex-col gap-10">
         {/* jen během kampaně, stejně jako na úvodu */}
         {set?.tastingCampaign && (

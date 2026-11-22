@@ -121,7 +121,7 @@ export function cafeTastingTotalKc(skus: readonly string[]): number {
 
 // Texty (vykání, bez zdravotních tvrzení).
 export const CAFE_TASTING_HEADING = "První objednávka: 1 begina + 4 vzorky zdarma";
-export const CAFE_TASTING_INTRO = "Vyberte si 1 beginu 3 l a k ní 2 polévky a 2 sirupy na ochutnání zdarma. Zelené jsou zdarma, každý další vzorek je za 49 Kč. Z každého vzorku nejvýš 1 kus, jedna nabídka na jedno IČO.";
+export const CAFE_TASTING_INTRO = "Vyberte si 1 beginu 3 l a k ní 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma. Zelené jsou zdarma, každý další vzorek je za 49 Kč. Z každého vzorku nejvýš 1 kus, jedna nabídka na jedno IČO.";
 export const CAFE_TASTING_BEGINA_HEADING = "1. Vaše begina 3 l";
 export const CAFE_TASTING_NEED_BEGINA_PICK = "Vyberte prosím beginu, ke které vzorky přibalíme.";
 export const CAFE_TASTING_SOUPS_HEADING = "2. Vzorky polévek 200 ml – 2 zdarma";

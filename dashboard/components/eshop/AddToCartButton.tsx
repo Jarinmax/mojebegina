@@ -66,7 +66,7 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
     <button
       type="button"
       onClick={handleAdd}
-      className="flex-1 flex items-center justify-center gap-1.5 bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg px-4 h-9"
+      className="flex-1 flex items-center justify-center gap-1.5 bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg px-4 h-11 sm:h-9"
     >
       {added && compact ? <Check className="w-4 h-4" /> : null}
       {added && compact ? "V košíku" : "Do košíku"}
@@ -77,7 +77,7 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
     // všechna balení vyprodaná — místo „Do košíku“ červené „Vyprodáno“
     return (
       <div className="flex">
-        <SoldOutBadge className="flex-1 h-9 text-sm" />
+        <SoldOutBadge className="flex-1 h-11 sm:h-9 text-sm" />
       </div>
     );
   }

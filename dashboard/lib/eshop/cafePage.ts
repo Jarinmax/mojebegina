@@ -15,7 +15,7 @@ export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
 // „nic nevyhodíte“ pryč (Lucie 18. 11. 2026): obal se vyhazuje, myšleno bylo jen jídlo
 // „kolik prodáte“ → „objednanou porci“ (Lucie 18. 11. 2026, večer)
 export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
-export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Ohřát a podávat, bez odpadu. K první begině 4 vzorky zdarma.";
+export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra posíláme chlazeně po celé ČR. Ohřát a podávat, bez odpadu. K první begině 4 vzorky zdarma.";
 
 /** Jasná věta „co děláme“ pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) — Pro kavárny a bistra i úvod. */
 export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům posíláme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
@@ -29,7 +29,7 @@ export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" 
 export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = [
   { icon: "recycle", title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
   { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
-  { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,60 Kč, nápoj ze sirupu od 3,30 Kč – při ceně z e-shopu." },
+  { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,58 Kč, nápoj ze sirupu od 3,33 Kč – při ceně z e-shopu." },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },
   { icon: "droplets", title: "Z čisté filtrované vody", text: "Polévky, sirupy, čaje i ovocné nápoje vyrábíme bez konzervantů." },
   { icon: "truck", title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
@@ -44,7 +44,7 @@ export const CAFE_ALCOHOL_SLUG = "koktejly";
 export const CAFE_COMING_SOON = "Připravujeme";
 
 export const CAFE_STEPS = [
-  { title: "1 begina + 4 vzorky zdarma", text: "Objednáte si první beginu a my přibalíme 2 polévky a 2 sirupy na ochutnání zdarma. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích." },
+  { title: "1 begina + 4 vzorky zdarma", text: "Objednáte si první beginu a my přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích." },
   // Objednávky jdou přes e-shop a chlazenou přepravu, žádné „závozy“ (Lucie 18. 11. 2026)
   { title: "Objednávka na e-shopu", text: "Objednáte, co vám chutnalo, přímo tady na e-shopu, na firmu i s IČO." },
   { title: "Sleva za pravidelné objednávky", text: "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %)." },
@@ -156,7 +156,7 @@ export const CAFE_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
-    answer: "Polévky vydrží po otevření v lednici 14 dní. Skladujte je v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu.",
+    answer: "Po otevření spotřebujte polévku do 14 dnů při skladování do 4 °C, nejpozději však do data uvedeného na obalu. Skladujte ji v chladničce do 4 °C před otevřením i po otevření.",
   },
 ];
 export const CAFE_FAQ_ALL = { label: "Všechny časté otázky", href: "/caste-otazky" } as const;
@@ -186,7 +186,7 @@ export const SOUPS_CATEGORY_SEO = {
 /** Nabídka nahoře na Pro kavárny a bistra (Lucie 22. 11. 2026). */
 export const CAFE_OFFER = {
   title: "První objednávka: 1 begina + 4 vzorky zdarma",
-  text: "Objednejte si první beginu 3 l polévky, sirupu nebo koktejlu a přibalíme Vám 2 polévky a 2 sirupy na ochutnání zdarma. Další vzorky po 49 Kč. Platí jednou pro každé IČO.",
+  text: "Objednejte si první beginu 3 l polévky, sirupu nebo koktejlu a přibalíme Vám 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma. Další vzorky po 49 Kč. Platí jednou pro každé IČO.",
   orderButton: "Objednat první beginu",
   callButton: "Chci, abyste mi zavolali",
   tableNote: "Begina polévky 3 l stojí 379 Kč a vystačí na 12 porcí po 250 ml. Doprava se řídí hmotností objednávky; příklady platí bez slevy. Osobní odběr ve Viticích je po domluvě zdarma.",

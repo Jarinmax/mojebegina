@@ -32,8 +32,8 @@ describe("stránky pro gastro", () => {
 
   it("údaje jako na webu", () => {
     const text = LANDING_PAGES.map(allText).join(" ");
-    expect(text).toContain("31,60 Kč");
-    expect(text).toContain("3,30 Kč");
+    expect(text).toContain("31,58 Kč");
+    expect(text).toContain("3,33 Kč");
     expect(text).toContain("14 dní");
   });
 });

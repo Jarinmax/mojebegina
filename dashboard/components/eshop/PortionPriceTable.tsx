@@ -5,8 +5,26 @@ import type { PortionPriceRow } from "@/lib/eshop/landingPages";
 export default function PortionPriceTable({ rows, kind = "soup" }: { rows: readonly PortionPriceRow[]; kind?: "soup" | "syrup" }) {
   const unit = kind === "syrup" ? "Nápojů po 200 ml" : "Porcí po 250 ml";
   const per = kind === "syrup" ? "Nápoj s dopravou" : "Porce s dopravou";
+  const fmt = (n: number) => n.toLocaleString("cs-CZ", { maximumFractionDigits: 2 });
   return (
-          <div className="overflow-x-auto rounded-2xl border border-[#EDE5D8]">
+    <>
+      {/* mobil: každé množství jako krátká karta — cena porce je vidět hned bez posouvání (22. 11. 2026) */}
+      <ul className="sm:hidden flex flex-col gap-2">
+        {rows.map((row) => (
+          <li key={row.order} className="rounded-2xl border border-[#EDE5D8] bg-white px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-semibold">{row.order}</span>
+              <span className="tabular-nums text-lg font-semibold">
+                {fmt(row.perPortionKc)} Kč <span className="text-sm font-normal text-neutral-600">{kind === "syrup" ? "za nápoj" : "za porci"}</span>
+              </span>
+            </div>
+            <p className="mt-0.5 text-sm text-neutral-600">
+              {row.portions} {kind === "syrup" ? "nápojů po 200 ml" : "porcí po 250 ml"} · celkem {row.totalKc.toLocaleString("cs-CZ")} Kč s dopravou
+            </p>
+          </li>
+        ))}
+      </ul>
+          <div className="hidden sm:block overflow-x-auto rounded-2xl border border-[#EDE5D8]">
       <table className="w-full text-left text-base">
         <thead className="bg-[#FAF6EF] text-sm text-neutral-600">
           <tr>
@@ -28,5 +46,6 @@ export default function PortionPriceTable({ rows, kind = "soup" }: { rows: reado
         </tbody>
       </table>
     </div>
+    </>
   );
 }
