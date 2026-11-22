@@ -78,7 +78,8 @@ describe("SQL balíček hmotností (40 / 41 / 42 / 49)", DB_TEST, () => {
           UNION ALL SELECT 'con', conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'product_variants'::regclass
           ORDER BY 1, 2`)
       ).rows;
-    const { pg: reference } = await createMigratedDb();
+    // reference před 0060 (sold_out přidává až migrace 0060, ne balíček hmotností)
+    const { pg: reference } = await createMigratedDb("0059_sarze_objednavky");
     expect(await shape(pg)).toEqual(await shape(reference));
     await expect(pg.exec(`UPDATE product_variants SET weight_g = 0 WHERE sku = 'kulajda'`)).rejects.toThrow(/product_variants_weight_positive/);
   });
@@ -404,8 +405,9 @@ describe("Production: bez přepínače i bez sloupce weight_g beze změny", DB_T
     const mode = shippingModeFromEnv({ VERCEL_ENV: "production" }); // přepínač v Production nenastaven
     expect(mode).toBe("flat");
     const index = createCatalogIndex(await loadCatalog(db, { weights: mode === "weight" }));
-    // dotaz na hmotnosti se vůbec nespustil (jinak by chybějící sloupec ohlásil varování)
-    expect(warn).not.toHaveBeenCalled();
+    // dotaz na hmotnosti se vůbec nespustil (jinak by chybějící sloupec ohlásil varování);
+    // varování o chybějícím sold_out (migrace 0060) je tu v pořádku
+    expect(warn.mock.calls.filter((call) => String(call[0]).includes("weight_g"))).toHaveLength(0);
     warn.mockRestore();
     for (const quantity of [1, 51]) {
       expect(priceCart([{ sku: "kulajda", quantity }], "rozvoz", index, { shippingMode: mode })).toMatchObject({

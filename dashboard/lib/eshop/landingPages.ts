@@ -110,7 +110,7 @@ export const LANDING_PAGES: LandingPage[] = [
     ],
     faq: [
       { question: "Jak se sirup ředí?", answer: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj. Hodí se i do koktejlů a do kuchyně." },
-      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů, nápoj vychází už od 3,30 Kč. Stříbrný sáček 650 ml se šroubovacím uzávěrem vystačí až na 32 nápojů." },
+      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů, nápoj vychází už od 3,30 Kč." },
       { question: "Jak dlouho vydrží sirup po otevření?", answer: "Sirupy po otevření vydrží v lednici 3 měsíce." },
       { question: "Jak objednat sirupy do provozu?", answer: ORDER_ANSWER },
       { question: "Jak objednat ochutnávku do provozu?", answer: TASTING_ANSWER },

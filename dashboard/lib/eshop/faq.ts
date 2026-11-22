@@ -42,7 +42,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Můžu si objednat i domů?",
     answer:
-      "Ano. Objednáte na e-shopu begina.cz a doručíme vám chlazenou přepravou až domů. Sirupy jsou i v menším balení, od 199 Kč za 650 ml, a ochutnávkový set 5 sirupů stojí 349 Kč.",
+      "Ano. Objednáte na e-shopu begina.cz a doručíme vám chlazenou přepravou až domů. Bylinné sirupy jsou v begině 3 l od 499 Kč a ochutnávkový set 5 sirupů stojí 349 Kč.",
   },
   {
     question: "Jak objednat ochutnávku do provozu?",
