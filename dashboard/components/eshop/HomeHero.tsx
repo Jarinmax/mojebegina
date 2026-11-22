@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { ArrowRight, Check } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { formatKc } from "@/lib/format";
+import { HOME_HERO_OFFER, HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -44,23 +45,26 @@ export const HERO_PHOTO = {
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
 export const HERO_LINKS = {
   tasting: "/pro-kavarny",
+  portions: "/polevky-pro-kavarny",
   soups: "/kategorie/polevky",
   syrups: "/kategorie/sirupy",
 };
 
-export default function HomeHero() {
+export type HeroPortion = { count: number; portions: number; totalKc: number; perPortionKc: number };
+
+export default function HomeHero({ portion }: { portion?: HeroPortion }) {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:pt-2 lg:pb-3 grid items-center lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-8">
+      <div className="max-w-6xl mx-auto lg:px-4 lg:py-5 grid items-center lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)] lg:gap-8">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           {/* Od 20. 11. 2026 (Lucie): úvod primárně pro kavárny a bistra, podnadpis zve i zákazníky domů.
               Tlačítka rychlého nákupu (Vybrat polévku / Objevit sirupy) jsou zpět od večera 20. 11. 2026. */}
           <h1 className="mt-1.5 sm:mt-4 lg:mt-0 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622] text-balance">
             {HOME_HERO_TITLE}
           </h1>
-          <p className="mt-2 sm:mt-4 lg:mt-2 text-base sm:text-lg leading-snug sm:leading-relaxed lg:leading-snug text-[#3B3631] max-w-md mx-auto lg:mx-0 text-balance">{HOME_HERO_SUBTITLE}</p>
+          <p className="mt-2 sm:mt-4 lg:mt-3 text-base sm:text-lg leading-snug sm:leading-relaxed text-[#3B3631] max-w-md mx-auto lg:mx-0 text-balance">{HOME_HERO_SUBTITLE}</p>
           {/* Tři výhody (16. 11. 2026, Lucie), beze změny. */}
-          <ul className="mt-2 sm:mt-4 lg:mt-3 flex flex-wrap items-center justify-center lg:justify-start gap-x-3 gap-y-1 lg:gap-y-0.5 sm:gap-x-5 text-[13px] sm:text-base font-medium text-[#4A5527]">
+          <ul className="mt-2 sm:mt-4 lg:mt-3 flex flex-wrap items-center justify-center lg:justify-start gap-x-3 gap-y-1 sm:gap-x-5 text-[13px] sm:text-base font-medium text-[#4A5527]">
             {HOME_HERO_POINTS.map((point) => (
               <li key={point} className="inline-flex items-center gap-1">
                 <Check className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" aria-hidden="true" />
@@ -70,26 +74,25 @@ export default function HomeHero() {
           </ul>
           {/* 22. 11. 2026 (Lucie): červené tlačítko pro kavárny musí být vidět hned na první obrazovce —
               červené hlavní tlačítko; rychlý nákup (polévka / sirupy) vedle jako obrysová tlačítka. */}
-          <div className="mt-4 sm:mt-6 lg:mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 lg:gap-2 mx-auto lg:mx-0">
+          <div className="mt-4 sm:mt-6 lg:mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
             <ShopLink
               href={HERO_LINKS.tasting}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-5 sm:px-6 py-2.5 sm:py-3 lg:py-2.5 text-base sm:text-lg font-semibold text-white shadow-md shadow-[#A51C1C]/20"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-5 sm:px-6 lg:px-5 py-2.5 sm:py-3 lg:py-2.5 text-base sm:text-lg lg:text-base font-semibold text-white shadow-md shadow-[#A51C1C]/20"
             >
               Vyzkoušet Beginu v provozu
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </ShopLink>
-            <ShopLink
-              href={HERO_LINKS.soups}
-              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 transition-colors px-4 py-2 sm:py-2.5 lg:py-2 text-base font-medium text-[#4A5527]"
-            >
-              Vybrat polévku
-            </ShopLink>
-            <ShopLink
-              href={HERO_LINKS.syrups}
-              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 transition-colors px-4 py-2 sm:py-2.5 lg:py-2 text-base font-medium text-[#4A5527]"
-            >
-              Objevit sirupy
-            </ShopLink>
+            {/* nabídka přímo u jediného tlačítka pro kavárny (22. 11. 2026, Lucie) */}
+            <p className="w-full text-sm sm:text-base font-medium text-[#4A5527]">{HOME_HERO_OFFER}</p>
+            {/* dokument ChatGPT „SEO pro kavárny“: z úvodu odkaz na ceny porcí s dopravou (22. 11. 2026) */}
+            {portion && (
+              <p className="w-full -mt-1 text-sm sm:text-base text-[#3B3631]">
+                {portion.count} beginy = {portion.portions} porcí, i s dopravou {formatKc(portion.totalKc)} ({formatKc(Math.round(portion.perPortionKc))} za porci).{" "}
+                <ShopLink href={HERO_LINKS.portions} className="font-semibold text-[#4A5527] underline underline-offset-4 whitespace-nowrap">
+                  Ceny porcí s dopravou →
+                </ShopLink>
+              </p>
+            )}
           </div>
         </div>
 
