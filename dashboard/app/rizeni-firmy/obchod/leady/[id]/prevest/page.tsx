@@ -90,6 +90,7 @@ export default async function ConvertLeadPage(props: PageProps<"/rizeni-firmy/ob
               leadId={id}
               defaultName={detail.lead.companyName ?? ""}
               defaultIco={detail.lead.ico ?? ""}
+              defaultAddress={detail.lead.address ?? ""}
               defaultContactName={detail.lead.contactName ?? ""}
               defaultContactEmail={detail.lead.contactEmail ?? ""}
             />

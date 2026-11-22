@@ -29,6 +29,11 @@ function describeEntry(entry: LeadActivityEntry): string {
         : "založil(a) novou organizaci a převedl(a) lead na zákazníka";
     case "company_name_set":
       return meta.to ? `doplnil(a) název firmy: ${String(meta.to)}` : "smazal(a) název firmy";
+    case "company_details_set": {
+      const to = (meta.to ?? {}) as { companyName?: string | null; ico?: string | null };
+      const parts = [to.companyName, to.ico ? `IČO ${to.ico}` : null].filter(Boolean);
+      return parts.length ? `upravil(a) údaje firmy: ${parts.join(", ")}` : "upravil(a) údaje firmy";
+    }
     case "note_added":
       return "přidal(a) poznámku";
     case "next_step_set":

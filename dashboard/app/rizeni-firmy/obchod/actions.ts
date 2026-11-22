@@ -15,6 +15,7 @@ import {
   logNoAnswer,
   updateLeadStage,
   updateLeadCompanyName,
+  updateLeadCompanyDetails,
   assignLeadOwner,
   setLeadAcquiredBy,
   linkLeadToExistingOrganization,
@@ -142,6 +143,24 @@ export async function updateLeadCompanyNameAction(
 
   revalidateCrm(leadId);
   return { success: "Název byl uložen." };
+}
+
+export async function updateLeadCompanyDetailsAction(
+  leadId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await updateLeadCompanyDetails(leadId, {
+    companyName: String(formData.get("companyName") ?? ""),
+    ico: String(formData.get("ico") ?? ""),
+    address: String(formData.get("address") ?? ""),
+  });
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "Firma byla uložena." };
 }
 
 export async function assignLeadOwnerAction(

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { convertLeadToNewOrganizationAction, type ActionState } from "../../../actions";
+import AresCompanyFields from "../../../AresCompanyFields";
 
 const initialState: ActionState = null;
 
@@ -9,14 +10,21 @@ type Props = {
   leadId: string;
   defaultName: string;
   defaultIco: string;
+  defaultAddress: string;
   defaultContactName: string;
   defaultContactEmail: string;
 };
 
+const inputClass = "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900";
+
+// Jarin 22. 11. 2026: název, IČO a sídlo se předvyplní z leadu (doplňuje je
+// obchodník v detailu leadu) a z ARES. Kontakt a e-mail jsou z leadu — ARES
+// je neobsahuje. Vše jde dál ručně upravit.
 export default function NewOrganizationForm({
   leadId,
   defaultName,
   defaultIco,
+  defaultAddress,
   defaultContactName,
   defaultContactEmail,
 }: Props) {
@@ -25,52 +33,13 @@ export default function NewOrganizationForm({
 
   return (
     <form action={formAction} autoComplete="off" className="flex flex-col gap-4">
-      <div>
-        <label htmlFor="name" className="text-xs text-neutral-500 mb-1 block">
-          Název firmy
-        </label>
-        <input
-          id="name"
-          name="name"
-          type="text"
-          autoComplete="off"
-          required
-          defaultValue={defaultName}
-          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="ico" className="text-xs text-neutral-500 mb-1 block">
-          IČO
-        </label>
-        <input
-          id="ico"
-          name="ico"
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]{8}"
-          maxLength={8}
-          autoComplete="off"
-          required
-          defaultValue={defaultIco}
-          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="registeredAddress" className="text-xs text-neutral-500 mb-1 block">
-          Adresa sídla
-        </label>
-        <input
-          id="registeredAddress"
-          name="registeredAddress"
-          type="text"
-          autoComplete="off"
-          required
-          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-        />
-      </div>
+      <AresCompanyFields
+        defaultName={defaultName}
+        defaultIco={defaultIco}
+        defaultAddress={defaultAddress}
+        names={{ name: "name", ico: "ico", address: "registeredAddress" }}
+        required
+      />
 
       <div>
         <label htmlFor="contactName" className="text-xs text-neutral-500 mb-1 block">
@@ -83,7 +52,7 @@ export default function NewOrganizationForm({
           autoComplete="off"
           required
           defaultValue={defaultContactName}
-          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+          className={inputClass}
         />
       </div>
 
@@ -98,7 +67,7 @@ export default function NewOrganizationForm({
           autoComplete="off"
           required
           defaultValue={defaultContactEmail}
-          className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+          className={inputClass}
         />
         <p className="text-xs text-neutral-400 mt-1">
           Založí organizaci a uživatele bez odeslání e-mailu — pozvánku pošlete později v Adminu.
