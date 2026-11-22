@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import ShopLink from "@/components/eshop/ShopLink";
+import PortionPriceTable from "@/components/eshop/PortionPriceTable";
 import { faqJsonLd, jsonLd, breadcrumbJsonLd } from "@/lib/eshop/seo";
 import { LANDING_TASTING_LINK, type LandingPage } from "@/lib/eshop/landingPages";
 
@@ -47,28 +48,7 @@ export default function LandingPageView({ page }: { page: LandingPage }) {
       {page.priceTable && (
         <section>
           <h2 className="font-serif text-2xl mb-4">{page.priceTable.title}</h2>
-          <div className="overflow-x-auto rounded-2xl border border-[#EDE5D8]">
-            <table className="w-full text-left text-base">
-              <thead className="bg-[#FAF6EF] text-sm text-neutral-600">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Objednávka</th>
-                  <th className="px-4 py-2 font-medium">Porcí po 250 ml</th>
-                  <th className="px-4 py-2 font-medium">Celkem s dopravou</th>
-                  <th className="px-4 py-2 font-medium">Porce s dopravou</th>
-                </tr>
-              </thead>
-              <tbody>
-                {page.priceTable.rows.map((row) => (
-                  <tr key={row.order} className="border-t border-[#EDE5D8]">
-                    <td className="px-4 py-2 font-semibold">{row.order}</td>
-                    <td className="px-4 py-2 tabular-nums">{row.portions}</td>
-                    <td className="px-4 py-2 tabular-nums">{row.totalKc.toLocaleString("cs-CZ")} Kč</td>
-                    <td className="px-4 py-2 tabular-nums font-semibold">{row.perPortionKc.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PortionPriceTable rows={page.priceTable.rows} />
           <p className="mt-3 text-sm leading-normal text-neutral-600">{page.priceTable.note}</p>
         </section>
       )}

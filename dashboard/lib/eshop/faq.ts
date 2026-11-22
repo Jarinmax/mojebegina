@@ -45,9 +45,9 @@ export const FAQ_ITEMS: FaqItem[] = [
       "Ano. Objednáte na e-shopu begina.cz a doručíme vám chlazenou přepravou až domů. Bylinné sirupy jsou v begině 3 l od 499 Kč a ochutnávkový set 5 sirupů stojí 349 Kč.",
   },
   {
-    question: "Jak objednat ochutnávku do provozu?",
+    question: "Jak ochutnat polévky a sirupy do provozu?",
     answer:
-      "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každou položku za 49 Kč. Objednáte na firmu s IČO a pošleme vám je chlazenou přepravou, nebo si je vyzvednete ve Viticích.",
+      "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 polévky a 2 sirupy na ochutnání zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.",
   },
   {
     question: "Mají kavárny a bistra zvláštní ceník?",
@@ -72,4 +72,4 @@ export const FAQ_PAGE: InfoPage = {
   hideOperatorLine: true,
 };
 
-export const FAQ_CTA = { text: "Chci ochutnávku do provozu", href: CAFE_PATH } as const;
+export const FAQ_CTA = { text: "Vyzkoušet Beginu v provozu", href: CAFE_PATH } as const;

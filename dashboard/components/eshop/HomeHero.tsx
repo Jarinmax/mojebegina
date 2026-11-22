@@ -43,6 +43,7 @@ export const HERO_PHOTO = {
 
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
 export const HERO_LINKS = {
+  tasting: "/pro-kavarny",
   soups: "/kategorie/polevky",
   syrups: "/kategorie/sirupy",
 };
@@ -67,18 +68,25 @@ export default function HomeHero() {
               </li>
             ))}
           </ul>
-          {/* Rychlý nákup vrácen 20. 11. 2026 (Lucie) — na všech zařízeních, i na mobilu. */}
-          <div className="mt-4 sm:mt-7 lg:mt-5 flex flex-row items-stretch sm:items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
+          {/* 22. 11. 2026 (Lucie): červené tlačítko pro kavárny musí být vidět hned na první obrazovce —
+              červené hlavní tlačítko; rychlý nákup (polévka / sirupy) vedle jako obrysová tlačítka. */}
+          <div className="mt-4 sm:mt-6 lg:mt-5 flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
             <ShopLink
-              href={HERO_LINKS.soups}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-4 sm:px-7 py-2.5 sm:py-3.5 text-base sm:text-lg font-medium text-white shadow-md shadow-[#A51C1C]/20"
+              href={HERO_LINKS.tasting}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-5 sm:px-6 py-2.5 sm:py-3 text-base sm:text-lg font-semibold text-white shadow-md shadow-[#A51C1C]/20"
             >
-              Vybrat polévku
+              Vyzkoušet Beginu v provozu
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </ShopLink>
             <ShopLink
+              href={HERO_LINKS.soups}
+              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 transition-colors px-4 py-2 sm:py-2.5 text-base font-medium text-[#4A5527]"
+            >
+              Vybrat polévku
+            </ShopLink>
+            <ShopLink
               href={HERO_LINKS.syrups}
-              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5E6B34] transition-colors px-4 sm:px-7 py-2 sm:py-3 text-base sm:text-lg font-medium text-[#4A5527]"
+              className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] hover:bg-[#5E6B34]/10 transition-colors px-4 py-2 sm:py-2.5 text-base font-medium text-[#4A5527]"
             >
               Objevit sirupy
             </ShopLink>

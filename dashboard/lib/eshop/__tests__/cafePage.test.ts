@@ -16,7 +16,7 @@ describe("Pro kavárny: texty", () => {
     expect(all).toContain("při ceně z e-shopu");
     expect(all).not.toMatch(/nevyhod|bez odpadu|kolik prodáte/i); // obal se vyhazuje; natáčí se objednaná porce
     expect(CAFE_SUBTITLE).toContain("jen objednanou porci");
-    expect(CAFE_STEPS.map((s) => s.title)).toEqual(["Ochutnávka", "Objednávka na e-shopu", "Sleva za pravidelné objednávky"]);
+    expect(CAFE_STEPS.map((s) => s.title)).toEqual(["První begina + 4 vzorky zdarma", "Objednávka na e-shopu", "Sleva za pravidelné objednávky"]);
     expect(CAFE_STEPS.map((s) => s.text).join(" ")).not.toMatch(/závoz|na fakturu/i);
     expect(CAFE_ALCOHOL_NOTE).toBe("18+");
     expect(`${CAFE_PRICE_NOTE.before}${CAFE_PRICE_NOTE.link}${CAFE_PRICE_NOTE.after}`).toBe("Ceny jsou stejné jako na e-shopu. Při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.");

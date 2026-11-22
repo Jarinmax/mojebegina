@@ -44,7 +44,7 @@ export function soupPortionRows(counts: readonly number[] = [1, 3, 5]): PortionP
 const kc = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
 const SOUP_ROWS = soupPortionRows();
 
-const TASTING = { label: "Chci ochutnávku do provozu", href: CAFE_PATH };
+const TASTING = { label: "Vyzkoušet Beginu v provozu", href: CAFE_PATH };
 export const LANDING_TASTING_LINK = TASTING;
 
 const DELIVERY_ANSWER =
@@ -52,7 +52,7 @@ const DELIVERY_ANSWER =
 const ORDER_ANSWER =
   "Objednáte přímo na e-shopu begina.cz, na firmu i s IČO. Ceny jsou stejné jako na e-shopu a při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.";
 const TASTING_ANSWER =
-  "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každý vzorek za 49 Kč (polévka 200 ml). Na jedno IČO jde objednat jedna ochutnávka, od každé příchutě jeden vzorek. Pošleme ji chlazeně podle ceníku dopravy, nebo si ji po domluvě vyzvednete ve Viticích.";
+  "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 polévky a 2 sirupy na ochutnání zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.";
 
 const product = (label: string, slug: string): LandingLink => ({ label, href: `/produkt/${slug}` });
 
@@ -61,13 +61,13 @@ export const LANDING_PAGES: LandingPage[] = [
     path: "/polevky-pro-kavarny",
     title: "Hotové polévky pro kavárny a bistra s dovozem po celé ČR",
     // Texty podle dokumentu ChatGPT „SEO pro kavárny“ (Lucie 22. 11. 2026): „doručíme“, ne „dovážíme“.
-    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Doručíme chlazeně po celé ČR. Vzorek polévky pro Váš podnik stojí 49 Kč.",
+    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Doručíme chlazeně po celé ČR. K první begině 2 polévky a 2 sirupy na ochutnání zdarma.",
     intro: [
       "Do kaváren a bister po celé České republice doručujeme hotové rostlinné polévky z čisté filtrované vody. Na polední menu si můžete vybrat třeba kulajdu, dýňovou polévku nebo gulášovou polévku z hlívy ústřičné.",
       "Každou polévku Vám doručíme chlazenou v třílitrovém sáčku s kohoutkem. Když si host objedná, natočíte jednu porci, ohřejete ji a podáváte.",
     ],
     ctas: [
-      { label: "Vybrat polévky na ochutnávku", href: `${CAFE_PATH}#ochutnavka` },
+      { label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` },
       { label: "Domluvit dodávky polévek", href: `${CAFE_PATH}#napiste-nam` },
     ],
     priceTable: {
@@ -90,7 +90,7 @@ export const LANDING_PAGES: LandingPage[] = [
       },
       { question: "Kdy polévky dorazí?", answer: "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme." },
       { question: "Jak dlouho vydrží polévka po otevření?", answer: "Po otevření vydrží v lednici 14 dní. Polévky skladujte v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu." },
-      { question: "Jak objednat ochutnávku do provozu?", answer: TASTING_ANSWER },
+      { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
     ],
     links: [
       { label: "Čerstvé polévky – celá nabídka", href: "/kategorie/polevky" },
@@ -121,7 +121,7 @@ export const LANDING_PAGES: LandingPage[] = [
       { question: "Jaké veganské polévky nabízíte?", answer: "Dýňovou polévku, Kulajdu, Tomatovou polévku, Rajčatovou polévku s červenou řepou, Gulášovou polévku z hlívy ústřičné a Špenátovou polévku." },
       { question: "Kolik stojí porce polévky?", answer: "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,60 Kč." },
       { question: "Dovezete polévky po celé ČR?", answer: DELIVERY_ANSWER },
-      { question: "Jak objednat ochutnávku do provozu?", answer: TASTING_ANSWER },
+      { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
     ],
     links: [
       { label: "Čerstvé polévky – celá nabídka", href: "/kategorie/polevky" },
@@ -139,7 +139,7 @@ export const LANDING_PAGES: LandingPage[] = [
       "Bylinné sirupy Begina vaříme z bylinek, koření, třtinového cukru a čisté filtrované vody. Bez umělých aromat a barviv.",
       "Z jednoho sirupu připravíte limonádu, horký nápoj i koktejl. Pro provoz je nejvýhodnější třílitrová begina s kohoutkem.",
     ],
-    ctas: [{ label: "Vybrat sirupy na ochutnávku", href: `${CAFE_PATH}#ochutnavka` }],
+    ctas: [{ label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` }],
     benefits: [
       { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů, nápoj už od 3,30 Kč." },
       { title: "Jednoduché ředění", text: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj." },
@@ -151,7 +151,7 @@ export const LANDING_PAGES: LandingPage[] = [
       { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů, nápoj vychází už od 3,30 Kč." },
       { question: "Jak dlouho vydrží sirup po otevření?", answer: "Sirupy po otevření vydrží v lednici 3 měsíce." },
       { question: "Jak objednat sirupy do provozu?", answer: ORDER_ANSWER },
-      { question: "Jak objednat ochutnávku do provozu?", answer: TASTING_ANSWER },
+      { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
     ],
     links: [
       { label: "Bylinné sirupy – celá nabídka", href: "/kategorie/sirupy" },

@@ -11,6 +11,8 @@ import {
   CAFE_TASTING_CREDIT_TEXT,
   CAFE_TASTING_DELIVERY,
   CAFE_TASTING_HEADING,
+  CAFE_TASTING_BEGINA_HEADING,
+  CAFE_TASTING_NEED_BEGINA_PICK,
   CAFE_TASTING_ICO_NOTE,
   CAFE_TASTING_INTRO,
   CAFE_TASTING_ITEMS,
@@ -46,17 +48,21 @@ function ItemList({ items, chosen, toggle }: { items: readonly CafeTastingItem[]
   );
 }
 
-export default function CafeTastingForm({ available }: { available: readonly string[] }) {
+export type TastingBeginaOption = { sku: string; name: string; priceKc: number };
+
+export default function CafeTastingForm({ available, beginas = [] }: { available: readonly string[]; beginas?: readonly TastingBeginaOption[] }) {
   const { add } = useCart();
   const router = useRouter();
   const href = useEshopHref();
   const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [begina, setBegina] = useState<string>("");
   const [venue, setVenue] = useState("");
   const [ico, setIco] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const items = CAFE_TASTING_ITEMS.filter((item) => available.includes(item.sku));
-  const total = cafeTastingTotalKc([...chosen]);
+  const beginaPrice = beginas.find((option) => option.sku === begina)?.priceKc ?? 0;
+  const total = cafeTastingTotalKc([...chosen]) + beginaPrice;
 
   function toggle(sku: string) {
     setError(null);
@@ -69,6 +75,10 @@ export default function CafeTastingForm({ available }: { available: readonly str
   }
 
   function submit() {
+    if (beginas.length > 0 && !begina) {
+      setError(CAFE_TASTING_NEED_BEGINA_PICK);
+      return;
+    }
     if (chosen.size === 0) {
       setError(CAFE_TASTING_NEED_ITEM);
       return;
@@ -93,6 +103,7 @@ export default function CafeTastingForm({ available }: { available: readonly str
       } catch {
         // bez sessionStorage se údaje vyplní v pokladně ručně
       }
+      if (begina) add(begina, 1);
       for (const sku of chosen) add(sku, 1);
       router.push(href("/pokladna"));
     });
@@ -104,6 +115,20 @@ export default function CafeTastingForm({ available }: { available: readonly str
         <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_TASTING_HEADING}</h2>
         <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_INTRO}</p>
       </div>
+      {beginas.length > 0 && (
+        <fieldset>
+          <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_BEGINA_HEADING}</legend>
+          <select value={begina} onChange={(e) => { setBegina(e.target.value); setError(null); }} className={input}>
+            <option value="">Vyberte beginu…</option>
+            {beginas.map((option) => (
+              <option key={option.sku} value={option.sku}>
+                {option.name} – {formatKc(option.priceKc)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-sm text-neutral-600">Další beginy si můžete přidat v košíku.</p>
+        </fieldset>
+      )}
       <fieldset>
         <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_SOUPS_HEADING}</legend>
         <ItemList items={items.filter((item) => item.kind === "polevka")} chosen={chosen} toggle={toggle} />
@@ -121,7 +146,7 @@ export default function CafeTastingForm({ available }: { available: readonly str
       <div className="rounded-xl bg-white border border-[#EDE5D8] px-4 py-3" aria-live="polite">
         <p className="flex items-baseline justify-between gap-3 text-lg">
           <span>
-            Vybráno <span className="tabular-nums">{chosen.size}</span> {chosen.size === 1 ? "položka" : chosen.size >= 2 && chosen.size <= 4 ? "položky" : "položek"}
+            {begina ? "Begina + " : ""}<span className="tabular-nums">{chosen.size}</span> {chosen.size === 1 ? "vzorek" : chosen.size >= 2 && chosen.size <= 4 ? "vzorky" : "vzorků"}
           </span>
           <strong className="tabular-nums">{formatKc(total)}</strong>
         </p>
