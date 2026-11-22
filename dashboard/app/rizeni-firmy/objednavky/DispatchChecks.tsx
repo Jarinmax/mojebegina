@@ -210,11 +210,14 @@ export function DispatchTile({
   kind,
   done,
   doneNote,
+  warning = null,
 }: {
   orderId: string;
   kind: "ship" | "invoice";
   done: boolean;
   doneNote: string | null;
+  /** Upozornění u nezaškrtnutého (např. faktura po odeslání neodešla). */
+  warning?: string | null;
 }) {
   const [state, formAction, pending] = useActionState(dispatchAction.bind(null, orderId), initialState);
   const [confirmUndo, setConfirmUndo] = useState(false);
@@ -246,6 +249,7 @@ export function DispatchTile({
         </button>
       )}
       {!done && kind === "ship" && <span className="text-[11px] leading-tight">odejde i faktura</span>}
+      {!done && warning && <span className="text-[11px] leading-tight text-red-700">{warning}</span>}
       {done && !confirmUndo && (
         <button type="button" onClick={() => setConfirmUndo(true)} className="text-xs text-red-700 underline py-1">
           Vrátit zpět
