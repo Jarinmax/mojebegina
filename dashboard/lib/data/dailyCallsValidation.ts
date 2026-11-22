@@ -51,7 +51,8 @@ export function validateDailyCallOutcomeInput(
     return { ok: false, error: "Vyberte výsledek hovoru." };
   }
 
-  const note = input.note.trim();
+  // „Nezvedá“ nepotřebuje poznámku (Lucie 22. 11. 2026: méně vyplňování).
+  const note = input.note.trim() || (result === "no_answer" ? "Nezvedá" : "");
   if (!note) {
     return { ok: false, error: "Poznámka je povinná." };
   }

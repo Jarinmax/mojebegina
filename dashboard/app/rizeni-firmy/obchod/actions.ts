@@ -12,6 +12,7 @@ import { importMetaLeads } from "@/lib/data/metaLeads";
 import {
   createLead,
   logCallOutcome,
+  logNoAnswer,
   updateLeadStage,
   updateLeadCompanyName,
   assignLeadOwner,
@@ -292,4 +293,24 @@ export async function importMetaLeadsNowAction(_prev: ActionState): Promise<Acti
     result.skipped.length > 0 ? `přeskočeno: ${result.skipped.length}` : null,
   ].filter(Boolean);
   return { success: `Načteno z tabulky — ${parts.join("; ")}.` };
+}
+
+// „Nezvedá“ jedním klepnutím (22. 11. 2026).
+export type NoAnswerActionState = { error: string } | { success: string; nextAt: string | null; stop: boolean; suggestEmail: boolean } | null;
+
+export async function logNoAnswerAction(leadId: string, _prev: NoAnswerActionState): Promise<NoAnswerActionState> {
+  try {
+    const result = await logNoAnswer(leadId);
+    if (!result.ok) return { error: result.error };
+    revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
+    revalidatePath("/rizeni-firmy/obchod");
+    return {
+      success: result.plan.label,
+      nextAt: result.plan.nextAt ? result.plan.nextAt.toISOString() : null,
+      stop: result.plan.stop,
+      suggestEmail: result.plan.suggestEmail,
+    };
+  } catch {
+    return { error: "Zápis se nepodařil. Zkus to znovu." };
+  }
 }

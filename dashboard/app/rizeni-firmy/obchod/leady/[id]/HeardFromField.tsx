@@ -70,7 +70,7 @@ export default function HeardFromField({
       <p className={`text-xs mt-1 ${missing ? "text-red-700" : "text-neutral-500"}`}>
         {known
           ? "Už zjištěno — měň jen, když je to špatně."
-          : "Zeptej se zákazníka. Povinné, jakmile zaškrtneš „Dovolal/a jsem se“ — bez toho zápis neuložíš."}
+          : "Zeptej se zákazníka — bez toho zápis neuložíš."}
       </p>
     </div>
   );
