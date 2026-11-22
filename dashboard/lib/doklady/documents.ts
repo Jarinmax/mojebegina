@@ -251,6 +251,18 @@ export async function attachDocumentBytes(input: {
   bytes: Uint8Array;
 }): Promise<DocResult & { duplicate?: boolean }> {
   const ctx = await requireDocumentAccess();
+  return attachDocumentBytesAs({ userId: ctx.userId, name: `${ctx.name ?? ctx.email} (asistent)` }, input);
+}
+
+/**
+ * Totéž bez session — pro /api/doklady/nahrat, kde identitu nese podepsaný
+ * odkaz (lib/doklady/uploadLink.ts) vydaný nástrojem asistenta po kontrole
+ * oprávnění. Volat JEN po ověření takového odkazu.
+ */
+export async function attachDocumentBytesAs(
+  uploader: { userId: string; name: string },
+  input: { entryId: string; filename: string; mimeType: string; bytes: Uint8Array }
+): Promise<DocResult & { duplicate?: boolean }> {
   const ext = extensionForMime(input.mimeType);
   if (!ext) return { ok: false, error: "Připojit jde jen PDF nebo fotky (JPG, PNG, HEIC)." };
   if (input.bytes.byteLength === 0 || input.bytes.byteLength > DOC_MAX_BYTES) return { ok: false, error: "Soubor je prázdný nebo větší než 20 MB." };
@@ -286,8 +298,8 @@ export async function attachDocumentBytes(input: {
         mimeType: input.mimeType,
         sizeBytes: input.bytes.byteLength,
         sha256,
-        uploadedByUserId: ctx.userId,
-        uploadedByName: `${ctx.name ?? ctx.email} (asistent)`,
+        uploadedByUserId: uploader.userId,
+        uploadedByName: uploader.name,
       })
       .returning({ id: economyDocuments.id });
     return { ok: true, id: row.id };
