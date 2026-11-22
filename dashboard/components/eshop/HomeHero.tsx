@@ -46,13 +46,14 @@ export const HERO_PHOTO = {
 export const HERO_LINKS = {
   tasting: "/pro-kavarny",
   portions: "/polevky-pro-kavarny",
+  drinks: "/bylinne-sirupy-pro-kavarny",
   soups: "/kategorie/polevky",
   syrups: "/kategorie/sirupy",
 };
 
 export type HeroPortion = { count: number; portions: number; totalKc: number; perPortionKc: number };
 
-export default function HomeHero({ portion }: { portion?: HeroPortion }) {
+export default function HomeHero({ portion, drink }: { portion?: HeroPortion; drink?: HeroPortion }) {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
       <div className="max-w-6xl mx-auto lg:px-4 lg:py-5 grid items-center lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)] lg:gap-8">
@@ -87,9 +88,18 @@ export default function HomeHero({ portion }: { portion?: HeroPortion }) {
             {/* dokument ChatGPT „SEO pro kavárny“: z úvodu odkaz na ceny porcí s dopravou (22. 11. 2026) */}
             {portion && (
               <p className="w-full -mt-1 text-sm sm:text-base text-[#3B3631]">
-                {portion.count} beginy = {portion.portions} porcí, i s dopravou {formatKc(portion.totalKc)} ({formatKc(Math.round(portion.perPortionKc))} za porci).{" "}
+                <strong className="font-semibold">Polévky:</strong> {portion.count} beginy = {portion.portions} porcí po 250 ml, i s dopravou {formatKc(portion.totalKc)} ({formatKc(Math.round(portion.perPortionKc))} za porci polévky).{" "}
                 <ShopLink href={HERO_LINKS.portions} className="font-semibold text-[#4A5527] underline underline-offset-4 whitespace-nowrap">
-                  Ceny porcí s dopravou →
+                  Ceny porcí →
+                </ShopLink>
+              </p>
+            )}
+            {/* 22. 11. 2026 (Lucie): i sirupy — kolik vyjde jeden nápoj s dopravou */}
+            {drink && (
+              <p className="w-full -mt-1 text-sm sm:text-base text-[#3B3631]">
+                <strong className="font-semibold">Sirupy:</strong> {drink.count} beginy = {drink.portions} nápojů po 200 ml, i s dopravou od {formatKc(drink.totalKc)} ({drink.perPortionKc.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč za nápoj).{" "}
+                <ShopLink href={HERO_LINKS.drinks} className="font-semibold text-[#4A5527] underline underline-offset-4 whitespace-nowrap">
+                  Ceny nápojů →
                 </ShopLink>
               </p>
             )}

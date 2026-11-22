@@ -48,7 +48,7 @@ export default function LandingPageView({ page }: { page: LandingPage }) {
       {page.priceTable && (
         <section>
           <h2 className="font-serif text-2xl mb-4">{page.priceTable.title}</h2>
-          <PortionPriceTable rows={page.priceTable.rows} />
+          <PortionPriceTable rows={page.priceTable.rows} kind={page.priceTable.kind} />
           <p className="mt-3 text-sm leading-normal text-neutral-600">{page.priceTable.note}</p>
         </section>
       )}

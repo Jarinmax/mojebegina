@@ -3,7 +3,7 @@ import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import Image from "next/image";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
 import PortionPriceTable from "@/components/eshop/PortionPriceTable";
-import { soupPortionRows } from "@/lib/eshop/landingPages";
+import { SYRUP_PRICE_KC, soupPortionRows, syrupDrinkRows } from "@/lib/eshop/landingPages";
 import { isTastingBegina } from "@/lib/eshop/cafeTasting";
 import ShopLink from "@/components/eshop/ShopLink";
 import { getCatalog } from "@/lib/eshop/catalogServer";
@@ -85,6 +85,10 @@ export default async function Page() {
         <h3 className="mt-2 font-serif text-xl text-[#2A2622]">Kolik stojí porce polévky včetně dopravy?</h3>
         <PortionPriceTable rows={soupPortionRows()} />
         <p className="text-sm text-neutral-600">{CAFE_OFFER.tableNote}</p>
+        {/* 22. 11. 2026 (Lucie): i sirupy — kolik vyjde jeden nápoj s dopravou */}
+        <h3 className="mt-2 font-serif text-xl text-[#2A2622]">Kolik stojí nápoj ze sirupu včetně dopravy?</h3>
+        <PortionPriceTable rows={syrupDrinkRows()} kind="syrup" />
+        <p className="text-sm text-neutral-600">Nejlevnější begina sirupu 3 l za {SYRUP_PRICE_KC} Kč, bez slevy. Nápoj = 20 ml sirupu doplněných vodou na 200 ml. Doprava podle hmotnosti zásilky.</p>
       </section>
 
       <section aria-label="Výhody pro provoz">

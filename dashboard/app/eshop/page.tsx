@@ -2,7 +2,7 @@ import { getCatalog } from "@/lib/eshop/catalogServer";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
 import HomeShopBar from "@/components/eshop/HomeShopBar";
-import { soupPortionRows } from "@/lib/eshop/landingPages";
+import { soupPortionRows, syrupDrinkRows } from "@/lib/eshop/landingPages";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
 import { brandShareMeta } from "@/lib/eshop/shareMeta";
@@ -59,7 +59,7 @@ export default async function EshopPage() {
       {/* Přestavba úvodu (Lucie 20. 11. 2026): primárně pro kavárny a bistra, ale vítaní
           i zákazníci domů — hero, pod ním dvě dlaždice (na mobilu pod sebou, gastro první),
           Proč Beginu berou kavárny a bistra, Kde nás najdete (jen se souhlasem kaváren). */}
-      <HomeHero portion={soupPortionRows([3])[0] ? { count: 3, ...soupPortionRows([3])[0] } : undefined} />
+      <HomeHero portion={{ count: 3, ...soupPortionRows([3])[0] }} drink={{ count: 3, ...syrupDrinkRows([3])[0] }} />
       {/* Ikony kategorií hned pod úvodem pro rychlý nákup (Lucie 20. 11. 2026 večer). */}
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
       <HomeShopBar prices={homeShopPrices(products, SET_SLUG)} />
