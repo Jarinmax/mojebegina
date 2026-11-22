@@ -137,10 +137,10 @@ export default function CafeTastingForm({ available, beginas = [] }: { available
         <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_SYRUPS_HEADING}</legend>
         <ItemList items={items.filter((item) => item.kind === "sirup")} chosen={chosen} toggle={toggle} />
       </fieldset>
-      {items.some((item) => item.kind === "svarak") && (
+      {items.some((item) => item.kind === "svarak" || item.kind === "koktejl") && (
         <fieldset>
           <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_MULLED_HEADING}</legend>
-          <ItemList items={items.filter((item) => item.kind === "svarak")} chosen={chosen} toggle={toggle} />
+          <ItemList items={items.filter((item) => item.kind === "svarak" || item.kind === "koktejl")} chosen={chosen} toggle={toggle} />
         </fieldset>
       )}
       <div className="rounded-xl bg-white border border-[#EDE5D8] px-4 py-3" aria-live="polite">
