@@ -292,7 +292,7 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
         type="submit"
         data-main="1"
         disabled={pending}
-        className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 disabled:opacity-50 self-start"
+        className="w-full text-base font-semibold text-begina-primary-50 bg-begina-primary-900 rounded-xl px-4 py-3 disabled:opacity-50"
       >
         {pending ? "Ukládám…" : "Uložit zápis"}
       </button>
