@@ -54,6 +54,14 @@ vi.mock("@neondatabase/serverless", () => ({
       return Promise.resolve({ rows: [[TEST_LEAD_ID, "pending"]], rowCount: 1, fields: [] });
     }
 
+    // „Odkud nás zná“ (22. 11. 2026): kontrola uložené hodnoty a její zápis.
+    if (sqlText.startsWith('select "heard_from" from "leads"')) {
+      return Promise.resolve({ rows: [[null]], rowCount: 1, fields: [] });
+    }
+    if (sqlText.startsWith('update "leads" set "heard_from"')) {
+      return Promise.resolve({ rows: [], rowCount: 1, fields: [] });
+    }
+
     // Hlavní atomický CTE příkaz (buildLogDailyCallOutcomeQuery) — jde přes
     // db.execute(), tedy "raw"/object mode. RETURNING id má buď 0, nebo 1
     // řádek podle `claimedRowCount` — to je přesně to, co test řídí.
@@ -116,6 +124,7 @@ describe("logDailyCallOutcome — atomická vazba na aktivitu (Security Phase 21
 
     const result = await logDailyCallOutcome("item-1", {
       result: "reached_interested",
+      heardFrom: "google",
       note: "Test",
       stageChange: "",
       nextFollowUpAtDate: "",
@@ -139,6 +148,7 @@ describe("logDailyCallOutcome — atomická vazba na aktivitu (Security Phase 21
 
     const result = await logDailyCallOutcome("item-1", {
       result: "reached_interested",
+      heardFrom: "google",
       note: "Dovoláno, pošlu nabídku.",
       stageChange: "",
       nextFollowUpAtDate: "",
@@ -157,6 +167,7 @@ describe("logDailyCallOutcome — atomická vazba na aktivitu (Security Phase 21
 
     await logDailyCallOutcome("item-A", {
       result: "reached_interested",
+      heardFrom: "google",
       note: "První vyřízení.",
       stageChange: "",
       nextFollowUpAtDate: "",

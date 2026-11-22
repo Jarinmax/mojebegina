@@ -30,9 +30,17 @@ function isView(value: string | undefined): value is View {
 export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod">) {
   const searchParams = await props.searchParams;
   const viewParam = Array.isArray(searchParams.view) ? searchParams.view[0] : searchParams.view;
-  const activeView: View = isView(viewParam) ? viewParam : "moje-leady";
-
   const ctx = await getAuthContext();
+  // 22. 11. 2026 (Lucie): kdo nemá vlastní leady (Lucie), viděl prázdnou
+  // záložku „Moje leady“ a myslel si, že ostatní leady zmizely. Bez
+  // vlastních leadů se proto otevře „Všechny leady“.
+  let activeView: View;
+  if (isView(viewParam)) {
+    activeView = viewParam;
+  } else {
+    const mine = await listLeads("mine");
+    activeView = mine.length > 0 ? "moje-leady" : "vsechny-leady";
+  }
   const showDailyCallsLink = isDailyCallCurator(ctx) || isDailyCallWorker(ctx);
 
   const counts = await getCockpitCounts();
@@ -63,6 +71,22 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
         >
           Nový lead
         </Link>
+      </div>
+
+      <div className="flex items-center gap-1 mt-3 mb-1 flex-wrap">
+        {VIEWS.map((view) => (
+          <Link
+            key={view}
+            href={`/rizeni-firmy/obchod?view=${view}`}
+            className={`text-sm font-medium rounded-lg px-3 py-1.5 ${
+              activeView === view
+                ? "bg-begina-primary-900 text-begina-primary-50"
+                : "bg-white border border-neutral-200 text-neutral-600 hover:border-begina-primary-300"
+            }`}
+          >
+            {VIEW_LABELS[view]}
+          </Link>
+        ))}
       </div>
 
       {showDailyCallsLink && (
@@ -112,22 +136,10 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
         )}
       </section>
 
-      <div className="flex items-center gap-1 mb-3 flex-wrap">
-        {VIEWS.map((view) => (
-          <Link
-            key={view}
-            href={`/rizeni-firmy/obchod?view=${view}`}
-            className={`text-sm font-medium rounded-lg px-3 py-1.5 ${
-              activeView === view
-                ? "bg-begina-primary-900 text-begina-primary-50"
-                : "bg-white border border-neutral-200 text-neutral-600 hover:border-begina-primary-300"
-            }`}
-          >
-            {VIEW_LABELS[view]}
-          </Link>
-        ))}
-      </div>
-
+      <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
+        {VIEW_LABELS[activeView]}
+        {isLeadsView && leadCards ? ` (${leadCards.length})` : customerCards ? ` (${customerCards.length})` : ""}
+      </h2>
       {isLeadsView ? (
         leadCards && leadCards.length === 0 ? (
           <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">

@@ -12,7 +12,7 @@
 import "server-only";
 import { planCustomerCardChange } from "./customerCard";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
@@ -244,7 +244,11 @@ export async function listFreshLeads(): Promise<LeadCardData[]> {
         // Jen opravdu nové poptávky: ne 85 kontaktů ze staré databáze
         // (import 26. 9. 2026, už mají obchodníka) a nic staršího než 30 dní.
         ne(leads.source, "existing_database"),
-        gte(leads.createdAt, new Date(Date.now() - FRESH_LEAD_DAYS * 24 * 60 * 60 * 1000))
+        gte(leads.createdAt, new Date(Date.now() - FRESH_LEAD_DAYS * 24 * 60 * 60 * 1000)),
+        // 22. 11. 2026 (Lucie, LumoKids): s leadem už někdo pracuje — má
+        // naplánovaný další kontakt nebo poznámku/zápis hovoru → není „nový“.
+        isNull(leads.nextFollowUpAt),
+        sql`not exists (select 1 from ${leadActivity} a where a.lead_id = ${leads.id} and a.kind in ('note_added', 'call_logged'))`
       )
     )
     .orderBy(desc(leads.createdAt), asc(leads.id));
