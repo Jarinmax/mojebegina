@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import Image from "next/image";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
+import PortionPriceTable from "@/components/eshop/PortionPriceTable";
+import { soupPortionRows } from "@/lib/eshop/landingPages";
+import { isTastingBegina } from "@/lib/eshop/cafeTasting";
 import ShopLink from "@/components/eshop/ShopLink";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
@@ -18,7 +21,7 @@ import {
   CAFE_SUBTITLE,
   CAFE_TITLE,
   VAT_NOTE,
-  CAFE_SOUPS_TEASER,
+  CAFE_OFFER,
 } from "@/lib/eshop/cafePage";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
@@ -44,6 +47,12 @@ export default async function Page() {
   const [subtitleHead, subtitleLast] = splitLastSentence(CAFE_SUBTITLE);
   // balení ochutnávky, která jsou v katalogu (produkt je v katalogu jen po spuštění / v náhledu)
   const tastingSkus = (catalog?.products.find(isCafeTasting)?.variants ?? []).map((variant) => variant.sku).filter(isCafeTastingSku);
+  // beginy, ke kterým jdou vzorky zdarma (polévky, sirupy, koktejly 3 l)
+  const beginas = (catalog?.products ?? []).flatMap((product) =>
+    product.variants
+      .filter((variant) => variant.soldOut !== true && isTastingBegina(product, variant))
+      .map((variant) => ({ sku: variant.sku, name: `${product.name} 3 l`, priceKc: variant.priceKc }))
+  );
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
@@ -59,10 +68,24 @@ export default async function Page() {
             </>
           )}
         </p>
-        <a href="#ochutnavka" className="mt-5 inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
-          Chci ochutnávku do provozu
-        </a>
       </header>
+
+      {/* 22. 11. 2026 (Lucie): jedna jasná nabídka hned nahoře — první begina + 4 vzorky zdarma, cena porce s dopravou, dvě tlačítka */}
+      <section className="max-w-3xl mx-auto w-full -mt-4 rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4">
+        <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622]">{CAFE_OFFER.title}</h2>
+        <p className="text-lg leading-normal text-neutral-800">{CAFE_OFFER.text}</p>
+        <div className="flex flex-wrap gap-3">
+          <a href="#ochutnavka" className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
+            {CAFE_OFFER.orderButton}
+          </a>
+          <a href="#napiste-nam" className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] hover:bg-white font-semibold px-6 h-12 text-base">
+            {CAFE_OFFER.callButton}
+          </a>
+        </div>
+        <h3 className="mt-2 font-serif text-xl text-[#2A2622]">Kolik stojí porce polévky včetně dopravy?</h3>
+        <PortionPriceTable rows={soupPortionRows()} />
+        <p className="text-sm text-neutral-600">{CAFE_OFFER.tableNote}</p>
+      </section>
 
       <section aria-label="Výhody pro provoz">
         <CafeBenefits />
@@ -99,13 +122,6 @@ export default async function Page() {
         </section>
       )}
 
-      <p className="max-w-2xl mx-auto -mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-base text-neutral-800 text-center">
-        {CAFE_SOUPS_TEASER.text}{" "}
-        <ShopLink href={CAFE_SOUPS_TEASER.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
-          {CAFE_SOUPS_TEASER.label} →
-        </ShopLink>
-      </p>
-
       <section className="max-w-2xl mx-auto w-full">
         <h2 className="font-serif text-2xl sm:text-3xl text-center mb-5">Jak spolupráce funguje</h2>
         <ol className="flex flex-col gap-5">
@@ -125,7 +141,7 @@ export default async function Page() {
         {/* Ochutnávka do provozu (20. 11. 2026): objednávka na e-shopu; dosavadní formulář zůstává jako druhá možnost */}
         {tastingSkus.length > 0 ? (
           <>
-            <CafeTastingForm available={tastingSkus} />
+            <CafeTastingForm available={tastingSkus} beginas={beginas} />
             <CafeForm heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" intro={CAFE_CALLBACK_TEXT} />
           </>
         ) : (

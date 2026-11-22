@@ -16,7 +16,7 @@ describe("Časté otázky", () => {
       "Jsou vaše polévky veganské?",
       "Kolik stojí porce polévky?",
       "Můžu si objednat i domů?",
-      "Jak objednat ochutnávku do provozu?",
+      "Jak ochutnat polévky a sirupy do provozu?",
     ]) expect(qs).toContain(q);
   });
 
@@ -26,7 +26,7 @@ describe("Časté otázky", () => {
     expect(all).toContain("31,60 Kč");
     expect(all).toContain("379 Kč");
     expect(all).toContain("3 až 7 %");
-    expect(all).not.toMatch(/zdrav|imunit|detox|vitamín|léčí|zdarma/i);
+    expect(all).not.toMatch(/zdrav|imunit|detox|vitamín|léčí/i);
   });
 
   it("stránka v patičce, FAQPage ze stejných textů", () => {

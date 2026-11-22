@@ -15,7 +15,7 @@ export const CAFE_TITLE = "Polévky a nápoje pro kavárny a bistra";
 // „nic nevyhodíte“ pryč (Lucie 18. 11. 2026): obal se vyhazuje, myšleno bylo jen jídlo
 // „kolik prodáte“ → „objednanou porci“ (Lucie 18. 11. 2026, večer)
 export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce.";
-export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Ohřát a podávat, bez odpadu. Vyžádejte si ochutnávku do provozu.";
+export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Ohřát a podávat, bez odpadu. K první begině 4 vzorky zdarma.";
 
 /** Jasná věta „co děláme“ pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) — Pro kavárny a bistra i úvod. */
 export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům dovážíme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
@@ -43,13 +43,13 @@ export const CAFE_ALCOHOL_SLUG = "koktejly";
 export const CAFE_COMING_SOON = "Připravujeme";
 
 export const CAFE_STEPS = [
-  { title: "Ochutnávka", text: "Ochutnávku si objednáte níž na této stránce a pošleme ji chlazenou přepravou, nebo si ji vyzvednete ve Viticích. Vše si vyzkoušíte v klidu u sebe." },
+  { title: "První begina + 4 vzorky zdarma", text: "Objednáte si první beginu a my přibalíme 2 polévky a 2 sirupy na ochutnání zdarma. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích." },
   // Objednávky jdou přes e-shop a chlazenou přepravu, žádné „závozy“ (Lucie 18. 11. 2026)
   { title: "Objednávka na e-shopu", text: "Objednáte, co vám chutnalo, přímo tady na e-shopu, na firmu i s IČO." },
   { title: "Sleva za pravidelné objednávky", text: "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %)." },
 ] as const;
 
-export const CAFE_FORM_HEADING = "Chci ochutnávku do provozu";
+export const CAFE_FORM_HEADING = "Domluvíme dodávky do Vaší kavárny";
 export const CAFE_FORM_DONE = "Děkujeme, ozveme se vám do 2 pracovních dnů.";
 // Zvláštní ceník pro provozy neexistuje (Lucie 18. 11. 2026): ceny jako na e-shopu + partnerský program.
 export const CAFE_PRICE_NOTE = { before: "Ceny jsou stejné jako na e-shopu. Při pravidelném odběru získáte slevu 3 až 7 % v ", link: "partnerském programu", href: "/partnersky-program", after: "." } as const;
@@ -146,12 +146,21 @@ export const CAFE_SOUPS_TEASER = {
   href: SOUPS_FOR_CAFES_PATH,
 } as const;
 export const CATEGORY_SOUPS_TEASER = {
-  text: "Vybíráte polévky do svého podniku? Připravili jsme pro Vás přehled porcí, cen dopravy a ochutnávek pro kavárny a bistra.",
-  label: "Porce a doprava polévek pro kavárny",
+  text: "Vybíráte polévky do svého podniku? K první begině Vám přibalíme 2 polévky a 2 sirupy na ochutnání zdarma.",
+  label: "Vyzkoušet Beginu v provozu",
   href: SOUPS_FOR_CAFES_PATH,
 } as const;
 /** SEO titulek a popis kategorie Čerstvé polévky (dokument ChatGPT). */
 export const SOUPS_CATEGORY_SEO = {
   title: "Čerstvé rostlinné polévky v balení 3 l | Begina",
   description: "Vyberte si ze šesti rostlinných polévek z čisté filtrované vody. Třílitrové balení s kohoutkem doručujeme chlazené po celé ČR, domů i do kavárny.",
+} as const;
+
+/** Nabídka nahoře na Pro kavárny a bistra (Lucie 22. 11. 2026). */
+export const CAFE_OFFER = {
+  title: "První objednávka: begina + 4 vzorky zdarma",
+  text: "Objednejte si první beginu 3 l polévky, sirupu nebo koktejlu a přibalíme Vám 2 polévky a 2 sirupy na ochutnání zdarma. Další vzorky po 49 Kč. Platí jednou pro každé IČO.",
+  orderButton: "Objednat první beginu",
+  callButton: "Chci, abyste mi zavolali",
+  tableNote: "Begina polévky 3 l stojí 379 Kč a vystačí na 12 porcí po 250 ml. Doprava se řídí hmotností objednávky; příklady platí bez slevy. Osobní odběr ve Viticích je po domluvě zdarma.",
 } as const;

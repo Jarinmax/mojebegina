@@ -5,9 +5,9 @@ import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
 import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
+import HomeTile from "@/components/eshop/HomeTile";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import { Check } from "lucide-react";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
 import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
@@ -153,44 +153,3 @@ export default async function EshopPage() {
   );
 }
 
-type Tile = { title: string; points: readonly string[]; button: string; href: string; extraText?: string; extraLink?: { label: string; href: string } };
-
-function HomeTile({ tile, prominent = false }: { tile: Tile; prominent?: boolean }) {
-  return (
-    <div
-      className={
-        prominent
-          ? "rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col"
-          : "rounded-2xl border border-[#EDE5D8] bg-white p-5 sm:p-6 flex flex-col"
-      }
-    >
-      <h2 className="font-serif text-2xl text-[#2A2622]">{tile.title}</h2>
-      <ul className="mt-3 flex flex-col gap-2 text-base leading-normal text-neutral-800">
-        {tile.points.map((point) => (
-          <li key={point} className="flex gap-2.5">
-            <Check className="flex-none mt-0.5 w-5 h-5 text-[#5E6B34]" aria-hidden="true" />
-            <span>{point}</span>
-          </li>
-        ))}
-      </ul>
-      {tile.extraText && tile.extraLink && (
-        <p className="mt-4 text-base leading-normal text-neutral-700">
-          {tile.extraText}{" "}
-          <ShopLink href={tile.extraLink.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
-            {tile.extraLink.label} →
-          </ShopLink>
-        </p>
-      )}
-      <ShopLink
-        href={tile.href}
-        className={
-          prominent
-            ? "mt-5 self-start rounded-full bg-[#A51C1C] px-6 py-3 text-base font-semibold text-white hover:bg-[#8A1717]"
-            : "mt-5 self-start rounded-full border-2 border-[#5E6B34] px-6 py-2.5 text-base font-semibold text-[#4A5527] hover:bg-[#FAF6EF]"
-        }
-      >
-        {tile.button}
-      </ShopLink>
-    </div>
-  );
-}

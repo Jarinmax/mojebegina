@@ -80,7 +80,7 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
         {category.slug === "polevky" && (
           <p className="mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-base text-neutral-800">
             {CATEGORY_SOUPS_TEASER.text}{" "}
-            <ShopLink href={CATEGORY_SOUPS_TEASER.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+            <ShopLink href="/pro-kavarny" className="font-semibold text-[#4A5527] underline underline-offset-4">
               {CATEGORY_SOUPS_TEASER.label} →
             </ShopLink>
           </p>

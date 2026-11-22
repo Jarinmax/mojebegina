@@ -24,7 +24,7 @@ describe("stránky pro gastro", () => {
       expect(page.faq.length).toBeLessThanOrEqual(6);
       expect(page.links.length).toBeGreaterThan(0);
       const text = allText(page);
-      expect(text).not.toMatch(/lepk|bezlepk|zdrav|imunit|detox|léčí|vitamín|zdarma/i);
+      expect(text).not.toMatch(/lepk|bezlepk|zdrav|imunit|detox|léčí|vitamín/i);
       expect(text).not.toMatch(/koktejl[^.]*rostlinn|alkohol[^.]*rostlinn/i);
       expect(faqJsonLd(page.faq).mainEntity).toHaveLength(page.faq.length);
     }
