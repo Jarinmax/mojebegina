@@ -49,10 +49,10 @@ export default function ProductCard({ product }: { product: Product }) {
         {hasChoice ? (
           // Cena každého balení zvlášť (11. 11. 2026) — „od 199 Kč“ vedle
           // „až 150 nápojů“ (platí pro 3 l) mohlo zákazníka uvést v omyl.
-          <ul className="font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
+          <ul className="grid grid-cols-[max-content_max-content] items-center gap-x-1.5 font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
             {[...product.variants]
               // 22. 11. 2026 (Lucie): nahoře balení „skladem“, pod nimi „vyprodáno“;
-              // ve skupině menší balení nahoře, 3 l pod ním.
+              // ve skupině menší balení nahoře, 3 l pod ním. Štítky zarovnané do sloupce (subgrid).
               .sort(
                 (a, b) =>
                   Number(a.soldOut === true) - Number(b.soldOut === true) ||
@@ -60,7 +60,7 @@ export default function ProductCard({ product }: { product: Product }) {
                   a.priceKc - b.priceKc,
               )
               .map((v) => (
-                <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5 whitespace-nowrap">
+                <li key={v.sku ?? v.label ?? v.priceKc} className="col-span-2 grid grid-cols-subgrid items-center justify-items-start whitespace-nowrap">
                   <span className={v.soldOut === true ? "text-neutral-500 font-normal" : ""}>
                     {formatKc(v.priceKc)}
                     {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
