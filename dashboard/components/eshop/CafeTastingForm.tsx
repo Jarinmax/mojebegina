@@ -20,6 +20,7 @@ import {
   CAFE_TASTING_SOUPS_HEADING,
   CAFE_TASTING_SYRUPS_HEADING,
   CAFE_TASTING_MULLED_HEADING,
+  CAFE_TASTING_OTHER_SAMPLES,
   CAFE_TASTING_FREE,
   CAFE_TASTING_PRICE_KC,
   cafeTastingTotalKc,
@@ -170,6 +171,7 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
           <ItemList items={items.filter((item) => item.kind === "svarak" || item.kind === "koktejl")} chosen={chosen} free={free} toggle={toggle} />
         </fieldset>
       )}
+      <p className="text-sm text-neutral-600">{CAFE_TASTING_OTHER_SAMPLES}</p>
       <div className="rounded-xl bg-white border border-[#EDE5D8] px-4 py-3" aria-live="polite">
         <ul className="flex flex-col gap-1 text-base">
           <li className="flex justify-between gap-3">

@@ -127,6 +127,8 @@ export const CAFE_TASTING_NEED_BEGINA_PICK = "Vyberte prosím beginu, ke které 
 export const CAFE_TASTING_SOUPS_HEADING = "2. Vzorky polévek 200 ml – 2 zdarma";
 export const CAFE_TASTING_SYRUPS_HEADING = "3. Vzorky sirupů 100 ml – 2 zdarma";
 export const CAFE_TASTING_MULLED_HEADING = "4. Vzorky koktejlů 200 ml – po 49 Kč (jen pro osoby starší 18 let)";
+/** Lucie 22. 11. 2026: vzorky ostatních nápojů jen po domluvě. */
+export const CAFE_TASTING_OTHER_SAMPLES = "Vzorky čajů, ovocných nápojů a dalších koktejlů po domluvě – napište nám na info@begina.cz nebo nám níže nechte telefon.";
 export const CAFE_TASTING_DELIVERY = "Doprava chlazenou přepravou podle ceníku dopravy, nebo osobní odběr ve Viticích.";
 export const CAFE_TASTING_ICO_NOTE = "Nabídka je pro kavárny a bistra – objednává se na firmu s IČO, jedna na jedno IČO.";
 export const CAFE_TASTING_ALREADY = "Vzorky zdarma k první objednávce už jste na toto IČO objednali. Beginy si můžete objednat běžně v e-shopu.";

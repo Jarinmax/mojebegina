@@ -51,9 +51,14 @@ export default function ProductCard({ product }: { product: Product }) {
           // „až 150 nápojů“ (platí pro 3 l) mohlo zákazníka uvést v omyl.
           <ul className="font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
             {[...product.variants]
-              // 22. 11. 2026 (Lucie): stejné pořadí u všech — menší balení nahoře, 3 l pod ním;
-              // u každého řádku zeleně „skladem“, nebo červeně „vyprodáno“.
-              .sort((a, b) => (a.volumeMl ?? 0) - (b.volumeMl ?? 0) || a.priceKc - b.priceKc)
+              // 22. 11. 2026 (Lucie): nahoře balení „skladem“, pod nimi „vyprodáno“;
+              // ve skupině menší balení nahoře, 3 l pod ním.
+              .sort(
+                (a, b) =>
+                  Number(a.soldOut === true) - Number(b.soldOut === true) ||
+                  (a.volumeMl ?? 0) - (b.volumeMl ?? 0) ||
+                  a.priceKc - b.priceKc,
+              )
               .map((v) => (
                 <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5 whitespace-nowrap">
                   <span className={v.soldOut === true ? "text-neutral-500 font-normal" : ""}>
