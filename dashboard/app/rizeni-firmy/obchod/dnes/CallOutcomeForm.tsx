@@ -9,6 +9,8 @@ import { LEAD_STAGES } from "@/lib/data/leadValidation";
 import { STAGE_LABELS } from "../leadLabels";
 import type { CallResult } from "@/lib/data/dailyCallsValidation";
 import type { LeadStage } from "@/lib/data/leadValidation";
+import HeardFromField from "../leady/[id]/HeardFromField";
+import { isHeardFrom, type HeardFrom } from "@/lib/data/heardFrom";
 
 const initialState: LogCallOutcomeActionState = { status: "idle" };
 
@@ -23,7 +25,18 @@ const initialState: LogCallOutcomeActionState = { status: "idle" };
 // Etapa 0 (rozhodnutí 3 a 6): čas je nepovinný (bez času = 09:00
 // Europe/Prague), nevyplněný termín zachová stávající a smazání je
 // výslovná volba "Smazat naplánovaný kontakt".
-export default function CallOutcomeForm({ itemId }: { itemId: string }) {
+export default function CallOutcomeForm({
+  itemId,
+  heardFrom = null,
+  suggestedHeardFrom = null,
+}: {
+  itemId: string;
+  heardFrom?: string | null;
+  suggestedHeardFrom?: HeardFrom | null;
+}) {
+  const knownHeardFrom = heardFrom !== null && isHeardFrom(heardFrom);
+  const [heardValue, setHeardValue] = useState<string>(knownHeardFrom ? "" : (suggestedHeardFrom ?? ""));
+  const [heardDetail, setHeardDetail] = useState("");
   const boundAction = logDailyCallOutcomeAction.bind(null, itemId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
   const [expanded, setExpanded] = useState(false);
@@ -76,6 +89,20 @@ export default function CallOutcomeForm({ itemId }: { itemId: string }) {
           ))}
         </select>
       </div>
+
+      {(result === "reached_interested" || result === "reached_not_interested") && (
+        <HeardFromField
+          idPrefix={`dc-${itemId}`}
+          required={!knownHeardFrom}
+          known={knownHeardFrom}
+          value={heardValue}
+          detail={heardDetail}
+          onChange={(next) => {
+            if (next.value !== undefined) setHeardValue(next.value);
+            if (next.detail !== undefined) setHeardDetail(next.detail);
+          }}
+        />
+      )}
 
       <textarea
         name="note"

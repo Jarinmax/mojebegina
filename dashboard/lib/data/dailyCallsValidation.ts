@@ -26,6 +26,9 @@ export type DailyCallOutcomeInput = {
   nextFollowUpAtTime: string;
   /** Výslovné smazání naplánovaného kontaktu (Etapa 0, rozhodnutí 6). */
   clearFollowUp?: boolean;
+  /** „Odkud nás zná“ (heardFrom.ts) — povinné u dovolaných, řeší logDailyCallOutcome. */
+  heardFrom?: string;
+  heardFromDetail?: string;
 };
 
 export type ValidatedDailyCallOutcomeInput = {

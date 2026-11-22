@@ -100,7 +100,7 @@ describe("CallOutcomeForm — oznámení úspěchu přes Context (Security Phase
 
     render(
       <DailyCallOutcomeContext.Provider value={{ notifySaved, highlightId: null, registerRef: () => {} }}>
-        <CallOutcomeForm itemId="item-1" />
+        <CallOutcomeForm itemId="item-1" heardFrom="google" />
       </DailyCallOutcomeContext.Provider>
     );
 
@@ -118,5 +118,16 @@ describe("CallOutcomeForm — oznámení úspěchu přes Context (Security Phase
     // Žádný lokální "success" text v téhle komponentě — potvrzení žije
     // v nadřazeném controlleru (DailyCallsWorkArea), ne tady.
     expect(screen.queryByText("Výsledek uložen")).toBeNull();
+  });
+});
+
+describe("CallOutcomeForm — Odkud nás zná (20. 11. 2026)", () => {
+  it("u dovolaného hovoru ukáže povinné pole s předvyplněním z Mety", () => {
+    render(<CallOutcomeForm itemId="item-9" suggestedHeardFrom="facebook_instagram" />);
+    fireEvent.click(screen.getByText("Zapsat výsledek"));
+    fireEvent.change(screen.getByLabelText("Výsledek hovoru"), { target: { value: "reached_interested" } });
+    const select = screen.getByLabelText(/Odkud nás zná/) as HTMLSelectElement;
+    expect(select.required).toBe(true);
+    expect(select.value).toBe("facebook_instagram");
   });
 });

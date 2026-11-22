@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
+import HeardFromField from "./HeardFromField";
+import { heardFromText, isHeardFrom, type HeardFrom } from "@/lib/data/heardFrom";
 import {
   logCallOutcomeAction,
   removeLeadFollowUpAction,
@@ -22,6 +24,12 @@ type Props = {
   calendarSync: LeadCalendarSyncStatus | null;
   /** Kontakt zatím nemá vlastníka — po „Dovolal/a jsem se“ se přiřadí volajícímu. */
   unowned?: boolean;
+  /** Uložené „Odkud nás zná“ (null = nezjištěno) a návrh podle zdroje leadu. */
+  heardFrom?: string | null;
+  heardFromDetail?: string | null;
+  suggestedHeardFrom?: HeardFrom | null;
+  /** Kalendář vlastníka leadu: komu se termín zapíše a jestli je propojený. */
+  calendar?: { ownerName: string | null; connected: boolean; isMe: boolean } | null;
 };
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
@@ -47,9 +55,28 @@ type Props = {
 // stránky nebo uložení jiného formuláře na kartě) a vymaže se až po
 // úspěšném uložení. Čas je předvyplněný 9:00; když ho obchodník smaže a
 // datum nechá, formulář se neodešle a u Času svítí „Doplňte čas“.
-type Draft = { note: string; nextStage: string; date: string; time: string; nextStepNote: string; reached: boolean };
+type Draft = {
+  note: string;
+  nextStage: string;
+  date: string;
+  time: string;
+  nextStepNote: string;
+  reached: boolean;
+  /** null = obchodník pole nezměnil (platí návrh podle zdroje leadu). */
+  heardFrom: string | null;
+  heardFromDetail: string;
+};
 const DEFAULT_TIME = "09:00";
-const emptyDraft = (): Draft => ({ note: "", nextStage: "", date: "", time: DEFAULT_TIME, nextStepNote: "", reached: false });
+const emptyDraft = (): Draft => ({
+  note: "",
+  nextStage: "",
+  date: "",
+  time: DEFAULT_TIME,
+  nextStepNote: "",
+  reached: false,
+  heardFrom: null,
+  heardFromDetail: "",
+});
 const draftKey = (leadId: string) => `mojebegina:zapis-po-hovoru:${leadId}`;
 
 function readDraftRaw(leadId: string): string | null {
@@ -75,10 +102,21 @@ function subscribeStorage(callback: () => void) {
 }
 
 function hasContent(d: Draft): boolean {
-  return Boolean(d.note.trim() || d.nextStage || d.date || d.nextStepNote.trim() || d.reached);
+  return Boolean(d.note.trim() || d.nextStage || d.date || d.nextStepNote.trim() || d.reached || d.heardFrom || d.heardFromDetail.trim());
 }
 
-export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, calendarSync, unowned = false }: Props) {
+export default function CallLogForm({
+  leadId,
+  nextFollowUpAt,
+  nextStepNote,
+  calendarSync,
+  unowned = false,
+  heardFrom = null,
+  heardFromDetail = null,
+  suggestedHeardFrom = null,
+  calendar = null,
+}: Props) {
+  const knownHeardFrom = heardFrom !== null && isHeardFrom(heardFrom);
   // null = obchodník na formuláři zatím nic nezměnil (pak platí uložený rozepsaný zápis).
   const [draft, setDraft] = useState<Draft | null>(null);
   const [timeMissing, setTimeMissing] = useState(false);
@@ -248,6 +286,25 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
           ) : (
             <p className="text-xs text-neutral-400 mt-1">Čas je předvyplněný na 9:00. Bez data zůstane termín beze změny.</p>
           )}
+          {calendar && (
+            <p className={`text-xs mt-1 ${calendar.connected ? "text-emerald-700" : "text-amber-700"}`}>
+              {calendar.connected ? (
+                <>📅 Zapíše se do Google kalendáře{calendar.isMe ? "" : `: ${calendar.ownerName ?? "obchodníka"}`}.</>
+              ) : calendar.isMe ? (
+                <>
+                  📅 Do kalendáře se ti zatím nezapisuje.{" "}
+                  <a
+                    href={`/api/google-calendar/connect?zpet=${encodeURIComponent(`/rizeni-firmy/obchod/leady/${leadId}`)}`}
+                    className="font-medium underline"
+                  >
+                    Propojit Google kalendář
+                  </a>
+                </>
+              ) : (
+                <>📅 {calendar.ownerName ?? "Obchodník"} zatím nemá propojený Google kalendář.</>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -266,21 +323,40 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
         />
       </div>
 
-      {unowned && (
-        <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-begina-primary-900">
-          <input
-            type="checkbox"
-            name="reached"
-            value="1"
-            checked={current.reached}
-            onChange={(e) => update({ reached: e.target.checked })}
-            className="mt-0.5 h-4 w-4"
-          />
-          <span>
-            Dovolal/a jsem se
-            <span className="block text-xs text-neutral-600">Kontakt zatím nikomu nepatří — po uložení se přiřadí vám.</span>
-          </span>
-        </label>
+      <label className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-begina-primary-900">
+        <input
+          type="checkbox"
+          name="reached"
+          value="1"
+          checked={current.reached}
+          onChange={(e) => update({ reached: e.target.checked })}
+          className="mt-0.5 h-4 w-4"
+        />
+        <span>
+          Dovolal/a jsem se
+          {unowned && (
+            <span className="block text-xs text-neutral-600">Kontakt zatím nikomu nepatří — po uložení se přiřadí tobě.</span>
+          )}
+        </span>
+      </label>
+
+      {current.reached && (
+        <HeardFromField
+          idPrefix={`lead-${leadId}`}
+          required={!knownHeardFrom}
+          known={knownHeardFrom}
+          value={current.heardFrom ?? (knownHeardFrom ? "" : (suggestedHeardFrom ?? ""))}
+          detail={current.heardFromDetail}
+          onChange={(next) =>
+            update({
+              ...(next.value !== undefined ? { heardFrom: next.value } : {}),
+              ...(next.detail !== undefined ? { heardFromDetail: next.detail } : {}),
+            })
+          }
+        />
+      )}
+      {!current.reached && knownHeardFrom && (
+        <p className="text-xs text-neutral-500">Odkud nás zná: {heardFromText(heardFrom, heardFromDetail)}</p>
       )}
 
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
@@ -292,7 +368,7 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
         type="submit"
         data-main="1"
         disabled={pending}
-        className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 disabled:opacity-50 self-start"
+        className="w-full text-base font-semibold text-begina-primary-50 bg-begina-primary-900 rounded-xl px-4 py-3 disabled:opacity-50"
       >
         {pending ? "Ukládám…" : "Uložit zápis"}
       </button>

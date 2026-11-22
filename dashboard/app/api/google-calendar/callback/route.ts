@@ -16,8 +16,9 @@ const REDIRECT_TARGET = "/rizeni-firmy/obchod/dnes";
 // Etapa 0 — návratová adresa ze sdíleného getAppOrigin() (v Production pevně
 // https://moje.begina.cz), ne z NEXT_PUBLIC_APP_URL, která v Production
 // nastavená není (dřív by se po propojení přesměrovalo na localhost).
-async function redirectWithStatus(status: "connected" | "error", message?: string): Promise<NextResponse> {
-  const url = new URL(REDIRECT_TARGET, await getAppOrigin());
+async function redirectWithStatus(status: "connected" | "error", message?: string, returnTo?: string | null): Promise<NextResponse> {
+  const target = returnTo && returnTo.startsWith("/rizeni-firmy") && !returnTo.startsWith("//") ? returnTo : REDIRECT_TARGET;
+  const url = new URL(target, await getAppOrigin());
   url.searchParams.set("googleCalendar", status);
   if (message) url.searchParams.set("googleCalendarError", message);
   return NextResponse.redirect(url);
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     return await redirectWithStatus("error", "Propojení vypršelo, zkuste to prosím znovu.");
   }
 
-  let flight: OAuthFlightState;
+  let flight: OAuthFlightState & { returnTo?: string | null };
   try {
     flight = JSON.parse(raw);
   } catch {
@@ -43,12 +44,12 @@ export async function GET(request: Request) {
   const returnedState = searchParams.get("state") ?? "";
   const code = searchParams.get("code") ?? "";
   if (!code) {
-    return await redirectWithStatus("error", "Google nevrátil autorizační kód.");
+    return await redirectWithStatus("error", "Google nevrátil autorizační kód.", flight.returnTo);
   }
 
   const result = await completeGoogleCalendarConnect(flight, returnedState, code);
   if (!result.ok) {
-    return await redirectWithStatus("error", result.error);
+    return await redirectWithStatus("error", result.error, flight.returnTo);
   }
-  return await redirectWithStatus("connected");
+  return await redirectWithStatus("connected", undefined, flight.returnTo);
 }

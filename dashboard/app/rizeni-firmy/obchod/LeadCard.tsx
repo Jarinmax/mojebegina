@@ -4,6 +4,7 @@ import LeadStageBadge, { FollowUpBadge } from "./LeadStageBadge";
 import { SOURCE_LABELS, VENUE_TYPE_LABELS } from "./leadLabels";
 import type { LeadCardData } from "@/lib/data/leads";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
+import { heardFromText } from "@/lib/data/heardFrom";
 
 export default function LeadCard({ lead, fresh = false }: { lead: LeadCardData; fresh?: boolean }) {
   const highlight = lead.isNew || fresh;
@@ -36,6 +37,15 @@ export default function LeadCard({ lead, fresh = false }: { lead: LeadCardData; 
         {lead.city && <span>· {lead.city}</span>}
         {lead.venueType && <span>· {VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType}</span>}
       </div>
+
+      {lead.lastContactedAt && !lead.heardFrom && (
+        <p className="mb-2 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+          Chybí: odkud nás zná
+        </p>
+      )}
+      {lead.heardFrom && (
+        <p className="mb-2 text-xs text-neutral-500">Zná nás: {heardFromText(lead.heardFrom, lead.heardFromDetail)}</p>
+      )}
 
       {lead.nextStepNote && <p className="text-sm text-neutral-600 mb-2 line-clamp-2">{lead.nextStepNote}</p>}
 

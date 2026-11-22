@@ -35,6 +35,8 @@ function baseItem(overrides: Partial<QueueItemCardData> = {}): QueueItemCardData
     lastContactedAt: null,
     notInterested: false,
     nextFollowUpAt: null,
+    heardFrom: null,
+    suggestedHeardFrom: null,
     activity: [],
     ...overrides,
   };

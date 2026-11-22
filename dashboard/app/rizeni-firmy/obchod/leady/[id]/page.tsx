@@ -17,6 +17,8 @@ import { getLeadPurchaseHistory } from "@/lib/data/purchaseHistorySync";
 import PurchaseHistoryCard from "./PurchaseHistoryCard";
 import { getAuthContext } from "@/lib/data/authContext";
 import { canReadSalesManual } from "@/lib/data/salesManualAuth";
+import { suggestHeardFrom } from "@/lib/data/heardFrom";
+import { getGoogleCalendarConnectionStatus } from "@/lib/data/googleCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,24 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
   const { lead, activity } = detail;
   const [staff, sourceOrders, reward, purchases] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getLeadPurchaseHistory(db, lead.id)]);
 
-  const showManual = canReadSalesManual(await getAuthContext());
+  // Komu se termín dalšího kontaktu zapíše do Google kalendáře (vlastník
+  // leadu; u leadu bez vlastníka ten, kdo se dovolá = přihlášený).
+  const ctx = await getAuthContext();
+  const calendarUserId = lead.ownerUserId ?? ctx?.userId ?? null;
+  let calendar: { ownerName: string | null; connected: boolean; isMe: boolean } | null = null;
+  if (calendarUserId) {
+    try {
+      const status = await getGoogleCalendarConnectionStatus(calendarUserId);
+      calendar = {
+        ownerName: lead.ownerName,
+        connected: status.connected,
+        isMe: calendarUserId === ctx?.userId,
+      };
+    } catch {
+      calendar = null;
+    }
+  }
+  const showManual = canReadSalesManual(ctx);
 
   const venueTypeLabel = lead.venueType
     ? (VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType)
@@ -112,6 +131,10 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             nextStepNote={lead.nextStepNote}
             calendarSync={lead.calendarSync}
             unowned={lead.ownerUserId === null}
+            heardFrom={lead.heardFrom}
+            heardFromDetail={lead.heardFromDetail}
+            suggestedHeardFrom={suggestHeardFrom(lead.source)}
+            calendar={calendar}
           />
         </div>
       )}
@@ -130,7 +153,18 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
         <CompanyNameForm leadId={lead.id} companyName={lead.companyName} />
       </div>
 
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+      {/* 22. 11. 2026: přiřazení obchodníka je zabalené, ať pod zápisem
+          po hovoru nesvítí další tlačítka k uložení. */}
+      <details className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm">
+          <span>
+            <span className="text-neutral-500">Obchodník: </span>
+            <span className="font-medium text-begina-primary-900">{lead.ownerName ?? "nikdo"}</span>
+          </span>
+          <span className="font-medium text-begina-primary-900 underline underline-offset-2 group-open:hidden">Upravit</span>
+          <span className="hidden text-neutral-500 group-open:inline">Zavřít</span>
+        </summary>
+        <div className="mt-3">
         <LeadOwnerForm
           leadId={lead.id}
           ownerUserId={lead.ownerUserId}
@@ -139,7 +173,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           acquiredByName={lead.acquiredByName}
           staff={staff}
         />
-      </div>
+        </div>
+      </details>
 
       {reward.visible && (
         <RewardAssignmentPanel

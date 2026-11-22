@@ -105,7 +105,7 @@ async function CuratorSections({ focusId }: { focusId: string | null }) {
         published.map((item, i) => (
           <QueueItemCard key={item.id} item={item} orderNumber={draft.length + i + 1}>
             <CuratorItemControls itemId={item.id} isFirst={i === 0} isLast={i === published.length - 1} />
-            <CallOutcomeForm itemId={item.id} />
+            <CallOutcomeForm itemId={item.id} heardFrom={item.heardFrom} suggestedHeardFrom={item.suggestedHeardFrom} />
           </QueueItemCard>
         ))
       ),
@@ -144,7 +144,7 @@ async function WorkerSections({ focusId }: { focusId: string | null }) {
       ),
       items: carriedOver.map((item, i) => (
         <QueueItemCard key={item.id} item={item} orderNumber={i + 1}>
-          <CallOutcomeForm itemId={item.id} />
+          <CallOutcomeForm itemId={item.id} heardFrom={item.heardFrom} suggestedHeardFrom={item.suggestedHeardFrom} />
         </QueueItemCard>
       )),
     });
@@ -155,7 +155,7 @@ async function WorkerSections({ focusId }: { focusId: string | null }) {
       header: <h2 className="text-sm font-medium text-begina-primary-900 mb-2">Dnešní volání ({today.length})</h2>,
       items: today.map((item, i) => (
         <QueueItemCard key={item.id} item={item} orderNumber={carriedOver.length + i + 1}>
-          <CallOutcomeForm itemId={item.id} />
+          <CallOutcomeForm itemId={item.id} heardFrom={item.heardFrom} suggestedHeardFrom={item.suggestedHeardFrom} />
         </QueueItemCard>
       )),
     });

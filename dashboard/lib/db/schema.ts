@@ -799,6 +799,11 @@ export const leads = pgTable("leads", {
   // (prázdný) jen kvůli bezpečnému nasazení bez mazání dat.
   scheduledCallAt: timestamp("scheduled_call_at", { withTimezone: true }),
   nextStepNote: text("next_step_note"),
+  // „Odkud nás zná“ (Lucie 20. 11. 2026) — povinné po hovoru, ve kterém se
+  // obchodník dovolal. Hodnoty viz lib/data/heardFrom.ts (HEARD_FROM_OPTIONS);
+  // detail = upřesnění (od koho, která kavárna, u „jine“ povinně).
+  heardFrom: text("heard_from"),
+  heardFromDetail: text("heard_from_detail"),
   convertedOrganizationId: uuid("converted_organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1158,6 +1163,9 @@ export const leadCalendarSync = pgTable("lead_calendar_sync", {
     .primaryKey()
     .references(() => leads.id),
   googleEventId: text("google_event_id"),
+  // Čí kalendář událost drží (20. 11. 2026: každý obchodník má vlastní
+  // propojení) — při změně vlastníka leadu se stará událost smaže.
+  syncedUserId: text("synced_user_id"),
   syncedNextFollowUpAt: timestamp("synced_next_follow_up_at", { withTimezone: true }),
   syncStatus: text("sync_status").notNull().default("pending"), // "pending" | "synced" | "failed"
   lastError: text("last_error"),
