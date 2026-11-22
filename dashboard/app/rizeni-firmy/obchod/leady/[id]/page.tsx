@@ -8,7 +8,7 @@ import RewardAssignmentPanel from "./RewardAssignmentPanel";
 import { getLeadRewardAssignment } from "@/lib/data/jardaRewards";
 import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
 import LeadOwnerForm from "./LeadOwnerForm";
-import CompanyNameForm from "./CompanyNameForm";
+import CompanyDetailsForm from "./CompanyDetailsForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
 import { leadBackLink } from "@/lib/data/callHistoryValidation";
@@ -150,9 +150,9 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
         <p className={`text-xs mb-2 ${lead.companyName ? "text-neutral-500" : "text-amber-800"}`}>
           {lead.companyName
             ? "Firma / provozovna"
-            : "Firma/provozovna zatím neznámá — doplň, jakmile ji při hovoru zjistíš."}
+            : "Firma/provozovna zatím neznámá — doplň ji (stačí IČO nebo název, zbytek se doplní z ARES)."}
         </p>
-        <CompanyNameForm leadId={lead.id} companyName={lead.companyName} />
+        <CompanyDetailsForm leadId={lead.id} companyName={lead.companyName} ico={lead.ico} address={lead.address} />
       </div>
 
       {/* 22. 11. 2026: přiřazení obchodníka je zabalené, ať pod zápisem
@@ -230,24 +230,14 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
       <PurchaseHistoryCard history={purchases.history} lastSync={purchases.lastSync} />
 
       <details className="bg-white border border-neutral-200 rounded-xl px-4 py-3 mb-4">
-        <summary className="cursor-pointer text-sm text-neutral-600">Další údaje (zdroj, IČO, adresa)</summary>
+        <summary className="cursor-pointer text-sm text-neutral-600">Další údaje (zdroj)</summary>
         <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-neutral-500 mb-0.5">Zdroj</p>
             <p className="text-sm text-begina-primary-900">{SOURCE_LABELS[lead.source as LeadSource] ?? lead.source}</p>
           </div>
-          <div>
-            <p className="text-xs text-neutral-500 mb-0.5">IČO (pomocné)</p>
-            <p className="text-sm text-begina-primary-900">{lead.ico ?? "Neuvedeno"}</p>
-          </div>
         </div>
-        {lead.address && (
-          <div>
-            <p className="text-xs text-neutral-500 mb-0.5">Adresa</p>
-            <p className="text-sm text-begina-primary-900">{lead.address}</p>
-          </div>
-        )}
         </div>
       </details>
 

@@ -1,9 +1,10 @@
 "use server";
 
-// Převod leadu na zákazníka — předvyplnění firmy z ARES (Jarin 22. 11. 2026):
-// obchodník napíše IČO nebo název a formulář doplní oficiální název a sídlo.
-// Jen čtení veřejného registru, nic nezapisuje. Volat smí jen ten, kdo smí
-// zakládat organizace (ADMIN) — stejné omezení jako formulář.
+// Předvyplnění firmy z ARES (Jarin 22. 11. 2026): obchodník napíše IČO nebo
+// název a formulář doplní oficiální název a sídlo — v detailu leadu (Firma)
+// i při převodu na zákazníka. Jen čtení veřejného registru, nic nezapisuje.
+// Volat smí každý s přístupem do CRM (ADMIN, EXECUTIVE — stejná brána jako
+// crmAuth.ts).
 import { getAuthContext } from "@/lib/data/authContext";
 import { aresAddressLine, lookupAres, searchAresByName, type AresCompany } from "@/lib/eshop/ares";
 
@@ -23,7 +24,7 @@ function toPrefill(company: AresCompany): AresPrefill {
 
 async function allowed(): Promise<boolean> {
   const ctx = await getAuthContext();
-  return ctx?.systemRole === "ADMIN";
+  return ctx?.systemRole === "ADMIN" || ctx?.systemRole === "EXECUTIVE";
 }
 
 export async function aresLookupByIcoAction(rawIco: string): Promise<AresLookupResponse> {

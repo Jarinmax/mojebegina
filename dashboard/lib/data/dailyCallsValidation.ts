@@ -238,7 +238,7 @@ export function interpretCallLogOutcome(insertedRowCount: number): { ok: true } 
 //     explicitně jako budoucí rozšiřovací bod pro importní poznámku bez
 //     nutnosti měnit tenhle filtr.
 // Ostatní druhy (stage_changed, owner_assigned, acquired_by_set,
-// converted, company_name_set, follow_up_removed) jsou administrativní
+// converted, company_name_set, company_details_set, follow_up_removed) jsou administrativní
 // záznamy CRM, ne poznámky k přípravě na hovor — vyloučené i kdyby měly
 // `body` vyplněné.
 export const RELEVANT_ACTIVITY_KINDS = ["call_logged", "created"] as const;

@@ -164,6 +164,28 @@ export function validateCompanyNameInput(
   return { ok: true, value: value === "" ? null : value };
 }
 
+// Jarin 22. 11. 2026: firma u leadu (název, IČO, sídlo) — obchodník ji
+// doplní v detailu leadu (s předvyplněním z ARES), převod na zákazníka ji
+// pak převezme. Prázdné pole = smazat (null).
+export type LeadCompanyDetailsInput = { companyName: string; ico: string; address: string };
+export type LeadCompanyDetails = { companyName: string | null; ico: string | null; address: string | null };
+
+export function validateLeadCompanyDetailsInput(
+  raw: LeadCompanyDetailsInput
+): { ok: true; value: LeadCompanyDetails } | { ok: false; error: string } {
+  const name = validateCompanyNameInput(raw.companyName);
+  if (!name.ok) return name;
+  const ico = raw.ico.replace(/\s/g, "");
+  if (ico !== "" && !/^\d{8}$/.test(ico)) {
+    return { ok: false, error: "IČO musí mít přesně 8 číslic (nebo nechte prázdné)." };
+  }
+  const address = raw.address.trim();
+  if (address.length > 300) {
+    return { ok: false, error: "Adresa je příliš dlouhá (max. 300 znaků)." };
+  }
+  return { ok: true, value: { companyName: name.value, ico: ico || null, address: address || null } };
+}
+
 export function validateStageInput(
   rawStage: string
 ): { ok: true; value: LeadStage } | { ok: false; error: string } {

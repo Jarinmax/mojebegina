@@ -30,6 +30,7 @@ import {
   validateStageInput,
   validateCallLogInput,
   validateCompanyNameInput,
+  validateLeadCompanyDetailsInput,
   validateNoteInput,
   validateNextStepInput,
   likePattern,
@@ -43,6 +44,7 @@ import {
   type CallLogInput,
   type NextStepInput,
   type LeadStage,
+  type LeadCompanyDetailsInput,
 } from "./leadValidation";
 import { reconcileLeadCalendarEvent, upsertPendingLeadCalendarSync } from "./googleCalendar";
 import type { AuthContext } from "./types";
@@ -781,6 +783,51 @@ export async function updateLeadCompanyName(leadId: string, rawCompanyName: stri
       authorName: ctx.name,
       kind: "company_name_set",
       metadata: { from: current.companyName, to: validated.value },
+    }),
+  ]);
+
+  return { ok: true };
+}
+
+// Jarin 22. 11. 2026: obchodník (i bez práva zakládat organizace) doplní
+// u leadu firmu — název, IČO, sídlo, předvyplněné z ARES. Převod na zákazníka
+// (ADMIN) je pak jen potvrzení. Organizaci to nezakládá.
+export async function updateLeadCompanyDetails(
+  leadId: string,
+  rawInput: LeadCompanyDetailsInput
+): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateLeadCompanyDetailsInput(rawInput);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+
+  const [current] = await db
+    .select({ companyName: leads.companyName, ico: leads.ico, address: leads.address })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  const next = validated.value;
+  if (current.companyName === next.companyName && current.ico === next.ico && current.address === next.address) {
+    return { ok: true };
+  }
+
+  await db.batch([
+    db
+      .update(leads)
+      .set({ companyName: next.companyName, ico: next.ico, address: next.address, updatedAt: new Date() })
+      .where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "company_details_set",
+      metadata: { from: current, to: next },
     }),
   ]);
 
