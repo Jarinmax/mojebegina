@@ -54,10 +54,24 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
         </p>
       )}
 
+      {page.jumpLinks && page.jumpLinks.length > 1 && (
+        <nav aria-label="Oddíly stránky" className="mt-4 flex flex-wrap gap-2">
+          {page.jumpLinks.map((link) => (
+            <a
+              key={link.anchor}
+              href={`#${link.anchor}`}
+              className="inline-flex items-center rounded-full border border-begina-primary-900/20 bg-white px-4 py-2 text-sm font-medium text-begina-primary-900 hover:bg-begina-primary-900/5"
+            >
+              {link.label} ↓
+            </a>
+          ))}
+        </nav>
+      )}
+
       {page.blocks ? (
         <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
           {page.blocks.map((block, i) => (
-            <section key={block.heading ?? i}>
+            <section key={block.heading ?? i} id={block.anchor} className={block.anchor ? "scroll-mt-28" : undefined}>
               {block.heading && <h2 className="font-medium text-lg text-begina-primary-900 mb-2">{block.heading}</h2>}
               {block.subheading && <h3 className="font-medium text-begina-primary-900 mb-1.5">{block.subheading}</h3>}
               {block.paragraphs?.map((text, j) => (
@@ -95,8 +109,8 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                   <tbody>
                     {block.rows.map(([left, right], j) => (
                       <tr key={left} className={j % 2 === 1 ? "bg-neutral-50" : "bg-white"}>
-                        <th scope="row" className="text-left font-normal px-4 py-1.5 border-t border-neutral-100">{left}</th>
-                        <td className="text-right font-medium text-begina-primary-900 whitespace-nowrap px-4 py-1.5 border-t border-neutral-100">{right}</td>
+                        <th scope="row" className="text-left align-middle leading-normal font-normal px-4 py-1.5 border-t border-neutral-100">{left}</th>
+                        <td className="text-right align-middle leading-normal font-medium text-begina-primary-900 whitespace-nowrap px-4 py-1.5 border-t border-neutral-100">{right}</td>
                       </tr>
                     ))}
                   </tbody>
