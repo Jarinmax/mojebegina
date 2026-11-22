@@ -5,7 +5,7 @@ export const HOME_WHY = [
   // 16. 11. 2026 (Lucie): trvanlivost po otevření jako první
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
   { icon: "leaf", title: "100% rostlinné polévky a nealko nápoje", text: "Polévky a nealkoholické nápoje jsou bez živočišných surovin." },
-  { icon: "soup", title: "Porce už od 3,30 Kč", text: "Nápoj ze sirupu od 3,30 Kč, porce polévky za 31,60 Kč." },
+  { icon: "soup", title: "Porce už od 3,33 Kč", text: "Nápoj ze sirupu od 3,33 Kč, porce polévky za 31,58 Kč." },
   // 14. 11. 2026 (Lucie): partnerský program má být vidět na úvodu, dlaždice vede na stránku programu
   { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší sleva: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
 ] as const;
@@ -56,7 +56,7 @@ export const HOME_HERO_OFFER = "K první třílitrové begině na IČO přibalí
 export const HOME_TILE_CAFE = {
   title: "Pro kavárny a bistra",
   points: [
-    "K první begině 2 polévky a 2 sirupy na ochutnání zdarma.",
+    "K první begině 2 vzorky polévek a 2 vzorky sirupů zdarma.",
     "Objednáte přímo tady na e-shopu, na firmu i s IČO.",
     "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %).",
   ],

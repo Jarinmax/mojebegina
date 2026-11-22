@@ -25,6 +25,7 @@ import TastingSetForm from "@/components/eshop/TastingSetForm";
 import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
+import VariantOnly from "@/components/eshop/VariantOnly";
 import { boxNote } from "@/lib/eshop/boxOption";
 import { askSamplesLink } from "@/lib/eshop/cafePage";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
@@ -323,13 +324,19 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
           {/* Odkaz pro provozy pod Do košíku (Lucie 20. 11. 2026) */}
           {/* 22. 11. 2026 (Lucie): „První begina + 4 vzorky zdarma“ jen u produktů, jejichž begina 3 l jde v akci vybrat */}
+          {/* a jen při zvoleném třílitrovém balení (ne u 650 ml) — 22. 11. 2026 večer */}
           {isOrderable(product) && !isSet && product.variants.some((variant) => variant.soldOut !== true && isTastingBegina(product, variant)) && (
-            <p className="mt-3 text-sm text-neutral-700">
-              {CAFE_PRODUCT_LINE.text}{" "}
-              <ShopLink href={`${CAFE_PATH}#ochutnavka`} className="font-medium text-[#4A5527] underline underline-offset-4">
-                {CAFE_PRODUCT_LINE.link} →
-              </ShopLink>
-            </p>
+            <VariantOnly
+              skus={product.variants.filter((variant) => variant.soldOut !== true && isTastingBegina(product, variant)).map((variant) => variant.sku)}
+              defaultSku={(product.variants.find((variant) => variant.soldOut !== true) ?? product.variants[0]).sku}
+            >
+              <p className="mt-3 text-sm text-neutral-700">
+                {CAFE_PRODUCT_LINE.text}{" "}
+                <ShopLink href={`${CAFE_PATH}#ochutnavka`} className="font-medium text-[#4A5527] underline underline-offset-4">
+                  {CAFE_PRODUCT_LINE.link} →
+                </ShopLink>
+              </p>
+            </VariantOnly>
           )}
 
           {showSetLink && (

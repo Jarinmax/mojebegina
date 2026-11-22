@@ -73,7 +73,7 @@ function soupPriceNote(): string {
   return `Tři litry polévky stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml. Doprava začíná na ${kc(soupShippingFromKc())} za celou zásilku a řídí se celkovou hmotností objednávky. Příklady platí bez slevy, v pásmu dopravy do 14,99 kg. Osobní odběr ve Viticích je po domluvě zdarma.`;
 }
 function soupPortionAnswer(): string {
-  return `Polévka v begině 3 l stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml – samotná porce vychází na 31,60 Kč. ${soupPortionRows().map((row) => `${row.order} (${row.portions} porcí) stojí s dopravou ${kc(row.totalKc)}, porce ${kc(row.perPortionKc)}`).join("; ")}.`;
+  return `Polévka v begině 3 l stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml – samotná porce vychází na 31,58 Kč. ${soupPortionRows().map((row) => `${row.order} (${row.portions} porcí) stojí s dopravou ${kc(row.totalKc)}, porce ${kc(row.perPortionKc)}`).join("; ")}.`;
 }
 const PORTION_QUESTION = "Kolik stojí porce polévky včetně dopravy?";
 
@@ -85,7 +85,7 @@ const DELIVERY_ANSWER =
 const ORDER_ANSWER =
   "Objednáte přímo na e-shopu begina.cz, na firmu i s IČO. Ceny jsou stejné jako na e-shopu a při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.";
 const TASTING_ANSWER =
-  "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 polévky a 2 sirupy na ochutnání zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.";
+  "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.";
 
 const product = (label: string, slug: string): LandingLink => ({ label, href: `/produkt/${slug}` });
 
@@ -94,7 +94,7 @@ export const LANDING_PAGES: LandingPage[] = [
     path: "/polevky-pro-kavarny",
     title: "Hotové polévky pro kavárny a bistra s dovozem po celé ČR",
     // Texty podle dokumentu ChatGPT „SEO pro kavárny“ (Lucie 22. 11. 2026): „doručíme“, ne „dovážíme“.
-    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Posíláme chlazeně po celé ČR. K první begině 2 polévky a 2 sirupy na ochutnání zdarma.",
+    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Posíláme chlazeně po celé ČR. K první begině 2 vzorky polévek a 2 vzorky sirupů na ochutnání zdarma.",
     intro: [
       "Do kaváren a bister po celé České republice doručujeme hotové rostlinné polévky z čisté filtrované vody. Na polední menu si můžete vybrat třeba kulajdu, dýňovou polévku nebo gulášovou polévku z hlívy ústřičné.",
       "Každou polévku Vám pošleme chlazenou v třílitrovém sáčku s kohoutkem. Když si host objedná, natočíte jednu porci, ohřejete ji a podáváte.",
@@ -111,7 +111,7 @@ export const LANDING_PAGES: LandingPage[] = [
     benefits: [
       { title: "Bez práce", text: "Polévku stačí ohřát a podávat." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Po otevření vydrží v lednici 14 dní." },
-      { title: "Spočítané porce", text: "Begina 3 l za 379 Kč vystačí až na 12 porcí po 250 ml – porce za 31,60 Kč." },
+      { title: "Spočítané porce", text: "Begina 3 l za 379 Kč vystačí až na 12 porcí po 250 ml – porce za 31,58 Kč." },
       { title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
     ],
     faq: [
@@ -141,7 +141,7 @@ export const LANDING_PAGES: LandingPage[] = [
     description: "Polévky Begina jsou z rostlinných surovin, bez masa a mléčných výrobků – vhodné pro vegany i vegetariány. V begině 3 l s kohoutkem, doprava po celé ČR.",
     intro: [
       "Všechny polévky Begina jsou z rostlinných surovin, bez masa a mléčných výrobků, vhodné pro vegany i vegetariány.",
-      "Vaříme je ze zeleniny, hub, bylinek, koření a čisté filtrované vody. Kavárnám a bistrům je dovážíme po celé ČR chlazenou přepravou.",
+      "Vaříme je ze zeleniny, hub, bylinek, koření a čisté filtrované vody. Kavárnám a bistrům je posíláme chlazeně po celé ČR.",
     ],
     benefits: [
       { title: "100% rostlinné", text: "Polévky jsou vhodné pro vegany i vegetariány." },
@@ -152,7 +152,7 @@ export const LANDING_PAGES: LandingPage[] = [
     faq: [
       { question: "Jsou vaše polévky veganské?", answer: "Ano. Všechny polévky Begina jsou z rostlinných surovin, bez masa a mléčných výrobků, vhodné pro vegany i vegetariány." },
       { question: "Jaké veganské polévky nabízíte?", answer: "Dýňovou polévku, Kulajdu, Tomatovou polévku, Rajčatovou polévku s červenou řepou, Gulášovou polévku z hlívy ústřičné a Špenátovou polévku." },
-      { question: "Kolik stojí porce polévky?", answer: "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,60 Kč." },
+      { question: "Kolik stojí porce polévky?", answer: "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč." },
       { question: "Dovezete polévky po celé ČR?", answer: DELIVERY_ANSWER },
       { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
     ],
@@ -167,7 +167,7 @@ export const LANDING_PAGES: LandingPage[] = [
   {
     path: "/bylinne-sirupy-pro-kavarny",
     title: "Bylinné sirupy pro kavárny a bary",
-    description: "Bylinné sirupy Begina z bylinek, koření, třtinového cukru a čisté filtrované vody. Begina 3 l s kohoutkem až na 150 nápojů, nápoj od 3,30 Kč.",
+    description: "Bylinné sirupy Begina z bylinek, koření, třtinového cukru a čisté filtrované vody. Begina 3 l s kohoutkem až na 150 nápojů, nápoj od 3,33 Kč.",
     intro: [
       "Bylinné sirupy Begina vaříme z bylinek, koření, třtinového cukru a čisté filtrované vody. Bez umělých aromat a barviv.",
       "Z jednoho sirupu připravíte limonádu, horký nápoj i koktejl. Pro provoz je nejvýhodnější třílitrová begina s kohoutkem.",
@@ -175,14 +175,14 @@ export const LANDING_PAGES: LandingPage[] = [
     ctas: [{ label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` }],
     priceTable: { title: "Kolik vyjde nápoj včetně dopravy?", rows: [], note: "", kind: "syrup" },
     benefits: [
-      { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů, nápoj už od 3,30 Kč." },
+      { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů, nápoj už od 3,33 Kč." },
       { title: "Jednoduché ředění", text: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci. Po otevření vydrží v lednici 3 měsíce." },
       { title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
     ],
     faq: [
       { question: "Jak se sirup ředí?", answer: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj. Hodí se i do koktejlů a do kuchyně." },
-      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů, nápoj vychází už od 3,30 Kč." },
+      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů, nápoj vychází už od 3,33 Kč." },
       { question: "Jak dlouho vydrží sirup po otevření?", answer: "Sirupy po otevření vydrží v lednici 3 měsíce." },
       { question: "Jak objednat sirupy do provozu?", answer: ORDER_ANSWER },
       { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },

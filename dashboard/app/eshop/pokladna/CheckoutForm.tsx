@@ -64,7 +64,7 @@ import {
 const initialState: CheckoutState = null;
 
 const inputClass =
-  "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white focus:outline-none focus:border-begina-primary-700";
+  "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-base sm:text-sm text-begina-primary-900 bg-white focus:outline-none focus:border-begina-primary-700";
 const labelClass = "text-xs text-neutral-500 mb-1 block";
 
 // Pole jsou řízená (controlled) — React 19 po dokončení form action

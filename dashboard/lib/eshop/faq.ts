@@ -38,17 +38,17 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Kolik stojí porce polévky?",
     answer:
-      "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,60 Kč. Nápoj ze sirupu vychází od 3,30 Kč.",
+      "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč. Nápoj ze sirupu vychází od 3,33 Kč.",
   },
   {
     question: "Můžu si objednat i domů?",
     answer:
-      "Ano. Objednáte na e-shopu begina.cz a doručíme vám chlazenou přepravou až domů. Bylinné sirupy jsou v begině 3 l od 499 Kč a ochutnávkový set 5 sirupů stojí 349 Kč.",
+      "Ano. Objednat si můžete i domů. Polévky posíláme chlazeně po celé ČR. Před doručením se Vám ozve dopravce.",
   },
   {
     question: "Jak ochutnat polévky a sirupy do provozu?",
     answer:
-      "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 polévky a 2 sirupy na ochutnání zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.",
+      "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.",
   },
   {
     question: "Mají kavárny a bistra zvláštní ceník?",

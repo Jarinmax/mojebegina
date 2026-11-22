@@ -62,7 +62,7 @@ export default async function EshopPage() {
       {/* 22. 11. 2026 (Lucie, návrh ChatGPT): ceny porcí s dopravou ve dvou kartách, pod nimi Nakupujete domů */}
       <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} />
       {/* šest obrázkových kategorií zůstává (návrh ChatGPT 22. 11. 2026); „Proč Beginu…“ spojeno s Jak funguje begina */}
-      <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} /></div>
+      <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} /></div>
       {HOME_VENUES.length > 0 && (
         <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
           <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_VENUES_TITLE}</h2>

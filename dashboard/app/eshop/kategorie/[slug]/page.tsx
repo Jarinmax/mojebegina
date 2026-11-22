@@ -62,12 +62,13 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
         Všechny kategorie
       </ShopLink>
 
-      <section className="text-center max-w-3xl mx-auto mb-8">
+      <section className="text-center max-w-3xl mx-auto mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{category.name}</h1>
         {category.intro.map((paragraph, index) => {
           const [head, last] = splitLastSentence(paragraph);
           return (
-            <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "text-neutral-600"}`}>
+            // mobil: nad produkty jen první odstavec, delší popis až pod nimi (zadání 22. 11. 2026 večer)
+            <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "hidden sm:block text-neutral-600"}`}>
               {head}
               {last && (
                 <>
@@ -80,7 +81,7 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
         })}
         {category.ageRestricted && <p className="mt-3 font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>}
         {category.slug === "polevky" && (
-          <p className="mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-base text-neutral-800">
+          <p className="mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-sm sm:text-base text-neutral-800">
             {CATEGORY_SOUPS_TEASER.text}{" "}
             <ShopLink href={CATEGORY_SOUPS_TEASER.pricesHref} className="font-semibold text-[#4A5527] underline underline-offset-4">
               {CATEGORY_SOUPS_TEASER.pricesLabel}
@@ -103,6 +104,13 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
             <ProductCard key={product.slug} product={product} />
           ))}
         </ul>
+      )}
+      {category.intro.length > 1 && (
+        <section className="sm:hidden mt-8 text-center max-w-3xl mx-auto">
+          {category.intro.slice(1).map((paragraph) => (
+            <p key={paragraph} className="mt-3 text-neutral-600">{paragraph}</p>
+          ))}
+        </section>
       )}
     </div>
   );
