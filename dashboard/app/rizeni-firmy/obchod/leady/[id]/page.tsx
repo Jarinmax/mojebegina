@@ -130,7 +130,18 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
         <CompanyNameForm leadId={lead.id} companyName={lead.companyName} />
       </div>
 
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+      {/* 22. 11. 2026: přiřazení obchodníka je zabalené, ať pod zápisem
+          po hovoru nesvítí další tlačítka k uložení. */}
+      <details className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm">
+          <span>
+            <span className="text-neutral-500">Obchodník: </span>
+            <span className="font-medium text-begina-primary-900">{lead.ownerName ?? "nikdo"}</span>
+          </span>
+          <span className="font-medium text-begina-primary-900 underline underline-offset-2 group-open:hidden">Upravit</span>
+          <span className="hidden text-neutral-500 group-open:inline">Zavřít</span>
+        </summary>
+        <div className="mt-3">
         <LeadOwnerForm
           leadId={lead.id}
           ownerUserId={lead.ownerUserId}
@@ -139,7 +150,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           acquiredByName={lead.acquiredByName}
           staff={staff}
         />
-      </div>
+        </div>
+      </details>
 
       {reward.visible && (
         <RewardAssignmentPanel
