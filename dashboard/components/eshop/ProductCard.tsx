@@ -1,9 +1,9 @@
 import ShopLink from "./ShopLink";
-import { isOrderable, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
+import { isOrderable, isSoldOut, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
-import AddToCartButton from "./AddToCartButton";
+import AddToCartButton, { SoldOutBadge } from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
@@ -53,9 +53,18 @@ export default function ProductCard({ product }: { product: Product }) {
             {[...product.variants]
               .sort((a, b) => a.priceKc - b.priceKc)
               .map((v) => (
-                <li key={v.sku ?? v.label ?? v.priceKc}>
-                  {formatKc(v.priceKc)}
-                  {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
+                <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5">
+                  {v.soldOut === true ? (
+                    <>
+                      <SoldOutBadge className="h-5 px-1.5 text-[10px]" />
+                      {v.label ? <span className="font-normal text-neutral-500 whitespace-nowrap">{v.label}</span> : null}
+                    </>
+                  ) : (
+                    <span>
+                      {formatKc(v.priceKc)}
+                      {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
+                    </span>
+                  )}
                 </li>
               ))}
           </ul>
@@ -74,6 +83,8 @@ export default function ProductCard({ product }: { product: Product }) {
             >
               {NOT_ORDERABLE_LABEL}
             </span>
+          ) : isSoldOut(product) ? (
+            <SoldOutBadge className="w-full h-9 text-sm" />
           ) : hasChoice || isSet ? (
             <ShopLink
               href={href}

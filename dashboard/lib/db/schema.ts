@@ -964,6 +964,9 @@ export const productVariants = pgTable(
     // NULL = neznámá → chlazenou přepravu nejde spočítat a pokladna ji nenabídne.
     weightG: integer("weight_g"),
     isActive: boolean("is_active").notNull().default(true),
+    // Vyprodáno (Lucie 22. 11. 2026): balení zůstává vidět s červeným
+    // „Vyprodáno“, ale nejde koupit. Na rozdíl od is_active=false nezmizí.
+    soldOut: boolean("sold_out").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
