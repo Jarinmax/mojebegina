@@ -27,3 +27,14 @@ describe("palivový příplatek z MojeBegina (22. 11. 2026)", () => {
     expect(currentFuelSurchargePercent()).toBe(16);
   });
 });
+
+import { syrupDrinkRows } from "../landingPages";
+describe("nápoj ze sirupu s dopravou (22. 11. 2026)", () => {
+  it("3 beginy = 450 nápojů, doprava v pásmu do 15 kg", () => {
+    applyFuelSurcharge(16);
+    const [row] = syrupDrinkRows([3]);
+    expect(row.portions).toBe(450);
+    expect(row.totalKc).toBe(3 * 499 + 267);
+    expect(row.perPortionKc).toBe(3.92);
+  });
+});

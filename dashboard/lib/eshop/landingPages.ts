@@ -5,7 +5,7 @@
 // tvrzení, alkohol se nepropaguje jako rostlinný. Vykání, názvy produktů přesně z e-shopu.
 // Ze stejných otázek se skládá FAQPage JSON-LD (seo.ts → faqJsonLd).
 import { CAFE_PATH } from "./cafePage";
-import { COLD_SHIPPING_RULES } from "./shippingRates";
+import { COLD_SHIPPING_RULES, coldShippingPrice } from "./shippingRates";
 import type { FaqItem } from "./faq";
 
 export type LandingLink = { label: string; href: string };
@@ -20,7 +20,7 @@ export type LandingPage = {
   /** Odkazy na produkty a kategorie (přesné názvy z e-shopu). */
   links: LandingLink[];
   /** Cena porce včetně dopravy (polévky pro kavárny, 22. 11. 2026). */
-  priceTable?: { title: string; rows: PortionPriceRow[]; note: string };
+  priceTable?: { title: string; rows: PortionPriceRow[]; note: string; kind?: "soup" | "syrup" };
   /** Tlačítka pod úvodem místo jednoho „Chci ochutnávku do provozu“. */
   ctas?: LandingLink[];
 };
@@ -34,6 +34,29 @@ export const SOUP_PORTIONS = 12;
 /** Nejnižší pásmo dopravy — počítá se vždy znovu (palivový příplatek z MojeBegina). */
 export function soupShippingFromKc(): number {
   return COLD_SHIPPING_RULES[0].priceKc;
+}
+
+/**
+ * Sirupy (Lucie 22. 11. 2026): kavárna má vidět, kolik vyjde jeden nápoj i s dopravou.
+ * Nejlevnější begina 3 l sirupu 499 Kč (zázvorový, ibiškový, šípkový), 150 nápojů po 200 ml
+ * (20 ml sirupu + voda), hmotnost 3 826 g vč. krabice; doprava podle hmotnosti ze stejného ceníku jako košík.
+ */
+export const SYRUP_PRICE_KC = 499;
+export const SYRUP_DRINKS = 150;
+const SYRUP_WEIGHT_G = 3826;
+
+export function syrupDrinkRows(counts: readonly number[] = [1, 3, 5]): PortionPriceRow[] {
+  return counts.map((count) => {
+    const portions = count * SYRUP_DRINKS;
+    const quote = coldShippingPrice(count * SYRUP_WEIGHT_G);
+    const shipping = quote.ok ? quote.priceKc : soupShippingFromKc();
+    const totalKc = count * SYRUP_PRICE_KC + shipping;
+    return { order: `${count} × 3 l`, portions, totalKc, perPortionKc: Math.round((totalKc / portions) * 100) / 100 };
+  });
+}
+
+function syrupPriceNote(): string {
+  return `Počítáno s nejlevnější beginou sirupu 3 l za ${kc(SYRUP_PRICE_KC)} (zázvorový, ibiškový, šípkový), bez slevy. Nápoj = 20 ml sirupu doplněných vodou na 200 ml. Doprava podle hmotnosti zásilky. Osobní odběr ve Viticích je po domluvě zdarma.`;
 }
 
 export function soupPortionRows(counts: readonly number[] = [1, 3, 5]): PortionPriceRow[] {
@@ -150,6 +173,7 @@ export const LANDING_PAGES: LandingPage[] = [
       "Z jednoho sirupu připravíte limonádu, horký nápoj i koktejl. Pro provoz je nejvýhodnější třílitrová begina s kohoutkem.",
     ],
     ctas: [{ label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` }],
+    priceTable: { title: "Kolik vyjde nápoj včetně dopravy?", rows: [], note: "", kind: "syrup" },
     benefits: [
       { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů, nápoj už od 3,30 Kč." },
       { title: "Jednoduché ředění", text: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj." },
@@ -225,6 +249,9 @@ export function findLandingPage(path: string): LandingPage | undefined {
  */
 export function livePage(page: LandingPage): LandingPage {
   if (!page.priceTable) return page;
+  if (page.priceTable.kind === "syrup") {
+    return { ...page, priceTable: { ...page.priceTable, rows: syrupDrinkRows(), note: syrupPriceNote() } };
+  }
   return {
     ...page,
     priceTable: { ...page.priceTable, rows: soupPortionRows(), note: soupPriceNote() },
