@@ -149,8 +149,8 @@ const packagingPage: InfoPage = {
     {
       heading: "Menší balení",
       paragraphs: [
-        "Sirupy nabízíme také v balení 650 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
-        "Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.",
+        "Sirupy nabízíme také v menším balení 500 ml ve stříbrném sáčku se šroubovacím uzávěrem. Některé sirupy ještě doprodáváme v balení 650 ml.",
+        "Alkoholické koktejly prodáváme jen v třílitrovém balení s kohoutkem.",
         "Dostupné velikosti najdete vždy u konkrétního produktu.",
       ],
     },
