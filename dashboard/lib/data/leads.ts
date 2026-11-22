@@ -207,13 +207,6 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
   return buildLeadCards(sortedRows);
 }
 
-// Nové leady bez obchodníka (např. z formuláře Meta) — samostatný blok nahoře
-// na stránce Obchod, ať je vidí každý bez ohledu na vybranou záložku.
-/**
- * 20. 11. 2026 (Lucie): „Nové leady“ = ve fázi nový a ještě bez zaznamenaného
- * kontaktu — i když už mají obchodníka (přiřazený lead tam zůstane, dokud
- * mu někdo nezavolá, a je u něj vidět komu patří).
- */
 // Souhrn pro marketing (20. 11. 2026): odkud nás zákazníci znají.
 export type HeardFromSummary = { counts: { key: string; count: number }[]; missing: number };
 
@@ -232,6 +225,13 @@ export async function getHeardFromSummary(): Promise<HeardFromSummary> {
   return { counts, missing };
 }
 
+// Nové leady bez obchodníka (např. z formuláře Meta) — samostatný blok nahoře
+// na stránce Obchod, ať je vidí každý bez ohledu na vybranou záložku.
+/**
+ * 20. 11. 2026 (Lucie): „Nové leady“ = ve fázi nový a ještě bez zaznamenaného
+ * kontaktu — i když už mají obchodníka (přiřazený lead tam zůstane, dokud
+ * mu někdo nezavolá, a je u něj vidět komu patří).
+ */
 export async function listFreshLeads(): Promise<LeadCardData[]> {
   await requireCrmContext();
   const rows = await db

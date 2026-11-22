@@ -35,6 +35,8 @@ export default function CallOutcomeForm({
   suggestedHeardFrom?: HeardFrom | null;
 }) {
   const knownHeardFrom = heardFrom !== null && isHeardFrom(heardFrom);
+  const [heardValue, setHeardValue] = useState<string>(knownHeardFrom ? "" : (suggestedHeardFrom ?? ""));
+  const [heardDetail, setHeardDetail] = useState("");
   const boundAction = logDailyCallOutcomeAction.bind(null, itemId);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
   const [expanded, setExpanded] = useState(false);
@@ -92,8 +94,13 @@ export default function CallOutcomeForm({
         <HeardFromField
           idPrefix={`dc-${itemId}`}
           required={!knownHeardFrom}
-          initial={knownHeardFrom ? null : suggestedHeardFrom}
           known={knownHeardFrom}
+          value={heardValue}
+          detail={heardDetail}
+          onChange={(next) => {
+            if (next.value !== undefined) setHeardValue(next.value);
+            if (next.detail !== undefined) setHeardDetail(next.detail);
+          }}
         />
       )}
 
