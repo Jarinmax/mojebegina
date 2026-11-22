@@ -115,14 +115,14 @@ export const LANDING_PAGES: LandingPage[] = [
       { title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
     ],
     faq: [
-      { question: "Kdo dováží hotové polévky do kavárny?", answer: "Begina. Kavárnám a bistrům doručujeme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Objednáte přímo na e-shopu begina.cz, na firmu i s IČO." },
-      { question: "Dovezete polévky po celé ČR?", answer: DELIVERY_ANSWER },
+      // 22. 11. 2026 (Lucie): dvě podobné otázky o dopravě spojené do jedné
+      { question: "Jak posíláte polévky do kavárny?", answer: "Polévky posíláme chlazeně po celé ČR. Před doručením se Vám ozve dopravce. Cena závisí na hmotnosti zásilky. Po domluvě si můžete objednávku zdarma vyzvednout ve Viticích." },
       {
         question: PORTION_QUESTION,
         answer: "",
       },
       { question: "Kdy polévky dorazí?", answer: "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme." },
-      { question: "Jak dlouho vydrží polévka po otevření?", answer: "Po otevření vydrží v lednici 14 dní. Polévky skladujte v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu." },
+      { question: "Jak dlouho vydrží polévka po otevření?", answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Po otevření ji spotřebujte do 14 dnů, nejpozději však do data spotřeby uvedeného na obalu." },
       { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
     ],
     links: [
