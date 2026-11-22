@@ -5,6 +5,7 @@
 // `orders`/`order_items`/`invoices` (Fáze 2.0), ne paralelní model — viz
 // schema.ts komentář u `orders` pro zdůvodnění tří nezávislých rolí kolem
 // "kdo objednal".
+import { afterOrderReady } from "@/lib/eshop/slovakiaTransport";
 import "server-only";
 import { createHash, randomUUID } from "crypto";
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
@@ -620,6 +621,8 @@ export async function updateFulfillmentStatus(
       : undefined;
   if ((DISPATCHED_STATUSES as readonly string[]).includes(validated.value)) await markShippedOnDispatch(orderId, ctx);
   await syncBatchesOnStatus(orderId, from, validated.value);
+  // Slovensko: připravená zaplacená objednávka → e-mail „objednejte si CoolBalík“ (nejvýš jednou)
+  if (validated.value === "ready") await afterOrderReady(db, orderId, await getAppOrigin());
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(validated.value)
     ? await sendInvoiceOnDispatch(db, orderId, await getAppOrigin())
     : undefined;
@@ -709,6 +712,7 @@ export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrder
   // Expedice: faktura zákazníkovi (jen zaplacená e-shopová objednávka, nejvýš jednou).
   if ((DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)) await markShippedOnDispatch(input.orderId, ctx);
   await syncBatchesOnStatus(input.orderId, from, input.targetStatus);
+  if (input.targetStatus === "ready") await afterOrderReady(db, input.orderId, await getAppOrigin());
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)
     ? await sendInvoiceOnDispatch(db, input.orderId, await getAppOrigin())
     : undefined;

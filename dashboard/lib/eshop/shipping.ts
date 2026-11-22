@@ -130,7 +130,21 @@ export const SLOVAKIA_DELIVERY_ALLOWED = false;
  */
 export const SLOVAKIA_SELF_TRANSPORT = true;
 export const SLOVAKIA_SELF_TRANSPORT_NOTE =
-  "Doručení na Slovensko: dopravu si objednáte a zaplatíte sami. Až bude objednávka připravená, pošleme Vám e-mail s hmotností a rozměry balíku. Přepravu si pak objednáte například přes uspornybalik.cz (PPL nebo DPD s vyzvednutím kurýrem na adrese) s místem vyzvednutí Zahradní Bistro Begina, Vitice 119, 281 06 Vitice. Tam balík kurýrovi předáme. Polévky, čaje a ovocné nápoje musí jet chlazenou přepravou (CoolBalík), sirupy můžete poslat i běžnou přepravou.";
+  "Doručení na Slovensko: doprava není v ceně. Na Slovensko posíláme jen chlazenou přepravou CoolBalík, kterou si objednáte a zaplatíte sami. Až bude objednávka připravená, pošleme Vám e-mail s hmotností zásilky. Zásilku pak sami dovezeme na depo CoolBalíku v Jenči.";
+/** Cena dopravy na Slovensko v nabídce a souhrnu — NE „Zdarma“: dopravu platí zákazník dopravci. */
+export const SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL = "Platíte dopravci";
+export const SLOVAKIA_SELF_TRANSPORT_SUMMARY = "platíte dopravci zvlášť";
+export const SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL = "Chlazená přeprava CoolBalík na Slovensko";
+/** Popis způsobu doručení v pokladně pro slovenskou adresu. */
+export const SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE =
+  "Doprava není v ceně. Až bude objednávka připravená, napíšeme Vám. Chlazenou přepravu CoolBalík si pak objednáte a zaplatíte sami, zásilku na jejich depo v Jenči dovezeme my.";
+/** Slovenské PSČ (0xx, 8xx, 9xx) na konci doručovací adresy — česká PSČ začínají 1–7. */
+export function isSlovakAddress(address: string | null | undefined): boolean {
+  if (!address) return false;
+  const zips = address.match(/\b\d{3} ?\d{2}\b/g);
+  const last = zips?.[zips.length - 1];
+  return !!last && /^[089]/.test(last);
+}
 export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
   return (SLOVAKIA_DELIVERY_ALLOWED || SLOVAKIA_SELF_TRANSPORT) && env.ESHOP_SLOVAKIA !== "off";
 }
