@@ -130,7 +130,7 @@ export const SLOVAKIA_DELIVERY_ALLOWED = false;
  */
 export const SLOVAKIA_SELF_TRANSPORT = true;
 export const SLOVAKIA_SELF_TRANSPORT_NOTE =
-  "Doručení na Slovensko: chlazenou přepravu si objednáte a zaplatíte sami u CoolBalíku. Zboží pro Vás připravíme a předáme dopravci, kterého si objednáte. Podrobnosti Vám pošleme e-mailem po zaplacení objednávky.";
+  "Doručení na Slovensko: dopravu si objednáte a zaplatíte sami u dopravce podle svého výběru. Polévky, čaje a ovocné nápoje musí jet chlazenou přepravou (například CoolBalík), sirupy můžete poslat i běžnou přepravou. Zboží pro Vás připravíme a předáme dopravci, kterého si objednáte. Podrobnosti Vám pošleme e-mailem po zaplacení objednávky.";
 export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
   return (SLOVAKIA_DELIVERY_ALLOWED || SLOVAKIA_SELF_TRANSPORT) && env.ESHOP_SLOVAKIA !== "off";
 }

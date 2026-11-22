@@ -47,4 +47,4 @@ export const DELIVERY_ADDRESS = {
  * objednávky e-mailem se už nenabízejí. Věta se ukazuje v pokladně,
  * v chybách serveru i na stránce Doprava.
  */
-export const SLOVAKIA_ORDER_NOTE = "Na Slovensko si chlazenou přepravu objednáte sami u CoolBalíku.";
+export const SLOVAKIA_ORDER_NOTE = "Na Slovensko si dopravu objednáte sami – polévky, čaje a ovocné nápoje chlazenou přepravou, sirupy i běžnou.";
