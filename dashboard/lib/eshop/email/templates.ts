@@ -632,8 +632,7 @@ ${detailsTable(rows)}
 
 export type SkTransportEmailInfo = { grams: number | null };
 
-const SK_PICKUP = "Zahradní Bistro Begina, Vitice 119, 281 06 Vitice";
-const SK_PICKUP_HOURS = "denně 9–19 h";
+const SK_HANDOVER = "depo CoolBalík, Jeneč 360 (zásilku tam dovezeme my)";
 const SK_PICKUP_PHONE = "+420 774 199 975";
 const COOLBALIK_SK_URL = "https://www.coolbalik.sk/";
 
@@ -650,14 +649,13 @@ export function customerSkTransportEmail(order: EmailOrder, ctx: Context & { skT
   const weight = skWeightText(ctx.skTransport.grams);
   const subject = `${subjectPrefix(ctx)}Objednávka ${reference} je připravená – objednejte si prosím dopravu`;
   const intro = `Vaše objednávka ${reference} je připravená k odeslání.`;
-  const how = "Na Slovensko posíláme jen chlazenou přepravou CoolBalík. Objednejte si ji prosím s vyzvednutím u nás:";
+  const how = "Na Slovensko posíláme jen chlazenou přepravou CoolBalík. Objednejte si ji prosím – zásilku jim předáme na jejich depu:";
   const details: [string, string][] = [
-    ["Místo vyzvednutí", SK_PICKUP],
-    ["Otevřeno", SK_PICKUP_HOURS],
-    ["Telefon", SK_PICKUP_PHONE],
+    ["Předání zásilky", SK_HANDOVER],
+    ["Telefon Begina", SK_PICKUP_PHONE],
     ...(weight ? ([["Hmotnost zásilky", weight]] as [string, string][]) : []),
   ];
-  const after = "Dopravu platíte přímo CoolBalíku. Až ji objednáte, odpovězte nám prosím na tento e-mail a napište den vyzvednutí. Zásilku dopravci předáme ve Viticích.";
+  const after = "Dopravu platíte přímo CoolBalíku. Až ji objednáte, odpovězte nám prosím na tento e-mail a napište den doručení. Zásilku na depo dovezeme den předem.";
   const linkLabel = "Přejít na CoolBalík";
   const greeting = customerGreeting(order.contactName);
   const html = layout(

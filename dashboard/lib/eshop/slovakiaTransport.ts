@@ -1,7 +1,7 @@
 // Slovensko s vlastní dopravou zákazníka (Lucie 22. 11. 2026): na Slovensko
 // jen chlazenou přepravou CoolBalík, kterou si zákazník objedná a zaplatí sám.
 // Po přepnutí zaplacené objednávky na „Připravená“ mu automaticky odejde
-// e-mail s hmotností zásilky a místem vyzvednutí ve Viticích (nejvýš jednou).
+// e-mail s hmotností zásilky; zásilku Jarin doveze na depo CoolBalíku v Jenči (nejvýš jednou).
 import { eq } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
