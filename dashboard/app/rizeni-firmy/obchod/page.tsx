@@ -49,12 +49,40 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   const leadFilter = activeView === "moje-leady" ? "mine" : "all";
   const customerFilter = activeView === "moji-zakaznici" ? "mine" : "all";
 
-  const [leadCards, customerCards, newLeads, heardSummary] = await Promise.all([
+  // eslint-disable-next-line prefer-const
+  let [leadCards, customerCards, newLeads, heardSummary] = await Promise.all([
     isLeadsView ? listLeads(leadFilter) : Promise.resolve(null),
     !isLeadsView ? listCustomers(customerFilter) : Promise.resolve(null),
     listFreshLeads(),
     getHeardFromSummary(),
   ]);
+  // 22. 11. 2026 (Lucie): ve „Všech leadech“ rozdělení podle obchodníka,
+  // ať se nemusí číst u každé karty vpravo dole, komu patří.
+  const allLeadCards = leadCards;
+  const ownerParam = Array.isArray(searchParams.obchodnik) ? searchParams.obchodnik[0] : searchParams.obchodnik;
+  const ownerMap = new Map<string, { label: string; count: number }>();
+  let unowned = 0;
+  for (const l of allLeadCards ?? []) {
+    if (!l.ownerUserId) {
+      unowned += 1;
+      continue;
+    }
+    const g = ownerMap.get(l.ownerUserId) ?? { label: l.ownerName ?? "Obchodník", count: 0 };
+    g.count += 1;
+    ownerMap.set(l.ownerUserId, g);
+  }
+  const ownerGroups = [
+    { key: "vsichni", label: "Všichni", count: allLeadCards?.length ?? 0 },
+    ...[...ownerMap.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([id, g]) => ({ key: id, label: g.label, count: g.count })),
+    ...(unowned > 0 ? [{ key: "bez", label: "Bez obchodníka", count: unowned }] : []),
+  ];
+  const ownerFilter = ownerGroups.some((g) => g.key === ownerParam) ? (ownerParam as string) : "vsichni";
+  if (activeView === "vsechny-leady" && leadCards && ownerFilter !== "vsichni") {
+    leadCards = leadCards.filter((l) => (ownerFilter === "bez" ? !l.ownerUserId : l.ownerUserId === ownerFilter));
+  }
+
   // Na záložce „Všechny leady“ jsou nové leady už nahoře v seznamu — blok by je zdvojil.
   const showNewLeadsBlock = newLeads.length > 0 && activeView !== "vsechny-leady";
 
@@ -138,8 +166,25 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
 
       <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
         {VIEW_LABELS[activeView]}
-        {isLeadsView && leadCards ? ` (${leadCards.length})` : customerCards ? ` (${customerCards.length})` : ""}
+        {isLeadsView && allLeadCards ? ` (${allLeadCards.length})` : customerCards ? ` (${customerCards.length})` : ""}
       </h2>
+      {activeView === "vsechny-leady" && ownerGroups.length > 1 && (
+        <div className="flex items-center gap-1 mb-3 flex-wrap">
+          {ownerGroups.map((g) => (
+            <Link
+              key={g.key}
+              href={`/rizeni-firmy/obchod?view=vsechny-leady${g.key === "vsichni" ? "" : `&obchodnik=${g.key}`}`}
+              className={`text-sm rounded-full px-3 py-1 ${
+                ownerFilter === g.key
+                  ? "bg-begina-primary-900 text-begina-primary-50"
+                  : "bg-white border border-neutral-200 text-neutral-700 hover:border-begina-primary-300"
+              }`}
+            >
+              {g.label} <span className="font-semibold">{g.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
       {isLeadsView ? (
         leadCards && leadCards.length === 0 ? (
           <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
