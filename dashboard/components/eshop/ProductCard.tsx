@@ -3,7 +3,7 @@ import { isOrderable, isSoldOut, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } fro
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
-import AddToCartButton, { SoldOutBadge } from "./AddToCartButton";
+import AddToCartButton, { InStockBadge, SoldOutBadge } from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
@@ -45,29 +45,22 @@ export default function ProductCard({ product }: { product: Product }) {
           )}
         </div>
       </ShopLink>
-      <div className="px-1 pt-3 flex items-center justify-between gap-3">
+      <div className={`px-1 pt-3 flex items-center justify-between gap-3 ${hasChoice ? "flex-wrap" : ""}`}>
         {hasChoice ? (
           // Cena každého balení zvlášť (11. 11. 2026) — „od 199 Kč“ vedle
           // „až 150 nápojů“ (platí pro 3 l) mohlo zákazníka uvést v omyl.
           <ul className="font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
             {[...product.variants]
-              // nejdřív balení, která jdou koupit; vyprodaná až pod nimi (Lucie 22. 11. 2026:
-              // jinak to vypadá, že je vyprodaný celý sirup)
-              .sort((a, b) => Number(a.soldOut === true) - Number(b.soldOut === true) || a.priceKc - b.priceKc)
+              // 22. 11. 2026 (Lucie): stejné pořadí u všech — menší balení nahoře, 3 l pod ním;
+              // u každého řádku zeleně „skladem“, nebo červeně „vyprodáno“.
+              .sort((a, b) => (a.volumeMl ?? 0) - (b.volumeMl ?? 0) || a.priceKc - b.priceKc)
               .map((v) => (
-                <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5">
-                  {v.soldOut === true ? (
-                    <span className="flex items-center gap-1.5 text-xs font-normal text-neutral-500 whitespace-nowrap">
-                      {v.label ? <span>{v.label}</span> : null}
-                      <span>{formatKc(v.priceKc)}</span>
-                      <SoldOutBadge className="h-4 px-1 text-[9px]" />
-                    </span>
-                  ) : (
-                    <span>
-                      {formatKc(v.priceKc)}
-                      {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
-                    </span>
-                  )}
+                <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5 whitespace-nowrap">
+                  <span className={v.soldOut === true ? "text-neutral-500 font-normal" : ""}>
+                    {formatKc(v.priceKc)}
+                    {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
+                  </span>
+                  {v.soldOut === true ? <SoldOutBadge className="h-4 px-1 text-[9px]" /> : <InStockBadge />}
                 </li>
               ))}
           </ul>
@@ -78,7 +71,7 @@ export default function ProductCard({ product }: { product: Product }) {
             {isSet && product.tastingCampaign && <span className="block text-[13px] font-normal text-neutral-500">vč. dopravy</span>}
           </p>
         )}
-        <div className="w-36">
+        <div className={hasChoice ? "w-full" : "w-36"}>
           {!isOrderable(product) ? (
             <span
               title={NOT_ORDERABLE_NOTICE}

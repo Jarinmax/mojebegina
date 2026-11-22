@@ -22,6 +22,15 @@ export function SoldOutBadge({ className = "" }: { className?: string }) {
   );
 }
 
+/** Zelený štítek „skladem“ u balení, které jde koupit (Lucie 22. 11. 2026). */
+export function InStockBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center justify-center rounded-lg bg-[#3F7A2E] h-4 px-1 text-[9px] font-semibold uppercase tracking-wide text-white ${className}`}>
+      Skladem
+    </span>
+  );
+}
+
 type AddToCartButtonProps = {
   name: string;
   variants: Variant[];
