@@ -10,12 +10,12 @@ export default function HomeTile({ tile, prominent = false }: { tile: Tile; prom
     <div
       className={
         prominent
-          ? "rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col"
-          : "rounded-2xl border border-[#EDE5D8] bg-white p-5 sm:p-6 flex flex-col"
+          ? "rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 lg:px-5 lg:py-4 flex flex-col"
+          : "rounded-2xl border border-[#EDE5D8] bg-white p-5 lg:px-5 lg:py-4 flex flex-col"
       }
     >
       <h2 className="font-serif text-2xl text-[#2A2622]">{tile.title}</h2>
-      <ul className="mt-3 flex flex-col gap-2 text-base leading-normal text-neutral-800">
+      <ul className="mt-2 flex flex-col gap-1.5 lg:gap-1 text-base leading-normal text-neutral-800">
         {tile.points.map((point) => (
           <li key={point} className="flex gap-2.5">
             <Check className="flex-none mt-0.5 w-5 h-5 text-[#5E6B34]" aria-hidden="true" />
@@ -27,8 +27,8 @@ export default function HomeTile({ tile, prominent = false }: { tile: Tile; prom
         href={tile.href}
         className={
           prominent
-            ? "mt-5 self-start rounded-full bg-[#A51C1C] px-6 py-3 text-base font-semibold text-white hover:bg-[#8A1717]"
-            : "mt-5 self-start rounded-full border-2 border-[#5E6B34] px-6 py-2.5 text-base font-semibold text-[#4A5527] hover:bg-[#FAF6EF]"
+            ? "mt-4 lg:mt-3 self-start rounded-full bg-[#A51C1C] px-6 py-3 text-base font-semibold text-white hover:bg-[#8A1717]"
+            : "mt-4 lg:mt-3 self-start rounded-full border-2 border-[#5E6B34] px-6 py-2.5 text-base font-semibold text-[#4A5527] hover:bg-[#FAF6EF]"
         }
       >
         {tile.button}

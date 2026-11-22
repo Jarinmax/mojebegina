@@ -62,7 +62,7 @@ export default async function EshopPage() {
       <HomeHero />
       {/* Ikony kategorií hned pod úvodem pro rychlý nákup (Lucie 20. 11. 2026 večer). */}
       <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-      <section aria-label="Pro koho je Begina" className="w-full max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
+      <section aria-label="Pro koho je Begina" className="w-full max-w-6xl mx-auto px-4 pt-4 sm:pt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <HomeTile tile={HOME_TILE_CAFE} prominent />
           <HomeTile tile={HOME_TILE_HOME} />
