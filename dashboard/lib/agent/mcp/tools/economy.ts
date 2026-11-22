@@ -10,7 +10,12 @@ import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { parseAmountToHal, parseEntryDate, PAYMENT_FORMS } from "@/lib/ekonomika/economy";
 import { ArgError, idempotencyKey, optionalString, requiredString, requiredUuid } from "../args";
 import { defineTool, type AgentTool } from "../define";
-import { attachDocumentBytes, documentCounts } from "@/lib/doklady/documents";
+import { attachDocumentBytes, documentCounts, extensionForMime } from "@/lib/doklady/documents";
+import { signUploadLink, uploadLinkSecret, UPLOAD_LINK_MINUTES } from "@/lib/doklady/uploadLink";
+import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
+
+/** Strop těla požadavku na /api/doklady/nahrat (Vercel ~4,5 MB). */
+const UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 import { emailDocumentPdf } from "@/lib/doklady/emailDocumentPdf";
 
 const DENIED = `Ekonomiku smí číst a zapisovat jen ${INVOICE_ISSUER_NAMES}.`;
@@ -166,7 +171,8 @@ export const ECONOMY_TOOLS: AgentTool[] = [
     description:
       "ZÁPIS — připojí soubor dokladu (PDF nebo fotku účtenky, např. přílohu faktury z e-mailu) k jednomu řádku nákladu v Ekonomice; uvidí se v Řízení firmy → Doklady. " +
       "entry_id zjisti přes economy_list_entries (sloupec documents = kolik dokladů už má). Připojuj jen doklad, který k řádku prokazatelně patří (stejný prodávající, datum a částka). " +
-      "Stejný soubor ke stejnému řádku se nezapíše dvakrát. Nic nemaže a částky nemění. Max. 20 MB.",
+      "Stejný soubor ke stejnému řádku se nezapíše dvakrát. Nic nemaže a částky nemění. Max. 20 MB. " +
+      "Jen pro malé soubory (do pár kB) — PDF a fotky posílej přes economy_document_upload_link (soubor se nahraje mimo argument nástroje).",
     write: true,
     writeScope: "invoicing",
     visible: issuerOnly,
@@ -195,6 +201,83 @@ export const ECONOMY_TOOLS: AgentTool[] = [
         ok: true,
         summary: { attached: !result.duplicate },
         data: { documentId: result.id, duplicate: result.duplicate === true, url: "https://moje.begina.cz/rizeni-firmy/doklady" },
+      };
+    },
+  }),
+  defineTool({
+    name: "economy_document_upload_link",
+    title: "Doklady — odkaz pro nahrání PDF/fotky dokladu (velké soubory)",
+    description:
+      "ZÁPIS — místo economy_attach_document, když je soubor dokladu (PDF příloha faktury, fotka účtenky) moc velký na base64 v argumentu (tj. prakticky vždy u PDF). " +
+      "Vydá jednorázový odkaz (platí 15 minut) vázaný na řádek nákladu, typ, velikost a SHA-256 otisk souboru. Soubor pak pošli přímo, např. z Bashe: " +
+      "curl -sS -X POST --data-binary @soubor.pdf -H \"Content-Type: application/pdf\" \"<upload_url>\" — odpověď JSON řekne, zda se doklad připojil (attached) nebo už tam byl (duplicate). " +
+      "size_bytes zjisti přes stat -c%s, sha256 přes sha256sum. Připojuj jen doklad, který k řádku prokazatelně patří (stejný prodávající, datum a částka). Nic nemaže a částky nemění. Max. 4 MB.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      entry_id: { type: "string", description: "id řádku nákladu (UUID) z economy_list_entries." },
+      filename: { type: "string", description: "Název souboru, např. původní název přílohy faktura-20263175.pdf." },
+      mime_type: { type: "string", enum: ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"], description: "Typ souboru." },
+      size_bytes: { type: "integer", description: "Velikost souboru v bajtech (stat -c%s soubor)." },
+      sha256: { type: "string", description: "SHA-256 otisk souboru, 64 hex znaků (sha256sum soubor)." },
+    },
+    required: ["entry_id", "filename", "mime_type", "size_bytes", "sha256"],
+    parse: (args) => {
+      const entryId = requiredUuid(args, "entry_id");
+      const filename = requiredString(args, "filename", 200);
+      const mimeType = requiredString(args, "mime_type", 40);
+      if (!extensionForMime(mimeType)) throw new ArgError("Argument mime_type musí být PDF nebo obrázek (JPG, PNG, WEBP, HEIC).");
+      const sizeBytes = typeof args.size_bytes === "number" ? args.size_bytes : Number.NaN;
+      if (!Number.isInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > UPLOAD_MAX_BYTES) {
+        throw new ArgError("Argument size_bytes musí být velikost souboru v bajtech (nejvýš 4 MB).");
+      }
+      const sha256 = typeof args.sha256 === "string" ? args.sha256.trim().toLowerCase() : "";
+      if (!/^[0-9a-f]{64}$/.test(sha256)) throw new ArgError("Argument sha256 musí být 64 hex znaků (výstup sha256sum).");
+      return { entryId, filename, mimeType, sizeBytes, sha256 };
+    },
+    execute: async ({ entryId, filename, mimeType, sizeBytes, sha256 }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      const [entry] = await db
+        .select({ kind: economyEntries.kind, deletedAt: economyEntries.deletedAt })
+        .from(economyEntries)
+        .where(eq(economyEntries.id, entryId))
+        .limit(1);
+      if (!entry || entry.deletedAt) return { ok: false, error: "Řádek Ekonomiky nebyl nalezen." };
+      let secret: string;
+      try {
+        secret = uploadLinkSecret();
+      } catch {
+        return { ok: false, error: "Nahrávání dokladů asistentem není na serveru nastavené." };
+      }
+      const issuedAt = Date.now();
+      const token = signUploadLink(
+        {
+          userId: ctx.userId,
+          systemRole: ctx.systemRole,
+          uploaderName: `${ctx.name ?? ctx.email} (asistent)`,
+          entryId,
+          filename,
+          mimeType,
+          sizeBytes,
+          sha256,
+          issuedAt,
+        },
+        secret
+      );
+      const uploadUrl = `${await appOrigin()}/api/doklady/nahrat?token=${encodeURIComponent(token)}`;
+      return {
+        ok: true,
+        summary: { linkIssued: true },
+        data: {
+          upload_url: uploadUrl,
+          method: "POST",
+          content_type: mimeType,
+          expires_at: new Date(issuedAt + UPLOAD_LINK_MINUTES * 60_000).toISOString(),
+          curl: `curl -sS -X POST --data-binary @<soubor> -H "Content-Type: ${mimeType}" "${uploadUrl}"`,
+          note: "Odkaz platí jen pro soubor s touto velikostí a otiskem. Výsledek nahrání ověř v odpovědi (ok, attached, duplicate).",
+        },
       };
     },
   }),
