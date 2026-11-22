@@ -130,7 +130,7 @@ export const SLOVAKIA_DELIVERY_ALLOWED = false;
  */
 export const SLOVAKIA_SELF_TRANSPORT = true;
 export const SLOVAKIA_SELF_TRANSPORT_NOTE =
-  "Doručení na Slovensko: doprava není v ceně. Na Slovensko posíláme jen chlazenou přepravou CoolBalík, kterou si objednáte a zaplatíte sami. Až bude objednávka připravená, pošleme Vám e-mail s hmotností zásilky. Zásilku pak sami dovezeme na depo CoolBalíku v Jenči.";
+  "Doručení na Slovensko: doprava není v ceně. Na Slovensko posíláme jen chlazenou přepravou CoolBalík, kterou si objednáte a zaplatíte sami. Až bude objednávka připravená, pošleme Vám e-mail s hmotností zásilky. Zásilku pak sami dovezeme na depo CoolBalíku.";
 /** Cena dopravy na Slovensko v nabídce a souhrnu — NE „Zdarma“: dopravu platí zákazník dopravci. */
 export const SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL = "Platíte dopravci";
 export const SLOVAKIA_SELF_TRANSPORT_SUMMARY = "platíte dopravci zvlášť";
@@ -139,7 +139,7 @@ export const SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL = "Chlazená přeprava CoolBal
 export const SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL = "Doprava CoolBalík";
 /** Popis způsobu doručení v pokladně pro slovenskou adresu. */
 export const SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE =
-  "Doprava není v ceně. Až bude objednávka připravená, napíšeme Vám. Chlazenou přepravu CoolBalík si pak objednáte a zaplatíte sami, zásilku na jejich depo v Jenči dovezeme my.";
+  "Doprava není v ceně. Až bude objednávka připravená, napíšeme Vám. Chlazenou přepravu CoolBalík si pak objednáte a zaplatíte sami, zásilku na jejich depo dovezeme my.";
 /** Slovenské PSČ (0xx, 8xx, 9xx) na konci doručovací adresy — česká PSČ začínají 1–7. */
 export function isSlovakAddress(address: string | null | undefined): boolean {
   if (!address) return false;
