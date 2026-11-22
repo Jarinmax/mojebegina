@@ -130,7 +130,7 @@ export const SLOVAKIA_DELIVERY_ALLOWED = false;
  */
 export const SLOVAKIA_SELF_TRANSPORT = true;
 export const SLOVAKIA_SELF_TRANSPORT_NOTE =
-  "Doručení na Slovensko: dopravu si objednáte a zaplatíte sami u dopravce podle svého výběru. Polévky, čaje a ovocné nápoje musí jet chlazenou přepravou (například CoolBalík), sirupy můžete poslat i běžnou přepravou. Zboží pro Vás připravíme a předáme dopravci, kterého si objednáte. Podrobnosti Vám pošleme e-mailem po zaplacení objednávky.";
+  "Doručení na Slovensko: dopravu si objednáte a zaplatíte sami. Až bude objednávka připravená, pošleme Vám e-mail s hmotností a rozměry balíku. Přepravu si pak objednáte například přes uspornybalik.cz (PPL nebo DPD s vyzvednutím kurýrem na adrese) s místem vyzvednutí Zahradní Bistro Begina, Vitice 119, 281 06 Vitice. Tam balík kurýrovi předáme. Polévky, čaje a ovocné nápoje musí jet chlazenou přepravou (CoolBalík), sirupy můžete poslat i běžnou přepravou.";
 export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
   return (SLOVAKIA_DELIVERY_ALLOWED || SLOVAKIA_SELF_TRANSPORT) && env.ESHOP_SLOVAKIA !== "off";
 }
