@@ -879,10 +879,10 @@ export default function CheckoutForm({
 
       {/* 22. 11. 2026 (Lucie): souhrn hezčí — bílá karta, vzorky čitelně, krabice zaškrtnutím přímo tady
           (formulář pro kavárny jde rovnou do pokladny a košík přeskočí). */}
-      <aside className="bg-white border border-[#E3DED0] rounded-2xl shadow-[0_4px_16px_rgba(60,40,20,0.06)] lg:sticky lg:top-20 overflow-hidden">
-        <h2 className="font-serif text-xl text-[#2A2622] px-5 py-3.5 bg-[#FAF6EF] border-b border-[#EDE5D8]">Vaše objednávka</h2>
+      <aside className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl shadow-[0_4px_16px_rgba(20,80,40,0.08)] lg:sticky lg:top-20 overflow-hidden">
+        <h2 className="font-serif text-xl text-emerald-900 px-5 py-3.5 bg-emerald-100 border-b border-emerald-200">Vaše objednávka</h2>
         <div className="p-5">
-        <ul className="text-sm divide-y divide-[#EDE5D8]">
+        <ul className="text-sm divide-y divide-emerald-200/70">
           {lines.map((line) => {
             const sample = isCafeTasting(line.product);
             const free = line.lineTotalKc === 0 && line.variant.priceKc > 0;
@@ -902,7 +902,11 @@ export default function CheckoutForm({
                       </>
                     )}
                   </span>
-                  <span className={`tabular-nums whitespace-nowrap ${free ? "font-semibold text-[#2F6322]" : ""}`}>{free ? "zdarma" : formatKc(line.lineTotalKc)}</span>
+                  {free ? (
+                    <span className="shrink-0 self-start rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Zdarma</span>
+                  ) : (
+                    <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
+                  )}
                 </div>
                 {isBoxEligible(line.product, line.variant) && (
                   <label className="mt-1.5 flex items-center gap-2 text-[13px] text-neutral-700 cursor-pointer">
@@ -910,7 +914,7 @@ export default function CheckoutForm({
                       type="checkbox"
                       checked={cartBoxes.boxed.includes(line.sku)}
                       onChange={(e) => cartBoxes.toggle(line.sku, e.target.checked)}
-                      className="w-4 h-4 accent-[#5E6B34]"
+                      className="w-4 h-4 accent-emerald-600"
                     />
                     Zabalit do kartonové krabice <span className="text-neutral-500">+{formatKc(BOX_PRICE_KC)}{line.quantity > 1 ? " / ks" : ""}</span>
                   </label>
@@ -945,7 +949,7 @@ export default function CheckoutForm({
         </ul>
         <p className="mt-2 text-xs text-neutral-600">{VAT_NOTE}</p>
 
-        <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-neutral-200" />
+        <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-emerald-200" />
 
         {containsAgeRestricted && (
           <label className="mt-5 flex items-start gap-2 text-xs text-neutral-600">
@@ -1006,7 +1010,7 @@ export default function CheckoutForm({
         <button
           type="submit"
           disabled={pending || blockedLines.length > 0 || !quote.available}
-          className="mt-4 w-full bg-begina-primary-900 hover:bg-begina-primary-800 disabled:opacity-60 text-white text-sm font-medium rounded-lg h-11"
+          className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-base font-semibold rounded-lg h-12 shadow-md shadow-emerald-600/20"
         >
           {pending ? "Odesílám…" : "Objednat s povinností platby"}
         </button>
