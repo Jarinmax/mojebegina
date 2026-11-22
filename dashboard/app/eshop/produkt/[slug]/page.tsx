@@ -25,6 +25,7 @@ import TastingSetForm from "@/components/eshop/TastingSetForm";
 import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
+import { boxNote } from "@/lib/eshop/boxOption";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
@@ -297,7 +298,11 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             {isOrderable(product) && isSet ? (
               <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} maxQuantity={campaign?.remaining} />
             ) : isOrderable(product) ? (
-              <AddToCartButton name={product.name} variants={product.variants} />
+              <>
+                <AddToCartButton name={product.name} variants={product.variants} />
+                {/* Krabice za 19 Kč (Lucie 22. 11. 2026): hned pod Do košíku, i na mobilu */}
+                {boxNote(product) && <p className="mt-2 text-sm text-neutral-600">{boxNote(product)}</p>}
+              </>
             ) : (
               <div className="border border-neutral-200 rounded-xl p-4">
                 <p className="font-medium">{NOT_ORDERABLE_LABEL}</p>

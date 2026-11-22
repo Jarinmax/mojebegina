@@ -33,7 +33,7 @@ import { HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/esh
 // (pozadí už nesplývá s úvodem). Dřív v12: nová čistá fotka z ChatGPT (hladká miska, čisté sklo), pozadí doladěné na #FAF6EF, posílá se v kvalitě 90.
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
-// v14 (22. 11. 2026, Lucie): kavárna — obsluha podává dýňovou polévku, vedle begina v lednici; na krabici vloženo oficiální logo.
+// v14 (22. 11. 2026, Lucie): kavárna; fotka na počítači širší (sloupec 7/12, až 44rem), protože je 16 : 9 — — obsluha podává dýňovou polévku, vedle begina v lednici; na krabici vloženo oficiální logo.
 export const HERO_PHOTO = {
   src: "/eshop/hero/polevka-kavarna-v14.webp",
   width: 1670,
@@ -50,7 +50,7 @@ export const HERO_LINKS = {
 export default function HomeHero() {
   return (
     <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:py-3 grid items-center lg:grid-cols-2 lg:gap-6">
+      <div className="max-w-6xl mx-auto lg:px-4 lg:py-3 grid items-center lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-8">
         <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
           {/* Od 20. 11. 2026 (Lucie): úvod primárně pro kavárny a bistra, podnadpis zve i zákazníky domů.
               Tlačítka rychlého nákupu (Vybrat polévku / Objevit sirupy) jsou zpět od večera 20. 11. 2026. */}
@@ -85,7 +85,7 @@ export default function HomeHero() {
           </div>
         </div>
 
-        <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(20rem,calc((100svh-27rem)*1.25),34rem)] lg:ml-auto lg:mr-0">
+        <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(24rem,calc((100svh-24rem)*1.78),44rem)] lg:ml-auto lg:mr-0">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
@@ -93,7 +93,7 @@ export default function HomeHero() {
             height={HERO_PHOTO.height}
             priority
             quality={90}
-            sizes="(min-width: 1024px) 34rem, (min-width: 640px) 36rem, 100vw"
+            sizes="(min-width: 1024px) 44rem, (min-width: 640px) 36rem, 100vw"
             className="block w-full h-auto rounded-2xl shadow-[0_8px_24px_rgba(60,40,20,0.12)]"
           />
         </div>
