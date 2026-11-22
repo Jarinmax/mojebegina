@@ -74,4 +74,4 @@ export type Product = {
   foodInfo: FoodInfo;
 };
 
-export type Catalog = { categories: Category[]; products: Product[] };
+export type Catalog = { categories: Category[]; products: Product[]; /** palivový příplatek CoolBalík v % (z MojeBegina) */ fuelSurchargePercent?: number };

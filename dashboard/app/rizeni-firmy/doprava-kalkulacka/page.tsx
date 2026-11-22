@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { COLD_SHIPPING_RULES, COLD_SHIPPING_SK_BANDS, FUEL_SURCHARGE_PERCENT } from "@/lib/eshop/shippingRates";
+import { COLD_SHIPPING_RULES, COLD_SHIPPING_SK_BANDS } from "@/lib/eshop/shippingRates";
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
+import FuelSurchargeForm from "./FuelSurchargeForm";
 import Calculator, { type CalcVariant } from "./Calculator";
 
 // Kalkulačka chlazené přepravy CoolBalík pro ČR a Slovensko (16. 11. 2026).
@@ -9,6 +11,7 @@ import Calculator, { type CalcVariant } from "./Calculator";
 export const dynamic = "force-dynamic";
 
 export default async function DopravaKalkulackaPage() {
+  const fuelPercent = await applyFuelSurchargeFromDb();
   const result = await db.execute(sql`
     SELECT v.sku, p.name, v.label, v.price_b2c_kc AS price, v.weight_g AS weight
     FROM product_variants v JOIN products p ON p.id = v.product_id
@@ -27,10 +30,11 @@ export default async function DopravaKalkulackaPage() {
       <div>
         <h1 className="text-2xl font-semibold">Kalkulačka dopravy CoolBalík</h1>
         <p className="mt-1 text-sm text-neutral-600">
-          Cena = základ dopravce × DPH 21 % × palivový příplatek {FUEL_SURCHARGE_PERCENT} %. Váhy balení jsou z katalogu e-shopu. Na Slovensko e-shop nedoručuje — ceník slouží pro objednávky e-mailem.
+          Cena = základ dopravce × DPH 21 % × palivový příplatek {fuelPercent.toLocaleString("cs-CZ")} %. Váhy balení jsou z katalogu e-shopu. Na Slovensko e-shop nedoručuje — ceník slouží pro objednávky e-mailem.
         </p>
       </div>
-      <Calculator variants={variants} />
+      <FuelSurchargeForm percent={fuelPercent} />
+      <Calculator variants={variants} fuelPercent={fuelPercent} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <h2 className="font-semibold mb-2">Ceník Česká republika</h2>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { coldShippingPrice, coldShippingPriceSk } from "@/lib/eshop/shippingRates";
+import { applyFuelSurcharge, coldShippingPrice, coldShippingPriceSk } from "@/lib/eshop/shippingRates";
 
 export type CalcVariant = { sku: string; name: string; priceKc: number | null; weightG: number | null };
 
 const kc = (value: number) => `${value.toLocaleString("cs-CZ")} Kč`;
 
-export default function Calculator({ variants }: { variants: CalcVariant[] }) {
+export default function Calculator({ variants, fuelPercent }: { variants: CalcVariant[]; fuelPercent?: number }) {
+  if (fuelPercent !== undefined) applyFuelSurcharge(fuelPercent);
   const [country, setCountry] = useState<"cz" | "sk">("cz");
   const [filter, setFilter] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});

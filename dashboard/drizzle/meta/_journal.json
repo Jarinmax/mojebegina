@@ -435,6 +435,13 @@
       "when": 1795312225297,
       "tag": "0061_odkud_nas_zna",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795341731665,
+      "tag": "0062_eshop_nastaveni",
+      "breakpoints": true
     }
   ]
 }

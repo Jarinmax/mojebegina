@@ -2470,3 +2470,12 @@ export const productionBatchAllocations = pgTable(
     check("production_batch_allocations_quantity_check", sql`${table.quantity} > 0`),
   ]
 );
+
+// Nastavení e-shopu měnitelné z MojeBegina (22. 11. 2026): palivový příplatek
+// CoolBalík (key „fuel_surcharge_percent“), mění se každý měsíc.
+export const eshopSettings = pgTable("eshop_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
