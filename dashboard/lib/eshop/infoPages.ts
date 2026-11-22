@@ -12,7 +12,7 @@ import { shippingMethodsFor, type ShippingMode, type ShippingOptions } from "./s
 import { ZASILKOVNA_BOX_KC, ZASILKOVNA_STANDARD_KC } from "./zasilkovna";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { COLD_SHIPPING_SK_BANDS } from "./shippingRates";
-import { slovakiaEnabledFromEnv } from "./shipping";
+import { SLOVAKIA_DELIVERY_ALLOWED, SLOVAKIA_SELF_TRANSPORT, SLOVAKIA_SELF_TRANSPORT_NOTE, slovakiaEnabledFromEnv } from "./shipping";
 import { FAQ_PAGE } from "./faq";
 import { OPERATOR, SLOVAKIA_ORDER_NOTE } from "./operator";
 export { SLOVAKIA_ORDER_NOTE };
@@ -204,8 +204,16 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
                   {
                     heading: "Doručení na Slovensko",
                     paragraphs: [
-                      "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
-                      "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
+                      ...(SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED
+                        ? [
+                            "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
+                            SLOVAKIA_SELF_TRANSPORT_NOTE,
+                            "Pro představu: ceník chlazené přepravy CoolBalík na Slovensko podle hmotnosti zásilky:",
+                          ]
+                        : [
+                            "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
+                            "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
+                          ]),
                     ],
                     items: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map((band) => `do ${kgText(band.toKg)} kg — ${formatKc(band.priceKc)}`),
                     afterParagraphs: [

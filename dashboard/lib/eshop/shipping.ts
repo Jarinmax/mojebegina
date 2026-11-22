@@ -122,8 +122,21 @@ export type ShippingDestination = "cz" | "sk";
  * rozhodnutí. Ceník, zóny a texty pro Slovensko zůstávají připravené.
  */
 export const SLOVAKIA_DELIVERY_ALLOWED = false;
+/**
+ * Slovensko s vlastní dopravou zákazníka (Lucie 22. 11. 2026): slovenský zákon o obalech
+ * (od 12. 8. 2026) nám bez registrace a zástupce nedovoluje balené zboží na Slovensko posílat.
+ * Zákazník si proto chlazenou přepravu CoolBalík objedná a zaplatí sám; my zboží připravíme
+ * a předáme jím objednanému dopravci. Doprava je v e-shopu 0 Kč.
+ */
+export const SLOVAKIA_SELF_TRANSPORT = true;
+export const SLOVAKIA_SELF_TRANSPORT_NOTE =
+  "Doručení na Slovensko: chlazenou přepravu si objednáte a zaplatíte sami u CoolBalíku. Zboží pro Vás připravíme a předáme dopravci, kterého si objednáte. Podrobnosti Vám pošleme e-mailem po zaplacení objednávky.";
 export function slovakiaEnabledFromEnv(env: Record<string, string | undefined> = process.env): boolean {
-  return SLOVAKIA_DELIVERY_ALLOWED && env.ESHOP_SLOVAKIA !== "off";
+  return (SLOVAKIA_DELIVERY_ALLOWED || SLOVAKIA_SELF_TRANSPORT) && env.ESHOP_SLOVAKIA !== "off";
+}
+/** Na Slovensko jede zákazníkova vlastní doprava (u nás 0 Kč). */
+export function slovakiaSelfTransport(destination: ShippingDestination): boolean {
+  return destination === "sk" && SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED;
 }
 
 const SK_ZIP = /^[089]\d{2} ?\d{2}$/;
@@ -164,6 +177,8 @@ export function quoteShipping(
   if (method.id === "osobni-odber" || mode === "flat") {
     return { available: true, priceKc: method.priceKc, weightGrams: null };
   }
+  // Slovensko: dopravu si zákazník zajistí sám (CoolBalík), u nás 0 Kč
+  if (slovakiaSelfTransport(destination)) return { available: true, priceKc: 0, weightGrams: null };
   const individually = `Dopravu takové objednávky domluvíme individuálně — napište nám na ${contact.email} nebo zavolejte na ${contact.phone}. Případně zvolte osobní vyzvednutí ve Viticích (zdarma).`;
   const weight = cartWeight(lines);
   if (!weight.ok) {

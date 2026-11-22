@@ -8,7 +8,7 @@ import { CAFE_TASTING_NEED_COMPANY, cartHasCafeTasting } from "./cafeTasting";
 import type { CatalogIndex } from "./catalogIndex";
 import { evaluateCoupons, parseCouponCodes, type Coupon, type CouponUsage } from "./coupons";
 import { priceCart, withCoupons, type PricedCart } from "./pricing";
-import { getPaymentMethod, type PaymentMethod, type ShippingMode } from "./shipping";
+import { getPaymentMethod, type PaymentMethod, type ShippingMode, slovakiaSelfTransport } from "./shipping";
 import { shippingDestination, slovakiaDeliveryZone, slovakPayer, SLOVAKIA_CARD_ONLY_NOTE } from "./shipping";
 import { clampBoxes } from "./boxOption";
 import { SLOVAKIA_ORDER_NOTE } from "./infoPages";
@@ -355,6 +355,7 @@ export function validateCheckoutInput(
 
   if (
     destination === "sk" &&
+    !slovakiaSelfTransport(destination) &&
     priced.value.shipping.requiresAddress &&
     slovakiaDeliveryZone(input.deliverySameAsBilling ? input.billingZip : input.zip) === "twice" &&
     input.slovakiaTransitAccepted !== true
