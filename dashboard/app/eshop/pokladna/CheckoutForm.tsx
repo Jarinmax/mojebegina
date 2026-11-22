@@ -15,8 +15,11 @@ import { shippingDestination, slovakiaDeliveryZone,
   slovakPayer,
   SLOVAKIA_CARD_ONLY_NOTE,
   SLOVAKIA_SELF_TRANSPORT,
-  SLOVAKIA_SELF_TRANSPORT_NOTE,
   slovakiaSelfTransport,
+  SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL,
+  SLOVAKIA_SELF_TRANSPORT_SUMMARY,
+  SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL,
+  SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE,
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
@@ -383,8 +386,12 @@ export default function CheckoutForm({
               </li>
             )}
             <li className="py-2 flex justify-between gap-3">
-              <span>{confirmation.pricedCart.shipping.label}</span>
-              <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.shippingKc)}</span>
+              <span>{confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk") ? SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL : confirmation.pricedCart.shipping.label}</span>
+              <span className="tabular-nums whitespace-nowrap">
+                {confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk")
+                  ? SLOVAKIA_SELF_TRANSPORT_SUMMARY
+                  : formatKc(confirmation.pricedCart.shippingKc)}
+              </span>
             </li>
             <li className="pt-3 flex justify-between gap-3 font-semibold">
               <span>Celkem</span>
@@ -682,12 +689,14 @@ export default function CheckoutForm({
                   />
                   <span className="flex-1">
                     <span className="flex justify-between gap-3 text-sm font-medium">
-                      {method.label}
-                      <span className="tabular-nums whitespace-nowrap">{quoteLabel(methodQuote)}</span>
+                      {method.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL : method.label}
+                      <span className={`tabular-nums whitespace-nowrap ${method.id === "rozvoz" && slovakiaSelfTransport(destination) ? "font-semibold text-begina-accent-900" : ""}`}>
+                        {method.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL : quoteLabel(methodQuote)}
+                      </span>
                     </span>
-                    <span className="block text-xs text-neutral-500 mt-0.5">
+                    <span className={`block mt-0.5 ${method.id === "rozvoz" && slovakiaSelfTransport(destination) ? "text-sm font-medium text-begina-accent-900" : "text-xs text-neutral-500"}`}>
                       {method.id === "rozvoz" && slovakiaSelfTransport(destination)
-                        ? "Chlazenou přepravu CoolBalík si objednáte a zaplatíte sami, zboží předáme Vámi objednanému dopravci."
+                        ? SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE
                         : method.id === "rozvoz" && destination === "sk"
                           ? method.description.replace("v České republice", "na Slovensku")
                           : method.description}
@@ -805,16 +814,14 @@ export default function CheckoutForm({
                   </div>
                 </>
               )}
-              {slovakia ? (
+              {slovakia && !(destination === "sk" && slovakiaSelfTransport(destination)) ? (
                 <p className="text-xs text-neutral-500">
                   {SLOVAKIA_SELF_TRANSPORT
                     ? "Doručujeme v České republice. Zákazníci ze Slovenska si chlazenou přepravu objednají sami, alkoholické nápoje na Slovensko neprodáváme; zemi určíme podle PSČ."
                     : "Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ."}
                 </p>
               ) : null}
-              {slovakia && destination === "sk" && slovakiaSelfTransport(destination) ? (
-                <p role="note" className="text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">{SLOVAKIA_SELF_TRANSPORT_NOTE}</p>
-              ) : slovakia && destination === "sk" ? (
+              {slovakia && destination === "sk" && slovakiaSelfTransport(destination) ? null : slovakia && destination === "sk" ? (
                 slovakiaDeliveryZone(values.deliverySameAsBilling ? values.billingZip : values.zip) === "daily" ? (
                   <p role="note" className="text-xs text-neutral-600">Do vaší oblasti na Slovensku doručujeme chlazenou přepravou jen od úterý do pátku. V pondělí a o víkendu se nedoručuje, zásilka odeslaná na konci týdne proto dorazí až v úterý.</p>
                 ) : (
@@ -937,9 +944,11 @@ export default function CheckoutForm({
             </li>
           )}
           <li className="py-2.5 flex justify-between gap-3 text-neutral-700">
-            <span>{shipping.label}</span>
+            <span>{shipping.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL : shipping.label}</span>
             <span className="tabular-nums whitespace-nowrap">
-              {coupons.preview.freeShipping && quote.available && quote.priceKc > 0 ? "zdarma (slevový kód)" : formatKc(shippingKc)}
+              {shipping.id === "rozvoz" && slovakiaSelfTransport(destination)
+                ? SLOVAKIA_SELF_TRANSPORT_SUMMARY
+                : coupons.preview.freeShipping && quote.available && quote.priceKc > 0 ? "zdarma (slevový kód)" : formatKc(shippingKc)}
             </span>
           </li>
           <li className="pt-3 flex justify-between gap-3 font-semibold text-lg text-[#2A2622]">

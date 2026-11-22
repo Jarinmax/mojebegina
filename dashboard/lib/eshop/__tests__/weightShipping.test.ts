@@ -446,7 +446,7 @@ describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
     expect(text).toContain("839 Kč");
     expect(text).toContain("nad 350 do 400 kg — 4");
     expect(text).toContain("Objednávky nad 400 kg");
-    expect(text).toContain("Přepravu si pak objednáte například přes uspornybalik.cz");
+    expect(text).toContain("Na Slovensko posíláme jen chlazenou přepravou CoolBalík");
     expect(text).toContain("Vitice 119, 281 06 Vitice");
     expect(text).not.toMatch(/zdarma od|doprava zdarma/i);
     expect(JSON.stringify(shippingPageFor("flat").blocks)).not.toContain("Ceník chlazené přepravy");
