@@ -48,6 +48,9 @@ export const HOME_TILE_CAFE = {
     "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %).",
   ],
   button: "Chci ochutnávku do provozu",
+  // Odkaz na nabídku polévek (dokument ChatGPT „SEO pro kavárny“, Lucie 22. 11. 2026)
+  extraText: "Provozujete kavárnu nebo bistro? Podívejte se, které polévky dodáváme, kolik stojí porce s dopravou a jak si vybrat vzorky pro svůj podnik.",
+  extraLink: { label: "Polévky pro kavárny s dovozem", href: "/polevky-pro-kavarny" },
   // na začátek stránky, ať si podnik nejdřív přečte, jak spolupráce funguje (Lucie 20. 11. 2026 večer)
   href: "/pro-kavarny",
 } as const;

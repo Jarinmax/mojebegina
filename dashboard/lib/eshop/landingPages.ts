@@ -5,6 +5,7 @@
 // tvrzení, alkohol se nepropaguje jako rostlinný. Vykání, názvy produktů přesně z e-shopu.
 // Ze stejných otázek se skládá FAQPage JSON-LD (seo.ts → faqJsonLd).
 import { CAFE_PATH } from "./cafePage";
+import { COLD_SHIPPING_RULES } from "./shippingRates";
 import type { FaqItem } from "./faq";
 
 export type LandingLink = { label: string; href: string };
@@ -18,17 +19,40 @@ export type LandingPage = {
   faq: FaqItem[];
   /** Odkazy na produkty a kategorie (přesné názvy z e-shopu). */
   links: LandingLink[];
+  /** Cena porce včetně dopravy (polévky pro kavárny, 22. 11. 2026). */
+  priceTable?: { title: string; rows: PortionPriceRow[]; note: string };
+  /** Tlačítka pod úvodem místo jednoho „Chci ochutnávku do provozu“. */
+  ctas?: LandingLink[];
 };
+
+export type PortionPriceRow = { order: string; portions: number; totalKc: number; perPortionKc: number };
+
+/** Cena polévky 3 l a porce (stejné jako v katalogu: 379 Kč, 12 × 250 ml). */
+export const SOUP_PRICE_KC = 379;
+export const SOUP_PORTIONS = 12;
+/** Nejnižší pásmo chlazené dopravy (do 14,99 kg) — ze stejného ceníku jako košík. */
+export const SOUP_SHIPPING_FROM_KC = COLD_SHIPPING_RULES[0].priceKc;
+
+export function soupPortionRows(counts: readonly number[] = [1, 3]): PortionPriceRow[] {
+  return counts.map((count) => {
+    const portions = count * SOUP_PORTIONS;
+    const totalKc = count * SOUP_PRICE_KC + SOUP_SHIPPING_FROM_KC;
+    return { order: `${count} × 3 l`, portions, totalKc, perPortionKc: Math.round((totalKc / portions) * 100) / 100 };
+  });
+}
+
+const kc = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
+const SOUP_ROWS = soupPortionRows();
 
 const TASTING = { label: "Chci ochutnávku do provozu", href: CAFE_PATH };
 export const LANDING_TASTING_LINK = TASTING;
 
 const DELIVERY_ANSWER =
-  "Ano. Vozíme chlazenou přepravou po celé České republice, cena se řídí hmotností objednávky. Objednávku si můžete po domluvě vyzvednout i osobně v Zahradním bistru Begina ve Viticích.";
+  "Ano. Doručujeme chlazenou přepravou po celé České republice, cena se řídí hmotností objednávky. Objednávku si můžete po domluvě vyzvednout i osobně v Zahradním bistru Begina ve Viticích.";
 const ORDER_ANSWER =
   "Objednáte přímo na e-shopu begina.cz, na firmu i s IČO. Ceny jsou stejné jako na e-shopu a při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.";
 const TASTING_ANSWER =
-  "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každou položku za 49 Kč. Objednáte na firmu s IČO a pošleme vám je chlazenou přepravou, nebo si je vyzvednete ve Viticích.";
+  "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každý vzorek za 49 Kč (polévka 200 ml). Na jedno IČO jde objednat jedna ochutnávka, od každé příchutě jeden vzorek. Pošleme ji chlazeně podle ceníku dopravy, nebo si ji po domluvě vyzvednete ve Viticích.";
 
 const product = (label: string, slug: string): LandingLink => ({ label, href: `/produkt/${slug}` });
 
@@ -36,11 +60,21 @@ export const LANDING_PAGES: LandingPage[] = [
   {
     path: "/polevky-pro-kavarny",
     title: "Hotové polévky pro kavárny a bistra s dovozem po celé ČR",
-    description: "Hotové polévky v begině 3 l s kohoutkem pro kavárny a bistra. Stačí ohřát a podávat, porce 250 ml za 31,60 Kč, chlazená doprava po celé ČR.",
+    // Texty podle dokumentu ChatGPT „SEO pro kavárny“ (Lucie 22. 11. 2026): „doručíme“, ne „dovážíme“.
+    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Doručíme chlazeně po celé ČR. Vzorek polévky pro Váš podnik stojí 49 Kč.",
     intro: [
-      "Kavárnám a bistrům dovážíme hotové polévky po celé ČR chlazenou přepravou. Vaříme je ze zeleniny, hub, bylinek, koření a čisté filtrované vody.",
-      "Polévka přijede v begině, třílitrovém sáčku s kohoutkem. Natočíte vždy jen objednanou porci, ohřejete a podáváte.",
+      "Do kaváren a bister po celé České republice doručujeme hotové rostlinné polévky z čisté filtrované vody. Na polední menu si můžete vybrat třeba kulajdu, dýňovou polévku nebo gulášovou polévku z hlívy ústřičné.",
+      "Každou polévku Vám doručíme chlazenou v třílitrovém sáčku s kohoutkem. Když si host objedná, natočíte jednu porci, ohřejete ji a podáváte.",
     ],
+    ctas: [
+      { label: "Vybrat polévky na ochutnávku", href: `${CAFE_PATH}#ochutnavka` },
+      { label: "Domluvit dodávky polévek", href: `${CAFE_PATH}#napiste-nam` },
+    ],
+    priceTable: {
+      title: "Kolik stojí porce včetně dopravy?",
+      rows: SOUP_ROWS,
+      note: `Tři litry polévky stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml. Doprava začíná na ${kc(SOUP_SHIPPING_FROM_KC)} za celou zásilku a řídí se celkovou hmotností objednávky. Příklady platí bez slevy, v pásmu dopravy do 14,99 kg. Osobní odběr ve Viticích je po domluvě zdarma.`,
+    },
     benefits: [
       { title: "Bez práce", text: "Polévku stačí ohřát a podávat." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Po otevření vydrží v lednici 14 dní." },
@@ -48,11 +82,14 @@ export const LANDING_PAGES: LandingPage[] = [
       { title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
     ],
     faq: [
-      { question: "Kdo dováží hotové polévky do kavárny?", answer: "Begina. Kavárnám a bistrům dovážíme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Objednáte přímo na e-shopu begina.cz, na firmu i s IČO." },
+      { question: "Kdo dováží hotové polévky do kavárny?", answer: "Begina. Kavárnám a bistrům doručujeme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Objednáte přímo na e-shopu begina.cz, na firmu i s IČO." },
       { question: "Dovezete polévky po celé ČR?", answer: DELIVERY_ANSWER },
-      { question: "Kolik stojí porce polévky?", answer: "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,60 Kč." },
+      {
+        question: "Kolik stojí porce polévky včetně dopravy?",
+        answer: `Polévka v begině 3 l stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml – samotná porce vychází na 31,60 Kč. ${SOUP_ROWS.map((row) => `${row.order} (${row.portions} porcí) stojí s dopravou ${kc(row.totalKc)}, porce ${kc(row.perPortionKc)}`).join("; ")}.`,
+      },
+      { question: "Kdy polévky dorazí?", answer: "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme." },
       { question: "Jak dlouho vydrží polévka po otevření?", answer: "Po otevření vydrží v lednici 14 dní. Polévky skladujte v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu." },
-      { question: "Jak se polévka připravuje?", answer: "Natočíte kohoutkem jen objednanou porci a ohřejete. Zbytek počká v lednici." },
       { question: "Jak objednat ochutnávku do provozu?", answer: TASTING_ANSWER },
     ],
     links: [

@@ -153,7 +153,7 @@ export default async function EshopPage() {
   );
 }
 
-type Tile = { title: string; points: readonly string[]; button: string; href: string };
+type Tile = { title: string; points: readonly string[]; button: string; href: string; extraText?: string; extraLink?: { label: string; href: string } };
 
 function HomeTile({ tile, prominent = false }: { tile: Tile; prominent?: boolean }) {
   return (
@@ -173,6 +173,14 @@ function HomeTile({ tile, prominent = false }: { tile: Tile; prominent?: boolean
           </li>
         ))}
       </ul>
+      {tile.extraText && tile.extraLink && (
+        <p className="mt-4 text-base leading-normal text-neutral-700">
+          {tile.extraText}{" "}
+          <ShopLink href={tile.extraLink.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+            {tile.extraLink.label} →
+          </ShopLink>
+        </p>
+      )}
       <ShopLink
         href={tile.href}
         className={
