@@ -189,7 +189,6 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
     jumpLinks: [
       { anchor: "ceska-republika", label: "Doručení po ČR" },
       ...(byWeight && slovakiaEnabledFromEnv() ? [{ anchor: "slovensko", label: "Doručení na Slovensko" }] : []),
-      { anchor: "platba", label: "Platba" },
     ],
     blocks: [
       // 22. 11. 2026 (Lucie): zvlášť Česká republika a Slovensko, ceníky jako tabulky.
@@ -221,44 +220,45 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
                 ...(slovakiaEnabledFromEnv() ? [] : [`Doručujeme jen v České republice. ${SLOVAKIA_ORDER_NOTE}`]),
               ],
             },
-            // Slovensko (texty odsouhlasila Lucie 16. 11. 2026) — jen se zapnutým ESHOP_SLOVAKIA.
-            ...(slovakiaEnabledFromEnv()
-              ? [
-                  {
-                    heading: "Doručení na Slovensko",
-                    anchor: "slovensko",
-                    paragraphs: [
-                      ...(SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED
-                        ? [
-                            "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
-                            SLOVAKIA_SELF_TRANSPORT_NOTE,
-                            "Pro představu ceník chlazené přepravy CoolBalík na Slovensko (platíte přímo dopravci):",
-                          ]
-                        : [
-                            "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
-                            "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
-                          ]),
-                    ],
-                    rowsHeader: ["Hmotnost zásilky", "Cena dopravy"] as [string, string],
-                    rows: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map(
-                      (band) => [`do ${kgText(band.toKg)} kg`, formatKc(band.priceKc)] as [string, string]
-                    ),
-                    afterParagraphs: [
-                      "Zásilkovna doručuje jen v České republice. Osobní odběr je možný v naší provozovně ve Viticích i pro zákazníky ze Slovenska.",
-                    ],
-                  },
-                ]
-              : []),
           ]
         : []),
+      // Lucie 22. 11. 2026: platba převodem/kartou platí pro ČR — patří k oddílu ČR.
       {
-        heading: "Platba",
-        anchor: "platba",
+        subheading: "Platba",
         items: [
           `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
           "Kartou online — platební karta, Apple Pay nebo Google Pay, zabezpečeně přes Stripe.",
         ],
       },
+      // Slovensko (texty odsouhlasila Lucie 16. 11. 2026) — jen se zapnutým ESHOP_SLOVAKIA.
+      ...(byWeight && slovakiaEnabledFromEnv()
+        ? [
+          {
+            heading: "Doručení na Slovensko",
+            anchor: "slovensko",
+            paragraphs: [
+              ...(SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED
+                ? [
+                    "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
+                    SLOVAKIA_SELF_TRANSPORT_NOTE,
+                    "Pro představu ceník chlazené přepravy CoolBalík na Slovensko (platíte přímo dopravci):",
+                  ]
+                : [
+                    "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
+                    "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
+                  ]),
+            ],
+            rowsHeader: ["Hmotnost zásilky", "Cena dopravy"] as [string, string],
+            rows: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map(
+              (band) => [`do ${kgText(band.toKg)} kg`, formatKc(band.priceKc)] as [string, string]
+            ),
+            afterParagraphs: [
+              "Platba za zboží: zákazníci ze Slovenska platí v e-shopu jen kartou online (platební karta, Apple Pay nebo Google Pay). Bankovní převod pro Slovensko nenabízíme.",
+              "Zásilkovna doručuje jen v České republice. Osobní odběr je možný v naší provozovně ve Viticích i pro zákazníky ze Slovenska.",
+            ],
+          },
+          ]
+        : []),
     ],
     pendingNote: byWeight ? undefined : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
   };
