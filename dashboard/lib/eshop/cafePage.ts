@@ -156,7 +156,7 @@ export const CAFE_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
-    answer: "Po otevření spotřebujte polévku do 14 dnů při skladování do 4 °C, nejpozději však do data uvedeného na obalu. Skladujte ji v chladničce do 4 °C před otevřením i po otevření.",
+    answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Po otevření ji spotřebujte do 14 dnů, nejpozději však do data spotřeby uvedeného na obalu.",
   },
 ];
 export const CAFE_FAQ_ALL = { label: "Všechny časté otázky", href: "/caste-otazky" } as const;

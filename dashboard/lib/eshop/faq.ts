@@ -28,7 +28,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Jak dlouho vydrží polévka po otevření?",
     answer:
-      "Polévky a čaje vydrží po otevření v lednici 14 dní, sirupy 3 měsíce. Polévky skladujte v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu.",
+      "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Po otevření ji spotřebujte do 14 dnů, nejpozději však do data spotřeby uvedeného na obalu.",
   },
   {
     question: "Jsou vaše polévky veganské?",

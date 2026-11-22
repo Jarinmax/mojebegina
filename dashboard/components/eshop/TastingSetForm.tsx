@@ -83,7 +83,7 @@ export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { na
           type="button"
           onClick={handleAdd}
           disabled={!cartSku}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg px-4 h-9 disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-1.5 bg-begina-primary-900 hover:bg-begina-primary-800 text-white text-sm font-medium rounded-lg px-4 h-11 sm:h-9 disabled:opacity-50"
         >
           Do košíku
         </button>

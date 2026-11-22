@@ -8,6 +8,7 @@ import { imageBackdrop } from "@/lib/eshop/productImages";
 import { SHARE_DESCRIPTION, pageShareMeta } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
 import { splitLastSentence } from "@/lib/eshop/typography";
+import { cheapestSyrupDrinkKc, withSyrupDrinkPrice } from "@/lib/eshop/syrupDrinkPrice";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
 import { CATEGORY_SOUPS_TEASER, SOUPS_CATEGORY_SEO } from "@/lib/eshop/cafePage";
 
@@ -48,6 +49,9 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
     notFound();
   }
   const items = index.productsInCategory(category.slug);
+  // Sirupy: cena nápoje v úvodu z aktuální ceny nejlevnější beginy 3 l (22. 11. 2026)
+  const drinkKc = category.slug === "sirupy" ? cheapestSyrupDrinkKc(items) : null;
+  const intro = category.intro.map((paragraph) => withSyrupDrinkPrice(paragraph, drinkKc));
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
@@ -64,7 +68,7 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
 
       <section className="text-center max-w-3xl mx-auto mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{category.name}</h1>
-        {category.intro.map((paragraph, index) => {
+        {intro.map((paragraph, index) => {
           const [head, last] = splitLastSentence(paragraph);
           return (
             // mobil: nad produkty jen první odstavec, delší popis až pod nimi (zadání 22. 11. 2026 večer)
@@ -105,9 +109,9 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
           ))}
         </ul>
       )}
-      {category.intro.length > 1 && (
+      {intro.length > 1 && (
         <section className="sm:hidden mt-8 text-center max-w-3xl mx-auto">
-          {category.intro.slice(1).map((paragraph) => (
+          {intro.slice(1).map((paragraph) => (
             <p key={paragraph} className="mt-3 text-neutral-600">{paragraph}</p>
           ))}
         </section>

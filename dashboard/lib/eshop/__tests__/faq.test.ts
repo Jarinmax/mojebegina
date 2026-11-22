@@ -22,7 +22,7 @@ describe("Časté otázky", () => {
 
   it("údaje jako na webu, bez zdravotních tvrzení a bez „zdarma“", () => {
     const all = FAQ_ITEMS.map((i) => i.answer).join(" ");
-    expect(all).toContain("14 dní");
+    expect(all).toContain("14 dnů");
     expect(all).toContain("31,58 Kč");
     expect(all).toContain("379 Kč");
     expect(all).toContain("3 až 7 %");

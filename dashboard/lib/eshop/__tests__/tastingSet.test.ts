@@ -76,6 +76,17 @@ describe("ochutnávkový set sirupů", () => {
     expect(priced.value.lines[0]).toMatchObject({ sku: SET_CAMPAIGN_SKU, unitPriceKc: 189, name: "Ochutnávkový set sirupů 5 × 100 ml (Šaman, Lipový, Zázvorový, Ibiškový, Šípkový)" });
   });
 
+  it("pět vybraných příchutí = jeden set 5 × 100 ml za 349 Kč před dopravou (22. 11. 2026)", () => {
+    const sku = setCartSku(SET_SKU, ["sa", "li", "za", "ib", "si"])!;
+    const priced = priceCart([{ sku, quantity: 1 }], "zasilkovna", index([set(SET_SKU, 349)]), opts);
+    expect(priced.ok).toBe(true);
+    if (!priced.ok) return;
+    expect(priced.value.lines).toHaveLength(1);
+    expect(priced.value.lines[0].quantity).toBe(1);
+    expect(priced.value.lines[0].lineTotalKc).toBe(349);
+    expect(priced.value.totalKc - priced.value.shippingKc).toBe(349);
+  });
+
   it("dva sety s různým výběrem jsou dva řádky; bez výběru set objednat nejde", () => {
     const idx = index([set(SET_CAMPAIGN_SKU, 189, 100)]);
     const other = setCartSku(SET_CAMPAIGN_SKU, ["he", "me", "sa", "li", "za"])!;

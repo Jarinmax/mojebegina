@@ -94,12 +94,12 @@ export function quoteZasilkovna(lines: readonly Line[]): ZasilkovnaQuote {
 }
 
 /** Věta o doručení na stránce produktu (14. 11. 2026, Lucie): sirupy se sáčkem 650 ml jdou i Zásilkovnou. */
-export const DELIVERY_NOTE_COLD = "Tento produkt vám doručíme chlazenou přepravou.";
+export const DELIVERY_NOTE_COLD = "Tento produkt posíláme chlazeně po celé ČR.";
 export function productDeliveryNote(
   product: { category: string; variants: readonly { volumeMl: number | null; soldOut?: boolean }[] },
   zasilkovna: boolean
 ): string {
   // vyprodaný sáček (sold_out) Zásilkovnou nenabízíme
   if (!zasilkovna || !product.variants.some((variant) => variant.soldOut !== true && isSyrupPouch(product, variant))) return DELIVERY_NOTE_COLD;
-  return `Doručíme chlazenou přepravou. Sáčky se sirupem (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou na výdejní místo.`;
+  return `Posíláme chlazeně po celé ČR. Sáčky se sirupem (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou na výdejní místo.`;
 }
