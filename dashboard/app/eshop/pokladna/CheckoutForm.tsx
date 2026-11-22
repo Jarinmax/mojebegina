@@ -31,9 +31,9 @@ import {
   type ZasilkovnaPoint,
 } from "@/lib/eshop/zasilkovna";
 import { isTastingSet } from "@/lib/eshop/tastingSet";
-import { isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
+import { isCafeTasting, isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
 import { VAT_NOTE } from "@/lib/eshop/cafePage";
-import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
+import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes, isBoxEligible } from "@/lib/eshop/boxOption";
 import { useCartBoxes } from "@/components/eshop/useCartBoxes";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
@@ -870,12 +870,6 @@ export default function CheckoutForm({
 
         {/* Krabice: vybrané v košíku (22. 11. 2026, Lucie) */}
         <input type="hidden" name="boxes" value={boxes} />
-        {boxesMax > 0 && (
-          <p className="text-sm text-neutral-600 -mt-2">
-            {boxes > 0 ? `Kartonová krabice: ${boxes}× (+${formatKc(boxes * BOX_PRICE_KC)}). ` : "Bez kartonové krabice. "}
-            <ShopLink href="/kosik" className="underline underline-offset-2">Změnit v košíku</ShopLink>
-          </p>
-        )}
 
         <div>
           <label htmlFor="note" className={labelClass}>Poznámka k objednávce (nepovinné)</label>
@@ -883,17 +877,47 @@ export default function CheckoutForm({
         </div>
       </div>
 
-      <aside className="bg-begina-primary-50 border border-neutral-200 rounded-2xl p-5 lg:sticky lg:top-20">
-        <h2 className="font-medium mb-3">Shrnutí</h2>
-        <ul className="text-sm divide-y divide-neutral-200">
-          {lines.map((line) => (
-            <li key={line.sku} className="py-2 flex justify-between gap-3">
-              <span>
-                {line.quantity}× {line.name}
-              </span>
-              <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
-            </li>
-          ))}
+      {/* 22. 11. 2026 (Lucie): souhrn hezčí — bílá karta, vzorky čitelně, krabice zaškrtnutím přímo tady
+          (formulář pro kavárny jde rovnou do pokladny a košík přeskočí). */}
+      <aside className="bg-white border border-[#E3DED0] rounded-2xl shadow-[0_4px_16px_rgba(60,40,20,0.06)] lg:sticky lg:top-20 overflow-hidden">
+        <h2 className="font-serif text-xl text-[#2A2622] px-5 py-3.5 bg-[#FAF6EF] border-b border-[#EDE5D8]">Vaše objednávka</h2>
+        <div className="p-5">
+        <ul className="text-sm divide-y divide-[#EDE5D8]">
+          {lines.map((line) => {
+            const sample = isCafeTasting(line.product);
+            const free = line.lineTotalKc === 0 && line.variant.priceKc > 0;
+            return (
+              <li key={line.sku} className="py-2.5">
+                <div className="flex justify-between gap-3">
+                  <span className="text-[#2A2622]">
+                    {sample ? (
+                      <>
+                        <span className="text-neutral-500">Vzorek · </span>
+                        {line.variant.label}
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium">{line.quantity}× {line.product.name}</span>
+                        {line.variant.label ? <span className="text-neutral-500"> · {line.variant.label}</span> : null}
+                      </>
+                    )}
+                  </span>
+                  <span className={`tabular-nums whitespace-nowrap ${free ? "font-semibold text-[#2F6322]" : ""}`}>{free ? "zdarma" : formatKc(line.lineTotalKc)}</span>
+                </div>
+                {isBoxEligible(line.product, line.variant) && (
+                  <label className="mt-1.5 flex items-center gap-2 text-[13px] text-neutral-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cartBoxes.boxed.includes(line.sku)}
+                      onChange={(e) => cartBoxes.toggle(line.sku, e.target.checked)}
+                      className="w-4 h-4 accent-[#5E6B34]"
+                    />
+                    Zabalit do kartonové krabice <span className="text-neutral-500">+{formatKc(BOX_PRICE_KC)}{line.quantity > 1 ? " / ks" : ""}</span>
+                  </label>
+                )}
+              </li>
+            );
+          })}
           {discountKc > 0 && (
             <li className="py-2 flex justify-between gap-3">
               <span>Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => couponDisplayName(a)).join(", ")})</span>
@@ -908,13 +932,13 @@ export default function CheckoutForm({
               <span className="tabular-nums whitespace-nowrap">{formatKc(boxesKc)}</span>
             </li>
           )}
-          <li className="py-2 flex justify-between gap-3 text-neutral-600">
+          <li className="py-2.5 flex justify-between gap-3 text-neutral-700">
             <span>{shipping.label}</span>
             <span className="tabular-nums whitespace-nowrap">
               {coupons.preview.freeShipping && quote.available && quote.priceKc > 0 ? "zdarma (slevový kód)" : formatKc(shippingKc)}
             </span>
           </li>
-          <li className="pt-3 flex justify-between gap-3 font-semibold">
+          <li className="pt-3 flex justify-between gap-3 font-semibold text-lg text-[#2A2622]">
             <span>Celkem</span>
             <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc - discountKc + shippingKc + boxesKc)}</span>
           </li>
@@ -989,6 +1013,7 @@ export default function CheckoutForm({
         <ShopLink href="/kosik" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
           Upravit košík
         </ShopLink>
+      </div>
       </aside>
     </form>
     </>
