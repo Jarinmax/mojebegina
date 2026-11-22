@@ -5,6 +5,9 @@
 // se tu nepoužívají, aby nedošlo k omylu a nezúžení jen na jednu roli.
 // /admin a /executive zůstávají beze změny přísně oddělené.
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { PATH_HEADER } from "@/lib/site/hosts";
+import { isSalesOnly, salesOnlyPathAllowed, SALES_ONLY_HOME } from "@/lib/data/salesOnlyAuth";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isAdminOrExecutive } from "@/lib/data/adminAuth";
 import CompanyOverviewHeader from "@/components/company-overview/CompanyOverviewHeader";
@@ -27,8 +30,13 @@ export default async function CompanyOverviewLayout({
   if (!isAdminOrExecutive(ctx)) {
     redirect("/");
   }
+  // 22. 11. 2026 (Lucie): obchodník (Blahout) jen Obchod / CRM.
+  if (isSalesOnly(ctx)) {
+    const path = (await headers()).get(PATH_HEADER) ?? "";
+    if (!salesOnlyPathAllowed(path)) redirect(SALES_ONLY_HOME);
+  }
 
-  const backHref = ctx.systemRole === "ADMIN" ? "/admin" : "/executive";
+  const backHref = isSalesOnly(ctx) ? "/prace" : ctx.systemRole === "ADMIN" ? "/admin" : "/executive";
 
   return (
     <div className="min-h-screen bg-neutral-50">

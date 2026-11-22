@@ -26,6 +26,8 @@ export type Site = "public" | "www" | "agent" | "internal";
 
 /** Hlavička, kterou proxy.ts předává stránkám (vždy ji přepíše — nelze podvrhnout). */
 export const SITE_HEADER = "x-begina-site";
+/** Cesta požadavku pro layouty (omezení obchodníka jen na Obchod/CRM); nastavuje proxy, od klienta se přepíše. */
+export const PATH_HEADER = "x-begina-path";
 
 /** "Begina.CZ:443" / "begina.cz." → "begina.cz"; prázdné → "". */
 export function normalizeHost(raw: string | null | undefined): string {
