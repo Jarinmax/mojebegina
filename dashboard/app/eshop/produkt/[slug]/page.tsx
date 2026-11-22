@@ -26,6 +26,7 @@ import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN,
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import { boxNote } from "@/lib/eshop/boxOption";
+import { askSamplesLink } from "@/lib/eshop/cafePage";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
@@ -302,6 +303,14 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                 <AddToCartButton name={product.name} variants={product.variants} />
                 {/* Krabice za 19 Kč (Lucie 22. 11. 2026): hned pod Do košíku, i na mobilu */}
                 {boxNote(product) && <p className="mt-2 text-sm text-neutral-600">{boxNote(product)}</p>}
+                {askSamplesLink(product) && (
+                  <p className="mt-2 text-sm text-neutral-600">
+                    {askSamplesLink(product)!.text}{" "}
+                    <a href={askSamplesLink(product)!.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+                      {askSamplesLink(product)!.label} →
+                    </a>
+                  </p>
+                )}
               </>
             ) : (
               <div className="border border-neutral-200 rounded-xl p-4">

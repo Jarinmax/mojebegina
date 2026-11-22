@@ -98,7 +98,7 @@ export async function submitCafeInquiry(db: Db, raw: CafeInquiryRaw, options: Ca
         {
           from: config.from,
           to: internal.to,
-          replyTo: inquiry.email,
+          ...(inquiry.email ? { replyTo: inquiry.email } : {}),
           subject: `Zájem o ochutnávku do provozu – ${inquiry.venue}${inquiry.city ? ` (${inquiry.city})` : ""}`,
           text,
           html: `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`,

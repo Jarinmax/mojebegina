@@ -17,11 +17,13 @@ import {
   CAFE_STEPS,
   CAFE_SUBTITLE,
   CAFE_TITLE,
+  VAT_NOTE,
+  CAFE_SOUPS_TEASER,
 } from "@/lib/eshop/cafePage";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
-import { CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
+import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +99,13 @@ export default async function Page() {
         </section>
       )}
 
+      <p className="max-w-2xl mx-auto -mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-base text-neutral-800 text-center">
+        {CAFE_SOUPS_TEASER.text}{" "}
+        <ShopLink href={CAFE_SOUPS_TEASER.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+          {CAFE_SOUPS_TEASER.label} →
+        </ShopLink>
+      </p>
+
       <section className="max-w-2xl mx-auto w-full">
         <h2 className="font-serif text-2xl sm:text-3xl text-center mb-5">Jak spolupráce funguje</h2>
         <ol className="flex flex-col gap-5">
@@ -117,7 +126,7 @@ export default async function Page() {
         {tastingSkus.length > 0 ? (
           <>
             <CafeTastingForm available={tastingSkus} />
-            <CafeForm heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" />
+            <CafeForm heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" intro={CAFE_CALLBACK_TEXT} />
           </>
         ) : (
           <CafeForm />
@@ -127,7 +136,7 @@ export default async function Page() {
           <ShopLink href={CAFE_PRICE_NOTE.href} className="font-medium underline underline-offset-4">
             {CAFE_PRICE_NOTE.link}
           </ShopLink>
-          {CAFE_PRICE_NOTE.after}
+          {CAFE_PRICE_NOTE.after} {VAT_NOTE}
         </p>
       </section>
     </article>

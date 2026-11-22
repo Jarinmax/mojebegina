@@ -10,7 +10,7 @@ import Image from "next/image";
 import { Check } from "lucide-react";
 import CafeBenefits from "@/components/eshop/CafeBenefits";
 import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
-import { CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
+import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import ProductCard from "@/components/eshop/ProductCard";
@@ -147,7 +147,7 @@ export default async function EshopPage() {
       </div>
       {/* Formulář ochutnávky před Kontaktem v patičce (Lucie 20. 11. 2026), zdroj leadu „web – úvod“ */}
       <div className="max-w-6xl mx-auto px-4 pb-12 sm:pb-14">
-        <CafeForm place="uvod" heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" />
+        <CafeForm place="uvod" heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" intro={CAFE_CALLBACK_TEXT} />
       </div>
     </>
   );

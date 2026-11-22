@@ -55,7 +55,7 @@ export const CAFE_FORM_DONE = "Děkujeme, ozveme se vám do 2 pracovních dnů."
 export const CAFE_PRICE_NOTE = { before: "Ceny jsou stejné jako na e-shopu. Při pravidelném odběru získáte slevu 3 až 7 % v ", link: "partnerském programu", href: "/partnersky-program", after: "." } as const;
 
 export type CafeInquiryRaw = { venue: string; name: string; phone: string; email: string; city: string; note: string };
-export type CafeInquiry = { venue: string; name: string; phone: string; email: string; city: string | null; note: string | null };
+export type CafeInquiry = { venue: string; name: string; phone: string; email: string | null; city: string | null; note: string | null };
 export type CafeField = keyof CafeInquiryRaw;
 
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
@@ -77,13 +77,14 @@ export function validateCafeInquiry(raw: CafeInquiryRaw): { ok: true; value: Caf
   if (name.length > 120) return { ok: false, field: "name", error: "Jméno může mít nejvýše 120 znaků." };
   const phone = normalizeCafePhone(raw.phone);
   if (!phone) return { ok: false, field: "phone", error: "Zadejte prosím telefon, na který vám můžeme zavolat." };
+  // e-mail nepovinný (dokument ChatGPT, Lucie 22. 11. 2026): kdo chce jen zavolat, napíše telefon
   const email = clean(raw.email).toLowerCase();
-  if (email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { ok: false, field: "email", error: "Zadejte prosím platný e-mail." };
+  if (email && (email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))) return { ok: false, field: "email", error: "Zadejte prosím platný e-mail, nebo pole nechte prázdné." };
   const city = clean(raw.city);
   if (city.length > 120) return { ok: false, field: "city", error: "Město může mít nejvýše 120 znaků." };
   const note = raw.note.replace(/\r\n/g, "\n").trim();
   if (note.length > 1000) return { ok: false, field: "note", error: "Poznámka může mít nejvýše 1000 znaků." };
-  return { ok: true, value: { venue, name, phone, email, city: city || null, note: note || null } };
+  return { ok: true, value: { venue, name, phone, email: email || null, city: city || null, note: note || null } };
 }
 
 /** Porovnávací tvar telefonu: posledních 9 číslic (bez předvolby) — stejné pravidlo jako u leadů z Mety. */
@@ -114,10 +115,43 @@ export function describeCafeInquiry(inquiry: CafeInquiry, submittedLabel: string
     `Provoz: ${inquiry.venue}`,
     `Jméno: ${inquiry.name}`,
     `Telefon: ${inquiry.phone}`,
-    `E-mail: ${inquiry.email}`,
+    `E-mail: ${inquiry.email ?? "neuveden"}`,
     inquiry.city ? `Město: ${inquiry.city}` : null,
     inquiry.note ? `Poznámka: ${inquiry.note}` : null,
   ]
     .filter(Boolean)
     .join("\n");
 }
+
+/** Neplátce DPH (Lucie 22. 11. 2026): patička, pokladna, Pro kavárny a bistra. */
+export const VAT_NOTE = "Nejsme plátci DPH – uvedené ceny jsou konečné, nic se k nim nepřičítá.";
+
+/**
+ * „Zeptat se na vzorky“ (Lucie 22. 11. 2026): u čajů, ovocných nápojů a koktejlů, ke kterým
+ * se vzorky na e-shopu objednat nedají (Svařák Deluxe vzorek má). Jinak null.
+ */
+export const ASK_SAMPLES_CATEGORIES = ["caje", "ovocne-napoje", "koktejly"] as const;
+export const ASK_SAMPLES_EXCEPT_SLUGS = ["svarak-deluxe"] as const;
+export function askSamplesLink(product: { category: string; slug: string }): { text: string; label: string; href: string } | null {
+  if (!(ASK_SAMPLES_CATEGORIES as readonly string[]).includes(product.category)) return null;
+  if ((ASK_SAMPLES_EXCEPT_SLUGS as readonly string[]).includes(product.slug)) return null;
+  return { text: "Provozujete kavárnu nebo bistro?", label: "Zeptat se na vzorky", href: `${CAFE_PATH}#napiste-nam` };
+}
+
+/** Odkazy na nabídku polévek pro kavárny (dokument ChatGPT „SEO pro kavárny“, Lucie 22. 11. 2026). */
+export const SOUPS_FOR_CAFES_PATH = "/polevky-pro-kavarny";
+export const CAFE_SOUPS_TEASER = {
+  text: "Chcete do polední nabídky přidat polévku? Vyberte si ze šesti druhů. V nabídce pro kavárny najdete velikost porce, cenu chlazené dopravy i možnost ochutnat jednotlivé příchutě.",
+  label: "Prohlédnout polévky pro svůj podnik",
+  href: SOUPS_FOR_CAFES_PATH,
+} as const;
+export const CATEGORY_SOUPS_TEASER = {
+  text: "Vybíráte polévky do svého podniku? Připravili jsme pro Vás přehled porcí, cen dopravy a ochutnávek pro kavárny a bistra.",
+  label: "Porce a doprava polévek pro kavárny",
+  href: SOUPS_FOR_CAFES_PATH,
+} as const;
+/** SEO titulek a popis kategorie Čerstvé polévky (dokument ChatGPT). */
+export const SOUPS_CATEGORY_SEO = {
+  title: "Čerstvé rostlinné polévky v balení 3 l | Begina",
+  description: "Vyberte si ze šesti rostlinných polévek z čisté filtrované vody. Třílitrové balení s kohoutkem doručujeme chlazené po celé ČR, domů i do kavárny.",
+} as const;

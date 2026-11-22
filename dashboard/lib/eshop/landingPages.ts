@@ -139,6 +139,7 @@ export const LANDING_PAGES: LandingPage[] = [
       "Bylinné sirupy Begina vaříme z bylinek, koření, třtinového cukru a čisté filtrované vody. Bez umělých aromat a barviv.",
       "Z jednoho sirupu připravíte limonádu, horký nápoj i koktejl. Pro provoz je nejvýhodnější třílitrová begina s kohoutkem.",
     ],
+    ctas: [{ label: "Vybrat sirupy na ochutnávku", href: `${CAFE_PATH}#ochutnavka` }],
     benefits: [
       { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů, nápoj už od 3,30 Kč." },
       { title: "Jednoduché ředění", text: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj." },
@@ -171,6 +172,8 @@ export const LANDING_PAGES: LandingPage[] = [
       "Čaje Begina jsou hotové nápoje uvařené z bylin a čajových lístků, oslazené třtinovým cukrem a dochucené citronem. Ovocné nápoje mícháme z ovocných šťáv a čisté filtrované vody, bez přidaného cukru – obsahují jen přirozeně přítomné cukry z ovoce.",
       "Oboje přijede v begině, třílitrovém sáčku s kohoutkem. Z bylinných sirupů si navíc připravíte limonády.",
     ],
+    // vzorky čajů a ovocných nápojů v objednávce nejsou → dotaz přes formulář (dokument ChatGPT, Lucie 22. 11. 2026)
+    ctas: [{ label: "Zeptat se na vzorky čajů a ovocných nápojů", href: `${CAFE_PATH}#napiste-nam` }],
     benefits: [
       { title: "Bez práce", text: "Čaj natočíte z beginy a podáte ledový, nebo ohřátý na horký čaj." },
       { title: "Žádné zbytky", text: "Čaje po otevření vydrží v lednici 14 dní, ovocné nápoje spotřebujte do 5 dnů." },
@@ -183,7 +186,7 @@ export const LANDING_PAGES: LandingPage[] = [
       { question: "Jak dlouho vydrží po otevření?", answer: "Čaje vydrží v lednici po otevření 14 dní. Ovocné nápoje vyrábíme čerstvé až na objednávku a po otevření je spotřebujte do 5 dnů." },
       { question: "Jak připravíte limonádu?", answer: "Z bylinného sirupu: na sklenici stačí 20 ml sirupu doplnit studenou vodou na 200 ml (zhruba 1 : 10)." },
       { question: "Dovezete nápoje po celé ČR?", answer: DELIVERY_ANSWER },
-      { question: "Jak objednat ochutnávku do provozu?", answer: TASTING_ANSWER },
+      { question: "Můžeme čaje a ovocné nápoje nejdřív ochutnat?", answer: "Vzorky čajů a ovocných nápojů zatím nejdou objednat na e-shopu. Napište nám přes formulář na stránce Pro kavárny a bistra nebo zavolejte a domluvíme se." },
     ],
     links: [
       { label: "Čaje – celá nabídka", href: "/kategorie/caje" },
