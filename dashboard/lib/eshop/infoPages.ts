@@ -26,8 +26,10 @@ export type InfoPoint = { text: string; lines?: string[]; items?: string[]; afte
 
 export type InfoBlock = {
   heading?: string;
-  /** kotva pro odkaz #id (rozcestník nahoře) */
+  /** kotva pro odkaz #id */
   anchor?: string;
+  /** záložka stránky (InfoPage.tabs), do které blok patří */
+  tab?: string;
   /** podnadpis uvnitř článku (např. „1. Vyřízení objednávky…“) */
   subheading?: string;
   paragraphs?: string[];
@@ -66,8 +68,8 @@ export type InfoPage = {
   secondaryDownload?: { path: string; label: string };
   /** true = bez řádku „Provozovatel: …“ pod obsahem (údaje jsou v patičce) */
   hideOperatorLine?: boolean;
-  /** Rozcestník pod nadpisem: tlačítka na oddíly stránky (Doprava, Lucie 22. 11. 2026). */
-  jumpLinks?: { anchor: string; label: string }[];
+  /** Záložky pod nadpisem (Doprava: Česká republika / Slovensko, Lucie 22. 11. 2026); bloky s `tab`. */
+  tabs?: { id: string; label: string }[];
 };
 
 export { OPERATOR };
@@ -185,16 +187,16 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
     footerLabel: "Doprava",
     title: "Doprava a platba",
     description: "Způsoby doručení a platby v e-shopu Begina.",
-    // Lucie 22. 11. 2026: Slovák nemá scrollovat přes celý český ceník.
-    jumpLinks: [
-      { anchor: "ceska-republika", label: "Doručení po ČR" },
-      ...(byWeight && slovakiaEnabledFromEnv() ? [{ anchor: "slovensko", label: "Doručení na Slovensko" }] : []),
-    ],
+    // Lucie 22. 11. 2026: Česká republika a Slovensko jako záložky — každý vidí jen svoje.
+    ...(byWeight && slovakiaEnabledFromEnv()
+      ? { tabs: [{ id: "ceska-republika", label: "Česká republika" }, { id: "slovensko", label: "Slovensko" }] }
+      : {}),
     blocks: [
       // 22. 11. 2026 (Lucie): zvlášť Česká republika a Slovensko, ceníky jako tabulky.
       {
         heading: "Doručení po České republice",
         anchor: "ceska-republika",
+        tab: "ceska-republika",
         items: methods.map((method) =>
           method.id === "zasilkovna"
             ? `${method.label} — ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)}. ${method.description}`
@@ -206,6 +208,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
       ...(byWeight
         ? [
             {
+              tab: "ceska-republika",
               subheading: "Ceník chlazené přepravy po České republice",
               paragraphs: ["Cena podle celkové hmotnosti objednávky. Ceny jsou konečné, nejsme plátci DPH."],
               rowsHeader: ["Hmotnost objednávky", "Cena dopravy"] as [string, string],
@@ -224,6 +227,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
         : []),
       // Lucie 22. 11. 2026: platba převodem/kartou platí pro ČR — patří k oddílu ČR.
       {
+        tab: "ceska-republika",
         subheading: "Platba",
         items: [
           `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
@@ -236,6 +240,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
           {
             heading: "Doručení na Slovensko",
             anchor: "slovensko",
+            tab: "slovensko",
             paragraphs: [
               ...(SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED
                 ? [
