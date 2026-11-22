@@ -95,3 +95,17 @@ describe("Pro kavárny: odeslání (PGlite)", () => {
     expect((await db.execute(sql`SELECT count(*)::int AS n FROM leads`)).rows[0].n).toBe(1);
   });
 });
+
+import { askSamplesLink, CATEGORY_SOUPS_TEASER } from "../cafePage";
+describe("nabídky pro kavárny u produktů (22. 11. 2026)", () => {
+  it("čaje a ovocné nápoje: Domluvit ochutnávku", () => {
+    expect(askSamplesLink({ category: "caje", slug: "x" })).toEqual({ text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnávku", href: "/pro-kavarny#napiste-nam" });
+    expect(askSamplesLink({ category: "ovocne-napoje", slug: "x" })?.label).toBe("Domluvit ochutnávku");
+    expect(askSamplesLink({ category: "koktejly", slug: "lady-carneval" })).toBeNull();
+    expect(askSamplesLink({ category: "polevky", slug: "kulajda" })).toBeNull();
+  });
+  it("kategorie polévek: ceny porcí a první balení", () => {
+    expect(CATEGORY_SOUPS_TEASER.pricesHref).toBe("/polevky-pro-kavarny");
+    expect(CATEGORY_SOUPS_TEASER.href).toBe("/pro-kavarny#ochutnavka");
+  });
+});

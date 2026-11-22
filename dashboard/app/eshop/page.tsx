@@ -13,6 +13,7 @@ import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { FAQ_PATH } from "@/lib/eshop/faq";
 import ProductCard from "@/components/eshop/ProductCard";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
 import {
@@ -102,9 +103,15 @@ export default async function EshopPage() {
               ))}
             </ul>
             <p className="mt-3 text-base leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
-            <ShopLink href={INFO_PAGES.packaging.path} className="mt-5 inline-block py-1 text-base font-medium underline underline-offset-4">
-              Více o balení
-            </ShopLink>
+            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+              <ShopLink href={INFO_PAGES.packaging.path} className="inline-block py-1 text-base font-medium underline underline-offset-4">
+                Více o balení
+              </ShopLink>
+              {/* 22. 11. 2026 (Lucie): Časté otázky i na úvodu */}
+              <ShopLink href={FAQ_PATH} className="inline-block py-1 text-base font-medium underline underline-offset-4">
+                Časté otázky
+              </ShopLink>
+            </div>
           </div>
         </section>
 

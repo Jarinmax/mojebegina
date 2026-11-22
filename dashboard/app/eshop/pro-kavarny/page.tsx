@@ -21,8 +21,7 @@ import {
   CAFE_SUBTITLE,
   CAFE_TITLE,
   VAT_NOTE,
-  CAFE_OFFER,
-} from "@/lib/eshop/cafePage";
+  CAFE_OFFER, CAFE_FAQ, CAFE_FAQ_ALL, CAFE_FAQ_TITLE } from "@/lib/eshop/cafePage";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
@@ -146,6 +145,24 @@ export default async function Page() {
         {tastingSkus.length > 0 ? (
           <>
             <CafeTastingForm available={tastingSkus} beginas={beginas} />
+            {/* 22. 11. 2026 (Lucie): tři otázky těsně před telefonním formulářem, odpověď po kliknutí */}
+            <section aria-labelledby="kavarny-otazky" className="flex flex-col gap-3">
+              <h2 id="kavarny-otazky" className="font-serif text-2xl text-[#2A2622]">{CAFE_FAQ_TITLE}</h2>
+              <div className="flex flex-col gap-2">
+                {CAFE_FAQ.map((item) => (
+                  <details key={item.question} className="group rounded-xl border border-[#EDE5D8] bg-[#FAF6EF] px-4 py-3">
+                    <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-base font-semibold text-[#2A2622]">
+                      {item.question}
+                      <span aria-hidden="true" className="text-xl text-[#4A5527] transition-transform group-open:rotate-45">+</span>
+                    </summary>
+                    <p className="mt-2 text-base leading-normal text-neutral-700">{item.answer}</p>
+                  </details>
+                ))}
+              </div>
+              <ShopLink href={CAFE_FAQ_ALL.href} className="self-start text-base font-medium text-[#4A5527] underline underline-offset-4">
+                {CAFE_FAQ_ALL.label} →
+              </ShopLink>
+            </section>
             <CafeForm heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" intro={CAFE_CALLBACK_TEXT} />
           </>
         ) : (
