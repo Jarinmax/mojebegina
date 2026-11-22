@@ -73,6 +73,8 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
         { kind: "link", href: INFO_PAGES.about.path, label: "Náš příběh" },
         { kind: "link", href: INFO_PAGES.water.path, label: "O vodě" },
         { kind: "link", href: INFO_PAGES.packaging.path, label: "O balení" },
+        // 22. 11. 2026 (Lucie): Doprava a platba nejen v patičce
+        { kind: "link", href: INFO_PAGES.shipping.path, label: "Doprava a platba" },
         // 14. 11. 2026 (Lucie): partnerský program má být vidět v horním menu, ne jen v patičce
         { kind: "link", href: INFO_PAGES.partner.path, label: "Partnerský program" },
         // 22. 11. 2026 (Lucie): časté otázky nejen v patičce, ale i nahoře v menu

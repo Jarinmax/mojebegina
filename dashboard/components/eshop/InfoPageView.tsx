@@ -2,7 +2,8 @@ import EshopFileLink from "./EshopFileLink";
 import ShopLink from "./ShopLink";
 import Image from "next/image";
 import { Fragment, type ReactNode } from "react";
-import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
+import { OPERATOR, type InfoBlock, type InfoPage } from "@/lib/eshop/infoPages";
+import InfoTabs from "./InfoTabs";
 
 // Informační stránka e-shopu (O nás, O vodě, Doprava, Obchodní podmínky, GDPR).
 // Obsah: lib/eshop/infoPages.ts.
@@ -35,42 +36,7 @@ export function linkify(text: string): ReactNode[] {
 }
 
 export default function InfoPageView({ page, children }: { page: InfoPage; children?: ReactNode }) {
-  return (
-    <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
-      <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{page.title}</h1>
-      {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
-      {page.download && (
-        <p className="mt-3 text-sm">
-          <EshopFileLink href={page.download.path} className="underline underline-offset-2">
-            {page.download.label}
-          </EshopFileLink>
-        </p>
-      )}
-      {page.secondaryDownload && (
-        <p className="mt-1.5 text-sm">
-          <EshopFileLink href={page.secondaryDownload.path} className="font-medium underline underline-offset-2">
-            {page.secondaryDownload.label}
-          </EshopFileLink>
-        </p>
-      )}
-
-      {page.jumpLinks && page.jumpLinks.length > 1 && (
-        <nav aria-label="Oddíly stránky" className="mt-4 flex flex-wrap gap-2">
-          {page.jumpLinks.map((link) => (
-            <a
-              key={link.anchor}
-              href={`#${link.anchor}`}
-              className="inline-flex items-center rounded-full border border-begina-primary-900/20 bg-white px-4 py-2 text-sm font-medium text-begina-primary-900 hover:bg-begina-primary-900/5"
-            >
-              {link.label} ↓
-            </a>
-          ))}
-        </nav>
-      )}
-
-      {page.blocks ? (
-        <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
-          {page.blocks.map((block, i) => (
+  const renderBlock = (block: InfoBlock, i: number) => (
             <section key={block.heading ?? i} id={block.anchor} className={block.anchor ? "scroll-mt-28" : undefined}>
               {block.heading && <h2 className="font-medium text-lg text-begina-primary-900 mb-2">{block.heading}</h2>}
               {block.subheading && <h3 className="font-medium text-begina-primary-900 mb-1.5">{block.subheading}</h3>}
@@ -185,7 +151,40 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                 </p>
               ))}
             </section>
-          ))}
+  );
+
+  return (
+    <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
+      <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{page.title}</h1>
+      {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
+      {page.download && (
+        <p className="mt-3 text-sm">
+          <EshopFileLink href={page.download.path} className="underline underline-offset-2">
+            {page.download.label}
+          </EshopFileLink>
+        </p>
+      )}
+      {page.secondaryDownload && (
+        <p className="mt-1.5 text-sm">
+          <EshopFileLink href={page.secondaryDownload.path} className="font-medium underline underline-offset-2">
+            {page.secondaryDownload.label}
+          </EshopFileLink>
+        </p>
+      )}
+
+      {page.blocks ? (
+        <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
+          {page.tabs
+            ? (
+                <InfoTabs
+                  tabs={page.tabs.map((tab) => ({
+                    id: tab.id,
+                    label: tab.label,
+                    content: <div className="flex flex-col gap-6">{page.blocks!.filter((block) => block.tab === tab.id).map(renderBlock)}</div>,
+                  }))}
+                />
+              )
+            : page.blocks.map(renderBlock)}
           {page.pendingNote && <p className="text-sm text-neutral-500">{page.pendingNote}</p>}
         </div>
       ) : (
