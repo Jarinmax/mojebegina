@@ -51,17 +51,17 @@ export default function ProductCard({ product }: { product: Product }) {
           // „až 150 nápojů“ (platí pro 3 l) mohlo zákazníka uvést v omyl.
           <ul className="font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
             {[...product.variants]
-              .sort((a, b) => a.priceKc - b.priceKc)
+              // nejdřív balení, která jdou koupit; vyprodaná až pod nimi (Lucie 22. 11. 2026:
+              // jinak to vypadá, že je vyprodaný celý sirup)
+              .sort((a, b) => Number(a.soldOut === true) - Number(b.soldOut === true) || a.priceKc - b.priceKc)
               .map((v) => (
                 <li key={v.sku ?? v.label ?? v.priceKc} className="flex items-center gap-1.5">
                   {v.soldOut === true ? (
-                    <>
-                      <span className="text-neutral-500 whitespace-nowrap">
-                        {formatKc(v.priceKc)}
-                        {v.label ? <span className="font-normal"> / {v.label}</span> : null}
-                      </span>
-                      <SoldOutBadge className="h-5 px-1.5 text-[10px]" />
-                    </>
+                    <span className="flex items-center gap-1.5 text-xs font-normal text-neutral-500 whitespace-nowrap">
+                      {v.label ? <span>{v.label}</span> : null}
+                      <span>{formatKc(v.priceKc)}</span>
+                      <SoldOutBadge className="h-4 px-1 text-[9px]" />
+                    </span>
                   ) : (
                     <span>
                       {formatKc(v.priceKc)}
