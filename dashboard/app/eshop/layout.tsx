@@ -17,6 +17,7 @@ import { MOJE_BEGINA_LINK, availableHomeCategories, mainMenu } from "@/lib/eshop
 import MainNav from "@/components/eshop/MainNav";
 import { CAFE_MENU_LABEL, CAFE_PATH } from "@/lib/eshop/cafePage";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { FAQ_PATH } from "@/lib/eshop/faq";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import CatalogUnavailable from "@/components/eshop/CatalogUnavailable";
 import Marketing from "@/components/eshop/Marketing";
@@ -74,6 +75,8 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
         { kind: "link", href: INFO_PAGES.packaging.path, label: "O balení" },
         // 14. 11. 2026 (Lucie): partnerský program má být vidět v horním menu, ne jen v patičce
         { kind: "link", href: INFO_PAGES.partner.path, label: "Partnerský program" },
+        // 22. 11. 2026 (Lucie): časté otázky nejen v patičce, ale i nahoře v menu
+        { kind: "link", href: FAQ_PATH, label: "Časté otázky" },
       ],
     },
     MOJE_BEGINA_LINK,
