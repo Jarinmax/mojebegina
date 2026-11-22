@@ -12,6 +12,7 @@ import "server-only";
 import {
   addCustomerNote,
   addLeadNote,
+  assignLeadOwner,
   getCockpitCounts,
   getCustomerDetail,
   listLeads,
@@ -21,6 +22,7 @@ import {
   type LeadCardData,
 } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
+import { listInternalStaff } from "@/lib/data/orders";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { addActivityComment, createNode, getNodeDetail, listCompanyTasks } from "@/lib/data/companyNodes";
 import { DAILY_CALL_TOOLS } from "./tools/dailyCalls";
@@ -281,6 +283,38 @@ const CORE_TOOLS: AgentTool[] = [
         clearFollowUp,
       });
       return result.ok ? { ok: true, data: { saved: true, url: leadUrl(issuer, leadId) } } : result;
+    },
+  }),
+  defineTool({
+    name: "reassign_lead",
+    title: "Předat lead jinému obchodníkovi",
+    description:
+      "ZÁPIS — předá lead jinému obchodníkovi (změní odpovědného obchodníka; termín dalšího kontaktu se přesune do jeho kalendáře). Použití: automatické připomínky Obchodu (Lucie a Jarin 22. 11. 2026) — když obchodník 3× nezareaguje na připomínku termínu, lead se předá Jaroslavu Vinerovi. owner = jméno nebo e-mail interního uživatele (např. „Jaroslav Viner“). Jen Jaroslav a Lucie.",
+    write: true,
+    visible: (ctx) => isInvoiceIssuer(ctx),
+    properties: {
+      lead_id: { type: "string", description: "id leadu (UUID)." },
+      owner: { type: "string", description: "Jméno nebo e-mail nového obchodníka." },
+      reason: { type: "string", description: "Důvod předání (zapíše se jako poznámka k leadu, max. 500 znaků)." },
+    },
+    required: ["lead_id", "owner"],
+    parse: (args) => ({
+      leadId: requiredUuid(args, "lead_id"),
+      owner: requiredString(args, "owner", 200),
+      reason: optionalString(args, "reason", 500),
+    }),
+    execute: async ({ leadId, owner, reason }, issuer) => {
+      if (!isInvoiceIssuer(await getAuthContext())) return { ok: false, error: `Leady takhle předávají jen ${INVOICE_ISSUER_NAMES}.` };
+      const wanted = owner.trim().toLowerCase();
+      const staff = await listInternalStaff();
+      const matches = staff.filter((s) => s.email.toLowerCase() === wanted || (s.name ?? "").toLowerCase().includes(wanted));
+      if (matches.length !== 1) {
+        return { ok: false, error: matches.length === 0 ? `Obchodník „${owner}“ nebyl nalezen.` : `„${owner}“ odpovídá víc lidem — upřesni jméno nebo e-mail.` };
+      }
+      const result = await assignLeadOwner(leadId, matches[0].userId);
+      if (!result.ok) return result;
+      if (reason) await addLeadNote(leadId, `Lead předán: ${matches[0].name ?? matches[0].email}. ${reason}`);
+      return { ok: true, data: { saved: true, owner: matches[0].name ?? matches[0].email, url: leadUrl(issuer, leadId) } };
     },
   }),
   defineTool({
