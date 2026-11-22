@@ -143,7 +143,7 @@ const packagingPage: InfoPage = {
     {
       heading: "Třílitrové balení",
       paragraphs: [
-        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek. Ostatní balení 3 l vám do krabice zabalíme na přání — v pokladně zvolte „Zabalit do kartonové krabice“ (19 Kč za krabici).",
+        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek. Ostatní balení 3 l vám do krabice zabalíme na přání — v košíku u polévky zaškrtněte „Zabalit do kartonové krabice“ (19 Kč za krabici).",
       ],
     },
     {
