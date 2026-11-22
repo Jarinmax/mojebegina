@@ -5,7 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { imageBackdrop } from "@/lib/eshop/productImages";
-import { SHARE_DESCRIPTION } from "@/lib/eshop/shareMeta";
+import { SHARE_DESCRIPTION, pageShareMeta } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
@@ -34,7 +34,9 @@ export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[
           openGraph: { type: "website", title: category.name, description, url: `/kategorie/${category.slug}`, images: [shareImage] },
           twitter: { card: "summary_large_image", title: category.name, description, images: [shareImage] },
         }
-      : {}),
+      : // Lucie 22. 11. 2026: odkaz na kategorii (např. sirupy) má v náhledu ukázat
+        // název kategorie, ne obecné „Begina – Když rozhoduje chuť“.
+        pageShareMeta(category.name, description, `/kategorie/${category.slug}`)),
   };
 }
 
