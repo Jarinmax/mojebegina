@@ -1,8 +1,7 @@
 import Image from "next/image";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { formatKc } from "@/lib/format";
-import { HOME_HERO_OFFER, HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_PHONE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -44,69 +43,23 @@ export const HERO_PHOTO = {
 
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
 export const HERO_LINKS = {
-  tasting: "/pro-kavarny",
-  portions: "/polevky-pro-kavarny",
-  drinks: "/bylinne-sirupy-pro-kavarny",
-  soups: "/kategorie/polevky",
-  syrups: "/kategorie/sirupy",
+  firstPack: "/pro-kavarny#ochutnavka",
+  phone: "/pro-kavarny#napiste-nam",
 };
 
 export type HeroPortion = { count: number; portions: number; totalKc: number; perPortionKc: number };
 
-export default function HomeHero({ portion, drink }: { portion?: HeroPortion; drink?: HeroPortion }) {
+// 22. 11. 2026 (Lucie, návrh ChatGPT „úvod pro kavárny“): mobil = nadpis, fotka přes celou
+// šířku, text, jedno červené tlačítko, věta o vzorcích, odkaz na telefonát; počítač = text
+// vlevo, fotka vpravo zhruba 60 % šířky. Ceny porcí jsou v kartách pod úvodem (HomePriceCards).
+export default function HomeHero() {
   return (
-    <section className="relative overflow-hidden bg-[#FAF6EF] border-b border-[#EDE5D8]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:py-5 grid items-center lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)] lg:gap-8">
-        <div className="relative z-10 px-4 pt-4 pb-1 sm:pt-12 sm:pb-8 lg:p-0 text-center lg:text-left">
-          {/* Od 20. 11. 2026 (Lucie): úvod primárně pro kavárny a bistra, podnadpis zve i zákazníky domů.
-              Tlačítka rychlého nákupu (Vybrat polévku / Objevit sirupy) jsou zpět od večera 20. 11. 2026. */}
-          <h1 className="mt-1.5 sm:mt-4 lg:mt-0 font-serif text-[1.6rem] leading-[1.15] min-[380px]:text-[1.75rem] sm:text-[2.5rem] lg:text-[clamp(2rem,3vw,2.5rem)] tracking-tight text-[#2A2622] text-balance">
-            {HOME_HERO_TITLE}
-          </h1>
-          <p className="mt-2 sm:mt-4 lg:mt-3 text-base sm:text-lg leading-snug sm:leading-relaxed text-[#3B3631] max-w-md mx-auto lg:mx-0 text-balance">{HOME_HERO_SUBTITLE}</p>
-          {/* Tři výhody (16. 11. 2026, Lucie), beze změny. */}
-          <ul className="mt-2 sm:mt-4 lg:mt-3 flex flex-wrap items-center justify-center lg:justify-start gap-x-3 gap-y-1 sm:gap-x-5 text-[13px] sm:text-base font-medium text-[#4A5527]">
-            {HOME_HERO_POINTS.map((point) => (
-              <li key={point} className="inline-flex items-center gap-1">
-                <Check className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" aria-hidden="true" />
-                {point}
-              </li>
-            ))}
-          </ul>
-          {/* 22. 11. 2026 (Lucie): červené tlačítko pro kavárny musí být vidět hned na první obrazovce —
-              červené hlavní tlačítko; rychlý nákup (polévka / sirupy) vedle jako obrysová tlačítka. */}
-          <div className="mt-4 sm:mt-6 lg:mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 mx-auto lg:mx-0">
-            <ShopLink
-              href={HERO_LINKS.tasting}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-5 sm:px-6 lg:px-5 py-2.5 sm:py-3 lg:py-2.5 text-base sm:text-lg lg:text-base font-semibold text-white shadow-md shadow-[#A51C1C]/20"
-            >
-              Vyzkoušet Beginu v provozu
-              <ArrowRight className="w-5 h-5" aria-hidden="true" />
-            </ShopLink>
-            {/* nabídka přímo u jediného tlačítka pro kavárny (22. 11. 2026, Lucie) */}
-            <p className="w-full text-sm sm:text-base font-medium text-[#4A5527]">{HOME_HERO_OFFER}</p>
-            {/* dokument ChatGPT „SEO pro kavárny“: z úvodu odkaz na ceny porcí s dopravou (22. 11. 2026) */}
-            {portion && (
-              <p className="w-full -mt-1 text-sm sm:text-base text-[#3B3631]">
-                <strong className="font-semibold">Polévky:</strong> {portion.count} beginy = {portion.portions} porcí po 250 ml, i s dopravou {formatKc(portion.totalKc)} ({formatKc(Math.round(portion.perPortionKc))} za porci polévky).{" "}
-                <ShopLink href={HERO_LINKS.portions} className="font-semibold text-[#4A5527] underline underline-offset-4 whitespace-nowrap">
-                  Ceny porcí →
-                </ShopLink>
-              </p>
-            )}
-            {/* 22. 11. 2026 (Lucie): i sirupy — kolik vyjde jeden nápoj s dopravou */}
-            {drink && (
-              <p className="w-full -mt-1 text-sm sm:text-base text-[#3B3631]">
-                <strong className="font-semibold">Sirupy:</strong> {drink.count} beginy = {drink.portions} nápojů po 200 ml, i s dopravou od {formatKc(drink.totalKc)} ({drink.perPortionKc.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč za nápoj).{" "}
-                <ShopLink href={HERO_LINKS.drinks} className="font-semibold text-[#4A5527] underline underline-offset-4 whitespace-nowrap">
-                  Ceny nápojů →
-                </ShopLink>
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="relative w-full max-w-[23rem] mx-auto pb-5 sm:max-w-xl sm:mx-auto sm:px-6 sm:pb-8 lg:p-0 lg:max-w-[clamp(22rem,calc((100svh-30rem)*1.78),38rem)] lg:ml-auto lg:mr-0">
+    <section className="bg-[#FAF6EF] border-b border-[#EDE5D8]">
+      <div className="max-w-6xl mx-auto px-4 pt-5 pb-7 sm:pt-8 sm:pb-10 lg:py-9 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-[auto_1fr] gap-x-10 gap-y-5">
+        <h1 className="lg:col-start-1 lg:row-start-1 lg:self-end font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[clamp(2.4rem,3.6vw,3.25rem)] tracking-tight text-[#2A2622] text-balance">
+          {HOME_HERO_TITLE}
+        </h1>
+        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-center">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
@@ -114,9 +67,28 @@ export default function HomeHero({ portion, drink }: { portion?: HeroPortion; dr
             height={HERO_PHOTO.height}
             priority
             quality={90}
-            sizes="(min-width: 1024px) 40rem, (min-width: 640px) 36rem, 100vw"
-            className="block w-full h-auto rounded-2xl shadow-[0_8px_24px_rgba(60,40,20,0.12)]"
+            sizes="(min-width: 1024px) 40rem, 100vw"
+            className="block w-full h-auto rounded-2xl"
           />
+        </div>
+        <div className="lg:col-start-1 lg:row-start-2 flex flex-col items-stretch sm:items-start gap-4">
+          <p className="text-lg sm:text-xl leading-snug text-[#2A2622]">
+            {HOME_HERO_SUBTITLE.map((line) => (
+              <span key={line} className="block">{line}</span>
+            ))}
+          </p>
+          <ShopLink
+            href={HERO_LINKS.firstPack}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-6 py-3.5 text-lg font-semibold text-white"
+          >
+            {HOME_HERO_BUTTON}
+            <ArrowRight className="w-5 h-5" aria-hidden="true" />
+          </ShopLink>
+          <p className="text-base leading-snug text-neutral-700">{HOME_HERO_OFFER}</p>
+          <ShopLink href={HERO_LINKS.phone} className="inline-flex items-center gap-2 text-base sm:text-lg font-medium text-[#4A5527] underline underline-offset-4">
+            {HOME_HERO_PHONE}
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </ShopLink>
         </div>
       </div>
     </section>

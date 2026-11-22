@@ -1,0 +1,60 @@
+import { ArrowRight } from "lucide-react";
+import ShopLink from "./ShopLink";
+
+// 22. 11. 2026 (Lucie, návrh ChatGPT): pod úvodem „Kolik stojí porce s dopravou?“ — dvě celé
+// klikací karty (3 balení po 3 l, ceny výrobků i dopravy ze stejného zdroje jako košík),
+// pod nimi „Nakupujete domů?“. Celkové částky a výpočet jsou na odkazovaných stránkách.
+export type PriceCard = { label: string; price: string; note: string; href: string };
+
+export const HOME_PRICES_TITLE = "Kolik stojí porce s dopravou?";
+export const HOME_SHOP_TITLE = "Nakupujete domů?";
+
+const czk = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
+
+/** Karty z vypočtených řádků (soupPortionRows / syrupDrinkRows pro 3 balení). */
+export function homePriceCards(soup: { portions: number; perPortionKc: number }, drink: { portions: number; perPortionKc: number }): PriceCard[] {
+  return [
+    { label: "Polévka · 250 ml", price: czk(Math.round(soup.perPortionKc)), note: `${soup.portions} porcí ze tří balení po 3 l`, href: "/polevky-pro-kavarny" },
+    { label: "Nápoj ze sirupu · 200 ml", price: `od ${czk(drink.perPortionKc)}`, note: `Až ${drink.portions} nápojů ze tří balení po 3 l`, href: "/bylinne-sirupy-pro-kavarny" },
+  ];
+}
+
+export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { cards: readonly PriceCard[]; setSlug: string; setPriceKc?: number }) {
+  return (
+    <section className="max-w-6xl mx-auto px-4 pt-8 sm:pt-10" aria-labelledby="ceny-porci">
+      <h2 id="ceny-porci" className="font-serif text-[1.75rem] sm:text-[2.25rem] leading-tight text-[#2A2622]">
+        {HOME_PRICES_TITLE}
+      </h2>
+      <ul className="mt-4 sm:mt-5 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        {cards.map((card) => (
+          <li key={card.href}>
+            <ShopLink
+              href={card.href}
+              className="group block h-full rounded-2xl bg-[#F4F2EA] hover:bg-[#ECE9DD] transition-colors px-6 py-5 sm:px-8 sm:py-6"
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="text-lg font-medium text-[#2A2622]">{card.label}</span>
+                <ArrowRight className="w-6 h-6 shrink-0 text-[#4A5527] transition-transform group-hover:translate-x-1" aria-hidden="true" />
+              </span>
+              <span className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <span className="font-serif text-[2.6rem] sm:text-5xl leading-none text-[#2A2622] whitespace-nowrap">{card.price}</span>
+                <span className="text-base text-neutral-600">{card.note}</span>
+              </span>
+            </ShopLink>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-8 border-t border-[#E3DED0] pt-6 flex flex-col md:flex-row md:items-center gap-3 md:gap-10">
+        <h2 className="font-serif text-[1.75rem] sm:text-[2rem] leading-tight text-[#2A2622] md:flex-1">{HOME_SHOP_TITLE}</h2>
+        <div className="flex flex-wrap gap-x-10 gap-y-3 text-lg font-medium text-[#4A5527]">
+          <ShopLink href="/nakupuji-domu" className="inline-flex items-center gap-2 underline underline-offset-4">
+            Nakoupit domů <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </ShopLink>
+          <ShopLink href={`/produkt/${setSlug}`} className="inline-flex items-center gap-2 underline underline-offset-4">
+            Sada 5 sirupů za {setPriceKc} Kč <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </ShopLink>
+        </div>
+      </div>
+    </section>
+  );
+}

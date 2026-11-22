@@ -1,7 +1,7 @@
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
-import HomeShopBar from "@/components/eshop/HomeShopBar";
+import HomePriceCards, { homePriceCards } from "@/components/eshop/HomePriceCards";
 import { soupPortionRows, syrupDrinkRows } from "@/lib/eshop/landingPages";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
@@ -9,7 +9,6 @@ import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import CafeBenefits from "@/components/eshop/CafeBenefits";
 import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
@@ -24,8 +23,7 @@ import {
   HOME_STEPS_PHOTO,
   HOME_VENUES,
   HOME_VENUES_TITLE,
-  HOME_WHY_TITLE,
-  homeShopPrices,
+  HOME_STEP_POINTS,
 } from "@/lib/eshop/homeContent";
 
 // Od 20. 11. 2026 úvod primárně pro kavárny a bistra (viz komentář v těle).
@@ -59,18 +57,11 @@ export default async function EshopPage() {
       {/* Přestavba úvodu (Lucie 20. 11. 2026): primárně pro kavárny a bistra, ale vítaní
           i zákazníci domů — hero, pod ním dvě dlaždice (na mobilu pod sebou, gastro první),
           Proč Beginu berou kavárny a bistra, Kde nás najdete (jen se souhlasem kaváren). */}
-      <HomeHero portion={{ count: 3, ...soupPortionRows([3])[0] }} drink={{ count: 3, ...syrupDrinkRows([3])[0] }} />
-      {/* Ikony kategorií hned pod úvodem pro rychlý nákup (Lucie 20. 11. 2026 večer). */}
-      <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-      <HomeShopBar prices={homeShopPrices(products, SET_SLUG)} />
-      {/* 22. 11. 2026 (Lucie): dlaždice Pro kavárny / Nakupuji domů pryč — do formuláře pro kavárny vedla
-          třetí cesta navíc; zůstává červené tlačítko u fotky (a menu). Domů nakupují přes ikony kategorií. */}
-      <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
-        <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622]">{HOME_WHY_TITLE}</h2>
-        {/* Jasná věta pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) */}
-        <p className="mt-2 mb-5 text-center text-lg leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
-        <CafeBenefits headingLevel="h3" />
-      </section>
+      <HomeHero />
+      {/* 22. 11. 2026 (Lucie, návrh ChatGPT): ceny porcí s dopravou ve dvou kartách, pod nimi Nakupujete domů */}
+      <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} />
+      {/* šest obrázkových kategorií zůstává (návrh ChatGPT 22. 11. 2026); „Proč Beginu…“ spojeno s Jak funguje begina */}
+      <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} /></div>
       {HOME_VENUES.length > 0 && (
         <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
           <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_VENUES_TITLE}</h2>
@@ -102,6 +93,15 @@ export default async function EshopPage() {
                 </li>
               ))}
             </ol>
+            <ul className="mt-5 flex flex-col gap-2 text-base leading-normal text-neutral-800">
+              {HOME_STEP_POINTS.map((point) => (
+                <li key={point} className="flex gap-2.5">
+                  <span className="text-[#5E6B34] font-semibold" aria-hidden="true">✓</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-base leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
             <ShopLink href={INFO_PAGES.packaging.path} className="mt-5 inline-block py-1 text-base font-medium underline underline-offset-4">
               Více o balení
             </ShopLink>

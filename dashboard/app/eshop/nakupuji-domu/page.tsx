@@ -34,7 +34,12 @@ export default async function Page() {
             {[homeSyrupPoint(products).replace(/\.$/, ""), ...HOME_SHOP_HOME.points.slice(1)].map((point) => (
               <li key={point} className="inline-flex items-center gap-1">
                 <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
-                {point}
+                {/* 22. 11. 2026: název sady vede na produkt */}
+                {point.startsWith("Ochutnávkový set") ? (
+                  <ShopLink href={`/produkt/${SET_SLUG}`} className="underline underline-offset-4">{point}</ShopLink>
+                ) : (
+                  point
+                )}
               </li>
             ))}
           </ul>
