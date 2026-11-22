@@ -18,16 +18,17 @@ export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. 
 export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Ohřát a podávat, bez odpadu. K první begině 4 vzorky zdarma.";
 
 /** Jasná věta „co děláme“ pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) — Pro kavárny a bistra i úvod. */
-export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům dovážíme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
+export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům doručíme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
 
 /** Řádek pod tlačítkem Do košíku na stránce produktu (Lucie 20. 11. 2026). */
-export const CAFE_PRODUCT_LINE = { text: "Odebíráte pro kavárnu nebo bistro?", link: "Ochutnávka do provozu" } as const;
+// 22. 11. 2026: odkaz vede rovnou na výběr první beginy se 4 vzorky (/pro-kavarny#ochutnavka)
+export const CAFE_PRODUCT_LINE = { text: "Odebíráte pro kavárnu nebo bistro?", link: "První begina + 4 vzorky zdarma" } as const;
 
 export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" | "truck";
 
 export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = [
   { icon: "recycle", title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
-  { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát a podávat, nápoje jen naředit." },
+  { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
   { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,60 Kč, nápoj ze sirupu od 3,30 Kč – při ceně z e-shopu." },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },
   { icon: "droplets", title: "Z čisté filtrované vody", text: "Polévky, sirupy, čaje i ovocné nápoje vyrábíme bez konzervantů." },

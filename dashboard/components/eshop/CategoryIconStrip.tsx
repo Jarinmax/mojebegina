@@ -21,11 +21,11 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
           >
             <ShopLink
               href={`/kategorie/${category.slug}`}
-              className="group flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 mx-0.5 sm:mx-0 px-0.5 sm:px-3 py-1.5 sm:py-2 text-center rounded-xl border-2 border-[#DDD3BF] bg-white shadow-[0_2px_6px_rgba(60,40,20,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-[#4F5B2B] hover:shadow-md active:bg-[#F3EDE1] h-full"
+              className="group flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 lg:gap-2.5 mx-0.5 sm:mx-0 px-0.5 sm:px-2 lg:px-3 py-1.5 sm:py-2 text-center rounded-xl border-2 border-[#DDD3BF] bg-white shadow-[0_2px_6px_rgba(60,40,20,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-[#4F5B2B] hover:shadow-md active:bg-[#F3EDE1] h-full"
             >
               {/* Všechny ikony mají stejné plátno (stejná zem i výška), takže
                   je stačí zobrazit ve stejné výšce — optická velikost sedí. */}
-              <span className="h-8 sm:h-10 flex items-end flex-none">
+              <span className="h-8 sm:h-8 lg:h-10 flex items-end flex-none">
                 <Image
                   src={category.icon}
                   alt=""
@@ -35,7 +35,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
                   className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
-              <span className="text-[11px] leading-tight sm:text-[15px] sm:leading-tight font-semibold text-[#3F4A1F] group-hover:underline underline-offset-4">
+              <span className="text-[11px] leading-tight sm:text-sm lg:text-[15px] sm:leading-tight font-semibold text-[#3F4A1F] group-hover:underline underline-offset-4">
                 {/* mobil: šest sloupců je úzkých, dlouhý popisek koktejlů by se lámal na tři řádky */}
                 {category.slug === "koktejly" ? (
                   <>

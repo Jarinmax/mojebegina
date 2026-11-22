@@ -10,10 +10,17 @@ export const HOME_WHY = [
   { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší sleva: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
 ] as const;
 
+/** Výhody spojené se sekcí Jak funguje begina (22. 11. 2026, dřív samostatně „Proč Beginu berou kavárny a bistra“). */
+export const HOME_STEP_POINTS = [
+  "Žádné zbytky: po otevření vydrží polévky a čaje v lednici 14 dní, sirupy 3 měsíce.",
+  "100% rostlinné polévky a nealko nápoje.",
+  "Z čisté filtrované vody a bez konzervantů.",
+] as const;
+
 export const HOME_STEPS = [
   { title: "Přijde vám chlazená", text: "Beginu doručíme chlazenou přepravou." },
   { title: "Uložíte ji do lednice", text: "Zabere málo místa a obsah zůstane čerstvý." },
-  { title: "Natočíte si porci", text: "Beginu vezmete do ruky a natočíte kohoutkem – polévku ohřejete, sirup zalijete vodou." },
+  { title: "Natočíte si porci", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
 ] as const;
 
 /** Nejoblíbenější produkty v pořadí od vedení (Lucie 14. 11. 2026: polévka, výrazný a jemný sirup, zimní koktejl). */
@@ -38,10 +45,13 @@ export const HOME_HERO_POINTS = ["Po otevření vydrží polévky a čaje 14 dn�
 // objednávek, ale zákazník nakupující domů musí vidět, že je vítaný. Texty jen z webu
 // (hlavně ze stránky Pro kavárny a bistra), nic nového.
 export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny a bistra";
-export const HOME_HERO_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. Objednat si můžete i domů.";
+// 22. 11. 2026 (Lucie, návrh ChatGPT): „Dovážíme“ → „Doručíme“ (zásilky vozí CoolBalík, pravidlo Lucie)
+export const HOME_HERO_SUBTITLE = ["Polévku stačí ohřát, sirup naředit.", "Doručíme chlazeně po celé ČR."] as const;
+export const HOME_HERO_BUTTON = "Vybrat první balení";
+export const HOME_HERO_PHONE = "Domluvit dodávky po telefonu";
 
 /** Věta pod červeným tlačítkem v úvodu (22. 11. 2026). */
-export const HOME_HERO_OFFER = "K první begině 2 polévky a 2 sirupy na ochutnání zdarma.";
+export const HOME_HERO_OFFER = "K první třílitrové begině na IČO přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.";
 
 export const HOME_TILE_CAFE = {
   title: "Pro kavárny a bistra",

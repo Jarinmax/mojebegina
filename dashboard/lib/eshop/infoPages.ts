@@ -165,6 +165,12 @@ const packagingPage: InfoPage = {
 
 const kgText = (kg: number) => kg.toLocaleString("cs-CZ");
 
+/** Lhůta doručení podle platných obchodních podmínek (text Lucie / ChatGPT 22. 11. 2026). */
+export const DELIVERY_TIME_NOTE =
+  "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme.";
+/** Kdo vozí chlazené zásilky (Lucie 22. 11. 2026). */
+export const CHILLED_CARRIER_NOTE = "Chlazené zásilky doručuje přepravní společnost CoolBalík.";
+
 /** Stránka Doprava a platba — ze stejných dat, ze kterých počítá pokladna (shipping.ts, shippingRates.ts). */
 export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {}): InfoPage {
   const methods = shippingMethodsFor(mode, options);
@@ -194,6 +200,9 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
                 (rule) => `${rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`} — ${formatKc(rule.priceKc)}`
               ),
               afterParagraphs: [
+                // 22. 11. 2026 (Lucie, návrh ChatGPT): lhůta z obchodních podmínek místo „doplníme“ + kdo doručuje
+                CHILLED_CARRIER_NOTE,
+                DELIVERY_TIME_NOTE,
                 `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,
                 ...(slovakiaEnabledFromEnv() ? [] : [`Doručujeme jen v České republice. ${SLOVAKIA_ORDER_NOTE}`]),
               ],
@@ -232,9 +241,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
         ],
       },
     ],
-    pendingNote: byWeight
-      ? "Rozvozové dny a lhůty doručení doplníme."
-      : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
+    pendingNote: byWeight ? undefined : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
   };
 }
 

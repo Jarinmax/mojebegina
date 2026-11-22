@@ -66,6 +66,20 @@ describe("Ochutnávka do provozu", () => {
     expect(cafeTastingTotalKc([])).toBe(0);
   });
 
+  it("první begina 379 Kč + 4 vzorky (2+2) = 379 Kč, s 1 dalším vzorkem 428 Kč před dopravou (zadání 22. 11. 2026)", () => {
+    const soups = CAFE_TASTING_ITEMS.filter((i) => i.kind === "polevka").map((i) => i.sku);
+    const syrups = CAFE_TASTING_ITEMS.filter((i) => i.kind === "sirup").map((i) => i.sku);
+    const four = [soups[0], soups[1], syrups[0], syrups[1]].map((sku) => ({ sku, quantity: 1 }));
+    const price = (extra: { sku: string; quantity: number }[]) => {
+      const r = priceCart([{ sku: begina, quantity: 1 }, ...four, ...extra], "osobni-odber", index);
+      if (!r.ok) throw new Error(r.error);
+      return r.value.subtotalKc;
+    };
+    expect(index.getVariant(begina)!.variant.priceKc).toBe(379);
+    expect(price([])).toBe(379);
+    expect(price([{ sku: soups[2], quantity: 1 }])).toBe(428);
+  });
+
   it("vzorky bez beginy 3 l polévky, sirupu nebo koktejlu nejdou objednat", () => {
     expect(priceCart([{ sku: soup, quantity: 1 }], "osobni-odber", index)).toEqual({ ok: false, error: CAFE_TASTING_NEEDS_BEGINA });
   });

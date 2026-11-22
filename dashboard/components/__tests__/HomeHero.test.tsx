@@ -17,19 +17,18 @@ import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
 afterEach(() => cleanup());
 
 describe("úvod e-shopu", () => {
-  it("texty z návrhu", () => {
+  it("texty a odkazy z návrhu (22. 11. 2026)", () => {
     render(<HomeHero />);
-    // nezalomitelné mezery (a&nbsp;bylinné) porovnáváme jako obyčejné
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
-    expect(text(document.body.textContent)).not.toContain("Čerstvě. Jednoduše. S chutí.");
     const h1 = screen.getByRole("heading", { level: 1 });
-    // úvod primárně pro kavárny a bistra, vítaní i zákazníci domů (20. 11. 2026)
     expect(text(h1.textContent)).toBe("Polévky a nápoje pro kavárny a bistra");
-    expect(text(document.body.textContent)).toContain("Z kohoutku natočíte vždy jen objednanou porci. Objednat si můžete i domů.");
-    // tři výhody hned pod nadpisem (16. 11. 2026)
-    const points = screen.getAllByRole("listitem").map((item) => text(item.textContent));
-    expect(points).toEqual(["Po otevření vydrží polévky a čaje 14 dní, sirupy 3 měsíce", "100% rostlinné polévky a nealko nápoje", "Doručíme chlazeně po celé ČR"]);
-    expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
+    const body = text(document.body.textContent);
+    expect(body).toContain("Polévku stačí ohřát, sirup naředit.");
+    expect(body).toContain("Doručíme chlazeně po celé ČR.");
+    expect(body).toContain("K první třílitrové begině na IČO přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.");
+    expect(screen.getByRole("link", { name: /Vybrat první balení/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#ochutnavka");
+    expect(screen.getByRole("link", { name: /Domluvit dodávky po telefonu/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#napiste-nam");
+    expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box|dovážíme/i);
   });
 
   it.skip("rychlý nákup: Vybrat polévku a Objevit sirupy (odebráno 22. 11. 2026 — dělají to dlaždice kategorií)", () => {
