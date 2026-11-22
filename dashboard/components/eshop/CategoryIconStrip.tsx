@@ -20,7 +20,8 @@ const SHORT_LABELS: Record<string, string> = {
   zmrzliny: "Zmrzliny",
 };
 
-// 22. 11. 2026 večer (Lucie): větší dlaždice přes celou šířku, velká ikona nahoře,
+// 22. 11. 2026 večer (Lucie): ikona o třetinu menší (h-16) — h-24 byla na počítači moc velká.
+// Předtím: větší dlaždice přes celou šířku, velká ikona nahoře,
 // pod ní krátký název na jeden řádek, bez šipek — celá dlaždice je odkaz.
 // Všech šest vždy v jedné řadě (Lucie 14. 11. 2026).
 export default function CategoryIconStrip({ id, categories }: { id: string; categories: HomeCategory[] }) {
@@ -31,10 +32,10 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
           <li key={category.slug} className="min-w-0">
             <ShopLink
               href={`/kategorie/${category.slug}`}
-              className="group flex flex-col items-center justify-end gap-1 sm:gap-2 h-full px-0.5 sm:px-2 py-2 sm:py-4 lg:py-5 text-center rounded-xl sm:rounded-2xl border-2 border-[#DDD3BF] bg-white shadow-[0_2px_6px_rgba(60,40,20,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-[#4F5B2B] hover:shadow-md active:bg-[#F3EDE1]"
+              className="group flex flex-col items-center justify-end gap-1 sm:gap-1.5 h-full px-0.5 sm:px-2 py-2 sm:py-3 text-center rounded-xl sm:rounded-2xl border-2 border-[#DDD3BF] bg-white shadow-[0_2px_6px_rgba(60,40,20,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-[#4F5B2B] hover:shadow-md active:bg-[#F3EDE1]"
             >
               {/* Všechny ikony mají stejné plátno (stejná zem i výška) — stejná výška = stejná optická velikost. */}
-              <span className="h-10 sm:h-16 lg:h-24 flex items-end flex-none">
+              <span className="h-10 sm:h-12 lg:h-16 flex items-end flex-none">
                 <Image
                   src={category.icon}
                   alt=""
@@ -44,7 +45,7 @@ export default function CategoryIconStrip({ id, categories }: { id: string; cate
                   className="h-full w-auto transition-transform duration-200 group-hover:-translate-y-1"
                 />
               </span>
-              <span className="w-full sm:truncate text-[11px] leading-tight sm:text-sm lg:text-base font-semibold text-[#3F4A1F] group-hover:underline underline-offset-4">
+              <span className="w-full sm:truncate text-[11px] leading-tight sm:text-sm lg:text-[15px] font-semibold text-[#3F4A1F] group-hover:underline underline-offset-4">
                 {SHORT_LABELS[category.slug] ?? category.stripLabel}
               </span>
             </ShopLink>

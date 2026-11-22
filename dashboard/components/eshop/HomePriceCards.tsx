@@ -30,15 +30,15 @@ export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { c
           <li key={card.href}>
             <ShopLink
               href={card.href}
-              className="group block h-full rounded-2xl bg-[#F4F2EA] hover:bg-[#ECE9DD] transition-colors px-6 py-5 sm:px-8 sm:py-6"
+              className="group block h-full rounded-2xl bg-[#F4F2EA] hover:bg-[#ECE9DD] transition-colors px-5 py-3.5 sm:px-6 sm:py-4"
             >
               <span className="flex items-start justify-between gap-3">
-                <span className="text-lg font-medium text-[#2A2622]">{card.label}</span>
-                <ArrowRight className="w-6 h-6 shrink-0 text-[#4A5527] transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                <span className="text-base font-medium text-[#2A2622]">{card.label}</span>
+                <ArrowRight className="w-5 h-5 shrink-0 text-[#4A5527] transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </span>
-              <span className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <span className="font-serif text-[2.6rem] sm:text-5xl leading-none text-[#2A2622] whitespace-nowrap">{card.price}</span>
-                <span className="text-base text-neutral-600">{card.note}</span>
+              <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="font-serif text-[2.1rem] sm:text-[2.5rem] leading-none text-[#2A2622] whitespace-nowrap">{card.price}</span>
+                <span className="text-sm sm:text-base text-neutral-600">{card.note}</span>
               </span>
             </ShopLink>
           </li>
