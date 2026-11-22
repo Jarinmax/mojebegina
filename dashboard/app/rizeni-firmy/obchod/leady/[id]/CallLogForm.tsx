@@ -6,10 +6,13 @@ import DictateButton from "./DictateButton";
 import { heardFromText, isHeardFrom, type HeardFrom } from "@/lib/data/heardFrom";
 import {
   logCallOutcomeAction,
+  logNoAnswerAction,
   removeLeadFollowUpAction,
   retryLeadCalendarSyncAction,
   type ActionState,
+  type NoAnswerActionState,
 } from "../../actions";
+import { smsText } from "@/lib/data/callAttempts";
 import { LEAD_STAGES } from "@/lib/data/leadValidation";
 import { STAGE_LABELS } from "../../leadLabels";
 import { formatCzechDateTime } from "@/lib/format";
@@ -31,6 +34,9 @@ type Props = {
   suggestedHeardFrom?: HeardFrom | null;
   /** Kalendář vlastníka leadu: komu se termín zapíše a jestli je propojený. */
   calendar?: { ownerName: string | null; connected: boolean; isMe: boolean } | null;
+  /** Telefon kontaktu a jméno přihlášeného — pro SMS/WhatsApp po „Nezvedá“. */
+  contactPhone?: string | null;
+  salesName?: string | null;
 };
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
@@ -116,6 +122,8 @@ export default function CallLogForm({
   heardFromDetail = null,
   suggestedHeardFrom = null,
   calendar = null,
+  contactPhone = null,
+  salesName = null,
 }: Props) {
   const knownHeardFrom = heardFrom !== null && isHeardFrom(heardFrom);
   // null = obchodník na formuláři zatím nic nezměnil (pak platí uložený rozepsaný zápis).
@@ -157,6 +165,17 @@ export default function CallLogForm({
       return next;
     });
   };
+
+  // 22. 11. 2026 (Lucie: „je toho strašně moc“): nejdřív jen dvě velká
+  // tlačítka — Nezvedá / Dovolal/a jsem se; zbytek až po výběru.
+  const [noteMode, setNoteMode] = useState(false);
+  const mode: "none" | "reached" | "note" = current.reached ? "reached" : noteMode || hasContent(current) ? "note" : "none";
+  const [noAnswerState, noAnswerFormAction, noAnswerPending] = useActionState(
+    logNoAnswerAction.bind(null, leadId),
+    null as NoAnswerActionState
+  );
+  const sms = smsText(salesName);
+  const phoneDigits = (contactPhone ?? "").replace(/[^\d+]/g, "");
 
   const update = (patch: Partial<Draft>) => {
     const next = { ...current, ...patch };
@@ -238,67 +257,129 @@ export default function CallLogForm({
       {retryState && "error" in retryState && <p className="text-sm text-begina-accent-700">{retryState.error}</p>}
       {retryState && "success" in retryState && <p className="text-sm text-emerald-700">{retryState.success}</p>}
 
-      <textarea
-        name="note"
-        value={current.note}
-        onChange={(e) => update({ note: e.target.value })}
-        rows={3}
-        placeholder="Co bylo domluveno…"
-        className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-      />
-      <DictateButton onText={appendNote} />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="nextStage" className="text-xs text-neutral-500 mb-1 block">
-            Posunout fázi na
-          </label>
-          <select
-            id="nextStage"
-            name="nextStage"
-            value={current.nextStage}
-            onChange={(e) => update({ nextStage: e.target.value })}
-            className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
-          >
-            <option value="">Beze změny</option>
-            {LEAD_STAGES.map((stage: LeadStage) => (
-              <option key={stage} value={stage}>
-                {STAGE_LABELS[stage]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="nextFollowUpAtDate" className="text-xs text-neutral-500 mb-1 block">
-            Další kontakt
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="nextFollowUpAtDate"
-              name="nextFollowUpAtDate"
-              type="date"
-              value={current.date}
-              onChange={(e) => update({ date: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-            />
-            <input
-              id="nextFollowUpAtTime"
-              name="nextFollowUpAtTime"
-              type="time"
-              value={current.time}
-              onChange={(e) => update({ time: e.target.value })}
-              aria-label="Čas dalšího kontaktu"
-              aria-invalid={timeMissing}
-              className={`w-full px-3 py-2 border rounded-lg text-sm text-begina-primary-900 ${
-                timeMissing ? "border-red-500 bg-red-50" : "border-neutral-200"
-              }`}
-            />
+      {mode === "none" && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-neutral-600">Jak hovor dopadl?</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="submit"
+              formAction={noAnswerFormAction}
+              disabled={noAnswerPending}
+              className="rounded-xl border-2 border-neutral-300 bg-white px-3 py-4 text-base font-semibold text-begina-primary-900 disabled:opacity-50"
+            >
+              {noAnswerPending ? "Zapisuji…" : "📵 Nezvedá"}
+            </button>
+            <button
+              type="button"
+              onClick={() => update({ reached: true })}
+              className="rounded-xl border-2 border-emerald-600 bg-emerald-50 px-3 py-4 text-base font-semibold text-emerald-800"
+            >
+              ✅ Dovolal/a jsem se
+            </button>
           </div>
-          {timeMissing ? (
-            <p className="text-xs font-medium text-red-700 mt-1">Doplňte čas</p>
-          ) : (
-            <p className="text-xs text-neutral-400 mt-1">Čas je předvyplněný na 9:00. Bez data zůstane termín beze změny.</p>
+          {unowned && <p className="text-xs text-neutral-500">Kontakt zatím nikomu nepatří — kdo se dovolá, tomu se přiřadí.</p>}
+          <button type="button" onClick={() => setNoteMode(true)} className="self-start text-xs text-neutral-500 underline underline-offset-2">
+            Jen zapsat poznámku (bez hovoru)
+          </button>
+        </div>
+      )}
+
+      {noAnswerState && "error" in noAnswerState && <p className="text-sm text-begina-accent-700">{noAnswerState.error}</p>}
+      {noAnswerState && "success" in noAnswerState && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-begina-primary-900 flex flex-col gap-2">
+          <p className="font-medium">{noAnswerState.success}</p>
+          {!noAnswerState.stop && <p className="text-xs text-neutral-600">Termín je uložený{calendar?.connected ? " a zapsaný v Google kalendáři" : ""}.</p>}
+          {contactPhone && !noAnswerState.stop && (
+            <>
+              <p className="text-xs text-neutral-600">Pošli mu teď krátkou zprávu — často se ozve sám:</p>
+              <p className="rounded bg-white border border-neutral-200 px-2 py-1.5 text-xs">{sms}</p>
+              <div className="flex gap-2 flex-wrap">
+                <a href={`sms:${phoneDigits}?&body=${encodeURIComponent(sms)}`} className="rounded-lg bg-begina-primary-900 px-3 py-2 text-xs font-medium text-white">
+                  Poslat SMS
+                </a>
+                <a href={`https://wa.me/${phoneDigits.replace(/^\+/, "")}?text=${encodeURIComponent(sms)}`} target="_blank" rel="noreferrer" className="rounded-lg border border-emerald-600 px-3 py-2 text-xs font-medium text-emerald-800">
+                  Poslat přes WhatsApp
+                </a>
+              </div>
+            </>
           )}
+          {noAnswerState.suggestEmail && <p className="text-xs text-neutral-600">Při dalším pokusu pošli i krátký e-mail.</p>}
+        </div>
+      )}
+
+      {mode !== "none" && (
+        <>
+          {current.reached ? (
+            <div className="flex items-center justify-between rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+              <span>✅ Dovolal/a jsem se</span>
+              <button type="button" onClick={() => update({ reached: false })} className="text-xs underline underline-offset-2">
+                změnit
+              </button>
+              <input type="hidden" name="reached" value="1" />
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-500">Poznámka bez hovoru</p>
+          )}
+
+          <textarea
+            name="note"
+            value={current.note}
+            onChange={(e) => update({ note: e.target.value })}
+            rows={3}
+            placeholder="Co bylo domluveno…"
+            className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+          />
+          <DictateButton onText={appendNote} />
+
+          {current.reached && (
+            <HeardFromField
+              idPrefix={`lead-${leadId}`}
+              required={!knownHeardFrom}
+              known={knownHeardFrom}
+              knownText={knownHeardFrom ? heardFromText(heardFrom, heardFromDetail) : null}
+              submit
+              value={current.heardFrom ?? (knownHeardFrom ? "" : (suggestedHeardFrom ?? ""))}
+              detail={current.heardFromDetail}
+              onChange={(next) =>
+                update({
+                  ...(next.value !== undefined ? { heardFrom: next.value } : {}),
+                  ...(next.detail !== undefined ? { heardFromDetail: next.detail } : {}),
+                })
+              }
+            />
+          )}
+
+          <div>
+            <label htmlFor="nextFollowUpAtDate" className="text-xs text-neutral-500 mb-1 block">
+              Kdy zavolat znovu
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="nextFollowUpAtDate"
+                name="nextFollowUpAtDate"
+                type="date"
+                value={current.date}
+                onChange={(e) => update({ date: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+              />
+              <input
+                id="nextFollowUpAtTime"
+                name="nextFollowUpAtTime"
+                type="time"
+                value={current.time}
+                onChange={(e) => update({ time: e.target.value })}
+                aria-label="Čas dalšího kontaktu"
+                aria-invalid={timeMissing}
+                className={`w-full px-3 py-2 border rounded-lg text-sm text-begina-primary-900 ${
+                  timeMissing ? "border-red-500 bg-red-50" : "border-neutral-200"
+                }`}
+              />
+            </div>
+            {timeMissing ? (
+              <p className="text-xs font-medium text-red-700 mt-1">Doplňte čas</p>
+            ) : (
+              <p className="text-xs text-neutral-400 mt-1">Stačí vybrat den, čas je 9:00.</p>
+            )}
           {calendar && (
             <p className={`text-xs mt-1 ${calendar.connected ? "text-emerald-700" : "text-amber-700"}`}>
               {calendar.connected ? (
@@ -318,64 +399,55 @@ export default function CallLogForm({
               )}
             </p>
           )}
-        </div>
-      </div>
+          </div>
 
-      <div>
-        <label htmlFor="nextStepNote" className="text-xs text-neutral-500 mb-1 block">
-          Další krok
-        </label>
-        <input
-          id="nextStepNote"
-          name="nextStepNote"
-          type="text"
-          value={current.nextStepNote}
-          onChange={(e) => update({ nextStepNote: e.target.value })}
-          placeholder="Např. poslat vzorek, zavolat odpoledne…"
-          className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
-        />
-      </div>
-
-      <label className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-begina-primary-900">
-        <input
-          type="checkbox"
-          name="reached"
-          value="1"
-          checked={current.reached}
-          onChange={(e) => update({ reached: e.target.checked })}
-          className="mt-0.5 h-4 w-4"
-        />
-        <span>
-          Dovolal/a jsem se
-          {unowned && (
-            <span className="block text-xs text-neutral-600">Kontakt zatím nikomu nepatří — po uložení se přiřadí tobě.</span>
-          )}
-        </span>
-      </label>
-
-      {/* 22. 11. 2026 (Lucie): „Odkud nás zná“ je vidět vždy, ne až po
-          zaškrtnutí — povinné je jen po dovolání. */}
-      <HeardFromField
-        idPrefix={`lead-${leadId}`}
-        required={current.reached && !knownHeardFrom}
-        known={knownHeardFrom}
-        knownText={knownHeardFrom ? heardFromText(heardFrom, heardFromDetail) : null}
-        submit={current.reached || current.heardFrom !== null}
-        value={current.heardFrom ?? (knownHeardFrom ? "" : (suggestedHeardFrom ?? ""))}
-        detail={current.heardFromDetail}
-        onChange={(next) =>
-          update({
-            ...(next.value !== undefined ? { heardFrom: next.value } : {}),
-            ...(next.detail !== undefined ? { heardFromDetail: next.detail } : {}),
-          })
-        }
-      />
+          <details className="rounded-lg border border-neutral-200 px-3 py-2">
+            <summary className="cursor-pointer text-xs text-neutral-600">Více možností (fáze, další krok)</summary>
+            <div className="mt-2 flex flex-col gap-3">
+              <div>
+                <label htmlFor="nextStage" className="text-xs text-neutral-500 mb-1 block">
+                  Posunout fázi na
+                </label>
+                <select
+                  id="nextStage"
+                  name="nextStage"
+                  value={current.nextStage}
+                  onChange={(e) => update({ nextStage: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
+                >
+                  <option value="">Beze změny</option>
+                  {LEAD_STAGES.map((stage: LeadStage) => (
+                    <option key={stage} value={stage}>
+                      {STAGE_LABELS[stage]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="nextStepNote" className="text-xs text-neutral-500 mb-1 block">
+                  Další krok
+                </label>
+                <input
+                  id="nextStepNote"
+                  name="nextStepNote"
+                  type="text"
+                  value={current.nextStepNote}
+                  onChange={(e) => update({ nextStepNote: e.target.value })}
+                  placeholder="Např. poslat vzorek, zavolat odpoledne…"
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+                />
+              </div>
+            </div>
+          </details>
+        </>
+      )}
 
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
 
       {state && "error" in state && <p className="text-xs text-neutral-600">Nic z toho, co jsi napsal/a, se neztratilo — oprav chybu a ulož znovu.</p>}
 
+      {mode !== "none" && (
       <button
         type="submit"
         data-main="1"
@@ -384,6 +456,7 @@ export default function CallLogForm({
       >
         {pending ? "Ukládám…" : "Uložit zápis"}
       </button>
+      )}
     </form>
   );
 }

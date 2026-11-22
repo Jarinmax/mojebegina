@@ -19,6 +19,7 @@ import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { claimUnownedLeadOnReach } from "./leadClaim";
 import { validateHeardFromInput } from "./heardFrom";
+import { countConsecutiveNoAnswers, planNextAttempt, MAX_CALL_ATTEMPTS, type AttemptPlan } from "./callAttempts";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
@@ -491,6 +492,61 @@ export async function createLead(rawInput: CreateLeadInput): Promise<CreateLeadR
 // poznámka + volitelný posun fáze + volitelný další follow-up, vše
 // atomicky v jednom db.batch (stejný vzor jako updateFulfillmentStatus
 // v orders.ts).
+// „Nezvedá“ jedním klepnutím (22. 11. 2026): zapíše marný pokus a podle
+// řady pokusů (callAttempts.ts) nastaví další termín — nebo po 4. pokusu
+// přestane a nastaví jednu připomínku za měsíc.
+export type NoAnswerResult = { ok: true; plan: AttemptPlan } | { ok: false; error: string };
+
+export async function logNoAnswer(leadId: string): Promise<NoAnswerResult> {
+  const ctx = await requireCrmContext();
+  const [lead] = await db
+    .select({ stage: leads.stage, createdAt: leads.createdAt })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!lead) return { ok: false, error: "Lead nebyl nalezen." };
+
+  const history = await db
+    .select({ kind: leadActivity.kind, metadata: leadActivity.metadata })
+    .from(leadActivity)
+    .where(and(eq(leadActivity.leadId, leadId), eq(leadActivity.kind, "call_logged")))
+    .orderBy(desc(leadActivity.createdAt))
+    .limit(10);
+  const failedAttempt = countConsecutiveNoAnswers(history as { kind: string; metadata: Record<string, unknown> | null }[]) + 1;
+  const plan = planNextAttempt({ failedAttempt, leadCreatedAt: lead.createdAt });
+
+  const updates: Partial<typeof leads.$inferInsert> = {
+    lastContactedAt: new Date(),
+    updatedAt: new Date(),
+    nextFollowUpAt: plan.nextAt ?? plan.remindAt,
+    nextStepNote: plan.stop
+      ? `Nedovolali jsme se (${failedAttempt} pokusy) — jednou zkusit znovu`
+      : `Zavolat znovu (pokus ${failedAttempt + 1}/${MAX_CALL_ATTEMPTS})${plan.suggestEmail ? " + poslat krátký e-mail" : ""}`,
+  };
+  if (plan.stop && lead.stage !== "callback_later") updates.stage = "callback_later";
+
+  await db.batch([
+    db.update(leads).set(updates).where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "call_logged",
+      body: plan.label,
+      metadata: {
+        callResult: "no_answer",
+        attempt: failedAttempt,
+        nextFollowUpAt: updates.nextFollowUpAt,
+        stageChangedTo: updates.stage ?? null,
+        from: lead.stage,
+      },
+    }),
+    upsertPendingLeadCalendarSync(leadId),
+  ]);
+  await reconcileCalendarAfterCommit(leadId);
+  return { ok: true, plan };
+}
+
 export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Promise<LeadResult> {
   const ctx = await requireCrmContext();
 

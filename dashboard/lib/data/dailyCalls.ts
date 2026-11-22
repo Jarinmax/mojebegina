@@ -19,6 +19,7 @@
 import "server-only";
 import { claimUnownedLeadOnReach } from "./leadClaim";
 import { suggestHeardFrom, validateHeardFromInput, type HeardFrom } from "./heardFrom";
+import { countConsecutiveNoAnswers, planNextAttempt } from "./callAttempts";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -735,6 +736,22 @@ export async function logDailyCallOutcome(
     return { ok: false, error: heard.error };
   }
 
+  // Nezvedá bez vlastního termínu → další pokus podle žebříčku (callAttempts.ts).
+  let nextFollowUpAt = value.nextFollowUpAt;
+  if (value.result === "no_answer" && !nextFollowUpAt && !value.clearFollowUp) {
+    const [leadInfo] = await db.select({ createdAt: leads.createdAt }).from(leads).where(eq(leads.id, item.leadId)).limit(1);
+    const history = await db
+      .select({ kind: leadActivity.kind, metadata: leadActivity.metadata })
+      .from(leadActivity)
+      .where(and(eq(leadActivity.leadId, item.leadId), eq(leadActivity.kind, "call_logged")))
+      .orderBy(desc(leadActivity.createdAt))
+      .limit(10);
+    const failedAttempt =
+      countConsecutiveNoAnswers(history as { kind: string; metadata: Record<string, unknown> | null }[]) + 1;
+    const plan = planNextAttempt({ failedAttempt, leadCreatedAt: leadInfo?.createdAt ?? new Date() });
+    nextFollowUpAt = plan.nextAt ?? plan.remindAt;
+  }
+
   const result = await db.execute<{ id: string; effectiveNextFollowUpAt: Date | string | null }>(
     buildLogDailyCallOutcomeQuery({
       itemId,
@@ -744,7 +761,7 @@ export async function logDailyCallOutcome(
       activityId: randomUUID(),
       note: value.note,
       stageChange: value.stageChange,
-      nextFollowUpAt: value.nextFollowUpAt,
+      nextFollowUpAt,
       clearFollowUp: value.clearFollowUp,
       result: value.result,
     })
@@ -791,6 +808,6 @@ export async function logDailyCallOutcome(
     note: value.note,
     result: value.result,
     nextFollowUpAt: effectiveRaw === null ? null : new Date(effectiveRaw),
-    followUpChange: value.clearFollowUp ? "cleared" : value.nextFollowUpAt ? "set" : "kept",
+    followUpChange: value.clearFollowUp ? "cleared" : nextFollowUpAt ? "set" : "kept",
   };
 }

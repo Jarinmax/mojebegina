@@ -135,6 +135,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             heardFromDetail={lead.heardFromDetail}
             suggestedHeardFrom={suggestHeardFrom(lead.source)}
             calendar={calendar}
+            contactPhone={lead.contactPhone}
+            salesName={ctx?.name ?? null}
           />
         </div>
       )}
@@ -215,24 +217,21 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
         </div>
       ) : (
         lead.stage !== "not_interested" && (
-          <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-            <p className="text-sm text-begina-primary-900 mb-1">Připraven stát se zákazníkem?</p>
-            <p className="text-xs text-neutral-500 mb-3">
-              Napojí leada na existující organizaci, nebo založí novou — bez duplicity zákazníků ani objednávek.
-            </p>
-            <Link
-              href={`/rizeni-firmy/obchod/leady/${lead.id}/prevest`}
-              className="inline-block text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2"
-            >
-              Převést na zákazníka →
-            </Link>
-          </div>
+          <Link
+            href={`/rizeni-firmy/obchod/leady/${lead.id}/prevest`}
+            className="mb-4 flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900"
+          >
+            <span>Objednal/a? Převést na zákazníka</span>
+            <span aria-hidden>→</span>
+          </Link>
         )
       )}
 
       <PurchaseHistoryCard history={purchases.history} lastSync={purchases.lastSync} />
 
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
+      <details className="bg-white border border-neutral-200 rounded-xl px-4 py-3 mb-4">
+        <summary className="cursor-pointer text-sm text-neutral-600">Další údaje (zdroj, IČO, adresa)</summary>
+        <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-neutral-500 mb-0.5">Zdroj</p>
@@ -249,7 +248,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             <p className="text-sm text-begina-primary-900">{lead.address}</p>
           </div>
         )}
-      </div>
+        </div>
+      </details>
 
       {/* D. Aktivita — beze změny, dole. */}
       <div className="mb-4">

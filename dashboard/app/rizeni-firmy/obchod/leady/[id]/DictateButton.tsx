@@ -47,10 +47,19 @@ export default function DictateButton({ onText }: { onText: (text: string) => vo
 
   useEffect(() => () => stop(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Safari po zamítnutí mikrofonu někdy nepošle onend — proto vše
+  // zastavíme a vrátíme do výchozího stavu sami (22. 11.: běžel odpočet).
   function stop() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
-    recRef.current?.stop();
+    try {
+      recRef.current?.stop();
+    } catch {
+      // už neběží
+    }
+    recRef.current = null;
+    setListening(false);
+    setInterim("");
   }
 
   function start() {
@@ -75,16 +84,16 @@ export default function DictateButton({ onText }: { onText: (text: string) => vo
     };
     rec.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        setError("Prohlížeč nemá povolený mikrofon — povol ho v nastavení a zkus to znovu.");
+        stop();
+        setError(
+          "Mikrofon není povolený, nic se nenahrálo. V Safari: nahoře Safari → Nastavení pro moje.begina.cz → Mikrofon → Povolit. Na iPhonu: Nastavení → Safari → Mikrofon → Povolit."
+        );
       } else if (e.error !== "no-speech" && e.error !== "aborted") {
         setError("Diktování se přerušilo — co se stihlo přepsat, je v poli. Můžeš pokračovat znovu.");
       }
     };
     rec.onend = () => {
-      setListening(false);
-      setInterim("");
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
+      if (recRef.current === rec) stop();
     };
     recRef.current = rec;
     startedRef.current = Date.now();
@@ -94,8 +103,13 @@ export default function DictateButton({ onText }: { onText: (text: string) => vo
       setSecondsLeft(left);
       if (left <= 0) stop();
     }, 500);
-    rec.start();
-    setListening(true);
+    try {
+      rec.start();
+      setListening(true);
+    } catch {
+      stop();
+      setError("Diktování se nepodařilo spustit — zkus to znovu.");
+    }
   }
 
   if (!supported) {
