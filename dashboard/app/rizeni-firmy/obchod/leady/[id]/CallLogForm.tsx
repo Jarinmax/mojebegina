@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import {
   logCallOutcomeAction,
   removeLeadFollowUpAction,
@@ -41,9 +41,79 @@ type Props = {
 // datum bez času = 09:00 Europe/Prague (viz pragueTime.ts:parseFollowUpInput). Samostatné tlačítko "Odstranit naplánovaný
 // kontakt" — prázdná pole v hlavním formuláři znamenají "neřešeno", ne
 // "smazat", takže smazání potřebuje vlastní, jednoznačnou akci.
+// 22. 11. 2026 (Lucie, chyba u LumoKids): nic, co obchodník napíše, se nesmí
+// ztratit. Pole jsou proto řízená stavem (React je po odeslání nevymaže),
+// rozepsaný zápis se průběžně ukládá v prohlížeči (přežije i obnovení
+// stránky nebo uložení jiného formuláře na kartě) a vymaže se až po
+// úspěšném uložení. Čas je předvyplněný 9:00; když ho obchodník smaže a
+// datum nechá, formulář se neodešle a u Času svítí „Doplňte čas“.
+type Draft = { note: string; nextStage: string; date: string; time: string; nextStepNote: string; reached: boolean };
+const DEFAULT_TIME = "09:00";
+const emptyDraft = (): Draft => ({ note: "", nextStage: "", date: "", time: DEFAULT_TIME, nextStepNote: "", reached: false });
+const draftKey = (leadId: string) => `mojebegina:zapis-po-hovoru:${leadId}`;
+
+function readDraftRaw(leadId: string): string | null {
+  try {
+    return window.localStorage.getItem(draftKey(leadId));
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(leadId: string, d: Draft | null) {
+  try {
+    if (d && hasContent(d)) window.localStorage.setItem(draftKey(leadId), JSON.stringify(d));
+    else window.localStorage.removeItem(draftKey(leadId));
+  } catch {
+    // prohlížeč bez úložiště — formulář funguje dál, jen bez zálohy
+  }
+}
+
+function subscribeStorage(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function hasContent(d: Draft): boolean {
+  return Boolean(d.note.trim() || d.nextStage || d.date || d.nextStepNote.trim() || d.reached);
+}
+
 export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, calendarSync, unowned = false }: Props) {
+  // null = obchodník na formuláři zatím nic nezměnil (pak platí uložený rozepsaný zápis).
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [timeMissing, setTimeMissing] = useState(false);
+
+  const savedRaw = useSyncExternalStore(subscribeStorage, () => readDraftRaw(leadId), () => null);
+  const saved = useMemo<Draft | null>(() => {
+    if (!savedRaw) return null;
+    try {
+      const parsed = { ...emptyDraft(), ...(JSON.parse(savedRaw) as Partial<Draft>) };
+      return hasContent(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }, [savedRaw]);
+
+  const current: Draft = draft ?? saved ?? emptyDraft();
+  const restored = draft === null && saved !== null;
+
   const boundAction = logCallOutcomeAction.bind(null, leadId);
-  const [state, formAction, pending] = useActionState(boundAction, initialState);
+  const [state, formAction, pending] = useActionState(async (prev: ActionState, formData: FormData) => {
+    const result = await boundAction(prev, formData);
+    // Vymazat až po úspěšném uložení na serveru.
+    if (result && "success" in result) {
+      setDraft(emptyDraft());
+      writeDraft(leadId, null);
+    }
+    return result;
+  }, initialState);
+
+  const update = (patch: Partial<Draft>) => {
+    const next = { ...current, ...patch };
+    setDraft(next);
+    writeDraft(leadId, next);
+    if ("time" in patch || "date" in patch) setTimeMissing(false);
+  };
 
   const boundRemoveAction = removeLeadFollowUpAction.bind(null, leadId);
   const [removeState, removeFormAction, removePending] = useActionState(boundRemoveAction, initialState);
@@ -54,8 +124,24 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
   const hasPlannedState = nextFollowUpAt !== null || nextStepNote !== null;
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+        // Kontrola jen pro hlavní „Uložit zápis“ (ne pro Odstranit / Zkusit znovu).
+        if (submitter?.dataset.main === "1" && current.date && !current.time) {
+          e.preventDefault();
+          setTimeMissing(true);
+        }
+      }}
+      className="flex flex-col gap-3"
+    >
       <p className="text-sm font-medium text-begina-primary-900">Zápis po hovoru</p>
+      {restored && (
+        <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+          Obnovený rozepsaný zápis — zatím není uložený. Zkontroluj ho a klikni na „Uložit zápis“.
+        </p>
+      )}
 
       {hasPlannedState && (
         <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2 text-sm text-begina-primary-900 flex flex-col gap-1">
@@ -104,6 +190,8 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
 
       <textarea
         name="note"
+        value={current.note}
+        onChange={(e) => update({ note: e.target.value })}
         rows={2}
         placeholder="Co bylo domluveno…"
         className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
@@ -117,7 +205,8 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
           <select
             id="nextStage"
             name="nextStage"
-            defaultValue=""
+            value={current.nextStage}
+            onChange={(e) => update({ nextStage: e.target.value })}
             className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white"
           >
             <option value="">Beze změny</option>
@@ -137,17 +226,28 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
               id="nextFollowUpAtDate"
               name="nextFollowUpAtDate"
               type="date"
+              value={current.date}
+              onChange={(e) => update({ date: e.target.value })}
               className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
             />
             <input
               id="nextFollowUpAtTime"
               name="nextFollowUpAtTime"
               type="time"
+              value={current.time}
+              onChange={(e) => update({ time: e.target.value })}
               aria-label="Čas dalšího kontaktu"
-              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
+              aria-invalid={timeMissing}
+              className={`w-full px-3 py-2 border rounded-lg text-sm text-begina-primary-900 ${
+                timeMissing ? "border-red-500 bg-red-50" : "border-neutral-200"
+              }`}
             />
           </div>
-          <p className="text-xs text-neutral-400 mt-1">Bez času = 9:00. Nevyplněno = termín zůstane beze změny.</p>
+          {timeMissing ? (
+            <p className="text-xs font-medium text-red-700 mt-1">Doplňte čas</p>
+          ) : (
+            <p className="text-xs text-neutral-400 mt-1">Čas je předvyplněný na 9:00. Bez data zůstane termín beze změny.</p>
+          )}
         </div>
       </div>
 
@@ -159,6 +259,8 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
           id="nextStepNote"
           name="nextStepNote"
           type="text"
+          value={current.nextStepNote}
+          onChange={(e) => update({ nextStepNote: e.target.value })}
           placeholder="Např. poslat vzorek, zavolat odpoledne…"
           className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begina-primary-900"
         />
@@ -166,7 +268,14 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
 
       {unowned && (
         <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-begina-primary-900">
-          <input type="checkbox" name="reached" value="1" className="mt-0.5 h-4 w-4" />
+          <input
+            type="checkbox"
+            name="reached"
+            value="1"
+            checked={current.reached}
+            onChange={(e) => update({ reached: e.target.checked })}
+            className="mt-0.5 h-4 w-4"
+          />
           <span>
             Dovolal/a jsem se
             <span className="block text-xs text-neutral-600">Kontakt zatím nikomu nepatří — po uložení se přiřadí vám.</span>
@@ -177,8 +286,11 @@ export default function CallLogForm({ leadId, nextFollowUpAt, nextStepNote, cale
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
 
+      {state && "error" in state && <p className="text-xs text-neutral-600">Nic z toho, co jsi napsal/a, se neztratilo — oprav chybu a ulož znovu.</p>}
+
       <button
         type="submit"
+        data-main="1"
         disabled={pending}
         className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 disabled:opacity-50 self-start"
       >
