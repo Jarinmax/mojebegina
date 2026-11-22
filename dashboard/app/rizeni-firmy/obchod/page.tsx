@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DateTime } from "luxon";
 import { getCockpitCounts, listLeads, listCustomers, listFreshLeads, getHeardFromSummary } from "@/lib/data/leads";
 import { HEARD_FROM_SHORT, isHeardFrom } from "@/lib/data/heardFrom";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -84,7 +85,28 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   }
 
   // Na záložce „Všechny leady“ jsou nové leady už nahoře v seznamu — blok by je zdvojil.
-  const showNewLeadsBlock = newLeads.length > 0 && activeView !== "vsechny-leady";
+  // 22. 11. 2026 (Lucie u Jarina): v „Mých leadech“ jen moji noví + volné
+  // (bez obchodníka), ne nové leady kolegy.
+  const shownNewLeads =
+    activeView === "moje-leady" ? newLeads.filter((l) => !l.ownerUserId || l.ownerUserId === ctx?.userId) : newLeads;
+  const showNewLeadsBlock = shownNewLeads.length > 0 && activeView !== "vsechny-leady";
+
+  // „Moje leady“ rozdělené podle toho, co je potřeba udělat.
+  const todayEnd = DateTime.now().setZone("Europe/Prague").endOf("day").toJSDate();
+  const myGroups =
+    activeView === "moje-leady" && leadCards
+      ? [
+          {
+            title: "Zavolat dnes / po termínu",
+            items: leadCards.filter((l) => l.nextFollowUpAt && l.nextFollowUpAt <= todayEnd),
+          },
+          {
+            title: "Naplánované",
+            items: leadCards.filter((l) => l.nextFollowUpAt && l.nextFollowUpAt > todayEnd),
+          },
+          { title: "Bez termínu — naplánuj další krok", items: leadCards.filter((l) => !l.nextFollowUpAt) },
+        ].filter((g) => g.items.length > 0)
+      : null;
 
   return (
     <div>
@@ -126,17 +148,16 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
         </Link>
       )}
 
-      {isDailyCallCurator(ctx) && <MetaImportButton />}
 
       {showNewLeadsBlock && (
         <section className="mt-4 flex flex-col gap-2">
           <h2 className="text-sm font-medium text-begina-primary-900">
-            Nové leady — zatím nikdo nevolal ({newLeads.length})
+            {activeView === "moje-leady" ? "Noví — ještě jsi nevolal" : "Nové leady — zatím nikdo nevolal"} ({shownNewLeads.length})
           </h2>
           <p className="text-xs text-neutral-500">
             Zůstanou tu, dokud obchodník neuloží první zápis po hovoru. Přiřazený obchodník dostal e-mail a volá on; bez obchodníka: kdo zavolá a dovolá se, tomu se kontakt přiřadí.
           </p>
-          {newLeads.map((lead) => (
+          {shownNewLeads.map((lead) => (
             <LeadCard key={lead.id} lead={lead} fresh />
           ))}
         </section>
@@ -146,6 +167,7 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
         <CockpitTiles counts={counts} />
       </div>
 
+      {activeView === "vsechny-leady" && (
       <section className="mb-4 rounded-xl border border-neutral-200 bg-white p-4">
         <h2 className="text-sm font-medium text-begina-primary-900">Odkud nás zákazníci znají</h2>
         {heardSummary.counts.length === 0 ? (
@@ -163,6 +185,7 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           <p className="mt-2 text-xs text-red-700">U {heardSummary.missing} kontaktů, kterým už někdo volal, to zatím chybí.</p>
         )}
       </section>
+      )}
 
       <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
         {VIEW_LABELS[activeView]}
@@ -190,6 +213,19 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
             {leadFilter === "mine" ? "Zatím nemáš žádné aktivní leady." : "Zatím žádný aktivní lead."}
           </div>
+        ) : myGroups ? (
+          <div className="flex flex-col gap-5">
+            {myGroups.map((g) => (
+              <section key={g.title} className="flex flex-col gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {g.title} ({g.items.length})
+                </h3>
+                {g.items.map((lead) => (
+                  <LeadCard key={lead.id} lead={lead} />
+                ))}
+              </section>
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col gap-2">{leadCards?.map((lead) => <LeadCard key={lead.id} lead={lead} />)}</div>
         )
@@ -200,6 +236,11 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
       ) : (
         <div className="flex flex-col gap-2">
           {customerCards?.map((customer) => <CustomerCard key={customer.id} customer={customer} />)}
+        </div>
+      )}
+      {isDailyCallCurator(ctx) && (
+        <div className="mt-6">
+          <MetaImportButton />
         </div>
       )}
     </div>
