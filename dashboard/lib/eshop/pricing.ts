@@ -92,6 +92,10 @@ export function priceCart(
       return { ok: false, error: "Košík obsahuje produkt, který už nenabízíme. Obnovte prosím košík." };
     }
     const { product, variant } = found;
+    // vyprodané balení (sold_out) nejde objednat ani podvrženým košíkem
+    if (variant.soldOut === true) {
+      return { ok: false, error: `${lineName(product, variant)} je vyprodané. Odeberte ho prosím z košíku.` };
+    }
     const isSet = isTastingSet(product);
     // set jde objednat jen s úplným výběrem pěti sirupů (přípona SKU)
     if (isSet && choiceFromSku(item.sku) === null) return { ok: false, error: SET_NEEDS_CHOICE };

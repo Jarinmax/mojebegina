@@ -277,7 +277,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                   {openedLine}
                 </p>
               )}
-              <ServingPriceLine rows={portions} defaultSku={product.variants[0].sku} />
+              <ServingPriceLine rows={portions} defaultSku={(product.variants.find((variant) => variant.soldOut !== true) ?? product.variants[0]).sku} />
             </div>
           )}
 

@@ -133,7 +133,7 @@ export function productJsonLd(product: Product, category: Category | null) {
       ...(variant.label ? { name: `${product.name} – ${variant.label}` } : {}),
       price: variant.priceKc.toFixed(2),
       priceCurrency: "CZK",
-      availability,
+      availability: variant.soldOut === true ? "https://schema.org/OutOfStock" : availability,
       itemCondition: "https://schema.org/NewCondition",
       url,
       seller: { "@type": "Organization", name: "Begina" },

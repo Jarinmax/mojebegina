@@ -47,10 +47,11 @@ export function googleMerchantFeed(catalog: Catalog): string {
       const images = photos(product);
       if (!images.length) return [];
       const link = `${PUBLIC_ORIGIN}/produkt/${product.slug}`;
-      const availability = isOrderable(product) ? "in_stock" : "out_of_stock";
       const desc = description(product);
-      return product.variants.map((variant) =>
-        [
+      return product.variants.map((variant) => {
+        // vyprodané balení (sold_out) = out_of_stock jen u toho balení
+        const availability = isOrderable(product) && variant.soldOut !== true ? "in_stock" : "out_of_stock";
+        return [
           "    <item>",
           `      <g:id>${esc(variant.sku)}</g:id>`,
           `      <g:item_group_id>${esc(product.slug)}</g:item_group_id>`,
@@ -75,8 +76,8 @@ export function googleMerchantFeed(catalog: Catalog): string {
           ...(variant.label ? [`      <g:size>${esc(variant.label)}</g:size>`] : []),
           ...(variant.weightGrams ? [`      <g:shipping_weight>${variant.weightGrams} g</g:shipping_weight>`] : []),
           "    </item>",
-        ].join("\n")
-      );
+        ].join("\n");
+      });
     });
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',

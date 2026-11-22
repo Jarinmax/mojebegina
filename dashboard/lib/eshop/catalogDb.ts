@@ -10,7 +10,7 @@
 // ještě neexistuje (migrace neproběhla), katalog funguje dál a hmotnosti
 // jsou null → chlazená přeprava podle hmotnosti se nenabídne.
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 import { allergenLabel } from "./allergens";
@@ -62,6 +62,27 @@ async function loadWeights<T extends PgQueryResultHKT>(
   }
 }
 
+/**
+ * Vyprodaná balení (sloupec sold_out, migrace 0060). Samostatný dotaz jako
+ * u hmotností: dokud migrace na produkci neproběhne, katalog funguje dál
+ * a nic není vyprodané.
+ */
+async function loadSoldOut<T extends PgQueryResultHKT>(
+  db: PgDatabase<T, typeof schema> | CatalogDb
+): Promise<Set<string>> {
+  try {
+    const rows = await db
+      .select({ sku: productVariants.sku })
+      .from(productVariants)
+      .where(and(eq(productVariants.isActive, true), eq(productVariants.soldOut, true)));
+    return new Set(rows.map((row) => row.sku));
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    console.warn("E-shop: sloupec product_variants.sold_out chybí (migrace 0060) — žádné balení se nezobrazí jako vyprodané.");
+    return new Set();
+  }
+}
+
 function tableFor(raw: unknown, basis: string | null) {
   const table = nutritionTable(raw, basis);
   return table ? { nutritionTable: table } : {};
@@ -71,7 +92,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
   db: PgDatabase<T, typeof schema> | CatalogDb,
   options: { weights?: boolean } = {}
 ): Promise<Catalog> {
-  const [categoryRows, productRows, variantRows, imageRows, weights] = await Promise.all([
+  const [categoryRows, productRows, variantRows, imageRows, weights, soldOut] = await Promise.all([
     db
       .select()
       .from(productCategories)
@@ -99,6 +120,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
       .orderBy(asc(productVariants.sortOrder), asc(productVariants.sku)),
     db.select().from(productImages).orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
     options.weights ? loadWeights(db) : Promise.resolve(new Map<string, number | null>()),
+    loadSoldOut(db),
   ]);
 
   const categorySlugById = new Map(categoryRows.map((row) => [row.id, row.slug]));
@@ -116,6 +138,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
       volumeMl: row.volumeMl,
       servings: row.servings,
       weightGrams: weights.get(row.sku) ?? null,
+      ...(soldOut.has(row.sku) ? { soldOut: true } : {}),
     });
     variantsByProduct.set(row.productId, list);
   }

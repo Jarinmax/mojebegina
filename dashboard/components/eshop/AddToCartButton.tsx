@@ -11,6 +11,16 @@ import { trackMeta } from "@/lib/eshop/metaPixel";
 import { trackFunnel } from "@/lib/eshop/funnelClient";
 import { packagingKind } from "@/lib/eshop/packaging";
 import { VARIANT_EVENT } from "./ServingPriceLine";
+import { SOLD_OUT_LABEL } from "@/lib/eshop/productRules";
+
+/** Červený štítek „Vyprodáno“ (Lucie 22. 11. 2026 — má být vidět, že je vyprodáno). */
+export function SoldOutBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center justify-center rounded-lg bg-red-600 px-2.5 text-xs font-semibold uppercase tracking-wide text-white ${className}`}>
+      {SOLD_OUT_LABEL}
+    </span>
+  );
+}
 
 type AddToCartButtonProps = {
   name: string;
@@ -22,7 +32,9 @@ type AddToCartButtonProps = {
 
 export default function AddToCartButton({ name, variants, compact = false }: AddToCartButtonProps) {
   const { add } = useCart();
-  const [sku, setSku] = useState(variants[0].sku);
+  // výchozí balení = první nevyprodané
+  const firstAvailable = variants.find((variant) => variant.soldOut !== true);
+  const [sku, setSku] = useState((firstAvailable ?? variants[0]).sku);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
@@ -52,6 +64,15 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
     </button>
   );
 
+  if (!firstAvailable) {
+    // všechna balení vyprodaná — místo „Do košíku“ červené „Vyprodáno“
+    return (
+      <div className="flex">
+        <SoldOutBadge className="flex-1 h-9 text-sm" />
+      </div>
+    );
+  }
+
   if (compact) {
     return <div className="flex">{button}</div>;
   }
@@ -67,14 +88,19 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
             {variants.map((variant) => (
               <label
                 key={variant.sku}
-                className={`flex items-center gap-3 border rounded-xl p-3 cursor-pointer ${
-                  sku === variant.sku ? "border-begina-primary-900" : "border-neutral-200"
+                className={`flex items-center gap-3 border rounded-xl p-3 ${
+                  variant.soldOut === true
+                    ? "border-neutral-200 bg-neutral-50 cursor-not-allowed"
+                    : sku === variant.sku
+                      ? "border-begina-primary-900 cursor-pointer"
+                      : "border-neutral-200 cursor-pointer"
                 }`}
               >
                 <input
                   type="radio"
                   name="variant"
                   value={variant.sku}
+                  disabled={variant.soldOut === true}
                   checked={sku === variant.sku}
                   onChange={() => {
                     setSku(variant.sku);
@@ -93,7 +119,11 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
                   </span>
                   {variant.detail && <span className="block text-xs text-neutral-500">{variant.detail}</span>}
                 </span>
-                <span className="text-sm font-semibold tabular-nums">{formatKc(variant.priceKc)}</span>
+                {variant.soldOut === true ? (
+                  <SoldOutBadge className="h-7" />
+                ) : (
+                  <span className="text-sm font-semibold tabular-nums">{formatKc(variant.priceKc)}</span>
+                )}
               </label>
             ))}
           </div>

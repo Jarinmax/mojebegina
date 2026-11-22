@@ -237,7 +237,7 @@ export function reorderLines(items: ReorderSource[], index: CatalogIndex): Reord
       if (candidates?.length === 1) sku = candidates[0];
     }
     const found = sku ? index.getVariant(sku) : undefined;
-    if (!found || !isOrderable(found.product)) {
+    if (!found || !isOrderable(found.product) || found.variant.soldOut === true) {
       skipped.push(displayItemName(item.name));
       continue;
     }
