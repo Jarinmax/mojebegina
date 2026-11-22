@@ -31,18 +31,28 @@ export type PortionPriceRow = { order: string; portions: number; totalKc: number
 export const SOUP_PRICE_KC = 379;
 export const SOUP_PORTIONS = 12;
 /** Nejnižší pásmo chlazené dopravy (do 14,99 kg) — ze stejného ceníku jako košík. */
-export const SOUP_SHIPPING_FROM_KC = COLD_SHIPPING_RULES[0].priceKc;
+/** Nejnižší pásmo dopravy — počítá se vždy znovu (palivový příplatek z MojeBegina). */
+export function soupShippingFromKc(): number {
+  return COLD_SHIPPING_RULES[0].priceKc;
+}
 
 export function soupPortionRows(counts: readonly number[] = [1, 3, 5]): PortionPriceRow[] {
   return counts.map((count) => {
     const portions = count * SOUP_PORTIONS;
-    const totalKc = count * SOUP_PRICE_KC + SOUP_SHIPPING_FROM_KC;
+    const totalKc = count * SOUP_PRICE_KC + soupShippingFromKc();
     return { order: `${count} × 3 l`, portions, totalKc, perPortionKc: Math.round((totalKc / portions) * 100) / 100 };
   });
 }
 
 const kc = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
-const SOUP_ROWS = soupPortionRows();
+/** Texty s cenou dopravy se skládají až při zobrazení (aktuální palivový příplatek). */
+function soupPriceNote(): string {
+  return `Tři litry polévky stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml. Doprava začíná na ${kc(soupShippingFromKc())} za celou zásilku a řídí se celkovou hmotností objednávky. Příklady platí bez slevy, v pásmu dopravy do 14,99 kg. Osobní odběr ve Viticích je po domluvě zdarma.`;
+}
+function soupPortionAnswer(): string {
+  return `Polévka v begině 3 l stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml – samotná porce vychází na 31,60 Kč. ${soupPortionRows().map((row) => `${row.order} (${row.portions} porcí) stojí s dopravou ${kc(row.totalKc)}, porce ${kc(row.perPortionKc)}`).join("; ")}.`;
+}
+const PORTION_QUESTION = "Kolik stojí porce polévky včetně dopravy?";
 
 const TASTING = { label: "Vyzkoušet Beginu v provozu", href: CAFE_PATH };
 export const LANDING_TASTING_LINK = TASTING;
@@ -72,8 +82,8 @@ export const LANDING_PAGES: LandingPage[] = [
     ],
     priceTable: {
       title: "Kolik stojí porce včetně dopravy?",
-      rows: SOUP_ROWS,
-      note: `Tři litry polévky stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml. Doprava začíná na ${kc(SOUP_SHIPPING_FROM_KC)} za celou zásilku a řídí se celkovou hmotností objednávky. Příklady platí bez slevy, v pásmu dopravy do 14,99 kg. Osobní odběr ve Viticích je po domluvě zdarma.`,
+      rows: [],
+      note: "",
     },
     benefits: [
       { title: "Bez práce", text: "Polévku stačí ohřát a podávat." },
@@ -85,8 +95,8 @@ export const LANDING_PAGES: LandingPage[] = [
       { question: "Kdo dováží hotové polévky do kavárny?", answer: "Begina. Kavárnám a bistrům doručujeme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Objednáte přímo na e-shopu begina.cz, na firmu i s IČO." },
       { question: "Dovezete polévky po celé ČR?", answer: DELIVERY_ANSWER },
       {
-        question: "Kolik stojí porce polévky včetně dopravy?",
-        answer: `Polévka v begině 3 l stojí ${kc(SOUP_PRICE_KC)} a vystačí na ${SOUP_PORTIONS} porcí po 250 ml – samotná porce vychází na 31,60 Kč. ${SOUP_ROWS.map((row) => `${row.order} (${row.portions} porcí) stojí s dopravou ${kc(row.totalKc)}, porce ${kc(row.perPortionKc)}`).join("; ")}.`,
+        question: PORTION_QUESTION,
+        answer: "",
       },
       { question: "Kdy polévky dorazí?", answer: "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme." },
       { question: "Jak dlouho vydrží polévka po otevření?", answer: "Po otevření vydrží v lednici 14 dní. Polévky skladujte v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu." },
@@ -205,5 +215,19 @@ export const LANDING_PAGES: LandingPage[] = [
 export const LANDING_PATHS = LANDING_PAGES.map((page) => page.path);
 
 export function findLandingPage(path: string): LandingPage | undefined {
-  return LANDING_PAGES.find((page) => page.path === path);
+  const page = LANDING_PAGES.find((candidate) => candidate.path === path);
+  return page ? livePage(page) : undefined;
+}
+
+/**
+ * Stránka s aktuálními cenami dopravy (palivový příplatek z MojeBegina): tabulka porcí,
+ * poznámka a odpověď v Častých otázkách se dopočítají při zobrazení.
+ */
+export function livePage(page: LandingPage): LandingPage {
+  if (!page.priceTable) return page;
+  return {
+    ...page,
+    priceTable: { ...page.priceTable, rows: soupPortionRows(), note: soupPriceNote() },
+    faq: page.faq.map((item) => (item.question === PORTION_QUESTION ? { ...item, answer: soupPortionAnswer() } : item)),
+  };
 }

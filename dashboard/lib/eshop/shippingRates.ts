@@ -35,10 +35,22 @@ export type ColdShippingRule = {
 // „coolbalik_vypocty“ (list Česká republika, 12. 11. 2026).
 // PALIVOVÝ PŘÍPLATEK se mění každý měsíc: stačí změnit toto jedno číslo
 // (procenta) a ceny všech pásem se přepočítají.
+// Od 22. 11. 2026 se aktuální procento zadává v MojeBegina (Řízení firmy → Kalkulačka
+// dopravy, tabulka eshop_settings). Toto číslo je jen výchozí hodnota, když v DB nic není.
 export const FUEL_SURCHARGE_PERCENT = 16;
+let fuelPercentNow = FUEL_SURCHARGE_PERCENT;
+/** Platný palivový příplatek (z MojeBegina, jinak výchozí 16 %). */
+export function currentFuelSurchargePercent(): number {
+  return fuelPercentNow;
+}
+/** Rozumný rozsah, ať překlep (např. 160) nerozbije ceny dopravy. */
+export function validFuelPercent(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(String(value ?? "").replace(",", ".").trim());
+  return Number.isFinite(n) && n >= 0 && n <= 60 ? Math.round(n * 100) / 100 : null;
+}
 export const CARRIER_VAT_PERCENT = 21;
 
-export function carrierPriceKc(baseKc: number, fuelPercent: number = FUEL_SURCHARGE_PERCENT): number {
+export function carrierPriceKc(baseKc: number, fuelPercent: number = fuelPercentNow): number {
   // celočíselně (bez chyb zaokrouhlení): základ × 121 × 116 / 10 000
   return Math.round((baseKc * (100 + CARRIER_VAT_PERCENT) * (100 + fuelPercent)) / 10_000);
 }
@@ -52,7 +64,7 @@ const band = (rule: number, fromKg: number, toKg: number, baseKc: number, label?
   ...(label ? { label } : {}),
 });
 
-export const COLD_SHIPPING_RULES: readonly ColdShippingRule[] = [
+export const COLD_SHIPPING_RULES: ColdShippingRule[] = [
   // Pásma 1–11 beze změny proti WooCommerce (při 16 % paliva vycházejí
   // stejné ceny jako dosud: 267, 379, 491 … 1 839 Kč).
   band(1, 0, 14.99, 190),
@@ -115,7 +127,7 @@ export type SkShippingBand = { toKg: number; baseKc: number; priceKc: number };
 
 const skBand = (toKg: number, baseKc: number): SkShippingBand => ({ toKg, baseKc, priceKc: carrierPriceKc(baseKc) });
 
-export const COLD_SHIPPING_SK_BANDS: readonly SkShippingBand[] = [
+export const COLD_SHIPPING_SK_BANDS: SkShippingBand[] = [
   skBand(10, 220),
   skBand(15, 260),
   skBand(20, 300),
@@ -145,4 +157,18 @@ export function coldShippingPriceSk(grams: number): SkShippingPrice {
   if (!Number.isInteger(grams) || grams < 0) throw new Error(`Neplatná hmotnost: ${grams} g`);
   const found = COLD_SHIPPING_SK_BANDS.find((item) => grams <= toGrams(item.toKg));
   return found ? { ok: true, priceKc: found.priceKc, band: found } : { ok: false, reason: "over_limit", grams };
+}
+
+
+/**
+ * Přepočítá ceny všech pásem (ČR i SK) podle palivového příplatku. Volá se na serveru
+ * při načtení katalogu (hodnota z MojeBegina) a v prohlížeči z CatalogProvider se stejnou
+ * hodnotou — košík, pokladna i texty („doprava od …“) tak počítají stejně.
+ */
+export function applyFuelSurcharge(percent: number): void {
+  const valid = validFuelPercent(percent);
+  if (valid === null || valid === fuelPercentNow) return;
+  fuelPercentNow = valid;
+  for (const rule of COLD_SHIPPING_RULES) rule.priceKc = carrierPriceKc(rule.baseKc, valid);
+  for (const band of COLD_SHIPPING_SK_BANDS) band.priceKc = carrierPriceKc(band.baseKc, valid);
 }
