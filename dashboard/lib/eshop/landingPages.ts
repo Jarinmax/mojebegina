@@ -33,7 +33,7 @@ export const SOUP_PORTIONS = 12;
 /** Nejnižší pásmo chlazené dopravy (do 14,99 kg) — ze stejného ceníku jako košík. */
 export const SOUP_SHIPPING_FROM_KC = COLD_SHIPPING_RULES[0].priceKc;
 
-export function soupPortionRows(counts: readonly number[] = [1, 3]): PortionPriceRow[] {
+export function soupPortionRows(counts: readonly number[] = [1, 3, 5]): PortionPriceRow[] {
   return counts.map((count) => {
     const portions = count * SOUP_PORTIONS;
     const totalKc = count * SOUP_PRICE_KC + SOUP_SHIPPING_FROM_KC;
