@@ -120,7 +120,10 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
                   {variant.detail && <span className="block text-xs text-neutral-500">{variant.detail}</span>}
                 </span>
                 {variant.soldOut === true ? (
-                  <SoldOutBadge className="h-7" />
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums text-neutral-500">{formatKc(variant.priceKc)}</span>
+                    <SoldOutBadge className="h-7" />
+                  </span>
                 ) : (
                   <span className="text-sm font-semibold tabular-nums">{formatKc(variant.priceKc)}</span>
                 )}
