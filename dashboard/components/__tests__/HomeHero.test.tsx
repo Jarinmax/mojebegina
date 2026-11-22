@@ -24,7 +24,7 @@ describe("úvod e-shopu", () => {
     expect(text(h1.textContent)).toBe("Polévky a nápoje pro kavárny a bistra");
     const body = text(document.body.textContent);
     expect(body).toContain("Polévku stačí ohřát, sirup naředit.");
-    expect(body).toContain("Doručíme chlazeně po celé ČR.");
+    expect(body).toContain("Posíláme chlazeně po celé ČR.");
     expect(body).toContain("K první třílitrové begině na IČO přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.");
     expect(screen.getByRole("link", { name: /Vybrat první balení/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#ochutnavka");
     expect(screen.getByRole("link", { name: /Domluvit dodávky po telefonu/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#napiste-nam");

@@ -94,10 +94,10 @@ export const LANDING_PAGES: LandingPage[] = [
     path: "/polevky-pro-kavarny",
     title: "Hotové polévky pro kavárny a bistra s dovozem po celé ČR",
     // Texty podle dokumentu ChatGPT „SEO pro kavárny“ (Lucie 22. 11. 2026): „doručíme“, ne „dovážíme“.
-    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Doručíme chlazeně po celé ČR. K první begině 2 polévky a 2 sirupy na ochutnání zdarma.",
+    description: "Hotové polévky do kaváren a bister. Z jednoho balení připravíte 12 porcí po 250 ml. Posíláme chlazeně po celé ČR. K první begině 2 polévky a 2 sirupy na ochutnání zdarma.",
     intro: [
       "Do kaváren a bister po celé České republice doručujeme hotové rostlinné polévky z čisté filtrované vody. Na polední menu si můžete vybrat třeba kulajdu, dýňovou polévku nebo gulášovou polévku z hlívy ústřičné.",
-      "Každou polévku Vám doručíme chlazenou v třílitrovém sáčku s kohoutkem. Když si host objedná, natočíte jednu porci, ohřejete ji a podáváte.",
+      "Každou polévku Vám pošleme chlazenou v třílitrovém sáčku s kohoutkem. Když si host objedná, natočíte jednu porci, ohřejete ji a podáváte.",
     ],
     ctas: [
       { label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` },

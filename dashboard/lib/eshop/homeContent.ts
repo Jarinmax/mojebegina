@@ -18,7 +18,7 @@ export const HOME_STEP_POINTS = [
 ] as const;
 
 export const HOME_STEPS = [
-  { title: "Přijde vám chlazená", text: "Beginu doručíme chlazenou přepravou." },
+  { title: "Přijde vám chlazená", text: "Beginu posíláme chlazenou přepravou." },
   { title: "Uložíte ji do lednice", text: "Zabere málo místa a obsah zůstane čerstvý." },
   { title: "Natočíte si porci", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
 ] as const;
@@ -45,8 +45,8 @@ export const HOME_HERO_POINTS = ["Po otevření vydrží polévky a čaje 14 dn�
 // objednávek, ale zákazník nakupující domů musí vidět, že je vítaný. Texty jen z webu
 // (hlavně ze stránky Pro kavárny a bistra), nic nového.
 export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny a bistra";
-// 22. 11. 2026 (Lucie, návrh ChatGPT): „Dovážíme“ → „Doručíme“ (zásilky vozí CoolBalík, pravidlo Lucie)
-export const HOME_HERO_SUBTITLE = ["Polévku stačí ohřát, sirup naředit.", "Doručíme chlazeně po celé ČR."] as const;
+// 22. 11. 2026 (Lucie): „Posíláme chlazeně“ — zásilky veze dopravce, dopravce se nejmenuje (Jarin)
+export const HOME_HERO_SUBTITLE = ["Polévku stačí ohřát, sirup naředit.", "Posíláme chlazeně po celé ČR."] as const;
 export const HOME_HERO_BUTTON = "Vybrat první balení";
 export const HOME_HERO_PHONE = "Domluvit dodávky po telefonu";
 
