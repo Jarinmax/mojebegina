@@ -10,8 +10,8 @@ describe("Časté otázky", () => {
   it("obsahuje otázky ze zadání", () => {
     const qs = FAQ_ITEMS.map((i) => i.question);
     for (const q of [
-      "Kdo dováží hotové polévky do kavárny?",
-      "Dovezete polévky po celé ČR?",
+      "Kde si můžeme objednat hotové polévky a nápoje do kavárny?",
+      "Jak posíláte objednávky po České republice?",
       "Jak dlouho vydrží polévka po otevření?",
       "Jsou vaše polévky veganské?",
       "Kolik stojí porce polévky?",

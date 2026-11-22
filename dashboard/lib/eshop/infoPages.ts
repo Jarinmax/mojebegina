@@ -169,7 +169,7 @@ const kgText = (kg: number) => kg.toLocaleString("cs-CZ");
 export const DELIVERY_TIME_NOTE =
   "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme.";
 /** Kdo vozí chlazené zásilky (Lucie 22. 11. 2026). */
-export const CHILLED_CARRIER_NOTE = "Chlazené zásilky doručuje přepravní společnost CoolBalík.";
+export const CHILLED_CARRIER_NOTE = "Před doručením chlazené zásilky se Vám ozve přímo dopravce.";
 
 /** Stránka Doprava a platba — ze stejných dat, ze kterých počítá pokladna (shipping.ts, shippingRates.ts). */
 export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {}): InfoPage {

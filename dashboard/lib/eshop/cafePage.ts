@@ -18,7 +18,7 @@ export const CAFE_SUBTITLE = "Z kohoutku natočíte vždy jen objednanou porci. 
 export const CAFE_DESCRIPTION = "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Ohřát a podávat, bez odpadu. K první begině 4 vzorky zdarma.";
 
 /** Jasná věta „co děláme“ pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) — Pro kavárny a bistra i úvod. */
-export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům doručíme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
+export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům posíláme hotové polévky a nápoje po celé ČR chlazenou přepravou.";
 
 /** Řádek pod tlačítkem Do košíku na stránce produktu (Lucie 20. 11. 2026). */
 // 22. 11. 2026: odkaz vede rovnou na výběr první beginy se 4 vzorky (/pro-kavarny#ochutnavka)
@@ -152,7 +152,7 @@ export const CAFE_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Kdy nám objednávka dorazí?",
-    answer: "Chlazené objednávky Vám po celé ČR doručí CoolBalík. Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme.",
+    answer: "Objednávky posíláme po celé ČR chlazenou přepravou. Obvykle je doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme.",
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",

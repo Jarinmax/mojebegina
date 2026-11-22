@@ -8,22 +8,22 @@ import { CAFE_PATH } from "./cafePage";
 import type { InfoPage } from "./infoPages";
 // Slovensko jen když je doručení zapnuté (od 18. 11. 2026 vypnuté kvůli povinnostem k obalům).
 import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
-import { ZASILKOVNA_BOX_KC, ZASILKOVNA_STANDARD_KC } from "./zasilkovna";
 
 export const FAQ_PATH = "/caste-otazky";
 
 export type FaqItem = { question: string; answer: string };
 
 export const FAQ_ITEMS: FaqItem[] = [
+  // 22. 11. 2026 (Lucie): první dvě otázky přesně v tomto znění; dopravce se nejmenuje (Jarin)
   {
-    question: "Kdo dováží hotové polévky do kavárny?",
+    question: "Kde si můžeme objednat hotové polévky a nápoje do kavárny?",
     answer:
-      "Begina. Kavárnám a bistrům dodáváme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat. Objednat můžete přímo na našem e-shopu.",
+      "Přímo na e-shopu Begina. Polévky dodáváme v třílitrových sáčcích s kohoutkem. Natočíte si porci a ohřejete ji. Z nápojů se vodou ředí pouze sirupy. Čaje a ovocné nápoje můžete rovnou podávat.",
   },
   {
-    question: "Dovezete polévky po celé ČR?",
+    question: "Jak posíláte objednávky po České republice?",
     answer:
-      `Ano. Chlazené objednávky Vám po celé ČR doručí CoolBalík, cena se řídí hmotností objednávky podle ceníku dopravy.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Vybrané kapsičky se sirupem a ochutnávkový set sirupů posíláme také Zásilkovnou (${ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC} Kč včetně krabice) a objednávku si můžete po domluvě zdarma vyzvednout osobně v Zahradním bistru Begina ve Viticích. Aktuální ceník dopravy: www.begina.cz/doprava`,
+      `Chlazené objednávky posíláme po celé ČR chlazenou přepravou. Před doručením se Vám ozve přímo dopravce. Cena přepravy závisí na hmotnosti zásilky.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Vybrané sirupy v kapsičkách a ochutnávkový set sirupů posíláme také Zásilkovnou. Objednávku si můžete po domluvě zdarma vyzvednout i v našem bistru ve Viticích.`,
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
