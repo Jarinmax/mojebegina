@@ -11,7 +11,7 @@
 // (server-only, DB klient) není v jsdom testu importovatelný — mockováno,
 // testuje se čistě vykreslený DOM, ne skutečné volání akce.
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import CallLogForm from "../CallLogForm";
 
 vi.mock("../../../actions", () => ({
@@ -89,5 +89,35 @@ describe("CallLogForm — Security Phase 16.5", () => {
     );
     expect(screen.getByText(/Synchronizace s Google kalendářem se nezdařila: Google Kalendář není propojen\./)).toBeTruthy();
     expect(screen.getByText("Zkusit znovu")).toBeTruthy();
+  });
+});
+
+// 22. 11. 2026 — chyba u LumoKids: zápis se ztratil. Nic napsaného se nesmí ztratit.
+describe("CallLogForm — nic se neztratí (22. 11. 2026)", () => {
+  afterEach(() => window.localStorage.clear());
+
+  it("čas je předvyplněný 9:00", () => {
+    const { container } = render(<CallLogForm leadId="lead-a" nextFollowUpAt={null} nextStepNote={null} calendarSync={null} />);
+    expect((container.querySelector('input[name="nextFollowUpAtTime"]') as HTMLInputElement).value).toBe("09:00");
+  });
+
+  it("datum bez času: neodešle se, pole zůstanou vyplněná a u Času svítí „Doplňte čas“", () => {
+    const { container } = render(<CallLogForm leadId="lead-b" nextFollowUpAt={null} nextStepNote={null} calendarSync={null} />);
+    const note = container.querySelector('textarea[name="note"]') as HTMLTextAreaElement;
+    fireEvent.change(note, { target: { value: "Domluveno, zavolat 30. 11." } });
+    fireEvent.change(container.querySelector('input[name="nextFollowUpAtDate"]')!, { target: { value: "2026-11-30" } });
+    fireEvent.change(container.querySelector('input[name="nextFollowUpAtTime"]')!, { target: { value: "" } });
+    fireEvent.click(screen.getByText("Uložit zápis"));
+    expect(screen.getByText("Doplňte čas")).toBeTruthy();
+    expect(note.value).toBe("Domluveno, zavolat 30. 11.");
+  });
+
+  it("rozepsaný zápis přežije nové vykreslení stránky", () => {
+    const first = render(<CallLogForm leadId="lead-c" nextFollowUpAt={null} nextStepNote={null} calendarSync={null} />);
+    fireEvent.change(first.container.querySelector('textarea[name="note"]')!, { target: { value: "Rozepsané" } });
+    first.unmount();
+    const { container } = render(<CallLogForm leadId="lead-c" nextFollowUpAt={null} nextStepNote={null} calendarSync={null} />);
+    expect((container.querySelector('textarea[name="note"]') as HTMLTextAreaElement).value).toBe("Rozepsané");
+    expect(screen.getByText(/Obnovený rozepsaný zápis/)).toBeTruthy();
   });
 });
