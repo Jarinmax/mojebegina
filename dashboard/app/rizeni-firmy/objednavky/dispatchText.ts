@@ -1,5 +1,6 @@
 import { formatCzechDate, formatCzechDateTime } from "@/lib/format";
 import type { OrderCardData } from "@/lib/data/orders";
+import { invoiceSentState } from "@/lib/data/invoiceSentState";
 
 // Texty pro „Odesláno“ / „Faktura poslána“ (Lucie 18. 11. 2026) — počítají se
 // na serveru (čas v Europe/Prague), klientská zaškrtávátka dostanou hotový text.
@@ -35,6 +36,8 @@ type DispatchSource = Pick<
   | "invoiceSentMethod"
   | "carrier"
   | "trackingNumber"
+  | "orderedAt"
+  | "fulfillmentStatus"
 >;
 
 export function dispatchView(order: DispatchSource): DispatchView {
@@ -58,10 +61,14 @@ export function dispatchView(order: DispatchSource): DispatchView {
     );
     if (order.invoiceSentTo) invoiceLines.push(`na ${order.invoiceSentTo}`);
   }
+  // 22. 11. 2026: starší odeslané objednávky měly fakturu poslanou mimo MojeBegina.
+  const inv = invoiceSentState({ ...order, shipped: Boolean(order.shippedAt) });
+  if (inv.done && inv.legacy) invoiceLines.push("před 19. 11. 2026 — poslána mimo MojeBegina");
+  if (!inv.done && inv.reason === "waits_for_shipping") invoiceLines.push("odejde sama, až zaškrtneš „Odesláno“");
   return {
     orderId: order.id,
     shipped: { done: Boolean(order.shippedAt), title: "Odesláno", lines: shippedLines },
-    invoice: { done: Boolean(order.invoiceSentAt), title: "Faktura poslána", lines: invoiceLines },
+    invoice: { done: inv.done, title: "Faktura poslána", lines: invoiceLines },
     trackingNumber: order.trackingNumber,
     shippedOn: order.shippedAt ? ymd.format(order.shippedAt) : null,
     today: ymd.format(new Date()),
