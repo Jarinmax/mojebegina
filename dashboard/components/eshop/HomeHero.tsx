@@ -33,11 +33,12 @@ import { HOME_HERO_POINTS, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/esh
 // (pozadí už nesplývá s úvodem). Dřív v12: nová čistá fotka z ChatGPT (hladká miska, čisté sklo), pozadí doladěné na #FAF6EF, posílá se v kvalitě 90.
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
+// v14 (22. 11. 2026, Lucie): kavárna — obsluha podává dýňovou polévku, vedle begina v lednici; na krabici vloženo oficiální logo.
 export const HERO_PHOTO = {
-  src: "/eshop/hero/polevka-a-napoje-v13.webp",
-  width: 1448,
-  height: 1010,
-  alt: "Dýňová polévka v keramické misce na dřevěném stole u okna, koktejl s grepem, hrnek čaje s citronem a svařák, kolem bylinky a ovoce",
+  src: "/eshop/hero/polevka-kavarna-v14.webp",
+  width: 1670,
+  height: 941,
+  alt: "Obsluha v kavárně podává hostovi dýňovou polévku, vedle červený nápoj s ledem, v lednici za pultem begina dýňové polévky 3 l",
 };
 
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */

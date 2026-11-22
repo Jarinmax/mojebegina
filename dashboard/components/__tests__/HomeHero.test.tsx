@@ -44,8 +44,8 @@ describe("úvod e-shopu", () => {
   it("fotografie úvodu (polévka, čaj, limonáda, begina, 11. 11. 2026) v plném poměru, existuje v public", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
-    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-a-napoje-v13.webp");
-    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1448 / 1010);
+    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-kavarna-v14.webp");
+    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1670 / 941);
     expect(img.className).toContain("h-auto");
     // od v13 (19. 11. 2026) je fotka v rámečku se zaoblenými rohy, ale nikdy se neořezává
     expect(img.className).not.toMatch(/object-cover/);
