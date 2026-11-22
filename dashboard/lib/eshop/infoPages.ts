@@ -217,7 +217,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
                         ? [
                             "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
                             SLOVAKIA_SELF_TRANSPORT_NOTE,
-                            "Pro představu: ceník chlazené přepravy CoolBalík na Slovensko podle hmotnosti zásilky:",
+                            "Pro představu u polévek, čajů a ovocných nápojů: ceník chlazené přepravy CoolBalík na Slovensko podle hmotnosti zásilky:",
                           ]
                         : [
                             "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
