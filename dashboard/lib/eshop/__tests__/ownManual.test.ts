@@ -36,7 +36,7 @@ describe("ruční objednávka: faktura při Odesláno (PGlite)", { timeout: 60_0
       (${NOMAIL}, 'Vzorek', 1, 100, 100)`);
   });
 
-  it("nezaplacená: vystaví se s VS = číslo a splatností 14 dní, odejde zákazníkovi s kopií na info@, zapíše se odeslání", async () => {
+  it("nezaplacená: vystaví se s VS = číslo a splatností 3 pracovní dny, odejde zákazníkovi s kopií na info@, zapíše se odeslání", async () => {
     const r = await send(UNPAID);
     expect(r).toEqual({ status: "sent", invoiceNumber: "20260216", to: ["kocka@example.cz"] });
     const [doc] = (await db.execute(sql`SELECT number, sent_at, snapshot FROM own_invoice_documents WHERE order_id = ${UNPAID}`)).rows;
@@ -44,7 +44,7 @@ describe("ruční objednávka: faktura při Odesláno (PGlite)", { timeout: 60_0
     expect(doc.snapshot).toMatchObject({
       paidDate: null,
       vs: null,
-      dueDate: "2026-12-08",
+      dueDate: "2026-11-27", // 3 pracovní dny
       orderReference: "70000060",
       customer: { kind: "company", name: "Kočka s.r.o.", contactPerson: "Petr Kočka", ico: "12345679", zip: "669 02", city: "Znojmo", email: "kocka@example.cz" },
       totalKc: 610,

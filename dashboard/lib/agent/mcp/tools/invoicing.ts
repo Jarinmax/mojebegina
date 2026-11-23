@@ -520,7 +520,7 @@ const B2B_PROPERTIES: Record<string, unknown> = {
   payment_method: { type: "string", enum: [...B2B_PAYMENT_METHODS], description: "Způsob úhrady: bank_transfer (převodem, výchozí), cash (hotově), card (kartou)." },
   paid: { type: "boolean", description: "true = faktura je už zaplacená (označí se jako uhrazená); false/vynechat = otevřená, neuhrazená." },
   issue_date: { type: "string", description: "Datum vystavení RRRR-MM-DD (výchozí dnes, nejvýš 15 dní zpět)." },
-  due_days: { type: "integer", minimum: 0, maximum: 90, description: "Splatnost ve dnech od vystavení (výchozí 14)." },
+  due_days: { type: "integer", minimum: 0, maximum: 90, description: "Splatnost v kalendářních dnech od vystavení — zadávej JEN když uživatel výslovně chce jinou; výchozí jsou 3 pracovní dny (nikdy 14)." },
   due_date: { type: "string", description: "Datum splatnosti RRRR-MM-DD (místo due_days)." },
   note: { type: "string", description: "Text za položkami na faktuře (max. 500 znaků), přesně jak ho uživatel chce." },
   order_number: { type: "string", description: "Číslo objednávky odběratele (nepovinné)." },
