@@ -1,5 +1,6 @@
 "use client";
 
+import { mergeTranscripts, continuousModeFor } from "@/lib/obchod/dictationText";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 // Hlasový zápis po hovoru (Lucie 22. 11. 2026): obchodník po hovoru nadiktuje
@@ -83,14 +84,15 @@ export default function DictateButton({ onText }: { onText: (text: string) => vo
     if (!Ctor) return;
     const rec = new Ctor();
     rec.lang = "cs-CZ";
-    rec.continuous = true;
+    rec.continuous = continuousModeFor(navigator.userAgent);
     rec.interimResults = true;
     rec.onresult = (e) => {
       if (recRef.current !== rec) return;
       // Celý stav relace z kompletního seznamu výsledků (Safari je někdy
       // posílá znovu) — hotové věty + rozpracovaná část.
-      let text = "";
-      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+      const parts: string[] = [];
+      for (let i = 0; i < e.results.length; i++) parts.push(e.results[i][0].transcript);
+      const text = mergeTranscripts(parts);
       sessionTextRef.current = text;
       setLive(text);
     };
