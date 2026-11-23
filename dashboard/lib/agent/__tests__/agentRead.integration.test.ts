@@ -250,16 +250,20 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "idoklad_unpaid_and_discrepancies",
       "invoice_preview",
       "prepare_b2b_invoice",
+      "prepare_invoice_change",
       "prepare_invoice_correction",
       "fio_incoming_payments",
       "fio_outgoing_payments",
       // ekonomika — jen Jaroslav a Lucie (zápis economy_add_entry jen se souhlasem fakturace)
       "economy_list_entries",
+      "economy_list_documents",
       // legislativní audit — jen Jaroslav a Lucie (uložení reportu jen se zápisem)
       "legal_audit_list_reports",
       // Projekt Begina — jen Jaroslav a Lucie (project_write jen se zápisem)
       "project_overview",
       "project_read_area",
+      "list_batch_products",
+      "list_batches",
       // Ceník surovin — jen Jaroslav a Lucie (změny ceny a nabídek jen se zápisem)
       "recipes_price_list",
     ]);
