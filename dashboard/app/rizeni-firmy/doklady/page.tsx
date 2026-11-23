@@ -48,7 +48,10 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
   ]);
   const issued: InvoiceSummary[] = read.ok ? ((read.data.invoices as InvoiceSummary[]) ?? []) : [];
   const issuedTruncated = read.ok && read.data.truncated === true;
-  const costs = economy.filter((r: EconomyRow) => r.kind === "cost" && r.entryDate.slice(0, 7) === ym);
+  // Nejnovější náklady nahoře (Lucie 23. 11. 2026).
+  const costs = economy
+    .filter((r: EconomyRow) => r.kind === "cost" && r.entryDate.slice(0, 7) === ym)
+    .sort((a, b) => b.entryDate.localeCompare(a.entryDate));
   const incomeTotal = issued.reduce((s, i) => s + (i.totalKc ?? 0), 0);
   const costTotalHal = costs.reduce((s, r) => s + r.amountHal, 0);
 
