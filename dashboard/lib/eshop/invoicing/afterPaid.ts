@@ -24,7 +24,8 @@ import type * as schema from "@/lib/db/schema";
 import { sendOrderEmails, type OrderEmailOutcome, type SendOrderEmailsOptions } from "../email/orderEmails";
 import { isOrderCancelled } from "../cancellation";
 import { issueInvoice, issueInvoiceSafe, loadIssuedPdf, type InvoicePdf, type IssueResult } from "./issue";
-import { invoicingMode } from "./mode";
+import { invoicingMode, ownInvoicingActive } from "./mode";
+import { sendManualOrderInvoiceOnDispatch } from "./ownManual";
 import { prepareInvoiceDraftSafe, type InvoiceActor } from "./service";
 import { sendMetaPurchaseSafe } from "../metaPurchase";
 
@@ -99,7 +100,9 @@ export async function issueAndSendInvoice(
       SET next_attempt_at = now() + ${sql.raw(`interval '${SEND_LEASE_MINUTES} minutes'`)}, updated_at = now()
       FROM invoices i
       WHERE l.invoice_id = i.id AND i.order_id = ${orderId} AND i.document_type = 'invoice' AND i.doc_state = 'issued'
-        AND i.pdf_sent_at IS NULL AND l.state = 'issued'
+        AND i.pdf_sent_at IS NULL
+        -- iDoklad: vazba „issued“; vlastní faktura MojeBegina: vazba „void“ + doklad (ownIssue.ts)
+        AND (l.state = 'issued' OR (l.state = 'void' AND EXISTS (SELECT 1 FROM own_invoice_documents d WHERE d.invoice_id = i.id AND d.state = 'issued')))
         AND (l.next_attempt_at IS NULL OR l.next_attempt_at < now())
       RETURNING l.id`)
   ).rows as { id: string }[];
@@ -156,8 +159,16 @@ export async function sendInvoiceOnDispatch(db: Db, orderId: string, baseUrl: st
                (SELECT i.pdf_sent_at FROM invoices i WHERE i.order_id = o.id AND i.document_type = 'invoice' AND i.doc_state = 'issued' LIMIT 1) AS pdf_sent_at
         FROM orders o WHERE o.id = ${orderId}`)
     ).rows[0] as { channel: string; payment_status: string; fulfillment_status: string; pdf_sent_at: Date | string | null } | undefined;
-    if (!order || order.channel !== "eshop") return { status: "not_eshop" };
+    if (!order) return { status: "not_eshop" };
     if (!(DISPATCHED_STATUSES as readonly string[]).includes(order.fulfillment_status)) return { status: "not_dispatched" };
+    // Ruční objednávka (Lucie 23. 11. 2026): faktura (i nezaplacená s QR) odchází se zbožím
+    if (order.channel === "manual" && ownInvoicingActive(deps.env ?? process.env)) {
+      const manual = await sendManualOrderInvoiceOnDispatch(db, orderId, { env: deps.env });
+      if (manual.status === "sent") return { status: "sent", invoiceNumber: manual.invoiceNumber };
+      if (manual.status === "already_sent") return { status: "already_sent" };
+      return { status: "not_sent", reason: manual.reason, invoiceNumber: manual.invoiceNumber ?? null };
+    }
+    if (order.channel !== "eshop") return { status: "not_eshop" };
     if (order.payment_status !== "paid") return { status: "not_paid" };
     if (order.pdf_sent_at) return { status: "already_sent" };
     const result = await (deps.issueAndSend ?? issueAndSendInvoice)(db, orderId, baseUrl, DISPATCH_ACTOR, deps);
