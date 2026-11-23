@@ -46,7 +46,7 @@ export type OwnIssueInput = {
   activity?: { orderId: string; actor: InvoiceActor };
 };
 
-class OwnIssueError extends Error {}
+export class OwnIssueError extends Error {}
 
 /** Přidělí číslo a uloží doklad (atomicky). Vrací id a číslo. */
 export async function issueOwnDocument(db: Db, input: OwnIssueInput): Promise<{ id: string; number: string }> {
@@ -303,4 +303,9 @@ export async function deleteOwnDocument(db: Db, id: string): Promise<{ number: s
   ).rows as { number: string; freed: number }[];
   if (!rows[0]) throw new OwnIssueError("Fakturu se nepodařilo smazat.");
   return { number: rows[0].number };
+}
+
+/** Faktura odešla odběrateli (první odeslání se zapamatuje — pak už nejde smazat). */
+export async function markOwnDocumentSent(db: Db, id: string): Promise<void> {
+  await db.execute(sql`UPDATE own_invoice_documents SET sent_at = COALESCE(sent_at, now()) WHERE id = ${id}::uuid`);
 }
