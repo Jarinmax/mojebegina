@@ -18,6 +18,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { allocateOrderBatches, releaseOrderBatches } from "@/lib/vyroba/batchAllocation";
+import { markManualOrderInvoicePaid } from "@/lib/eshop/invoicing/ownManual";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice, sendInvoiceOnDispatch, DISPATCHED_STATUSES, type DispatchInvoiceOutcome } from "@/lib/eshop/invoicing/afterPaid";
 import { issueInvoice, linkExternalInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
 import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
@@ -768,6 +769,14 @@ export async function updatePaymentStatus(
       .where(eq(orders.id, orderId))
       .limit(1);
     return conflictResult(now?.paymentStatus ?? from, validated.value, PAYMENT_LABELS, "Stav platby");
+  }
+  // Ruční objednávka zaplacená (hotově při předání apod.): vlastní faktura se označí
+  // jako uhrazená a po expedici odejde zákazníkovi (Lucie 23. 11. 2026).
+  if (validated.value === "paid" && current.channel === "manual") {
+    await markManualOrderInvoicePaid(db, orderId, ctx.name ?? ctx.email).catch((error: unknown) =>
+      console.error("Ruční objednávka: fakturu se nepodařilo označit jako uhrazenou", orderId, error)
+    );
+    await sendInvoiceOnDispatch(db, orderId, await getAppOrigin());
   }
   return { ok: true, changed: true, status: validated.value };
 }

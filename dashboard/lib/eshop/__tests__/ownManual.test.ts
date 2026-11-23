@@ -101,4 +101,25 @@ describe("ruční objednávka: faktura při Odesláno (PGlite)", { timeout: 60_0
     expect(mails.length).toBe(before + 1);
     expect(mails.at(-1)!.to).toEqual(["zakaznik@example.cz"]);
   });
+
+  it("hotově při předání: při Odesláno nic; po zaplacení uhrazená faktura „hotově“", async () => {
+    const CASH = "f6666666-6666-4666-8666-666666666666";
+    await db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, contact_email, contact_name, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs, order_number, payment_method_label) VALUES
+      (${CASH}, 'manual', ${ORG}, 'kocka@example.cz', 'Petr Kočka', 200, 0, 0, 200, 'unpaid', 'out_for_delivery', '2026-11-23T10:00:00Z', '70000080', 70000080, 'hotově')`);
+    await db.execute(sql`INSERT INTO order_items (order_id, name, quantity, unit_price_kc, line_total_kc) VALUES (${CASH}, 'Kulajda – 3 l', 1, 200, 200)`);
+    expect(await send(CASH)).toMatchObject({ status: "not_sent", reason: expect.stringMatching(/Platí se při předání/) });
+    expect((await db.execute(sql`SELECT count(*)::int AS n FROM own_invoice_documents WHERE order_id = ${CASH}`)).rows[0].n).toBe(0);
+    await db.execute(sql`UPDATE orders SET payment_status = 'paid' WHERE id = ${CASH}`);
+    expect(await send(CASH)).toMatchObject({ status: "sent" });
+    const [doc] = (await db.execute(sql`SELECT snapshot FROM own_invoice_documents WHERE order_id = ${CASH}`)).rows;
+    expect(doc.snapshot).toMatchObject({ paymentMethod: "cash", paidDate: "2026-11-24" });
+  });
+
+  it("už vystavená neuhrazená faktura → po ručním „Zaplaceno“ uhrazená", async () => {
+    const { markManualOrderInvoicePaid } = await import("../invoicing/ownManual");
+    expect(await markManualOrderInvoicePaid(db, NOMAIL, "Lucie", "2026-11-25")).toBe(true);
+    const [doc] = (await db.execute(sql`SELECT paid_on::text AS paid_on, version FROM own_invoice_documents WHERE order_id = ${NOMAIL}`)).rows;
+    expect(doc).toEqual({ paid_on: "2026-11-25", version: 2 });
+    expect(await markManualOrderInvoicePaid(db, NOMAIL, "Lucie", "2026-11-25")).toBe(false);
+  });
 });
