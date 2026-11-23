@@ -29,7 +29,7 @@ export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" 
 export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = [
   { icon: "recycle", title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek počká v lednici. Polévky a čaje po otevření vydrží v lednici 14 dní, sirupy 3 měsíce." },
   { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
-  { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,58 Kč, nápoj ze sirupu od 3,33 Kč – při ceně z e-shopu." },
+  { icon: "calculator", title: "Spočítané porce", text: "Polévka 250 ml za 31,58 Kč při ceně z e-shopu. Nápoj ze sirupu: od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },
   { icon: "droplets", title: "Z čisté filtrované vody", text: "Polévky, sirupy, čaje i ovocné nápoje vyrábíme bez konzervantů." },
   { icon: "truck", title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },

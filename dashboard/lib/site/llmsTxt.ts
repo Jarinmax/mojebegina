@@ -14,7 +14,7 @@ export function llmsTxt(): string {
     "",
     "- Pro koho: hlavně kavárny a bistra, ale i zákazníci domů.",
     "- Polévky a nealkoholické nápoje jsou 100% rostlinné, vhodné pro vegany i vegetariány. Vyrábíme je z čisté filtrované vody, bez konzervantů.",
-    "- Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml (31,58 Kč za porci). Nápoj ze sirupu vychází od 3,33 Kč.",
+    "- Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml (31,58 Kč za porci). Nápoj ze sirupu: od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.",
     "- Polévky a čaje vydrží po otevření v lednici 14 dní, sirupy 3 měsíce.",
     "- Doprava: chlazená přeprava po celé ČR (cena podle hmotnosti), sáčky se sirupem i Zásilkovnou, osobní odběr v Zahradním bistru Begina, Vitice 119, 281 06 Vitice.",
     "- Objednávka přímo na e-shopu begina.cz, na firmu i s IČO. Ceny jsou stejné jako na e-shopu, při pravidelném odběru sleva 3 až 7 % v partnerském programu.",

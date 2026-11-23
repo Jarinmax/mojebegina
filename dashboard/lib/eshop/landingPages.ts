@@ -55,6 +55,18 @@ export function syrupDrinkRows(counts: readonly number[] = [1, 3, 5]): PortionPr
   });
 }
 
+/** Jednotné znění modelové ceny nápoje ze sirupu pro kavárny (23. 11. 2026, Lucie/ChatGPT).
+ *  Hlídá test: musí odpovídat syrupDrinkRows([3]) při výchozím palivovém příplatku. */
+export const SYRUP_MODEL_LINE = "Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.";
+
+/** „Tři balení po 499 Kč a chlazená doprava za 267 Kč vyjdou celkem na 1 764 Kč. Při přípravě 450 nápojů je to 3,92 Kč za porci.“ */
+export function syrupExampleLine(): string {
+  const row = syrupDrinkRows([3])[0];
+  const shipping = row.totalKc - 3 * SYRUP_PRICE_KC;
+  const fmt = (n: number) => n.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `Tři balení po ${kc(SYRUP_PRICE_KC)} a chlazená doprava za ${kc(shipping)} vyjdou celkem na ${kc(row.totalKc)}. Při přípravě ${row.portions} nápojů je to ${fmt(row.perPortionKc)} Kč za porci.`;
+}
+
 function syrupPriceNote(): string {
   return `Počítáno s nejlevnější beginou sirupu 3 l za ${kc(SYRUP_PRICE_KC)} (zázvorový, ibiškový, šípkový), bez slevy. Nápoj = 20 ml sirupu doplněných vodou na 200 ml. Doprava podle hmotnosti zásilky. Osobní odběr ve Viticích je po domluvě zdarma.`;
 }
@@ -167,7 +179,7 @@ export const LANDING_PAGES: LandingPage[] = [
   {
     path: "/bylinne-sirupy-pro-kavarny",
     title: "Bylinné sirupy pro kavárny a bary",
-    description: "Bylinné sirupy Begina z bylinek, koření, třtinového cukru a čisté filtrované vody. Begina 3 l s kohoutkem až na 150 nápojů, nápoj od 3,33 Kč.",
+    description: "Bylinné sirupy Begina z bylinek, koření, třtinového cukru a čisté filtrované vody. Begina 3 l s kohoutkem až na 150 nápojů. Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.",
     intro: [
       "Bylinné sirupy Begina vaříme z bylinek, koření, třtinového cukru a čisté filtrované vody. Bez umělých aromat a barviv.",
       "Z jednoho sirupu připravíte limonádu, horký nápoj i koktejl. Pro provoz je nejvýhodnější třílitrová begina s kohoutkem.",
@@ -175,14 +187,14 @@ export const LANDING_PAGES: LandingPage[] = [
     ctas: [{ label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` }],
     priceTable: { title: "Kolik vyjde nápoj včetně dopravy?", rows: [], note: "", kind: "syrup" },
     benefits: [
-      { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů, nápoj už od 3,33 Kč." },
+      { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů. Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
       { title: "Jednoduché ředění", text: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci. Po otevření vydrží v lednici 3 měsíce." },
       { title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
     ],
     faq: [
       { question: "Jak se sirup ředí?", answer: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj. Hodí se i do koktejlů a do kuchyně." },
-      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů, nápoj vychází už od 3,33 Kč." },
+      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů. Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
       { question: "Jak dlouho vydrží sirup po otevření?", answer: "Sirupy po otevření vydrží v lednici 3 měsíce." },
       { question: "Jak objednat sirupy do provozu?", answer: ORDER_ANSWER },
       { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
@@ -250,7 +262,7 @@ export function findLandingPage(path: string): LandingPage | undefined {
 export function livePage(page: LandingPage): LandingPage {
   if (!page.priceTable) return page;
   if (page.priceTable.kind === "syrup") {
-    return { ...page, priceTable: { ...page.priceTable, rows: syrupDrinkRows(), note: syrupPriceNote() } };
+    return { ...page, priceTable: { ...page.priceTable, rows: syrupDrinkRows(), note: `${syrupExampleLine()} ${syrupPriceNote()}` } };
   }
   return {
     ...page,

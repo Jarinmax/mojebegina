@@ -38,7 +38,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Kolik stojí porce polévky?",
     answer:
-      "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč. Nápoj ze sirupu vychází od 3,33 Kč.",
+      "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč. Nápoj ze sirupu: od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.",
   },
   {
     question: "Můžu si objednat i domů?",

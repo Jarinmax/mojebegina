@@ -22,7 +22,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
         text: "Z kohoutku natočíte vždy jen objednanou porci. Po otevření vydrží v lednici polévky a čaje 14 dní, sirupy 3 měsíce.",
       },
       { text: "Bez práce: polévku stačí ohřát a podávat, nápoje jen naředit." },
-      { text: "Spočítané porce: polévka 250 ml za 31,58 Kč, nápoj ze sirupu od 3,33 Kč (při ceně z e-shopu)." },
+      { text: "Spočítané porce: polévka 250 ml za 31,58 Kč, nápoj ze sirupu od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
       { text: "100% rostlinné polévky a nealko nápoje – vhodné pro vegany i vegetariány." },
       { text: "Z čisté filtrované vody, recepty z vlastní kuchyně." },
       { text: "Chlazená doprava po celé ČR, osobní odběr ve Viticích. Ochutnat se dá v Zahradním bistru Begina." },

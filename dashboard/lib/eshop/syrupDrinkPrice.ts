@@ -1,22 +1,14 @@
-// Cena nápoje ze sirupu v úvodu kategorie Sirupy (zadání 22. 11. 2026 večer):
-// počítá se z aktuální ceny nejlevnější nevyprodané třílitrové beginy sirupu
-// (cena / počet nápojů po 200 ml), na haléře, bez dopravy.
-import type { Product } from "./types";
+// Cena nápoje ze sirupu v úvodu kategorie Sirupy.
+// 23. 11. 2026 (Lucie/ChatGPT): všude jen modelová cena VČETNĚ dopravy při 3 × 3 l
+// (dřívější „od 3,33 Kč bez dopravy“ mátlo vedle 3,92 Kč s dopravou na úvodu).
+import { syrupDrinkRows } from "./landingPages";
 import { formatServingKc } from "./productFacts";
 
-const DRINKS_PER_3L = 150;
-
-export function cheapestSyrupDrinkKc(products: readonly Product[]): number | null {
-  const prices = products
-    .filter((p) => p.category === "sirupy")
-    .flatMap((p) => p.variants)
-    .filter((v) => v.volumeMl === 3000 && v.soldOut !== true)
-    .map((v) => v.priceKc / (v.servings ?? DRINKS_PER_3L));
-  return prices.length ? Math.min(...prices) : null;
-}
-
-/** „nápoj už od 3,30 Kč“ (text z DB) → „nápoj od 3,33 Kč za 200 ml bez dopravy“ */
-export function withSyrupDrinkPrice(paragraph: string, drinkKc: number | null): string {
-  if (drinkKc === null) return paragraph;
-  return paragraph.replace(/nápoj(?: už)? od [\d\s ]+,\d{1,2}\s?Kč(?: za 200 ml)?(?: bez dopravy)?/g, `nápoj od ${formatServingKc(drinkKc)} za 200 ml bez dopravy`);
+/** „nápoj už od 3,30 Kč“ (text z DB) → „nápoj od 3,92 Kč (200 ml) včetně dopravy při objednávce 3 × 3 l“ */
+export function withSyrupDrinkPrice(paragraph: string): string {
+  const kc = syrupDrinkRows([3])[0].perPortionKc;
+  return paragraph.replace(
+    /nápoj(?: už)? od [\d\s\u00a0]+,\d{1,2}\s?Kč(?: za 200 ml)?(?: bez dopravy)?/g,
+    `nápoj od ${formatServingKc(kc)} (200 ml) včetně dopravy při objednávce 3 × 3 l`
+  );
 }
