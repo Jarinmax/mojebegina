@@ -65,7 +65,7 @@ const PRODUCTION = { ...BASE, VERCEL_ENV: "production", ESHOP_EMAIL_LIVE: "on", 
 // ------------------------------------------------------------------ čisté jednotky
 
 describe("B1 — přepínač IDOKLAD_INVOICING_ENABLED: tři jednoznačné stavy", () => {
-  const prod = (value?: string) => ({ ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: value });
+  const prod = (value?: string) => ({ ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: value });
 
   it("chybí / off = jen návrh", () => {
     for (const value of [undefined, "", "off", " off "]) {
@@ -91,7 +91,7 @@ describe("B1 — přepínač IDOKLAD_INVOICING_ENABLED: tři jednoznačné stavy
   it("Preview je VŽDY jen návrh — i s manual / on a Production přístupovými údaji", () => {
     for (const value of ["manual", "on"]) {
       for (const VERCEL_ENV of ["preview", "development", undefined, "Production"]) {
-        const env = { ...PRODUCTION, VERCEL_ENV, IDOKLAD_INVOICING_ENABLED: value };
+        const env = { ...PRODUCTION, VERCEL_ENV, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: value };
         expect(invoicingMode(env)).toMatchObject({ mode: "dry_run", automatic: false });
         expect(liveInvoicingGate(env).open).toBe(false);
       }
@@ -216,7 +216,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
 
   it("manual: stornovanou objednávku (i zaplacenou) nejde vyfakturovat — iDoklad nedostane nic", async () => {
     const id = await newOrder();
-    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
+    await pay(id, { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" });
     expect(await orders.updateFulfillmentStatus(id, "cancelled")).toMatchObject({ ok: true, changed: true, cancellation: { heldHal: expect.any(Number) } });
     route.fake = createFakeIdoklad();
     expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: "Objednávka je stornovaná — faktura se nevystaví." });
@@ -227,7 +227,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
 
   it("manual (Production): po platbě NIC automaticky; tlačítkem tentýž motor → faktura, uhrazeno, PDF e-mailem", async () => {
     const id = await newOrder();
-    const MANUAL = { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" };
+    const MANUAL = { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" };
     expect(await pay(id, MANUAL)).toMatchObject({ settled: true });
     // žádné automatické vystavení — ani požadavek na token
     expect(route.idoklad).toEqual([]);
@@ -264,7 +264,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
 
   it("manual: dvojklik / opakované kliknutí → jediná faktura, jediný e-mail", async () => {
     const id = await newOrder();
-    const MANUAL = { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" };
+    const MANUAL = { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" };
     await pay(id, MANUAL);
     mail.sent.length = 0;
     route.fake = createFakeIdoklad();
@@ -285,7 +285,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
 
   it("manual: tlačítko smí jen oprávnění (Viner jako ADMIN, Königsbergová jako EXECUTIVE) — nikdo jiný", async () => {
     const id = await newOrder();
-    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
+    await pay(id, { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad();
     for (const [userId, role] of [
       ["jiny-admin", "ADMIN"],
@@ -309,7 +309,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     // vidí objednávky a detail (včetně návrhu faktury) a zapíše platbu
     expect((await orders.listOrders()).orders.map((o) => o.id)).toContain(id);
     expect(await orders.getOrderDetail(id)).toMatchObject({ order: { id } });
-    expect(await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" })).toMatchObject({ ok: true, settled: true });
+    expect(await pay(id, { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" })).toMatchObject({ ok: true, settled: true });
     const [payment] = await rows(sql`SELECT recorded_by_user_id FROM payments WHERE order_id = ${id}`);
     expect(payment).toEqual({ recorded_by_user_id: LUCIE });
     expect(await orders.getInvoiceIssueAccess()).toMatchObject({ issuer: true, canIssue: true });
@@ -328,7 +328,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     const id = await newOrder();
     route.fake = createFakeIdoklad();
     const next = route.fake.next();
-    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "on" });
+    await pay(id, { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "on" });
     expect(await linkState(id)).toMatchObject({ doc_state: "issued", invoice_number: next.number, pdf_sent: true });
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0].subject).toMatch(/jsme přijali$/);
@@ -346,7 +346,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
     const [other] = await rows(sql`
       INSERT INTO invoice_customers (kind, ico, email_normalized, name) VALUES ('company', '12345678', NULL, 'Firma') RETURNING id`);
     await rows(sql`INSERT INTO invoice_customer_refs (customer_id, provider, external_id) VALUES (${other.id}, 'idoklad', '5555')`);
-    const result = await issue.issueInvoice(db, id, { env: { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" }, fetchImpl: route.fake.fetchImpl });
+    const result = await issue.issueInvoice(db, id, { env: { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" }, fetchImpl: route.fake.fetchImpl });
     expect(result).toMatchObject({ status: "issued" });
     expect(route.fake.invoices.at(-1)?.PartnerId).toBe(5555);
     expect(route.fake.writes().filter((w) => w === "POST /Contacts")).toEqual([]);
@@ -357,7 +357,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
   for (const value of ["manual", "on"]) {
     it(`Preview + ${value}: žádný požadavek na iDoklad (ani token), tlačítko nelze, akce i motor odmítnou`, async () => {
       const id = await newOrder();
-      const env = { ...PREVIEW, IDOKLAD_INVOICING_ENABLED: value };
+      const env = { ...PREVIEW, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: value };
       expect(await pay(id, env)).toMatchObject({ settled: true });
       expect(await orders.getInvoiceIssueAccess()).toMatchObject({ issuer: true, canIssue: false, mode: { mode: "dry_run" } });
       expect(await orders.issueOrderInvoice(id)).toEqual({ ok: false, error: expect.stringMatching(/Preview/) });
@@ -376,7 +376,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
 
   it("selhání Client Credentials: manual → nic se nezapíše, faktura NENÍ vystavená, důvod v MojeBegina", async () => {
     const id = await newOrder();
-    await pay(id, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" });
+    await pay(id, { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" });
     route.fake = createFakeIdoklad({ tokenStatus: 401 });
     const result = await orders.issueOrderInvoice(id);
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/Přihlášení \(Client Credentials\): Přihlášení k iDokladu selhalo \(401: invalid_client/) });
@@ -394,7 +394,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
 
   it("preflight (ruční kontrola): jen GET + token, všechny kontroly s hodnotami agendy Begina", async () => {
     route.fake = createFakeIdoklad();
-    for (const env of [PRODUCTION, { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" }, PREVIEW]) {
+    for (const env of [PRODUCTION, { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" }, PREVIEW]) {
       setEnv(env);
       route.fake.calls.length = 0;
       const outcome = await orders.runEshopIdokladPreflight();
@@ -428,7 +428,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
   it("regrese 8. 10. 2026: bez IDOKLAD_ESHOP_APPLICATION_ID nic nevolá a řekne, co chybí; brána zůstane zavřená", async () => {
     route.fake = createFakeIdoklad();
     for (const missing of ["", "   ", undefined]) {
-      const env = { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual", IDOKLAD_ESHOP_APPLICATION_ID: missing };
+      const env = { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual", IDOKLAD_ESHOP_APPLICATION_ID: missing };
       setEnv(env);
       if (missing === undefined) delete process.env.IDOKLAD_ESHOP_APPLICATION_ID;
       const outcome = await orders.runEshopIdokladPreflight();
@@ -491,7 +491,7 @@ describe("B1 + B2 nad datovou vrstvou MojeBegina (PGlite, napodobenina iDokladu)
       const id = await newOrder();
       await pay(id, PRODUCTION); // zaplaceno při vypnuté fakturaci
       route.fake = createFakeIdoklad(options);
-      const result = await issue.issueInvoice(db, id, { env: { ...PRODUCTION, IDOKLAD_INVOICING_ENABLED: "manual" }, fetchImpl: route.fake.fetchImpl });
+      const result = await issue.issueInvoice(db, id, { env: { ...PRODUCTION, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" }, fetchImpl: route.fake.fetchImpl });
       expect(result).toMatchObject({ status: "failed", error: expect.stringMatching(message) });
       expect(route.fake.writes()).toEqual([]);
       expect(await linkState(id)).toMatchObject({ doc_state: "draft", state: "failed", external_id: null });

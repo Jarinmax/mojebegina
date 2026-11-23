@@ -12,7 +12,7 @@ const READ_ENV = {
 const LIVE_ENV = {
   ...READ_ENV,
   VERCEL_ENV: "production",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
 };
 

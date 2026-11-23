@@ -248,7 +248,7 @@ describe("faktura pro iDoklad — data, text „uhrazeno“, fakturační a doda
 describe("režim fakturace", () => {
   const LIVE = {
     VERCEL_ENV: "production",
-    IDOKLAD_INVOICING_ENABLED: "on",
+    INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "on",
     IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
     IDOKLAD_ESHOP_CLIENT_ID: "cid",
     IDOKLAD_ESHOP_CLIENT_SECRET: "secret",
@@ -267,8 +267,8 @@ describe("režim fakturace", () => {
 
   it("Production: ostře jen se zapnutím, řadou 7277293 a přístupovými údaji", () => {
     expect(invoicingMode(LIVE).mode).toBe("live");
-    expect(invoicingMode({ ...LIVE, IDOKLAD_INVOICING_ENABLED: "yes" }).mode).toBe("dry_run");
-    expect(invoicingMode({ ...LIVE, IDOKLAD_INVOICING_ENABLED: undefined }).mode).toBe("dry_run");
+    expect(invoicingMode({ ...LIVE, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "yes" }).mode).toBe("dry_run");
+    expect(invoicingMode({ ...LIVE, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: undefined }).mode).toBe("dry_run");
     // jiná řada (např. výchozí B2B 2032369) bránu zavře
     expect(invoicingMode({ ...LIVE, IDOKLAD_ESHOP_SEQUENCE_ID: "2032369" }).reason).toMatch(/musí být 7277293/);
     expect(invoicingMode({ ...LIVE, IDOKLAD_ESHOP_SEQUENCE_ID: undefined }).mode).toBe("dry_run");

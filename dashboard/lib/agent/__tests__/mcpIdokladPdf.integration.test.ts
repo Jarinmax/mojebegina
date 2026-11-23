@@ -40,7 +40,7 @@ const ENV: Record<string, string> = {
   ESHOP_EMAIL_FROM: "Begina <objednavky@begina.cz>",
   ESHOP_EMAIL_LIVE: "on",
   ESHOP_ORDER_WRITE: "on",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "cid",
   IDOKLAD_ESHOP_CLIENT_SECRET: "csecret",

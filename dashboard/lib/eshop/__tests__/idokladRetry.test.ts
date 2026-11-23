@@ -81,7 +81,7 @@ describe("iDoklad: výpadek odpovědi", () => {
       clientSecret: "csecret",
       applicationId: "capp",
       writesAllowed: true,
-      env: { ...ENV, IDOKLAD_INVOICING_ENABLED: "manual" },
+      env: { ...ENV, INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual" },
       fetchImpl,
     });
     await expect(client.post("/IssuedInvoices", { NumericSequenceId: 7277293 })).rejects.toThrow(/iDoklad nedostupný/);

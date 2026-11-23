@@ -6,7 +6,7 @@ import { analyzeSeries, parseAuditNumbers, runNumberingAuditFromEnv, toAuditDocu
 
 const ENV = {
   VERCEL_ENV: "production",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "cid",
   IDOKLAD_ESHOP_CLIENT_SECRET: "csecret",

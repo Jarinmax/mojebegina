@@ -56,7 +56,7 @@ const ENV = {
   ESHOP_BANK_ACCOUNT: "19-2000145399/0800",
   ESHOP_BANK_IBAN: "CZ65 0800 0000 1920 0014 5399",
   // i na Preview nastavené přepínače a údaje NESMÍ nic otevřít
-  IDOKLAD_INVOICING_ENABLED: "on",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "on",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "preview-client",
   IDOKLAD_ESHOP_CLIENT_SECRET: "preview-secret",
@@ -810,7 +810,7 @@ describe("pojistka HTTP klienta iDokladu (bez sítě)", () => {
       clientSecret: "b",
       applicationId: "c",
       writesAllowed: true,
-      env: { VERCEL_ENV: "preview", IDOKLAD_INVOICING_ENABLED: "on", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "a", IDOKLAD_ESHOP_CLIENT_SECRET: "b", IDOKLAD_ESHOP_APPLICATION_ID: "c" },
+      env: { VERCEL_ENV: "preview", INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "on", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "a", IDOKLAD_ESHOP_CLIENT_SECRET: "b", IDOKLAD_ESHOP_APPLICATION_ID: "c" },
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
     await expect(client.post("/IssuedInvoices", {})).rejects.toThrow(/mimo ostrý provoz/);
