@@ -90,8 +90,18 @@ export type OwnInvoiceSnapshot = {
   note: string | null;
 };
 
+/** České číslo účtu „19-2000145399/0800“ → IBAN (když ESHOP_BANK_IBAN chybí — QR kód ho potřebuje). */
+export function czIbanFromAccount(account: string | null): string | null {
+  const m = /^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/.exec((account ?? "").replace(/\s/g, ""));
+  if (!m) return null;
+  const bban = `${m[3]}${(m[1] ?? "").padStart(6, "0")}${m[2].padStart(10, "0")}`;
+  const check = BigInt(98) - (BigInt(`${bban}123500`) % BigInt(97));
+  return `CZ${String(check).padStart(2, "0")}${bban}`;
+}
+
 export function ownSupplier(env: Env = process.env): OwnInvoiceSupplier {
-  const bank = bankConfig(env);
+  const raw = bankConfig(env);
+  const bank = { account: raw.account, iban: raw.iban ?? czIbanFromAccount(raw.account) };
   return {
     name: OPERATOR.name,
     address: OPERATOR.address,
@@ -292,7 +302,8 @@ export async function renderOwnInvoicePdf(snapshot: OwnInvoiceSnapshot, number: 
     ["Datum splatnosti", formatCzDay(snapshot.dueDate)],
   ];
   if (snapshot.paymentMethod) facts.push(["Způsob úhrady", PAYMENT_METHOD_LABEL[snapshot.paymentMethod]]);
-  if (snapshot.vs) facts.push(["Variabilní symbol", snapshot.vs]);
+  const vs = snapshot.vs ?? (snapshot.kind === "invoice" ? number : null);
+  if (vs) facts.push(["Variabilní symbol", vs]);
   if (snapshot.orderReference) facts.push(["Číslo objednávky", snapshot.orderReference]);
   // účet a IBAN jen u neuhrazené faktury převodem (uhrazená je nepotřebuje)
   const unpaidTransfer = snapshot.paidDate === null && snapshot.paymentMethod === "bank_transfer";
@@ -352,11 +363,11 @@ export async function renderOwnInvoicePdf(snapshot: OwnInvoiceSnapshot, number: 
   }
 
   // QR platba — jen neuhrazená faktura převodem
-  if (!paid && snapshot.kind === "invoice" && snapshot.paymentMethod === "bank_transfer" && s.iban && snapshot.vs) {
+  if (!paid && snapshot.kind === "invoice" && snapshot.paymentMethod === "bank_transfer" && s.iban && vs) {
     const spayd = spaydString({
       iban: s.iban,
       amountKc: snapshot.totalKc,
-      variableSymbol: snapshot.vs,
+      variableSymbol: vs,
       message: `Faktura ${number}`,
       paymentDate: new Date(`${snapshot.issueDate}T12:00:00Z`),
     });

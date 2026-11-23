@@ -123,3 +123,12 @@ describe("vlastní faktura — číslování a uložení (PGlite)", () => {
     expect(st).toEqual({ state: "cancelled" });
   });
 });
+
+describe("IBAN z čísla účtu", () => {
+  it("česká čísla účtů → platný IBAN", async () => {
+    const { czIbanFromAccount } = await import("../invoicing/ownInvoice");
+    expect(czIbanFromAccount("19-2000145399/0800")).toBe("CZ6508000000192000145399");
+    expect(czIbanFromAccount("2000145399/0800")).toBe("CZ7908000000002000145399");
+    expect(czIbanFromAccount("nesmysl")).toBeNull();
+  });
+});
