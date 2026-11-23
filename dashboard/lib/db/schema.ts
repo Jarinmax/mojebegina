@@ -81,6 +81,9 @@ export const organizations = pgTable("organizations", {
   // Baroš“) fakturuje na jiné jméno/IČO (např. „Lenka Kermes“). NULL = faktura
   // na name. Na fakturu jde COALESCE(billing_name, name) — viz organizationBillingName.
   billingName: text("billing_name"),
+  // Doručovací adresa (migrace 0063, Lucie 23. 11. 2026): kam se vozí, když se
+  // liší od sídla (sídlo zůstává na faktuře). Nové objednávky ji převezmou.
+  deliveryAddress: text("delivery_address"),
 }, (table) => [
   check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
 ]);

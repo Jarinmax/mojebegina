@@ -442,6 +442,13 @@
       "when": 1795341731665,
       "tag": "0062_eshop_nastaveni",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795426000000,
+      "tag": "0063_dorucovaci_adresa",
+      "breakpoints": true
     }
   ]
 }

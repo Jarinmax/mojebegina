@@ -430,7 +430,7 @@ export async function createOrderFromIntake(
                           payment_status, fulfillment_status, planned_delivery_at, responsible_user_id, note, customer_note,
                           shipping_method_label, payment_method_code, payment_method_label, ordered_at, paid_at)
       SELECT ${orderId}::uuid, ${value.channel}, ${wooId}, ${buyer}, ${value.contactName}, ${value.contactPhone}, ${value.contactEmail}, ${ctx.userId},
-             ${value.deliveryName}, ${value.deliveryAddress}, ${value.deliveryPhone}, ${value.subtotalKc}, ${value.shippingKc}, ${value.totalKc},
+             ${value.deliveryName}, COALESCE(${value.deliveryAddress}, (SELECT delivery_address FROM organizations WHERE id = ${buyer})), ${value.deliveryPhone}, ${value.subtotalKc}, ${value.shippingKc}, ${value.totalKc},
              ${value.paymentStatus}, ${value.fulfillmentStatus}, ${plannedDelivery}, ${plan.responsible?.userId ?? null}, ${value.note}, ${value.customerNote},
              ${value.shippingMethod}, ${value.paidByCard ? "karta" : null}, ${value.paymentMethod ?? (value.paidByCard ? "Platební karta (WooCommerce)" : null)},
              ${orderedAt}, ${value.paymentStatus === "paid" ? orderedAt : sql`NULL`}

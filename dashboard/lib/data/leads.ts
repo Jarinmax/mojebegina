@@ -1263,6 +1263,10 @@ export type CustomerActivityEntry = {
 export type CustomerDetail = CustomerCardData & {
   /** Fakturační jméno, když se liší od názvu karty (migrace 0056); null = faktura na name. */
   billingName: string | null;
+  /** Sídlo podle IČO — jde na fakturu. */
+  registeredAddress: string;
+  /** Doručovací adresa (migrace 0063); null = vozí se na sídlo / adresu z objednávky. */
+  deliveryAddress: string | null;
   recentOrders: CustomerOrderSummary[];
   activity: CustomerActivityEntry[];
 };
@@ -1275,6 +1279,8 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
       id: organizations.id,
       name: organizations.name,
       billingName: organizations.billingName,
+      registeredAddress: organizations.registeredAddress,
+      deliveryAddress: organizations.deliveryAddress,
       ico: organizations.ico,
       ownerUserId: organizations.ownerUserId,
       acquiredByUserId: organizations.acquiredByUserId,
@@ -1317,6 +1323,8 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     id: org.id,
     name: org.name,
     billingName: org.billingName ?? null,
+    registeredAddress: org.registeredAddress,
+    deliveryAddress: org.deliveryAddress ?? null,
     ico: org.ico,
     ownerUserId: org.ownerUserId,
     ownerName: owner?.name ?? owner?.email ?? null,
@@ -1515,4 +1523,38 @@ export async function updateCustomerCard(organizationId: string, input: Customer
     customer: { id: org.id, name: plan.name, billingName: plan.billingName, invoiceName: plan.billingName ?? plan.name, ico: org.ico },
     linkedLeadId: lead?.id ?? null,
   };
+}
+
+/**
+ * Doručovací adresa zákazníka (Lucie 23. 11. 2026). Sídlo (faktura) se nemění;
+ * prázdný text adresu smaže. Změna se zapíše do historie karty.
+ */
+export async function setCustomerDeliveryAddress(organizationId: string, raw: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+  const address = raw.replace(/\s+/g, " ").trim();
+  if (address.length > 300) return { ok: false, error: "Adresa je moc dlouhá." };
+  if (address.length > 0 && address.length < 5) return { ok: false, error: "Napište celou adresu (ulice, číslo, PSČ, město)." };
+  const [org] = await db
+    .select({ old: organizations.deliveryAddress })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) return { ok: false, error: "Zákazník nebyl nalezen." };
+  const next = address || null;
+  if ((org.old ?? null) === next) return { ok: true };
+  await db.batch([
+    db.update(organizations).set({ deliveryAddress: next }).where(eq(organizations.id, organizationId)),
+    db.insert(organizationActivity).values({
+      organizationId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "note_added",
+      body: next
+        ? org.old
+          ? `Doručovací adresa změněna: ${org.old} → ${next}`
+          : `Doplněna doručovací adresa: ${next}`
+        : `Doručovací adresa smazána (byla: ${org.old})`,
+    }),
+  ]);
+  return { ok: true };
 }
