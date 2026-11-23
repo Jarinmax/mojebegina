@@ -10,7 +10,7 @@ import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { parseAmountToHal, parseEntryDate, PAYMENT_FORMS } from "@/lib/ekonomika/economy";
 import { ArgError, idempotencyKey, optionalString, requiredString, requiredUuid } from "../args";
 import { defineTool, type AgentTool } from "../define";
-import { attachDocumentBytes, documentCounts, extensionForMime } from "@/lib/doklady/documents";
+import { assignDocument, attachDocumentBytes, documentCounts, extensionForMime, listMonthDocuments, removeDocument } from "@/lib/doklady/documents";
 import { signUploadLink, uploadLinkSecret, UPLOAD_LINK_MINUTES } from "@/lib/doklady/uploadLink";
 import { getAppOrigin as appOrigin } from "@/lib/appOrigin";
 
@@ -163,6 +163,71 @@ export const ECONOMY_TOOLS: AgentTool[] = [
           url: ECONOMY_URL,
         },
       };
+    },
+  }),
+  defineTool({
+    name: "economy_list_documents",
+    title: "Doklady — seznam dokladů měsíce (i nepřiřazených)",
+    description:
+      "JEN ČTENÍ — vypíše doklady (PDF, fotky) nahrané v Řízení firmy → Doklady za jeden měsíc (month=RRRR-MM): id dokladu, název souboru, k jakému řádku nákladu patří (entry_id, null = NEPŘIŘAZENÝ), kdo a kdy ho nahrál. Slouží k úklidu: nepřiřazené doklady přiřaď nebo odeber nástrojem economy_manage_document.",
+    write: false,
+    visible: issuerOnly,
+    properties: {
+      month: { type: "string", description: "Měsíc RRRR-MM, např. 2026-11." },
+    },
+    required: ["month"],
+    parse: (args) => ({ month: monthOf(args).label }),
+    execute: async ({ month }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      const rows = await listMonthDocuments(month);
+      return {
+        ok: true,
+        summary: { count: rows.length, unassigned: rows.filter((r) => !r.entryId).length },
+        data: {
+          documents: rows.map((r) => ({
+            id: r.id,
+            entryId: r.entryId,
+            filename: r.filename,
+            mimeType: r.mimeType,
+            sizeBytes: r.sizeBytes,
+            uploadedAt: r.uploadedAt.toISOString(),
+            uploadedBy: r.uploadedByName,
+          })),
+          url: "https://moje.begina.cz/rizeni-firmy/doklady",
+        },
+      };
+    },
+  }),
+  defineTool({
+    name: "economy_manage_document",
+    title: "Doklady — přiřadit, odpojit nebo odebrat doklad",
+    description:
+      "ZÁPIS — úklid v Řízení firmy → Doklady: action=assign přiřadí doklad k řádku nákladu (entry_id, stejný měsíc), action=unassign ho od řádku odpojí, action=remove doklad odebere (měkce – soubor zůstává v úložišti a jde dohledat). document_id zjisti přes economy_list_documents. Odebírej jen doklad, který je prokazatelně špatný, duplicitní nebo nahrazený opraveným (např. stará faktura bez IČO), a důvod uveď v reason.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      document_id: { type: "string", description: "id dokladu (UUID) z economy_list_documents." },
+      action: { type: "string", enum: ["assign", "unassign", "remove"], description: "assign = přiřadit k řádku, unassign = odpojit od řádku, remove = odebrat doklad." },
+      entry_id: { type: "string", description: "Jen pro assign: id řádku nákladu (UUID) z economy_list_entries." },
+      reason: { type: "string", description: "Proč (povinné u remove), např. „nahrazeno opravenou fakturou s IČO“." },
+    },
+    required: ["document_id", "action"],
+    parse: (args) => {
+      const documentId = requiredUuid(args, "document_id");
+      const action = args.action;
+      if (action !== "assign" && action !== "unassign" && action !== "remove") throw new ArgError("Argument action musí být assign, unassign nebo remove.");
+      const entryId = action === "assign" ? requiredUuid(args, "entry_id") : null;
+      const reason = action === "remove" ? requiredString(args, "reason", 300) : optionalString(args, "reason", 300);
+      return { documentId, action, entryId, reason };
+    },
+    execute: async ({ documentId, action, entryId }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      const result = action === "remove" ? await removeDocument(documentId) : await assignDocument(documentId, action === "assign" ? entryId : null);
+      if (!result.ok) return result;
+      return { ok: true, summary: { removed: action === "remove", assigned: action === "assign" }, data: { documentId, action, entryId, url: "https://moje.begina.cz/rizeni-firmy/doklady" } };
     },
   }),
   defineTool({
