@@ -64,7 +64,7 @@ export const SECTION_GROUPS: Group[] = [
     items: [
       // 23. 11. 2026 (Lucie): Ekonomika, Faktury a Doklady pod jednou dlaždicí
       // „Finance“ se záložkami Přehled / Faktury / Účtenky (stránky zůstávají).
-      { href: "/rizeni-firmy/ekonomika", label: "Finance (přehled, faktury, účtenky)", icon: "💰", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/ekonomika", label: "Finance (přehled, příjmy, náklady)", icon: "💰", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ceo", label: "CEO přehled", icon: "🎯", show: (f) => f.ceoFocus },
       { href: "/rizeni-firmy/legislativni-audit", label: "Legislativní audit", icon: "⚖️", show: (f) => f.ekonomika },
     ],

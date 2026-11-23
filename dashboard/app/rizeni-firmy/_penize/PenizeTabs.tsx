@@ -6,8 +6,8 @@ export type PenizeTab = "prehled" | "faktury" | "uctenky";
 
 const TABS: { key: PenizeTab; label: string; href: string }[] = [
   { key: "prehled", label: "Přehled", href: "/rizeni-firmy/ekonomika" },
-  { key: "faktury", label: "Faktury", href: "/rizeni-firmy/faktury" },
-  { key: "uctenky", label: "Účtenky", href: "/rizeni-firmy/doklady?tab=naklady" },
+  { key: "faktury", label: "Příjmy (faktury)", href: "/rizeni-firmy/faktury" },
+  { key: "uctenky", label: "Náklady (účtenky)", href: "/rizeni-firmy/doklady?tab=naklady" },
 ];
 
 export default function PenizeTabs({ active }: { active: PenizeTab }) {
