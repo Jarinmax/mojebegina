@@ -16,7 +16,7 @@ import { recordInvoiceEmailed } from "../invoiceSentFlag";
 import { parseCheckoutAddress } from "./draft";
 import { ownInvoicingGate } from "./mode";
 import { formatCzDay, formatKc, formatZip, ownSupplier, type OwnInvoiceSnapshot } from "./ownInvoice";
-import { issueOwnDocument, markOwnDocumentSent, ownDocumentPdf, type OwnPdf } from "./ownIssue";
+import { issueOwnDocument, markOwnDocumentSent, ownDocumentPdf, updateOwnDocument, type OwnPdf } from "./ownIssue";
 import type { InvoiceActor } from "./service";
 
 type Db = NeonHttpDatabase<typeof schema>;
@@ -36,6 +36,7 @@ type ManualOrderRow = {
   shipping_kc: number;
   discount_kc: number;
   shipping_method_label: string | null;
+  payment_method_label: string | null;
   contact_name: string | null;
   contact_email: string | null;
   billing_name: string | null;
@@ -54,6 +55,14 @@ type ManualOrderRow = {
   org_dic: string | null;
   org_address: string | null;
 };
+
+/** „hotově“ / „kartou“ / jinak převodem (payment_method_label ruční objednávky). */
+export function manualPaymentMethod(label: string | null | undefined): "bank_transfer" | "cash" | "card" {
+  const l = (label ?? "").toLocaleLowerCase("cs");
+  if (l.includes("hotov")) return "cash";
+  if (l.includes("kart")) return "card";
+  return "bank_transfer";
+}
 
 function addDays(day: string, days: number): string {
   const d = new Date(`${day}T12:00:00Z`);
@@ -111,7 +120,7 @@ export function manualOrderSnapshot(
       issueDate: today,
       dueDate: paid ? today : addDays(today, MANUAL_DUE_DAYS),
       paidDate,
-      paymentMethod: "bank_transfer",
+      paymentMethod: manualPaymentMethod(order.payment_method_label),
       vs: null, // VS = číslo faktury (QR i párování plateb z Fio)
       orderReference: order.order_number !== null ? String(order.order_number) : null,
       supplier: ownSupplier(env),
@@ -139,7 +148,7 @@ async function loadManualOrder(db: Db, orderId: string): Promise<ManualOrderRow 
   return ((
     await db.execute(sql`
       SELECT o.id, o.order_number, o.channel, o.fulfillment_status, o.payment_status, o.paid_at, o.total_kc, o.shipping_kc, o.discount_kc,
-             o.shipping_method_label, o.contact_name, o.contact_email, o.billing_name, o.billing_company, o.billing_ico, o.billing_dic,
+             o.shipping_method_label, o.payment_method_label, o.contact_name, o.contact_email, o.billing_name, o.billing_company, o.billing_ico, o.billing_dic,
              o.billing_street, o.billing_zip, o.billing_city, o.recipient_name, o.recipient_company, o.recipient_address,
              org.name AS org_name, NULLIF(btrim(org.billing_name), '') AS org_billing_name, org.ico AS org_ico, org.dic AS org_dic, org.registered_address AS org_address
       FROM orders o LEFT JOIN organizations org ON org.id = o.buyer_organization_id
@@ -242,6 +251,12 @@ export async function sendManualOrderInvoiceOnDispatch(
   const sentRow = (await db.execute(sql`
     SELECT pdf_sent_at FROM invoices WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued'`)).rows[0] as { pdf_sent_at: Date | null } | undefined;
   if (sentRow?.pdf_sent_at) return { status: "already_sent" };
+  const pay = (await db.execute(sql`SELECT payment_status, payment_method_label FROM orders WHERE id = ${orderId}`)).rows[0] as
+    | { payment_status: string; payment_method_label: string | null }
+    | undefined;
+  if (pay && pay.payment_status !== "paid" && manualPaymentMethod(pay.payment_method_label) !== "bank_transfer") {
+    return { status: "not_sent", reason: "Platí se při předání — faktura odejde sama, až objednávku označíte jako zaplacenou." };
+  }
   const issued = await issueOwnManualOrderInvoice(db, orderId, { env, today: deps.today });
   if (issued.status === "skipped") return { status: "not_sent", reason: issued.reason };
   if (issued.status === "failed") return { status: "not_sent", reason: issued.error };
@@ -294,4 +309,15 @@ export async function sendManualOrderInvoiceOnDispatch(
   } finally {
     await db.execute(sql`UPDATE invoice_provider_links SET next_attempt_at = NULL, updated_at = now() WHERE id = ${lease[0].id}`).catch(() => undefined);
   }
+}
+
+/** Ruční objednávka označená jako zaplacená: už vystavená neuhrazená vlastní faktura → uhrazená dnes. */
+export async function markManualOrderInvoicePaid(db: Db, orderId: string, actorName: string, today: string = PRAGUE_DAY.format(new Date())): Promise<boolean> {
+  const doc = (await db.execute(sql`
+    SELECT id, snapshot FROM own_invoice_documents WHERE order_id = ${orderId} AND state = 'issued' AND paid_on IS NULL`)).rows[0] as
+    | { id: string; snapshot: OwnInvoiceSnapshot }
+    | undefined;
+  if (!doc || doc.snapshot.paidDate) return false;
+  await updateOwnDocument(db, doc.id, { ...doc.snapshot, paidDate: today }, actorName);
+  return true;
 }
