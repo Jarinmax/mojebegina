@@ -921,7 +921,7 @@ export default function CheckoutForm({
                     ) : (
                       <>
                         <span className="font-medium">{line.quantity}× {line.product.name}</span>
-                        {line.variant.label ? <span className="text-neutral-500"> · {line.variant.label}</span> : null}
+                        {line.variant.label ? <span className="text-neutral-500 whitespace-nowrap"> · {line.variant.label}</span> : null}
                       </>
                     )}
                   </span>
