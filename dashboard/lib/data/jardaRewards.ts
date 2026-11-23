@@ -34,6 +34,7 @@ import { leadDisplayName } from "./leadValidation";
 import { DAILY_CALL_LEAD_OWNER_USER_ID } from "./dailyCallsAuth";
 import {
   computeJardaRewards,
+  LEGACY_REWARD_ORDERS,
   monthlyStatements,
   REWARD_TYPE_LABEL,
   type RewardAssignment,
@@ -140,7 +141,9 @@ export async function getJardaRewardsView() {
     items: itemRows.filter((i) => i.orderId === o.id).map((i) => ({ productId: i.productId, productName: i.name, lineTotalKc: i.lineTotalKc })),
   }));
 
-  const { customers, excluded } = computeJardaRewards(rewardLeads, assignmentRows.map(toAssignment), rewardOrders);
+  const leadIdSet = new Set(leadIds);
+  const legacy = LEGACY_REWARD_ORDERS.filter((o) => o.sourceLeadId !== null && leadIdSet.has(o.sourceLeadId));
+  const { customers, excluded } = computeJardaRewards(rewardLeads, assignmentRows.map(toAssignment), [...rewardOrders, ...legacy]);
 
   const payouts = await db
     .select({ id: collaboratorPayouts.id, amountKc: collaboratorPayouts.amountKc, note: collaboratorPayouts.note, paidAt: collaboratorPayouts.paidAt })
@@ -188,6 +191,8 @@ export async function getJardaRewardsView() {
     payouts,
     summary: {
       customerCount: customers.length,
+      // Objem = zaplacené zboží jeho zákazníků (bez dopravy), ze kterého se odměna počítá.
+      volumeKc: customers.reduce((s, c) => s + c.paidGoodsKc, 0),
       earnedKc,
       paidOutKc,
       remainingKc: Math.round((earnedKc - paidOutKc) * 100) / 100,
