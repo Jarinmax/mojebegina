@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, asc, eq, inArray, isNull, not, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { orderItems, orders, organizations, productCategories, products, productVariants } from "@/lib/db/schema";
+import { orderActivity, orderItems, orders, organizations, productCategories, products, productVariants } from "@/lib/db/schema";
 import { addCzWorkdays } from "@/lib/czWorkdays";
 import { displayItemName } from "@/lib/eshop/packageLabel";
 import { isPayLater, PAY_LATER_PATTERN } from "@/lib/payLater";
@@ -304,4 +304,31 @@ export async function listAwaitingPaymentOrders(): Promise<AwaitingPaymentOrder[
     )
     .orderBy(asc(orders.orderedAt));
   return rows.map((r) => ({ id: r.id, orderNumber: r.orderNumber, customer: customerName(r), totalKc: r.totalKc, paymentMethod: r.paymentMethod }));
+}
+
+export type DeliveryAddressResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Oprava / doplnění doručovací adresy z karty výroby (Lucie 23. 11. 2026 —
+ * ručně zapsané objednávky ji často nemají). Změna se zapíše do historie.
+ */
+export async function setDeliveryAddress(orderId: string, rawAddress: string): Promise<DeliveryAddressResult> {
+  const ctx = await requireOrderContext();
+  const address = rawAddress.replace(/\s+/g, " ").trim();
+  if (address.length < 5) return { ok: false, error: "Napište celou adresu (ulice, číslo, PSČ, město)." };
+  if (address.length > 300) return { ok: false, error: "Adresa je moc dlouhá." };
+  const [order] = await db.select({ old: orders.recipientAddress }).from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) return { ok: false, error: "Objednávka nebyla nalezena." };
+  if (order.old === address) return { ok: true };
+  await db.batch([
+    db.update(orders).set({ recipientAddress: address }).where(eq(orders.id, orderId)),
+    db.insert(orderActivity).values({
+      orderId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "note_added",
+      body: order.old ? `Doručovací adresa změněna: ${order.old} → ${address}` : `Doplněna doručovací adresa: ${address}`,
+    }),
+  ]);
+  return { ok: true };
 }
