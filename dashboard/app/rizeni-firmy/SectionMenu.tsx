@@ -63,6 +63,7 @@ export const SECTION_GROUPS: Group[] = [
     title: "Peníze a vedení",
     items: [
       { href: "/rizeni-firmy/ekonomika", label: "Ekonomika (příjmy a náklady)", icon: "💰", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/faktury", label: "Faktury", icon: "📄", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/doklady", label: "Doklady", icon: "📁", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/projekt", label: "Projekt Begina", icon: "🗂️", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ceo", label: "CEO přehled", icon: "🎯", show: (f) => f.ceoFocus },
