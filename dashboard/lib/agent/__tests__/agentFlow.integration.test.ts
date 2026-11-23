@@ -221,8 +221,8 @@ describe("asistent ChatGPT nad DB", { timeout: 60_000 }, () => {
         "list_orders",
       ]);
       const full = await connect(true);
-      // + 5 zápisů CRM/mapy, create_order a update_order_fulfillment (fakturaci vidí jen vystavovatelé faktur)
-      expect(mcp.agentMcpServer(db, full.session, config).listTools()).toHaveLength(21);
+      // + 5 zápisů CRM/mapy, create_order a update_order_fulfillment, update_order_delivery_address (fakturaci vidí jen vystavovatelé faktur)
+      expect(mcp.agentMcpServer(db, full.session, config).listTools()).toHaveLength(22);
     });
 
     it("hledání a detail leadu", async () => {
