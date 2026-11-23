@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PenizeTabs from "../_penize/PenizeTabs";
 import { notFound } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -48,10 +49,13 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
 
   return (
     <div className="max-w-5xl">
-      <Link href="/rizeni-firmy" className="text-sm text-begina-primary-700">← Řízení firmy</Link>
-      <h1 className="text-lg font-medium text-begina-primary-900 mt-1">Faktury</h1>
+      <PenizeTabs active="faktury" />
+      <div className="flex gap-2 mb-3">
+        <span className="text-sm rounded-full border px-4 py-2 bg-begina-primary-900 text-begina-primary-50 border-begina-primary-900">Nové (MojeBegina)</span>
+        <Link href="/rizeni-firmy/doklady?tab=prijmy" className="text-sm rounded-full border px-4 py-2 bg-white text-begina-primary-900 border-neutral-300">Starší z iDokladu (po měsících)</Link>
+      </div>
       <p className="text-sm text-neutral-600 mb-3">
-        Všechny faktury vystavuje MojeBegina v řadě {year}xxxx. Nové ruční faktury připraví asistent (stačí mu napsat komu a co). Starší faktury do 20260214 zůstávají v iDokladu.
+        Od 23. 11. 2026 vystavuje všechny faktury MojeBegina v řadě {year}xxxx. Nové ruční faktury připraví asistent (stačí mu napsat komu a co). Starší faktury do 20260214 najdeš ve „Starší z iDokladu“.
       </p>
       <div className="flex flex-wrap gap-2 mb-3">
         {Array.from({ length: nowY - 2025 }, (_, i) => 2026 + i).map((y) => (
