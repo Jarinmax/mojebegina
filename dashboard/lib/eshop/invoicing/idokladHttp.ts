@@ -63,6 +63,9 @@ const READ_PATHS: readonly RegExp[] = [
   /^\/Countries$/,
   /^\/PaymentOptions$/,
   /^\/Reports\/IssuedInvoice\/[1-9][0-9]{0,9}\/Pdf$/,
+  // archiv dobropisů (idokladArchive.ts, jen čtení)
+  /^\/CreditNotes$/,
+  /^\/Reports\/CreditNote\/[1-9][0-9]{0,9}\/Pdf$/,
 ];
 
 /** Jediné povolené zápisy. Nic dalšího klient neodešle. */
