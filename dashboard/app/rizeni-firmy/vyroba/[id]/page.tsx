@@ -34,7 +34,11 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
           <div className="min-w-0">
             <p className="text-xs text-neutral-500">
               {order.orderNumber !== null ? `Objednávka ${formatOrderNumber(order.orderNumber)}` : "Objednávka"}
-              {order.paidAt ? ` · zaplaceno ${formatCzechDate(order.paidAt)}` : " · zatím nezaplaceno"}
+              {order.paidAt
+                ? ` · zaplaceno ${formatCzechDate(order.paidAt)}`
+                : order.payLater
+                  ? ` · platí ${order.paymentMethod} při předání`
+                  : " · zatím nezaplaceno"}
             </p>
             <p className="text-lg font-bold text-begina-primary-900 break-words">{order.customer}</p>
             {order.contactName && order.contactName !== order.customer && (
