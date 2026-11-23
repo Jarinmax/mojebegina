@@ -65,3 +65,12 @@ button:not(:disabled):not([data-eshop] *):active {
     transform: none;
   }
 }
+
+/* CookieYes: plovoucí kulaté tlačítko „znovu otevřít souhlas“ na mobilu
+   zakrývalo text v košíku a pokladně. Na mobilu ho skryjeme – souhlas jde
+   kdykoli změnit přes odkaz „Nastavení cookies“ v patičce (EshopFooter). */
+@media (max-width: 767px) {
+  .cky-btn-revisit-wrapper {
+    display: none !important;
+  }
+}
