@@ -2,7 +2,7 @@
 // „Begina – manuál pro obchodníky“, ať se dá číst přímo v MojeBegina i na
 // mobilu při hovoru. Při nové verzi PDF upravit i tenhle text, datum a
 // lib/obchod/salesManualPdf.ts.
-import { kc, soupPortionRows, syrupModelLine } from "@/lib/eshop/portionPrices";
+import { kc, soupPortionRows, syrupModelKc } from "@/lib/eshop/portionPrices";
 
 export type ManualSection = {
   title: string;
@@ -17,21 +17,6 @@ export const SALES_MANUAL_UPDATED = "23. 11. 2026";
 
 export const SALES_MANUAL_SECTIONS: ManualSection[] = [
   {
-    title: "Co je nového na begina.cz (23. 11. 2026)",
-    items: [
-      { text: "Web je teď hlavně pro kavárny a bistra: stránky Pro kavárny a Bylinné sirupy pro kavárny s cenami za porci a tabulkami." },
-      { text: "První objednávka pro provozy: k první begině 3 l 2 vzorky polévek a 2 vzorky sirupů zdarma (podrobně níže)." },
-      { text: "Časté otázky jsou v horním menu pod O nás a v patičce – doprava, skladování, trvanlivost, ceny." },
-      { text: "Ochutnávkový set sirupů: zákazník si vybere 5 různých příchutí, v košíku i v pokladně je vidí vypsané." },
-      {
-        text: "Slovensko: objednat jde, ale chlazenou přepravu CoolBalíkem si zákazník objedná a zaplatí sám. Zásilku dovezeme na depo CoolBalíku, odkaz na objednání přepravy mu přijde e-mailem. Alkohol na Slovensko neposíláme.",
-      },
-      { text: "Sirupy budou hlavně v balení 500 ml (159 Kč, teď vyprodané). Balení 650 ml doprodáváme – zázvorový a lipový." },
-      { text: "Alkoholické koktejly už jen v balení 3 l. Zmrzliny jsou na webu se štítkem „Připravujeme“." },
-      { text: "Kdyby vám na webu něco nesedělo nebo se nezdálo, napište." },
-    ],
-  },
-  {
     title: "Hlavní argumenty",
     items: [
       {
@@ -40,7 +25,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       { text: "Bez práce: polévku stačí ohřát a podávat, nápoje jen naředit." },
       {
         get text() {
-          return `Spočítané porce: polévka 250 ml od ${kc(soupPortionRows([3])[0].perPortionKc)} včetně dopravy při objednávce 3 × 3 l, nápoj ze sirupu ${syrupModelLine(true)}`;
+          return `Spočítané porce (s dopravou, při 3 × 3 l): polévka 250 ml od ${kc(soupPortionRows([3])[0].perPortionKc)}, nápoj ze sirupu 200 ml od ${syrupModelKc()}.`;
         },
       },
       { text: "100% rostlinné polévky a nealko nápoje – vhodné pro vegany i vegetariány." },
@@ -62,39 +47,40 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     ],
   },
   {
-    title: "Cukr",
+    title: "Cukr a oleje",
     items: [
       { text: "Kde sladíme, tam jen třtinovým cukrem, ne bílým." },
       { text: "Ovocné nápoje jsou bez přidaného cukru, obsahují jen přirozené cukry z ovoce." },
+      { text: "Do polévek používáme jen olivový a dýňový olej – žádný slunečnicový, řepkový ani jiný levný olej." },
+      { text: "Neříkat „extra panenský“ – u olivového oleje to neplatí." },
     ],
   },
   {
     title: "Ceny (orientačně, platí ceny na begina.cz)",
     items: [
       { text: "Polévky: 379 Kč za 3 l (až 12 porcí po 250 ml)." },
-      { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 159 Kč za 500 ml (teď vyprodané), doprodej 650 ml za 199 Kč." },
+      { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 159 Kč za 500 ml (teď vyprodané), 199 Kč za 650 ml (doprodej)." },
       { text: "Čaje: 249–289 Kč za 3 l. Ovocné nápoje: 349 Kč, Malinový svařák – nealko 399 Kč." },
-      { text: "Alkoholické koktejly: 799 Kč za 3 l, Svařák Deluxe 499 Kč za 3 l (jen 18+)." },
-      { text: "Ochutnávkový set sirupů: 349 Kč + doprava; od 26. 11. prvních 100 setů za 189 Kč včetně dopravy." },
+      { text: "Alkoholické koktejly: 799 Kč za 3 l, Svařák Deluxe 499 Kč za 3 l." },
+      { text: "Ochutnávkový set sirupů: 349 Kč." },
     ],
   },
   {
-    title: "První objednávka: 1 begina + 4 vzorky zdarma (jen kavárny a bistra)",
+    title: "První objednávka (jen pro kavárny a bistra)",
     items: [
-      { text: "K první begině 3 l (polévka, sirup nebo koktejl) dostane provoz 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma." },
-      { text: "Vzorky si musí zaškrtnout na begina.cz na stránce Pro kavárny – zelené jsou zdarma." },
+      { text: "K první begině 3 l: 2 vzorky polévek (200 ml) a 2 vzorky sirupů (100 ml) zdarma." },
+      { text: "Vzorky si zaškrtnou na begina.cz na stránce Pro kavárny." },
       { text: "Každý další vzorek stojí 49 Kč, z každého nejvýš 1 kus." },
-      { text: "Platí jednou na jeden podnik (IČO), objednávka vždy na firmu s IČO." },
-      { text: "Doprava chlazená podle váhy, nebo osobní odběr ve Viticích." },
+      { text: "Platí jednou na jeden podnik (IČO)." },
     ],
   },
   {
     title: "Jak objednat",
     items: [
-      { text: "Objednávku přivezeme, nebo pošleme chlazenou přepravou (CoolBalík) po celé ČR." },
-      { text: "Objednávají přímo na e-shopu begina.cz, na firmu i s IČO." },
+      { text: "Objednávají sami na e-shopu begina.cz, na firmu i s IČO." },
+      { text: "Posíláme chlazenou přepravou po celé ČR, nebo osobní odběr ve Viticích." },
       { text: "Za pravidelné objednávky sleva v partnerském programu 3–7 %." },
-      { text: "Tipy, jak polévky servírovat v podniku, budou na e-shopu – odkazovat na ně, jakmile tam budou." },
+      { text: "Odpovědi na časté dotazy jsou na webu v menu O nás → Časté otázky." },
     ],
   },
   {

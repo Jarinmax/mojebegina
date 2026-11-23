@@ -41,28 +41,17 @@ export default async function SalesManualPage() {
         </a>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-6 flex flex-col gap-4">
         {SALES_MANUAL_SECTIONS.map((section) => (
-          <section
-            key={section.title}
-            className={`rounded-xl border p-4 ${
-              section.tone === "warning" ? "border-red-200 bg-red-50" : "border-neutral-200 bg-white"
-            }`}
-          >
-            <h2
-              className={`text-sm font-semibold mb-2 ${
-                section.tone === "warning" ? "text-red-800" : "text-begina-primary-900"
-              }`}
-            >
-              {section.title}
-            </h2>
-            <ul className="flex flex-col gap-2">
+          <section key={section.title}>
+            <h2 className="text-base font-bold mb-1.5 text-[#C8102E]">{section.title}</h2>
+            <ul className="flex flex-col gap-1">
               {section.items.map((item) => (
-                <li key={item.text} className="flex gap-2 text-sm leading-relaxed text-begina-primary-900">
-                  <span className="text-neutral-400">•</span>
+                <li key={item.text} className="flex gap-2 text-sm leading-relaxed text-neutral-900">
+                  <span>•</span>
                   <span>
                     {item.text}
-                    {item.note && <span className="block mt-1 text-xs text-neutral-600">{item.note}</span>}
+                    {item.note && <span className="block">{item.note}</span>}
                   </span>
                 </li>
               ))}
