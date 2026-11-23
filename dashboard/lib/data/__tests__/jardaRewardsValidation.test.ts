@@ -180,3 +180,13 @@ describe("měsíční vyúčtování", () => {
     expect(monthlyStatements(r.customers).map((m) => [m.month, m.totalKc])).toEqual([["2026-12", 100], ["2026-11", 50]]);
   });
 });
+
+describe("faktury mimo e-shop (říjen 2026, Cats & Coffee / VIP Dogs)", () => {
+  it("odpovídají archivu Příjmy 2026: 758 + 1137 Kč zboží bez dopravy", async () => {
+    const { LEGACY_REWARD_ORDERS } = await import("../jardaRewardsValidation");
+    expect(LEGACY_REWARD_ORDERS.map((o) => [o.orderNumber, o.subtotalKc])).toEqual([
+      ["fakt. 20260194", 758],
+      ["fakt. 20260201", 1137],
+    ]);
+  });
+});
