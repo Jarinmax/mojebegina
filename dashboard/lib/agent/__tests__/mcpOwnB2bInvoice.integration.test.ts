@@ -26,12 +26,17 @@ const ICO_ZNOJMO = "12345679";
 const ICO_BEZ_SIDLA = "76543218";
 const ICO_NIKDE = "24680249";
 const ORG_ZNOJMO = "00000000-0000-4000-8000-00000000c001";
+const LEAD_ZNOJMO = "00000000-0000-4000-8000-00000000c0a1";
 
 const ENV: Record<string, string> = {
   VERCEL_ENV: "production",
   DATABASE_URL: "postgresql://u:p@ep-test.neon.tech/neondb",
   IDOKLAD_INVOICING_ENABLED: "manual",
   ESHOP_BANK_ACCOUNT: "19-2000145399/0800",
+  RESEND_API_KEY: "re_test_begina",
+  ESHOP_EMAIL_FROM: "Begina <objednavky@begina.cz>",
+  ESHOP_EMAIL_LIVE: "on",
+  ESHOP_ORDER_WRITE: "on",
   MCP_OAUTH_CLIENT_SECRET: SECRET,
 };
 
@@ -93,6 +98,7 @@ describe("ruční faktura ve vlastní řadě přes MCP", { timeout: 120_000 }, (
     await db.execute(sql.raw(`INSERT INTO organizations (id, ico, name, billing_name, registered_address, dic) VALUES
       ('${ORG_ZNOJMO}', '${ICO_ZNOJMO}', 'Kavárna Znojmo', 'TEST Znojmo s.r.o.', 'Obroková 10, 669 02 Znojmo', 'CZ12345679'),
       ('00000000-0000-4000-8000-00000000c002', '${ICO_BEZ_SIDLA}', 'Bez sídla', NULL, '', NULL)`));
+    await db.execute(sql.raw(`INSERT INTO leads (id, source, company_name, contact_name, contact_email, city, stage, converted_organization_id) VALUES ('${LEAD_ZNOJMO}', 'akce', 'Kavárna Znojmo', 'Pan Kočka', 'kocka@example.cz', 'Znojmo', 'won', '${ORG_ZNOJMO}')`));
     await db.execute(sql`INSERT INTO invoice_number_counters (year, last_serial) VALUES (2026, 214) ON CONFLICT (year) DO UPDATE SET last_serial = 214`);
     const code = await oauth.issueAuthorizationCode(db, { userId: LUCIE, systemRole: "EXECUTIVE", clientId: CLIENT, write: false, invoicing: true, redirectUri: REDIRECT, codeChallenge: CHALLENGE });
     const tokens = await oauth.exchangeAuthorizationCode(db, { clientId: CLIENT, code, redirectUri: REDIRECT, codeVerifier: VERIFIER });
@@ -158,5 +164,63 @@ describe("ruční faktura ve vlastní řadě přes MCP", { timeout: 120_000 }, (
     process.env.VERCEL_ENV = "preview";
     expect((await call("prepare_b2b_invoice", vzorky())).data).toMatchObject({ canIssue: false });
     expect(await rows(sql`SELECT count(*)::int AS n FROM own_invoice_documents`)).toEqual([{ n: 2 }]);
+  });
+  const change = async (args: Record<string, unknown>) => {
+    const p = await call("prepare_invoice_change", args);
+    expect(p.isError, p.text).toBe(false);
+    return { p, done: p.data.preview_token ? await call("apply_invoice_change", { ...args, preview_token: p.data.preview_token, confirm: true, idempotency_key: randomUUID() }) : null };
+  };
+
+  it("úprava: uhrazeno převodem → stejné číslo, verze 2, stará verze archivovaná, na PDF uhrazeno", async () => {
+    const { p, done } = await change({ number: "20260215", action: "edit", paid_date: "2026-11-20" });
+    expect(p.data).toMatchObject({ canApply: true, invoice: { number: "20260215", paid: false }, changes: [expect.stringMatching(/neuhrazeno → uhrazeno 20\. 11\. 2026/)] });
+    expect(done!.data).toMatchObject({ done: true, invoiceNumber: "20260215", version: 2, pdfUrl: expect.stringMatching(/vlastni\/20260215\/pdf$/) });
+    const [doc] = await rows(sql`SELECT version, paid_on::text AS paid_on, snapshot FROM own_invoice_documents WHERE number = '20260215'`);
+    expect(doc).toMatchObject({ version: 2, paid_on: "2026-11-20" });
+    expect(doc.snapshot.paidDate).toBe("2026-11-20");
+    expect(await rows(sql`SELECT v.version FROM own_invoice_versions v JOIN own_invoice_documents d ON d.id = v.document_id WHERE d.number = '20260215'`)).toEqual([{ version: 1 }]);
+    // stará oprava úhrady přesměruje vlastní fakturu na úpravu
+    const corr = await call("prepare_invoice_correction", { number: "20260215", payment_method: "cash" });
+    expect(corr.data).toMatchObject({ canApply: true, ownChangeArgs: { number: "20260215", action: "edit", payment_method: "cash" } });
+    expect(idokladCalls).toEqual([]);
+  });
+
+  it("odeslání PDF odběrateli (e-mail z karty) zapíše odeslání; pak smazat nejde, jen storno", async () => {
+    const sent = await call("send_idoklad_invoice_email", { number: "20260216", to: ["kocka@example.cz"], confirm: true, idempotency_key: randomUUID() });
+    expect(sent.isError, sent.text).toBe(false);
+    expect(sent.data).toMatchObject({ sent: true, invoiceNumber: "20260216", to: ["kocka@example.cz"], idokladId: null });
+    expect(mail.sent).toHaveLength(1);
+    const m = mail.sent[0] as { attachments: { filename: string }[]; bcc?: string[] };
+    expect(m.attachments[0].filename).toBe("Faktura-20260216.pdf");
+    const [doc] = await rows(sql`SELECT sent_at FROM own_invoice_documents WHERE number = '20260216'`);
+    expect(doc.sent_at).not.toBeNull();
+    expect(await call("send_idoklad_invoice_email", { number: "20260216", to: ["cizi@example.cz"], confirm: true, idempotency_key: randomUUID() })).toMatchObject({ isError: true });
+
+    const del = await call("prepare_invoice_change", { number: "20260216", action: "delete" });
+    expect(del.data).toMatchObject({ canApply: false, cannotApplyReasons: [expect.stringMatching(/už zákazník dostal/)] });
+    expect((await call("prepare_invoice_change", { number: "20260216", action: "cancel" })).data).toMatchObject({ canApply: false, cannotApplyReasons: [expect.stringMatching(/důvod storna/)] });
+    const { done } = await change({ number: "20260216", action: "cancel", reason: "Omylem dvakrát" });
+    expect(done!.data).toMatchObject({ done: true, invoiceNumber: "20260216", action: "cancel" });
+    expect(await rows(sql`SELECT state, cancel_reason FROM own_invoice_documents WHERE number = '20260216'`)).toEqual([{ state: "cancelled", cancel_reason: "Omylem dvakrát" }]);
+    expect((await call("send_idoklad_invoice_email", { number: "20260216", to: ["kocka@example.cz"], confirm: true, idempotency_key: randomUUID() })).text).toMatch(/stornovaná/);
+    expect((await call("prepare_invoice_change", { number: "20260216", action: "edit", note: "x" })).data.canApply).toBe(false);
+  });
+
+  it("smazání poslední neodeslané: číslo se uvolní; předposlední smazat nejde; změna po náhledu zastaví", async () => {
+    const p1 = await call("prepare_b2b_invoice", vzorky({ items: [{ name: "Omyl", quantity: 1, unit_price_kc: 50 }], expected_total_kc: 50 }));
+    const i1 = await call("issue_b2b_invoice", { ...vzorky({ items: [{ name: "Omyl", quantity: 1, unit_price_kc: 50 }], expected_total_kc: 50 }), preview_token: p1.data.preview_token, confirm: true, idempotency_key: randomUUID() });
+    expect(i1.data.invoiceNumber).toBe("20260217");
+    expect((await call("prepare_invoice_change", { number: "20260215", action: "delete" })).data.cannotApplyReasons.join()).toMatch(/jen poslední/);
+
+    const args = { number: "20260217", action: "edit", note: "A" };
+    const stale = await call("prepare_invoice_change", args);
+    await change({ number: "20260217", action: "edit", note: "B" });
+    expect(await call("apply_invoice_change", { ...args, preview_token: stale.data.preview_token, confirm: true, idempotency_key: randomUUID() })).toMatchObject({ isError: true });
+
+    const { done } = await change({ number: "20260217", action: "delete" });
+    expect(done!.data).toMatchObject({ done: true, action: "delete" });
+    expect(await rows(sql`SELECT count(*)::int AS n FROM own_invoice_documents WHERE number = '20260217'`)).toEqual([{ n: 0 }]);
+    expect(await rows(sql`SELECT last_serial FROM invoice_number_counters WHERE year = 2026`)).toEqual([{ last_serial: 216 }]);
+    expect((await call("prepare_b2b_invoice", vzorky({ items: [{ name: "Další", quantity: 1, unit_price_kc: 70 }], expected_total_kc: 70 }))).data.expectedNumber).toBe("20260217");
   });
 });

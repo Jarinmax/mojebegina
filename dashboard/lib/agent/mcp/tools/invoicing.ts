@@ -51,6 +51,10 @@ import { allowedExtraRecipients, checkInvoiceRecipients, MAX_INVOICE_RECIPIENTS 
 import type { InvoicePdfFile } from "@/lib/idoklad-read/service";
 import { createB2bInvoice, previewB2bInvoice } from "@/lib/data/b2bInvoices";
 import { correctInvoice, previewInvoiceCorrection } from "@/lib/data/invoiceCorrections";
+import { applyOwnInvoiceChange, isOwnInvoiceNumber, previewOwnInvoiceChange } from "@/lib/data/ownInvoiceChanges";
+import { OWN_PAYMENT_METHODS, type OwnChangeInput, type OwnChangeMethod, type OwnChangePreview } from "@/lib/eshop/invoicing/ownChange";
+import { loadOwnDocument, markOwnDocumentSent, ownDocumentPdf } from "@/lib/eshop/invoicing/ownIssue";
+import { ownInvoicePdfPath } from "@/lib/eshop/invoicing/ownB2b";
 import { CORRECTION_PAYMENT_METHODS, type CorrectionPaymentMethod, type InvoiceCorrectionInput } from "@/lib/eshop/invoicing/invoiceCorrection";
 import { B2B_PAYMENT_METHODS, MAX_B2B_ITEMS, type B2bInvoiceRaw } from "@/lib/eshop/invoicing/b2bInvoiceValidation";
 import { idokladInvoicePdfPath } from "@/lib/idoklad-read/tools";
@@ -84,6 +88,25 @@ async function isNewInvoiceCustomer(invoice: { id: number; partner: { ico: strin
     return (rows[0]?.n ?? 0) <= 1;
   } catch (error) {
     console.error("Faktura: nepodařilo se ověřit nového zákazníka", error instanceof Error ? error.message.slice(0, 200) : error);
+    return false;
+  }
+}
+
+/** Nový zákazník u vlastní faktury: žádná jiná vlastní faktura na IČO a nejvýš jedna objednávka. */
+async function isNewOwnCustomer(ico: string | null, customerEmails: string[]): Promise<boolean> {
+  try {
+    if (customerEmails.length === 0) return false;
+    const optOuts = await loadPartnerOptOuts(db);
+    if (customerEmails.some((e) => optOuts.includes(e))) return false;
+    if (ico) {
+      const docs = (await db.execute(sql`SELECT count(*)::int AS n FROM own_invoice_documents WHERE customer_ico = ${ico} AND state <> 'cancelled'`)).rows as { n: number }[];
+      if ((docs[0]?.n ?? 0) > 1) return false;
+    }
+    const rows = (await db.execute(sql`
+      SELECT count(*)::int AS n FROM orders
+       WHERE fulfillment_status <> 'cancelled' AND lower(btrim(contact_email)) IN (${sql.join(customerEmails.map((e) => sql`${e}`), sql`, `)})`)).rows as { n: number }[];
+    return (rows[0]?.n ?? 0) <= 1;
+  } catch {
     return false;
   }
 }
@@ -344,9 +367,9 @@ const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&a
 const SEND_IDOKLAD_TOOLS: AgentTool[] = [
   defineTool({
     name: "send_idoklad_invoice_email",
-    title: "Poslat PDF faktury z iDokladu e-mailem",
+    title: "Poslat PDF faktury e-mailem",
     description:
-      "ZÁPIS — pošle e-mailem PDF EXISTUJÍCÍ vydané faktury z iDokladu (i z ruční řady 2026xxxx) z MojeBegina. Nic nevystavuje ani nemění. " +
+      "ZÁPIS — pošle e-mailem PDF EXISTUJÍCÍ vydané faktury podle čísla: vlastní faktury MojeBegina (řada 2026xxxx od 20260215) i starší z iDokladu. Nic nevystavuje ani nemění (jen u vlastní faktury zapíše, že byla odeslána odběrateli). Stornovanou neposílá. " +
       "Volej JEN když uživatel výslovně požádal o odeslání konkrétní faktury konkrétním příjemcům. Povolení příjemci: e-mail odběratele uvedený na faktuře, " +
       `adresy @begina.cz, e-mail účtu uživatele v MojeBegina, e-maily vystavovatelů faktur (${INVOICE_ISSUER_NAMES}) a adresy povolené správcem; jiné server odmítne. ` +
       "Když uživatel řekne „pošli mi to / na můj e-mail“, nastav to_me=true — server doplní e-mail jeho účtu v MojeBegina; adresu NEHÁDEJ ani ji neber z účtu ChatGPT. " +
@@ -379,22 +402,38 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
     },
     execute: async ({ number, id, to: requested, toMe, message }) => {
       const ctx = await getAuthContext();
-      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury z iDokladu smí posílat jen ${INVOICE_ISSUER_NAMES}.` };
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury smí posílat jen ${INVOICE_ISSUER_NAMES}.` };
       const own = ctx.email?.trim() || null;
       if (toMe && !own) return { ok: false, error: "Váš účet v MojeBegina nemá e-mail — řekněte, na jakou adresu fakturu poslat. Nic se neodeslalo." };
       const to = toMe && own ? [own, ...requested] : requested;
       const config = emailConfig();
       if (!config) return { ok: false, error: "Odesílání e-mailů z MojeBegina není na tomto prostředí zapnuté." };
-      const read = await runIdokladRead("idoklad_invoice_pdf_file", { ...(number ? { number } : {}), ...(id ? { id } : {}) }, "mcp:chatgpt");
-      if (!read.ok) return { ok: false, error: read.error };
-      if (read.data.found !== true) return { ok: false, error: `Faktura ${number ?? id} v iDokladu není.` };
-      const pdf = read.data as unknown as InvoicePdfFile;
+      // Vlastní faktura MojeBegina (řada 2026xxxx od 23. 11. 2026) má přednost; jinak archiv iDokladu.
+      const ownDoc = number && /^\d{8}$/.test(number) ? await loadOwnDocument(db, number) : null;
+      let pdf: InvoicePdfFile;
+      if (ownDoc) {
+        if (ownDoc.state === "cancelled") return { ok: false, error: `Faktura ${number} je stornovaná — neposílá se.` };
+        const file = await ownDocumentPdf(db, ownDoc.id);
+        if (!file) return { ok: false, error: `Faktura ${number} v MojeBegina není.` };
+        pdf = {
+          invoice: { id: 0, number: ownDoc.number, partner: { ico: ownDoc.snapshot.customer.ico } } as unknown as InvoicePdfFile["invoice"],
+          partnerEmail: ownDoc.snapshot.customer.email,
+          filename: file.filename,
+          contentBase64: file.contentBase64,
+          sizeBytes: Math.round((file.contentBase64.length * 3) / 4),
+        };
+      } else {
+        const read = await runIdokladRead("idoklad_invoice_pdf_file", { ...(number ? { number } : {}), ...(id ? { id } : {}) }, "mcp:chatgpt");
+        if (!read.ok) return { ok: false, error: read.error };
+        if (read.data.found !== true) return { ok: false, error: `Faktura ${number ?? id} není v MojeBegina ani v iDokladu.` };
+        pdf = read.data as unknown as InvoicePdfFile;
+      }
       const check = checkInvoiceRecipients(to, { partnerEmail: pdf.partnerEmail, userEmail: own, teamEmails: await invoiceIssuerEmails(), extra: allowedExtraRecipients() });
       if (!check.ok) return check;
 
       const resolved = resolveRecipients(check.to, config);
       const customerTo = check.to.filter((e) => check.reasons[e] === "customer");
-      const partnerIntro = await isNewInvoiceCustomer(pdf.invoice, customerTo);
+      const partnerIntro = ownDoc ? await isNewOwnCustomer(ownDoc.snapshot.customer.ico, customerTo) : await isNewInvoiceCustomer(pdf.invoice, customerTo);
       const partnerUrl = eshopAbsoluteUrl(await appOrigin(), "/partnersky-program");
       const partnerText = partnerIntro ? `${PARTNER_INTRO_TEXT} ${partnerUrl}` : "";
       const test = config.testRecipients !== null;
@@ -408,7 +447,7 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       const text = `${intro}\n\n${body ? `${body}\n\n` : ""}${partnerText ? `${partnerText}\n\n` : ""}S přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}${testNote}`;
       const paragraphs = intro.split(/\n{2,}/).map((part) => `<p>${escapeHtml(part).replace(/\n/g, "<br>")}</p>`).join("");
       const html = `${paragraphs}${body ? `<p>${escapeHtml(body)}</p>` : ""}${partnerIntro ? `<p>${escapeHtml(PARTNER_INTRO_TEXT)} <a href="${escapeHtml(partnerUrl)}">${escapeHtml(partnerUrl)}</a></p>` : ""}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(team)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
-      const key = createHash("sha256").update(`${pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
+      const key = createHash("sha256").update(`${ownDoc ? `own-${ownDoc.id}-v${ownDoc.version}` : pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
       // odesílatel info@begina.cz, skrytá kopie Begině (info@begina.cz)
       const sender = invoiceEmailSender(config);
       const bcc = invoiceCopyRecipients(config, resolved.to);
@@ -430,6 +469,7 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       // jen když odešla zákazníkovi (odběrateli z faktury), ne interně nebo v testu
       const partner = pdf.partnerEmail?.trim().toLowerCase() || null;
       if (!test && partner && resolved.to.some((e) => e.trim().toLowerCase() === partner)) {
+        if (ownDoc) await markOwnDocumentSent(db, ownDoc.id);
         await recordInvoiceEmailed(db, await orderIdsForInvoiceNumber(db, invoiceNumber), resolved.to, {
           userId: ctx.userId,
           name: `${ctx.name ?? ctx.email} (přes ChatGPT)`,
@@ -441,7 +481,7 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
         data: {
           sent: true,
           invoiceNumber,
-          idokladId: pdf.invoice.id,
+          idokladId: ownDoc ? null : pdf.invoice.id,
           to: resolved.to,
           bcc,
           from: sender.from,
@@ -662,6 +702,158 @@ const B2B_TOOLS: AgentTool[] = [
   }),
 ];
 
+// ------------------------------------------------------------------ úpravy vlastních faktur (řada 2026xxxx)
+
+const CHANGE_PROPERTIES: Record<string, unknown> = {
+  number: { type: "string", description: "Číslo faktury MojeBegina, např. „20260215“." },
+  action: { type: "string", enum: ["edit", "cancel", "delete"], description: "edit = upravit (stejné číslo, nová verze PDF), cancel = stornovat (číslo zůstane, nepočítá se), delete = smazat (jen poslední neodeslaná faktura v řadě; číslo se uvolní)." },
+  payment_method: { type: "string", enum: [...OWN_PAYMENT_METHODS], description: "edit: nový způsob úhrady (bank_transfer / cash / card)." },
+  paid_date: { type: "string", description: "edit: faktura je uhrazená k tomuto dni RRRR-MM-DD." },
+  mark_unpaid: { type: "boolean", description: "edit: true = vrátit fakturu na neuhrazenou." },
+  items: {
+    type: "array",
+    minItems: 1,
+    maxItems: MAX_B2B_ITEMS,
+    description: "edit: CELÝ nový seznam položek (nahradí stávající).",
+    items: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        quantity: { type: "number" },
+        unit: { type: "string" },
+        unit_price_kc: { type: "number", description: "Záporná jen u řádku „Sleva“." },
+      },
+      required: ["name", "quantity", "unit_price_kc"],
+      additionalProperties: false,
+    },
+  },
+  note: { type: "string", description: "edit: nový text za položkami (prázdný = smazat)." },
+  due_date: { type: "string", description: "edit: nová splatnost RRRR-MM-DD." },
+  reason: { type: "string", description: "cancel: důvod storna (povinný)." },
+};
+const CHANGE_KEYS = Object.keys(CHANGE_PROPERTIES);
+const CHANGE_TOKEN_ORDER = "own-invoice-change";
+
+function changeOf(args: Record<string, unknown>, extra: string[]): OwnChangeInput {
+  const unknown = Object.keys(args).filter((k) => !CHANGE_KEYS.includes(k) && !extra.includes(k));
+  if (unknown.length) throw new ArgError(`Neznámé argumenty: ${unknown.join(", ")}.`);
+  const number = requiredString(args, "number", 8);
+  if (!/^\d{8}$/.test(number)) throw new ArgError("Číslo faktury má 8 číslic (např. 20260215).");
+  const action = args.action;
+  if (action !== "edit" && action !== "cancel" && action !== "delete") throw new ArgError("action musí být edit, cancel nebo delete.");
+  const method = args.payment_method ?? null;
+  if (method !== null && !(OWN_PAYMENT_METHODS as readonly unknown[]).includes(method)) throw new ArgError("payment_method musí být bank_transfer, cash nebo card.");
+  const paidDate = optionalString(args, "paid_date", 10);
+  if (paidDate && args.mark_unpaid === true) throw new ArgError("Zadejte buď paid_date, nebo mark_unpaid.");
+  const items = Array.isArray(args.items)
+    ? args.items.map((raw) => {
+        const i = (raw ?? {}) as Record<string, unknown>;
+        const quantity = Number(i.quantity);
+        const unitPriceKc = Number(i.unit_price_kc);
+        if (typeof i.name !== "string" || !Number.isFinite(quantity) || !Number.isFinite(unitPriceKc)) throw new ArgError("Položka musí mít name, quantity a unit_price_kc.");
+        return { name: i.name, quantity, unit: typeof i.unit === "string" ? i.unit : null, unitPriceKc };
+      })
+    : null;
+  return {
+    number,
+    action,
+    paymentMethod: method as OwnChangeMethod | null,
+    paidDate: args.mark_unpaid === true ? false : paidDate,
+    items,
+    note: typeof args.note === "string" ? args.note : null,
+    dueDate: optionalString(args, "due_date", 10),
+    reason: optionalString(args, "reason", 300),
+  };
+}
+
+function changePreviewData(p: OwnChangePreview, userId: string) {
+  const canApply = p.blocking.length === 0;
+  return {
+    canApply,
+    cannotApplyReasons: p.blocking,
+    warnings: p.warnings,
+    invoice: p.document,
+    action: p.action,
+    changes: p.changes,
+    sendsEmail: false,
+    ...(canApply
+      ? {
+          preview_token: signPreviewToken({ userId, orderId: CHANGE_TOKEN_ORDER, fingerprint: p.fingerprint, issuedAt: Date.now() }, previewSecret()),
+          previewValidMinutes: PREVIEW_TOKEN_MINUTES,
+          nextStep:
+            "Ukaž uživateli fakturu (číslo, odběratel, celkem, stav) a přesně co se změní, včetně varování. Až po jeho výslovném souhlasu zavolej apply_invoice_change se STEJNÝMI argumenty, preview_token, confirm=true a novým idempotency_key.",
+        }
+      : {}),
+  };
+}
+
+const CHANGE_TOOLS: AgentTool[] = [
+  defineTool({
+    name: "prepare_invoice_change",
+    title: "Připravit úpravu, storno nebo smazání faktury (náhled)",
+    description:
+      "JEN ČTENÍ — nic nezmění. Vystavená faktura MojeBegina (řada 2026xxxx): upravit (způsob úhrady, uhrazeno/neuhrazeno, položky, splatnost, poznámka — číslo zůstává, vznikne nová verze PDF, stará se archivuje), " +
+      "stornovat (číslo zůstane, nepočítá se) nebo smazat (jen poslední faktura v řadě, která ještě neodešla zákazníkovi). Begina je neplátce DPH — dobropisy nedělej. " +
+      "Celý náhled ukaž uživateli. Když canApply=true, vrací preview_token pro apply_invoice_change.",
+    write: false,
+    visible: issuerOnly,
+    properties: CHANGE_PROPERTIES,
+    required: ["number", "action"],
+    parse: (args) => changeOf(args, []),
+    execute: async (input) => {
+      const ctx = await getAuthContext();
+      if (!ctx) return { ok: false, error: "Nepřihlášený uživatel." };
+      const result = await previewOwnInvoiceChange(input);
+      if (!result.ok) return result;
+      return { ok: true, summary: { canApply: result.preview.blocking.length === 0 }, data: changePreviewData(result.preview, ctx.userId) };
+    },
+  }),
+  defineTool({
+    name: "apply_invoice_change",
+    title: "Upravit, stornovat nebo smazat fakturu",
+    description:
+      "ZÁPIS DO ÚČETNICTVÍ — provede úpravu / storno / smazání faktury MojeBegina přesně podle náhledu prepare_invoice_change. Zákazníkovi nic neposílá. " +
+      "Volej JEN po výslovném souhlasu uživatele s náhledem, se STEJNÝMI argumenty + preview_token, confirm=true a idempotency_key.",
+    write: true,
+    writeScope: "invoicing",
+    visible: issuerOnly,
+    properties: {
+      ...CHANGE_PROPERTIES,
+      preview_token: { type: "string", description: "preview_token z prepare_invoice_change." },
+      confirm: { type: "boolean", description: "true = uživatel výslovně potvrdil tuto změnu." },
+    },
+    required: ["number", "action", "preview_token", "confirm"],
+    parse: (args) => {
+      const input = changeOf(args, ["preview_token", "confirm", "idempotency_key"]);
+      if (args.confirm !== true) throw new ArgError("Změnu lze provést jen s confirm=true po výslovném souhlasu uživatele s náhledem.");
+      return { input, token: requiredString(args, "preview_token", 2000) };
+    },
+    execute: async ({ input, token }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: `Faktury smí měnit jen ${INVOICE_ISSUER_NAMES}.` };
+      const verified = verifyPreviewToken(token, { userId: ctx.userId, orderId: CHANGE_TOKEN_ORDER }, previewSecret());
+      if (!verified.ok) return verified;
+      const result = await applyOwnInvoiceChange(input, { expectedFingerprint: verified.claims.fingerprint, via: " (přes ChatGPT)" });
+      if (!result.ok) return result;
+      const verb = result.action === "edit" ? `upravená (verze ${result.version})` : result.action === "cancel" ? "stornovaná" : "smazaná (číslo je volné)";
+      return {
+        ok: true,
+        summary: { done: true },
+        data: {
+          done: true,
+          invoiceNumber: result.number,
+          action: result.action,
+          version: result.version,
+          changes: result.changes,
+          ...(result.action === "delete" ? {} : { pdfUrl: `${await appOrigin()}${ownInvoicePdfPath(result.number)}` }),
+          emailed: false,
+          message: `Faktura ${result.number} je ${verb}. Zákazníkovi se nic neposlalo.`,
+        },
+      };
+    },
+  }),
+];
+
 // ------------------------------------------------------------------ opravy faktur (řada Lucie)
 
 const CORRECTION_PROPERTIES: Record<string, unknown> = {
@@ -690,12 +882,20 @@ function correctionOf(args: Record<string, unknown>, extra: string[]): InvoiceCo
   return { invoiceId: id, number, paymentMethod: method as CorrectionPaymentMethod | null, payment: amount !== null && date ? { amountKc: amount, date } : null };
 }
 
+/** Oprava (způsob úhrady / úhrada) vlastní faktury = úprava edit. */
+function ownCorrection(input: InvoiceCorrectionInput): OwnChangeInput {
+  return { number: input.number!, action: "edit", paymentMethod: input.paymentMethod, paidDate: input.payment ? input.payment.date : null };
+}
+function ownCorrectionArgs(input: InvoiceCorrectionInput): Record<string, unknown> {
+  return { number: input.number, action: "edit", ...(input.paymentMethod ? { payment_method: input.paymentMethod } : {}), ...(input.payment ? { paid_date: input.payment.date } : {}) };
+}
+
 const CORRECTION_TOOLS: AgentTool[] = [
   defineTool({
     name: "prepare_invoice_correction",
-    title: "Připravit opravu faktury v iDokladu (náhled, nic nezmění)",
+    title: "Připravit opravu úhrady faktury (náhled, nic nezmění)",
     description:
-      "JEN ČTENÍ — nic nezmění. Oprava EXISTUJÍCÍ faktury z Luciiny řady (2026xxxx) v iDokladu: změna způsobu úhrady (převodem / hotově / kartou) a/nebo evidence úhrady " +
+      "JEN ČTENÍ — nic nezmění. U vlastních faktur MojeBegina (od 20260215) přesměruje na prepare_invoice_change (úprava). Starší faktury z iDokladu: změna způsobu úhrady (převodem / hotově / kartou) a/nebo evidence úhrady " +
       "celé zbývající částky k danému dni. Novou fakturu ani dobropis nevystavuje, jiná pole nemění. Vrací současný stav faktury, co se změní, varování a blokující důvody. " +
       "Celý náhled ukaž uživateli. Když canApply=true, vrací preview_token pro apply_invoice_correction (30 minut, jen pro tebe a jen pro tyto údaje).",
     write: false,
@@ -705,6 +905,11 @@ const CORRECTION_TOOLS: AgentTool[] = [
     parse: (args) => correctionOf(args, []),
     execute: async (input) => {
       const ctx = await getAuthContext();
+      if (ctx && (await isOwnInvoiceNumber(input.number))) {
+        const own = await previewOwnInvoiceChange(ownCorrection(input));
+        if (!own.ok) return own;
+        return { ok: true, summary: { canApply: own.preview.blocking.length === 0 }, data: { ...changePreviewData(own.preview, ctx.userId), nextStep: "Vlastní faktura MojeBegina: po souhlasu uživatele zavolej apply_invoice_change s number, action=\"edit\", payment_method / paid_date jako v tomto náhledu, preview_token, confirm=true a novým idempotency_key." , ownChangeArgs: ownCorrectionArgs(input) } };
+      }
       const result = await previewInvoiceCorrection(input);
       if (!result.ok || !ctx) return result.ok ? { ok: false, error: "Nepřihlášený uživatel." } : result;
       const p = result.preview;
@@ -913,4 +1118,4 @@ FIO_TOOLS.push(
   })
 );
 
-export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS, ...B2B_TOOLS, ...CORRECTION_TOOLS, ...FIO_TOOLS];
+export const INVOICING_TOOLS: AgentTool[] = [...IDOKLAD_TOOLS, ...ISSUE_TOOLS, ...SEND_IDOKLAD_TOOLS, ...B2B_TOOLS, ...CHANGE_TOOLS, ...CORRECTION_TOOLS, ...FIO_TOOLS];
