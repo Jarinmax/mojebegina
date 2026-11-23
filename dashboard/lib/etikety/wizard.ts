@@ -88,3 +88,18 @@ export function kindsFor(c: EtiketyCategory, size: string | null): WizardOption[
     .filter((o) => o.size === size)
     .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
 }
+
+// Co opravdu prodáváme (Lucie 23. 11. 2026). Ostatní objemy zůstávají
+// připravené, jen schované pod „Další objemy“.
+const SOLD_SIZES: Record<string, string[] | "all"> = {
+  polevky: ["3l", "200ml"],
+  sirupy: "all",
+  "ovocne-napoje": ["3l"],
+  caje: ["3l"],
+  "alkoholicke-koktejly": ["3l", "200ml"],
+};
+
+export function isSoldSize(c: EtiketyCategory, size: string): boolean {
+  const sold = SOLD_SIZES[c.slug.replace(/^sk-/, "")];
+  return !sold || sold === "all" || sold.includes(size);
+}

@@ -26,3 +26,18 @@ describe("Zpět o jeden krok", () => {
     expect(parentHref("/jinde/neco", "/admin")).toBe("/admin");
   });
 });
+
+describe("parentHref – Etikety krok zpět (23. 11. 2026)", () => {
+  const P = "/rizeni-firmy/etikety";
+  it("z vybrané etikety zpět na výběr typu", () => {
+    expect(parentHref(P, "/admin", "jazyk=cz&kat=polevky&vel=3l&druh=slozeni")).toBe(`${P}?jazyk=cz&kat=polevky&vel=3l`);
+  });
+  it("z typu na množství, z množství na druh výrobku, pak jazyk", () => {
+    expect(parentHref(P, "/admin", "jazyk=cz&kat=polevky&vel=3l")).toBe(`${P}?jazyk=cz&kat=polevky`);
+    expect(parentHref(P, "/admin", "jazyk=cz&kat=polevky")).toBe(`${P}?jazyk=cz`);
+    expect(parentHref(P, "/admin", "jazyk=cz")).toBe(P);
+  });
+  it("bez parametrů o stránku výš", () => {
+    expect(parentHref(P, "/admin", "")).toBe("/rizeni-firmy");
+  });
+});

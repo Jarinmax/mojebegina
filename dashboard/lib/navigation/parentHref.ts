@@ -7,11 +7,32 @@
 const SECTION_ROOTS = ["/rizeni-firmy", "/prace"];
 
 /** Mezistupně adresy, které samy stránku nemají — přeskočí se o další krok výš. */
-const NOT_PAGES = new Set(["/rizeni-firmy/obchod/leady", "/rizeni-firmy/obchod/zakaznici", "/rizeni-firmy/sklad/prijemky", "/rizeni-firmy/uzel", "/rizeni-firmy/faktury", "/prace/ukol"]);
+const NOT_PAGES = new Set(["/rizeni-firmy/obchod/leady", "/rizeni-firmy/obchod/zakaznici", "/rizeni-firmy/sklad/prijemky", "/rizeni-firmy/uzel", "/prace/ukol"]);
 
-export function parentHref(pathname: string | null | undefined, fallback: string): string {
+/**
+ * Stránky, kde se kroky volí parametry v adrese (23. 11. 2026, Lucie: „v
+ * etiketách nejde krok zpět, vyhodí mě to na začátek“). Zpět odebere poslední
+ * zvolený krok; teprve bez parametrů jde o stránku výš.
+ */
+const QUERY_STEPS: Record<string, string[]> = {
+  "/rizeni-firmy/etikety": ["jazyk", "kat", "vel", "druh"],
+};
+
+export function parentHref(pathname: string | null | undefined, fallback: string, search?: string | null): string {
   if (!pathname) return fallback;
   const path = pathname.split("?")[0].replace(/\/+$/, "");
+  const steps = QUERY_STEPS[path];
+  if (steps && search) {
+    const q = new URLSearchParams(search);
+    const last = [...steps].reverse().find((k) => q.has(k));
+    if (last) {
+      // Odeber poslední krok i vše, co na něm záviselo (a staré ?typ=).
+      for (const k of steps.slice(steps.indexOf(last))) q.delete(k);
+      q.delete("typ");
+      const qs = q.toString();
+      return `${path}${qs ? `?${qs}` : ""}`;
+    }
+  }
   const root = SECTION_ROOTS.find((item) => path === item || path.startsWith(`${item}/`));
   if (!root || path === root) return fallback;
   let parent = path.slice(0, path.lastIndexOf("/"));
