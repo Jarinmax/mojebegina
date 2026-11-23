@@ -418,6 +418,10 @@ export async function sendOrderEmails(
           await db.execute(sql`
             UPDATE invoices SET pdf_sent_at = now(), updated_at = now()
             WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued' AND pdf_sent_at IS NULL`);
+          // vlastní faktura: odeslanou už nejde smazat, jen stornovat
+          await db
+            .execute(sql`UPDATE own_invoice_documents SET sent_at = now() WHERE order_id = ${orderId} AND number = ${invoiceNumber} AND sent_at IS NULL`)
+            .catch(() => undefined);
           // „Faktura poslána“ u objednávky (ne v testovacím režimu — tam e-mail
           // reálnému zákazníkovi neodešel)
           if (!test) await recordInvoiceEmailed(db, [orderId], to, { userId: null, name: "MojeBegina (automaticky)" });

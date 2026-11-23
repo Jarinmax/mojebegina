@@ -2496,8 +2496,10 @@ export const invoiceNumberCounters = pgTable("invoice_number_counters", {
   check("invoice_number_counters_serial", sql`${table.lastSerial} BETWEEN 0 AND 9999`),
 ]);
 
-// Vystavený vlastní doklad: číslo + neměnný snímek obsahu (snapshot) + PDF.
-// Nemaže se a nepřepisuje (hlídá trigger v migraci); opravuje se dobropisem.
+// Vystavený vlastní doklad: číslo + snímek obsahu (snapshot) + PDF.
+// Neplátce DPH (Lucie 23. 11. 2026): fakturu lze upravit (předchozí verze se
+// automaticky uloží do own_invoice_versions), stornovat (číslo zůstane,
+// state = cancelled), a smazat jen poslední neodeslanou (číslo se uvolní).
 // invoice_id = vazba na e-shopovou fakturu k objednávce; ruční (B2B) doklad ji nemá.
 export const ownInvoiceDocuments = pgTable("own_invoice_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -2515,10 +2517,31 @@ export const ownInvoiceDocuments = pgTable("own_invoice_documents", {
   pdfSha256: text("pdf_sha256"),
   issuedByName: text("issued_by_name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  state: text("state").notNull().default("issued"), // "issued" | "cancelled"
+  version: integer("version").notNull().default(1),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  paidAt: date("paid_on"),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  cancelReason: text("cancel_reason"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedByName: text("updated_by_name"),
 }, (table) => [
+  check("own_invoice_documents_state", sql`${table.state} IN ('issued', 'cancelled')`),
   check("own_invoice_documents_kind", sql`${table.kind} IN ('invoice', 'credit_note')`),
   check("own_invoice_documents_number", sql`${table.number} ~ '^20[0-9]{6}$'`),
   check("own_invoice_documents_credit", sql`(${table.kind} = 'credit_note') = (${table.correctsDocumentId} IS NOT NULL)`),
   index("own_invoice_documents_order_idx").on(table.orderId),
   index("own_invoice_documents_issue_idx").on(table.issueDate),
 ]);
+
+// Předchozí verze upravené vlastní faktury (ukládá trigger při každé změně obsahu).
+export const ownInvoiceVersions = pgTable("own_invoice_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").notNull().references(() => ownInvoiceDocuments.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  snapshot: jsonb("snapshot").notNull(),
+  totalKc: integer("total_kc").notNull(),
+  pdf: text("pdf_base64"),
+  changedByName: text("changed_by_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [unique("own_invoice_versions_doc_version").on(table.documentId, table.version)]);
