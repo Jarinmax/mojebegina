@@ -8,6 +8,7 @@ import { CAFE_PATH } from "./cafePage";
 import type { InfoPage } from "./infoPages";
 // Slovensko jen když je doručení zapnuté (od 18. 11. 2026 vypnuté kvůli povinnostem k obalům).
 import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
+import { syrupModelLine } from "./landingPages";
 
 export const FAQ_PATH = "/caste-otazky";
 
@@ -37,8 +38,9 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     question: "Kolik stojí porce polévky?",
-    answer:
-      "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč. Nápoj ze sirupu: od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.",
+    get answer() {
+      return `Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč. Nápoj ze sirupu: ${syrupModelLine(true)}`;
+    },
   },
   {
     question: "Můžu si objednat i domů?",

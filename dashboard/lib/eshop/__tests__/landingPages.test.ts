@@ -33,7 +33,7 @@ describe("stránky pro gastro", () => {
   it("údaje jako na webu", () => {
     const text = LANDING_PAGES.map(allText).join(" ");
     expect(text).toContain("31,58 Kč");
-    expect(text).toContain("Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3");
+    expect(text.replace(/[\u00a0\u202f]/g, " ")).toContain("Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.");
     expect(text).not.toContain("3,33 Kč");
     expect(text).toContain("14 dní");
   });

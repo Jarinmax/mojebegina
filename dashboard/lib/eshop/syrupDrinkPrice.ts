@@ -1,14 +1,9 @@
-// Cena nápoje ze sirupu v úvodu kategorie Sirupy.
-// 23. 11. 2026 (Lucie/ChatGPT): všude jen modelová cena VČETNĚ dopravy při 3 × 3 l
-// (dřívější „od 3,33 Kč bez dopravy“ mátlo vedle 3,92 Kč s dopravou na úvodu).
-import { syrupDrinkRows } from "./landingPages";
-import { formatServingKc } from "./productFacts";
+// Cena nápoje ze sirupu v úvodu kategorie Sirupy (23. 11. 2026, Lucie/ChatGPT):
+// místo závorky „(až 150 nápojů, nápoj už od X Kč)“ dvě věty a modelová cena
+// včetně dopravy při 3 × 3 l – ze stejného výpočtu jako tabulka.
+import { syrupModelKc } from "./landingPages";
 
-/** „nápoj už od 3,30 Kč“ (text z DB) → „nápoj od 3,92 Kč (200 ml) včetně dopravy při objednávce 3 × 3 l“ */
 export function withSyrupDrinkPrice(paragraph: string): string {
-  const kc = syrupDrinkRows([3])[0].perPortionKc;
-  return paragraph.replace(
-    /nápoj(?: už)? od [\d\s\u00a0]+,\d{1,2}\s?Kč(?: za 200 ml)?(?: bez dopravy)?/g,
-    `nápoj od ${formatServingKc(kc)} (200 ml) včetně dopravy při objednávce 3 × 3 l`
-  );
+  const sentences = `Z jedné třílitrové beginy připravíte až 150 nápojů. Při objednávce 3\u00a0×\u00a03\u00a0l vyjde jeden nápoj o objemu 200 ml od ${syrupModelKc()} včetně dopravy.`;
+  return paragraph.replace(/\s*\(až 150 nápojů, nápoj[^)]*\)\./, `. ${sentences}`);
 }

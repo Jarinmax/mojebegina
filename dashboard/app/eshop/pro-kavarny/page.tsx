@@ -1,3 +1,4 @@
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import type { Metadata } from "next";
 import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import Image from "next/image";
@@ -38,6 +39,7 @@ export const metadata: Metadata = {
 
 // Stránka pro provozy (zadání Lucie 18. 11. 2026). Texty: lib/eshop/cafePage.ts.
 export default async function Page() {
+  await applyFuelSurchargeFromDb();
   const catalog = await getCatalog().catch(() => null);
   const present = new Set((catalog?.categories ?? []).map((c) => c.slug));
   // kategorie bez jediného výrobku (zatím zmrzliny) se ukáže jako „Připravujeme“ a nikam neodkazuje

@@ -1,3 +1,4 @@
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
@@ -49,6 +50,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EshopPage() {
+  await applyFuelSurchargeFromDb(); // cena nápoje a porce s dopravou podle aktuálního palivového příplatku
   const { categories, products } = await getCatalog();
   const tastingSet = products.find((p) => p.slug === SET_SLUG);
   const bestsellers = HOME_BESTSELLERS.flatMap((slug) => products.filter((p) => p.slug === slug));

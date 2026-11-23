@@ -1,3 +1,4 @@
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import type { Metadata } from "next";
 import { pageShareMeta } from "@/lib/eshop/shareMeta";
 import InfoPageView from "@/components/eshop/InfoPageView";
@@ -13,7 +14,8 @@ export const metadata: Metadata = {
   ...pageShareMeta(FAQ_PAGE.title, FAQ_PAGE.description, FAQ_PAGE.path),
 };
 
-export default function Page() {
+export default async function Page() {
+  await applyFuelSurchargeFromDb();
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(faqJsonLd(FAQ_ITEMS)) }} />

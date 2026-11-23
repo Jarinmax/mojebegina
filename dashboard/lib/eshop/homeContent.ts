@@ -1,11 +1,12 @@
 // Texty úvodní stránky pod pruhem kategorií (návrh schválený majitelem 11. 11. 2026).
 // Konkrétní fakta místo obecných frází; ceny a výdrž podle e-shopu a etiket.
 
+import { syrupModelKc, syrupModelLine } from "./landingPages";
 export const HOME_WHY = [
   // 16. 11. 2026 (Lucie): trvanlivost po otevření jako první
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },
   { icon: "leaf", title: "100% rostlinné polévky a nealko nápoje", text: "Polévky a nealkoholické nápoje jsou bez živočišných surovin." },
-  { icon: "soup", title: "Nápoj od 3,92 Kč i s dopravou", text: "Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
+  { icon: "soup", get title() { return `Nápoj od ${syrupModelKc()} i s dopravou`; }, get text() { return syrupModelLine(); } },
   // 14. 11. 2026 (Lucie): partnerský program má být vidět na úvodu, dlaždice vede na stránku programu
   { icon: "percent", title: "Partnerský program", text: "Čím víc nakoupíte, tím větší sleva: 3 až 7 %.", href: "/partnersky-program", linkLabel: "Jak to funguje" },
 ] as const;

@@ -55,9 +55,15 @@ export function syrupDrinkRows(counts: readonly number[] = [1, 3, 5]): PortionPr
   });
 }
 
-/** Jednotné znění modelové ceny nápoje ze sirupu pro kavárny (23. 11. 2026, Lucie/ChatGPT).
- *  Hlídá test: musí odpovídat syrupDrinkRows([3]) při výchozím palivovém příplatku. */
-export const SYRUP_MODEL_LINE = "Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.";
+/** Modelová cena nápoje ze sirupu pro kavárny – vždy z výpočtu tabulky (3 × 3 l s dopravou),
+ *  takže se při změně ceny sirupu nebo dopravy změní všude najednou (23. 11. 2026). */
+export function syrupModelKc(): string {
+  return syrupDrinkRows([3])[0].perPortionKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "\u00a0Kč";
+}
+/** „Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.“ */
+export function syrupModelLine(lower = false): string {
+  return `${lower ? "od" : "Od"} ${syrupModelKc()} za nápoj (200 ml) včetně dopravy při objednávce 3\u00a0×\u00a03\u00a0l sirupu.`;
+}
 
 /** „Tři balení po 499 Kč a chlazená doprava za 267 Kč vyjdou celkem na 1 764 Kč. Při přípravě 450 nápojů je to 3,92 Kč za porci.“ */
 export function syrupExampleLine(): string {
@@ -179,7 +185,7 @@ export const LANDING_PAGES: LandingPage[] = [
   {
     path: "/bylinne-sirupy-pro-kavarny",
     title: "Bylinné sirupy pro kavárny a bary",
-    description: "Bylinné sirupy Begina z bylinek, koření, třtinového cukru a čisté filtrované vody. Begina 3 l s kohoutkem až na 150 nápojů. Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.",
+    get description() { return `Bylinné sirupy Begina z bylinek, koření, třtinového cukru a čisté filtrované vody. Begina 3 l s kohoutkem až na 150 nápojů. ${syrupModelLine()}`; },
     intro: [
       "Bylinné sirupy Begina vaříme z bylinek, koření, třtinového cukru a čisté filtrované vody. Bez umělých aromat a barviv.",
       "Z jednoho sirupu připravíte limonádu, horký nápoj i koktejl. Pro provoz je nejvýhodnější třílitrová begina s kohoutkem.",
@@ -187,14 +193,14 @@ export const LANDING_PAGES: LandingPage[] = [
     ctas: [{ label: "Objednat první beginu + 4 vzorky zdarma", href: `${CAFE_PATH}#ochutnavka` }],
     priceTable: { title: "Kolik vyjde nápoj včetně dopravy?", rows: [], note: "", kind: "syrup" },
     benefits: [
-      { title: "Až 150 nápojů z beginy", text: "Begina 3 l vystačí až na 150 nápojů. Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
+      { title: "Až 150 nápojů z beginy", get text() { return `Begina 3 l vystačí až na 150 nápojů. ${syrupModelLine()}`; } },
       { title: "Jednoduché ředění", text: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci. Po otevření vydrží v lednici 3 měsíce." },
       { title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
     ],
     faq: [
       { question: "Jak se sirup ředí?", answer: "Na sklenici stačí 20 ml sirupu doplnit vodou na 200 ml (zhruba 1 : 10) – studenou na limonádu, horkou na čaj. Hodí se i do koktejlů a do kuchyně." },
-      { question: "Kolik nápojů je z jedné beginy?", answer: "Z třílitrové beginy s kohoutkem připravíte až 150 nápojů. Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
+      { question: "Kolik nápojů je z jedné beginy?", get answer() { return `Z třílitrové beginy s kohoutkem připravíte až 150 nápojů. ${syrupModelLine()}`; } },
       { question: "Jak dlouho vydrží sirup po otevření?", answer: "Sirupy po otevření vydrží v lednici 3 měsíce." },
       { question: "Jak objednat sirupy do provozu?", answer: ORDER_ANSWER },
       { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },

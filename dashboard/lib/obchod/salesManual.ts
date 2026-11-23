@@ -2,6 +2,7 @@
 // „Begina – manuál pro obchodníky“, ať se dá číst přímo v MojeBegina i na
 // mobilu při hovoru. Při nové verzi PDF upravit i tenhle text, datum a
 // lib/obchod/salesManualPdf.ts.
+import { syrupModelLine } from "@/lib/eshop/landingPages";
 
 export type ManualSection = {
   title: string;
@@ -22,7 +23,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
         text: "Z kohoutku natočíte vždy jen objednanou porci. Po otevření vydrží v lednici polévky a čaje 14 dní, sirupy 3 měsíce.",
       },
       { text: "Bez práce: polévku stačí ohřát a podávat, nápoje jen naředit." },
-      { text: "Spočítané porce: polévka 250 ml za 31,58 Kč, nápoj ze sirupu od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu." },
+      { get text() { return `Spočítané porce: polévka 250 ml za 31,58 Kč, nápoj ze sirupu ${syrupModelLine(true)}`; } },
       { text: "100% rostlinné polévky a nealko nápoje – vhodné pro vegany i vegetariány." },
       { text: "Z čisté filtrované vody, recepty z vlastní kuchyně." },
       { text: "Chlazená doprava po celé ČR, osobní odběr ve Viticích. Ochutnat se dá v Zahradním bistru Begina." },
