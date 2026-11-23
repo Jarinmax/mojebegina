@@ -32,6 +32,7 @@ import { settleOrderPaymentSql } from "./payments";
 import { EshopIdokladClient, eqFilter, issuedInvoiceFilter } from "./invoicing/idokladHttp";
 import { eshopIdokladCredentials } from "./invoicing/mode";
 import { assertBeginaAgenda, summarize, type RawInvoice } from "@/lib/idoklad-read/service";
+import { updateOwnDocument, type OwnDocumentRow } from "./invoicing/ownIssue";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
@@ -66,6 +67,8 @@ export type FioSyncResult = {
   mismatched: { orderNumber: number | null; receivedKc: number; expectedKc: number }[];
   /** ruční objednávky zapsané jako zaplacené podle čísla faktury */
   manualPaid: { orderNumber: number | null; amountKc: number; invoiceNumber: string }[];
+  /** vlastní faktury MojeBegina (VS = číslo faktury) nově označené jako uhrazené */
+  invoicesPaid?: { invoiceNumber: string; amountKc: number }[];
 };
 
 function pragueDay(date: Date): string {
@@ -98,7 +101,7 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
 
   const incoming = fetched.transactions.filter((t) => t.amountHal > 0 && t.currency === "CZK" && t.vs);
   const result: FioSyncResult = { status: "done", paid: [], mismatched: [], manualPaid: [] };
-  const findInvoice = deps.findInvoice ?? defaultFindInvoice(env, deps.fetchImpl, now);
+  const findInvoice = ownInvoiceFirst(db, deps.findInvoice ?? defaultFindInvoice(env, deps.fetchImpl, now));
 
   for (const tx of incoming) {
     const found = await db.execute(sql`
@@ -106,12 +109,19 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
       WHERE channel = 'eshop' AND payment_vs = ${tx.vs} AND fulfillment_status <> 'cancelled' LIMIT 1`);
     const order = found.rows[0] as OrderRow | undefined;
     if (!order) {
+      let manual: FioSyncResult["manualPaid"][number] | null = null;
       try {
-        const manual = await matchManualOrder(db, tx, findInvoice, mailer, deps.baseUrl);
+        manual = await matchManualOrder(db, tx, findInvoice, mailer, deps.baseUrl);
         if (manual) result.manualPaid.push(manual);
       } catch (error) {
         // výpadek iDokladu nesmí zastavit párování e-shopových plateb; zkusí se při dalším běhu
         console.error("Fio: párování ruční objednávky selhalo", error instanceof Error ? error.message.slice(0, 200) : "neznámá chyba");
+      }
+      try {
+        const own = await settleOwnInvoice(db, tx, Boolean(manual), mailer, deps.baseUrl);
+        if (own) (result.invoicesPaid ??= []).push(own);
+      } catch (error) {
+        console.error("Fio: párování vlastní faktury selhalo", error instanceof Error ? `${error.message.slice(0, 300)} ${String((error as { cause?: unknown }).cause ?? "").slice(0, 300)}` : "neznámá chyba");
       }
       continue;
     }
@@ -267,6 +277,72 @@ async function matchManualOrder(
     key: `fio-rucni-zaplaceno-${tx.id}`,
   });
   return { orderNumber: order.order_number, amountKc: tx.amountHal / 100, invoiceNumber: invoice.number };
+}
+
+/** Vlastní faktura MojeBegina má přednost před archivem iDokladu (stejná řada 2026xxxx). */
+function ownInvoiceFirst(db: Db, fallback: (number: string) => Promise<MatchInvoice | null>): (number: string) => Promise<MatchInvoice | null> {
+  return async (number) => {
+    if (/^\d{8}$/.test(number)) {
+      const row = (await db.execute(sql`SELECT number, state, total_kc, customer_ico, customer_name FROM own_invoice_documents WHERE number = ${number}`)).rows[0] as
+        | { number: string; state: string; total_kc: number; customer_ico: string | null; customer_name: string }
+        | undefined;
+      if (row) return row.state === "issued" ? { number: row.number, totalKc: Number(row.total_kc), partnerIco: row.customer_ico, partnerName: row.customer_name } : null;
+    }
+    return fallback(number);
+  };
+}
+
+/**
+ * Platba vlastní faktury (Lucie 23. 11. 2026): VS = číslo faktury MojeBegina.
+ * Sedí-li částka na haléř, faktura se označí jako uhrazená ke dni platby
+ * (nová verze PDF „Uhrazeno – neplaťte“) a na info@begina.cz přijde zpráva.
+ * Nesedí-li, nic se nezapíše jako uhrazené a přijde upozornění (jednou).
+ */
+async function settleOwnInvoice(
+  db: Db,
+  tx: FioTransaction,
+  manualMatched: boolean,
+  mailer: { config: EmailConfig; transport: EmailTransport } | null,
+  baseUrl: string
+): Promise<{ invoiceNumber: string; amountKc: number } | null> {
+  if (!tx.vs || !/^\d{8}$/.test(tx.vs)) return null;
+  const doc = (await db.execute(sql`
+    SELECT id, number, state, version, sent_at, invoice_id, order_id, snapshot FROM own_invoice_documents
+    WHERE number = ${tx.vs} AND state = 'issued' AND paid_on IS NULL`)).rows[0] as OwnDocumentRow | undefined;
+  if (!doc || doc.snapshot.paidDate) return null;
+  const expectedHal = Math.round(doc.snapshot.totalKc * 100);
+  const who = doc.snapshot.customer.name;
+  const raw = JSON.stringify({ fioId: tx.id, date: tx.date, counterparty: tx.counterparty, message: tx.message, invoiceNumber: doc.number });
+  const record = async (status: "succeeded" | "pending", match: "matched" | "unmatched" | "needs_review", note: string) =>
+    (
+      await db.execute(sql`
+        INSERT INTO payments (order_id, source, external_id, method, direction, status, amount_hal, vs, occurred_at, match_status, note, raw)
+        VALUES (${doc.order_id}::uuid, 'bank', ${tx.id}, 'bank_transfer', 'inflow', ${status}, ${tx.amountHal}, ${tx.vs}, ${`${tx.date}T12:00:00Z`}::timestamptz, ${match}, ${note.slice(0, 500)}, ${raw}::jsonb)
+        ON CONFLICT (source, external_id) DO NOTHING RETURNING id`)
+    ).rows.length > 0;
+
+  if (tx.amountHal !== expectedHal) {
+    if (await record("pending", "needs_review", `Faktura ${doc.number}: přišlo ${kc(tx.amountHal)}, faktura je na ${kc(expectedHal)}`)) {
+      await notify(mailer, {
+        subject: `Platba nesedí – faktura ${doc.number} (${who})`,
+        text: `Na účet přišlo ${kc(tx.amountHal)} s variabilním symbolem ${tx.vs} (${tx.date}, ${tx.counterparty ?? "neznámý plátce"}), ale faktura ${doc.number} je na ${kc(expectedHal)}.\n\nFaktura zůstává NEUHRAZENÁ. Rozhodněte v MojeBegina: ${baseUrl}/rizeni-firmy/faktury`,
+        key: `fio-faktura-nesedi-${tx.id}`,
+      });
+    }
+    return null;
+  }
+  // ruční objednávka už platbu zapsala (stejný pohyb) — jinak se pohyb zapíše tady (jednou)
+  // payments_matched_has_order: bez objednávky je pohyb „unmatched“ (k objednávce), faktura je v poznámce a raw
+  if (!manualMatched && !(await record("succeeded", doc.order_id ? "matched" : "unmatched", `Fio: ${tx.counterparty ?? "banka"} · faktura ${doc.number}`))) return null;
+  await updateOwnDocument(db, doc.id, { ...doc.snapshot, paidDate: tx.date }, FIO_ACTOR.name);
+  if (!manualMatched) {
+    await notify(mailer, {
+      subject: `Platba přišla – faktura ${doc.number} (${who}), ${kc(tx.amountHal)}`,
+      text: `Na účet přišlo ${kc(tx.amountHal)} s variabilním symbolem ${tx.vs} (${tx.date}, ${tx.counterparty ?? "neznámý plátce"}). Faktura ${doc.number} je označená jako uhrazená.\n\nFaktury: ${baseUrl}/rizeni-firmy/faktury`,
+      key: `fio-faktura-zaplaceno-${tx.id}`,
+    });
+  }
+  return { invoiceNumber: doc.number, amountKc: tx.amountHal / 100 };
 }
 
 /** Čtení faktury z iDokladu podle čísla (jen GET). Bez přístupových údajů se nepáruje. */
