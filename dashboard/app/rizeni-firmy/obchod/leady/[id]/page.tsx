@@ -136,6 +136,7 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             suggestedHeardFrom={suggestHeardFrom(lead.source)}
             calendar={calendar}
             contactPhone={lead.contactPhone}
+            contactEmail={lead.contactEmail}
             salesName={ctx?.name ?? null}
           />
         </div>
