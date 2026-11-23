@@ -6,7 +6,14 @@ import { ETIKETY_CATEGORIES, type EtiketyCategory } from "./structure";
 export type Lang = "cz" | "sk";
 export type WizardOption = { folder: string; size: string | null; kind: string };
 
-const SIZE_LABEL: Record<string, string> = { "3l": "3 l", "650ml": "650 ml", "500ml": "500 ml", "100ml": "100 ml" };
+const SIZE_LABEL: Record<string, string> = {
+  "3l": "3 l",
+  "650ml": "650 ml",
+  "500ml": "500 ml",
+  "250ml": "250 ml",
+  "200ml": "200 ml",
+  "100ml": "100 ml",
+};
 
 const KIND_LABEL: Record<Lang, Record<string, string>> = {
   cz: {
@@ -34,7 +41,7 @@ export const KIND_ROLL: Record<string, string> = {
 };
 
 const KIND_ORDER = ["slozeni", "predni-cervenocerne", "predni-cernobile", "predni-barevne", "ochutnavkovy-set"];
-const SIZE_ORDER = ["3l", "650ml", "500ml", "100ml"];
+const SIZE_ORDER = ["3l", "650ml", "500ml", "250ml", "200ml", "100ml"];
 
 export function sizeLabel(size: string): string {
   return SIZE_LABEL[size] ?? size;
@@ -48,6 +55,8 @@ export function parseGroupSlug(slug: string): { kind: string; size: string | nul
   if (slug === "ochutnavkovy-set") return { kind: slug, size: "100ml" };
   const m = slug.match(/^(?:(.*)-)?(\d+(?:l|ml))$/);
   if (m) return { kind: m[1] ?? "slozeni", size: m[2] };
+  // Původní složky bez objemu v názvu (polevky/slozeni, polevky/predni-barevne …) jsou 3 l.
+  if (KIND_ORDER.includes(slug)) return { kind: slug, size: "3l" };
   return { kind: slug, size: null };
 }
 
