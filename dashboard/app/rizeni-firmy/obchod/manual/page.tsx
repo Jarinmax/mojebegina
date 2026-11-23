@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { canReadSalesManual } from "@/lib/data/salesManualAuth";
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import {
   SALES_MANUAL_SECTIONS,
   SALES_MANUAL_SUBTITLE,
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function SalesManualPage() {
   const ctx = await getAuthContext();
   if (!canReadSalesManual(ctx)) notFound();
+  await applyFuelSurchargeFromDb();
 
   return (
     <div className="max-w-2xl">
