@@ -119,7 +119,7 @@ export function snapshotFromDraft(draft: InvoiceDraft, env: Env = process.env): 
   else if (draft.delivery?.address) {
     const a = draft.delivery.address;
     const who = [draft.delivery.company, draft.delivery.name].filter(Boolean).join(", ");
-    delivery = `${who ? `${who}, ` : ""}${a.street}, ${a.zip} ${a.city}`;
+    delivery = `${who ? `${who}, ` : ""}${a.street}, ${formatZip(a.zip)} ${a.city}`;
   }
   return {
     version: 1,
@@ -214,6 +214,13 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return out;
 }
 
+/** „37001“ → „370 01“ */
+export function formatZip(zip: string | null): string | null {
+  if (!zip) return zip;
+  const d = zip.replace(/\s/g, "");
+  return /^\d{5}$/.test(d) ? `${d.slice(0, 3)} ${d.slice(3)}` : zip;
+}
+
 function quantityText(q: number): string {
   return Number.isInteger(q) ? String(q) : String(q).replace(".", ",");
 }
@@ -267,7 +274,7 @@ export async function renderOwnInvoicePdf(snapshot: OwnInvoiceSnapshot, number: 
   const customerLines: { t: string; f: PDFFont }[] = [{ t: c.name, f: bold }];
   if (c.contactPerson && c.contactPerson !== c.name) customerLines.push({ t: c.contactPerson, f: regular });
   if (c.street) customerLines.push({ t: c.street, f: regular });
-  if (c.zip || c.city) customerLines.push({ t: [c.zip, c.city].filter(Boolean).join(" "), f: regular });
+  if (c.zip || c.city) customerLines.push({ t: [formatZip(c.zip), c.city].filter(Boolean).join(" "), f: regular });
   if (c.country && c.country !== "Česká republika") customerLines.push({ t: c.country, f: regular });
   if (c.ico) customerLines.push({ t: `IČO: ${c.ico}`, f: regular });
   if (c.dic) customerLines.push({ t: `DIČ: ${c.dic}`, f: regular });
@@ -287,14 +294,19 @@ export async function renderOwnInvoicePdf(snapshot: OwnInvoiceSnapshot, number: 
   if (snapshot.paymentMethod) facts.push(["Způsob úhrady", PAYMENT_METHOD_LABEL[snapshot.paymentMethod]]);
   if (snapshot.vs) facts.push(["Variabilní symbol", snapshot.vs]);
   if (snapshot.orderReference) facts.push(["Číslo objednávky", snapshot.orderReference]);
-  if (snapshot.paymentMethod === "bank_transfer" && s.bankAccount) facts.push(["Bankovní účet", s.bankAccount]);
-  if (snapshot.paymentMethod === "bank_transfer" && s.iban) facts.push(["IBAN", formatIban(s.iban)]);
+  // účet a IBAN jen u neuhrazené faktury převodem (uhrazená je nepotřebuje)
+  const unpaidTransfer = snapshot.paidDate === null && snapshot.paymentMethod === "bank_transfer";
+  if (unpaidTransfer && s.bankAccount) facts.push(["Bankovní účet", s.bankAccount]);
+  if (unpaidTransfer && s.iban) facts.push(["IBAN", formatIban(s.iban)]);
   const half = Math.ceil(facts.length / 2);
   facts.forEach(([k, v], i) => {
     const x = i < half ? M : xR;
     const yy = y - (i % half) * 15;
     text(page, k, x, yy, 9, regular, MUTED);
-    text(page, v, x + 105, yy, 9.5, bold);
+    const maxW = (i < half ? xR - 12 : A4.w - M) - (x + 105);
+    let size = 9.5;
+    while (size > 7 && bold.widthOfTextAtSize(v, size) > maxW) size -= 0.5;
+    text(page, v, x + 105, yy, size, bold);
   });
   y -= half * 15 + 14;
 
@@ -362,7 +374,7 @@ export async function renderOwnInvoicePdf(snapshot: OwnInvoiceSnapshot, number: 
   }
 
   const extra: string[] = [];
-  if (snapshot.delivery) extra.push(`Doručení: ${snapshot.delivery}`);
+  if (snapshot.delivery) extra.push(`Doručení: ${snapshot.delivery.replace(/, (\d{3})(\d{2}) /, ", $1 $2 ")}`);
   if (snapshot.note) extra.push(snapshot.note);
   for (const e of extra) {
     for (const w of wrap(e, regular, 9, A4.w - 2 * M)) {

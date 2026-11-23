@@ -106,16 +106,19 @@ export async function issueOwnDocument(db: Db, input: OwnIssueInput): Promise<{ 
   return { id: row.id, number: row.number };
 }
 
-/** PDF dokladu: uložené, jinak vykreslené ze snímku (a uložené). */
+/**
+ * PDF dokladu — vždy vykreslené z aktuálního snímku (obsah faktury je snímek;
+ * PDF je jen jeho podoba, takže se úpravy vzhledu projeví i u starších).
+ * Uložené pdf_base64 = archivní kopie z prvního vykreslení.
+ */
 export async function ownDocumentPdf(db: Db, documentId: string): Promise<OwnPdf | null> {
   const row = (
     await db.execute(sql`SELECT number, kind, snapshot, pdf_base64 FROM own_invoice_documents WHERE id = ${documentId}`)
   ).rows[0] as { number: string; kind: OwnInvoiceSnapshot["kind"]; snapshot: OwnInvoiceSnapshot; pdf_base64: string | null } | undefined;
   if (!row) return null;
-  let base64 = row.pdf_base64;
-  if (!base64) {
-    const bytes = await renderOwnInvoicePdf(row.snapshot, row.number);
-    base64 = Buffer.from(bytes).toString("base64");
+  const bytes = await renderOwnInvoicePdf(row.snapshot, row.number);
+  const base64 = Buffer.from(bytes).toString("base64");
+  if (!row.pdf_base64) {
     const sha = createHash("sha256").update(bytes).digest("hex");
     await db
       .execute(sql`UPDATE own_invoice_documents SET pdf_base64 = ${base64}, pdf_sha256 = ${sha} WHERE id = ${documentId} AND pdf_base64 IS NULL`)
