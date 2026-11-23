@@ -463,6 +463,13 @@
       "when": 1795427884640,
       "tag": "0065_faktury_upravy",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1795441495930,
+      "tag": "0066_idoklad_archiv",
+      "breakpoints": true
     }
   ]
 }

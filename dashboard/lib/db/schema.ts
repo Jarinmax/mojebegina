@@ -2545,3 +2545,35 @@ export const ownInvoiceVersions = pgTable("own_invoice_versions", {
   changedByName: text("changed_by_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [unique("own_invoice_versions_doc_version").on(table.documentId, table.version)]);
+
+// Archiv vydaných dokladů z iDokladu (Lucie 23. 11. 2026): iDoklad končí
+// 4. 12. 2026 (tarif Zdarma nemá API), proto se všechny faktury a dobropisy
+// i s PDF jednou zkopírují sem. Jen čtení — nic se tu neupravuje.
+export const idokladArchive = pgTable("idoklad_archive", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docKind: text("doc_kind").notNull(), // "invoice" | "credit_note"
+  idokladId: integer("idoklad_id").notNull(),
+  number: text("number").notNull(),
+  issueDate: date("issue_date"),
+  dueDate: date("due_date"),
+  paidDate: date("paid_date"),
+  payment: text("payment").notNull(), // paid | unpaid | partially_paid | overpaid | unknown
+  totalKc: numeric("total_kc", { precision: 12, scale: 2 }),
+  paidKc: numeric("paid_kc", { precision: 12, scale: 2 }),
+  variableSymbol: text("variable_symbol"),
+  partnerName: text("partner_name"),
+  partnerIco: text("partner_ico"),
+  partnerEmail: text("partner_email"),
+  raw: jsonb("raw").notNull(),
+  pdfBase64: text("pdf_base64"),
+  pdfFilename: text("pdf_filename"),
+  pdfFetchedAt: timestamp("pdf_fetched_at", { withTimezone: true }),
+  importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("idoklad_archive_kind_id").on(table.docKind, table.idokladId),
+  index("idoklad_archive_number_idx").on(table.number),
+  index("idoklad_archive_issue_idx").on(table.issueDate),
+  index("idoklad_archive_ico_idx").on(table.partnerIco),
+  check("idoklad_archive_kind", sql`${table.docKind} IN ('invoice', 'credit_note')`),
+]);

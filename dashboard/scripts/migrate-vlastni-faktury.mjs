@@ -38,3 +38,12 @@ if (v2) {
   await sql.transaction((tx) => statements.map((s) => tx.query(s)));
   console.log("Own invoices migration (preview): schema 0065 applied.");
 }
+const [{ present: v3 }] = await sql.query(`SELECT to_regclass('public.idoklad_archive') IS NOT NULL AS present`);
+if (v3) {
+  console.log("Own invoices migration (preview): 0066 already applied.");
+} else {
+  const text = await readFile(fileURLToPath(new URL("../drizzle/0066_idoklad_archiv.sql", import.meta.url)), "utf8");
+  const statements = text.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+  await sql.transaction((tx) => statements.map((s) => tx.query(s)));
+  console.log("Own invoices migration (preview): schema 0066 applied.");
+}

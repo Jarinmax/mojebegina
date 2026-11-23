@@ -91,6 +91,22 @@
     {
       "path": "/api/cron/historie-nakupu",
       "schedule": "20 2 * * *"
+    },
+    {
+      "path": "/api/cron/idoklad-archiv?beh=1",
+      "schedule": "40 3 * * *"
+    },
+    {
+      "path": "/api/cron/idoklad-archiv?beh=2",
+      "schedule": "40 9 * * *"
+    },
+    {
+      "path": "/api/cron/idoklad-archiv?beh=3",
+      "schedule": "40 13 * * *"
+    },
+    {
+      "path": "/api/cron/idoklad-archiv?beh=4",
+      "schedule": "40 19 * * *"
     }
   ]
 }
