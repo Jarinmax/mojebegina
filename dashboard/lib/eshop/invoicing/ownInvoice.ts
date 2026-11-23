@@ -95,7 +95,7 @@ export function czIbanFromAccount(account: string | null): string | null {
   const m = /^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/.exec((account ?? "").replace(/\s/g, ""));
   if (!m) return null;
   const bban = `${m[3]}${(m[1] ?? "").padStart(6, "0")}${m[2].padStart(10, "0")}`;
-  const check = 98n - (BigInt(`${bban}123500`) % 97n);
+  const check = BigInt(98) - (BigInt(`${bban}123500`) % BigInt(97));
   return `CZ${String(check).padStart(2, "0")}${bban}`;
 }
 
