@@ -8,12 +8,23 @@ export type EmailTemplate = { kind: EmailTemplateKind; label: string; subject: s
 
 const PRO_KAVARNY = "https://begina.cz/pro-kavarny";
 
-function signature(salesName: string | null): string {
-  return salesName ? `${salesName}\nBegina · begina.cz` : "Tým Begina\nbegina.cz";
+// Telefony obchodníků do podpisu (Lucie 23. 11. 2026).
+const SALES_PHONES: Record<string, string> = {
+  "06240ac4-c050-47ea-998c-6c81389edf9f": "+420 724 223 594", // Jaroslav Blahout
+  "de1d8bf9-460a-4ad7-8f67-9d7e43f2eb2c": "+420 774 199 975", // Jaroslav Viner
+};
+
+export function salesPhoneFor(userId: string | null | undefined): string | null {
+  return (userId && SALES_PHONES[userId]) || null;
 }
 
-export function emailTemplates(salesName: string | null): EmailTemplate[] {
-  const sig = signature(salesName);
+function signature(salesName: string | null, salesPhone: string | null): string {
+  const phone = salesPhone ? `\ntel. ${salesPhone}` : "";
+  return salesName ? `${salesName}${phone}\nBegina · begina.cz` : `Tým Begina${phone}\nbegina.cz`;
+}
+
+export function emailTemplates(salesName: string | null, salesPhone: string | null = null): EmailTemplate[] {
+  const sig = signature(salesName, salesPhone);
   return [
     {
       kind: "po_hovoru",

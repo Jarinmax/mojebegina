@@ -39,6 +39,7 @@ type Props = {
   contactPhone?: string | null;
   contactEmail?: string | null;
   salesName?: string | null;
+  salesPhone?: string | null;
 };
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
@@ -127,6 +128,7 @@ export default function CallLogForm({
   contactPhone = null,
   contactEmail = null,
   salesName = null,
+  salesPhone = null,
 }: Props) {
   const knownHeardFrom = heardFrom !== null && isHeardFrom(heardFrom);
   // null = obchodník na formuláři zatím nic nezměnil (pak platí uložený rozepsaný zápis).
@@ -309,7 +311,7 @@ export default function CallLogForm({
           {contactEmail && !noAnswerState.stop && (
             <>
               <p className="text-xs text-neutral-600">{noAnswerState.suggestEmail ? "Teď pošli i krátký e-mail:" : "Nebo e-mail:"}</p>
-              <EmailButtons email={contactEmail} salesName={salesName} only="nedovolal" />
+              <EmailButtons email={contactEmail} salesName={salesName} salesPhone={salesPhone} only="nedovolal" />
             </>
           )}
         </div>
@@ -455,7 +457,7 @@ export default function CallLogForm({
       {state && "success" in state && contactEmail && (
         <div className="flex flex-col gap-1">
           <p className="text-xs text-neutral-600">Pošli klientovi shrnutí e-mailem:</p>
-          <EmailButtons email={contactEmail} salesName={salesName} only="po_hovoru" />
+          <EmailButtons email={contactEmail} salesName={salesName} salesPhone={salesPhone} only="po_hovoru" />
         </div>
       )}
 

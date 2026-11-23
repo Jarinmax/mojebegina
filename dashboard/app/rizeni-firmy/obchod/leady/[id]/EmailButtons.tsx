@@ -4,13 +4,15 @@ import { emailTemplates, mailtoHref, type EmailTemplateKind } from "@/lib/obchod
 export default function EmailButtons({
   email,
   salesName,
+  salesPhone = null,
   only,
 }: {
   email: string;
   salesName: string | null;
+  salesPhone?: string | null;
   only?: EmailTemplateKind;
 }) {
-  const list = emailTemplates(salesName).filter((t) => !only || t.kind === only);
+  const list = emailTemplates(salesName, salesPhone).filter((t) => !only || t.kind === only);
   return (
     <div className="flex gap-2 flex-wrap">
       {list.map((t) => (
