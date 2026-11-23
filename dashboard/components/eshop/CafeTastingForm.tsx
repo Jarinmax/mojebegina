@@ -150,7 +150,7 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
             <option value="">Vyberte beginu…</option>
             {beginas.map((option) => (
               <option key={option.sku} value={option.sku}>
-                {option.name} – {formatKc(option.priceKc)}
+                {formatKc(option.priceKc)} – {option.name}
               </option>
             ))}
           </select>
@@ -176,22 +176,22 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
         <ul className="flex flex-col gap-1 text-base">
           <li className="flex justify-between gap-3">
             <span>1 begina{beginaName ? ` – ${beginaName}` : " (vyberte nahoře)"}</span>
-            <span className="tabular-nums">{formatKc(beginaPrice)}</span>
+            <span className="tabular-nums whitespace-nowrap shrink-0">{formatKc(beginaPrice)}</span>
           </li>
           <li className="flex justify-between gap-3 text-[#2F6322]">
             <span>{free.size} {samples(free.size)} zdarma</span>
-            <span className="tabular-nums">0 Kč</span>
+            <span className="tabular-nums whitespace-nowrap shrink-0">0 Kč</span>
           </li>
           {paidCount > 0 && (
             <li className="flex justify-between gap-3">
               <span>{paidCount} {samples(paidCount)} navíc po {CAFE_TASTING_PRICE_KC} Kč</span>
-              <span className="tabular-nums">{formatKc(paidCount * CAFE_TASTING_PRICE_KC)}</span>
+              <span className="tabular-nums whitespace-nowrap shrink-0">{formatKc(paidCount * CAFE_TASTING_PRICE_KC)}</span>
             </li>
           )}
         </ul>
         <p className="mt-2 pt-2 border-t border-[#EDE5D8] flex items-baseline justify-between gap-3 text-lg">
           <span className="font-semibold">Celkem bez dopravy</span>
-          <strong className="tabular-nums">{formatKc(total)}</strong>
+          <strong className="tabular-nums whitespace-nowrap shrink-0">{formatKc(total)}</strong>
         </p>
         <p className="mt-1 text-sm text-neutral-600">{CAFE_TASTING_DELIVERY}</p>
         {CAFE_TASTING_CREDIT_ENABLED && <p className="mt-1 text-sm font-medium text-[#4A5527]">{CAFE_TASTING_CREDIT_TEXT}</p>}
