@@ -34,7 +34,7 @@ const ORG_KAVARNA = "00000000-0000-4000-8000-00000000b001";
 const ENV: Record<string, string> = {
   VERCEL_ENV: "production",
   DATABASE_URL: "postgresql://u:p@ep-test.neon.tech/neondb",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_B2B_SEQUENCE_ID: String(LUCIE_SERIES),
   IDOKLAD_ESHOP_CLIENT_ID: "cid",

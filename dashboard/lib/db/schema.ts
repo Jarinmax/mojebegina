@@ -2482,3 +2482,43 @@ export const eshopSettings = pgTable("eshop_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });
+
+// Vlastní fakturace (Lucie 23. 11. 2026) — MojeBegina vystavuje faktury sama,
+// JEDNA řada RRRRNNNN (navazuje na 2026xxxx z iDokladu). Počítadlo na rok:
+// rok 2026 musí být založen ručně (produkční SQL = potvrzení posledního čísla
+// z iDokladu), další roky vznikají samy od 1.
+export const invoiceNumberCounters = pgTable("invoice_number_counters", {
+  year: integer("year").primaryKey(),
+  lastSerial: integer("last_serial").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("invoice_number_counters_year", sql`${table.year} BETWEEN 2026 AND 2099`),
+  check("invoice_number_counters_serial", sql`${table.lastSerial} BETWEEN 0 AND 9999`),
+]);
+
+// Vystavený vlastní doklad: číslo + neměnný snímek obsahu (snapshot) + PDF.
+// Nemaže se a nepřepisuje (hlídá trigger v migraci); opravuje se dobropisem.
+// invoice_id = vazba na e-shopovou fakturu k objednávce; ruční (B2B) doklad ji nemá.
+export const ownInvoiceDocuments = pgTable("own_invoice_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  number: text("number").notNull().unique(),
+  kind: text("kind").notNull(), // "invoice" | "credit_note"
+  invoiceId: uuid("invoice_id").references(() => invoices.id).unique(),
+  orderId: uuid("order_id").references(() => orders.id),
+  correctsDocumentId: uuid("corrects_document_id").references((): AnyPgColumn => ownInvoiceDocuments.id),
+  issueDate: date("issue_date").notNull(),
+  totalKc: integer("total_kc").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerIco: text("customer_ico"),
+  snapshot: jsonb("snapshot").notNull(),
+  pdf: text("pdf_base64"),
+  pdfSha256: text("pdf_sha256"),
+  issuedByName: text("issued_by_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("own_invoice_documents_kind", sql`${table.kind} IN ('invoice', 'credit_note')`),
+  check("own_invoice_documents_number", sql`${table.number} ~ '^20[0-9]{6}$'`),
+  check("own_invoice_documents_credit", sql`(${table.kind} = 'credit_note') = (${table.correctsDocumentId} IS NOT NULL)`),
+  index("own_invoice_documents_order_idx").on(table.orderId),
+  index("own_invoice_documents_issue_idx").on(table.issueDate),
+]);

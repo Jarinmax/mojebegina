@@ -116,7 +116,34 @@ export function liveInvoicingGate(env: Env = process.env): LiveGate {
   return { open: true, trigger: sw.value, ...credentials, seriesId: series.id };
 }
 
+/**
+ * Vlastní fakturace v MojeBegina místo iDokladu (rozhodnutí Lucie 23. 11. 2026, ownIssue.ts).
+ * Výchozí = vlastní; INVOICING_PROVIDER=idoklad vrátí starou cestu (nouzově a testy iDokladu).
+ */
+export function ownInvoicingActive(env: Env = process.env): boolean {
+  return env.INVOICING_PROVIDER?.trim() !== "idoklad";
+}
+
+export type OwnGate = { open: true; trigger: "manual" | "on" } | { open: false; reason: string };
+
+/** Brána vlastní fakturace: Production + přepínač „manual“/„on“ (iDoklad se už nevolá). */
+export function ownInvoicingGate(env: Env = process.env): OwnGate {
+  if (!ownInvoicingActive(env)) return { open: false, reason: "Vlastní fakturace je vypnutá (INVOICING_PROVIDER=idoklad)." };
+  if (env.VERCEL_ENV !== "production") return { open: false, reason: "Testovací provoz (Preview): faktury se vystavují jen v ostré verzi." };
+  const sw = invoicingSwitch(env);
+  if (sw.invalid !== null) return { open: false, reason: `Vystavování je vypnuté: IDOKLAD_INVOICING_ENABLED „${sw.invalid}“ není platná hodnota (off / manual / on).` };
+  if (sw.value === "off") return { open: false, reason: "Vystavování faktur není zapnuté — vzniká jen návrh." };
+  return { open: true, trigger: sw.value };
+}
+
 export function invoicingMode(env: Env = process.env): InvoicingMode {
+  if (ownInvoicingActive(env)) {
+    const own = ownInvoicingGate(env);
+    if (!own.open) return { mode: "dry_run", trigger: "off", automatic: false, reason: own.reason };
+    return own.trigger === "manual"
+      ? { mode: "live", trigger: "manual", automatic: false, reason: "Ostrý provoz — ruční režim: faktura (řada 2026xxxx) se vystaví jen tlačítkem u zaplacené objednávky." }
+      : { mode: "live", trigger: "on", automatic: true, reason: "Ostrý provoz: faktura se vystaví v MojeBegina (řada 2026xxxx) hned po zaplacení." };
+  }
   const gate = liveInvoicingGate(env);
   if (!gate.open) return { mode: "dry_run", trigger: "off", automatic: false, reason: gate.reason };
   if (gate.trigger === "manual") {

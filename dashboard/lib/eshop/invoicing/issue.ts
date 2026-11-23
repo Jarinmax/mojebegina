@@ -39,9 +39,10 @@ import type * as schema from "@/lib/db/schema";
 import { blockingProblems, invoiceVsFor, isInvoiceableOrder, type InvoiceDraft } from "./draft";
 import { IDOKLAD_ENUMS, IDOKLAD_PROVIDER, contactPostBody, invoicePostBody, paidDayOf, vsSearchFromDay } from "./idoklad";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, sinceDayFilter } from "./idokladHttp";
-import { ESHOP_SERIES, eshopIdokladCredentials, liveInvoicingGate } from "./mode";
+import { ESHOP_SERIES, eshopIdokladCredentials, liveInvoicingGate, ownInvoicingActive } from "./mode";
 import { ESHOP_NUMBER_RE, preflightFailureSummary, runIdokladPreflight } from "./preflight";
 import { activitySql, buildDraftPayload, loadDraftInputs, prepareInvoiceDraft, type InvoiceActor } from "./service";
+import { issueOwnEshopInvoice, loadOwnOrderPdf } from "./ownIssue";
 
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
@@ -51,7 +52,7 @@ export const ISSUE_LEASE_MINUTES = 10;
 export type InvoicePdf = { filename: string; contentBase64: string; invoiceNumber: string };
 
 export type IssueResult =
-  | { status: "issued"; invoiceNumber: string; externalId: string; adopted: boolean; pdf: InvoicePdf | null }
+  | { status: "issued"; invoiceNumber: string; externalId: string | null; adopted: boolean; pdf: InvoicePdf | null }
   | { status: "already_issued"; invoiceNumber: string | null }
   | { status: "skipped"; reason: string }
   | { status: "failed"; error: string; externalId: string | null };
@@ -382,6 +383,11 @@ export async function reallyPaid(db: Db, orderId: string): Promise<string | null
 export async function issueInvoice(db: Db, orderId: string, deps: IssueDeps = {}): Promise<IssueResult> {
   const env = deps.env ?? process.env;
   const actor = deps.actor ?? { type: "system", name: "Fakturace" };
+  // 23. 11. 2026 (Lucie): faktury vystavuje MojeBegina sama, jedna řada 2026xxxx (ownIssue.ts)
+  if (ownInvoicingActive(env)) {
+    const own = await issueOwnEshopInvoice(db, orderId, { env, actor, reallyPaid });
+    return own;
+  }
   const gate = liveInvoicingGate(env);
   if (!gate.open) return { status: "skipped", reason: gate.reason };
 
@@ -570,6 +576,11 @@ export async function issueInvoiceSafe(db: Db, orderId: string, deps: IssueDeps 
 
 /** PDF už vystavené faktury (pro dodatečné odeslání e-mailem). Jen čtení. */
 export async function loadIssuedPdf(db: Db, orderId: string, deps: IssueDeps = {}): Promise<InvoicePdf | null> {
+  // vlastní faktura (MojeBegina); starší faktury z iDokladu níže
+  if (ownInvoicingActive(deps.env ?? process.env)) {
+    const own = await loadOwnOrderPdf(db, orderId).catch(() => null);
+    if (own) return own;
+  }
   const gate = liveInvoicingGate(deps.env ?? process.env);
   if (!gate.open) return null;
   const row = (

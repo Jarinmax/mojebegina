@@ -449,6 +449,13 @@
       "when": 1795426000000,
       "tag": "0063_dorucovaci_adresa",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1795426060000,
+      "tag": "0064_vlastni_faktury",
+      "breakpoints": true
     }
   ]
 }

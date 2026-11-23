@@ -17,7 +17,7 @@ const SALES = { ...LUCIE, userId: "11111111-2222-4333-8444-555555555555", name: 
 const ENV = {
   VERCEL_ENV: "production",
   DATABASE_URL: "postgresql://u:p@ep-test.neon.tech/neondb",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_ESHOP_CLIENT_ID: "cid-secret-value",
   IDOKLAD_ESHOP_CLIENT_SECRET: "csecret-secret-value",

@@ -438,7 +438,7 @@ describe("zápis objednávky přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, 
     const { issueInvoice, reallyPaid } = await import("@/lib/eshop/invoicing/issue");
     expect(await reallyPaid(db, orderId)).toMatch(/faktura 20269185 vystavená mimo MojeBegina/);
     const fetchSpy = vi.fn(async () => { throw new Error("iDoklad se nesmí volat"); });
-    const live = { VERCEL_ENV: "production", IDOKLAD_INVOICING_ENABLED: "on", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "c", IDOKLAD_ESHOP_CLIENT_SECRET: "s", IDOKLAD_ESHOP_APPLICATION_ID: "a" };
+    const live = { VERCEL_ENV: "production", INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "on", IDOKLAD_ESHOP_SEQUENCE_ID: "7277293", IDOKLAD_ESHOP_CLIENT_ID: "c", IDOKLAD_ESHOP_CLIENT_SECRET: "s", IDOKLAD_ESHOP_APPLICATION_ID: "a" };
     expect(await issueInvoice(db, orderId, { env: live, fetchImpl: fetchSpy as unknown as typeof fetch })).toMatchObject({ status: "skipped", reason: expect.stringMatching(/20269185/) });
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(await rows(sql`SELECT 1 FROM invoices WHERE order_id = ${orderId}`)).toEqual([]);

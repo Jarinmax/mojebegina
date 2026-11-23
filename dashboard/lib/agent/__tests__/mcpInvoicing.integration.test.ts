@@ -69,7 +69,7 @@ const MANUAL = {
   VERCEL_ENV: "production",
   ESHOP_EMAIL_LIVE: "on",
   ESHOP_ORDER_WRITE: "on",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_READ_CHANNELS: "mcp:chatgpt",
 };
 
@@ -89,7 +89,7 @@ describe("fakturace přes MCP (ChatGPT) nad DB", { timeout: 120_000 }, () => {
   type Session = import("../oauthStore").AgentSession;
 
   function setEnv(env: Record<string, string | undefined>) {
-    for (const key of ["VERCEL_ENV", "IDOKLAD_INVOICING_ENABLED", "ESHOP_EMAIL_LIVE", "ESHOP_ORDER_WRITE", "IDOKLAD_READ_CHANNELS"]) delete process.env[key];
+    for (const key of ["VERCEL_ENV", "INVOICING_PROVIDER", "IDOKLAD_INVOICING_ENABLED", "ESHOP_EMAIL_LIVE", "ESHOP_ORDER_WRITE", "IDOKLAD_READ_CHANNELS"]) delete process.env[key];
     for (const [key, value] of Object.entries(env)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
