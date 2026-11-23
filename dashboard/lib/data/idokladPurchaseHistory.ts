@@ -1,14 +1,13 @@
 import "server-only";
+import { idokladReadClientLazy } from "@/lib/eshop/invoicing/idokladArchiveClient";
 
 import { unstable_cache } from "next/cache";
 import type { Order, OrderItem, OrderStatus } from "@/mock/customer";
 import { IDOKLAD_ENUMS } from "@/lib/eshop/invoicing/idoklad";
 import {
-  EshopIdokladClient,
   eqFilter,
   issuedInvoiceFilter,
 } from "@/lib/eshop/invoicing/idokladHttp";
-import { eshopIdokladCredentials } from "@/lib/eshop/invoicing/mode";
 
 type IdokladContact = {
   Id?: unknown;
@@ -160,16 +159,8 @@ export async function loadIdokladPurchaseHistory(
   } = {}
 ): Promise<Order[]> {
   const env = options.env ?? process.env;
-  const credentials = eshopIdokladCredentials(env);
-  if (!credentials) return [];
-
-  const client = new EshopIdokladClient({
-    ...credentials,
-    writesAllowed: false,
-    env,
-    fetchImpl: options.fetchImpl,
-    requestBudget: 250,
-  });
+  const client = await idokladReadClientLazy({ env, fetchImpl: options.fetchImpl, requestBudget: 250 });
+  if (!client) return [];
   const contacts = await client.list<IdokladContact>(
     "/Contacts",
     eqFilter("IdentificationNumber", ico),

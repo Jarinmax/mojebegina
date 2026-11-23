@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 import { createFakeIdoklad } from "./helpers/fakeIdoklad";
 
 const READ_ENV = {
-  IDOKLAD_ESHOP_CLIENT_ID: "client",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_ESHOP_CLIENT_ID: "client",
   IDOKLAD_ESHOP_CLIENT_SECRET: "secret",
   IDOKLAD_ESHOP_APPLICATION_ID: "application",
 };

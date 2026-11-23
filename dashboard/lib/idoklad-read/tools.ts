@@ -15,6 +15,7 @@
 //   6. čtení přes klienta BEZ práva zápisu (přístupové údaje jen na serveru,
 //      do odpovědi ani do logu se nedostanou).
 import "server-only";
+import { IdokladArchiveClient, idokladArchiveMode } from "@/lib/eshop/invoicing/idokladArchiveClient";
 import { and, count, eq, gt, sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
@@ -437,8 +438,9 @@ export async function runIdokladRead(name: string, rawArgs: unknown, channel: Re
     return deny("invalid", errorText(error));
   }
 
+  const archive = idokladArchiveMode(env);
   const credentials = eshopIdokladCredentials(env);
-  if (!credentials) return { ok: false, status: "unavailable", error: "iDoklad není na tomto prostředí připojený (chybí přístupové údaje na serveru)." };
+  if (!archive && !credentials) return { ok: false, status: "unavailable", error: "iDoklad není na tomto prostředí připojený (chybí přístupové údaje na serveru)." };
 
   let started: { id: string };
   try {
@@ -453,7 +455,10 @@ export async function runIdokladRead(name: string, rawArgs: unknown, channel: Re
     return { ok: false, status: "unavailable", error: "Auditní záznam se nepodařilo zapsat — čtení iDokladu je zablokované." };
   }
 
-  const client = new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl: deps.fetchImpl, requestBudget: t.requestBudget ?? READ_REQUEST_BUDGET });
+  // od 23. 11. 2026 (vlastní fakturace) se čte z archivu iDokladu v MojeBegina
+  const client = archive
+    ? (new IdokladArchiveClient(db as never) as unknown as EshopIdokladClient)
+    : new EshopIdokladClient({ ...credentials!, writesAllowed: false, env, fetchImpl: deps.fetchImpl, requestBudget: t.requestBudget ?? READ_REQUEST_BUDGET });
   const reader: IdokladReader = client;
   const startedAt = Date.now();
   try {
@@ -462,7 +467,7 @@ export async function runIdokladRead(name: string, rawArgs: unknown, channel: Re
       .update(idokladReadLog)
       .set({ status: "ok", resultCount: result.count, idokladRequests: client.requestCount, durationMs: Date.now() - startedAt })
       .where(eq(idokladReadLog.id, started.id));
-    return { ok: true, data: { ...result.data, source: { system: "iDoklad", agenda: "Begina", readAt: now.toISOString(), readOnly: true } }, summary: result.summary ?? {} };
+    return { ok: true, data: { ...result.data, source: { system: archive ? "archiv iDokladu v MojeBegina (faktury do 20260214)" : "iDoklad", agenda: "Begina", readAt: now.toISOString(), readOnly: true } }, summary: result.summary ?? {} };
   } catch (error) {
     const message = errorText(error);
     if (!(error instanceof ReadInputError || error instanceof IdokladApiError || error instanceof IdokladBlockedError)) {
