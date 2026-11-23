@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import HeardFromField from "./HeardFromField";
 import DictateButton from "./DictateButton";
+import EmailButtons from "./EmailButtons";
 import { heardFromText, isHeardFrom, type HeardFrom } from "@/lib/data/heardFrom";
 import {
   logCallOutcomeAction,
@@ -36,7 +37,9 @@ type Props = {
   calendar?: { ownerName: string | null; connected: boolean; isMe: boolean } | null;
   /** Telefon kontaktu a jméno přihlášeného — pro SMS/WhatsApp po „Nezvedá“. */
   contactPhone?: string | null;
+  contactEmail?: string | null;
   salesName?: string | null;
+  salesPhone?: string | null;
 };
 
 // Security Phase 16 (Obchod/CRM 1.0) — rychlý zápis po hovoru: jeden
@@ -123,7 +126,9 @@ export default function CallLogForm({
   suggestedHeardFrom = null,
   calendar = null,
   contactPhone = null,
+  contactEmail = null,
   salesName = null,
+  salesPhone = null,
 }: Props) {
   const knownHeardFrom = heardFrom !== null && isHeardFrom(heardFrom);
   // null = obchodník na formuláři zatím nic nezměnil (pak platí uložený rozepsaný zápis).
@@ -303,7 +308,12 @@ export default function CallLogForm({
               </div>
             </>
           )}
-          {noAnswerState.suggestEmail && <p className="text-xs text-neutral-600">Při dalším pokusu pošli i krátký e-mail.</p>}
+          {contactEmail && !noAnswerState.stop && (
+            <>
+              <p className="text-xs text-neutral-600">{noAnswerState.suggestEmail ? "Teď pošli i krátký e-mail:" : "Nebo e-mail:"}</p>
+              <EmailButtons email={contactEmail} salesName={salesName} salesPhone={salesPhone} only="nedovolal" />
+            </>
+          )}
         </div>
       )}
 
@@ -444,6 +454,12 @@ export default function CallLogForm({
 
       {state && "error" in state && <p className="text-sm text-begina-accent-700">{state.error}</p>}
       {state && "success" in state && <p className="text-sm text-emerald-700">{state.success}</p>}
+      {state && "success" in state && contactEmail && (
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-neutral-600">Pošli klientovi shrnutí e-mailem:</p>
+          <EmailButtons email={contactEmail} salesName={salesName} salesPhone={salesPhone} only="po_hovoru" />
+        </div>
+      )}
 
       {state && "error" in state && <p className="text-xs text-neutral-600">Nic z toho, co jsi napsal/a, se neztratilo — oprav chybu a ulož znovu.</p>}
 

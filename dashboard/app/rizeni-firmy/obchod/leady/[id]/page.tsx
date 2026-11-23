@@ -4,6 +4,7 @@ import { getLeadDetail, listLeadSourceOrders, listStaffOptions } from "@/lib/dat
 import { SOURCE_LABELS, VENUE_TYPE_LABELS } from "../../leadLabels";
 import LeadStageBadge, { FollowUpBadge } from "../../LeadStageBadge";
 import CallLogForm from "./CallLogForm";
+import { salesPhoneFor } from "@/lib/obchod/emailTemplates";
 import RewardAssignmentPanel from "./RewardAssignmentPanel";
 import { getLeadRewardAssignment } from "@/lib/data/jardaRewards";
 import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
@@ -136,6 +137,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             suggestedHeardFrom={suggestHeardFrom(lead.source)}
             calendar={calendar}
             contactPhone={lead.contactPhone}
+            contactEmail={lead.contactEmail}
+            salesPhone={salesPhoneFor(ctx?.userId)}
             salesName={ctx?.name ?? null}
           />
         </div>
