@@ -137,6 +137,7 @@ export const PRIVACY_BLOCKS: InfoBlock[] = [
     paragraphs: [
       "Po dokončení objednávky nabízíme zákazníkovi možnost ohodnotit nákup prostřednictvím programu Zákaznické recenze Google.",
       "Pouze pokud zákazník na stránce s potvrzením objednávky klikne na tlačítko „Ano, chci ohodnotit“, předáme společnosti Google LLC číslo objednávky, e-mailovou adresu, zemi doručení a předpokládané datum doručení. Google poté zobrazí vlastní okno, ve kterém zákazník se zasláním dotazníku souhlasí nebo jej odmítne.",
+      "Po kliknutí na tlačítko může Google v prohlížeči zákazníka ukládat a číst soubory cookie a používat podobné technologie (např. webové signály) ke shromažďování údajů pro program Zákaznické recenze Google. Soubory cookie lze spravovat nebo smazat v nastavení prohlížeče.",
       "Pokud zákazník souhlasí, Google mu po doručení pošle e-mailem krátký dotazník. Se zpracováním údajů a s hodnocením dále nakládá Google podle svých zásad ochrany soukromí (policies.google.com/privacy). Bez kliknutí zákazníka se společnosti Google nic nepředává.",
       "Právním důvodem je souhlas zákazníka, který lze kdykoliv odvolat e-mailem na info@begina.cz; pro odhlášení dotazníku lze využít i odkaz v e-mailu od Googlu.",
     ],
