@@ -53,6 +53,8 @@ import { storeHandoff, useCustomerHandoff } from "@/components/eshop/useCustomer
 import { handoffPrefillAction } from "@/app/eshop/kosik/handoffActions";
 import type { HandoffPrefill } from "@/lib/eshop/customerHandoff";
 import type { CheckoutValue } from "@/lib/eshop/checkout";
+import GoogleReviewsOptIn from "@/components/eshop/GoogleReviewsOptIn";
+import { googleReviewsPayload } from "@/lib/eshop/googleReviews";
 import {
   BILLING_COUNTRIES,
   DELIVERY_COUNTRY,
@@ -417,6 +419,19 @@ export default function CheckoutForm({
             )}
           </dl>
         </div>
+        {/* Zákaznické recenze Google — Googlu se nic nepošle, dokud zákazník neklikne */}
+        {savedOrderId && orderNumber !== null && (
+          <GoogleReviewsOptIn
+            getPayload={async () =>
+              googleReviewsPayload({
+                orderNumber,
+                email: confirmation.email,
+                country: confirmation.delivery?.country ?? confirmation.billing.country,
+                orderedAt: new Date(),
+              })
+            }
+          />
+        )}
         {savedOrderId && confirmation.payment.id === "prevod" && (
           <ShopLink
             href={`/objednavka/${savedOrderId}`}

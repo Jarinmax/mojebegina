@@ -157,10 +157,10 @@ describe("informační stránky", () => {
       "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII",
     ]);
     // počty odrážek přesně podle dodaného znění: II, III.1, III.3, V, VI, IX
-    expect(blocks.filter((b) => b.items).map((b) => b.items!.length)).toEqual([11, 7, 6, 7, 8, 9]);
+    expect(blocks.filter((b) => b.items).map((b) => b.items!.length)).toEqual([11, 7, 6, 7, 9, 9]);
     render(<InfoPageView page={INFO_PAGES.privacy} />);
     expect(screen.getByRole("heading", { level: 1, name: "Ochrana osobních údajů (GDPR)" })).toBeTruthy();
-    expect(screen.getByText("Platné a účinné od 22. září 2026")).toBeTruthy();
+    expect(screen.getByText("Platné a účinné od 24. listopadu 2026")).toBeTruthy();
     expect(screen.queryByText("Text připravujeme.")).toBeNull();
     const text = document.querySelector("article")!.textContent!;
     const order = [
@@ -192,7 +192,7 @@ describe("informační stránky", () => {
       "Pplk. Sochora 27",
       "XI. Automatizované rozhodování",
       "XII. Zabezpečení osobních údajů",
-      "Tyto zásady ochrany osobních údajů jsou platné a účinné od 22. září 2026.",
+      "Tyto zásady ochrany osobních údajů jsou platné a účinné od 24. listopadu 2026.",
       "www.begina.cz/gdpr/",
     ];
     const positions = order.map((part) => text.indexOf(part));

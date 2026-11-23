@@ -17,6 +17,8 @@ import { WITHDRAW_BUTTON_LABEL } from "@/lib/eshop/withdrawal";
 import PayAgainButton from "./PayAgainButton";
 import TransferPayment from "./TransferPayment";
 import ForgetPendingOrder from "./ForgetPendingOrder";
+import GoogleReviewsOptIn from "@/components/eshop/GoogleReviewsOptIn";
+import { googleReviewsPayloadAction } from "./reviewActions";
 
 // ESHOP 1.0 — stav e-shopové objednávky pro zákazníka (návrat ze Stripe).
 // Adresa obsahuje náhodné id objednávky; stránka ukazuje jen položky,
@@ -151,6 +153,12 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
         </div>
       )}
       {(paid || cancelled) && <ForgetPendingOrder orderId={order.id} />}
+      {/* Zákaznické recenze Google — údaje se Googlu vydají až po kliknutí zákazníka */}
+      {paid && !cancelled && order.orderNumber !== null && (
+        <div className="mb-6">
+          <GoogleReviewsOptIn getPayload={googleReviewsPayloadAction.bind(null, order.id)} />
+        </div>
+      )}
       {!paid && !cancelled && platba === "ok" && (
         <ShopLink href={`/objednavka/${order.id}?platba=ok`} className="text-sm underline underline-offset-2 mr-4">
           Obnovit stav

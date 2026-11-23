@@ -4,7 +4,7 @@
 // v `PRIVACY_EFFECTIVE` a v čl. XIII.
 import type { InfoBlock } from "../infoPages";
 
-export const PRIVACY_EFFECTIVE = "22. září 2026";
+export const PRIVACY_EFFECTIVE = "24. listopadu 2026";
 
 export const PRIVACY_BLOCKS: InfoBlock[] = [
   {
@@ -126,10 +126,20 @@ export const PRIVACY_BLOCKS: InfoBlock[] = [
       "poskytovatelům e-mailových, účetních a fakturačních služeb,",
       "účetní nebo daňovému poradci,",
       "poskytovatelům analytických a marketingových nástrojů, pokud k jejich použití zákazník udělil souhlas,",
+      "společnosti Google v rámci programu Zákaznické recenze Google, pokud o to zákazník po dokončení objednávky sám požádá (viz níže),",
       "právním nebo jiným odborným poradcům,",
       "orgánům veřejné moci, pokud jejich předání vyžadují právní předpisy.",
     ],
     afterParagraphs: ["Osobní údaje neprodáváme ani neposkytujeme třetím osobám pro jejich vlastní marketingové účely."],
+  },
+  {
+    subheading: "Zákaznické recenze Google",
+    paragraphs: [
+      "Po dokončení objednávky nabízíme zákazníkovi možnost ohodnotit nákup prostřednictvím programu Zákaznické recenze Google.",
+      "Pouze pokud zákazník na stránce s potvrzením objednávky klikne na tlačítko „Ano, chci ohodnotit“, předáme společnosti Google LLC číslo objednávky, e-mailovou adresu, zemi doručení a předpokládané datum doručení. Google poté zobrazí vlastní okno, ve kterém zákazník se zasláním dotazníku souhlasí nebo jej odmítne.",
+      "Pokud zákazník souhlasí, Google mu po doručení pošle e-mailem krátký dotazník. Se zpracováním údajů a s hodnocením dále nakládá Google podle svých zásad ochrany soukromí (policies.google.com/privacy). Bez kliknutí zákazníka se společnosti Google nic nepředává.",
+      "Právním důvodem je souhlas zákazníka, který lze kdykoliv odvolat e-mailem na info@begina.cz; pro odhlášení dotazníku lze využít i odkaz v e-mailu od Googlu.",
+    ],
   },
   {
     heading: "VII. Předávání údajů mimo Evropský hospodářský prostor",
