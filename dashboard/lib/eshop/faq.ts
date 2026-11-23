@@ -8,7 +8,7 @@ import { CAFE_PATH } from "./cafePage";
 import type { InfoPage } from "./infoPages";
 // Slovensko jen když je doručení zapnuté (od 18. 11. 2026 vypnuté kvůli povinnostem k obalům).
 import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
-import { syrupModelLine } from "./landingPages";
+import { syrupModelLine } from "./portionPrices";
 
 export const FAQ_PATH = "/caste-otazky";
 

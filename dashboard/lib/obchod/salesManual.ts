@@ -2,7 +2,7 @@
 // „Begina – manuál pro obchodníky“, ať se dá číst přímo v MojeBegina i na
 // mobilu při hovoru. Při nové verzi PDF upravit i tenhle text, datum a
 // lib/obchod/salesManualPdf.ts.
-import { syrupModelLine } from "@/lib/eshop/landingPages";
+import { syrupModelLine } from "@/lib/eshop/portionPrices";
 
 export type ManualSection = {
   title: string;

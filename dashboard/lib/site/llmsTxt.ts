@@ -3,7 +3,7 @@
 import { PUBLIC_ORIGIN } from "./hosts";
 import { LANDING_PAGES } from "@/lib/eshop/landingPages";
 import { OPERATOR } from "@/lib/eshop/operator";
-import { syrupModelLine } from "@/lib/eshop/landingPages";
+import { syrupModelLine } from "@/lib/eshop/portionPrices";
 
 const link = (title: string, path: string, note?: string) => `- [${title}](${PUBLIC_ORIGIN}${path})${note ? `: ${note}` : ""}`;
 

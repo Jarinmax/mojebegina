@@ -1,7 +1,7 @@
 // Texty úvodní stránky pod pruhem kategorií (návrh schválený majitelem 11. 11. 2026).
 // Konkrétní fakta místo obecných frází; ceny a výdrž podle e-shopu a etiket.
 
-import { syrupModelKc, syrupModelLine } from "./landingPages";
+import { syrupModelKc, syrupModelLine } from "./portionPrices";
 export const HOME_WHY = [
   // 16. 11. 2026 (Lucie): trvanlivost po otevření jako první
   { icon: "clock", title: "Vydrží i po otevření", text: "Polévky a čaje 14 dní v lednici – natáčíte postupně." },

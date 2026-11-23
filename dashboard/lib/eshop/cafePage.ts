@@ -8,7 +8,7 @@
 // Trvanlivost po otevření podle e-shopu: polévky a čaje 14 dní, sirupy
 // 3 měsíce (ovocné nápoje 5 dní — proto se u nich výdrž neuvádí).
 
-import { syrupModelLine } from "./landingPages";
+import { syrupModelLine } from "./portionPrices";
 export const CAFE_PATH = "/pro-kavarny";
 // Od 20. 11. 2026 (Lucie) plný název a první, zvýrazněná položka menu.
 export const CAFE_MENU_LABEL = "Pro kavárny a bistra";
