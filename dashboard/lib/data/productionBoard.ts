@@ -107,6 +107,7 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       contactEmail: orders.contactEmail,
       recipientName: orders.recipientName,
       recipientAddress: orders.recipientAddress,
+      orgDeliveryAddress: organizations.deliveryAddress,
       recipientPhone: orders.recipientPhone,
       billingStreet: orders.billingStreet,
       billingZip: orders.billingZip,
@@ -175,6 +176,7 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       }));
     const deliveryAddress =
       r.recipientAddress?.trim() ||
+      r.orgDeliveryAddress?.trim() ||
       [r.billingStreet, [r.billingZip, r.billingCity].filter(Boolean).join(" "), r.billingCountry && r.billingCountry !== "CZ" ? r.billingCountry : null]
         .filter(Boolean)
         .join(", ") ||

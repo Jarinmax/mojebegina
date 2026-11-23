@@ -21,6 +21,7 @@ import {
   linkLeadToExistingOrganization,
   convertLeadToNewOrganization,
   assignCustomerOwner,
+  setCustomerDeliveryAddress,
   setCustomerAcquiredBy,
   removeLeadFollowUp,
   retryLeadCalendarSync,
@@ -332,4 +333,17 @@ export async function logNoAnswerAction(leadId: string, _prev: NoAnswerActionSta
   } catch {
     return { error: "Zápis se nepodařil. Zkus to znovu." };
   }
+}
+
+export async function setCustomerDeliveryAddressAction(
+  organizationId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await setCustomerDeliveryAddress(organizationId, String(formData.get("deliveryAddress") ?? ""));
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidateCrm(undefined, organizationId);
+  return { success: "Doručovací adresa uložena." };
 }

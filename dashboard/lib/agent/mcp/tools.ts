@@ -18,6 +18,7 @@ import {
   listLeads,
   searchCrm,
   setLeadNextStep,
+  setCustomerDeliveryAddress,
   updateCustomerCard,
   type LeadCardData,
 } from "@/lib/data/leads";
@@ -334,7 +335,7 @@ const CORE_TOOLS: AgentTool[] = [
     name: "update_customer",
     title: "Úprava karty zákazníka",
     description:
-      "ZÁPIS — upraví kartu zákazníka (organizace): název karty (= jak zákazníkovi říkáme, např. člověk, se kterým obchodujeme), fakturační jméno (jméno majitele IČO na faktuře, když se od názvu karty liší) a/nebo k ní připojí lead (lead se tím převede na tuto kartu — jedna karta pro lead i zákazníka). IČO, DIČ ani sídlo nemění. Když se karta přejmenuje a fakturační jméno ještě není vyplněné, dosavadní název se automaticky zachová jako fakturační jméno, aby se faktury nezměnily. Faktury (B2B i e-shop) pak jdou na fakturační jméno, objednávky a CRM ukazují název karty. Před voláním uživateli řekni, co přesně změníš, a volej až po jeho souhlasu. Jen Jaroslav a Lucie.",
+      "ZÁPIS — upraví kartu zákazníka (organizace): název karty (= jak zákazníkovi říkáme, např. člověk, se kterým obchodujeme), fakturační jméno (jméno majitele IČO na faktuře, když se od názvu karty liší) a/nebo k ní připojí lead (lead se tím převede na tuto kartu — jedna karta pro lead i zákazníka) a/nebo nastaví doručovací adresu (kam se vozí; nové objednávky ji převezmou, na faktuře zůstává sídlo). IČO, DIČ ani sídlo nemění. Když se karta přejmenuje a fakturační jméno ještě není vyplněné, dosavadní název se automaticky zachová jako fakturační jméno, aby se faktury nezměnily. Faktury (B2B i e-shop) pak jdou na fakturační jméno, objednávky a CRM ukazují název karty. Před voláním uživateli řekni, co přesně změníš, a volej až po jeho souhlasu. Jen Jaroslav a Lucie.",
     write: true,
     visible: (ctx) => isInvoiceIssuer(ctx),
     properties: {
@@ -342,6 +343,7 @@ const CORE_TOOLS: AgentTool[] = [
       name: { type: "string", description: "Nový název karty zákazníka (nepovinné), např. „Marek Baroš“." },
       billing_name: { type: "string", description: "Fakturační jméno (nepovinné), např. „Lenka Kermes“; prázdný text = smazat (faktura půjde na název karty)." },
       lead_id: { type: "string", description: "id leadu (UUID), který se ke kartě připojí (nepovinné)." },
+      delivery_address: { type: "string", description: "Doručovací adresa (nepovinné), např. „Na Příkopě 860, 110 00 Praha 1“; prázdný text = smazat." },
     },
     required: ["customer_id"],
     parse: (args) => {
@@ -349,13 +351,21 @@ const CORE_TOOLS: AgentTool[] = [
       if (args.name !== undefined) input.name = requiredString(args, "name", 200);
       if (args.billing_name !== undefined) input.billingName = optionalString(args, "billing_name", 200) ?? null;
       if (args.lead_id !== undefined) input.leadId = requiredUuid(args, "lead_id");
-      if (input.name === undefined && input.billingName === undefined && input.leadId === undefined) {
-        throw new ArgError("Uveď aspoň jedno z name, billing_name nebo lead_id.");
+      const deliveryAddress = args.delivery_address !== undefined ? (optionalString(args, "delivery_address", 300) ?? "") : undefined;
+      if (input.name === undefined && input.billingName === undefined && input.leadId === undefined && deliveryAddress === undefined) {
+        throw new ArgError("Uveď aspoň jedno z name, billing_name, lead_id nebo delivery_address.");
       }
-      return input;
+      return { ...input, deliveryAddress };
     },
-    execute: async ({ customerId, ...input }, issuer) => {
+    execute: async ({ customerId, deliveryAddress, ...input }, issuer) => {
       if (!isInvoiceIssuer(await getAuthContext())) return { ok: false, error: `Kartu zákazníka takhle upravují jen ${INVOICE_ISSUER_NAMES}.` };
+      if (deliveryAddress !== undefined) {
+        const saved = await setCustomerDeliveryAddress(customerId, deliveryAddress);
+        if (!saved.ok) return saved;
+        if (input.name === undefined && input.billingName === undefined && input.leadId === undefined) {
+          return { ok: true, data: { saved: true, changed: ["delivery_address"], deliveryAddress: deliveryAddress || null, url: customerUrl(issuer, customerId) } };
+        }
+      }
       const result = await updateCustomerCard(customerId, input);
       if (!result.ok) return result;
       return {
