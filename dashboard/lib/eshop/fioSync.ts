@@ -30,7 +30,7 @@ import { invoiceAndNotifyPaid, sendInvoiceOnDispatch } from "./invoicing/afterPa
 import { issueInvoiceSafe, type IssueResult } from "./invoicing/issue";
 import { settleOrderPaymentSql } from "./payments";
 import { EshopIdokladClient, eqFilter, issuedInvoiceFilter } from "./invoicing/idokladHttp";
-import { eshopIdokladCredentials } from "./invoicing/mode";
+import { idokladReadClient } from "./invoicing/idokladArchiveClient";
 import { assertBeginaAgenda, summarize, type RawInvoice } from "@/lib/idoklad-read/service";
 import { updateOwnDocument, type OwnDocumentRow } from "./invoicing/ownIssue";
 
@@ -101,7 +101,7 @@ export async function syncFioPayments(db: Db, now: Date, deps: FioSyncDeps): Pro
 
   const incoming = fetched.transactions.filter((t) => t.amountHal > 0 && t.currency === "CZK" && t.vs);
   const result: FioSyncResult = { status: "done", paid: [], mismatched: [], manualPaid: [] };
-  const findInvoice = ownInvoiceFirst(db, deps.findInvoice ?? defaultFindInvoice(env, deps.fetchImpl, now));
+  const findInvoice = ownInvoiceFirst(db, deps.findInvoice ?? defaultFindInvoice(db, env, deps.fetchImpl, now));
 
   for (const tx of incoming) {
     const found = await db.execute(sql`
@@ -346,14 +346,13 @@ async function settleOwnInvoice(
 }
 
 /** Čtení faktury z iDokladu podle čísla (jen GET). Bez přístupových údajů se nepáruje. */
-function defaultFindInvoice(env: Env, fetchImpl: typeof fetch | undefined, now: Date): (number: string) => Promise<MatchInvoice | null> {
+function defaultFindInvoice(db: Db, env: Env, fetchImpl: typeof fetch | undefined, now: Date): (number: string) => Promise<MatchInvoice | null> {
   let client: EshopIdokladClient | null | undefined;
   let agendaChecked = false;
   return async (number) => {
     if (!/^[0-9]{4,10}$/.test(number)) return null;
     if (client === undefined) {
-      const credentials = eshopIdokladCredentials(env);
-      client = credentials ? new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl }) : null;
+      client = idokladReadClient(db, { env, fetchImpl });
     }
     if (!client) return null;
     if (!agendaChecked) {

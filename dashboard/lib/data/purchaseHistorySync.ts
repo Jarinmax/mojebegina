@@ -4,8 +4,9 @@
 import { sql } from "drizzle-orm";
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type * as schema from "@/lib/db/schema";
-import { EshopIdokladClient, issuedInvoiceFilter, sinceDayFilter } from "@/lib/eshop/invoicing/idokladHttp";
-import { eshopIdokladCredentials } from "@/lib/eshop/invoicing/mode";
+import { issuedInvoiceFilter, sinceDayFilter } from "@/lib/eshop/invoicing/idokladHttp";
+import { idokladReadClientLazy } from "@/lib/eshop/invoicing/idokladArchiveClient";
+import type { OwnInvoiceSnapshot } from "@/lib/eshop/invoicing/ownInvoice";
 import { assertBeginaAgenda, type RawInvoice } from "@/lib/idoklad-read/service";
 import { isCurrentProduct, matchPurchaseHistory, type HistoryInvoice, type HistoryLead, type PurchaseHistory, type PurchasedItem } from "./purchaseHistory";
 
@@ -38,10 +39,9 @@ export type HistoryLoad =
   | { status: "not_configured" }
   | { status: "ok"; invoices: HistoryInvoice[]; pages: number; truncated: boolean; total: number };
 
-export async function loadIdokladInvoices(env: Env = process.env, fetchImpl?: typeof fetch): Promise<HistoryLoad> {
-  const credentials = eshopIdokladCredentials(env);
-  if (!credentials) return { status: "not_configured" };
-  const client = new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl, requestBudget: HISTORY_MAX_PAGES + 30 });
+export async function loadIdokladInvoices(env: Env = process.env, fetchImpl?: typeof fetch, database?: Db): Promise<HistoryLoad> {
+  const client = await idokladReadClientLazy({ db: database, env, fetchImpl, requestBudget: HISTORY_MAX_PAGES + 30 });
+  if (!client) return { status: "not_configured" };
   await assertBeginaAgenda(client);
   // adresář: e-mail a telefon odběratele (starší faktury je na sobě nemají)
   const contacts = new Map<number, ContactInfo>();
@@ -66,6 +66,25 @@ export async function loadIdokladInvoices(env: Env = process.env, fetchImpl?: ty
     page += 1;
   } while (page <= totalPages && page <= HISTORY_MAX_PAGES);
   return { status: "ok", invoices, pages: page - 1, truncated: totalPages > HISTORY_MAX_PAGES, total };
+}
+
+/** Faktury vystavené v MojeBegina (od 20260215) — do historie nákupů stejně jako starší z iDokladu. */
+export async function withOwnInvoices(db: Db, load: Extract<HistoryLoad, { status: "ok" }>): Promise<Extract<HistoryLoad, { status: "ok" }>> {
+  const rows = (await db.execute(sql`SELECT number, issue_date::text AS day, snapshot FROM own_invoice_documents WHERE state = 'issued' AND kind = 'invoice'`)).rows as { number: string; day: string; snapshot: OwnInvoiceSnapshot }[];
+  const known = new Set(load.invoices.map((i) => i.number));
+  const own: HistoryInvoice[] = rows
+    .filter((r) => !known.has(r.number))
+    .map((r) => ({
+      number: r.number,
+      day: r.day,
+      totalKc: r.snapshot.totalKc,
+      email: r.snapshot.customer.email,
+      phone: null,
+      name: r.snapshot.customer.name,
+      ico: r.snapshot.customer.ico,
+      items: r.snapshot.lines.filter((l) => l.totalKc > 0).map((l) => ({ name: l.name, quantity: l.quantity })),
+    }));
+  return { ...load, invoices: [...load.invoices, ...own], total: load.total + own.length };
 }
 
 export async function loadHistoryLeads(db: Db): Promise<HistoryLead[]> {
@@ -139,7 +158,8 @@ export type SyncResult = { status: "not_configured" } | { status: "ok"; invoices
  * projde ven a tabulka zůstane, jak byla.
  */
 export async function syncPurchaseHistory(db: Db, options: { env?: Env; fetchImpl?: typeof fetch; load?: HistoryLoad } = {}): Promise<SyncResult> {
-  const load = options.load ?? (await loadIdokladInvoices(options.env, options.fetchImpl));
+  const base = options.load ?? (await loadIdokladInvoices(options.env, options.fetchImpl, db));
+  const load = base.status === "ok" ? await withOwnInvoices(db, base) : base;
   if (load.status !== "ok") return { status: "not_configured" };
   if (load.truncated) throw new Error("Faktur je víc, než se načte — historie se neuložila.");
   const leads = await loadHistoryLeads(db);

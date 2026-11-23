@@ -8,6 +8,7 @@ vi.mock("next/cache", () => ({
 import { createFakeIdoklad } from "@/lib/eshop/__tests__/helpers/fakeIdoklad";
 
 const ENV = {
+  INVOICING_PROVIDER: "idoklad",
   IDOKLAD_ESHOP_CLIENT_ID: "client",
   IDOKLAD_ESHOP_CLIENT_SECRET: "secret",
   IDOKLAD_ESHOP_APPLICATION_ID: "application",
@@ -72,7 +73,7 @@ describe("historie nákupů z iDokladu", () => {
   it("bez přístupových údajů nevolá iDoklad", async () => {
     const fake = createFakeIdoklad();
     await expect(
-      loadIdokladPurchaseHistory("76043894", { env: {}, fetchImpl: fake.fetchImpl })
+      loadIdokladPurchaseHistory("76043894", { env: { INVOICING_PROVIDER: "idoklad" }, fetchImpl: fake.fetchImpl })
     ).resolves.toEqual([]);
     expect(fake.calls).toEqual([]);
   });

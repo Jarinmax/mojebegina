@@ -1,9 +1,12 @@
-// Doklady — „Stáhnout vše (ZIP)“ za měsíc: příjmy (PDF z iDokladu) a/nebo
+// Doklady — „Stáhnout vše (ZIP)“ za měsíc: příjmy (PDF z archivu iDokladu + faktury MojeBegina) a/nebo
 // náklady (nahrané doklady). Jen Jaroslav a Lucie.
 import { NextResponse, type NextRequest } from "next/server";
 import { zipSync } from "fflate";
 import { DocumentAccessError, isValidMonth, readMonthDocumentFiles, requireDocumentAccess } from "@/lib/doklady/documents";
 import { runIdokladRead } from "@/lib/idoklad-read/tools";
+import { sql } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { ownDocumentPdf } from "@/lib/eshop/invoicing/ownIssue";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -43,6 +46,16 @@ export async function GET(request: NextRequest) {
     if (!read.ok) return new NextResponse(`Faktury z iDokladu se nepodařilo načíst: ${read.error}`, { status: 502 });
     for (const f of (read.data.files as { filename: string; contentBase64: string }[]) ?? []) {
       files[`prijmy/${uniqueName(f.filename, used)}`] = new Uint8Array(Buffer.from(f.contentBase64, "base64"));
+    }
+    // faktury vystavené v MojeBegina (od 20260215), stornované zvlášť
+    const own = (await db.execute(sql`
+      SELECT id, number, state FROM own_invoice_documents
+      WHERE issue_date BETWEEN ${`${month}-01`}::date AND ${lastDay(month)}::date ORDER BY number`)).rows as { id: string; number: string; state: string }[];
+    for (const doc of own) {
+      const pdf = await ownDocumentPdf(db, doc.id);
+      if (!pdf) continue;
+      const folder = doc.state === "cancelled" ? "prijmy/stornovane" : "prijmy";
+      files[`${folder}/${uniqueName(pdf.filename, used)}`] = new Uint8Array(Buffer.from(pdf.contentBase64, "base64"));
     }
   }
   if (typ !== "prijmy") {

@@ -1,3 +1,4 @@
+import { defaultDb, idokladArchiveMode, idokladReadClient, markArchiveInvoicePaid } from "./idokladArchiveClient";
 import "server-only";
 
 import { IDOKLAD_ENUMS } from "./idoklad";
@@ -38,6 +39,8 @@ export type CustomerPayableInvoice = {
 export type CustomerInvoicePaymentOptions = {
   env?: Env;
   fetchImpl?: typeof fetch;
+  /** databáze s archivem iDokladu (testy); jinak výchozí */
+  db?: Parameters<typeof markArchiveInvoicePaid>[0];
 };
 
 function finiteNumber(value: unknown): number | null {
@@ -107,8 +110,10 @@ function parseInvoice(invoice: IdokladInvoice): CustomerPayableInvoice | null {
   };
 }
 
-function client(options: CustomerInvoicePaymentOptions, writesAllowed: boolean): EshopIdokladClient | null {
+async function client(options: CustomerInvoicePaymentOptions, writesAllowed: boolean): Promise<EshopIdokladClient | null> {
   const env = options.env ?? process.env;
+  // od 23. 11. 2026 jsou staré faktury v archivu MojeBegina (iDoklad končí 4. 12.)
+  if (idokladArchiveMode(env)) return idokladReadClient(options.db ?? (await defaultDb()), { env });
   const credentials = eshopIdokladCredentials(env);
   return credentials
     ? new EshopIdokladClient({ ...credentials, writesAllowed, env, fetchImpl: options.fetchImpl, requestBudget: 20 })
@@ -122,7 +127,7 @@ export async function loadCustomerInvoiceByIco(
   options: CustomerInvoicePaymentOptions = {}
 ): Promise<CustomerPayableInvoice | null> {
   if (!Number.isInteger(invoiceId) || invoiceId <= 0) return null;
-  const api = client(options, false);
+  const api = await client(options, false);
   if (!api) return null;
   const normalizedIco = ico.replace(/\s/g, "");
   const contacts = await api.list<IdokladContact>("/Contacts", eqFilter("IdentificationNumber", ico), 100);
@@ -144,9 +149,18 @@ export async function settleCustomerInvoice(
   options: CustomerInvoicePaymentOptions = {}
 ): Promise<SettleCustomerInvoiceResult> {
   const env = options.env ?? process.env;
+  if (idokladArchiveMode(env)) {
+    const db = options.db ?? (await defaultDb());
+    const api = await client(options, false);
+    const invoice = api ? parseInvoice(await api.get<IdokladInvoice>(`/IssuedInvoices/${input.invoiceId}`)) : null;
+    if (!invoice || invoice.partnerId !== input.partnerId) return "invoice-mismatch";
+    if (invoice.paid) return "already-paid";
+    if (Math.round(invoice.amountDueKc * 100) !== input.amountHal) return "amount-mismatch";
+    return (await markArchiveInvoicePaid(db, invoice.id, new Date().toISOString().slice(0, 10))) ? "paid" : "already-paid";
+  }
   const gate = liveInvoicingGate(env);
   if (!gate.open) throw new Error(`Platbu nelze zapsat do iDokladu: ${gate.reason}`);
-  const api = client(options, true);
+  const api = await client(options, true);
   if (!api) throw new Error("Chybí přístupové údaje k iDokladu.");
   const invoice = parseInvoice(await api.get<IdokladInvoice>(`/IssuedInvoices/${input.invoiceId}`));
   if (!invoice || invoice.partnerId !== input.partnerId) return "invoice-mismatch";

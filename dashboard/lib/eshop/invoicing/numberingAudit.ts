@@ -18,9 +18,10 @@
 // Časy: Metadata.DateCreated vrací iDoklad v UTC — porovnává se s datem
 // vystavení v PRAŽSKÉM čase (lib/idoklad-read/time.ts); 1753-01-01 =
 // prázdné datum iDokladu (např. úhrada neuhrazené faktury) → null.
+import { idokladReadClientLazy } from "./idokladArchiveClient";
 import { idokladDay, idokladUtc, pragueDateTime } from "@/lib/idoklad-read/time";
 import { EshopIdokladClient, IdokladApiError, IdokladBlockedError, eqFilter, issuedInvoiceFilter, type IdokladLogEntry } from "./idokladHttp";
-import { BEGINA_ICO, eshopIdokladCredentials, missingIdokladCredentials } from "./mode";
+import { BEGINA_ICO, missingIdokladCredentials } from "./mode";
 import { ISSUED_INVOICE_DOCUMENT_TYPE } from "./numberSeries";
 
 /** Nejvýš tolik stran (po 100) dokladů jedné řady audit projde. */
@@ -321,10 +322,9 @@ export async function runNumberingAuditFromEnv(
   options: { fetchImpl?: typeof fetch; now?: Date } = {}
 ): Promise<{ ok: true; result: NumberingAuditResult } | { ok: false; error: string }> {
   if (!/^20\d{2}$/.test(input.year)) return { ok: false, error: "Zadejte rok (např. 2026)." };
-  const credentials = eshopIdokladCredentials(env);
-  if (!credentials) {
+  const client = await idokladReadClientLazy({ env, fetchImpl: options.fetchImpl });
+  if (!client) {
     return { ok: false, error: `Chybí přístupové údaje k iDokladu (${missingIdokladCredentials(env).join(", ")}) — audit nic nevolal.` };
   }
-  const client = new EshopIdokladClient({ ...credentials, writesAllowed: false, env, fetchImpl: options.fetchImpl });
   return { ok: true, result: await runNumberingAudit(client, { ...input, now: options.now }) };
 }

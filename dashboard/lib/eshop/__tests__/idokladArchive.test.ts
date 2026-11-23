@@ -16,6 +16,7 @@ function invoice(id: number, number: string, day: string, changed = "2026-10-01T
     DateOfMaturity: `${day}T00:00:00`,
     DateOfPayment: `${day}T00:00:00`,
     PaymentStatus: 1,
+    PartnerId: 1000 + (id % 5),
     PartnerAddress: { NickName: `Odběratel ${id}`, IdentificationNumber: id % 2 ? "12345679" : null, Email: "a@b.cz" },
     Prices: { TotalWithVat: 100 + id, TotalPaid: 100 + id },
     Items: [{ Name: "Dýňová polévka", Amount: 1 }],
@@ -74,5 +75,33 @@ describe("archiv iDokladu (PGlite)", { timeout: 60_000 }, () => {
     expect(again).toMatchObject({ total: 150, pdfFetched: 1, pdfMissing: 0 });
     expect(pdfCalls).toEqual(["7"]);
     expect(await idokladArchiveStatus(db)).toMatchObject({ total: 150, withPdf: 150, invoices: 150, creditNotes: 0 });
+  });
+
+  it("čtení z archivu: stejné služby jako nad iDokladem (hledání, detail, PDF, kontakty podle IČO, úhrada kartou)", async () => {
+    const { IdokladArchiveClient, markArchiveInvoicePaid, parseFilter } = await import("../invoicing/idokladArchiveClient");
+    const { searchInvoices, getInvoicePdf, getInvoice } = await import("@/lib/idoklad-read/service");
+    const { eqFilter, issuedInvoiceFilter, andFilter, sinceDayFilter } = await import("../invoicing/idokladHttp");
+    expect(parseFilter(andFilter("DocumentNumber~eq~20260007", "DateOfIssue~gte~2026-01-01"))).toEqual([
+      { field: "DocumentNumber", op: "eq", value: "20260007" },
+      { field: "DateOfIssue", op: "gte", value: "2026-01-01" },
+    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = new IdokladArchiveClient(db) as any;
+    const byNumber = await client.list("/IssuedInvoices", issuedInvoiceFilter(eqFilter("DocumentNumber", "20260007")), 10);
+    expect(byNumber.Items.map((i: { Id: number }) => i.Id)).toEqual([7]);
+    const since = await client.list("/IssuedInvoices", issuedInvoiceFilter(sinceDayFilter("DateOfIssue", "2026-09-01")), 100);
+    expect(since.TotalItems).toBe(16); // měsíc 9 = každá devátá faktura
+    const contacts = await client.list("/Contacts", eqFilter("IdentificationNumber", "12345679"), 20);
+    expect(contacts.Items.length).toBeGreaterThan(0);
+    const found = await searchInvoices(client, { dateFrom: "2026-07-01", dateTo: "2026-07-31", limit: 100 }, new Date("2026-11-23T12:00:00Z"));
+    expect(found.invoices.length).toBe(16);
+    expect(await getInvoice(client, { number: "20260007" })).toMatchObject({ number: "20260007", items: [{ name: "Dýňová polévka" }] });
+    const pdf = await getInvoicePdf(client, { number: "20260007" });
+    expect(pdf).toMatchObject({ filename: "faktura-20260007.pdf", partnerEmail: "a@b.cz" });
+    await expect(client.get("/NumericSequences/DocumentNumbers/IssuedInvoice")).rejects.toThrow(/není k dispozici/);
+    await db.execute(sql`UPDATE idoklad_archive SET payment = 'unpaid' WHERE idoklad_id = 3`);
+    expect(await markArchiveInvoicePaid(db, 3, "2026-11-23")).toBe(true);
+    const [row] = (await db.execute(sql`SELECT payment, paid_date::text AS paid_date, raw->>'PaymentStatus' AS ps FROM idoklad_archive WHERE idoklad_id = 3`)).rows;
+    expect(row).toEqual({ payment: "paid", paid_date: "2026-11-23", ps: "1" });
   });
 });

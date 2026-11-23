@@ -144,7 +144,7 @@ describe("audit číslování vydaných faktur (jen čtení)", () => {
 
   it("bez přístupových údajů nebo s neplatným rokem nic nevolá", async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
-    expect(await runNumberingAuditFromEnv({ year: "2026", numbers: [] }, { VERCEL_ENV: "production" }, { fetchImpl })).toMatchObject({
+    expect(await runNumberingAuditFromEnv({ year: "2026", numbers: [] }, { VERCEL_ENV: "production", INVOICING_PROVIDER: "idoklad" }, { fetchImpl })).toMatchObject({
       ok: false,
       error: expect.stringMatching(/Chybí přístupové údaje/),
     });
