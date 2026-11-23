@@ -164,6 +164,28 @@ export function validateCompanyNameInput(
   return { ok: true, value: value === "" ? null : value };
 }
 
+// Jarin 22. 11. 2026: firma u leadu (název, IČO, sídlo) — obchodník ji
+// doplní v detailu leadu (s předvyplněním z ARES), převod na zákazníka ji
+// pak převezme. Prázdné pole = smazat (null).
+export type LeadCompanyDetailsInput = { companyName: string; ico: string; address: string };
+export type LeadCompanyDetails = { companyName: string | null; ico: string | null; address: string | null };
+
+export function validateLeadCompanyDetailsInput(
+  raw: LeadCompanyDetailsInput
+): { ok: true; value: LeadCompanyDetails } | { ok: false; error: string } {
+  const name = validateCompanyNameInput(raw.companyName);
+  if (!name.ok) return name;
+  const ico = raw.ico.replace(/\s/g, "");
+  if (ico !== "" && !/^\d{8}$/.test(ico)) {
+    return { ok: false, error: "IČO musí mít přesně 8 číslic (nebo nechte prázdné)." };
+  }
+  const address = raw.address.trim();
+  if (address.length > 300) {
+    return { ok: false, error: "Adresa je příliš dlouhá (max. 300 znaků)." };
+  }
+  return { ok: true, value: { companyName: name.value, ico: ico || null, address: address || null } };
+}
+
 export function validateStageInput(
   rawStage: string
 ): { ok: true; value: LeadStage } | { ok: false; error: string } {
@@ -182,6 +204,9 @@ export type CallLogInput = {
   nextStepNote: string;
   /** „Dovolal/a jsem se“ — u kontaktu bez vlastníka ho přiřadí volajícímu (leadClaim.ts). */
   reached?: boolean;
+  /** „Odkud nás zná“ (heardFrom.ts) — povinnost řeší logCallOutcome podle stavu leadu. */
+  heardFrom?: string;
+  heardFromDetail?: string;
 };
 
 export type ValidatedCallLogInput = {
@@ -234,7 +259,7 @@ export function validateCallLogInput(
   // logCallOutcome — prázdné pole se nikdy nepřepisuje na NULL), ale jde o
   // zbytečný zápis "call_logged" bez jakéhokoliv obsahu. Odmítnout dřív, než
   // se cokoliv uloží.
-  if (!note && !nextStage && !nextFollowUpAt && !nextStepNote) {
+  if (!note && !nextStage && !nextFollowUpAt && !nextStepNote && !input.reached && !(input.heardFrom ?? "").trim()) {
     return { ok: false, error: "Zápis je prázdný — vyplňte alespoň jedno pole (poznámku, fázi, další kontakt nebo další krok)." };
   }
 

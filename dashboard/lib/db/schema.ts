@@ -81,6 +81,9 @@ export const organizations = pgTable("organizations", {
   // Baroš“) fakturuje na jiné jméno/IČO (např. „Lenka Kermes“). NULL = faktura
   // na name. Na fakturu jde COALESCE(billing_name, name) — viz organizationBillingName.
   billingName: text("billing_name"),
+  // Doručovací adresa (migrace 0063, Lucie 23. 11. 2026): kam se vozí, když se
+  // liší od sídla (sídlo zůstává na faktuře). Nové objednávky ji převezmou.
+  deliveryAddress: text("delivery_address"),
 }, (table) => [
   check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
 ]);
@@ -799,6 +802,11 @@ export const leads = pgTable("leads", {
   // (prázdný) jen kvůli bezpečnému nasazení bez mazání dat.
   scheduledCallAt: timestamp("scheduled_call_at", { withTimezone: true }),
   nextStepNote: text("next_step_note"),
+  // „Odkud nás zná“ (Lucie 20. 11. 2026) — povinné po hovoru, ve kterém se
+  // obchodník dovolal. Hodnoty viz lib/data/heardFrom.ts (HEARD_FROM_OPTIONS);
+  // detail = upřesnění (od koho, která kavárna, u „jine“ povinně).
+  heardFrom: text("heard_from"),
+  heardFromDetail: text("heard_from_detail"),
   convertedOrganizationId: uuid("converted_organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -964,6 +972,9 @@ export const productVariants = pgTable(
     // NULL = neznámá → chlazenou přepravu nejde spočítat a pokladna ji nenabídne.
     weightG: integer("weight_g"),
     isActive: boolean("is_active").notNull().default(true),
+    // Vyprodáno (Lucie 22. 11. 2026): balení zůstává vidět s červeným
+    // „Vyprodáno“, ale nejde koupit. Na rozdíl od is_active=false nezmizí.
+    soldOut: boolean("sold_out").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1155,6 +1166,9 @@ export const leadCalendarSync = pgTable("lead_calendar_sync", {
     .primaryKey()
     .references(() => leads.id),
   googleEventId: text("google_event_id"),
+  // Čí kalendář událost drží (20. 11. 2026: každý obchodník má vlastní
+  // propojení) — při změně vlastníka leadu se stará událost smaže.
+  syncedUserId: text("synced_user_id"),
   syncedNextFollowUpAt: timestamp("synced_next_follow_up_at", { withTimezone: true }),
   syncStatus: text("sync_status").notNull().default("pending"), // "pending" | "synced" | "failed"
   lastError: text("last_error"),
@@ -2510,3 +2524,107 @@ export const productionBatchAllocations = pgTable(
     check("production_batch_allocations_quantity_check", sql`${table.quantity} > 0`),
   ]
 );
+
+// Nastavení e-shopu měnitelné z MojeBegina (22. 11. 2026): palivový příplatek
+// CoolBalík (key „fuel_surcharge_percent“), mění se každý měsíc.
+export const eshopSettings = pgTable("eshop_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+
+// Vlastní fakturace (Lucie 23. 11. 2026) — MojeBegina vystavuje faktury sama,
+// JEDNA řada RRRRNNNN (navazuje na 2026xxxx z iDokladu). Počítadlo na rok:
+// rok 2026 musí být založen ručně (produkční SQL = potvrzení posledního čísla
+// z iDokladu), další roky vznikají samy od 1.
+export const invoiceNumberCounters = pgTable("invoice_number_counters", {
+  year: integer("year").primaryKey(),
+  lastSerial: integer("last_serial").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("invoice_number_counters_year", sql`${table.year} BETWEEN 2026 AND 2099`),
+  check("invoice_number_counters_serial", sql`${table.lastSerial} BETWEEN 0 AND 9999`),
+]);
+
+// Vystavený vlastní doklad: číslo + snímek obsahu (snapshot) + PDF.
+// Neplátce DPH (Lucie 23. 11. 2026): fakturu lze upravit (předchozí verze se
+// automaticky uloží do own_invoice_versions), stornovat (číslo zůstane,
+// state = cancelled), a smazat jen poslední neodeslanou (číslo se uvolní).
+// invoice_id = vazba na e-shopovou fakturu k objednávce; ruční (B2B) doklad ji nemá.
+export const ownInvoiceDocuments = pgTable("own_invoice_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  number: text("number").notNull().unique(),
+  kind: text("kind").notNull(), // "invoice" | "credit_note"
+  invoiceId: uuid("invoice_id").references(() => invoices.id).unique(),
+  orderId: uuid("order_id").references(() => orders.id),
+  correctsDocumentId: uuid("corrects_document_id").references((): AnyPgColumn => ownInvoiceDocuments.id),
+  issueDate: date("issue_date").notNull(),
+  totalKc: integer("total_kc").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerIco: text("customer_ico"),
+  snapshot: jsonb("snapshot").notNull(),
+  pdf: text("pdf_base64"),
+  pdfSha256: text("pdf_sha256"),
+  issuedByName: text("issued_by_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  state: text("state").notNull().default("issued"), // "issued" | "cancelled"
+  version: integer("version").notNull().default(1),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  paidAt: date("paid_on"),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  cancelReason: text("cancel_reason"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedByName: text("updated_by_name"),
+}, (table) => [
+  check("own_invoice_documents_state", sql`${table.state} IN ('issued', 'cancelled')`),
+  check("own_invoice_documents_kind", sql`${table.kind} IN ('invoice', 'credit_note')`),
+  check("own_invoice_documents_number", sql`${table.number} ~ '^20[0-9]{6}$'`),
+  check("own_invoice_documents_credit", sql`(${table.kind} = 'credit_note') = (${table.correctsDocumentId} IS NOT NULL)`),
+  index("own_invoice_documents_order_idx").on(table.orderId),
+  index("own_invoice_documents_issue_idx").on(table.issueDate),
+]);
+
+// Předchozí verze upravené vlastní faktury (ukládá trigger při každé změně obsahu).
+export const ownInvoiceVersions = pgTable("own_invoice_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").notNull().references(() => ownInvoiceDocuments.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  snapshot: jsonb("snapshot").notNull(),
+  totalKc: integer("total_kc").notNull(),
+  pdf: text("pdf_base64"),
+  changedByName: text("changed_by_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [unique("own_invoice_versions_doc_version").on(table.documentId, table.version)]);
+
+// Archiv vydaných dokladů z iDokladu (Lucie 23. 11. 2026): iDoklad končí
+// 4. 12. 2026 (tarif Zdarma nemá API), proto se všechny faktury a dobropisy
+// i s PDF jednou zkopírují sem. Jen čtení — nic se tu neupravuje.
+export const idokladArchive = pgTable("idoklad_archive", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docKind: text("doc_kind").notNull(), // "invoice" | "credit_note"
+  idokladId: integer("idoklad_id").notNull(),
+  number: text("number").notNull(),
+  issueDate: date("issue_date"),
+  dueDate: date("due_date"),
+  paidDate: date("paid_date"),
+  payment: text("payment").notNull(), // paid | unpaid | partially_paid | overpaid | unknown
+  totalKc: numeric("total_kc", { precision: 12, scale: 2 }),
+  paidKc: numeric("paid_kc", { precision: 12, scale: 2 }),
+  variableSymbol: text("variable_symbol"),
+  partnerName: text("partner_name"),
+  partnerIco: text("partner_ico"),
+  partnerEmail: text("partner_email"),
+  raw: jsonb("raw").notNull(),
+  pdfBase64: text("pdf_base64"),
+  pdfFilename: text("pdf_filename"),
+  pdfFetchedAt: timestamp("pdf_fetched_at", { withTimezone: true }),
+  importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("idoklad_archive_kind_id").on(table.docKind, table.idokladId),
+  index("idoklad_archive_number_idx").on(table.number),
+  index("idoklad_archive_issue_idx").on(table.issueDate),
+  index("idoklad_archive_ico_idx").on(table.partnerIco),
+  check("idoklad_archive_kind", sql`${table.docKind} IN ('invoice', 'credit_note')`),
+]);

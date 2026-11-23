@@ -8,7 +8,7 @@ import RewardAssignmentPanel from "./RewardAssignmentPanel";
 import { getLeadRewardAssignment } from "@/lib/data/jardaRewards";
 import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
 import LeadOwnerForm from "./LeadOwnerForm";
-import CompanyNameForm from "./CompanyNameForm";
+import CompanyDetailsForm from "./CompanyDetailsForm";
 import LeadActivityTimeline from "./LeadActivityTimeline";
 import type { LeadSource, VenueType } from "@/lib/data/leadValidation";
 import { leadBackLink } from "@/lib/data/callHistoryValidation";
@@ -17,6 +17,8 @@ import { getLeadPurchaseHistory } from "@/lib/data/purchaseHistorySync";
 import PurchaseHistoryCard from "./PurchaseHistoryCard";
 import { getAuthContext } from "@/lib/data/authContext";
 import { canReadSalesManual } from "@/lib/data/salesManualAuth";
+import { suggestHeardFrom } from "@/lib/data/heardFrom";
+import { getGoogleCalendarConnectionStatus } from "@/lib/data/googleCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,24 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
   const { lead, activity } = detail;
   const [staff, sourceOrders, reward, purchases] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getLeadPurchaseHistory(db, lead.id)]);
 
-  const showManual = canReadSalesManual(await getAuthContext());
+  // Komu se termín dalšího kontaktu zapíše do Google kalendáře (vlastník
+  // leadu; u leadu bez vlastníka ten, kdo se dovolá = přihlášený).
+  const ctx = await getAuthContext();
+  const calendarUserId = lead.ownerUserId ?? ctx?.userId ?? null;
+  let calendar: { ownerName: string | null; connected: boolean; isMe: boolean } | null = null;
+  if (calendarUserId) {
+    try {
+      const status = await getGoogleCalendarConnectionStatus(calendarUserId);
+      calendar = {
+        ownerName: lead.ownerName,
+        connected: status.connected,
+        isMe: calendarUserId === ctx?.userId,
+      };
+    } catch {
+      calendar = null;
+    }
+  }
+  const showManual = canReadSalesManual(ctx);
 
   const venueTypeLabel = lead.venueType
     ? (VENUE_TYPE_LABELS[lead.venueType as VenueType] ?? lead.venueType)
@@ -112,6 +131,12 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
             nextStepNote={lead.nextStepNote}
             calendarSync={lead.calendarSync}
             unowned={lead.ownerUserId === null}
+            heardFrom={lead.heardFrom}
+            heardFromDetail={lead.heardFromDetail}
+            suggestedHeardFrom={suggestHeardFrom(lead.source)}
+            calendar={calendar}
+            contactPhone={lead.contactPhone}
+            salesName={ctx?.name ?? null}
           />
         </div>
       )}
@@ -125,12 +150,23 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
         <p className={`text-xs mb-2 ${lead.companyName ? "text-neutral-500" : "text-amber-800"}`}>
           {lead.companyName
             ? "Firma / provozovna"
-            : "Firma/provozovna zatím neznámá — doplň, jakmile ji při hovoru zjistíš."}
+            : "Firma/provozovna zatím neznámá — doplň ji (stačí IČO nebo název, zbytek se doplní z ARES)."}
         </p>
-        <CompanyNameForm leadId={lead.id} companyName={lead.companyName} />
+        <CompanyDetailsForm leadId={lead.id} companyName={lead.companyName} ico={lead.ico} address={lead.address} />
       </div>
 
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+      {/* 22. 11. 2026: přiřazení obchodníka je zabalené, ať pod zápisem
+          po hovoru nesvítí další tlačítka k uložení. */}
+      <details className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm">
+          <span>
+            <span className="text-neutral-500">Obchodník: </span>
+            <span className="font-medium text-begina-primary-900">{lead.ownerName ?? "nikdo"}</span>
+          </span>
+          <span className="font-medium text-begina-primary-900 underline underline-offset-2 group-open:hidden">Upravit</span>
+          <span className="hidden text-neutral-500 group-open:inline">Zavřít</span>
+        </summary>
+        <div className="mt-3">
         <LeadOwnerForm
           leadId={lead.id}
           ownerUserId={lead.ownerUserId}
@@ -139,7 +175,8 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           acquiredByName={lead.acquiredByName}
           staff={staff}
         />
-      </div>
+        </div>
+      </details>
 
       {reward.visible && (
         <RewardAssignmentPanel
@@ -180,41 +217,29 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
         </div>
       ) : (
         lead.stage !== "not_interested" && (
-          <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-            <p className="text-sm text-begina-primary-900 mb-1">Připraven stát se zákazníkem?</p>
-            <p className="text-xs text-neutral-500 mb-3">
-              Napojí leada na existující organizaci, nebo založí novou — bez duplicity zákazníků ani objednávek.
-            </p>
-            <Link
-              href={`/rizeni-firmy/obchod/leady/${lead.id}/prevest`}
-              className="inline-block text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2"
-            >
-              Převést na zákazníka →
-            </Link>
-          </div>
+          <Link
+            href={`/rizeni-firmy/obchod/leady/${lead.id}/prevest`}
+            className="mb-4 flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900"
+          >
+            <span>Objednal/a? Převést na zákazníka</span>
+            <span aria-hidden>→</span>
+          </Link>
         )
       )}
 
       <PurchaseHistoryCard history={purchases.history} lastSync={purchases.lastSync} />
 
-      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-3">
+      <details className="bg-white border border-neutral-200 rounded-xl px-4 py-3 mb-4">
+        <summary className="cursor-pointer text-sm text-neutral-600">Další údaje (zdroj)</summary>
+        <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-neutral-500 mb-0.5">Zdroj</p>
             <p className="text-sm text-begina-primary-900">{SOURCE_LABELS[lead.source as LeadSource] ?? lead.source}</p>
           </div>
-          <div>
-            <p className="text-xs text-neutral-500 mb-0.5">IČO (pomocné)</p>
-            <p className="text-sm text-begina-primary-900">{lead.ico ?? "Neuvedeno"}</p>
-          </div>
         </div>
-        {lead.address && (
-          <div>
-            <p className="text-xs text-neutral-500 mb-0.5">Adresa</p>
-            <p className="text-sm text-begina-primary-900">{lead.address}</p>
-          </div>
-        )}
-      </div>
+        </div>
+      </details>
 
       {/* D. Aktivita — beze změny, dole. */}
       <div className="mb-4">

@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import ShopLink from "@/components/eshop/ShopLink";
+import PortionPriceTable from "@/components/eshop/PortionPriceTable";
 import { faqJsonLd, jsonLd, breadcrumbJsonLd } from "@/lib/eshop/seo";
 import { LANDING_TASTING_LINK, type LandingPage } from "@/lib/eshop/landingPages";
 
@@ -20,10 +21,37 @@ export default function LandingPageView({ page }: { page: LandingPage }) {
             {paragraph}
           </p>
         ))}
-        <ShopLink href={LANDING_TASTING_LINK.href} className="mt-5 inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
-          {LANDING_TASTING_LINK.label}
-        </ShopLink>
+        {page.ctas ? (
+          // dvě tlačítka: vzorky / domluvit dodávky (dokument ChatGPT, 22. 11. 2026)
+          <div className="mt-5 flex flex-wrap gap-3">
+            {page.ctas.map((cta, i) => (
+              <ShopLink
+                key={cta.href}
+                href={cta.href}
+                className={
+                  i === 0
+                    ? "inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base"
+                    : "inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] hover:bg-[#FAF6EF] font-semibold px-6 h-12 text-base"
+                }
+              >
+                {cta.label}
+              </ShopLink>
+            ))}
+          </div>
+        ) : (
+          <ShopLink href={LANDING_TASTING_LINK.href} className="mt-5 inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
+            {LANDING_TASTING_LINK.label}
+          </ShopLink>
+        )}
       </header>
+
+      {page.priceTable && (
+        <section>
+          <h2 className="font-serif text-2xl mb-4">{page.priceTable.title}</h2>
+          <PortionPriceTable rows={page.priceTable.rows} kind={page.priceTable.kind} />
+          <p className="mt-3 text-sm leading-normal text-neutral-600">{page.priceTable.note}</p>
+        </section>
+      )}
 
       <section>
         <h2 className="font-serif text-2xl mb-4">Proč Begina</h2>

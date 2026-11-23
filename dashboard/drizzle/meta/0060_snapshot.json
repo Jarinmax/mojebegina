@@ -1,5 +1,5 @@
 {
-  "id": "16b8f42a-4681-4a31-a1a1-a3b5104e41de",
+  "id": "8940d4f7-16b6-4e96-a83c-1a172cde8cbf",
   "prevId": "b87b999a-baea-4b00-a231-9c06cdb0fb53",
   "version": "7",
   "dialect": "postgresql",
@@ -6556,6 +6556,13 @@
           "notNull": true,
           "default": true
         },
+        "sold_out": {
+          "name": "sold_out",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -9153,244 +9160,6 @@
         "suppliers_ico_format": {
           "name": "suppliers_ico_format",
           "value": "\"suppliers\".\"ico\" IS NULL OR \"suppliers\".\"ico\" ~ '^[0-9]{8}$'"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.trust_entries": {
-      "name": "trust_entries",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "card_id": {
-          "name": "card_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "entry_date": {
-          "name": "entry_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_kc": {
-          "name": "amount_kc",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "cancelled_at": {
-          "name": "cancelled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cancelled_by": {
-          "name": "cancelled_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "trust_entries_card_date_idx": {
-          "name": "trust_entries_card_date_idx",
-          "columns": [
-            {
-              "expression": "card_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "entry_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "trust_entries_card_id_collaborator_cards_id_fk": {
-          "name": "trust_entries_card_id_collaborator_cards_id_fk",
-          "tableFrom": "trust_entries",
-          "tableTo": "collaborator_cards",
-          "columnsFrom": [
-            "card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "trust_entries_kind_check": {
-          "name": "trust_entries_kind_check",
-          "value": "\"trust_entries\".\"kind\" IN ('deposit', 'withdrawal')"
-        },
-        "trust_entries_amount_check": {
-          "name": "trust_entries_amount_check",
-          "value": "\"trust_entries\".\"amount_kc\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.trust_recurring": {
-      "name": "trust_recurring",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "card_id": {
-          "name": "card_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_kc": {
-          "name": "amount_kc",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "day_of_month": {
-          "name": "day_of_month",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "start_month": {
-          "name": "start_month",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "end_month": {
-          "name": "end_month",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "trust_recurring_card_idx": {
-          "name": "trust_recurring_card_idx",
-          "columns": [
-            {
-              "expression": "card_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "trust_recurring_card_id_collaborator_cards_id_fk": {
-          "name": "trust_recurring_card_id_collaborator_cards_id_fk",
-          "tableFrom": "trust_recurring",
-          "tableTo": "collaborator_cards",
-          "columnsFrom": [
-            "card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "trust_recurring_amount_check": {
-          "name": "trust_recurring_amount_check",
-          "value": "\"trust_recurring\".\"amount_kc\" > 0"
-        },
-        "trust_recurring_day_check": {
-          "name": "trust_recurring_day_check",
-          "value": "\"trust_recurring\".\"day_of_month\" BETWEEN 1 AND 28"
-        },
-        "trust_recurring_months_check": {
-          "name": "trust_recurring_months_check",
-          "value": "\"trust_recurring\".\"start_month\" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' AND (\"trust_recurring\".\"end_month\" IS NULL OR (\"trust_recurring\".\"end_month\" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' AND \"trust_recurring\".\"end_month\" >= \"trust_recurring\".\"start_month\"))"
         }
       },
       "isRLSEnabled": false

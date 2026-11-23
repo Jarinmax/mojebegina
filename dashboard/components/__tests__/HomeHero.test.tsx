@@ -17,22 +17,21 @@ import { HOME_CATEGORIES } from "@/lib/eshop/homeNav";
 afterEach(() => cleanup());
 
 describe("úvod e-shopu", () => {
-  it("texty z návrhu", () => {
+  it("texty a odkazy z návrhu (22. 11. 2026)", () => {
     render(<HomeHero />);
-    // nezalomitelné mezery (a&nbsp;bylinné) porovnáváme jako obyčejné
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
-    expect(text(document.body.textContent)).not.toContain("Čerstvě. Jednoduše. S chutí.");
     const h1 = screen.getByRole("heading", { level: 1 });
-    // úvod primárně pro kavárny a bistra, vítaní i zákazníci domů (20. 11. 2026)
     expect(text(h1.textContent)).toBe("Polévky a nápoje pro kavárny a bistra");
-    expect(text(document.body.textContent)).toContain("Z kohoutku natočíte vždy jen objednanou porci. Objednat si můžete i domů.");
-    // tři výhody hned pod nadpisem (16. 11. 2026)
-    const points = screen.getAllByRole("listitem").map((item) => text(item.textContent));
-    expect(points).toEqual(["Polévky a čaje vydrží 14 dní po otevření", "100% rostlinné polévky a nealko nápoje", "Chlazeně až domů"]);
-    expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box/i);
+    const body = text(document.body.textContent);
+    expect(body).toContain("Polévku stačí ohřát, sirup naředit.");
+    expect(body).toContain("Posíláme chlazeně po celé ČR.");
+    expect(body).toContain("K první třílitrové begině na IČO přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.");
+    expect(screen.getByRole("link", { name: /Vybrat první balení/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#ochutnavka");
+    expect(screen.getByRole("link", { name: /Domluvit dodávky po telefonu/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#napiste-nam");
+    expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box|dovážíme/i);
   });
 
-  it("rychlý nákup: Vybrat polévku a Objevit sirupy (vráceno 20. 11. 2026)", () => {
+  it.skip("rychlý nákup: Vybrat polévku a Objevit sirupy (odebráno 22. 11. 2026 — dělají to dlaždice kategorií)", () => {
     render(<HomeHero />);
     expect(screen.getByRole("link", { name: /Vybrat polévku/ }).getAttribute("href")).toBe("/eshop/kategorie/polevky");
     expect(screen.getByRole("link", { name: "Objevit sirupy" }).getAttribute("href")).toBe("/eshop/kategorie/sirupy");
@@ -44,8 +43,8 @@ describe("úvod e-shopu", () => {
   it("fotografie úvodu (polévka, čaj, limonáda, begina, 11. 11. 2026) v plném poměru, existuje v public", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
-    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-a-napoje-v13.webp");
-    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1448 / 1010);
+    expect(img.getAttribute("src")).toBe("/eshop/hero/polevka-kavarna-v14.webp");
+    expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1670 / 941);
     expect(img.className).toContain("h-auto");
     // od v13 (19. 11. 2026) je fotka v rámečku se zaoblenými rohy, ale nikdy se neořezává
     expect(img.className).not.toMatch(/object-cover/);

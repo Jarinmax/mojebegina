@@ -12,7 +12,7 @@ import { shippingMethodsFor, type ShippingMode, type ShippingOptions } from "./s
 import { ZASILKOVNA_BOX_KC, ZASILKOVNA_STANDARD_KC } from "./zasilkovna";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { COLD_SHIPPING_SK_BANDS } from "./shippingRates";
-import { slovakiaEnabledFromEnv } from "./shipping";
+import { SLOVAKIA_DELIVERY_ALLOWED, SLOVAKIA_SELF_TRANSPORT, SLOVAKIA_SELF_TRANSPORT_NOTE, slovakiaEnabledFromEnv } from "./shipping";
 import { FAQ_PAGE } from "./faq";
 import { OPERATOR, SLOVAKIA_ORDER_NOTE } from "./operator";
 export { SLOVAKIA_ORDER_NOTE };
@@ -26,6 +26,10 @@ export type InfoPoint = { text: string; lines?: string[]; items?: string[]; afte
 
 export type InfoBlock = {
   heading?: string;
+  /** kotva pro odkaz #id */
+  anchor?: string;
+  /** záložka stránky (InfoPage.tabs), do které blok patří */
+  tab?: string;
   /** podnadpis uvnitř článku (např. „1. Vyřízení objednávky…“) */
   subheading?: string;
   paragraphs?: string[];
@@ -36,6 +40,8 @@ export type InfoBlock = {
   lines?: string[];
   /** dvousloupcová tabulka (např. partnerské úrovně): [vlevo, vpravo tučně] */
   rows?: [string, string][];
+  /** Ceník: záhlaví sloupců, cena zarovnaná vpravo (Doprava, Lucie 22. 11. 2026). */
+  rowsHeader?: [string, string];
   items?: string[];
   /** "check" = odrážky ✔ (jako na begina.cz), jinak tečky */
   itemStyle?: "check";
@@ -62,6 +68,8 @@ export type InfoPage = {
   secondaryDownload?: { path: string; label: string };
   /** true = bez řádku „Provozovatel: …“ pod obsahem (údaje jsou v patičce) */
   hideOperatorLine?: boolean;
+  /** Záložky pod nadpisem (Doprava: Česká republika / Slovensko, Lucie 22. 11. 2026); bloky s `tab`. */
+  tabs?: { id: string; label: string }[];
 };
 
 export { OPERATOR };
@@ -143,14 +151,13 @@ const packagingPage: InfoPage = {
     {
       heading: "Třílitrové balení",
       paragraphs: [
-        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek. Ostatní balení 3 l vám do krabice zabalíme na přání — v pokladně zvolte „Zabalit do kartonové krabice“ (19 Kč za krabici).",
+        "Polévky a ostatní nápoje dodáváme bez vnější krabice. Třílitrové sirupy dodáváme v kartonové krabici s otvorem pro kohoutek. Ostatní balení 3 l vám do krabice zabalíme na přání — v košíku u polévky zaškrtněte „Zabalit do kartonové krabice“ (19 Kč za krabici).",
       ],
     },
     {
       heading: "Menší balení",
       paragraphs: [
-        "Sirupy nabízíme také v balení 650 ml ve stříbrném sáčku se šroubovacím uzávěrem.",
-        "Alkoholické nápoje nabízíme také v balení 500 ml v průhledném sáčku se šroubovacím uzávěrem.",
+        "Sirupy nabízíme také v menším balení 500 ml ve stříbrném sáčku se šroubovacím uzávěrem. Některé sirupy ještě doprodáváme v balení 650 ml.",
         "Dostupné velikosti najdete vždy u konkrétního produktu.",
       ],
     },
@@ -165,6 +172,12 @@ const packagingPage: InfoPage = {
 
 const kgText = (kg: number) => kg.toLocaleString("cs-CZ");
 
+/** Lhůta doručení podle platných obchodních podmínek (text Lucie / ChatGPT 22. 11. 2026). */
+export const DELIVERY_TIME_NOTE =
+  "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme.";
+/** Kdo vozí chlazené zásilky (Lucie 22. 11. 2026). */
+export const CHILLED_CARRIER_NOTE = "Před doručením chlazené zásilky se Vám ozve přímo dopravce.";
+
 /** Stránka Doprava a platba — ze stejných dat, ze kterých počítá pokladna (shipping.ts, shippingRates.ts). */
 export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {}): InfoPage {
   const methods = shippingMethodsFor(mode, options);
@@ -174,9 +187,16 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
     footerLabel: "Doprava",
     title: "Doprava a platba",
     description: "Způsoby doručení a platby v e-shopu Begina.",
+    // Lucie 22. 11. 2026: Česká republika a Slovensko jako záložky — každý vidí jen svoje.
+    ...(byWeight && slovakiaEnabledFromEnv()
+      ? { tabs: [{ id: "ceska-republika", label: "Česká republika" }, { id: "slovensko", label: "Slovensko" }] }
+      : {}),
     blocks: [
+      // 22. 11. 2026 (Lucie): zvlášť Česká republika a Slovensko, ceníky jako tabulky.
       {
-        heading: "Doručení",
+        heading: "Doručení po České republice",
+        anchor: "ceska-republika",
+        tab: "ceska-republika",
         items: methods.map((method) =>
           method.id === "zasilkovna"
             ? `${method.label} — ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)}. ${method.description}`
@@ -188,45 +208,64 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
       ...(byWeight
         ? [
             {
-              heading: "Ceník chlazené přepravy",
-              paragraphs: ["Cena podle celkové hmotnosti objednávky:"],
-              items: COLD_SHIPPING_RULES.map(
-                (rule) => `${rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`} — ${formatKc(rule.priceKc)}`
+              tab: "ceska-republika",
+              subheading: "Ceník chlazené přepravy po České republice",
+              paragraphs: ["Cena podle celkové hmotnosti objednávky. Ceny jsou konečné, nejsme plátci DPH."],
+              rowsHeader: ["Hmotnost objednávky", "Cena dopravy"] as [string, string],
+              rows: COLD_SHIPPING_RULES.map(
+                (rule) => [rule.label ?? `${kgText(rule.fromKg)}–${kgText(rule.toKg)} kg`, formatKc(rule.priceKc)] as [string, string]
               ),
               afterParagraphs: [
+                // 22. 11. 2026 (Lucie, návrh ChatGPT): lhůta z obchodních podmínek místo „doplníme“ + kdo doručuje
+                CHILLED_CARRIER_NOTE,
+                DELIVERY_TIME_NOTE,
                 `Objednávky nad ${kgText(COLD_SHIPPING_MAX_GRAMS / 1000)} kg a objednávky s položkou bez uvedené hmotnosti nejde chlazenou přepravou objednat automaticky — dopravu domluvíme individuálně: ${OPERATOR.email}, ${OPERATOR.phone}.`,
                 ...(slovakiaEnabledFromEnv() ? [] : [`Doručujeme jen v České republice. ${SLOVAKIA_ORDER_NOTE}`]),
               ],
             },
-            // Slovensko (texty odsouhlasila Lucie 16. 11. 2026) — jen se zapnutým ESHOP_SLOVAKIA.
-            ...(slovakiaEnabledFromEnv()
-              ? [
-                  {
-                    heading: "Doručení na Slovensko",
-                    paragraphs: [
-                      "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
-                      "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
-                    ],
-                    items: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map((band) => `do ${kgText(band.toKg)} kg — ${formatKc(band.priceKc)}`),
-                    afterParagraphs: [
-                      "Zásilkovna doručuje jen v České republice. Osobní odběr je možný v naší provozovně ve Viticích i pro zákazníky ze Slovenska.",
-                    ],
-                  },
-                ]
-              : []),
           ]
         : []),
+      // Lucie 22. 11. 2026: platba převodem/kartou platí pro ČR — patří k oddílu ČR.
       {
-        heading: "Platba",
+        tab: "ceska-republika",
+        subheading: "Platba",
         items: [
           `Bankovní převod předem — po objednávce vám pošleme platební údaje a QR kód pro QR Platbu. Splatnost je ${TRANSFER_DUE_DAYS} dní, objednávku vyřídíme po připsání platby.`,
           "Kartou online — platební karta, Apple Pay nebo Google Pay, zabezpečeně přes Stripe.",
         ],
       },
+      // Slovensko (texty odsouhlasila Lucie 16. 11. 2026) — jen se zapnutým ESHOP_SLOVAKIA.
+      ...(byWeight && slovakiaEnabledFromEnv()
+        ? [
+          {
+            heading: "Doručení na Slovensko",
+            anchor: "slovensko",
+            tab: "slovensko",
+            paragraphs: [
+              ...(SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED
+                ? [
+                    "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
+                    SLOVAKIA_SELF_TRANSPORT_NOTE,
+                    "Pro představu ceník chlazené přepravy CoolBalík na Slovensko (platíte přímo dopravci):",
+                  ]
+                : [
+                    "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
+                    "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
+                  ]),
+            ],
+            rowsHeader: ["Hmotnost zásilky", "Cena dopravy"] as [string, string],
+            rows: COLD_SHIPPING_SK_BANDS.filter((band, index, all) => index === all.length - 1 || all[index + 1].priceKc !== band.priceKc).map(
+              (band) => [`do ${kgText(band.toKg)} kg`, formatKc(band.priceKc)] as [string, string]
+            ),
+            afterParagraphs: [
+              "Platba za zboží: zákazníci ze Slovenska platí v e-shopu jen kartou online (platební karta, Apple Pay nebo Google Pay). Bankovní převod pro Slovensko nenabízíme.",
+              "Zásilkovna doručuje jen v České republice. Osobní odběr je možný v naší provozovně ve Viticích i pro zákazníky ze Slovenska.",
+            ],
+          },
+          ]
+        : []),
     ],
-    pendingNote: byWeight
-      ? "Rozvozové dny a lhůty doručení doplníme."
-      : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
+    pendingNote: byWeight ? undefined : "Ceník chlazené přepravy podle objemu objednávky, rozvozové dny a oblasti doplníme.",
   };
 }
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { setItemProduced } from "@/lib/data/productionBoard";
+import { setDeliveryAddress, setItemProduced } from "@/lib/data/productionBoard";
 
 export type ProducedState = { error?: string } | null;
 
@@ -38,4 +38,15 @@ export async function toggleCellProducedAction(
   revalidatePath(`/rizeni-firmy/objednavky/${orderId}`);
   revalidatePath("/rizeni-firmy/objednavky");
   return null;
+}
+
+export type AddressState = { error?: string; saved?: boolean } | null;
+
+/** Doplnění / oprava doručovací adresy z karty výroby. */
+export async function setDeliveryAddressAction(orderId: string, _prev: AddressState, formData: FormData): Promise<AddressState> {
+  const result = await setDeliveryAddress(orderId, String(formData.get("address") ?? ""));
+  revalidatePath("/rizeni-firmy/vyroba");
+  revalidatePath(`/rizeni-firmy/vyroba/${orderId}`);
+  revalidatePath(`/rizeni-firmy/objednavky/${orderId}`);
+  return result.ok ? { saved: true } : { error: result.error };
 }

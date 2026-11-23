@@ -13,7 +13,7 @@ export async function createBatchAction(_prev: BatchFormState, form: FormData): 
     bestBefore: (form.get(`bb_${v}`) as string | null) || null,
   }));
   const parsed = validateBatchInput(
-    { productId: form.get("productId"), producedOn: form.get("producedOn"), lines, note: form.get("note") },
+    { productId: form.get("productId"), producedOn: form.get("producedOn"), lines, note: form.get("note"), code: form.get("code") },
     todayPrague()
   );
   if (!parsed.ok) return { error: parsed.error };

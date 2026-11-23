@@ -2,7 +2,8 @@ import EshopFileLink from "./EshopFileLink";
 import ShopLink from "./ShopLink";
 import Image from "next/image";
 import { Fragment, type ReactNode } from "react";
-import { OPERATOR, type InfoPage } from "@/lib/eshop/infoPages";
+import { OPERATOR, type InfoBlock, type InfoPage } from "@/lib/eshop/infoPages";
+import InfoTabs from "./InfoTabs";
 
 // Informační stránka e-shopu (O nás, O vodě, Doprava, Obchodní podmínky, GDPR).
 // Obsah: lib/eshop/infoPages.ts.
@@ -35,29 +36,8 @@ export function linkify(text: string): ReactNode[] {
 }
 
 export default function InfoPageView({ page, children }: { page: InfoPage; children?: ReactNode }) {
-  return (
-    <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
-      <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{page.title}</h1>
-      {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
-      {page.download && (
-        <p className="mt-3 text-sm">
-          <EshopFileLink href={page.download.path} className="underline underline-offset-2">
-            {page.download.label}
-          </EshopFileLink>
-        </p>
-      )}
-      {page.secondaryDownload && (
-        <p className="mt-1.5 text-sm">
-          <EshopFileLink href={page.secondaryDownload.path} className="font-medium underline underline-offset-2">
-            {page.secondaryDownload.label}
-          </EshopFileLink>
-        </p>
-      )}
-
-      {page.blocks ? (
-        <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
-          {page.blocks.map((block, i) => (
-            <section key={block.heading ?? i}>
+  const renderBlock = (block: InfoBlock, i: number) => (
+            <section key={block.heading ?? i} id={block.anchor} className={block.anchor ? "scroll-mt-28" : undefined}>
               {block.heading && <h2 className="font-medium text-lg text-begina-primary-900 mb-2">{block.heading}</h2>}
               {block.subheading && <h3 className="font-medium text-begina-primary-900 mb-1.5">{block.subheading}</h3>}
               {block.paragraphs?.map((text, j) => (
@@ -84,7 +64,25 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                   ))}
                 </p>
               )}
-              {block.rows && (
+              {block.rows && block.rowsHeader && (
+                <table className="w-full max-w-md my-3 text-sm sm:text-base tabular-nums border border-neutral-200 rounded-xl overflow-hidden border-separate border-spacing-0">
+                  <thead>
+                    <tr className="bg-begina-primary-900/5 text-begina-primary-900">
+                      <th scope="col" className="text-left font-medium px-4 py-2">{block.rowsHeader[0]}</th>
+                      <th scope="col" className="text-right font-medium px-4 py-2">{block.rowsHeader[1]}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map(([left, right], j) => (
+                      <tr key={left} className={j % 2 === 1 ? "bg-neutral-50" : "bg-white"}>
+                        <th scope="row" className="text-left align-middle leading-normal font-normal px-4 py-1.5 border-t border-neutral-100">{left}</th>
+                        <td className="text-right align-middle leading-normal font-medium text-begina-primary-900 whitespace-nowrap px-4 py-1.5 border-t border-neutral-100">{right}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {block.rows && !block.rowsHeader && (
                 <table className="w-full my-1 border-separate border-spacing-y-1">
                   <tbody>
                     {block.rows.map(([left, right]) => (
@@ -153,7 +151,40 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
                 </p>
               ))}
             </section>
-          ))}
+  );
+
+  return (
+    <article className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
+      <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{page.title}</h1>
+      {page.subtitle && <p className="mt-1 text-sm text-neutral-500">{page.subtitle}</p>}
+      {page.download && (
+        <p className="mt-3 text-sm">
+          <EshopFileLink href={page.download.path} className="underline underline-offset-2">
+            {page.download.label}
+          </EshopFileLink>
+        </p>
+      )}
+      {page.secondaryDownload && (
+        <p className="mt-1.5 text-sm">
+          <EshopFileLink href={page.secondaryDownload.path} className="font-medium underline underline-offset-2">
+            {page.secondaryDownload.label}
+          </EshopFileLink>
+        </p>
+      )}
+
+      {page.blocks ? (
+        <div className="mt-6 flex flex-col gap-6 text-neutral-700 leading-relaxed">
+          {page.tabs
+            ? (
+                <InfoTabs
+                  tabs={page.tabs.map((tab) => ({
+                    id: tab.id,
+                    label: tab.label,
+                    content: <div className="flex flex-col gap-6">{page.blocks!.filter((block) => block.tab === tab.id).map(renderBlock)}</div>,
+                  }))}
+                />
+              )
+            : page.blocks.map(renderBlock)}
           {page.pendingNote && <p className="text-sm text-neutral-500">{page.pendingNote}</p>}
         </div>
       ) : (

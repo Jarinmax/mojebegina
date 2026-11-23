@@ -48,9 +48,9 @@ export function afterOpeningLine(product: Product): string | null {
 
 // ── Cena za porci a měrná cena ─────────────────────────────────────────────
 
-/** Na desetihaléře, vždy dvě desetinná místa: 31,58 → „31,60 Kč“. */
+/** Na haléře, vždy dvě desetinná místa: 379 / 12 → „31,58 Kč“ (22. 11. 2026: přesně, ne na desetihaléře). */
 export function formatServingKc(kc: number): string {
-  const rounded = Math.round(kc * 10) / 10;
+  const rounded = Math.round(kc * 100) / 100;
   return `${rounded.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 }
 
@@ -75,7 +75,7 @@ function servingText(category: string, variant: Variant, fallbackServingMl: numb
   const perServing = formatServingKc(priceKc / servings);
   // Sirup se ředí na studený i horký nápoj (ne jen limonádu – Lucie 17. 11. 2026);
   // měrná cena za litr sirupu by mátla.
-  if (category === "sirupy") return `Nápoj za ${perServing}`;
+  if (category === "sirupy") return `Nápoj 200 ml za ${perServing} bez dopravy`;
   const servingMl = Math.round(volumeMl / servings);
   const noun = category === "polevky" ? "Porce" : "Sklenice";
   return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;

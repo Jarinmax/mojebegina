@@ -10,12 +10,15 @@ import { DAILY_CALL_LEAD_OWNER_USER_ID } from "./dailyCallsAuth";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import type { AuthContext } from "./types";
 
-// Stejný zdroj pravdy jako Denní volání — Blahout je dnes jediný, pro
-// koho propojení dává smysl (jeho kalendář, jeho hovory).
+// Původně jen Blahout. Od 20. 11. 2026 (Lucie) si vlastní Google kalendář
+// propojuje KAŽDÝ obchodník sám za sebe — propojení se ukládá pod jeho
+// userId a termíny dalšího kontaktu jdou do kalendáře toho, komu lead patří.
+// Pořád platí: nikdo nemůže připojit svůj Google účet jako kalendář někoho
+// jiného (userId bere z přihlášení, ne z požadavku).
 export const GOOGLE_CALENDAR_CONNECT_USER_ID = DAILY_CALL_LEAD_OWNER_USER_ID;
 
 export function canConnectGoogleCalendar(ctx: AuthContext): boolean {
-  return ctx !== null && ctx.userId === GOOGLE_CALENDAR_CONNECT_USER_ID && isAdminOrExecutive(ctx);
+  return ctx !== null && isAdminOrExecutive(ctx);
 }
 
 export function canViewGoogleCalendarStatus(ctx: AuthContext): boolean {

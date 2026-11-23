@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { quoteShipping, shippingDestination, shippingMethodsFor, slovakiaEnabledFromEnv } from "../shipping";
+import { SLOVAKIA_DELIVERY_ALLOWED, quoteShipping, shippingDestination, shippingMethodsFor, slovakiaEnabledFromEnv } from "../shipping";
 
 const contact = { email: "info@begina.cz", phone: "+420 774 199 975" };
 const cold = shippingMethodsFor("weight", { zasilkovna: false }).find((method) => method.id === "rozvoz")!;
 const sirupy = [{ sku: "a", name: "Lipový sirup 3 l", quantity: 5, weightGrams: 3826 }];
 
 describe("doručení na Slovensko", () => {
-  it("je vypnuté (18. 11. 2026) a proměnná ve Vercelu ho nezapne", () => {
-    expect(slovakiaEnabledFromEnv({})).toBe(false);
-    expect(slovakiaEnabledFromEnv({ ESHOP_SLOVAKIA: "on" })).toBe(false);
+  it("naše doprava na Slovensko vypnutá (18. 11. 2026); od 22. 11. 2026 Slovensko s vlastní dopravou zákazníka", () => {
+    expect(SLOVAKIA_DELIVERY_ALLOWED).toBe(false);
+    expect(slovakiaEnabledFromEnv({})).toBe(true);
     expect(slovakiaEnabledFromEnv({ ESHOP_SLOVAKIA: "off" })).toBe(false);
     expect(shippingDestination({ enabled: false, sameAsBilling: false, billingCountry: "Slovensko", zip: "821 05" })).toBe("cz");
   });
@@ -19,7 +19,8 @@ describe("doručení na Slovensko", () => {
     expect(shippingDestination({ enabled: true, sameAsBilling: false, billingCountry: "Slovensko", zip: "110 00" })).toBe("cz");
   });
   it("počítá slovenským ceníkem (5 × 3 l sirup = 19,13 kg)", () => {
-    expect(quoteShipping(cold, sirupy, "weight", contact, "sk")).toMatchObject({ available: true, priceKc: 421, weightGrams: 19130 });
+    // vlastní doprava zákazníka: u nás 0 Kč
+    expect(quoteShipping(cold, sirupy, "weight", contact, "sk")).toMatchObject({ available: true, priceKc: 0 });
     expect(quoteShipping(cold, sirupy, "weight", contact)).toMatchObject({ available: true, priceKc: 379 });
   });
 });

@@ -9,7 +9,7 @@ const input =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 h-12 text-base text-[#2A2622] focus:outline-none focus:ring-2 focus:ring-[#5E6B34] aria-[invalid=true]:border-[#A51C1C]";
 
 /** heading/anchorId: na Pro kavárny a bistra je při objednávce ochutnávky tenhle formulář druhá možnost (20. 11. 2026). */
-export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADING, anchorId = "ochutnavka" }: { place?: CafeFormPlace; heading?: string; anchorId?: string }) {
+export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADING, anchorId = "ochutnavka", intro }: { place?: CafeFormPlace; heading?: string; anchorId?: string; intro?: string }) {
   const [state, action, pending] = useActionState<CafeFormState, FormData>(submitCafeInquiryAction, { status: "idle" });
   const invalid = (field: CafeField) => (state.status === "error" && state.field === field ? true : undefined);
 
@@ -25,6 +25,7 @@ export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADIN
   return (
     <form id={anchorId} action={action} className="rounded-2xl border border-[#EDE5D8] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4 scroll-mt-24" noValidate>
       <h2 className="font-serif text-2xl text-[#2A2622]">{heading}</h2>
+      {intro && <p className="-mt-2 text-base leading-normal text-neutral-700">{intro}</p>}
       <input type="hidden" name="misto" value={place} />
       <label className="flex flex-col gap-1 text-base">
         <span className="font-medium">Název podniku</span>
@@ -40,8 +41,10 @@ export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADIN
           <input name="phone" type="tel" inputMode="tel" autoComplete="tel" required aria-invalid={invalid("phone")} className={input} />
         </label>
         <label className="flex flex-col gap-1 text-base">
-          <span className="font-medium">E-mail</span>
-          <input name="email" type="email" inputMode="email" autoComplete="email" required aria-invalid={invalid("email")} className={input} />
+          <span className="font-medium">
+            E-mail <span className="font-normal text-neutral-600">(nepovinné)</span>
+          </span>
+          <input name="email" type="email" inputMode="email" autoComplete="email" aria-invalid={invalid("email")} className={input} />
         </label>
       </div>
       <label className="flex flex-col gap-1 text-base">
@@ -73,7 +76,7 @@ export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADIN
         disabled={pending}
         className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] disabled:opacity-60 text-white font-semibold px-6 h-12 text-base"
       >
-        {pending ? "Odesílám…" : "Odeslat"}
+        {pending ? "Odesílám…" : "Chci, abyste mi zavolali"}
       </button>
       <p className="text-sm text-neutral-600">
         Údaje použijeme jen k tomu, abychom se vám ozvali. Více v{" "}

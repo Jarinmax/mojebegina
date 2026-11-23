@@ -14,6 +14,8 @@ import ProductionSummary from "./ProductionSummary";
 // Zrušené (stornované) objednávky jen pod záložkou „Zrušené“.
 // Autorizaci (ADMIN/EXECUTIVE) řeší app/rizeni-firmy/layout.tsx,
 // listOrders si ji ověřuje sama.
+import { invoiceSentState } from "@/lib/data/invoiceSentState";
+
 export const dynamic = "force-dynamic";
 
 const PRODUCED = new Set(["ready", "out_for_delivery", "handed_to_carrier", "delivered"]);
@@ -22,11 +24,12 @@ const SENT_BY_STATUS = new Set(["handed_to_carrier", "delivered"]);
 type Steps = { produced: boolean; shipped: boolean; paid: boolean; invoiceSent: boolean };
 
 function steps(o: OrderCardData): Steps {
+  const shipped = Boolean(o.shippedAt) || SENT_BY_STATUS.has(o.fulfillmentStatus);
   return {
     produced: PRODUCED.has(o.fulfillmentStatus),
-    shipped: Boolean(o.shippedAt) || SENT_BY_STATUS.has(o.fulfillmentStatus),
+    shipped,
     paid: o.paymentStatus === "paid",
-    invoiceSent: Boolean(o.invoiceSentAt),
+    invoiceSent: invoiceSentState({ ...o, shipped }).done,
   };
 }
 
@@ -139,12 +142,26 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
                       <StaticTile done title="Odesláno" note={FULFILLMENT_LABELS[o.fulfillmentStatus]} />
                     )}
                     <StaticTile done={s.paid} title="Zaplaceno" note={s.paid ? "ano" : o.paymentOverdue ? "po splatnosti" : "nezaplaceno"} />
-                    <DispatchTile
-                      orderId={o.id}
-                      kind="invoice"
-                      done={s.invoiceSent}
-                      doneNote={o.invoiceSentAt ? `${shortPragueDate(o.invoiceSentAt)} · ${o.invoiceSentMethod === "email" ? "e-mailem" : "ručně"}` : null}
-                    />
+                    {(() => {
+                      // 22. 11. 2026 (Lucie): faktura se nezaškrtává ručně —
+                      // odchází sama s „Odesláno“; starší objednávky už poslané mimo systém.
+                      const inv = invoiceSentState({ ...o, shipped: s.shipped });
+                      if (inv.done && inv.legacy) {
+                        return <StaticTile done title="Faktura poslána" note="před 19. 11. mimo MojeBegina" />;
+                      }
+                      if (!inv.done && inv.reason === "waits_for_shipping") {
+                        return <StaticTile done={false} title="Faktura" note="odejde sama s „Odesláno“" />;
+                      }
+                      return (
+                        <DispatchTile
+                          orderId={o.id}
+                          kind="invoice"
+                          done={inv.done}
+                          doneNote={o.invoiceSentAt ? `${shortPragueDate(o.invoiceSentAt)} · ${o.invoiceSentMethod === "email" ? "e-mailem" : "ručně"}` : null}
+                          warning={!inv.done ? "neodešla — zkontroluj fakturu" : null}
+                        />
+                      );
+                    })()}
                   </div>
                 )}
               </div>

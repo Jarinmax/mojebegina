@@ -3,6 +3,8 @@
 // e-shop; může být nezaplacená (otevřená), hotově / převodem / kartou,
 // s vlastní poznámkou za položkami. Vystavení řeší b2bInvoice.ts.
 
+import { addCzWorkdays } from "@/lib/czWorkdays";
+
 export const B2B_PAYMENT_METHODS = ["bank_transfer", "cash", "card"] as const;
 export type B2bPaymentMethod = (typeof B2B_PAYMENT_METHODS)[number];
 export const B2B_PAYMENT_LABELS: Record<B2bPaymentMethod, string> = { bank_transfer: "převodem", cash: "hotově", card: "kartou" };
@@ -54,6 +56,14 @@ function validDay(raw: string): boolean {
   if (!m) return false;
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
   return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]);
+}
+
+/** Splatnost faktur (Lucie 23. 11. 2026): 3 pracovní dny, nikdy 14 dní. */
+export const INVOICE_DUE_WORKDAYS = 3;
+
+/** RRRR-MM-DD + N pracovních dnů (víkendy a české svátky se nepočítají). */
+export function addWorkdaysDay(day: string, workdays: number): string {
+  return addCzWorkdays(new Date(`${day}T12:00:00Z`), workdays).toISOString().slice(0, 10);
 }
 
 export function addDays(day: string, days: number): string {
@@ -130,9 +140,13 @@ export function validateB2bInvoice(raw: B2bInvoiceRaw, today: string): { ok: tru
       if (!validDay(dueRaw) || dueRaw < issueDate) throw new B2bInputError("Splatnost musí být datum RRRR-MM-DD, nejdřív v den vystavení.");
       dueDate = dueRaw;
     } else {
-      const days = raw.dueDays === undefined || raw.dueDays === null ? 14 : Number(raw.dueDays);
-      if (!Number.isInteger(days) || days < 0 || days > 90) throw new B2bInputError("Splatnost ve dnech musí být 0–90.");
-      dueDate = addDays(issueDate, days);
+      if (raw.dueDays === undefined || raw.dueDays === null) {
+        dueDate = addWorkdaysDay(issueDate, INVOICE_DUE_WORKDAYS);
+      } else {
+        const days = Number(raw.dueDays);
+        if (!Number.isInteger(days) || days < 0 || days > 90) throw new B2bInputError("Splatnost ve dnech musí být 0–90.");
+        dueDate = addDays(issueDate, days);
+      }
     }
 
     return {

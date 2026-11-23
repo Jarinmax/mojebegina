@@ -59,6 +59,9 @@ import { resendTransport, type EmailTransport } from "./resend";
 import {
   customerCancellationEmail,
   customerReplacementEmail,
+  customerSkTransportEmail,
+  isSlovakSelfTransportOrder,
+  type SkTransportEmailInfo,
   customerOrderEmail,
   customerPaymentReceivedEmail,
   internalOrderEmail,
@@ -83,14 +86,16 @@ export type OrderEmailTrigger =
   | "payment_marked_paid"
   | "invoice_issued"
   | "order_cancelled"
-  | "replacement_created";
+  | "replacement_created"
+  | "order_ready";
 export type OrderEmailTemplate =
   | "customer_confirmation"
   | "internal_new_order"
   | "customer_payment_received"
   | "customer_invoice"
   | "customer_cancellation"
-  | "customer_replacement";
+  | "customer_replacement"
+  | "customer_sk_transport";
 
 const QR_CONTENT_ID = "qr-platba";
 export type OrderEmailOutcome = { template: OrderEmailTemplate; status: "sent" | "duplicate" | "failed" | "no-recipient" };
@@ -108,7 +113,8 @@ type OrderForEmail = EmailOrder & {
 
 /** Které e-maily daná událost spouští (čistá funkce). */
 export function emailsFor(
-  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus" | "externalWooCommerceId">,
+  order: Pick<OrderForEmail, "channel" | "paymentMethodCode" | "paymentStatus" | "externalWooCommerceId"> &
+    Partial<Pick<OrderForEmail, "recipientAddress" | "shippingMethodCode" | "shippingKc">>,
   trigger: OrderEmailTrigger,
   alreadySentTemplates: ReadonlySet<string> = new Set()
 ): OrderEmailTemplate[] {
@@ -130,6 +136,15 @@ export function emailsFor(
   }
   if (trigger === "order_cancelled") return ["customer_cancellation"];
   if (trigger === "replacement_created") return ["customer_replacement"];
+  // Slovensko: připravená zaplacená objednávka → pokyny k objednání dopravy.
+  if (trigger === "order_ready") {
+    const sk = isSlovakSelfTransportOrder({
+      recipientAddress: order.recipientAddress ?? null,
+      shippingMethodCode: order.shippingMethodCode ?? null,
+      shippingKc: order.shippingKc ?? -1,
+    });
+    return sk && order.paymentStatus === "paid" ? ["customer_sk_transport"] : [];
+  }
   // Ručně označeno Zaplaceno. Kartou zaplacená objednávka už potvrzení
   // „je zaplacená“ dostala od webhooku — druhá zpráva by byla navíc.
   if (order.paymentStatus !== "paid") return [];
@@ -248,6 +263,8 @@ export type SendOrderEmailsOptions = {
   cancellation?: { heldHal: number };
   /** náhradní objednávka: odkud je platba a kolik jí přišlo (haléře) */
   replacement?: { fromReference: string; receivedHal: number };
+  /** Slovensko: hmotnost a jestli musí jet chlazeně (e-mail „objednejte si dopravu“) */
+  skTransport?: SkTransportEmailInfo;
   /** jen testy: náhrada tvorby PDF obchodních podmínek */
   termsPdf?: (version: TermsVersion) => Promise<TermsPdf>;
 };
@@ -357,6 +374,8 @@ export async function sendOrderEmails(
           qrContentId: qr ? qr.contentId : null,
           invoiceNumber,
         });
+      } else if (template === "customer_sk_transport") {
+        rendered = customerSkTransportEmail(order, { ...ctx, skTransport: options.skTransport ?? { grams: null } });
       } else if (template === "customer_cancellation") {
         rendered = customerCancellationEmail(order, { ...ctx, heldHal: options.cancellation?.heldHal ?? 0 });
       } else if (template === "customer_payment_received" || template === "customer_invoice") {
@@ -399,6 +418,10 @@ export async function sendOrderEmails(
           await db.execute(sql`
             UPDATE invoices SET pdf_sent_at = now(), updated_at = now()
             WHERE order_id = ${orderId} AND document_type = 'invoice' AND doc_state = 'issued' AND pdf_sent_at IS NULL`);
+          // vlastní faktura: odeslanou už nejde smazat, jen stornovat
+          await db
+            .execute(sql`UPDATE own_invoice_documents SET sent_at = now() WHERE order_id = ${orderId} AND number = ${invoiceNumber} AND sent_at IS NULL`)
+            .catch(() => undefined);
           // „Faktura poslána“ u objednávky (ne v testovacím režimu — tam e-mail
           // reálnému zákazníkovi neodešel)
           if (!test) await recordInvoiceEmailed(db, [orderId], to, { userId: null, name: "MojeBegina (automaticky)" });

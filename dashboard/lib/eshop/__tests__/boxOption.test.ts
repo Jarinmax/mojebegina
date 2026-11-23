@@ -227,3 +227,33 @@ describe("uložení objednávky s krabicí", () => {
     expect(reorder).toEqual({ lines: [{ sku: "kulajda", quantity: 2 }], skipped: [] });
   });
 });
+
+import { boxesFromSelection, parseBoxedSkus } from "../boxOption";
+import { isTastingBegina } from "../cafeTasting";
+
+describe("krabice z košíku (22. 11. 2026)", () => {
+  const soup = { sku: "dynova-3l", quantity: 2, product: { category: "polevky" }, variant: { volumeMl: 3000 } };
+  const syrup = { sku: "lipovy-3l", quantity: 1, product: { category: "sirupy" }, variant: { volumeMl: 3000 } };
+  it("počítá jen zaškrtnutá balení, ke kterým jde krabice", () => {
+    expect(boxesFromSelection([soup, syrup], ["dynova-3l", "lipovy-3l"])).toBe(2);
+    expect(boxesFromSelection([soup], [])).toBe(0);
+  });
+  it("neplatný uložený výběr = prázdný", () => {
+    expect(parseBoxedSkus("x")).toEqual([]);
+    expect(parseBoxedSkus('["a",1]')).toEqual(["a"]);
+  });
+  it("vzorky jen ke Svařáku Deluxe a Lady Carneval z koktejlů", () => {
+    const v = { volumeMl: 3000 };
+    expect(isTastingBegina({ category: "koktejly", slug: "svarak-deluxe" }, v)).toBe(true);
+    expect(isTastingBegina({ category: "koktejly", slug: "granatovy-bond" }, v)).toBe(false);
+    expect(isTastingBegina({ category: "polevky", slug: "kulajda" }, v)).toBe(true);
+  });
+});
+
+import { homeSyrupPoint } from "../homeContent";
+describe("bod o sirupech na úvodu (22. 11. 2026)", () => {
+  it("nejlevnější sáček skladem a begina 3 l", () => {
+    const p = [{ category: "sirupy", variants: [{ priceKc: 159, volumeMl: 500, label: "500 ml", soldOut: true }, { priceKc: 199, volumeMl: 650, label: "650 ml" }, { priceKc: 499, volumeMl: 3000, label: "3 l" }] }];
+    expect(homeSyrupPoint(p)).toBe("Bylinné sirupy od 199\u00a0Kč (sáček 650 ml), begina 3\u00a0l od 499\u00a0Kč.");
+  });
+});

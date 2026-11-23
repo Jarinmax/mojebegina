@@ -11,7 +11,7 @@ import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
 export const HOME_TITLE = "Begina – bylinné sirupy, polévky, čaje a nápoje";
 // Od 20. 11. 2026 (Lucie): primárně kavárny a bistra, jasně „dovážíme po celé ČR chlazenou přepravou“.
 export const HOME_DESCRIPTION =
-  "Hotové polévky a nápoje pro kavárny a bistra dovážíme po celé ČR chlazenou přepravou. Polévky, bylinné sirupy a čaje v begině s kohoutkem – i domů.";
+  "Hotové polévky a nápoje pro kavárny a bistra posíláme chlazeně po celé ČR. Polévky, bylinné sirupy a čaje v begině s kohoutkem – i domů.";
 
 /** Popis firmy ve strukturovaných datech (Organization, LocalBusiness). */
 export const ORGANIZATION_DESCRIPTION =
@@ -133,7 +133,7 @@ export function productJsonLd(product: Product, category: Category | null) {
       ...(variant.label ? { name: `${product.name} – ${variant.label}` } : {}),
       price: variant.priceKc.toFixed(2),
       priceCurrency: "CZK",
-      availability,
+      availability: variant.soldOut === true ? "https://schema.org/OutOfStock" : availability,
       itemCondition: "https://schema.org/NewCondition",
       url,
       seller: { "@type": "Organization", name: "Begina" },

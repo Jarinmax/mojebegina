@@ -24,7 +24,7 @@ describe("stránky pro gastro", () => {
       expect(page.faq.length).toBeLessThanOrEqual(6);
       expect(page.links.length).toBeGreaterThan(0);
       const text = allText(page);
-      expect(text).not.toMatch(/lepk|bezlepk|zdrav|imunit|detox|léčí|vitamín|zdarma/i);
+      expect(text).not.toMatch(/lepk|bezlepk|zdrav|imunit|detox|léčí|vitamín/i);
       expect(text).not.toMatch(/koktejl[^.]*rostlinn|alkohol[^.]*rostlinn/i);
       expect(faqJsonLd(page.faq).mainEntity).toHaveLength(page.faq.length);
     }
@@ -32,8 +32,9 @@ describe("stránky pro gastro", () => {
 
   it("údaje jako na webu", () => {
     const text = LANDING_PAGES.map(allText).join(" ");
-    expect(text).toContain("31,60 Kč");
-    expect(text).toContain("3,30 Kč");
+    expect(text).toContain("31,58 Kč");
+    expect(text.replace(/[\u00a0\u202f]/g, " ")).toContain("Od 3,92 Kč za nápoj (200 ml) včetně dopravy při objednávce 3 × 3 l sirupu.");
+    expect(text).not.toContain("3,33 Kč");
     expect(text).toContain("14 dní");
   });
 });

@@ -23,11 +23,18 @@ import {
 } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
-import { isWorkManager, LUCIE_USER_ID } from "./workTasksAuth";
+import { isWorkManager as isWorkManagerOnly, LUCIE_USER_ID } from "./workTasksAuth";
+
+// 22. 11. 2026 (Lucie): provize Jardy kontroluje i Lucie — v odměnách má
+// stejná práva jako vedoucí (Jarin).
+function isWorkManager(ctx: AuthContext): boolean {
+  return isWorkManagerOnly(ctx) || (ctx !== null && ctx.userId === LUCIE_USER_ID);
+}
 import { leadDisplayName } from "./leadValidation";
 import { DAILY_CALL_LEAD_OWNER_USER_ID } from "./dailyCallsAuth";
 import {
   computeJardaRewards,
+  LEGACY_REWARD_ORDERS,
   monthlyStatements,
   REWARD_TYPE_LABEL,
   type RewardAssignment,
@@ -143,7 +150,9 @@ export async function getJardaRewardsView() {
     items: itemRows.filter((i) => i.orderId === o.id).map((i) => ({ productId: i.productId, productName: i.name, lineTotalKc: i.lineTotalKc })),
   }));
 
-  const { customers, excluded } = computeJardaRewards(rewardLeads, assignmentRows.map(toAssignment), rewardOrders);
+  const leadIdSet = new Set(leadIds);
+  const legacy = LEGACY_REWARD_ORDERS.filter((o) => o.sourceLeadId !== null && leadIdSet.has(o.sourceLeadId));
+  const { customers, excluded } = computeJardaRewards(rewardLeads, assignmentRows.map(toAssignment), [...rewardOrders, ...legacy]);
 
   const payouts = await db
     .select({ id: collaboratorPayouts.id, amountKc: collaboratorPayouts.amountKc, note: collaboratorPayouts.note, paidAt: collaboratorPayouts.paidAt })
@@ -191,6 +200,8 @@ export async function getJardaRewardsView() {
     payouts,
     summary: {
       customerCount: customers.length,
+      // Objem = zaplacené zboží jeho zákazníků (bez dopravy), ze kterého se odměna počítá.
+      volumeKc: customers.reduce((s, c) => s + c.paidGoodsKc, 0),
       earnedKc,
       paidOutKc,
       remainingKc: Math.round((earnedKc - paidOutKc) * 100) / 100,

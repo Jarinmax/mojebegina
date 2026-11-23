@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, asc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, not, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { orderItems, orders, organizations, productCategories, products, productVariants } from "@/lib/db/schema";
+import { orderActivity, orderItems, orders, organizations, productCategories, products, productVariants } from "@/lib/db/schema";
 import { addCzWorkdays } from "@/lib/czWorkdays";
 import { displayItemName } from "@/lib/eshop/packageLabel";
+import { isPayLater, PAY_LATER_PATTERN } from "@/lib/payLater";
 import { requireOrderContext, updateFulfillmentStatus } from "./orders";
 
 // Výroba pro Jarina (Lucie 18. 11. 2026): přehled všech ZAPLACENÝCH a ještě
@@ -28,6 +29,9 @@ export type ProductionGroupSlug = (typeof PRODUCTION_GROUPS)[number]["slug"];
 
 const NOT_FOR_PRODUCTION = ["cancelled", "handed_to_carrier", "out_for_delivery", "delivered"] as const;
 
+/** Ruční objednávka placená až při předání (hotově, dobírkou, na fakturu) — vyrábí se hned. */
+const payLaterSql = and(isNull(orders.paymentMethodCode), sql`${orders.paymentMethodLabel} ~* ${PAY_LATER_PATTERN}`);
+
 export type ProductionItem = {
   id: string;
   name: string;
@@ -49,6 +53,9 @@ export type ProductionOrder = {
   shippingMethod: string | null;
   customerNote: string | null;
   paidAt: Date | null;
+  /** platí se až při předání (hotově / dobírkou / na fakturu) — termín se počítá od objednání */
+  payLater: boolean;
+  paymentMethod: string | null;
   deadline: Date | null;
   fulfillmentStatus: string;
   items: ProductionItem[];
@@ -100,6 +107,7 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       contactEmail: orders.contactEmail,
       recipientName: orders.recipientName,
       recipientAddress: orders.recipientAddress,
+      orgDeliveryAddress: organizations.deliveryAddress,
       recipientPhone: orders.recipientPhone,
       billingStreet: orders.billingStreet,
       billingZip: orders.billingZip,
@@ -110,11 +118,14 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       paidAt: orders.paidAt,
       orderedAt: orders.orderedAt,
       fulfillmentStatus: orders.fulfillmentStatus,
+      paymentStatus: orders.paymentStatus,
+      paymentMethodCode: orders.paymentMethodCode,
+      paymentMethodLabel: orders.paymentMethodLabel,
     })
     .from(orders)
     .leftJoin(organizations, eq(organizations.id, orders.buyerOrganizationId))
     .where(where)
-    .orderBy(asc(orders.paidAt), asc(orders.orderedAt));
+    .orderBy(asc(sql`coalesce(${orders.paidAt}, ${orders.orderedAt})`), asc(orders.orderedAt));
   if (rows.length === 0) return [];
 
   const itemRows = await db
@@ -165,10 +176,13 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       }));
     const deliveryAddress =
       r.recipientAddress?.trim() ||
+      r.orgDeliveryAddress?.trim() ||
       [r.billingStreet, [r.billingZip, r.billingCity].filter(Boolean).join(" "), r.billingCountry && r.billingCountry !== "CZ" ? r.billingCountry : null]
         .filter(Boolean)
         .join(", ") ||
       null;
+    const payLater = r.paymentStatus !== "paid" && isPayLater(r.paymentMethodCode, r.paymentMethodLabel);
+    const deadlineFrom = r.paidAt ?? (payLater ? r.orderedAt : null);
     return {
       id: r.id,
       orderNumber: r.orderNumber,
@@ -181,7 +195,9 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       shippingMethod: r.shippingMethodLabel,
       customerNote: r.customerNote,
       paidAt: r.paidAt,
-      deadline: r.paidAt ? addCzWorkdays(r.paidAt, DELIVERY_WORKDAYS) : null,
+      payLater,
+      paymentMethod: r.paymentMethodLabel,
+      deadline: deadlineFrom ? addCzWorkdays(deadlineFrom, DELIVERY_WORKDAYS) : null,
       fulfillmentStatus: r.fulfillmentStatus,
       items,
       producedCount: items.filter((i) => i.producedAt).length,
@@ -189,12 +205,16 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
   });
 }
 
-/** Zaplacené, ještě neodeslané objednávky — to, co má Jarin vyrobit. */
+/**
+ * Zaplacené, ještě neodeslané objednávky — to, co má Jarin vyrobit. K nim
+ * ruční objednávky placené až při předání (hotově / dobírkou / na fakturu):
+ * ty se vyrábějí hned a termín je objednání + 5 pracovních dnů.
+ */
 export async function listProductionOrders(): Promise<ProductionOrder[]> {
   await requireOrderContext();
   return loadOrders(
     and(
-      eq(orders.paymentStatus, "paid"),
+      or(eq(orders.paymentStatus, "paid"), payLaterSql),
       notInArray(orders.fulfillmentStatus, [...NOT_FOR_PRODUCTION]),
       isNull(orders.shippedAt)
     )
@@ -259,7 +279,7 @@ export type AwaitingPaymentOrder = {
   paymentMethod: string | null;
 };
 
-/** Nezaplacené nestornované objednávky — do výroby přijdou až po platbě. */
+/** Nezaplacené nestornované objednávky placené předem — do výroby přijdou až po platbě. */
 export async function listAwaitingPaymentOrders(): Promise<AwaitingPaymentOrder[]> {
   await requireOrderContext();
   const rows = await db
@@ -275,7 +295,42 @@ export async function listAwaitingPaymentOrders(): Promise<AwaitingPaymentOrder[
     })
     .from(orders)
     .leftJoin(organizations, eq(organizations.id, orders.buyerOrganizationId))
-    .where(and(notInArray(orders.paymentStatus, ["paid"]), notInArray(orders.fulfillmentStatus, [...NOT_FOR_PRODUCTION]), isNull(orders.shippedAt)))
+    .where(
+      and(
+        notInArray(orders.paymentStatus, ["paid"]),
+        // placené při předání už jsou ve výrobě
+        or(isNull(orders.paymentMethodLabel), not(payLaterSql!)),
+        notInArray(orders.fulfillmentStatus, [...NOT_FOR_PRODUCTION]),
+        isNull(orders.shippedAt)
+      )
+    )
     .orderBy(asc(orders.orderedAt));
   return rows.map((r) => ({ id: r.id, orderNumber: r.orderNumber, customer: customerName(r), totalKc: r.totalKc, paymentMethod: r.paymentMethod }));
+}
+
+export type DeliveryAddressResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Oprava / doplnění doručovací adresy z karty výroby (Lucie 23. 11. 2026 —
+ * ručně zapsané objednávky ji často nemají). Změna se zapíše do historie.
+ */
+export async function setDeliveryAddress(orderId: string, rawAddress: string): Promise<DeliveryAddressResult> {
+  const ctx = await requireOrderContext();
+  const address = rawAddress.replace(/\s+/g, " ").trim();
+  if (address.length < 5) return { ok: false, error: "Napište celou adresu (ulice, číslo, PSČ, město)." };
+  if (address.length > 300) return { ok: false, error: "Adresa je moc dlouhá." };
+  const [order] = await db.select({ old: orders.recipientAddress }).from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) return { ok: false, error: "Objednávka nebyla nalezena." };
+  if (order.old === address) return { ok: true };
+  await db.batch([
+    db.update(orders).set({ recipientAddress: address }).where(eq(orders.id, orderId)),
+    db.insert(orderActivity).values({
+      orderId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "note_added",
+      body: order.old ? `Doručovací adresa změněna: ${order.old} → ${address}` : `Doplněna doručovací adresa: ${address}`,
+    }),
+  ]);
+  return { ok: true };
 }

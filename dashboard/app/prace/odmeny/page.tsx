@@ -30,17 +30,22 @@ export default async function JardaOdmenyPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/prace" className="text-sm text-neutral-500 min-h-8">← Moje práce</Link>
+      {view.isManager ? (
+        <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 min-h-8">← Obchod / CRM</Link>
+      ) : (
+        <Link href="/prace" className="text-sm text-neutral-500 min-h-8">← Moje práce</Link>
+      )}
 
       <div>
-        <h1 className="text-xl font-medium text-begina-primary-900">{view.isManager ? "Jarda – zákazníci a odměny" : "Moji zákazníci a odměny"}</h1>
+        <h1 className="text-xl font-medium text-begina-primary-900">{view.isManager ? "Jarda Blahout – zákazníci a odměny" : "Moji zákazníci a odměny"}</h1>
         <p className="text-sm text-neutral-500">Podle dokumentu „{CONTRACT.title}“. Základ je zaplacené zboží po slevách, bez dopravy.</p>
       </div>
 
       <dl className="grid grid-cols-2 gap-2">
         <Stat label="Zákazníků" value={String(summary.customerCount)} />
+        <Stat label="Objem (zboží bez dopravy)" value={kc(summary.volumeKc)} />
         <Stat label="Odměna celkem" value={kc(summary.earnedKc)} />
-        <Stat label="Vyplaceno" value={kc(summary.paidOutKc)} />
+        <Stat label="Zaplaceno (podle jeho faktur)" value={kc(summary.paidOutKc)} />
         <Stat label="Zbývá vyplatit" value={kc(summary.remainingKc)} />
       </dl>
 
@@ -48,7 +53,7 @@ export default async function JardaOdmenyPage() {
         <h2 className="text-sm font-medium text-begina-primary-900">Vyúčtování po měsících</h2>
         {view.statements.length === 0 && <p className="text-sm text-neutral-500">Zatím žádná odměna.</p>}
         {view.statements.map((m) => (
-          <details key={m.month} className="rounded-xl border border-neutral-200 bg-white px-4 py-3" open={m === view.statements[0]}>
+          <details key={m.month} className="rounded-xl border border-neutral-200 bg-white px-4 py-3" open>
             <summary className="flex justify-between cursor-pointer text-sm font-medium text-begina-primary-900">
               <span className="capitalize">{monthLabel(m.month)}</span>
               <span className="tabular-nums">{kc(m.totalKc)}</span>
@@ -57,7 +62,7 @@ export default async function JardaOdmenyPage() {
               {m.lines.map((l, i) => (
                 <li key={i} className="flex justify-between gap-2 text-sm text-neutral-700">
                   <span className="min-w-0">
-                    {l.customer} · {l.orderNumber ? `obj. ${l.orderNumber}` : "objednávka"}
+                    {l.customer} · {l.orderNumber ? (l.orderNumber.startsWith("fakt.") ? l.orderNumber : `obj. ${l.orderNumber}`) : "objednávka"}
                     <span className="block text-xs text-neutral-500">
                       {l.label}
                       {l.kind === "commission" ? ` ze ${kc(l.baseKc)}` : ""}
@@ -165,8 +170,8 @@ export default async function JardaOdmenyPage() {
       )}
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-begina-primary-900">Výplaty ({view.payouts.length})</h2>
-        {view.payouts.length === 0 && <p className="text-sm text-neutral-500">Zatím žádná výplata.</p>}
+        <h2 className="text-sm font-medium text-begina-primary-900">Zaplacené faktury od Jardy ({view.payouts.length})</h2>
+        {view.payouts.length === 0 && <p className="text-sm text-neutral-500">Zatím nic nezaplaceno.</p>}
         {view.payouts.map((p) => (
           <div key={p.id} className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 flex justify-between text-sm">
             <span>

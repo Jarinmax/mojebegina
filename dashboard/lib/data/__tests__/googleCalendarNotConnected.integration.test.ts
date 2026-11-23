@@ -20,6 +20,8 @@ const ACTIVE = "00000000-0000-4000-8000-0000000000a1";
 const ACTIVE_PAST = "00000000-0000-4000-8000-0000000000a2";
 const CONVERTED = "00000000-0000-4000-8000-0000000000a3";
 const NO_DATE = "00000000-0000-4000-8000-0000000000a4";
+const OTHER_OWNER = "00000000-0000-4000-8000-0000000000a5";
+const OWNER = "obchodnik-1";
 
 describe("Google Kalendář bez propojení (Etapa 0)", { timeout: 120_000 }, () => {
   let db: import("drizzle-orm/neon-http").NeonHttpDatabase<typeof import("@/lib/db/schema")>;
@@ -34,11 +36,12 @@ describe("Google Kalendář bez propojení (Etapa 0)", { timeout: 120_000 }, () 
     holder.db = db;
     gc = await import("../googleCalendar");
     await db.execute(sql.raw(`
-      INSERT INTO leads (id, source, company_name, stage, next_follow_up_at) VALUES
-        ('${ACTIVE}', 'existing_database', 'A', 'contacted', '2026-11-02T08:00:00Z'),
-        ('${ACTIVE_PAST}', 'existing_database', 'B', 'callback_later', '2026-10-01T10:00:00Z'),
-        ('${CONVERTED}', 'existing_database', 'C', 'converted', '2026-11-02T08:00:00Z'),
-        ('${NO_DATE}', 'existing_database', 'D', 'new', NULL)`));
+      INSERT INTO leads (id, source, company_name, stage, next_follow_up_at, owner_user_id) VALUES
+        ('${ACTIVE}', 'existing_database', 'A', 'contacted', '2026-11-02T08:00:00Z', '${OWNER}'),
+        ('${ACTIVE_PAST}', 'existing_database', 'B', 'callback_later', '2026-10-01T10:00:00Z', '${OWNER}'),
+        ('${CONVERTED}', 'existing_database', 'C', 'converted', '2026-11-02T08:00:00Z', '${OWNER}'),
+        ('${NO_DATE}', 'existing_database', 'D', 'new', NULL, '${OWNER}'),
+        ('${OTHER_OWNER}', 'existing_database', 'E', 'contacted', '2026-11-03T08:00:00Z', 'jiny-obchodnik')`));
   });
 
   const syncRows = async () =>
@@ -54,8 +57,8 @@ describe("Google Kalendář bez propojení (Etapa 0)", { timeout: 120_000 }, () 
     expect(await syncRows()).toEqual([{ lead_id: ACTIVE, sync_status: "pending", last_error: null }]);
   });
 
-  it("dosynchronizace najde aktivní leady s termínem (i bez řádku synchronizace), ostatní přeskočí", async () => {
-    const { processed } = await gc.resyncAllLeadCalendarEvents();
+  it("dosynchronizace najde aktivní leady s termínem daného obchodníka (i bez řádku synchronizace), ostatní přeskočí", async () => {
+    const { processed } = await gc.resyncAllLeadCalendarEvents(OWNER);
     expect(processed).toBe(2);
     expect(await syncRows()).toEqual([
       { lead_id: ACTIVE, sync_status: "pending", last_error: null },

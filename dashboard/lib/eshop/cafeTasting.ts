@@ -28,12 +28,14 @@ export const CAFE_TASTING_SKU_PREFIX = "ochutnavka-";
 export const CAFE_TASTING_PRICE_KC = 49;
 export const CAFE_TASTING_LEAD_SOURCE = "web_ochutnavka";
 
-export type CafeTastingKind = "polevka" | "sirup" | "svarak";
+export type CafeTastingKind = "polevka" | "sirup" | "svarak" | "koktejl";
 export type CafeTastingItem = { sku: string; productSlug: string; name: string; kind: CafeTastingKind; volumeMl: number; weightGrams: number };
 
 const soup = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}polevka-${productSlug}`, productSlug, name, kind: "polevka", volumeMl: 200, weightGrams: 250 });
 // Svařák Deluxe 200 ml za 49 Kč (Lucie 20. 11. 2026), stejný sáček jako polévky, 18+.
 const mulled = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}svarak-${productSlug}`, productSlug, name, kind: "svarak", volumeMl: 200, weightGrams: 250 });
+// Lady Carneval 200 ml za 49 Kč (vlákno Ceny malých balení, 22. 11. 2026), 18+.
+const cocktail = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}koktejl-${productSlug}`, productSlug, name, kind: "koktejl", volumeMl: 200, weightGrams: 250 });
 const syrup = (productSlug: string, name: string): CafeTastingItem => ({ sku: `${CAFE_TASTING_SKU_PREFIX}sirup-${productSlug}`, productSlug, name, kind: "sirup", volumeMl: 100, weightGrams: 140 });
 
 /** Názvy přesně podle e-shopu; hmotnosti zadala Lucie (polévka 0,25 kg, sirup 0,14 kg). */
@@ -52,11 +54,12 @@ export const CAFE_TASTING_ITEMS: readonly CafeTastingItem[] = [
   syrup("hermankovy-sirup", "Heřmánkový sirup"),
   syrup("medunkovy-sirup-s-levanduli", "Meduňkový sirup s levandulí"),
   mulled("svarak-deluxe", "Svařák Deluxe"),
+  cocktail("lady-carneval", "Lady Carneval"),
 ];
 
 /** Alkoholické položky ochutnávky — v pokladně vyžadují potvrzení věku 18+. */
 export function isCafeTastingAlcohol(sku: string): boolean {
-  return CAFE_TASTING_ITEMS.some((item) => item.sku === sku && item.kind === "svarak");
+  return CAFE_TASTING_ITEMS.some((item) => item.sku === sku && (item.kind === "svarak" || item.kind === "koktejl"));
 }
 
 const SKUS = new Set(CAFE_TASTING_ITEMS.map((item) => item.sku));
@@ -74,27 +77,70 @@ export function cartHasCafeTasting(cart: readonly { sku: string }[]): boolean {
 /** Z každé položky ochutnávky nejvýš 1 kus. */
 export const CAFE_TASTING_MAX_PER_ITEM = 1;
 
-/** Součet za vybrané položky (bez dopravy). */
+// 22. 11. 2026 (Lucie): vzorky jen k objednávce aspoň jedné beginy 3 l; k první
+// objednávce na IČO jsou 2 polévky + 2 sirupy zdarma, další vzorky po 49 Kč.
+// Samostatná placená ochutnávka bez beginy už není.
+export const CAFE_TASTING_FREE = { polevka: 2, sirup: 2 } as const;
+export const CAFE_TASTING_NEEDS_BEGINA = "Vzorky přidáváme k objednávce aspoň jedné beginy 3 l polévky, sirupu nebo koktejlu. Přidejte si ji prosím do košíku.";
+/** Ke kterým beginám 3 l jdou vzorky: polévky, sirupy, koktejly (čaje a ovocné nápoje ne — nízká marže, Lucie 22. 11. 2026). */
+export const CAFE_TASTING_BEGINA_CATEGORIES: readonly string[] = ["polevky", "sirupy", "koktejly"];
+/** Z koktejlů jen Svařák Deluxe a Lady Carneval (Lucie 22. 11. 2026: Granátový Bond a Kosmopolitan ne). */
+export const CAFE_TASTING_COCKTAIL_BEGINAS: readonly string[] = ["svarak-deluxe", "lady-carneval"];
+export function isTastingBegina(product: { category: string; slug?: string }, variant: { volumeMl: number | null }): boolean {
+  if (variant.volumeMl !== 3000 || !CAFE_TASTING_BEGINA_CATEGORIES.includes(product.category)) return false;
+  return product.category !== "koktejly" || (product.slug !== undefined && CAFE_TASTING_COCKTAIL_BEGINAS.includes(product.slug));
+}
+
+/** Je vzorek zdarma-kandidát (polévka/sirup), nebo vždy za 49 Kč (koktejly)? */
+export function tastingFreeKind(sku: string): "polevka" | "sirup" | null {
+  const item = CAFE_TASTING_ITEMS.find((candidate) => candidate.sku === sku);
+  return item && (item.kind === "polevka" || item.kind === "sirup") ? item.kind : null;
+}
+
+/** Které vzorky jsou zdarma: první 2 polévky a první 2 sirupy (v pořadí výběru). */
+export function freeTastingSkus(skus: readonly string[]): Set<string> {
+  const free = new Set<string>();
+  const used = { polevka: 0, sirup: 0 };
+  for (const sku of skus) {
+    const item = CAFE_TASTING_ITEMS.find((candidate) => candidate.sku === sku);
+    if (!item || item.kind === "svarak" || item.kind === "koktejl") continue;
+    if (used[item.kind] < CAFE_TASTING_FREE[item.kind]) {
+      used[item.kind] += 1;
+      free.add(sku);
+    }
+  }
+  return free;
+}
+
+/** Součet za vybrané vzorky (bez dopravy) — zdarma 2 polévky + 2 sirupy, ostatní po 49 Kč. */
 export function cafeTastingTotalKc(skus: readonly string[]): number {
-  return new Set(skus.filter(isCafeTastingSku)).size * CAFE_TASTING_PRICE_KC;
+  const unique = [...new Set(skus.filter(isCafeTastingSku))];
+  const free = freeTastingSkus(unique);
+  return unique.filter((sku) => !free.has(sku)).length * CAFE_TASTING_PRICE_KC;
 }
 
 // Texty (vykání, bez zdravotních tvrzení).
-export const CAFE_TASTING_HEADING = "Objednejte si ochutnávku do podniku";
-export const CAFE_TASTING_INTRO = "Vyberte si, co chcete ochutnat. Z každé položky nejvýš 1 kus.";
-export const CAFE_TASTING_SOUPS_HEADING = "Polévky – 200 ml ve stříbrném sáčku se šroubovacím uzávěrem, 49 Kč za kus";
-export const CAFE_TASTING_SYRUPS_HEADING = "Sirupy – 100 ml v sáčku se šroubovacím uzávěrem, 49 Kč za kus";
-export const CAFE_TASTING_MULLED_HEADING = "Svařák – 200 ml ve stříbrném sáčku se šroubovacím uzávěrem, 49 Kč (jen pro osoby starší 18 let)";
+export const CAFE_TASTING_HEADING = "První objednávka: 1 begina + 4 vzorky zdarma";
+export const CAFE_TASTING_INTRO = "Vyberte si 1 beginu 3 l a k ní 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma. Zelené jsou zdarma, každý další vzorek je za 49 Kč. Z každého vzorku nejvýš 1 kus, jedna nabídka na jedno IČO.";
+export const CAFE_TASTING_BEGINA_HEADING = "1. Vaše begina 3 l";
+export const CAFE_TASTING_NEED_BEGINA_PICK = "Vyberte prosím beginu, ke které vzorky přibalíme.";
+export const CAFE_TASTING_SOUPS_HEADING = "2. Vzorky polévek 200 ml – 2 zdarma";
+export const CAFE_TASTING_SYRUPS_HEADING = "3. Vzorky sirupů 100 ml – 2 zdarma";
+export const CAFE_TASTING_MULLED_HEADING = "4. Vzorky koktejlů 200 ml – po 49 Kč (jen pro osoby starší 18 let)";
+/** Lucie 22. 11. 2026: vzorky ostatních nápojů jen po domluvě. */
+export const CAFE_TASTING_OTHER_SAMPLES = "Vzorky čajů, ovocných nápojů a dalších koktejlů po domluvě – napište nám na info@begina.cz nebo nám níže nechte telefon.";
 export const CAFE_TASTING_DELIVERY = "Doprava chlazenou přepravou podle ceníku dopravy, nebo osobní odběr ve Viticích.";
-export const CAFE_TASTING_ICO_NOTE = "Ochutnávka je jen pro kavárny a bistra – objednává se na firmu s IČO, jedna na jedno IČO.";
-export const CAFE_TASTING_ALREADY = "Ochutnávku jste už objednali, ozveme se vám.";
-export const CAFE_TASTING_NEED_ITEM = "Vyberte prosím aspoň 1 položku.";
+export const CAFE_TASTING_ICO_NOTE = "Nabídka je pro kavárny a bistra – objednává se na firmu s IČO, jedna na jedno IČO.";
+export const CAFE_TASTING_ALREADY = "Vzorky zdarma k první objednávce už jste na toto IČO objednali. Beginy si můžete objednat běžně v e-shopu.";
+export const CAFE_TASTING_NEED_ITEM = "Vyberte prosím aspoň 1 vzorek.";
 export const CAFE_TASTING_NEED_COMPANY = "Ochutnávku do provozu objednáváte na firmu – zaškrtněte prosím „Nakupuji na firmu“ a vyplňte název a IČO.";
 export const CAFE_TASTING_ONE_EACH = "Z každé položky ochutnávky lze objednat nejvýš 1 kus.";
 export const CAFE_TASTING_NO_ZASILKOVNA = "Ochutnávku do provozu posíláme jen chlazenou přepravou, nebo si ji vyzvednete osobně ve Viticích.";
-export const CAFE_TASTING_CHECKOUT_NOTE = "Ochutnávka do provozu: objednáváte na firmu s IČO (jedna ochutnávka na jedno IČO). Doprava chlazenou přepravou, nebo osobní odběr ve Viticích.";
+export const CAFE_TASTING_CHECKOUT_NOTE = "Vzorky k první objednávce: objednáváte na firmu s IČO (jednou na jedno IČO), 2 polévky + 2 sirupy zdarma. Doprava chlazenou přepravou, nebo osobní odběr ve Viticích.";
 /** Dosavadní formulář zůstává jako druhá možnost (Lucie 20. 11. 2026). */
-export const CAFE_TASTING_FORM_HEADING = "Chcete se nejdřív domluvit? Vyplňte formulář a ozveme se vám";
+// Dokument ChatGPT (Lucie 22. 11. 2026): krátká poptávka po telefonu.
+export const CAFE_TASTING_FORM_HEADING = "Domluvíme dodávky do Vaší kavárny";
+export const CAFE_CALLBACK_TEXT = "Nechte nám na sebe telefon. Do dvou dnů Vám zavoláme a probereme, které polévky a nápoje chcete vyzkoušet a kam je potřebujete doručit.";
 
 /**
  * VOLITELNĚ — zatím vypnuto, zapne se po rozhodnutí (Lucie 20. 11. 2026):

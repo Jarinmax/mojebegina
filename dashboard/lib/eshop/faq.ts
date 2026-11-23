@@ -8,26 +8,28 @@ import { CAFE_PATH } from "./cafePage";
 import type { InfoPage } from "./infoPages";
 // Slovensko jen když je doručení zapnuté (od 18. 11. 2026 vypnuté kvůli povinnostem k obalům).
 import { SLOVAKIA_DELIVERY_ALLOWED } from "./shipping";
+import { syrupModelLine } from "./portionPrices";
 
 export const FAQ_PATH = "/caste-otazky";
 
 export type FaqItem = { question: string; answer: string };
 
 export const FAQ_ITEMS: FaqItem[] = [
+  // 22. 11. 2026 (Lucie): první dvě otázky přesně v tomto znění; dopravce se nejmenuje (Jarin)
   {
-    question: "Kdo dováží hotové polévky do kavárny?",
+    question: "Kde si můžeme objednat hotové polévky a nápoje do kavárny?",
     answer:
-      "Begina. Kavárnám a bistrům dovážíme hotové polévky a nápoje po celé ČR chlazenou přepravou – v begině, 3l sáčku s kohoutkem. Polévku stačí ohřát a podávat, nápoje jen naředit. Objednáte přímo na e-shopu begina.cz, na firmu i s IČO.",
+      "Přímo na e-shopu Begina. Polévky dodáváme v třílitrových sáčcích s kohoutkem. Natočíte si porci a ohřejete ji. Z nápojů se vodou ředí pouze sirupy. Čaje a ovocné nápoje můžete rovnou podávat.",
   },
   {
-    question: "Dovezete polévky po celé ČR?",
+    question: "Jak posíláte objednávky po České republice?",
     answer:
-      `Ano. Polévky i nápoje vozíme chlazenou přepravou po celé České republice, cena se řídí hmotností objednávky.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Sáčky se sirupem posíláme také Zásilkovnou a objednávku si můžete po domluvě vyzvednout osobně v Zahradním bistru Begina ve Viticích.`,
+      `Chlazené objednávky posíláme po celé ČR chlazenou přepravou. Před doručením se Vám ozve přímo dopravce. Cena přepravy závisí na hmotnosti zásilky.${SLOVAKIA_DELIVERY_ALLOWED ? " Doručujeme i na Slovensko (kromě alkoholických nápojů)." : ""} Vybrané sirupy v kapsičkách a ochutnávkový set sirupů posíláme také Zásilkovnou. Objednávku si můžete po domluvě zdarma vyzvednout i v našem bistru ve Viticích.`,
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
     answer:
-      "Polévky a čaje vydrží po otevření v lednici 14 dní, sirupy 3 měsíce. Polévky skladujte v chladničce do 4 °C před otevřením i po otevření; neotevřené balení spotřebujte do data uvedeného na obalu.",
+      "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Po otevření ji spotřebujte do 14 dnů, nejpozději však do data spotřeby uvedeného na obalu.",
   },
   {
     question: "Jsou vaše polévky veganské?",
@@ -36,18 +38,19 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     question: "Kolik stojí porce polévky?",
-    answer:
-      "Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,60 Kč. Nápoj ze sirupu vychází od 3,30 Kč.",
+    get answer() {
+      return `Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml – porce tak vychází na 31,58 Kč. Nápoj ze sirupu: ${syrupModelLine(true)}`;
+    },
   },
   {
     question: "Můžu si objednat i domů?",
     answer:
-      "Ano. Objednáte na e-shopu begina.cz a doručíme vám chlazenou přepravou až domů. Sirupy jsou i v menším balení, od 199 Kč za 650 ml, a ochutnávkový set 5 sirupů stojí 349 Kč.",
+      "Ano. Objednat si můžete i domů. Polévky posíláme chlazeně po celé ČR. Před doručením se Vám ozve dopravce.",
   },
   {
-    question: "Jak objednat ochutnávku do provozu?",
+    question: "Jak ochutnat polévky a sirupy do provozu?",
     answer:
-      "Na stránce Pro kavárny a bistra si vyberete polévky, sirupy a Svařák Deluxe, každou položku za 49 Kč. Objednáte na firmu s IČO a pošleme vám je chlazenou přepravou, nebo si je vyzvednete ve Viticích.",
+      "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.",
   },
   {
     question: "Mají kavárny a bistra zvláštní ceník?",
@@ -72,4 +75,4 @@ export const FAQ_PAGE: InfoPage = {
   hideOperatorLine: true,
 };
 
-export const FAQ_CTA = { text: "Chci ochutnávku do provozu", href: CAFE_PATH } as const;
+export const FAQ_CTA = { text: "Vyzkoušet Beginu v provozu", href: CAFE_PATH } as const;

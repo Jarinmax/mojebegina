@@ -1,9 +1,9 @@
 import ShopLink from "./ShopLink";
-import { isOrderable, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
+import { isOrderable, isSoldOut, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
 import { formatKc } from "@/lib/format";
 import ProductImage from "./ProductImage";
-import AddToCartButton from "./AddToCartButton";
+import AddToCartButton, { InStockBadge, SoldOutBadge } from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
@@ -45,17 +45,27 @@ export default function ProductCard({ product }: { product: Product }) {
           )}
         </div>
       </ShopLink>
-      <div className="px-1 pt-3 flex items-center justify-between gap-3">
+      <div className={`px-1 pt-3 flex items-center justify-between gap-3 ${hasChoice ? "flex-wrap" : ""}`}>
         {hasChoice ? (
           // Cena každého balení zvlášť (11. 11. 2026) — „od 199 Kč“ vedle
           // „až 150 nápojů“ (platí pro 3 l) mohlo zákazníka uvést v omyl.
-          <ul className="font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
+          <ul className="grid grid-cols-[max-content_max-content] items-center gap-x-1.5 font-semibold tabular-nums text-sm leading-snug" aria-label="Ceny podle balení">
             {[...product.variants]
-              .sort((a, b) => a.priceKc - b.priceKc)
+              // 22. 11. 2026 (Lucie): nahoře balení „skladem“, pod nimi „vyprodáno“;
+              // ve skupině menší balení nahoře, 3 l pod ním. Štítky zarovnané do sloupce (subgrid).
+              .sort(
+                (a, b) =>
+                  Number(a.soldOut === true) - Number(b.soldOut === true) ||
+                  (a.volumeMl ?? 0) - (b.volumeMl ?? 0) ||
+                  a.priceKc - b.priceKc,
+              )
               .map((v) => (
-                <li key={v.sku ?? v.label ?? v.priceKc}>
-                  {formatKc(v.priceKc)}
-                  {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
+                <li key={v.sku ?? v.label ?? v.priceKc} className="col-span-2 grid grid-cols-subgrid items-center justify-items-start whitespace-nowrap">
+                  <span className={v.soldOut === true ? "text-neutral-500 font-normal" : ""}>
+                    {formatKc(v.priceKc)}
+                    {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
+                  </span>
+                  {v.soldOut === true ? <SoldOutBadge className="h-4 px-1 text-[9px]" /> : <InStockBadge />}
                 </li>
               ))}
           </ul>
@@ -66,7 +76,7 @@ export default function ProductCard({ product }: { product: Product }) {
             {isSet && product.tastingCampaign && <span className="block text-[13px] font-normal text-neutral-500">vč. dopravy</span>}
           </p>
         )}
-        <div className="w-36">
+        <div className={hasChoice ? "w-full" : "w-36"}>
           {!isOrderable(product) ? (
             <span
               title={NOT_ORDERABLE_NOTICE}
@@ -74,6 +84,8 @@ export default function ProductCard({ product }: { product: Product }) {
             >
               {NOT_ORDERABLE_LABEL}
             </span>
+          ) : isSoldOut(product) ? (
+            <SoldOutBadge className="w-full h-9 text-sm" />
           ) : hasChoice || isSet ? (
             <ShopLink
               href={href}

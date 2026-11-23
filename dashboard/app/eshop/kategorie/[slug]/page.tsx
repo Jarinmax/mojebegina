@@ -5,10 +5,13 @@ import { ChevronLeft } from "lucide-react";
 import { getCatalogIndex } from "@/lib/eshop/catalogServer";
 import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { imageBackdrop } from "@/lib/eshop/productImages";
-import { SHARE_DESCRIPTION } from "@/lib/eshop/shareMeta";
+import { SHARE_DESCRIPTION, pageShareMeta } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
 import { splitLastSentence } from "@/lib/eshop/typography";
+import { withSyrupDrinkPrice } from "@/lib/eshop/syrupDrinkPrice";
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
+import { CATEGORY_SOUPS_TEASER, SOUPS_CATEGORY_SEO } from "@/lib/eshop/cafePage";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +24,11 @@ export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[
   // zapečeného textu (polévky = hlavní fotka Dýňové); jinak logo z layoutu.
   const shareImage = imageBackdrop(category.image) ? category.image : null;
   // vlastní popis pro vyhledávače: názvy produktů + úvod kategorie (12. 11. 2026)
-  const description = categoryDescription(category, index.productsInCategory(category.slug)) || SHARE_DESCRIPTION;
+  const soups = category.slug === "polevky";
+  const description = soups ? SOUPS_CATEGORY_SEO.description : categoryDescription(category, index.productsInCategory(category.slug)) || SHARE_DESCRIPTION;
   return {
-    title: category.name,
+    // polévky: vlastní SEO titulek z dokumentu ChatGPT (bez šablony layoutu)
+    title: soups ? { absolute: SOUPS_CATEGORY_SEO.title } : category.name,
     description,
     alternates: { canonical: `/kategorie/${category.slug}` },
     ...(shareImage
@@ -31,7 +36,9 @@ export async function generateMetadata({ params }: PageProps<"/eshop/kategorie/[
           openGraph: { type: "website", title: category.name, description, url: `/kategorie/${category.slug}`, images: [shareImage] },
           twitter: { card: "summary_large_image", title: category.name, description, images: [shareImage] },
         }
-      : {}),
+      : // Lucie 22. 11. 2026: odkaz na kategorii (např. sirupy) má v náhledu ukázat
+        // název kategorie, ne obecné „Begina – Když rozhoduje chuť“.
+        pageShareMeta(category.name, description, `/kategorie/${category.slug}`)),
   };
 }
 
@@ -43,6 +50,9 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
     notFound();
   }
   const items = index.productsInCategory(category.slug);
+  // Sirupy: modelová cena nápoje včetně dopravy při 3 × 3 l (23. 11. 2026)
+  if (category.slug === "sirupy") await applyFuelSurchargeFromDb();
+  const intro = category.slug === "sirupy" ? category.intro.map(withSyrupDrinkPrice) : category.intro;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
@@ -57,12 +67,13 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
         Všechny kategorie
       </ShopLink>
 
-      <section className="text-center max-w-3xl mx-auto mb-8">
+      <section className="text-center max-w-3xl mx-auto mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{category.name}</h1>
-        {category.intro.map((paragraph, index) => {
+        {intro.map((paragraph, index) => {
           const [head, last] = splitLastSentence(paragraph);
           return (
-            <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "text-neutral-600"}`}>
+            // mobil: nad produkty jen první odstavec, delší popis až pod nimi (zadání 22. 11. 2026 večer)
+            <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "hidden sm:block text-neutral-600"}`}>
               {head}
               {last && (
                 <>
@@ -74,6 +85,18 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
           );
         })}
         {category.ageRestricted && <p className="mt-3 font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>}
+        {category.slug === "polevky" && (
+          <p className="mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-sm sm:text-base text-neutral-800">
+            {CATEGORY_SOUPS_TEASER.text}{" "}
+            <ShopLink href={CATEGORY_SOUPS_TEASER.pricesHref} className="font-semibold text-[#4A5527] underline underline-offset-4">
+              {CATEGORY_SOUPS_TEASER.pricesLabel}
+            </ShopLink>{" "}
+            {CATEGORY_SOUPS_TEASER.offerText}{" "}
+            <ShopLink href={CATEGORY_SOUPS_TEASER.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+              {CATEGORY_SOUPS_TEASER.label} →
+            </ShopLink>
+          </p>
+        )}
       </section>
 
       {items.length === 0 ? (
@@ -86,6 +109,13 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
             <ProductCard key={product.slug} product={product} />
           ))}
         </ul>
+      )}
+      {intro.length > 1 && (
+        <section className="sm:hidden mt-8 text-center max-w-3xl mx-auto">
+          {intro.slice(1).map((paragraph) => (
+            <p key={paragraph} className="mt-3 text-neutral-600">{paragraph}</p>
+          ))}
+        </section>
       )}
     </div>
   );

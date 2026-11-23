@@ -65,3 +65,59 @@ export async function lookupAres(ico: string, fetchImpl: typeof fetch = fetch, t
     return { ok: false, reason: "unavailable" };
   }
 }
+
+// --- Převod leadu na zákazníka (Jarin 22. 11. 2026) ---------------------------
+// Obchodník napíše IČO nebo název firmy a formulář se předvyplní z ARES.
+// Vyhledání podle názvu: POST {ARES_URL}/vyhledat { obchodniJmeno, pocet, start }.
+
+/** Adresa sídla na jeden řádek: „Mostecká 273/21, 118 00 Praha“. */
+export function aresAddressLine(company: Pick<AresCompany, "street" | "city" | "zip">): string {
+  const cityPart = [company.zip, company.city].filter(Boolean).join(" ");
+  if (!company.street) return cityPart;
+  // Bez ulice je v street název obce („Vitice 119“) — obec neopakuj.
+  if (company.city && company.street.startsWith(company.city)) {
+    return [company.street, company.zip].filter(Boolean).join(", ");
+  }
+  return [company.street, cityPart].filter(Boolean).join(", ");
+}
+
+export function parseAresSearch(data: unknown): AresCompany[] {
+  if (typeof data !== "object" || data === null) return [];
+  const list = (data as { ekonomickeSubjekty?: unknown }).ekonomickeSubjekty;
+  if (!Array.isArray(list)) return [];
+  const companies: AresCompany[] = [];
+  for (const item of list) {
+    const ico = typeof item === "object" && item !== null ? (item as { ico?: unknown }).ico : null;
+    if (typeof ico !== "string" || !/^\d{8}$/.test(ico)) continue;
+    const company = parseAresCompany(item, ico);
+    if (company) companies.push(company);
+  }
+  return companies;
+}
+
+export type AresSearchResult = { ok: true; companies: AresCompany[] } | { ok: false; reason: "unavailable" };
+
+export async function searchAresByName(
+  name: string,
+  fetchImpl: typeof fetch = fetch,
+  limit = 6,
+  timeoutMs = 5000
+): Promise<AresSearchResult> {
+  const query = name.trim();
+  if (query.length < 3) return { ok: true, companies: [] };
+  try {
+    const response = await fetchImpl(`${ARES_URL}/vyhledat`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ obchodniJmeno: query, pocet: limit, start: 0 }),
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
+    });
+    // ARES vrací 400 i pro „příliš mnoho výsledků“ / nic nenalezeno — není to výpadek.
+    if (response.status === 400 || response.status === 404) return { ok: true, companies: [] };
+    if (!response.ok) return { ok: false, reason: "unavailable" };
+    return { ok: true, companies: parseAresSearch(await response.json()).slice(0, limit) };
+  } catch {
+    return { ok: false, reason: "unavailable" };
+  }
+}

@@ -34,7 +34,7 @@ const ORG_KAVARNA = "00000000-0000-4000-8000-00000000b001";
 const ENV: Record<string, string> = {
   VERCEL_ENV: "production",
   DATABASE_URL: "postgresql://u:p@ep-test.neon.tech/neondb",
-  IDOKLAD_INVOICING_ENABLED: "manual",
+  INVOICING_PROVIDER: "idoklad", IDOKLAD_INVOICING_ENABLED: "manual",
   IDOKLAD_ESHOP_SEQUENCE_ID: "7277293",
   IDOKLAD_B2B_SEQUENCE_ID: String(LUCIE_SERIES),
   IDOKLAD_ESHOP_CLIENT_ID: "cid",
@@ -220,13 +220,13 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
       sendsEmail: false,
       preview_token: expect.any(String),
     });
-    const { addDays } = await import("@/lib/eshop/invoicing/b2bInvoiceValidation");
-    expect(prepared.data.invoice.dueDate).toBe(addDays(prepared.data.invoice.issueDate, 14));
+    const { addWorkdaysDay } = await import("@/lib/eshop/invoicing/b2bInvoiceValidation");
+    expect(prepared.data.invoice.dueDate).toBe(addWorkdaysDay(prepared.data.invoice.issueDate, 3));
     expect(prepared.data.warnings.join(" ")).toMatch(/tvrdí, že je faktura uhrazená, ale vystaví se jako NEUHRAZENÁ/);
     expect(writes()).toEqual([]);
   });
 
-  it("vystavení: jedna faktura v řadě 2032369, hotově, otevřená (bez FullyPay), splatnost 14 dní, poznámka; odkaz na PDF; audit u zákazníka; žádný e-mail", async () => {
+  it("vystavení: jedna faktura v řadě 2032369, hotově, otevřená (bez FullyPay), splatnost 3 pracovní dny, poznámka; odkaz na PDF; audit u zákazníka; žádný e-mail", async () => {
     const { prepared, issued } = await issue(lucie, kavarna());
     expect(issued.isError, issued.text).toBe(false);
     expect(issued.data).toMatchObject({

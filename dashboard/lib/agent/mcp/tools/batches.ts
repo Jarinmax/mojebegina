@@ -91,6 +91,7 @@ export const BATCH_TOOLS: AgentTool[] = [
         },
       },
       note: { type: "string", description: "Poznámka (nepovinné, max. 500 znaků)." },
+      code: { type: "string", description: "Jen když je etiketa už vytištěná s vlastním číslem: L-RRRRMMDD-KÓD-NN (např. L-20261117-MEL-01). Jinak vynech, číslo se vytvoří samo." },
     },
     required: ["product_id", "lines"],
     parse: (args) => {
@@ -100,6 +101,7 @@ export const BATCH_TOOLS: AgentTool[] = [
           productId: args.product_id,
           producedOn: args.produced_on,
           note: args.note,
+          code: args.code,
           lines: rawLines.map((l) => ({ volumeMl: l.volume_ml, quantity: l.quantity, bestBefore: l.best_before })),
         },
         todayPrague()

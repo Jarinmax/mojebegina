@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { getCockpitCounts, listLeads, listCustomers, listFreshLeads } from "@/lib/data/leads";
+import { DateTime } from "luxon";
+import { getCockpitCounts, listLeads, listCustomers, listFreshLeads, getHeardFromSummary } from "@/lib/data/leads";
+import { HEARD_FROM_SHORT, isHeardFrom } from "@/lib/data/heardFrom";
 import { getAuthContext } from "@/lib/data/authContext";
+import { canViewJardaRewards } from "@/lib/data/jardaRewards";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import MetaImportButton from "./MetaImportButton";
 import CockpitTiles from "./CockpitTiles";
@@ -29,9 +32,17 @@ function isView(value: string | undefined): value is View {
 export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod">) {
   const searchParams = await props.searchParams;
   const viewParam = Array.isArray(searchParams.view) ? searchParams.view[0] : searchParams.view;
-  const activeView: View = isView(viewParam) ? viewParam : "moje-leady";
-
   const ctx = await getAuthContext();
+  // 22. 11. 2026 (Lucie): kdo nemá vlastní leady (Lucie), viděl prázdnou
+  // záložku „Moje leady“ a myslel si, že ostatní leady zmizely. Bez
+  // vlastních leadů se proto otevře „Všechny leady“.
+  let activeView: View;
+  if (isView(viewParam)) {
+    activeView = viewParam;
+  } else {
+    const mine = await listLeads("mine");
+    activeView = mine.length > 0 ? "moje-leady" : "vsechny-leady";
+  }
   const showDailyCallsLink = isDailyCallCurator(ctx) || isDailyCallWorker(ctx);
 
   const counts = await getCockpitCounts();
@@ -40,13 +51,63 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
   const leadFilter = activeView === "moje-leady" ? "mine" : "all";
   const customerFilter = activeView === "moji-zakaznici" ? "mine" : "all";
 
-  const [leadCards, customerCards, newLeads] = await Promise.all([
+  // eslint-disable-next-line prefer-const
+  let [leadCards, customerCards, newLeads, heardSummary] = await Promise.all([
     isLeadsView ? listLeads(leadFilter) : Promise.resolve(null),
     !isLeadsView ? listCustomers(customerFilter) : Promise.resolve(null),
     listFreshLeads(),
+    getHeardFromSummary(),
   ]);
+  // 22. 11. 2026 (Lucie): ve „Všech leadech“ rozdělení podle obchodníka,
+  // ať se nemusí číst u každé karty vpravo dole, komu patří.
+  const allLeadCards = leadCards;
+  const ownerParam = Array.isArray(searchParams.obchodnik) ? searchParams.obchodnik[0] : searchParams.obchodnik;
+  const ownerMap = new Map<string, { label: string; count: number }>();
+  let unowned = 0;
+  for (const l of allLeadCards ?? []) {
+    if (!l.ownerUserId) {
+      unowned += 1;
+      continue;
+    }
+    const g = ownerMap.get(l.ownerUserId) ?? { label: l.ownerName ?? "Obchodník", count: 0 };
+    g.count += 1;
+    ownerMap.set(l.ownerUserId, g);
+  }
+  const ownerGroups = [
+    { key: "vsichni", label: "Všichni", count: allLeadCards?.length ?? 0 },
+    ...[...ownerMap.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([id, g]) => ({ key: id, label: g.label, count: g.count })),
+    ...(unowned > 0 ? [{ key: "bez", label: "Bez obchodníka", count: unowned }] : []),
+  ];
+  const ownerFilter = ownerGroups.some((g) => g.key === ownerParam) ? (ownerParam as string) : "vsichni";
+  if (activeView === "vsechny-leady" && leadCards && ownerFilter !== "vsichni") {
+    leadCards = leadCards.filter((l) => (ownerFilter === "bez" ? !l.ownerUserId : l.ownerUserId === ownerFilter));
+  }
+
   // Na záložce „Všechny leady“ jsou nové leady už nahoře v seznamu — blok by je zdvojil.
-  const showNewLeadsBlock = newLeads.length > 0 && activeView !== "vsechny-leady";
+  // 22. 11. 2026 (Lucie u Jarina): v „Mých leadech“ jen moji noví + volné
+  // (bez obchodníka), ne nové leady kolegy.
+  const shownNewLeads =
+    activeView === "moje-leady" ? newLeads.filter((l) => !l.ownerUserId || l.ownerUserId === ctx?.userId) : newLeads;
+  const showNewLeadsBlock = shownNewLeads.length > 0 && activeView !== "vsechny-leady";
+
+  // „Moje leady“ rozdělené podle toho, co je potřeba udělat.
+  const todayEnd = DateTime.now().setZone("Europe/Prague").endOf("day").toJSDate();
+  const myGroups =
+    activeView === "moje-leady" && leadCards
+      ? [
+          {
+            title: "Zavolat dnes / po termínu",
+            items: leadCards.filter((l) => l.nextFollowUpAt && l.nextFollowUpAt <= todayEnd),
+          },
+          {
+            title: "Naplánované",
+            items: leadCards.filter((l) => l.nextFollowUpAt && l.nextFollowUpAt > todayEnd),
+          },
+          { title: "Bez termínu — naplánuj další krok", items: leadCards.filter((l) => !l.nextFollowUpAt) },
+        ].filter((g) => g.items.length > 0)
+      : null;
 
   return (
     <div>
@@ -55,44 +116,25 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           <h1 className="text-lg font-medium text-begina-primary-900">Obchod / CRM</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Leady, zákazníci a obchodní pipeline</p>
         </div>
-        <Link
-          href="/rizeni-firmy/obchod/leady/novy"
-          className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 whitespace-nowrap"
-        >
-          Nový lead
-        </Link>
+        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+          {canViewJardaRewards(ctx) && (
+            <Link
+              href="/prace/odmeny"
+              className="text-sm font-medium text-begina-primary-900 border border-begina-primary-900 rounded-lg px-4 py-2 whitespace-nowrap"
+            >
+              Obchodníci a odměny
+            </Link>
+          )}
+          <Link
+            href="/rizeni-firmy/obchod/leady/novy"
+            className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 whitespace-nowrap"
+          >
+            Nový lead
+          </Link>
+        </div>
       </div>
 
-      {showDailyCallsLink && (
-        <Link
-          href="/rizeni-firmy/obchod/dnes"
-          className="block bg-white border border-begina-primary-200 rounded-xl p-4 mt-3 text-sm font-medium text-begina-primary-900"
-        >
-          Dnešní volání →
-        </Link>
-      )}
-
-      {isDailyCallCurator(ctx) && <MetaImportButton />}
-
-      {showNewLeadsBlock && (
-        <section className="mt-4 flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-begina-primary-900">
-            Nové leady — zatím nikdo nevolal ({newLeads.length})
-          </h2>
-          <p className="text-xs text-neutral-500">
-            Přiřazený obchodník dostane e-mail a volá on. Bez obchodníka: kdo zavolá a dovolá se, tomu se kontakt přiřadí.
-          </p>
-          {newLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} fresh />
-          ))}
-        </section>
-      )}
-
-      <div className="mb-4 mt-4">
-        <CockpitTiles counts={counts} />
-      </div>
-
-      <div className="flex items-center gap-1 mb-3 flex-wrap">
+      <div className="flex items-center gap-1 mt-3 mb-1 flex-wrap">
         {VIEWS.map((view) => (
           <Link
             key={view}
@@ -108,10 +150,92 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
         ))}
       </div>
 
+      {showDailyCallsLink && (
+        <Link
+          href="/rizeni-firmy/obchod/dnes"
+          className="block bg-white border border-begina-primary-200 rounded-xl p-4 mt-3 text-sm font-medium text-begina-primary-900"
+        >
+          Dnešní volání →
+        </Link>
+      )}
+
+
+      {showNewLeadsBlock && (
+        <section className="mt-4 flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-begina-primary-900">
+            {activeView === "moje-leady" ? "Noví — ještě jsi nevolal" : "Nové leady — zatím nikdo nevolal"} ({shownNewLeads.length})
+          </h2>
+          <p className="text-xs text-neutral-500">
+            Zůstanou tu, dokud obchodník neuloží první zápis po hovoru. Přiřazený obchodník dostal e-mail a volá on; bez obchodníka: kdo zavolá a dovolá se, tomu se kontakt přiřadí.
+          </p>
+          {shownNewLeads.map((lead) => (
+            <LeadCard key={lead.id} lead={lead} fresh />
+          ))}
+        </section>
+      )}
+
+      <div className="mb-4 mt-4">
+        <CockpitTiles counts={counts} />
+      </div>
+
+      {activeView === "vsechny-leady" && (
+      <section className="mb-4 rounded-xl border border-neutral-200 bg-white p-4">
+        <h2 className="text-sm font-medium text-begina-primary-900">Odkud nás zákazníci znají</h2>
+        {heardSummary.counts.length === 0 ? (
+          <p className="mt-1 text-sm text-neutral-500">Zatím nic zjištěno — vyplňuje se po každém hovoru, kdy se obchodník dovolá.</p>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {heardSummary.counts.map((c) => (
+              <li key={c.key} className="rounded-full bg-begina-primary-50 px-3 py-1 text-sm text-begina-primary-900">
+                {isHeardFrom(c.key) ? HEARD_FROM_SHORT[c.key] : c.key} <strong>{c.count}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+        {heardSummary.missing > 0 && (
+          <p className="mt-2 text-xs text-red-700">U {heardSummary.missing} kontaktů, kterým už někdo volal, to zatím chybí.</p>
+        )}
+      </section>
+      )}
+
+      <h2 className="text-sm font-medium text-begina-primary-900 mb-2">
+        {VIEW_LABELS[activeView]}
+        {isLeadsView && allLeadCards ? ` (${allLeadCards.length})` : customerCards ? ` (${customerCards.length})` : ""}
+      </h2>
+      {activeView === "vsechny-leady" && ownerGroups.length > 1 && (
+        <div className="flex items-center gap-1 mb-3 flex-wrap">
+          {ownerGroups.map((g) => (
+            <Link
+              key={g.key}
+              href={`/rizeni-firmy/obchod?view=vsechny-leady${g.key === "vsichni" ? "" : `&obchodnik=${g.key}`}`}
+              className={`text-sm rounded-full px-3 py-1 ${
+                ownerFilter === g.key
+                  ? "bg-begina-primary-900 text-begina-primary-50"
+                  : "bg-white border border-neutral-200 text-neutral-700 hover:border-begina-primary-300"
+              }`}
+            >
+              {g.label} <span className="font-semibold">{g.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
       {isLeadsView ? (
         leadCards && leadCards.length === 0 ? (
           <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
             {leadFilter === "mine" ? "Zatím nemáš žádné aktivní leady." : "Zatím žádný aktivní lead."}
+          </div>
+        ) : myGroups ? (
+          <div className="flex flex-col gap-5">
+            {myGroups.map((g) => (
+              <section key={g.title} className="flex flex-col gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {g.title} ({g.items.length})
+                </h3>
+                {g.items.map((lead) => (
+                  <LeadCard key={lead.id} lead={lead} />
+                ))}
+              </section>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">{leadCards?.map((lead) => <LeadCard key={lead.id} lead={lead} />)}</div>
@@ -123,6 +247,11 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
       ) : (
         <div className="flex flex-col gap-2">
           {customerCards?.map((customer) => <CustomerCard key={customer.id} customer={customer} />)}
+        </div>
+      )}
+      {isDailyCallCurator(ctx) && (
+        <div className="mt-6">
+          <MetaImportButton />
         </div>
       )}
     </div>

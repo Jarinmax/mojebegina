@@ -84,6 +84,38 @@ export type RewardOrder = {
   items: RewardOrderItem[];
 };
 
+// Faktury vystavené mimo e-shop dřív, než je MojeBegina evidovala jako
+// objednávky (zdroj: archiv Google Sheets „Příjmy 2026“, ověřeno 23. 11. 2026
+// s Lucií). Započítávají se do odměny stejně jako objednávky z e-shopu.
+export const LEGACY_REWARD_ORDERS: readonly RewardOrder[] = [
+  {
+    id: "legacy-20260194",
+    orderNumber: "fakt. 20260194",
+    orderedAt: new Date("2026-10-22T09:00:00Z"),
+    paidAt: new Date("2026-10-22T09:00:00Z"),
+    buyerOrganizationId: "62e8cddb-a7b1-4941-a052-2e98658917af", // VIP Dogs s.r.o. (Cats & Coffee)
+    sourceLeadId: "59d3e1f5-efab-4771-a798-d4a63052abbb",
+    subtotalKc: 758,
+    discountKc: 0,
+    paymentStatus: "paid",
+    fulfillmentStatus: "delivered",
+    items: [],
+  },
+  {
+    id: "legacy-20260201",
+    orderNumber: "fakt. 20260201",
+    orderedAt: new Date("2026-10-30T09:00:00Z"),
+    paidAt: new Date("2026-10-30T09:00:00Z"),
+    buyerOrganizationId: "62e8cddb-a7b1-4941-a052-2e98658917af",
+    sourceLeadId: "59d3e1f5-efab-4771-a798-d4a63052abbb",
+    subtotalKc: 1137,
+    discountKc: 0,
+    paymentStatus: "paid",
+    fulfillmentStatus: "delivered",
+    items: [],
+  },
+];
+
 export type RewardLine = {
   orderId: string;
   orderNumber: string | null;

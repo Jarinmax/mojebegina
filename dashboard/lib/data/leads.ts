@@ -12,12 +12,14 @@
 import "server-only";
 import { planCustomerCardChange } from "./customerCard";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, leadActivity, leadCalendarSync, organizations, organizationActivity, orders, userRoles } from "@/lib/db/schema";
 import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { claimUnownedLeadOnReach } from "./leadClaim";
+import { validateHeardFromInput } from "./heardFrom";
+import { countConsecutiveNoAnswers, planNextAttempt, MAX_CALL_ATTEMPTS, type AttemptPlan } from "./callAttempts";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
@@ -28,6 +30,7 @@ import {
   validateStageInput,
   validateCallLogInput,
   validateCompanyNameInput,
+  validateLeadCompanyDetailsInput,
   validateNoteInput,
   validateNextStepInput,
   likePattern,
@@ -41,6 +44,7 @@ import {
   type CallLogInput,
   type NextStepInput,
   type LeadStage,
+  type LeadCompanyDetailsInput,
 } from "./leadValidation";
 import { reconcileLeadCalendarEvent, upsertPendingLeadCalendarSync } from "./googleCalendar";
 import type { AuthContext } from "./types";
@@ -134,6 +138,9 @@ export type LeadCardData = {
   createdAt: Date;
   /** Bez obchodníka a ve fázi „nový“ — viz isNewUnassignedLead. */
   isNew: boolean;
+  /** „Odkud nás zná“ (heardFrom.ts); null = zatím nezjištěno. */
+  heardFrom: string | null;
+  heardFromDetail: string | null;
 };
 
 async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<LeadCardData[]> {
@@ -165,6 +172,8 @@ async function buildLeadCards(rows: (typeof leads.$inferSelect)[]): Promise<Lead
       followUpOverdue: isFollowUpOverdue(stage, r.nextFollowUpAt),
       createdAt: r.createdAt,
       isNew: isNewUnassignedLead({ ownerUserId: r.ownerUserId, stage }),
+      heardFrom: r.heardFrom,
+      heardFromDetail: r.heardFromDetail,
     };
   });
 }
@@ -201,6 +210,24 @@ export async function listLeads(filter: LeadListFilter): Promise<LeadCardData[]>
   return buildLeadCards(sortedRows);
 }
 
+// Souhrn pro marketing (20. 11. 2026): odkud nás zákazníci znají.
+export type HeardFromSummary = { counts: { key: string; count: number }[]; missing: number };
+
+export async function getHeardFromSummary(): Promise<HeardFromSummary> {
+  await requireCrmContext();
+  const rows = await db
+    .select({ heardFrom: leads.heardFrom, lastContactedAt: leads.lastContactedAt })
+    .from(leads);
+  const map = new Map<string, number>();
+  let missing = 0;
+  for (const r of rows) {
+    if (r.heardFrom) map.set(r.heardFrom, (map.get(r.heardFrom) ?? 0) + 1);
+    else if (r.lastContactedAt) missing += 1;
+  }
+  const counts = [...map.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+  return { counts, missing };
+}
+
 // Nové leady bez obchodníka (např. z formuláře Meta) — samostatný blok nahoře
 // na stránce Obchod, ať je vidí každý bez ohledu na vybranou záložku.
 /**
@@ -220,7 +247,11 @@ export async function listFreshLeads(): Promise<LeadCardData[]> {
         // Jen opravdu nové poptávky: ne 85 kontaktů ze staré databáze
         // (import 26. 9. 2026, už mají obchodníka) a nic staršího než 30 dní.
         ne(leads.source, "existing_database"),
-        gte(leads.createdAt, new Date(Date.now() - FRESH_LEAD_DAYS * 24 * 60 * 60 * 1000))
+        gte(leads.createdAt, new Date(Date.now() - FRESH_LEAD_DAYS * 24 * 60 * 60 * 1000)),
+        // 22. 11. 2026 (Lucie, LumoKids): s leadem už někdo pracuje — má
+        // naplánovaný další kontakt nebo poznámku/zápis hovoru → není „nový“.
+        isNull(leads.nextFollowUpAt),
+        sql`not exists (select 1 from ${leadActivity} a where a.lead_id = ${leads.id} and a.kind in ('note_added', 'call_logged'))`
       )
     )
     .orderBy(desc(leads.createdAt), asc(leads.id));
@@ -463,6 +494,61 @@ export async function createLead(rawInput: CreateLeadInput): Promise<CreateLeadR
 // poznámka + volitelný posun fáze + volitelný další follow-up, vše
 // atomicky v jednom db.batch (stejný vzor jako updateFulfillmentStatus
 // v orders.ts).
+// „Nezvedá“ jedním klepnutím (22. 11. 2026): zapíše marný pokus a podle
+// řady pokusů (callAttempts.ts) nastaví další termín — nebo po 4. pokusu
+// přestane a nastaví jednu připomínku za měsíc.
+export type NoAnswerResult = { ok: true; plan: AttemptPlan } | { ok: false; error: string };
+
+export async function logNoAnswer(leadId: string): Promise<NoAnswerResult> {
+  const ctx = await requireCrmContext();
+  const [lead] = await db
+    .select({ stage: leads.stage, createdAt: leads.createdAt })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!lead) return { ok: false, error: "Lead nebyl nalezen." };
+
+  const history = await db
+    .select({ kind: leadActivity.kind, metadata: leadActivity.metadata })
+    .from(leadActivity)
+    .where(and(eq(leadActivity.leadId, leadId), eq(leadActivity.kind, "call_logged")))
+    .orderBy(desc(leadActivity.createdAt))
+    .limit(10);
+  const failedAttempt = countConsecutiveNoAnswers(history as { kind: string; metadata: Record<string, unknown> | null }[]) + 1;
+  const plan = planNextAttempt({ failedAttempt, leadCreatedAt: lead.createdAt });
+
+  const updates: Partial<typeof leads.$inferInsert> = {
+    lastContactedAt: new Date(),
+    updatedAt: new Date(),
+    nextFollowUpAt: plan.nextAt ?? plan.remindAt,
+    nextStepNote: plan.stop
+      ? `Nedovolali jsme se (${failedAttempt} pokusy) — jednou zkusit znovu`
+      : `Zavolat znovu (pokus ${failedAttempt + 1}/${MAX_CALL_ATTEMPTS})${plan.suggestEmail ? " + poslat krátký e-mail" : ""}`,
+  };
+  if (plan.stop && lead.stage !== "callback_later") updates.stage = "callback_later";
+
+  await db.batch([
+    db.update(leads).set(updates).where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "call_logged",
+      body: plan.label,
+      metadata: {
+        callResult: "no_answer",
+        attempt: failedAttempt,
+        nextFollowUpAt: updates.nextFollowUpAt,
+        stageChangedTo: updates.stage ?? null,
+        from: lead.stage,
+      },
+    }),
+    upsertPendingLeadCalendarSync(leadId),
+  ]);
+  await reconcileCalendarAfterCommit(leadId);
+  return { ok: true, plan };
+}
+
 export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Promise<LeadResult> {
   const ctx = await requireCrmContext();
 
@@ -472,15 +558,32 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   }
   const value = validated.value;
 
-  const [current] = await db.select({ stage: leads.stage }).from(leads).where(eq(leads.id, leadId)).limit(1);
+  const [current] = await db
+    .select({ stage: leads.stage, heardFrom: leads.heardFrom })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
   if (!current) {
     return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  // „Odkud nás zná“ — po dovolání povinné, dokud lead nemá uloženo (20. 11. 2026).
+  const heard = validateHeardFromInput(
+    { heardFrom: rawInput.heardFrom ?? "", heardFromDetail: rawInput.heardFromDetail ?? "" },
+    { reached: rawInput.reached === true, alreadyKnown: current.heardFrom !== null }
+  );
+  if (!heard.ok) {
+    return { ok: false, error: heard.error };
   }
 
   const updates: Partial<typeof leads.$inferInsert> = {
     lastContactedAt: new Date(),
     updatedAt: new Date(),
   };
+  if (heard.value) {
+    updates.heardFrom = heard.value.heardFrom;
+    updates.heardFromDetail = heard.value.heardFromDetail;
+  }
   if (value.nextStage) {
     updates.stage = value.nextStage;
   }
@@ -507,6 +610,7 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
         stageChangedTo: value.nextStage,
         nextFollowUpAt: value.nextFollowUpAt,
         from: current.stage,
+        ...(heard.value ? { heardFrom: heard.value.heardFrom, heardFromDetail: heard.value.heardFromDetail } : {}),
       },
     }),
     upsertPendingLeadCalendarSync(leadId),
@@ -518,7 +622,9 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   // Až PO uloženém zápisu hovoru; selhání ho nesmí vrátit.
   if (rawInput.reached) {
     try {
-      await claimUnownedLeadOnReach(leadId, { userId: ctx.userId, name: ctx.name }, "lead_detail");
+      const claimed = await claimUnownedLeadOnReach(leadId, { userId: ctx.userId, name: ctx.name }, "lead_detail");
+      // Teď už má vlastníka → termín do jeho kalendáře.
+      if (claimed) await reconcileCalendarAfterCommit(leadId);
     } catch (error) {
       console.error("claimUnownedLeadOnReach (lead detail)", error);
     }
@@ -683,6 +789,51 @@ export async function updateLeadCompanyName(leadId: string, rawCompanyName: stri
   return { ok: true };
 }
 
+// Jarin 22. 11. 2026: obchodník (i bez práva zakládat organizace) doplní
+// u leadu firmu — název, IČO, sídlo, předvyplněné z ARES. Převod na zákazníka
+// (ADMIN) je pak jen potvrzení. Organizaci to nezakládá.
+export async function updateLeadCompanyDetails(
+  leadId: string,
+  rawInput: LeadCompanyDetailsInput
+): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+
+  const validated = validateLeadCompanyDetailsInput(rawInput);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error };
+  }
+
+  const [current] = await db
+    .select({ companyName: leads.companyName, ico: leads.ico, address: leads.address })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  if (!current) {
+    return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  const next = validated.value;
+  if (current.companyName === next.companyName && current.ico === next.ico && current.address === next.address) {
+    return { ok: true };
+  }
+
+  await db.batch([
+    db
+      .update(leads)
+      .set({ companyName: next.companyName, ico: next.ico, address: next.address, updatedAt: new Date() })
+      .where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "company_details_set",
+      metadata: { from: current, to: next },
+    }),
+  ]);
+
+  return { ok: true };
+}
+
 export async function updateLeadStage(leadId: string, rawStage: string): Promise<LeadResult> {
   const ctx = await requireCrmContext();
 
@@ -749,6 +900,11 @@ export async function assignLeadOwner(leadId: string, ownerUserId: string): Prom
   // (ne když si lead přiřadí sám sobě nebo se obchodník nemění).
   if (lead.ownerUserId !== ownerUserId && ownerUserId !== ctx.userId) {
     await notifyLeadOwner(leadId, ownerUserId, ctx.name ?? "Kolega", assignedAt);
+  }
+
+  // Termín dalšího kontaktu se přestěhuje do kalendáře nového obchodníka.
+  if (lead.ownerUserId !== ownerUserId) {
+    await reconcileCalendarAfterCommit(leadId);
   }
 
   return { ok: true };
@@ -1107,6 +1263,10 @@ export type CustomerActivityEntry = {
 export type CustomerDetail = CustomerCardData & {
   /** Fakturační jméno, když se liší od názvu karty (migrace 0056); null = faktura na name. */
   billingName: string | null;
+  /** Sídlo podle IČO — jde na fakturu. */
+  registeredAddress: string;
+  /** Doručovací adresa (migrace 0063); null = vozí se na sídlo / adresu z objednávky. */
+  deliveryAddress: string | null;
   recentOrders: CustomerOrderSummary[];
   activity: CustomerActivityEntry[];
 };
@@ -1119,6 +1279,8 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
       id: organizations.id,
       name: organizations.name,
       billingName: organizations.billingName,
+      registeredAddress: organizations.registeredAddress,
+      deliveryAddress: organizations.deliveryAddress,
       ico: organizations.ico,
       ownerUserId: organizations.ownerUserId,
       acquiredByUserId: organizations.acquiredByUserId,
@@ -1161,6 +1323,8 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     id: org.id,
     name: org.name,
     billingName: org.billingName ?? null,
+    registeredAddress: org.registeredAddress,
+    deliveryAddress: org.deliveryAddress ?? null,
     ico: org.ico,
     ownerUserId: org.ownerUserId,
     ownerName: owner?.name ?? owner?.email ?? null,
@@ -1359,4 +1523,38 @@ export async function updateCustomerCard(organizationId: string, input: Customer
     customer: { id: org.id, name: plan.name, billingName: plan.billingName, invoiceName: plan.billingName ?? plan.name, ico: org.ico },
     linkedLeadId: lead?.id ?? null,
   };
+}
+
+/**
+ * Doručovací adresa zákazníka (Lucie 23. 11. 2026). Sídlo (faktura) se nemění;
+ * prázdný text adresu smaže. Změna se zapíše do historie karty.
+ */
+export async function setCustomerDeliveryAddress(organizationId: string, raw: string): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+  const address = raw.replace(/\s+/g, " ").trim();
+  if (address.length > 300) return { ok: false, error: "Adresa je moc dlouhá." };
+  if (address.length > 0 && address.length < 5) return { ok: false, error: "Napište celou adresu (ulice, číslo, PSČ, město)." };
+  const [org] = await db
+    .select({ old: organizations.deliveryAddress })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!org) return { ok: false, error: "Zákazník nebyl nalezen." };
+  const next = address || null;
+  if ((org.old ?? null) === next) return { ok: true };
+  await db.batch([
+    db.update(organizations).set({ deliveryAddress: next }).where(eq(organizations.id, organizationId)),
+    db.insert(organizationActivity).values({
+      organizationId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "note_added",
+      body: next
+        ? org.old
+          ? `Doručovací adresa změněna: ${org.old} → ${next}`
+          : `Doplněna doručovací adresa: ${next}`
+        : `Doručovací adresa smazána (byla: ${org.old})`,
+    }),
+  ]);
+  return { ok: true };
 }

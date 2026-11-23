@@ -425,8 +425,57 @@
     {
       "idx": 60,
       "version": "7",
-      "when": 1795291858209,
-      "tag": "0060_sverene_penize",
+      "when": 1795304185716,
+      "tag": "0060_vyprodano",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1795312225297,
+      "tag": "0061_odkud_nas_zna",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795341731665,
+      "tag": "0062_eshop_nastaveni",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795426000000,
+      "tag": "0063_dorucovaci_adresa",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1795426060000,
+      "tag": "0064_vlastni_faktury",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1795427884640,
+      "tag": "0065_faktury_upravy",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1795441495930,
+      "tag": "0066_idoklad_archiv",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1795443651092,
+      "tag": "0067_sverene_penize",
       "breakpoints": true
     }
   ]

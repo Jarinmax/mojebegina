@@ -52,10 +52,11 @@ export const ZASILKOVNA_MAX_POUCHES = Math.max(...ZASILKOVNA_BOXES.map((box) => 
 import { isCampaignSetSku, isTastingSet } from "./tastingSet";
 
 const POUCH_CATEGORY = "sirupy";
-const POUCH_VOLUME_ML = 650;
+// 22. 11. 2026 (Lucie): sáček sirupu nově 500 ml; 650 ml do spuštění SQL vyprodano-650-500.
+const POUCH_VOLUMES_ML: readonly number[] = [500, 650];
 
 export function isSyrupPouch(product: { category: string }, variant: { volumeMl: number | null }): boolean {
-  return product.category === POUCH_CATEGORY && variant.volumeMl === POUCH_VOLUME_ML;
+  return product.category === POUCH_CATEGORY && variant.volumeMl !== null && POUCH_VOLUMES_ML.includes(variant.volumeMl);
 }
 
 type Line = { quantity: number; product: { category: string; slug?: string }; variant: { sku?: string; volumeMl: number | null; weightGrams: number | null } };
@@ -93,11 +94,12 @@ export function quoteZasilkovna(lines: readonly Line[]): ZasilkovnaQuote {
 }
 
 /** Věta o doručení na stránce produktu (14. 11. 2026, Lucie): sirupy se sáčkem 650 ml jdou i Zásilkovnou. */
-export const DELIVERY_NOTE_COLD = "Tento produkt vám doručíme chlazenou přepravou.";
+export const DELIVERY_NOTE_COLD = "Tento produkt posíláme chlazeně po celé ČR.";
 export function productDeliveryNote(
-  product: { category: string; variants: readonly { volumeMl: number | null }[] },
+  product: { category: string; variants: readonly { volumeMl: number | null; soldOut?: boolean }[] },
   zasilkovna: boolean
 ): string {
-  if (!zasilkovna || !product.variants.some((variant) => isSyrupPouch(product, variant))) return DELIVERY_NOTE_COLD;
-  return `Doručíme chlazenou přepravou. Sáčky 650 ml (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou na výdejní místo.`;
+  // vyprodaný sáček (sold_out) Zásilkovnou nenabízíme
+  if (!zasilkovna || !product.variants.some((variant) => variant.soldOut !== true && isSyrupPouch(product, variant))) return DELIVERY_NOTE_COLD;
+  return `Posíláme chlazeně po celé ČR. Sáčky se sirupem (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou na výdejní místo.`;
 }

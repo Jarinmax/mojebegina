@@ -5,6 +5,7 @@
 // `orders`/`order_items`/`invoices` (Fáze 2.0), ne paralelní model — viz
 // schema.ts komentář u `orders` pro zdůvodnění tří nezávislých rolí kolem
 // "kdo objednal".
+import { afterOrderReady } from "@/lib/eshop/slovakiaTransport";
 import "server-only";
 import { createHash, randomUUID } from "crypto";
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
@@ -17,6 +18,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { allocateOrderBatches, releaseOrderBatches } from "@/lib/vyroba/batchAllocation";
+import { markManualOrderInvoicePaid } from "@/lib/eshop/invoicing/ownManual";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice, sendInvoiceOnDispatch, DISPATCHED_STATUSES, type DispatchInvoiceOutcome } from "@/lib/eshop/invoicing/afterPaid";
 import { issueInvoice, linkExternalInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
 import { emailConfig, invoiceCopyRecipients, resolveRecipients } from "@/lib/eshop/email/config";
@@ -620,6 +622,8 @@ export async function updateFulfillmentStatus(
       : undefined;
   if ((DISPATCHED_STATUSES as readonly string[]).includes(validated.value)) await markShippedOnDispatch(orderId, ctx);
   await syncBatchesOnStatus(orderId, from, validated.value);
+  // Slovensko: připravená zaplacená objednávka → e-mail „objednejte si CoolBalík“ (nejvýš jednou)
+  if (validated.value === "ready") await afterOrderReady(db, orderId, await getAppOrigin());
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(validated.value)
     ? await sendInvoiceOnDispatch(db, orderId, await getAppOrigin())
     : undefined;
@@ -709,6 +713,7 @@ export async function updateOrderFulfillmentViaAgent(input: ValidatedUpdateOrder
   // Expedice: faktura zákazníkovi (jen zaplacená e-shopová objednávka, nejvýš jednou).
   if ((DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)) await markShippedOnDispatch(input.orderId, ctx);
   await syncBatchesOnStatus(input.orderId, from, input.targetStatus);
+  if (input.targetStatus === "ready") await afterOrderReady(db, input.orderId, await getAppOrigin());
   const dispatchInvoice = (DISPATCHED_STATUSES as readonly string[]).includes(input.targetStatus)
     ? await sendInvoiceOnDispatch(db, input.orderId, await getAppOrigin())
     : undefined;
@@ -764,6 +769,14 @@ export async function updatePaymentStatus(
       .where(eq(orders.id, orderId))
       .limit(1);
     return conflictResult(now?.paymentStatus ?? from, validated.value, PAYMENT_LABELS, "Stav platby");
+  }
+  // Ruční objednávka zaplacená (hotově při předání apod.): vlastní faktura se označí
+  // jako uhrazená a po expedici odejde zákazníkovi (Lucie 23. 11. 2026).
+  if (validated.value === "paid" && current.channel === "manual") {
+    await markManualOrderInvoicePaid(db, orderId, ctx.name ?? ctx.email).catch((error: unknown) =>
+      console.error("Ruční objednávka: fakturu se nepodařilo označit jako uhrazenou", orderId, error)
+    );
+    await sendInvoiceOnDispatch(db, orderId, await getAppOrigin());
   }
   return { ok: true, changed: true, status: validated.value };
 }

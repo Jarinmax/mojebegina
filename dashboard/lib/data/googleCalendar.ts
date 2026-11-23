@@ -21,9 +21,9 @@ import { getAppOrigin } from "@/lib/appOrigin";
 import {
   requireGoogleCalendarConnectAccess,
   requireGoogleCalendarStatusAccess,
-  GOOGLE_CALENDAR_CONNECT_USER_ID,
 } from "./googleCalendarAuth";
 import { encryptToken, decryptToken } from "./googleCalendarCrypto";
+import { DAILY_CALL_LEAD_OWNER_USER_ID } from "./dailyCallsAuth";
 import { ACTIVE_LEAD_STAGES, leadDisplayName, type LeadStage } from "./leadValidation";
 import {
   effectiveNextFollowUpAt,
@@ -39,6 +39,9 @@ import {
   type CalendarEventInput,
   type SyncStatus,
 } from "./googleCalendarValidation";
+
+// Řádky lead_calendar_sync z doby, kdy existovalo jen Blahoutovo propojení.
+const GOOGLE_CALENDAR_LEGACY_USER_ID = DAILY_CALL_LEAD_OWNER_USER_ID;
 
 const SECONDARY_CALENDAR_NAME = "MojeBegina – volání";
 const OAUTH_SCOPES = [
@@ -187,7 +190,7 @@ export async function completeGoogleCalendarConnect(
   // které vznikly před propojením nebo zůstaly v jiném (dřívějším)
   // kalendáři. Best-effort: selhání nesmí zrušit samotné propojení.
   try {
-    await resyncAllLeadCalendarEvents();
+    await resyncAllLeadCalendarEvents(authorized.userId);
   } catch (error) {
     console.error("Google Kalendář: dosynchronizace po propojení selhala", error);
   }
@@ -210,9 +213,12 @@ export type ConnectionStatus =
   | { connected: false }
   | { connected: true; googleAccountEmail: string; connectedAt: Date };
 
-export async function getGoogleCalendarConnectionStatus(): Promise<ConnectionStatus> {
+// Stav propojení přihlášeného uživatele (nebo zadaného userId — např.
+// vlastníka leadu, kterému se termín zapíše).
+export async function getGoogleCalendarConnectionStatus(userId?: string): Promise<ConnectionStatus> {
   const ctx = await getAuthContext();
-  requireGoogleCalendarStatusAccess(ctx);
+  const authorized = requireGoogleCalendarStatusAccess(ctx);
+  const targetUserId = userId ?? authorized.userId;
 
   const [row] = await db
     .select({
@@ -221,7 +227,7 @@ export async function getGoogleCalendarConnectionStatus(): Promise<ConnectionSta
       revokedAt: googleCalendarConnections.revokedAt,
     })
     .from(googleCalendarConnections)
-    .where(eq(googleCalendarConnections.userId, GOOGLE_CALENDAR_CONNECT_USER_ID))
+    .where(eq(googleCalendarConnections.userId, targetUserId))
     .limit(1);
 
   if (!row || row.revokedAt !== null) {
@@ -232,13 +238,16 @@ export async function getGoogleCalendarConnectionStatus(): Promise<ConnectionSta
 
 // --- Autorizovaný klient pro reconcile ---------------------------------------
 
-async function getAuthorizedClientForOwner(): Promise<
+async function getAuthorizedClientForOwner(userId: string | null): Promise<
   { ok: true; client: InstanceType<typeof google.auth.OAuth2>; calendarId: string } | { ok: false }
 > {
+  if (!userId) {
+    return { ok: false };
+  }
   const [row] = await db
     .select()
     .from(googleCalendarConnections)
-    .where(eq(googleCalendarConnections.userId, GOOGLE_CALENDAR_CONNECT_USER_ID))
+    .where(eq(googleCalendarConnections.userId, userId))
     .limit(1);
 
   if (!row || row.revokedAt !== null) {
@@ -326,14 +335,36 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
       contactName: leads.contactName,
       contactEmail: leads.contactEmail,
       contactPhone: leads.contactPhone,
+      ownerUserId: leads.ownerUserId,
     })
     .from(leads)
     .where(eq(leads.id, leadId))
     .limit(1);
   if (!lead) return;
 
-  const [syncRow] = await db.select().from(leadCalendarSync).where(eq(leadCalendarSync.leadId, leadId)).limit(1);
+  let [syncRow] = await db.select().from(leadCalendarSync).where(eq(leadCalendarSync.leadId, leadId)).limit(1);
   const current = effectiveNextFollowUpAt(lead.stage as LeadStage, lead.nextFollowUpAt);
+
+  // Lead změnil vlastníka (20. 11. 2026: kalendář je per obchodník) —
+  // událost ze starého kalendáře smazat a založit ji znovu u nového.
+  // Starší řádky bez synced_user_id patřily Blahoutovi (jediné propojení).
+  const previousUserId = syncRow?.googleEventId ? (syncRow.syncedUserId ?? GOOGLE_CALENDAR_LEGACY_USER_ID) : null;
+  if (syncRow && previousUserId && previousUserId !== lead.ownerUserId) {
+    try {
+      const previous = await getAuthorizedClientForOwner(previousUserId);
+      if (previous.ok) {
+        await buildRealClient(previous.client).deleteEvent(previous.calendarId, syncRow.googleEventId!);
+      }
+    } catch (error) {
+      console.error("Google Kalendář: smazání události u předchozího vlastníka selhalo", error);
+    }
+    await db
+      .update(leadCalendarSync)
+      .set({ googleEventId: null, syncedNextFollowUpAt: null, syncedUserId: null, syncStatus: "pending", updatedAt: new Date() })
+      .where(eq(leadCalendarSync.leadId, leadId));
+    syncRow = { ...syncRow, googleEventId: null, syncedNextFollowUpAt: null, syncedUserId: null, syncStatus: "pending" };
+  }
+
   const syncStatus = (syncRow?.syncStatus ?? "pending") as SyncStatus;
 
   const action = resolveReconcileAction({
@@ -353,7 +384,7 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
   // zprávou, jinak by uživatel neviděl žádnou chybu ani tlačítko "Zkusit
   // znovu" a synchronizace by tiše zůstala nehotová napořád.
   try {
-    const owner = await getAuthorizedClientForOwner();
+    const owner = await getAuthorizedClientForOwner(lead.ownerUserId);
     if (!owner.ok) {
       // Etapa 0 — bez propojení to NENÍ chyba: stav zůstává 'pending' a po
       // propojení ho dosynchronizuje resyncAllLeadCalendarEvents. Dřív se
@@ -367,7 +398,7 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
 
     if (action === "delete") {
       await client.deleteEvent(owner.calendarId, eventId);
-      await markSyncSynced(leadId, null, null);
+      await markSyncSynced(leadId, null, null, null);
       return;
     }
 
@@ -401,7 +432,7 @@ export async function reconcileLeadCalendarEvent(leadId: string): Promise<void> 
     };
 
     await createOrPatchEvent(client, owner.calendarId, eventId, event);
-    await markSyncSynced(leadId, eventId, current);
+    await markSyncSynced(leadId, eventId, current, lead.ownerUserId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Neznámá chyba";
     await markSyncFailed(leadId, message);
@@ -419,10 +450,15 @@ async function appOriginForEvents(): Promise<string> {
   }
 }
 
-async function markSyncSynced(leadId: string, googleEventId: string | null, syncedAt: Date | null): Promise<void> {
+async function markSyncSynced(
+  leadId: string,
+  googleEventId: string | null,
+  syncedAt: Date | null,
+  syncedUserId: string | null
+): Promise<void> {
   await db
     .update(leadCalendarSync)
-    .set({ syncStatus: "synced", googleEventId, syncedNextFollowUpAt: syncedAt, lastError: null, updatedAt: new Date() })
+    .set({ syncStatus: "synced", googleEventId, syncedNextFollowUpAt: syncedAt, syncedUserId, lastError: null, updatedAt: new Date() })
     .where(eq(leadCalendarSync.leadId, leadId));
 }
 
@@ -442,12 +478,23 @@ async function markSyncFailed(leadId: string, error: string): Promise<void> {
 // zpracují i řádky 'synced' (deterministické event id → v novém kalendáři
 // vznikne stejná událost, 409 řeší createOrPatchEvent). Leady bez
 // termínu bez řádku se přeskočí — není co zakládat.
-export async function resyncAllLeadCalendarEvents(): Promise<{ processed: number }> {
+// 20. 11. 2026: po propojení konkrétního obchodníka jen JEHO leady.
+export async function resyncAllLeadCalendarEvents(ownerUserId: string): Promise<{ processed: number }> {
   const withFollowUp = await db
     .select({ id: leads.id })
     .from(leads)
-    .where(and(isNotNull(leads.nextFollowUpAt), inArray(leads.stage, [...ACTIVE_LEAD_STAGES])));
-  const withSyncRow = await db.select({ id: leadCalendarSync.leadId }).from(leadCalendarSync);
+    .where(
+      and(
+        eq(leads.ownerUserId, ownerUserId),
+        isNotNull(leads.nextFollowUpAt),
+        inArray(leads.stage, [...ACTIVE_LEAD_STAGES])
+      )
+    );
+  const withSyncRow = await db
+    .select({ id: leadCalendarSync.leadId })
+    .from(leadCalendarSync)
+    .innerJoin(leads, eq(leads.id, leadCalendarSync.leadId))
+    .where(eq(leads.ownerUserId, ownerUserId));
   const ids = [...new Set([...withFollowUp.map((r) => r.id), ...withSyncRow.map((r) => r.id)])];
 
   for (const id of ids) {

@@ -15,7 +15,7 @@ import { SK_FOOD_INFO } from "./skFoodInfo";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
-import { isCafeTastingAlcohol, CAFE_TASTING_MAX_PER_ITEM, CAFE_TASTING_NO_ZASILKOVNA, CAFE_TASTING_ONE_EACH, isCafeTastingSku } from "./cafeTasting";
+import { isCafeTastingAlcohol, CAFE_TASTING_MAX_PER_ITEM, CAFE_TASTING_NEEDS_BEGINA, CAFE_TASTING_NO_ZASILKOVNA, CAFE_TASTING_ONE_EACH, freeTastingSkus, isCafeTastingSku, isTastingBegina } from "./cafeTasting";
 import { SET_NEEDS_CHOICE, SET_ONLY_NOT_COLD, choiceFromSku, isTastingSet, remainingLabel, withChoice } from "./tastingSet";
 import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
@@ -92,6 +92,10 @@ export function priceCart(
       return { ok: false, error: "Košík obsahuje produkt, který už nenabízíme. Obnovte prosím košík." };
     }
     const { product, variant } = found;
+    // vyprodané balení (sold_out) nejde objednat ani podvrženým košíkem
+    if (variant.soldOut === true) {
+      return { ok: false, error: `${lineName(product, variant)} je vyprodané. Odeberte ho prosím z košíku.` };
+    }
     const isSet = isTastingSet(product);
     // set jde objednat jen s úplným výběrem pěti sirupů (přípona SKU)
     if (isSet && choiceFromSku(item.sku) === null) return { ok: false, error: SET_NEEDS_CHOICE };
@@ -141,6 +145,24 @@ export function priceCart(
       unitPriceKc: variant.priceKc,
       lineTotalKc: variant.priceKc * item.quantity,
     });
+  }
+
+  // Vzorky do provozu (22. 11. 2026): jen k aspoň jedné begině 3 l; 2 polévky + 2 sirupy zdarma.
+  const tastingSkus = lines.filter((line) => isCafeTastingSku(line.sku)).map((line) => line.sku);
+  if (tastingSkus.length > 0) {
+    const hasBegina = input.some((item) => {
+      const found = index.getVariant(item.sku);
+      return found !== undefined && !isCafeTastingSku(item.sku) && isTastingBegina(found.product, found.variant);
+    });
+    if (!hasBegina) return { ok: false, error: CAFE_TASTING_NEEDS_BEGINA };
+    const free = freeTastingSkus(tastingSkus);
+    for (const line of lines) {
+      if (free.has(line.sku)) {
+        line.unitPriceKc = 0;
+        line.lineTotalKc = 0;
+        line.name = `${line.name} – zdarma`;
+      }
+    }
   }
 
   // Slovensko (16. 11. 2026): bez alkoholu (spotřební daň) a jen zboží,

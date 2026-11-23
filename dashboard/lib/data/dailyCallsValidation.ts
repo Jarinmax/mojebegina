@@ -26,6 +26,9 @@ export type DailyCallOutcomeInput = {
   nextFollowUpAtTime: string;
   /** Výslovné smazání naplánovaného kontaktu (Etapa 0, rozhodnutí 6). */
   clearFollowUp?: boolean;
+  /** „Odkud nás zná“ (heardFrom.ts) — povinné u dovolaných, řeší logDailyCallOutcome. */
+  heardFrom?: string;
+  heardFromDetail?: string;
 };
 
 export type ValidatedDailyCallOutcomeInput = {
@@ -48,7 +51,8 @@ export function validateDailyCallOutcomeInput(
     return { ok: false, error: "Vyberte výsledek hovoru." };
   }
 
-  const note = input.note.trim();
+  // „Nezvedá“ nepotřebuje poznámku (Lucie 22. 11. 2026: méně vyplňování).
+  const note = input.note.trim() || (result === "no_answer" ? "Nezvedá" : "");
   if (!note) {
     return { ok: false, error: "Poznámka je povinná." };
   }
@@ -234,7 +238,7 @@ export function interpretCallLogOutcome(insertedRowCount: number): { ok: true } 
 //     explicitně jako budoucí rozšiřovací bod pro importní poznámku bez
 //     nutnosti měnit tenhle filtr.
 // Ostatní druhy (stage_changed, owner_assigned, acquired_by_set,
-// converted, company_name_set, follow_up_removed) jsou administrativní
+// converted, company_name_set, company_details_set, follow_up_removed) jsou administrativní
 // záznamy CRM, ne poznámky k přípravě na hovor — vyloučené i kdyby měly
 // `body` vyplněné.
 export const RELEVANT_ACTIVITY_KINDS = ["call_logged", "created"] as const;

@@ -11,6 +11,7 @@ import { listMonthDocuments, type DocumentRow } from "@/lib/doklady/documents";
 import { idokladInvoicePdfPath, runIdokladRead } from "@/lib/idoklad-read/tools";
 import type { InvoiceSummary } from "@/lib/idoklad-read/service";
 import DocUpload from "./DocUpload";
+import PenizeTabs from "../_penize/PenizeTabs";
 import { assignDocumentAction, removeDocumentAction, unassignDocumentAction } from "./actions";
 
 // DOKLADY (Lucie 19. 11. 2026) — faktury po rocích a měsících jako ve
@@ -37,7 +38,7 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
   const [nowY, nowM] = pragueYm.format(new Date()).split("-").map(Number);
   const year = Math.min(Math.max(Number(first(sp.rok)) || nowY, 2025), nowY + 1);
   const month = Math.min(Math.max(Number(first(sp.mesic)) || (year === nowY ? nowM : 12), 1), 12);
-  const tab = first(sp.tab) === "naklady" ? "naklady" : "prijmy";
+  const tab = first(sp.tab) === "prijmy" ? "prijmy" : "naklady";
   const ym = `${year}-${String(month).padStart(2, "0")}`;
   const href = (y: number, m: number, t = tab) => `${BASE}?rok=${y}&mesic=${m}&tab=${t}`;
 
@@ -48,7 +49,10 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
   ]);
   const issued: InvoiceSummary[] = read.ok ? ((read.data.invoices as InvoiceSummary[]) ?? []) : [];
   const issuedTruncated = read.ok && read.data.truncated === true;
-  const costs = economy.filter((r: EconomyRow) => r.kind === "cost" && r.entryDate.slice(0, 7) === ym);
+  // Nejnovější náklady nahoře (Lucie 23. 11. 2026).
+  const costs = economy
+    .filter((r: EconomyRow) => r.kind === "cost" && r.entryDate.slice(0, 7) === ym)
+    .sort((a, b) => b.entryDate.localeCompare(a.entryDate));
   const incomeTotal = issued.reduce((s, i) => s + (i.totalKc ?? 0), 0);
   const costTotalHal = costs.reduce((s, r) => s + r.amountHal, 0);
 
@@ -78,11 +82,17 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-begina-primary-900 mt-1">Doklady</h1>
-      <p className="text-sm text-neutral-600 mb-3">
-        Všechny faktury a účtenky po měsících. <strong>Příjmy</strong> = naše vydané faktury z iDokladu.{" "}
-        <strong>Náklady</strong> = účtenky a faktury za nákupy — přicházejí z vlákna Účtenky, nebo je nahraješ tady.
-      </p>
+      <PenizeTabs active={tab === "naklady" ? "uctenky" : "faktury"} />
+      {tab === "prijmy" ? (
+        <div className="flex gap-2 mb-3">
+          <Link href="/rizeni-firmy/faktury" className="text-sm rounded-full border px-4 py-2 bg-white text-begina-primary-900 border-neutral-300">Nové (MojeBegina)</Link>
+          <span className="text-sm rounded-full border px-4 py-2 bg-begina-primary-900 text-begina-primary-50 border-begina-primary-900">Starší z iDokladu (po měsících)</span>
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-600 mb-3">
+          Účtenky a faktury za nákupy po měsících — přicházejí z vlákna Účtenky, nebo je nahraješ tady.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-2">
         {[nowY - 1, nowY, ...(nowM === 12 ? [nowY + 1] : [])].filter((y) => y >= 2025).map((y) => (
@@ -126,7 +136,7 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="flex gap-2">
+        <div className="hidden">
           <Link href={href(year, month, "prijmy")} className={`text-sm rounded-full border px-4 py-2 ${tab === "prijmy" ? "bg-begina-primary-900 text-begina-primary-50 border-begina-primary-900" : "bg-white text-begina-primary-900 border-neutral-300"}`}>
             Příjmy ({issued.length})
           </Link>

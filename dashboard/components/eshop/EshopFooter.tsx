@@ -1,3 +1,4 @@
+import { VAT_NOTE } from "@/lib/eshop/cafePage";
 import ShopLink from "./ShopLink";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { FOOTER_LINKS, OPERATOR } from "@/lib/eshop/infoPages";
@@ -76,6 +77,7 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
               <span>{OPERATOR.name}</span>
               <span>{OPERATOR.address}</span>
               <span>IČO: {OPERATOR.ico}</span>
+              <span>{VAT_NOTE}</span>
             </address>
             <p className="mt-3 text-base text-neutral-700">
               Sídlo a fakturační adresa. Osobní odběr probíhá v provozovně ve Viticích.

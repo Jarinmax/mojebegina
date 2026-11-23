@@ -84,6 +84,7 @@ export const LEAD_ACTIVITY_LABELS: Record<string, string> = {
   next_step_set: "nastavení dalšího kroku",
   converted: "převod na zákazníka",
   company_name_set: "název firmy",
+  company_details_set: "údaje firmy (název, IČO, sídlo)",
 };
 
 function str(value: unknown): string | null {
@@ -122,6 +123,10 @@ export function describeLeadActivity(entry: { kind: string; metadata: unknown })
       return { nextContactDate: dateOnly(meta.nextFollowUpAt) }; // text dalšího kroku je v body
     case "company_name_set":
       return { to: str(meta.to) };
+    case "company_details_set": {
+      const to = (meta.to ?? {}) as Record<string, unknown>;
+      return { companyName: str(to.companyName), ico: str(to.ico), address: str(to.address) };
+    }
     case "converted":
       return { linkedExistingCustomer: meta.linkedExisting ? "ano" : "ne" };
     case "created":

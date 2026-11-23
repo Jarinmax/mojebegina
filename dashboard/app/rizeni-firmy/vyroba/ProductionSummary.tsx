@@ -95,6 +95,9 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
                   ) : (
                     "—"
                   )}
+                  {o.payLater && (
+                    <span className="block mt-1 text-xs font-semibold text-amber-800">💵 platí {o.paymentMethod} při předání</span>
+                  )}
                 </td>
               ))}
               <td className="border border-neutral-300" />
@@ -128,7 +131,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
             </tr>
           </tbody>
         </table>
-        <p className="text-xs text-neutral-600 mt-2">Kliknutím na číslo označíš produkt jako vyrobený (zelená ✓), dalším kliknutím vrátíš zpět. Termín = 5 pracovních dnů od zaplacení.</p>
+        <p className="text-xs text-neutral-600 mt-2">Kliknutím na číslo označíš produkt jako vyrobený (zelená ✓), dalším kliknutím vrátíš zpět. Termín = 5 pracovních dnů od zaplacení (u placených hotově / na fakturu od objednání).</p>
       </div>
 
       {/* Mobil: karta za každého klienta (co vyrobit, kam, do kdy), pod tím součty */}
@@ -146,6 +149,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
                   <span className="flex-none rounded-md bg-red-100 text-red-800 text-xs font-bold px-2 py-1">do {formatDeadlineShort(o.deadline)}</span>
                 )}
               </div>
+              {o.payLater && <p className="text-sm font-semibold text-amber-800 mt-1">💵 Platí {o.paymentMethod} při předání</p>}
               {o.deliveryAddress && <p className="text-sm text-neutral-800 mt-1 break-words">📍 {o.deliveryAddress}</p>}
               {o.deliveryPhone && (
                 <a href={`tel:${o.deliveryPhone.replace(/\s+/g, "")}`} className="text-sm text-neutral-800 underline">
@@ -208,6 +212,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
               <span className="block text-xs text-neutral-600">
                 Vyrobeno {o.producedCount} z {o.items.length}
                 {o.deadline ? ` · termín do ${formatDeadlineShort(o.deadline)}` : ""}
+                {o.payLater ? ` · platí ${o.paymentMethod} při předání` : ""}
               </span>
             </span>
             <span className="flex-none rounded-lg bg-begina-primary-900 text-begina-primary-50 px-3 py-2 text-sm">Karta</span>

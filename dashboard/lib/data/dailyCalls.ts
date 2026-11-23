@@ -18,6 +18,8 @@
 // přeskočit) — viz komentář přímo u logDailyCallOutcome.
 import "server-only";
 import { claimUnownedLeadOnReach } from "./leadClaim";
+import { suggestHeardFrom, validateHeardFromInput, type HeardFrom } from "./heardFrom";
+import { countConsecutiveNoAnswers, planNextAttempt } from "./callAttempts";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -125,6 +127,9 @@ export type QueueItemCardData = {
   /** Nezájem — pracovníkovi se nezobrazuje, kurátor ho vidí označený. */
   notInterested: boolean;
   nextFollowUpAt: Date | null;
+  /** „Odkud nás zná“ — uložené (null = nezjištěno) a návrh podle zdroje leadu. */
+  heardFrom: string | null;
+  suggestedHeardFrom: HeardFrom | null;
   // Relevantní historie (viz RELEVANT_ACTIVITY_KINDS), nejnovější první,
   // BEZE stropu — UI si sama zobrazí posledních N vždy vidět a zbytek za
   // rozbalením. Žádný strop tady schválně, ať se rozhodnutí "kolik je
@@ -195,6 +200,8 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       stage: leads.stage,
       lastContactedAt: leads.lastContactedAt,
       nextFollowUpAt: leads.nextFollowUpAt,
+      heardFrom: leads.heardFrom,
+      leadSource: leads.source,
     })
     .from(leads)
     .where(inArray(leads.id, leadIds));
@@ -218,6 +225,8 @@ async function buildQueueCards(rows: QueueRow[]): Promise<QueueItemCardData[]> {
       lastContactedAt: lead?.lastContactedAt ?? null,
       notInterested: notInterested.has(r.leadId),
       nextFollowUpAt: lead?.nextFollowUpAt ?? null,
+      heardFrom: lead?.heardFrom ?? null,
+      suggestedHeardFrom: suggestHeardFrom(lead?.leadSource),
       activity: activityByLead.get(r.leadId) ?? [],
     };
   });
@@ -716,6 +725,33 @@ export async function logDailyCallOutcome(
     return { ok: false, error: "Tento kontakt už je vyřízený nebo odebraný." };
   }
 
+  // „Odkud nás zná“ — po dovolání povinné, dokud ho lead nemá (20. 11. 2026).
+  const reached = value.result === "reached_interested" || value.result === "reached_not_interested";
+  const [leadRow] = await db.select({ heardFrom: leads.heardFrom }).from(leads).where(eq(leads.id, item.leadId)).limit(1);
+  const heard = validateHeardFromInput(
+    { heardFrom: rawInput.heardFrom ?? "", heardFromDetail: rawInput.heardFromDetail ?? "" },
+    { reached, alreadyKnown: (leadRow?.heardFrom ?? null) !== null }
+  );
+  if (!heard.ok) {
+    return { ok: false, error: heard.error };
+  }
+
+  // Nezvedá bez vlastního termínu → další pokus podle žebříčku (callAttempts.ts).
+  let nextFollowUpAt = value.nextFollowUpAt;
+  if (value.result === "no_answer" && !nextFollowUpAt && !value.clearFollowUp) {
+    const [leadInfo] = await db.select({ createdAt: leads.createdAt }).from(leads).where(eq(leads.id, item.leadId)).limit(1);
+    const history = await db
+      .select({ kind: leadActivity.kind, metadata: leadActivity.metadata })
+      .from(leadActivity)
+      .where(and(eq(leadActivity.leadId, item.leadId), eq(leadActivity.kind, "call_logged")))
+      .orderBy(desc(leadActivity.createdAt))
+      .limit(10);
+    const failedAttempt =
+      countConsecutiveNoAnswers(history as { kind: string; metadata: Record<string, unknown> | null }[]) + 1;
+    const plan = planNextAttempt({ failedAttempt, leadCreatedAt: leadInfo?.createdAt ?? new Date() });
+    nextFollowUpAt = plan.nextAt ?? plan.remindAt;
+  }
+
   const result = await db.execute<{ id: string; effectiveNextFollowUpAt: Date | string | null }>(
     buildLogDailyCallOutcomeQuery({
       itemId,
@@ -725,7 +761,7 @@ export async function logDailyCallOutcome(
       activityId: randomUUID(),
       note: value.note,
       stageChange: value.stageChange,
-      nextFollowUpAt: value.nextFollowUpAt,
+      nextFollowUpAt,
       clearFollowUp: value.clearFollowUp,
       result: value.result,
     })
@@ -734,6 +770,13 @@ export async function logDailyCallOutcome(
   const outcome = interpretCallLogOutcome(result.rows.length);
   if (!outcome.ok) {
     return outcome;
+  }
+
+  if (heard.value) {
+    await db
+      .update(leads)
+      .set({ heardFrom: heard.value.heardFrom, heardFromDetail: heard.value.heardFromDetail })
+      .where(eq(leads.id, item.leadId));
   }
 
   // Security Phase 20 (Google Kalendář 1.0) — AŽ PO úspěšném commitu výše
@@ -751,7 +794,8 @@ export async function logDailyCallOutcome(
   // Dovoláno u kontaktu bez vlastníka → přiřadit volajícímu (16. 11. 2026).
   if (value.result === "reached_interested" || value.result === "reached_not_interested") {
     try {
-      await claimUnownedLeadOnReach(item.leadId, { userId: ctx.userId, name: ctx.name }, "daily_call");
+      const claimed = await claimUnownedLeadOnReach(item.leadId, { userId: ctx.userId, name: ctx.name }, "daily_call");
+      if (claimed) await reconcileLeadCalendarEvent(item.leadId).catch(() => {});
     } catch (error) {
       console.error("claimUnownedLeadOnReach (daily call)", error);
     }
@@ -764,6 +808,6 @@ export async function logDailyCallOutcome(
     note: value.note,
     result: value.result,
     nextFollowUpAt: effectiveRaw === null ? null : new Date(effectiveRaw),
-    followUpChange: value.clearFollowUp ? "cleared" : value.nextFollowUpAt ? "set" : "kept",
+    followUpChange: value.clearFollowUp ? "cleared" : nextFollowUpAt ? "set" : "kept",
   };
 }

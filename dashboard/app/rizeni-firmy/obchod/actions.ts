@@ -12,13 +12,16 @@ import { importMetaLeads } from "@/lib/data/metaLeads";
 import {
   createLead,
   logCallOutcome,
+  logNoAnswer,
   updateLeadStage,
   updateLeadCompanyName,
+  updateLeadCompanyDetails,
   assignLeadOwner,
   setLeadAcquiredBy,
   linkLeadToExistingOrganization,
   convertLeadToNewOrganization,
   assignCustomerOwner,
+  setCustomerDeliveryAddress,
   setCustomerAcquiredBy,
   removeLeadFollowUp,
   retryLeadCalendarSync,
@@ -73,6 +76,8 @@ export async function logCallOutcomeAction(
     nextFollowUpAtTime: String(formData.get("nextFollowUpAtTime") ?? ""),
     nextStepNote: String(formData.get("nextStepNote") ?? ""),
     reached: formData.get("reached") === "1",
+    heardFrom: String(formData.get("heardFrom") ?? ""),
+    heardFromDetail: String(formData.get("heardFromDetail") ?? ""),
   });
 
   if (!result.ok) {
@@ -139,6 +144,24 @@ export async function updateLeadCompanyNameAction(
 
   revalidateCrm(leadId);
   return { success: "Název byl uložen." };
+}
+
+export async function updateLeadCompanyDetailsAction(
+  leadId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await updateLeadCompanyDetails(leadId, {
+    companyName: String(formData.get("companyName") ?? ""),
+    ico: String(formData.get("ico") ?? ""),
+    address: String(formData.get("address") ?? ""),
+  });
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateCrm(leadId);
+  return { success: "Firma byla uložena." };
 }
 
 export async function assignLeadOwnerAction(
@@ -290,4 +313,37 @@ export async function importMetaLeadsNowAction(_prev: ActionState): Promise<Acti
     result.skipped.length > 0 ? `přeskočeno: ${result.skipped.length}` : null,
   ].filter(Boolean);
   return { success: `Načteno z tabulky — ${parts.join("; ")}.` };
+}
+
+// „Nezvedá“ jedním klepnutím (22. 11. 2026).
+export type NoAnswerActionState = { error: string } | { success: string; nextAt: string | null; stop: boolean; suggestEmail: boolean } | null;
+
+export async function logNoAnswerAction(leadId: string, _prev: NoAnswerActionState): Promise<NoAnswerActionState> {
+  try {
+    const result = await logNoAnswer(leadId);
+    if (!result.ok) return { error: result.error };
+    revalidatePath(`/rizeni-firmy/obchod/leady/${leadId}`);
+    revalidatePath("/rizeni-firmy/obchod");
+    return {
+      success: result.plan.label,
+      nextAt: result.plan.nextAt ? result.plan.nextAt.toISOString() : null,
+      stop: result.plan.stop,
+      suggestEmail: result.plan.suggestEmail,
+    };
+  } catch {
+    return { error: "Zápis se nepodařil. Zkus to znovu." };
+  }
+}
+
+export async function setCustomerDeliveryAddressAction(
+  organizationId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const result = await setCustomerDeliveryAddress(organizationId, String(formData.get("deliveryAddress") ?? ""));
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidateCrm(undefined, organizationId);
+  return { success: "Doručovací adresa uložena." };
 }

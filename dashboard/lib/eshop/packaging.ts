@@ -10,7 +10,7 @@ export const PACKAGING_MORE_LABEL = "Více o balení";
 const THREE_L = "praktické balení pro snadnou manipulaci a dávkování přímo z kohoutku. Odeberete jen tolik, kolik právě potřebujete.";
 const SYRUP_BOX = "Dodáváme v kartonové krabici.";
 const SYRUP_SMALL = "lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.";
-const ALCOHOL_500 = "lehké balení v průhledném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.";
+const ALCOHOL_500 = "lehké balení ve stříbrném sáčku se šroubovacím uzávěrem, vhodné pro menší spotřebu.";
 
 export type PackagingCopy = { volume: string; text: string };
 
@@ -22,7 +22,8 @@ export function packagingCopy(category: string, label: string | null): Packaging
   const volume = (label ?? "").trim();
   if (volume === "3 l") return { volume, text: category === "sirupy" ? `${THREE_L} ${SYRUP_BOX}` : THREE_L };
   // „700 ml“ jen do spuštění skriptu 94 (přechod na 650 ml).
-  if ((volume === "650 ml" || volume === "700 ml") && category === "sirupy") return { volume, text: SYRUP_SMALL };
+  // 22. 11. 2026 (Lucie): sirup v sáčku nově 500 ml (159 Kč); 650 ml do spuštění SQL vyprodano-650-500.
+  if ((volume === "500 ml" || volume === "650 ml" || volume === "700 ml") && category === "sirupy") return { volume, text: SYRUP_SMALL };
   if (volume === "500 ml" && category === "koktejly") return { volume, text: ALCOHOL_500 };
   return null;
 }

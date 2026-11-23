@@ -11,6 +11,8 @@ import {
   CAFE_TASTING_CREDIT_TEXT,
   CAFE_TASTING_DELIVERY,
   CAFE_TASTING_HEADING,
+  CAFE_TASTING_BEGINA_HEADING,
+  CAFE_TASTING_NEED_BEGINA_PICK,
   CAFE_TASTING_ICO_NOTE,
   CAFE_TASTING_INTRO,
   CAFE_TASTING_ITEMS,
@@ -18,7 +20,12 @@ import {
   CAFE_TASTING_SOUPS_HEADING,
   CAFE_TASTING_SYRUPS_HEADING,
   CAFE_TASTING_MULLED_HEADING,
+  CAFE_TASTING_OTHER_SAMPLES,
+  CAFE_TASTING_FREE,
+  CAFE_TASTING_PRICE_KC,
   cafeTastingTotalKc,
+  freeTastingSkus,
+  tastingFreeKind,
   type CafeTastingCompany,
   type CafeTastingItem,
 } from "@/lib/eshop/cafeTasting";
@@ -30,15 +37,33 @@ import { useEshopHref } from "./EshopBase";
 const input =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 h-12 text-base text-[#2A2622] focus:outline-none focus:ring-2 focus:ring-[#5E6B34]";
 
-function ItemList({ items, chosen, toggle }: { items: readonly CafeTastingItem[]; chosen: Set<string>; toggle: (sku: string) => void }) {
+// 22. 11. 2026 (Lucie): polopatě — vybrané vzorky zdarma zeleně se štítkem
+// „zdarma“, každý další vzorek má u sebe „+49 Kč“.
+function ItemList({ items, chosen, free, toggle }: { items: readonly CafeTastingItem[]; chosen: Set<string>; free: Set<string>; toggle: (sku: string) => void }) {
+  const kind = items[0] ? tastingFreeKind(items[0].sku) : null;
+  const quota = kind ? CAFE_TASTING_FREE[kind] : 0;
+  const usedFree = items.filter((item) => free.has(item.sku)).length;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
       {items.map((item) => {
         const checked = chosen.has(item.sku);
+        const isFree = checked ? free.has(item.sku) : usedFree < quota;
+        const box = checked
+          ? isFree
+            ? "border-[#3F7A2E] bg-[#E6F2DF] ring-1 ring-[#3F7A2E]"
+            : "border-[#5E6B34] bg-white ring-1 ring-[#5E6B34]"
+          : "border-neutral-200 bg-white";
         return (
-          <label key={item.sku} className={`flex items-center gap-3 rounded-xl border bg-white px-3 min-h-12 py-2 text-base cursor-pointer ${checked ? "border-[#5E6B34] ring-1 ring-[#5E6B34]" : "border-neutral-200"}`}>
-            <input type="checkbox" checked={checked} onChange={() => toggle(item.sku)} className="w-5 h-5 accent-[#5E6B34]" />
+          <label key={item.sku} className={`flex items-center gap-3 rounded-xl border px-3 min-h-12 py-2 text-base cursor-pointer ${box}`}>
+            <input type="checkbox" checked={checked} onChange={() => toggle(item.sku)} className="w-5 h-5 accent-[#3F7A2E]" />
             <span className="flex-1">{item.name}</span>
+            <span
+              className={`shrink-0 text-sm tabular-nums whitespace-nowrap ${
+                isFree ? (checked ? "font-semibold text-[#2F6322]" : "text-[#3F7A2E]") : checked ? "font-semibold text-[#2A2622]" : "text-neutral-500"
+              }`}
+            >
+              {isFree ? "zdarma" : `+${CAFE_TASTING_PRICE_KC} Kč`}
+            </span>
           </label>
         );
       })}
@@ -46,17 +71,26 @@ function ItemList({ items, chosen, toggle }: { items: readonly CafeTastingItem[]
   );
 }
 
-export default function CafeTastingForm({ available }: { available: readonly string[] }) {
+const samples = (n: number) => (n === 1 ? "vzorek" : n >= 2 && n <= 4 ? "vzorky" : "vzorků");
+
+export type TastingBeginaOption = { sku: string; name: string; priceKc: number };
+
+export default function CafeTastingForm({ available, beginas = [], initialChosen = [], initialBegina = "" }: { available: readonly string[]; beginas?: readonly TastingBeginaOption[]; /** jen pro náhled */ initialChosen?: readonly string[]; initialBegina?: string }) {
   const { add } = useCart();
   const router = useRouter();
   const href = useEshopHref();
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(initialChosen));
+  const [begina, setBegina] = useState<string>(initialBegina);
   const [venue, setVenue] = useState("");
   const [ico, setIco] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const items = CAFE_TASTING_ITEMS.filter((item) => available.includes(item.sku));
-  const total = cafeTastingTotalKc([...chosen]);
+  const beginaPrice = beginas.find((option) => option.sku === begina)?.priceKc ?? 0;
+  const free = freeTastingSkus([...chosen]);
+  const paidCount = chosen.size - free.size;
+  const total = cafeTastingTotalKc([...chosen]) + beginaPrice;
+  const beginaName = beginas.find((option) => option.sku === begina)?.name ?? null;
 
   function toggle(sku: string) {
     setError(null);
@@ -69,6 +103,10 @@ export default function CafeTastingForm({ available }: { available: readonly str
   }
 
   function submit() {
+    if (beginas.length > 0 && !begina) {
+      setError(CAFE_TASTING_NEED_BEGINA_PICK);
+      return;
+    }
     if (chosen.size === 0) {
       setError(CAFE_TASTING_NEED_ITEM);
       return;
@@ -93,6 +131,7 @@ export default function CafeTastingForm({ available }: { available: readonly str
       } catch {
         // bez sessionStorage se údaje vyplní v pokladně ručně
       }
+      if (begina) add(begina, 1);
       for (const sku of chosen) add(sku, 1);
       router.push(href("/pokladna"));
     });
@@ -104,25 +143,54 @@ export default function CafeTastingForm({ available }: { available: readonly str
         <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_TASTING_HEADING}</h2>
         <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_INTRO}</p>
       </div>
+      {beginas.length > 0 && (
+        <fieldset>
+          <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_BEGINA_HEADING}</legend>
+          <select value={begina} onChange={(e) => { setBegina(e.target.value); setError(null); }} className={input}>
+            <option value="">Vyberte beginu…</option>
+            {beginas.map((option) => (
+              <option key={option.sku} value={option.sku}>
+                {option.name} – {formatKc(option.priceKc)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-sm text-neutral-600">Další beginy si můžete přidat v košíku.</p>
+        </fieldset>
+      )}
       <fieldset>
         <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_SOUPS_HEADING}</legend>
-        <ItemList items={items.filter((item) => item.kind === "polevka")} chosen={chosen} toggle={toggle} />
+        <ItemList items={items.filter((item) => item.kind === "polevka")} chosen={chosen} free={free} toggle={toggle} />
       </fieldset>
       <fieldset>
         <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_SYRUPS_HEADING}</legend>
-        <ItemList items={items.filter((item) => item.kind === "sirup")} chosen={chosen} toggle={toggle} />
+        <ItemList items={items.filter((item) => item.kind === "sirup")} chosen={chosen} free={free} toggle={toggle} />
       </fieldset>
-      {items.some((item) => item.kind === "svarak") && (
+      {items.some((item) => item.kind === "svarak" || item.kind === "koktejl") && (
         <fieldset>
           <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_MULLED_HEADING}</legend>
-          <ItemList items={items.filter((item) => item.kind === "svarak")} chosen={chosen} toggle={toggle} />
+          <ItemList items={items.filter((item) => item.kind === "svarak" || item.kind === "koktejl")} chosen={chosen} free={free} toggle={toggle} />
         </fieldset>
       )}
+      <p className="text-sm text-neutral-600">{CAFE_TASTING_OTHER_SAMPLES}</p>
       <div className="rounded-xl bg-white border border-[#EDE5D8] px-4 py-3" aria-live="polite">
-        <p className="flex items-baseline justify-between gap-3 text-lg">
-          <span>
-            Vybráno <span className="tabular-nums">{chosen.size}</span> {chosen.size === 1 ? "položka" : chosen.size >= 2 && chosen.size <= 4 ? "položky" : "položek"}
-          </span>
+        <ul className="flex flex-col gap-1 text-base">
+          <li className="flex justify-between gap-3">
+            <span>1 begina{beginaName ? ` – ${beginaName}` : " (vyberte nahoře)"}</span>
+            <span className="tabular-nums">{formatKc(beginaPrice)}</span>
+          </li>
+          <li className="flex justify-between gap-3 text-[#2F6322]">
+            <span>{free.size} {samples(free.size)} zdarma</span>
+            <span className="tabular-nums">0 Kč</span>
+          </li>
+          {paidCount > 0 && (
+            <li className="flex justify-between gap-3">
+              <span>{paidCount} {samples(paidCount)} navíc po {CAFE_TASTING_PRICE_KC} Kč</span>
+              <span className="tabular-nums">{formatKc(paidCount * CAFE_TASTING_PRICE_KC)}</span>
+            </li>
+          )}
+        </ul>
+        <p className="mt-2 pt-2 border-t border-[#EDE5D8] flex items-baseline justify-between gap-3 text-lg">
+          <span className="font-semibold">Celkem bez dopravy</span>
           <strong className="tabular-nums">{formatKc(total)}</strong>
         </p>
         <p className="mt-1 text-sm text-neutral-600">{CAFE_TASTING_DELIVERY}</p>

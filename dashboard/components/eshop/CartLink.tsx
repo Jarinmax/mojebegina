@@ -15,7 +15,7 @@ export default function CartLink() {
     <ShopLink
       href="/kosik"
       aria-label={count > 0 ? `Košík, ${count} ks` : "Košík"}
-      className="flex items-center gap-1.5 text-sm font-medium text-begina-primary-900"
+      className="flex items-center justify-center gap-1.5 min-w-12 min-h-12 sm:min-w-0 sm:min-h-0 text-sm font-medium text-begina-primary-900"
     >
       <span className="relative">
         <ShoppingBag className="w-5 h-5" />

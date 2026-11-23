@@ -24,6 +24,7 @@
 // (requireOrderContext) jako create_order výše. update_order_fulfillment
 // POVOLENÉ přechody hlídá (lib/data/orderFulfillmentAgentValidation.ts) —
 // žádné přeskakování kroků; stejný cíl jako aktuální stav = bezpečný no-op.
+import { setDeliveryAddress } from "@/lib/data/productionBoard";
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -564,6 +565,33 @@ export const ORDER_TOOLS: AgentTool[] = [
             ? `Stav objednávky nastaven na „${FULFILLMENT_LABELS[result.status]}“.`
             : `Stav objednávky už byl „${FULFILLMENT_LABELS[result.status]}“ — nic se nezapsalo znovu.`,
         },
+      };
+    },
+  }),
+  defineTool({
+    name: "update_order_delivery_address",
+    title: "Doplnit / opravit doručovací adresu objednávky",
+    description:
+      "ZÁPIS — doplní nebo opraví DORUČOVACÍ adresu objednávky (ukazuje se ve Výrobě a expedici u „Doručit na“). " +
+      "Nic jiného nemění; změna se zapíše do historie objednávky. Volej jen na výslovný pokyn uživatele s adresou od něj. " +
+      "id najděte nejdřív přes list_orders nebo search_mojebegina.",
+    write: true,
+    properties: {
+      order_id: { type: "string", description: "id objednávky (UUID)." },
+      address: { type: "string", description: "Celá doručovací adresa, např. „Na Příkopě 860, 110 00 Praha 1 – Nové Město“." },
+    },
+    required: ["order_id", "address"],
+    parse: (args) => ({
+      orderId: requiredUuid(args, "order_id"),
+      address: optionalString(args, "address", 300) ?? "",
+    }),
+    execute: async (parsed, issuer) => {
+      const result = await setDeliveryAddress(parsed.orderId, parsed.address);
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        summary: { saved: true },
+        data: { url: orderUrl(issuer, parsed.orderId), message: `Doručovací adresa uložena: ${parsed.address}` },
       };
     },
   }),

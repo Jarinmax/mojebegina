@@ -16,7 +16,7 @@ describe("Pro kavárny: texty", () => {
     expect(all).toContain("při ceně z e-shopu");
     expect(all).not.toMatch(/nevyhod|bez odpadu|kolik prodáte/i); // obal se vyhazuje; natáčí se objednaná porce
     expect(CAFE_SUBTITLE).toContain("jen objednanou porci");
-    expect(CAFE_STEPS.map((s) => s.title)).toEqual(["Ochutnávka", "Objednávka na e-shopu", "Sleva za pravidelné objednávky"]);
+    expect(CAFE_STEPS.map((s) => s.title)).toEqual(["1 begina + 4 vzorky zdarma", "Objednávka na e-shopu", "Sleva za pravidelné objednávky"]);
     expect(CAFE_STEPS.map((s) => s.text).join(" ")).not.toMatch(/závoz|na fakturu/i);
     expect(CAFE_ALCOHOL_NOTE).toBe("18+");
     expect(`${CAFE_PRICE_NOTE.before}${CAFE_PRICE_NOTE.link}${CAFE_PRICE_NOTE.after}`).toBe("Ceny jsou stejné jako na e-shopu. Při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.");
@@ -93,5 +93,19 @@ describe("Pro kavárny: odeslání (PGlite)", () => {
     expect(await submitCafeInquiry(db, { ...raw, phone: "" }, options)).toMatchObject({ ok: false, field: "phone" });
     expect(mails).toEqual([]);
     expect((await db.execute(sql`SELECT count(*)::int AS n FROM leads`)).rows[0].n).toBe(1);
+  });
+});
+
+import { askSamplesLink, CATEGORY_SOUPS_TEASER } from "../cafePage";
+describe("nabídky pro kavárny u produktů (22. 11. 2026)", () => {
+  it("čaje a ovocné nápoje: Domluvit ochutnávku", () => {
+    expect(askSamplesLink({ category: "caje", slug: "x" })).toEqual({ text: "Chcete tento nápoj ochutnat ve své kavárně?", label: "Domluvit ochutnávku", href: "/pro-kavarny#napiste-nam" });
+    expect(askSamplesLink({ category: "ovocne-napoje", slug: "x" })?.label).toBe("Domluvit ochutnávku");
+    expect(askSamplesLink({ category: "koktejly", slug: "lady-carneval" })).toBeNull();
+    expect(askSamplesLink({ category: "polevky", slug: "kulajda" })).toBeNull();
+  });
+  it("kategorie polévek: ceny porcí a první balení", () => {
+    expect(CATEGORY_SOUPS_TEASER.pricesHref).toBe("/polevky-pro-kavarny");
+    expect(CATEGORY_SOUPS_TEASER.href).toBe("/pro-kavarny#ochutnavka");
   });
 });

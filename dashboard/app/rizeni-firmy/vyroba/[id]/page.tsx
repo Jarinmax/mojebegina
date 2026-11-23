@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeliveryAddressEdit } from "../DeliveryAddressEdit";
 import { notFound } from "next/navigation";
 import { getProductionOrder, PRODUCTION_GROUPS } from "@/lib/data/productionBoard";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
@@ -34,7 +35,11 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
           <div className="min-w-0">
             <p className="text-xs text-neutral-500">
               {order.orderNumber !== null ? `Objednávka ${formatOrderNumber(order.orderNumber)}` : "Objednávka"}
-              {order.paidAt ? ` · zaplaceno ${formatCzechDate(order.paidAt)}` : " · zatím nezaplaceno"}
+              {order.paidAt
+                ? ` · zaplaceno ${formatCzechDate(order.paidAt)}`
+                : order.payLater
+                  ? ` · platí ${order.paymentMethod} při předání`
+                  : " · zatím nezaplaceno"}
             </p>
             <p className="text-lg font-bold text-begina-primary-900 break-words">{order.customer}</p>
             {order.contactName && order.contactName !== order.customer && (
@@ -49,9 +54,7 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
           <div className="min-w-0">
             <p className="text-xs text-neutral-500 uppercase tracking-wide">Doručit na</p>
             {order.deliveryName && <p className="text-sm text-begina-primary-900">{order.deliveryName}</p>}
-            <p className="text-[15px] font-semibold text-begina-primary-900 break-words">
-              {order.deliveryAddress ?? "Adresa chybí — zkontrolujte objednávku"}
-            </p>
+            <DeliveryAddressEdit orderId={order.id} address={order.deliveryAddress} />
             {order.deliveryPhone && (
               <p className="text-sm">
                 <a href={`tel:${order.deliveryPhone.replace(/\s+/g, "")}`} className="underline text-begina-primary-900">

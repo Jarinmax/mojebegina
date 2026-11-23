@@ -1,18 +1,20 @@
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { getCatalog } from "@/lib/eshop/catalogServer";
 import HomeHero from "@/components/eshop/HomeHero";
 import CategoryIconStrip from "@/components/eshop/CategoryIconStrip";
+import HomePriceCards, { homePriceCards } from "@/components/eshop/HomePriceCards";
+import { soupPortionRows, syrupDrinkRows } from "@/lib/eshop/landingPages";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import type { Metadata } from "next";
 import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import { Check } from "lucide-react";
-import CafeBenefits from "@/components/eshop/CafeBenefits";
 import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
-import { CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
+import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
+import { FAQ_PATH } from "@/lib/eshop/faq";
 import ProductCard from "@/components/eshop/ProductCard";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
 import {
@@ -21,11 +23,9 @@ import {
   HOME_BISTRO,
   HOME_STEPS,
   HOME_STEPS_PHOTO,
-  HOME_TILE_CAFE,
-  HOME_TILE_HOME,
   HOME_VENUES,
   HOME_VENUES_TITLE,
-  HOME_WHY_TITLE,
+  HOME_STEP_POINTS,
 } from "@/lib/eshop/homeContent";
 
 // Od 20. 11. 2026 úvod primárně pro kavárny a bistra (viz komentář v těle).
@@ -50,6 +50,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EshopPage() {
+  await applyFuelSurchargeFromDb(); // cena nápoje a porce s dopravou podle aktuálního palivového příplatku
   const { categories, products } = await getCatalog();
   const tastingSet = products.find((p) => p.slug === SET_SLUG);
   const bestsellers = HOME_BESTSELLERS.flatMap((slug) => products.filter((p) => p.slug === slug));
@@ -60,20 +61,10 @@ export default async function EshopPage() {
           i zákazníci domů — hero, pod ním dvě dlaždice (na mobilu pod sebou, gastro první),
           Proč Beginu berou kavárny a bistra, Kde nás najdete (jen se souhlasem kaváren). */}
       <HomeHero />
-      {/* Ikony kategorií hned pod úvodem pro rychlý nákup (Lucie 20. 11. 2026 večer). */}
-      <CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} />
-      <section aria-label="Pro koho je Begina" className="w-full max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          <HomeTile tile={HOME_TILE_CAFE} prominent />
-          <HomeTile tile={HOME_TILE_HOME} />
-        </div>
-      </section>
-      <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
-        <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622]">{HOME_WHY_TITLE}</h2>
-        {/* Jasná věta pro lidi i vyhledávače a AI (Lucie 20. 11. 2026) */}
-        <p className="mt-2 mb-5 text-center text-lg leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
-        <CafeBenefits headingLevel="h3" />
-      </section>
+      {/* 22. 11. 2026 (Lucie, návrh ChatGPT): ceny porcí s dopravou ve dvou kartách, pod nimi Nakupujete domů */}
+      <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} />
+      {/* šest obrázkových kategorií zůstává (návrh ChatGPT 22. 11. 2026); „Proč Beginu…“ spojeno s Jak funguje begina */}
+      <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} /></div>
       {HOME_VENUES.length > 0 && (
         <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
           <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_VENUES_TITLE}</h2>
@@ -105,9 +96,24 @@ export default async function EshopPage() {
                 </li>
               ))}
             </ol>
-            <ShopLink href={INFO_PAGES.packaging.path} className="mt-5 inline-block py-1 text-base font-medium underline underline-offset-4">
-              Více o balení
-            </ShopLink>
+            <ul className="mt-5 flex flex-col gap-2 text-base leading-normal text-neutral-800">
+              {HOME_STEP_POINTS.map((point) => (
+                <li key={point} className="flex gap-2.5">
+                  <span className="text-[#5E6B34] font-semibold" aria-hidden="true">✓</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-base leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
+            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+              <ShopLink href={INFO_PAGES.packaging.path} className="inline-block py-1 text-base font-medium underline underline-offset-4">
+                Více o balení
+              </ShopLink>
+              {/* 22. 11. 2026 (Lucie): Časté otázky i na úvodu */}
+              <ShopLink href={FAQ_PATH} className="inline-block py-1 text-base font-medium underline underline-offset-4">
+                Časté otázky
+              </ShopLink>
+            </div>
           </div>
         </section>
 
@@ -147,42 +153,9 @@ export default async function EshopPage() {
       </div>
       {/* Formulář ochutnávky před Kontaktem v patičce (Lucie 20. 11. 2026), zdroj leadu „web – úvod“ */}
       <div className="max-w-6xl mx-auto px-4 pb-12 sm:pb-14">
-        <CafeForm place="uvod" heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" />
+        <CafeForm place="uvod" heading={CAFE_TASTING_FORM_HEADING} anchorId="napiste-nam" intro={CAFE_CALLBACK_TEXT} />
       </div>
     </>
   );
 }
 
-type Tile = { title: string; points: readonly string[]; button: string; href: string };
-
-function HomeTile({ tile, prominent = false }: { tile: Tile; prominent?: boolean }) {
-  return (
-    <div
-      className={
-        prominent
-          ? "rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col"
-          : "rounded-2xl border border-[#EDE5D8] bg-white p-5 sm:p-6 flex flex-col"
-      }
-    >
-      <h2 className="font-serif text-2xl text-[#2A2622]">{tile.title}</h2>
-      <ul className="mt-3 flex flex-col gap-2 text-base leading-normal text-neutral-800">
-        {tile.points.map((point) => (
-          <li key={point} className="flex gap-2.5">
-            <Check className="flex-none mt-0.5 w-5 h-5 text-[#5E6B34]" aria-hidden="true" />
-            <span>{point}</span>
-          </li>
-        ))}
-      </ul>
-      <ShopLink
-        href={tile.href}
-        className={
-          prominent
-            ? "mt-5 self-start rounded-full bg-[#A51C1C] px-6 py-3 text-base font-semibold text-white hover:bg-[#8A1717]"
-            : "mt-5 self-start rounded-full border-2 border-[#5E6B34] px-6 py-2.5 text-base font-semibold text-[#4A5527] hover:bg-[#FAF6EF]"
-        }
-      >
-        {tile.button}
-      </ShopLink>
-    </div>
-  );
-}

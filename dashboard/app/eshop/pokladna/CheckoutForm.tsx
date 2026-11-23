@@ -14,6 +14,13 @@ import { shippingDestination, slovakiaDeliveryZone,
   paymentMethodsFor,
   slovakPayer,
   SLOVAKIA_CARD_ONLY_NOTE,
+  SLOVAKIA_SELF_TRANSPORT,
+  slovakiaSelfTransport,
+  SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL,
+  SLOVAKIA_SELF_TRANSPORT_SUMMARY,
+  SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL,
+  SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL,
+  SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE,
   defaultPaymentMethodId,
   quoteLabel,
   quoteShipping,
@@ -27,9 +34,11 @@ import {
   pointFromWidget,
   type ZasilkovnaPoint,
 } from "@/lib/eshop/zasilkovna";
-import { isTastingSet } from "@/lib/eshop/tastingSet";
-import { isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
-import { BOX_NAME, BOX_PRICE_KC, boxCount, boxWeightLines, clampBoxes } from "@/lib/eshop/boxOption";
+import { choiceLine, isTastingSet } from "@/lib/eshop/tastingSet";
+import { isCafeTasting, isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
+import { VAT_NOTE } from "@/lib/eshop/cafePage";
+import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes, isBoxEligible } from "@/lib/eshop/boxOption";
+import { useCartBoxes } from "@/components/eshop/useCartBoxes";
 import { formatKc } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
@@ -55,7 +64,7 @@ import {
 const initialState: CheckoutState = null;
 
 const inputClass =
-  "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-begina-primary-900 bg-white focus:outline-none focus:border-begina-primary-700";
+  "w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-base sm:text-sm text-begina-primary-900 bg-white focus:outline-none focus:border-begina-primary-700";
 const labelClass = "text-xs text-neutral-500 mb-1 block";
 
 // Pole jsou řízená (controlled) — React 19 po dokončení form action
@@ -136,6 +145,7 @@ export default function CheckoutForm({
   // chyba ze serveru, kterou zákazník mezitím napravil výběrem výdejního místa
   const [resolvedError, setResolvedError] = useState<string | null>(null);
   const { cart, clear } = useCart();
+  const cartBoxes = useCartBoxes();
   const catalog = useCatalog();
   const href = useEshopHref();
   const hydrated = useHydrated();
@@ -286,9 +296,10 @@ export default function CheckoutForm({
     if (confirmation) {
       trackOrderSource();
       clear();
+      cartBoxes.clear();
       clearStoredCoupons();
     }
-  }, [confirmation, clear]);
+  }, [confirmation, clear, cartBoxes]);
 
   // Platba kartou: objednávka je uložená (server vrátil její id). Nejdřív si
   // ji prohlížeč zapamatuje, teprve pak vyprázdní košík a otevře Stripe —
@@ -299,10 +310,11 @@ export default function CheckoutForm({
       trackOrderSource();
       rememberPendingOrder(redirect.orderId, redirect.orderNumber);
       clear();
+      cartBoxes.clear();
       clearStoredCoupons();
       window.location.assign(redirect.redirectTo);
     }
-  }, [redirect, clear]);
+  }, [redirect, clear, cartBoxes]);
 
   // Meta: souhlas s reklamními cookies a _fbp/_fbc se odešlou s objednávkou;
   // nákup (Purchase) pak pošle server až po úplném zaplacení.
@@ -375,8 +387,12 @@ export default function CheckoutForm({
               </li>
             )}
             <li className="py-2 flex justify-between gap-3">
-              <span>{confirmation.pricedCart.shipping.label}</span>
-              <span className="tabular-nums whitespace-nowrap">{formatKc(confirmation.pricedCart.shippingKc)}</span>
+              <span>{confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk") ? SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL : confirmation.pricedCart.shipping.label}</span>
+              <span className="tabular-nums whitespace-nowrap">
+                {confirmation.delivery?.country === "Slovensko" && confirmation.pricedCart.shipping.id === "rozvoz" && slovakiaSelfTransport("sk")
+                  ? SLOVAKIA_SELF_TRANSPORT_SUMMARY
+                  : formatKc(confirmation.pricedCart.shippingKc)}
+              </span>
             </li>
             <li className="pt-3 flex justify-between gap-3 font-semibold">
               <span>Celkem</span>
@@ -443,7 +459,8 @@ export default function CheckoutForm({
   // Cena dopravy jen pro zobrazení — server ji spočítá znovu (priceCart).
   // Volitelné krabice (boxOption.ts): jedna na každé balení 3 l mimo sirupy.
   const boxesMax = boxCount(lines);
-  const boxes = clampBoxes(values.boxes, boxesMax);
+  // 22. 11. 2026 (Lucie): krabice se volí v košíku u každého balení (useCartBoxes).
+  const boxes = clampBoxes(boxesFromSelection(lines, cartBoxes.boxed), boxesMax);
   const boxesKc = boxes * BOX_PRICE_KC;
   // Ochutnávkový set sirupů se do chlazeného balíku přibaluje (hmotnost dopravu
   // nezdražuje); samotný set chlazenou přepravou nejde (tastingSet.ts).
@@ -673,11 +690,17 @@ export default function CheckoutForm({
                   />
                   <span className="flex-1">
                     <span className="flex justify-between gap-3 text-sm font-medium">
-                      {method.label}
-                      <span className="tabular-nums whitespace-nowrap">{quoteLabel(methodQuote)}</span>
+                      {method.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_METHOD_LABEL : method.label}
+                      <span className={`tabular-nums whitespace-nowrap ${method.id === "rozvoz" && slovakiaSelfTransport(destination) ? "font-semibold text-begina-accent-900" : ""}`}>
+                        {method.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_PRICE_LABEL : quoteLabel(methodQuote)}
+                      </span>
                     </span>
-                    <span className="block text-xs text-neutral-500 mt-0.5">
-                      {method.id === "rozvoz" && destination === "sk" ? method.description.replace("v České republice", "na Slovensku") : method.description}
+                    <span className={`block mt-0.5 ${method.id === "rozvoz" && slovakiaSelfTransport(destination) ? "text-sm font-medium text-begina-accent-900" : "text-xs text-neutral-500"}`}>
+                      {method.id === "rozvoz" && slovakiaSelfTransport(destination)
+                        ? SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE
+                        : method.id === "rozvoz" && destination === "sk"
+                          ? method.description.replace("v České republice", "na Slovensku")
+                          : method.description}
                     </span>
                     {!methodQuote.available && (
                       <span className="block text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5 mt-2" role="note">
@@ -792,10 +815,14 @@ export default function CheckoutForm({
                   </div>
                 </>
               )}
-              {slovakia ? (
-                <p className="text-xs text-neutral-500">Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ.</p>
+              {slovakia && !(destination === "sk" && slovakiaSelfTransport(destination)) ? (
+                <p className="text-xs text-neutral-500">
+                  {SLOVAKIA_SELF_TRANSPORT
+                    ? "Doručujeme v České republice. Zákazníci ze Slovenska si chlazenou přepravu objednají sami, alkoholické nápoje na Slovensko neprodáváme; zemi určíme podle PSČ."
+                    : "Doručujeme v České republice a na Slovensko. Na Slovensko neposíláme alkoholické nápoje; zemi a cenu dopravy určíme podle PSČ."}
+                </p>
               ) : null}
-              {slovakia && destination === "sk" ? (
+              {slovakia && destination === "sk" && slovakiaSelfTransport(destination) ? null : slovakia && destination === "sk" ? (
                 slovakiaDeliveryZone(values.deliverySameAsBilling ? values.billingZip : values.zip) === "daily" ? (
                   <p role="note" className="text-xs text-neutral-600">Do vaší oblasti na Slovensku doručujeme chlazenou přepravou jen od úterý do pátku. V pondělí a o víkendu se nedoručuje, zásilka odeslaná na konci týdne proto dorazí až v úterý.</p>
                 ) : (
@@ -849,52 +876,8 @@ export default function CheckoutForm({
           </div>
         </fieldset>
 
-        {boxesMax > 0 && (
-          <fieldset>
-            <legend className="font-medium mb-3">Balení</legend>
-            <div className="border border-neutral-200 rounded-xl p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor="boxes" className="text-sm font-medium">Zabalit do kartonové krabice</label>
-                <span className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label="Ubrat krabici"
-                    disabled={boxes <= 0}
-                    onClick={() => set("boxes", Math.max(0, boxes - 1))}
-                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
-                  >
-                    −
-                  </button>
-                  <input
-                    id="boxes"
-                    name="boxes"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={boxesMax}
-                    value={boxes}
-                    onChange={(e) => set("boxes", clampBoxes(e.target.value, boxesMax))}
-                    className="w-14 h-9 text-center border border-neutral-300 rounded-lg tabular-nums"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Přidat krabici"
-                    disabled={boxes >= boxesMax}
-                    onClick={() => set("boxes", Math.min(boxesMax, boxes + 1))}
-                    className="w-9 h-9 rounded-lg border border-neutral-300 text-lg leading-none disabled:opacity-40"
-                  >
-                    +
-                  </button>
-                  <span className="text-sm tabular-nums whitespace-nowrap w-20 text-right">+{formatKc(boxesKc)}</span>
-                </span>
-              </div>
-              <p className="text-xs text-neutral-500 mt-2">
-                Balení 3 l běžně posíláme bez vnější krabice. Krabice stojí {formatKc(BOX_PRICE_KC)} za kus — zvolte, kolik
-                balení chcete zabalit (nejvýše {boxesMax}). Sirupy 3 l posíláme v krabici vždy, bez příplatku.
-              </p>
-            </div>
-          </fieldset>
-        )}
+        {/* Krabice: vybrané v košíku (22. 11. 2026, Lucie) */}
+        <input type="hidden" name="boxes" value={boxes} />
 
         <div>
           <label htmlFor="note" className={labelClass}>Poznámka k objednávce (nepovinné)</label>
@@ -902,17 +885,52 @@ export default function CheckoutForm({
         </div>
       </div>
 
-      <aside className="bg-begina-primary-50 border border-neutral-200 rounded-2xl p-5 lg:sticky lg:top-20">
-        <h2 className="font-medium mb-3">Shrnutí</h2>
-        <ul className="text-sm divide-y divide-neutral-200">
-          {lines.map((line) => (
-            <li key={line.sku} className="py-2 flex justify-between gap-3">
-              <span>
-                {line.quantity}× {line.name}
-              </span>
-              <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
-            </li>
-          ))}
+      {/* 22. 11. 2026 (Lucie): souhrn hezčí — bílá karta, vzorky čitelně, krabice zaškrtnutím přímo tady
+          (formulář pro kavárny jde rovnou do pokladny a košík přeskočí). */}
+      <aside className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl shadow-[0_4px_16px_rgba(20,80,40,0.08)] lg:sticky lg:top-20 overflow-hidden">
+        <h2 className="font-serif text-xl text-emerald-900 px-5 py-3.5 bg-emerald-100 border-b border-emerald-200">Vaše objednávka</h2>
+        <div className="p-5">
+        <ul className="text-sm divide-y divide-emerald-200/70">
+          {lines.map((line) => {
+            const sample = isCafeTasting(line.product);
+            const free = line.lineTotalKc === 0 && line.variant.priceKc > 0;
+            return (
+              <li key={line.sku} className="py-2.5">
+                <div className="flex justify-between gap-3">
+                  <span className="text-[#2A2622]">
+                    {sample ? (
+                      <>
+                        <span className="text-neutral-500">Vzorek · </span>
+                        {line.variant.label}
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium">{line.quantity}× {line.product.name}</span>
+                        {line.variant.label ? <span className="text-neutral-500"> · {line.variant.label}</span> : null}
+                      </>
+                    )}
+                  </span>
+                  {free ? (
+                    <span className="shrink-0 self-start rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Zdarma</span>
+                  ) : (
+                    <span className="tabular-nums whitespace-nowrap">{formatKc(line.lineTotalKc)}</span>
+                  )}
+                </div>
+                {choiceLine(line.sku) && <p className="mt-0.5 text-[13px] text-neutral-600">{choiceLine(line.sku)}</p>}
+                {isBoxEligible(line.product, line.variant) && (
+                  <label className="mt-1.5 flex items-center gap-2 text-[13px] text-neutral-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cartBoxes.boxed.includes(line.sku)}
+                      onChange={(e) => cartBoxes.toggle(line.sku, e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600"
+                    />
+                    Zabalit do kartonové krabice <span className="text-neutral-500">+{formatKc(BOX_PRICE_KC)}{line.quantity > 1 ? " / ks" : ""}</span>
+                  </label>
+                )}
+              </li>
+            );
+          })}
           {discountKc > 0 && (
             <li className="py-2 flex justify-between gap-3">
               <span>Sleva ({coupons.preview.applied.filter((a) => a.discountKc > 0).map((a) => couponDisplayName(a)).join(", ")})</span>
@@ -927,19 +945,22 @@ export default function CheckoutForm({
               <span className="tabular-nums whitespace-nowrap">{formatKc(boxesKc)}</span>
             </li>
           )}
-          <li className="py-2 flex justify-between gap-3 text-neutral-600">
-            <span>{shipping.label}</span>
+          <li className="py-2.5 flex justify-between gap-3 text-neutral-700">
+            <span>{shipping.id === "rozvoz" && slovakiaSelfTransport(destination) ? SLOVAKIA_SELF_TRANSPORT_SUMMARY_LABEL : shipping.label}</span>
             <span className="tabular-nums whitespace-nowrap">
-              {coupons.preview.freeShipping && quote.available && quote.priceKc > 0 ? "zdarma (slevový kód)" : formatKc(shippingKc)}
+              {shipping.id === "rozvoz" && slovakiaSelfTransport(destination)
+                ? SLOVAKIA_SELF_TRANSPORT_SUMMARY
+                : coupons.preview.freeShipping && quote.available && quote.priceKc > 0 ? "zdarma (slevový kód)" : formatKc(shippingKc)}
             </span>
           </li>
-          <li className="pt-3 flex justify-between gap-3 font-semibold">
+          <li className="pt-3 flex justify-between gap-3 font-semibold text-lg text-[#2A2622]">
             <span>Celkem</span>
             <span className="tabular-nums whitespace-nowrap">{formatKc(subtotalKc - discountKc + shippingKc + boxesKc)}</span>
           </li>
         </ul>
+        <p className="mt-2 text-xs text-neutral-600">{VAT_NOTE}</p>
 
-        <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-neutral-200" />
+        <CouponBox coupons={coupons} className="mt-4 pt-4 border-t border-emerald-200" />
 
         {containsAgeRestricted && (
           <label className="mt-5 flex items-start gap-2 text-xs text-neutral-600">
@@ -1000,13 +1021,14 @@ export default function CheckoutForm({
         <button
           type="submit"
           disabled={pending || blockedLines.length > 0 || !quote.available}
-          className="mt-4 w-full bg-begina-primary-900 hover:bg-begina-primary-800 disabled:opacity-60 text-white text-sm font-medium rounded-lg h-11"
+          className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-base font-semibold rounded-lg h-12 shadow-md shadow-emerald-600/20"
         >
           {pending ? "Odesílám…" : "Objednat s povinností platby"}
         </button>
         <ShopLink href="/kosik" className="mt-3 block text-center text-sm text-neutral-600 hover:underline">
           Upravit košík
         </ShopLink>
+      </div>
       </aside>
     </form>
     </>

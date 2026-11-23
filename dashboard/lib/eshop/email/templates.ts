@@ -21,6 +21,7 @@ import {
 } from "../orderParties";
 import { displayItemName } from "../packageLabel";
 import { customerGreeting } from "./greeting";
+import { isSlovakAddress, slovakiaSelfTransport, SLOVAKIA_SELF_TRANSPORT_SUMMARY } from "../shipping";
 
 export type EmailOrder = {
   id: string;
@@ -163,6 +164,16 @@ function testBannerText(ctx: Context): string {
   return `*** TESTOVACÍ E-MAIL z Preview (MojeBegina).${target} ***\n\n`;
 }
 
+/** Slovenská adresa s vlastní dopravou zákazníka — doprava NENÍ zdarma, platí ji dopravci. */
+export function isSlovakSelfTransportOrder(order: Pick<EmailOrder, "recipientAddress" | "shippingMethodCode" | "shippingKc">): boolean {
+  return order.shippingMethodCode === "rozvoz" && order.shippingKc === 0 && isSlovakAddress(order.recipientAddress) && slovakiaSelfTransport("sk");
+}
+
+function shippingPriceText(order: EmailOrder): string {
+  if (order.shippingKc > 0) return formatKc(order.shippingKc);
+  return isSlovakSelfTransportOrder(order) ? SLOVAKIA_SELF_TRANSPORT_SUMMARY : "zdarma";
+}
+
 function itemsTable(order: EmailOrder): string {
   const row = (left: string, right: string, bold = false) =>
     `<tr><td style="padding:6px 0;border-bottom:1px solid #EDEDED;${bold ? "font-weight:600;" : ""}">${left}</td>` +
@@ -171,7 +182,7 @@ function itemsTable(order: EmailOrder): string {
     row(`${item.quantity}× ${escapeHtml(displayItemName(item.name))}`, escapeHtml(formatKc(item.lineTotalKc)))
   );
   if (order.discountKc > 0) lines.push(row("Sleva", escapeHtml(`−${formatKc(order.discountKc)}`)));
-  lines.push(row(escapeHtml(order.shippingMethodLabel ?? "Doprava"), escapeHtml(order.shippingKc > 0 ? formatKc(order.shippingKc) : "zdarma")));
+  lines.push(row(escapeHtml(order.shippingMethodLabel ?? "Doprava"), escapeHtml(shippingPriceText(order))));
   lines.push(row("Celkem", escapeHtml(formatKc(order.totalKc)), true));
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#1A1A1A;">${lines.join("")}</table>`;
 }
@@ -179,7 +190,7 @@ function itemsTable(order: EmailOrder): string {
 function itemsText(order: EmailOrder): string {
   const lines = order.items.map((item) => `- ${item.quantity}× ${displayItemName(item.name)}: ${formatKc(item.lineTotalKc)}`);
   if (order.discountKc > 0) lines.push(`- Sleva: −${formatKc(order.discountKc)}`);
-  lines.push(`- ${order.shippingMethodLabel ?? "Doprava"}: ${order.shippingKc > 0 ? formatKc(order.shippingKc) : "zdarma"}`);
+  lines.push(`- ${order.shippingMethodLabel ?? "Doprava"}: ${shippingPriceText(order)}`);
   lines.push(`Celkem: ${formatKc(order.totalKc)}`);
   return lines.join("\n");
 }
@@ -614,5 +625,58 @@ ${detailsTable(rows)}
     "Zákazník odstoupil od smlouvy online formulářem. Potvrzení přijetí mu bylo odesláno.\n\n" +
     rows.map(([l, v]) => `${l}: ${v}`).join("\n") +
     `\n\n${found}\n`;
+  return { subject, html, text };
+}
+
+// ---------- zákazník (Slovensko): objednávka připravená, objednejte si CoolBalík ----------
+
+export type SkTransportEmailInfo = { grams: number | null };
+
+const SK_HANDOVER = "na depo CoolBalíku (zásilku tam dovezeme my)";
+const SK_PICKUP_PHONE = "+420 774 199 975";
+const COOLBALIK_SK_URL = "https://orders.coolbalik.cz/"; // objednávkový formulář CoolBalíku (odkaz z coolbalik.sk/kontakt, jednorázová přeprava)
+
+function skWeightText(grams: number | null): string | null {
+  if (grams === null || grams <= 0) return null;
+  const kg = Math.ceil(grams / 500) / 2;
+  const parcels = Math.max(1, Math.ceil(grams / 20_000));
+  const weight = `cca ${kg.toLocaleString("cs-CZ")} kg`;
+  return parcels > 1 ? `${weight} (${parcels} balíky, každý do 20 kg)` : weight;
+}
+
+export function customerSkTransportEmail(order: EmailOrder, ctx: Context & { skTransport: SkTransportEmailInfo }): RenderedEmail {
+  const reference = orderReference(order);
+  const weight = skWeightText(ctx.skTransport.grams);
+  const subject = `${subjectPrefix(ctx)}Objednávka ${reference} je připravená – objednejte si prosím dopravu`;
+  const intro = `Vaše objednávka ${reference} je připravená k odeslání.`;
+  const how = "Na Slovensko posíláme jen chlazenou přepravou CoolBalík. Objednejte si ji prosím – zásilku jim předáme na jejich depu:";
+  const details: [string, string][] = [
+    ["Předání zásilky", SK_HANDOVER],
+    ["Telefon Begina", SK_PICKUP_PHONE],
+    ...(weight ? ([["Hmotnost zásilky", weight]] as [string, string][]) : []),
+  ];
+  const after = "Dopravu platíte přímo CoolBalíku. Až ji objednáte, odpovězte nám prosím na tento e-mail a napište den doručení. Zásilku na depo dovezeme den předem.";
+  const linkLabel = "Objednat přepravu u CoolBalíku";
+  const greeting = customerGreeting(order.contactName);
+  const html = layout(
+    ctx,
+    `<tr><td style="font-size:14px;color:#1A1A1A;">
+<p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
+<p style="margin:0 0 12px;">${escapeHtml(intro)}</p>
+<p style="margin:0 0 12px;">${escapeHtml(how)}</p>
+${detailsTable(details)}
+<div style="height:16px"></div>
+<p style="margin:0 0 16px;">${button(COOLBALIK_SK_URL, linkLabel)}</p>
+<p style="margin:0 0 16px;font-weight:600;">${escapeHtml(after)}</p>
+${itemsTable(order)}
+<div style="height:16px"></div>
+<p style="margin:0;color:#404040;font-size:13px;">S dotazy nám stačí odpovědět na tento e-mail.<br>Begina</p>
+</td></tr>`
+  );
+  const text =
+    testBannerText(ctx) +
+    `${greeting}\n\n${intro}\n\n${how}\n\n` +
+    details.map(([l, v]) => `${l}: ${v}`).join("\n") +
+    `\n\n${linkLabel}: ${COOLBALIK_SK_URL}\n\n${after}\n\n${itemsText(order)}\n\nS dotazy nám stačí odpovědět na tento e-mail.\nBegina\n`;
   return { subject, html, text };
 }

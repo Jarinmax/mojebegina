@@ -29,6 +29,8 @@ export type Variant = {
   servings: number | null;
   /** Hmotnost balení v gramech (doprava podle hmotnosti); null = neznámá nebo nenačtená. */
   weightGrams: number | null;
+  /** Vyprodáno: balení je vidět s červeným „Vyprodáno“, ale nejde koupit (sold_out, migrace 0060). */
+  soldOut?: boolean;
 };
 
 export type FoodInfo = {
@@ -72,4 +74,4 @@ export type Product = {
   foodInfo: FoodInfo;
 };
 
-export type Catalog = { categories: Category[]; products: Product[] };
+export type Catalog = { categories: Category[]; products: Product[]; /** palivový příplatek CoolBalík v % (z MojeBegina) */ fuelSurchargePercent?: number };

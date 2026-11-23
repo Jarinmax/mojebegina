@@ -15,15 +15,6 @@ export const VOLUME_LABELS: Record<BatchVolume, string> = {
   100: "100 ml (ochutnávka)",
 };
 
-const CATEGORY_LETTER: Record<string, string> = {
-  polevky: "P",
-  sirupy: "S",
-  caje: "C",
-  "ovocne-napoje": "N",
-  koktejly: "K",
-  zmrzliny: "Z",
-};
-
 /** Trvanlivost ve dnech, nebo { months }; null = neznámá (datum zadá Jarin ručně). */
 export function shelfLife(categorySlug: string, volumeMl: number): { days: number } | { months: number } | null {
   switch (categorySlug) {
@@ -88,21 +79,44 @@ export function productAbbr(slug: string): string {
   return base.slice(0, 3).map((w) => w[0]).join("").toUpperCase();
 }
 
-/** Číslo šarže: písmeno kategorie + zkratka + datum výroby DDMMRR, druhá šarže téhož dne -2. Např. PDYN-211126. */
+// Kódy výrobků, které už jsou na vytištěných etiketách nebo je navrhl
+// Jarin (DYN, MEL, SIP potvrzené; GUL, TOM, RAR, KUL, SPE z návrhu).
+// Kód se po první šarži nemění.
+const PRODUCT_CODES: Record<string, string> = {
+  "dynova-polevka": "DYN",
+  "medunkovy-sirup-s-levanduli": "MEL",
+  "sipkovy-sirup": "SIP",
+  "gulasova-polevka-z-hlivy-ustricne": "GUL",
+  "rajcatova-polevka": "TOM",
+  "rajcatova-polevka-s-cervenou-repou": "RAR",
+  kulajda: "KUL",
+  "spenatova-polevka": "SPE",
+};
+
+/** Kód výrobku v čísle šarže (3–4 písmena). Čaje mají na konci C, ať se neplete lipový čaj s lipovým sirupem. */
+export function productCode(categorySlug: string, productSlug: string): string {
+  const fixed = PRODUCT_CODES[productSlug];
+  if (fixed) return fixed;
+  const base = productAbbr(productSlug);
+  return categorySlug === "caje" ? `${base}C` : base;
+}
+
+export const BATCH_CODE_RE = /^L-\d{8}-[A-Z]{3,4}-\d{2}$/;
+
+/** Číslo šarže L-RRRRMMDD-KÓD-NN (datum = den dokončení výroby, NN = pořadí várky téhož výrobku v ten den). */
 export function batchCode(categorySlug: string, productSlug: string, producedOn: string, sequence = 1): string {
-  const [y, m, d] = producedOn.split("-");
-  const base = `${CATEGORY_LETTER[categorySlug] ?? "X"}${productAbbr(productSlug)}-${d}${m}${y.slice(2)}`;
-  return sequence > 1 ? `${base}-${sequence}` : base;
+  return `L-${producedOn.replace(/-/g, "")}-${productCode(categorySlug, productSlug)}-${String(sequence).padStart(2, "0")}`;
 }
 
 export type BatchLineInput = { volumeMl: BatchVolume; quantity: number; bestBefore?: string | null };
-export type BatchInput = { productId: string; producedOn: string; lines: BatchLineInput[]; note?: string | null };
+export type BatchInput = { productId: string; producedOn: string; lines: BatchLineInput[]; note?: string | null; code?: string | null };
 
 export function validateBatchInput(raw: {
   productId?: unknown;
   producedOn?: unknown;
   lines?: unknown;
   note?: unknown;
+  code?: unknown;
 }, today: string): { ok: true; value: BatchInput } | { ok: false; error: string } {
   const productId = typeof raw.productId === "string" ? raw.productId.trim() : "";
   if (!/^[0-9a-f-]{36}$/i.test(productId)) return { ok: false, error: "Vyberte produkt." };
@@ -111,7 +125,7 @@ export function validateBatchInput(raw: {
   if (!produced) return { ok: false, error: "Datum výroby musí být RRRR-MM-DD." };
   if (producedOn > today) return { ok: false, error: "Datum výroby nemůže být v budoucnosti." };
   const todayDate = parseIsoDate(today);
-  if (todayDate && (todayDate.getTime() - produced.getTime()) / 86_400_000 > 60) return { ok: false, error: "Datum výroby je starší než 60 dní — zkontrolujte ho." };
+  if (todayDate && (todayDate.getTime() - produced.getTime()) / 86_400_000 > 120) return { ok: false, error: "Datum výroby je starší než 120 dní — zkontrolujte ho." };
   if (!Array.isArray(raw.lines)) return { ok: false, error: "Zadejte aspoň jedno balení." };
   const lines: BatchLineInput[] = [];
   const seen = new Set<number>();
@@ -134,7 +148,13 @@ export function validateBatchInput(raw: {
   }
   if (lines.length === 0) return { ok: false, error: "Zadejte aspoň jedno balení s počtem kusů." };
   const note = typeof raw.note === "string" && raw.note.trim() ? raw.note.trim().slice(0, 500) : null;
-  return { ok: true, value: { productId, producedOn, lines, note } };
+  let code: string | null = null;
+  if (typeof raw.code === "string" && raw.code.trim()) {
+    code = raw.code.trim().toUpperCase();
+    if (!BATCH_CODE_RE.test(code)) return { ok: false, error: "Číslo šarže musí mít tvar L-RRRRMMDD-KÓD-01 (např. L-20261117-MEL-01)." };
+    if (code.slice(2, 10) !== producedOn.replace(/-/g, "")) return { ok: false, error: "Datum v čísle šarže nesedí s datem výroby." };
+  }
+  return { ok: true, value: { productId, producedOn, lines, note, ...(code ? { code } : {}) } };
 }
 
 /** Dní do data spotřeby (záporné = prošlé). */
@@ -149,4 +169,10 @@ export function formatCzDate(isoDate: string | null): string {
   if (!isoDate) return "—";
   const [y, m, d] = isoDate.split("-");
   return `${Number(d)}. ${Number(m)}. ${y}`;
+}
+
+/** Pole pro SQL jako jeden parametr ('{a,b}'), protože drizzle by JS pole v sql`` rozložil na seznam ($1, $2) a ANY()/ALL() by spadlo. Jen pro bezpečné hodnoty (slugy, UUID). */
+export function pgArrayLiteral(values: readonly string[]): string {
+  for (const v of values) if (!/^[0-9A-Za-z-]+$/.test(v)) throw new Error("Neplatná hodnota pro pole v SQL.");
+  return `{${values.join(",")}}`;
 }

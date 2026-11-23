@@ -6,6 +6,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { pgArrayLiteral } from "./batches";
 
 export type ItemNeed = { itemId: string; productSlug: string; volumeMl: number; need: number };
 export type LineStock = { lineId: string; productSlug: string; volumeMl: number; remaining: number; bestBefore: string | null; producedOn: string };
@@ -79,7 +80,7 @@ export async function allocateOrderBatches(orderId: string): Promise<AllocationO
       FROM production_batch_lines l
       JOIN production_batches b ON b.id = l.batch_id
       JOIN products p ON p.id = b.product_id
-      WHERE b.cancelled_at IS NULL AND (l.sold_out_at IS NULL OR l.sold_out_auto) AND p.slug = ANY(${slugs})`)
+      WHERE b.cancelled_at IS NULL AND (l.sold_out_at IS NULL OR l.sold_out_auto) AND p.slug = ANY(${pgArrayLiteral(slugs)}::text[])`)
   ).rows as Array<{ id: string; product_slug: string; volume_ml: number; quantity: number; best_before: string | null; produced_on: string; allocated: number }>;
   const lines: LineStock[] = lineRows.map((l) => ({
     lineId: l.id,
@@ -100,7 +101,7 @@ export async function allocateOrderBatches(orderId: string): Promise<AllocationO
   if (touched.length > 0) {
     await db.execute(sql`
       UPDATE production_batch_lines l SET sold_out_at = now(), sold_out_auto = true
-      WHERE l.id = ANY(${touched}::uuid[]) AND l.sold_out_at IS NULL
+      WHERE l.id = ANY(${pgArrayLiteral(touched)}::uuid[]) AND l.sold_out_at IS NULL
         AND l.quantity <= COALESCE((SELECT sum(a.quantity) FROM production_batch_allocations a WHERE a.batch_line_id = l.id), 0)`);
   }
   return {
@@ -117,7 +118,7 @@ export async function releaseOrderBatches(orderId: string): Promise<void> {
   if (lines.length === 0) return;
   await db.execute(sql`
     UPDATE production_batch_lines l SET sold_out_at = NULL, sold_out_auto = false
-    WHERE l.id = ANY(${lines}::uuid[]) AND l.sold_out_auto
+    WHERE l.id = ANY(${pgArrayLiteral(lines)}::uuid[]) AND l.sold_out_auto
       AND l.quantity > COALESCE((SELECT sum(a.quantity) FROM production_batch_allocations a WHERE a.batch_line_id = l.id), 0)`);
 }
 
@@ -146,7 +147,7 @@ export async function lineRecipients(lineIds: string[]): Promise<Map<string, Lin
       SELECT a.batch_line_id, o.id AS order_id, o.order_number, COALESCE(NULLIF(o.billing_company, ''), o.billing_name, o.contact_name) AS customer,
              a.quantity, o.shipped_at
       FROM production_batch_allocations a JOIN orders o ON o.id = a.order_id
-      WHERE a.batch_line_id = ANY(${lineIds}::uuid[]) ORDER BY o.shipped_at NULLS LAST`)
+      WHERE a.batch_line_id = ANY(${pgArrayLiteral(lineIds)}::uuid[]) ORDER BY o.shipped_at NULLS LAST`)
   ).rows as Array<{ batch_line_id: string; order_id: string; order_number: number | null; customer: string | null; quantity: number; shipped_at: string | null }>;
   for (const r of rows)
     out.set(r.batch_line_id, [

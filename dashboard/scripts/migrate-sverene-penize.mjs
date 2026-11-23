@@ -1,4 +1,4 @@
-// Svěřené peníze spolupracovníka — hlídaná migrace 0060 (trust_entries,
+// Svěřené peníze spolupracovníka — hlídaná migrace 0067 (trust_entries,
 // trust_recurring) při buildu na Vercelu, stejný princip jako ostatní
 // scripts/migrate-*.mjs. Jen SCHÉMA: konkrétní částky jsou soukromé a do kódu
 // nepatří — zapisuje je vedení po nasazení přímo v MojeBegina.
@@ -38,13 +38,13 @@ export async function runTrustMigration() {
     [TRUST_TABLES],
   );
   if (existing.length === 0) {
-    const statements = statementsOf(await readFile(fileURLToPath(new URL("../drizzle/0060_sverene_penize.sql", import.meta.url)), "utf8"));
+    const statements = statementsOf(await readFile(fileURLToPath(new URL("../drizzle/0067_sverene_penize.sql", import.meta.url)), "utf8"));
     await sql.transaction((tx) => statements.map((s) => tx.query(s)));
-    console.log(`Trust migration (${env}): schema 0060 applied.`);
+    console.log(`Trust migration (${env}): schema 0067 applied.`);
   } else if (existing.length !== TRUST_TABLES.length) {
     throw new Error(`Trust migration: partial schema detected (${existing.map((r) => r.table_name).join(", ")}); stopping safely.`);
   } else {
-    console.log(`Trust migration (${env}): 0060 already applied.`);
+    console.log(`Trust migration (${env}): 0067 already applied.`);
   }
 }
 

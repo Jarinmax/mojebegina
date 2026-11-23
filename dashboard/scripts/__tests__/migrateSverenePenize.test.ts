@@ -1,4 +1,4 @@
-// scripts/migrate-sverene-penize.mjs — hlídaná migrace 0060 (jen schéma, bez
+// scripts/migrate-sverene-penize.mjs — hlídaná migrace 0067 (jen schéma, bez
 // dat) přes ovladač Neonu nad PGlite.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -90,7 +90,7 @@ function mockNeonFetch(pg: PGlite): () => void {
   };
 }
 
-const IDX_0059 = journalTags().indexOf("0059_sarze_objednavky");
+const IDX_0059 = journalTags().indexOf("0066_idoklad_archiv");
 const count = async (pg: PGlite) => ({
   entries: (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM trust_entries`)).rows[0].n,
   plans: (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM trust_recurring`)).rows[0].n,
@@ -116,7 +116,7 @@ describe("scripts/migrate-sverene-penize.mjs", { timeout: 60_000 }, () => {
     await expect(runTrustMigration()).resolves.toBeUndefined();
   });
 
-  it("produkce (po 0059): založí prázdné tabulky (žádná data), podruhé nic; schéma = kód", async () => {
+  it("produkce (po 0066): založí prázdné tabulky (žádná data), podruhé nic; schéma = kód", async () => {
     const pg = await seedPg(IDX_0059);
     restoreFetch = mockNeonFetch(pg);
     process.env.VERCEL_ENV = "production";

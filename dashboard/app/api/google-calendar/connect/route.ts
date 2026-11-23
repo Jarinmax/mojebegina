@@ -13,12 +13,19 @@ import { ForbiddenError, UnauthenticatedError } from "@/lib/data/errors";
 
 export const FLIGHT_COOKIE = "google_calendar_oauth_flight";
 
-export async function GET() {
+// Návrat po propojení (?zpet=) — jen interní cesty v Řízení firmy.
+function safeReturnTo(raw: string | null): string | null {
+  if (!raw || !raw.startsWith("/rizeni-firmy") || raw.startsWith("//") || raw.includes("\\")) return null;
+  return raw.slice(0, 300);
+}
+
+export async function GET(request: Request) {
   try {
     const { url, flight } = await beginGoogleCalendarConnect();
+    const returnTo = safeReturnTo(new URL(request.url).searchParams.get("zpet"));
 
     const cookieStore = await cookies();
-    cookieStore.set(FLIGHT_COOKIE, JSON.stringify(flight), {
+    cookieStore.set(FLIGHT_COOKIE, JSON.stringify({ ...flight, returnTo }), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -32,7 +39,7 @@ export async function GET() {
       return NextResponse.redirect(new URL("/login", await getAppOrigin()));
     }
     if (err instanceof ForbiddenError) {
-      return new NextResponse("Propojení Google kalendáře smí zahájit jen Jaroslav Blahout.", { status: 403 });
+      return new NextResponse("Propojení Google kalendáře může zahájit jen obchodník přihlášený pod vlastním účtem.", { status: 403 });
     }
     return new NextResponse("Zahájení propojení selhalo.", { status: 500 });
   }

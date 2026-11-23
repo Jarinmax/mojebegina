@@ -5,6 +5,7 @@ import { listStaffOptions } from "@/lib/data/leads";
 import { formatCzechDate, formatKc } from "@/lib/format";
 import CustomerOwnerForm from "./CustomerOwnerForm";
 import CustomerNoteForm from "./CustomerNoteForm";
+import CustomerAddressForm from "./CustomerAddressForm";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,14 @@ export default async function CustomerDetailPage(
           acquiredByUserId={customer.acquiredByUserId}
           acquiredByName={customer.acquiredByName}
           staff={staff}
+        />
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+        <CustomerAddressForm
+          organizationId={customer.id}
+          registeredAddress={customer.registeredAddress}
+          deliveryAddress={customer.deliveryAddress}
         />
       </div>
 

@@ -79,7 +79,7 @@ describe("Jardova karta nad DB", { timeout: 120_000 }, () => {
     expect(v.customers.every((c) => c.bonus.eligible && !c.bonus.reached)).toBe(true);
     expect(v.excluded).toEqual([]); // kontrolní seznam vidí jen vedoucí
     expect(v.statements.map((s) => [s.month, s.totalKc, s.lines.length])).toEqual([["2026-11", 85.75, 2]]);
-    expect(v.summary).toEqual({ customerCount: 2, earnedKc: 85.75, paidOutKc: 0, remainingKc: 85.75 });
+    expect(v.summary).toEqual({ customerCount: 2, volumeKc: 1715, earnedKc: 85.75, paidOutKc: 0, remainingKc: 85.75 });
   });
 
   it("vedoucí vidí i nezapočítané (Food Fest Crew: bez evidence, jen Vinerův hovor)", async () => {

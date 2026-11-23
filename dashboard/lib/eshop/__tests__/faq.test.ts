@@ -10,23 +10,23 @@ describe("Časté otázky", () => {
   it("obsahuje otázky ze zadání", () => {
     const qs = FAQ_ITEMS.map((i) => i.question);
     for (const q of [
-      "Kdo dováží hotové polévky do kavárny?",
-      "Dovezete polévky po celé ČR?",
+      "Kde si můžeme objednat hotové polévky a nápoje do kavárny?",
+      "Jak posíláte objednávky po České republice?",
       "Jak dlouho vydrží polévka po otevření?",
       "Jsou vaše polévky veganské?",
       "Kolik stojí porce polévky?",
       "Můžu si objednat i domů?",
-      "Jak objednat ochutnávku do provozu?",
+      "Jak ochutnat polévky a sirupy do provozu?",
     ]) expect(qs).toContain(q);
   });
 
   it("údaje jako na webu, bez zdravotních tvrzení a bez „zdarma“", () => {
     const all = FAQ_ITEMS.map((i) => i.answer).join(" ");
-    expect(all).toContain("14 dní");
-    expect(all).toContain("31,60 Kč");
+    expect(all).toContain("14 dnů");
+    expect(all).toContain("31,58 Kč");
     expect(all).toContain("379 Kč");
     expect(all).toContain("3 až 7 %");
-    expect(all).not.toMatch(/zdrav|imunit|detox|vitamín|léčí|zdarma/i);
+    expect(all).not.toMatch(/zdrav|imunit|detox|vitamín|léčí/i);
   });
 
   it("stránka v patičce, FAQPage ze stejných textů", () => {

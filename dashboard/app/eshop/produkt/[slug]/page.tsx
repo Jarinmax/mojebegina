@@ -25,12 +25,16 @@ import TastingSetForm from "@/components/eshop/TastingSetForm";
 import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
+import VariantOnly from "@/components/eshop/VariantOnly";
+import { boxNote } from "@/lib/eshop/boxOption";
+import { askSamplesLink } from "@/lib/eshop/cafePage";
 import MetaViewContent from "@/components/eshop/MetaViewContent";
 import PageCarousel from "@/components/eshop/PageCarousel";
 import DescriptionBlocks from "@/components/eshop/DescriptionBlocks";
 import { parseDescription } from "@/lib/eshop/productDescription";
 import type { ReactNode } from "react";
 import { CAFE_PATH, CAFE_PRODUCT_LINE } from "@/lib/eshop/cafePage";
+import { isTastingBegina } from "@/lib/eshop/cafeTasting";
 import { isCafeTasting } from "@/lib/eshop/cafeTasting";
 import { TERMS_PATH } from "@/lib/eshop/soupFoodInfo";
 import { asSentence, keepTogether } from "@/lib/eshop/typography";
@@ -277,7 +281,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                   {openedLine}
                 </p>
               )}
-              <ServingPriceLine rows={portions} defaultSku={product.variants[0].sku} />
+              <ServingPriceLine rows={portions} defaultSku={(product.variants.find((variant) => variant.soldOut !== true) ?? product.variants[0]).sku} />
             </div>
           )}
 
@@ -297,7 +301,19 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             {isOrderable(product) && isSet ? (
               <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} maxQuantity={campaign?.remaining} />
             ) : isOrderable(product) ? (
-              <AddToCartButton name={product.name} variants={product.variants} />
+              <>
+                <AddToCartButton name={product.name} variants={product.variants} />
+                {/* Krabice za 19 Kč (Lucie 22. 11. 2026): hned pod Do košíku, i na mobilu */}
+                {boxNote(product) && <p className="mt-2 text-sm text-neutral-600">{boxNote(product)}</p>}
+                {askSamplesLink(product) && (
+                  <p className="mt-2 text-sm text-neutral-600">
+                    {askSamplesLink(product)!.text}{" "}
+                    <a href={askSamplesLink(product)!.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+                      {askSamplesLink(product)!.label} →
+                    </a>
+                  </p>
+                )}
+              </>
             ) : (
               <div className="border border-neutral-200 rounded-xl p-4">
                 <p className="font-medium">{NOT_ORDERABLE_LABEL}</p>
@@ -307,13 +323,20 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           </div>
 
           {/* Odkaz pro provozy pod Do košíku (Lucie 20. 11. 2026) */}
-          {isOrderable(product) && !isSet && (
-            <p className="mt-3 text-sm text-neutral-700">
-              {CAFE_PRODUCT_LINE.text}{" "}
-              <ShopLink href={CAFE_PATH} className="font-medium text-[#4A5527] underline underline-offset-4">
-                {CAFE_PRODUCT_LINE.link} →
-              </ShopLink>
-            </p>
+          {/* 22. 11. 2026 (Lucie): „První begina + 4 vzorky zdarma“ jen u produktů, jejichž begina 3 l jde v akci vybrat */}
+          {/* a jen při zvoleném třílitrovém balení (ne u 650 ml) — 22. 11. 2026 večer */}
+          {isOrderable(product) && !isSet && product.variants.some((variant) => variant.soldOut !== true && isTastingBegina(product, variant)) && (
+            <VariantOnly
+              skus={product.variants.filter((variant) => variant.soldOut !== true && isTastingBegina(product, variant)).map((variant) => variant.sku)}
+              defaultSku={(product.variants.find((variant) => variant.soldOut !== true) ?? product.variants[0]).sku}
+            >
+              <p className="mt-3 text-sm text-neutral-700">
+                {CAFE_PRODUCT_LINE.text}{" "}
+                <ShopLink href={`${CAFE_PATH}#ochutnavka`} className="font-medium text-[#4A5527] underline underline-offset-4">
+                  {CAFE_PRODUCT_LINE.link} →
+                </ShopLink>
+              </p>
+            </VariantOnly>
           )}
 
           {showSetLink && (

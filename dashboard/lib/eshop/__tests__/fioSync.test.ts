@@ -248,3 +248,101 @@ describe("Fio: ruční objednávka zaplacená s číslem faktury (PGlite)", () =
     expect(count.rows[0].n).toBe(2);
   });
 });
+
+describe("Fio: platba vlastní faktury MojeBegina (VS = číslo faktury, PGlite)", () => {
+  let db: Parameters<typeof syncFioPayments>[0];
+  const mails: EmailMessage[] = [];
+  const NOW = new Date("2026-11-25T12:00:00Z");
+  const rows = [
+    tx(301, "2026-11-24+0100", 319, "20260216", "Pan Kočka"), // sedí → uhrazeno
+    tx(302, "2026-11-24+0100", 300, "20260217", "Jiný"), // částka nesedí → upozornění
+    tx(303, "2026-11-24+0100", 646, "20260218", "Kavárna"), // ruční objednávka + vlastní faktura → obojí zaplaceno, jedna zpráva
+  ];
+  const deps = (): FioSyncDeps => ({
+    env: { FIO_API_TOKEN: "tajny-token" },
+    baseUrl: "https://moje.begina.cz",
+    fetchImpl: (async () => new Response(JSON.stringify(statement(rows)), { status: 200 })) as unknown as typeof fetch,
+    afterPaid: async () => {
+      throw new Error("nic se neposílá");
+    },
+    issue: async () => {
+      throw new Error("nic se nevystavuje");
+    },
+    findInvoice: async () => {
+      throw new Error("do iDokladu se u vlastní faktury nesahá");
+    },
+    mailer: {
+      config: { apiKey: "re_x", from: "Begina <info@begina.cz>", replyTo: null, internalTo: ["info@begina.cz"], testRecipients: null },
+      transport: async (message) => {
+        mails.push(message);
+        return { ok: true, id: "m" };
+      },
+    },
+  });
+
+  beforeAll(async () => {
+    const created = await createMigratedDb();
+    db = created.db as unknown as Parameters<typeof syncFioPayments>[0];
+    const { issueOwnDocument } = await import("../invoicing/ownIssue");
+    const { ownSupplier } = await import("../invoicing/ownInvoice");
+    await created.db.execute(sql`INSERT INTO invoice_number_counters (year, last_serial) VALUES (2026, 215) ON CONFLICT (year) DO UPDATE SET last_serial = 215`);
+    const ORG = "e1111111-1111-4111-8111-111111111111";
+    await created.db.execute(sql`INSERT INTO organizations (id, ico, name, registered_address) VALUES (${ORG}, '12345679', 'Kavárna', 'Ulice 1, 110 00 Praha')`);
+    await created.db.execute(sql`INSERT INTO orders (id, channel, buyer_organization_id, contact_email, contact_name, subtotal_kc, discount_kc, shipping_kc, total_kc, payment_status, fulfillment_status, ordered_at, payment_vs) VALUES
+      ('e2222222-2222-4222-8222-222222222222', 'manual', ${ORG}, 'k@example.cz', 'Kavárna', 646, 0, 0, 646, 'unpaid', 'new', '2026-11-23T10:00:00Z', '70000050')`);
+    const snap = (name: string, ico: string | null, total: number) => ({
+      version: 1 as const,
+      kind: "invoice" as const,
+      correctsNumber: null,
+      issueDate: "2026-11-23",
+      dueDate: "2026-12-07",
+      paidDate: null,
+      paymentMethod: "bank_transfer" as const,
+      vs: null,
+      orderReference: null,
+      supplier: ownSupplier({ ESHOP_BANK_ACCOUNT: "123/0100" }),
+      customer: { kind: "company" as const, name, contactPerson: null, street: "Ulice 1", city: "Praha", zip: "110 00", country: "Česká republika", ico, dic: null, email: null },
+      delivery: null,
+      lines: [{ name: "Položka", quantity: 1, unitPriceKc: total, totalKc: total }],
+      totalKc: total,
+      note: null,
+    });
+    for (const [name, ico, total] of [["Pan Kočka", null, 319], ["Jiný", null, 310], ["Kavárna", "12345679", 646]] as const) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await issueOwnDocument(created.db as any, { snapshot: snap(name, ico, total) as any, actorName: "test" });
+    }
+  });
+
+  it("sedí částka → faktura uhrazená ke dni platby (nová verze); nesedí → jen upozornění; s ruční objednávkou obojí", async () => {
+    const result = await syncFioPayments(db, NOW, deps());
+    expect(result.invoicesPaid).toEqual([
+      { invoiceNumber: "20260216", amountKc: 319 },
+      { invoiceNumber: "20260218", amountKc: 646 },
+    ]);
+    expect(result.manualPaid).toEqual([{ orderNumber: null, amountKc: 646, invoiceNumber: "20260218" }]);
+    const docs = await db.execute(sql`SELECT number, version, paid_on::text AS paid_on FROM own_invoice_documents ORDER BY number`);
+    expect(docs.rows).toEqual([
+      { number: "20260216", version: 2, paid_on: "2026-11-24" },
+      { number: "20260217", version: 1, paid_on: null },
+      { number: "20260218", version: 2, paid_on: "2026-11-24" },
+    ]);
+    const pays = await db.execute(sql`SELECT external_id, status, match_status FROM payments ORDER BY external_id`);
+    expect(pays.rows).toEqual([
+      { external_id: "301", status: "succeeded", match_status: "unmatched" }, // bez objednávky
+      { external_id: "302", status: "pending", match_status: "needs_review" },
+      { external_id: "303", status: "succeeded", match_status: "matched" },
+    ]);
+    expect(mails.map((m) => m.subject.replace(/\s/g, " "))).toEqual([
+      "Platba přišla – faktura 20260216 (Pan Kočka), 319 Kč",
+      "Platba nesedí – faktura 20260217 (Jiný)",
+      "Platba přišla – faktura 20260218 (Kavárna), 646 Kč",
+    ]);
+  });
+
+  it("opakovaný běh nic nezapíše ani nepošle", async () => {
+    mails.length = 0;
+    const again = await syncFioPayments(db, NOW, deps());
+    expect(again.invoicesPaid).toBeUndefined();
+    expect(mails).toEqual([]);
+  });
+});
