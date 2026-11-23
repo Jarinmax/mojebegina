@@ -1,3 +1,4 @@
+import PenizeTabs from "../_penize/PenizeTabs";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -97,9 +98,10 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6 text-neutral-900">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <PenizeTabs active="prehled" />
+      <div className="flex flex-wrap items-end justify-between gap-3 -mt-4">
         <div>
-          <h1 className="text-2xl font-semibold">Ekonomika {year}</h1>
+          <h2 className="text-lg font-semibold">Přehled {year}</h2>
           <p className="mt-1 text-sm text-neutral-600">Příjmy, náklady a rozdíl po měsících. Vidí jen Jaroslav a Lucie.</p>
         </div>
         <p className="text-sm flex flex-wrap gap-x-4 gap-y-1">
