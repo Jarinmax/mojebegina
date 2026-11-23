@@ -4,6 +4,7 @@ import { couponDisplayName } from "@/lib/eshop/coupons";
 import ShopLink from "./ShopLink";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
+import { choiceLine } from "@/lib/eshop/tastingSet";
 import { isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { useCatalog } from "./CatalogProvider";
 import { formatKc } from "@/lib/format";
@@ -76,6 +77,7 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
                     {line.product.name}
                   </ShopLink>
                   {line.variant.label && <p className="text-xs text-neutral-500">{line.variant.label}</p>}
+                  {choiceLine(line.sku) && <p className="text-xs text-neutral-700 mt-0.5">{choiceLine(line.sku)}</p>}
                 </div>
                 <p className="font-medium tabular-nums shrink-0">{formatKc(line.lineTotalKc)}</p>
               </div>
