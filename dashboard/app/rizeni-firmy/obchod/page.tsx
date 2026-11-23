@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { getCockpitCounts, listLeads, listCustomers, listFreshLeads, getHeardFromSummary } from "@/lib/data/leads";
 import { HEARD_FROM_SHORT, isHeardFrom } from "@/lib/data/heardFrom";
 import { getAuthContext } from "@/lib/data/authContext";
+import { canViewJardaRewards } from "@/lib/data/jardaRewards";
 import { isDailyCallCurator, isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
 import MetaImportButton from "./MetaImportButton";
 import CockpitTiles from "./CockpitTiles";
@@ -115,12 +116,22 @@ export default async function ObchodPage(props: PageProps<"/rizeni-firmy/obchod"
           <h1 className="text-lg font-medium text-begina-primary-900">Obchod / CRM</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Leady, zákazníci a obchodní pipeline</p>
         </div>
-        <Link
-          href="/rizeni-firmy/obchod/leady/novy"
-          className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 whitespace-nowrap"
-        >
-          Nový lead
-        </Link>
+        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+          {canViewJardaRewards(ctx) && (
+            <Link
+              href="/prace/odmeny"
+              className="text-sm font-medium text-begina-primary-900 border border-begina-primary-900 rounded-lg px-4 py-2 whitespace-nowrap"
+            >
+              Obchodníci a odměny
+            </Link>
+          )}
+          <Link
+            href="/rizeni-firmy/obchod/leady/novy"
+            className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2 whitespace-nowrap"
+          >
+            Nový lead
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 mt-3 mb-1 flex-wrap">

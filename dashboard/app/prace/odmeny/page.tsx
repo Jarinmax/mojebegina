@@ -26,7 +26,11 @@ export default async function JardaOdmenyPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/prace" className="text-sm text-neutral-500 min-h-8">← Moje práce</Link>
+      {view.isManager ? (
+        <Link href="/rizeni-firmy/obchod" className="text-sm text-neutral-500 min-h-8">← Obchod / CRM</Link>
+      ) : (
+        <Link href="/prace" className="text-sm text-neutral-500 min-h-8">← Moje práce</Link>
+      )}
 
       <div>
         <h1 className="text-xl font-medium text-begina-primary-900">{view.isManager ? "Jarda Blahout – zákazníci a odměny" : "Moji zákazníci a odměny"}</h1>
@@ -45,7 +49,7 @@ export default async function JardaOdmenyPage() {
         <h2 className="text-sm font-medium text-begina-primary-900">Vyúčtování po měsících</h2>
         {view.statements.length === 0 && <p className="text-sm text-neutral-500">Zatím žádná odměna.</p>}
         {view.statements.map((m) => (
-          <details key={m.month} className="rounded-xl border border-neutral-200 bg-white px-4 py-3" open={m === view.statements[0]}>
+          <details key={m.month} className="rounded-xl border border-neutral-200 bg-white px-4 py-3" open>
             <summary className="flex justify-between cursor-pointer text-sm font-medium text-begina-primary-900">
               <span className="capitalize">{monthLabel(m.month)}</span>
               <span className="tabular-nums">{kc(m.totalKc)}</span>
