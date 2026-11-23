@@ -470,6 +470,13 @@
       "when": 1795441495930,
       "tag": "0066_idoklad_archiv",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1795443651092,
+      "tag": "0067_sverene_penize",
+      "breakpoints": true
     }
   ]
 }

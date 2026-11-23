@@ -47,15 +47,24 @@ import type { AuthContext } from "./types";
 export const JARDA_USER_ID = DAILY_CALL_LEAD_OWNER_USER_ID; // Jaroslav Blahout
 export const JARDA_CARD_ID = "6a617264-612d-4000-8000-000000000001"; // scripts/migrate-jarda-karta.mjs
 
+/**
+ * Vedení Jardovy karty: Jaroslav Viner a Lucie Königsbergová (stejná práva —
+ * rozhodnutí 21. 11. 2026): vidí celou kartu, potvrzují návrhy, zapisují výplaty
+ * a svěřené peníze.
+ */
+export function isJardaCardManager(ctx: AuthContext): boolean {
+  return isWorkManager(ctx) || (ctx !== null && !ctx.roleSelectionRequired && ctx.userId === LUCIE_USER_ID);
+}
+
 export function canViewJardaRewards(ctx: AuthContext): boolean {
-  return ctx !== null && !ctx.roleSelectionRequired && (ctx.userId === JARDA_USER_ID || isWorkManager(ctx));
+  return ctx !== null && !ctx.roleSelectionRequired && (ctx.userId === JARDA_USER_ID || isJardaCardManager(ctx));
 }
 
 async function requireAccess(): Promise<{ ctx: NonNullable<AuthContext>; isManager: boolean }> {
   const ctx = await getAuthContext();
   if (!ctx) throw new UnauthenticatedError();
   if (!canViewJardaRewards(ctx)) throw new ForbiddenError();
-  return { ctx, isManager: isWorkManager(ctx) };
+  return { ctx, isManager: isJardaCardManager(ctx) };
 }
 
 const toAssignment = (a: typeof sellerRewardAssignments.$inferSelect): RewardAssignment => ({
@@ -240,11 +249,11 @@ export async function getLeadRewardAssignment(leadId: string): Promise<{
 
   return {
     visible: true,
-    isManager: isWorkManager(ctx),
+    isManager: isJardaCardManager(ctx),
     canRecord: !row,
-    canConfirm: !!row && row.confirmedAt === null && isWorkManager(ctx),
+    canConfirm: !!row && row.confirmedAt === null && isJardaCardManager(ctx),
     // vedoucí zamítne návrh / zruší evidenci; Jarda smí stáhnout jen svůj nepotvrzený návrh
-    canCancel: !!row && (isWorkManager(ctx) || row.confirmedAt === null),
+    canCancel: !!row && (isJardaCardManager(ctx) || row.confirmedAt === null),
     assignment: row
       ? {
           type: row.rewardType as RewardType,

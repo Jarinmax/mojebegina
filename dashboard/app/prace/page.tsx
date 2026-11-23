@@ -5,7 +5,7 @@ import { getTodayCalls } from "@/lib/data/callHistory";
 import { getScheduledCallsToday, type ScheduledCallItem } from "@/lib/data/leads";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isDailyCallWorker } from "@/lib/data/dailyCallsAuth";
-import { canViewJardaRewards, countPendingRewardProposals } from "@/lib/data/jardaRewards";
+import { canViewJardaRewards, countPendingRewardProposals, isJardaCardManager } from "@/lib/data/jardaRewards";
 import TodayCalls from "./TodayCalls";
 import ScheduledCalls from "./ScheduledCalls";
 import PushSubscribeButton from "./PushSubscribeButton";
@@ -84,11 +84,11 @@ export default async function PracePage() {
 
       {canViewJardaRewards(authCtx) && (
         <Link href="/prace/odmeny" className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900 min-h-11">
-          <span>{isManager ? "Jarda Blahout – zákazníci a odměny" : "Moji zákazníci a odměny"}</span>
+          <span>{isJardaCardManager(authCtx) ? "Jarda Blahout – zákazníci a odměny" : "Moji zákazníci a odměny"}</span>
           <span className="flex items-center gap-2">
             {pendingProposals > 0 && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
-                {isManager ? `${pendingProposals} ke schválení` : `${pendingProposals} čeká na potvrzení`}
+                {isJardaCardManager(authCtx) ? `${pendingProposals} ke schválení` : `${pendingProposals} čeká na potvrzení`}
               </span>
             )}
             <span aria-hidden>›</span>

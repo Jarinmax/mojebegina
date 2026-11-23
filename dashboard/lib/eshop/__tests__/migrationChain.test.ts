@@ -66,7 +66,7 @@ const CALENDAR = ["0038_google_kalendar", "0039_denni_volani_1_1_historie"];
 const EKONOMIKA = ["0040_ekonomika"];
 const JARDA_CARD = ["0041_jarda_karta_zdroj_objednavky", "0042_jarda_karta_evidence_odmenovani", "0043_jarda_karta_potvrzeni_navrhu"];
 /** Měření e-shopu (0044) a import leadů z formuláře Meta (0045). */
-const AFTER_JARDA_CARD = ["0044_mereni_eshopu", "0045_meta_leady_import", "0046_receptury", "0047_legislativni_audit", "0048_projekt_begina", "0049_hodnoceni", "0050_nakupy_surovin", "0051_ekonomika_historie", "0052_kampan_set", "0053_objednavky_odeslano_faktura", "0054_historie_nakupu", "0055_vyrobni_karta", "0056_fakturacni_jmeno"];
+const AFTER_JARDA_CARD = ["0044_mereni_eshopu", "0045_meta_leady_import", "0046_receptury", "0047_legislativni_audit", "0048_projekt_begina", "0049_hodnoceni", "0050_nakupy_surovin", "0051_ekonomika_historie", "0052_kampan_set", "0053_objednavky_odeslano_faktura", "0054_historie_nakupu", "0055_vyrobni_karta", "0056_fakturacni_jmeno", "0057_doklady", "0058_sarze", "0059_sarze_objednavky", "0060_vyprodano", "0061_odkud_nas_zna", "0062_eshop_nastaveni", "0063_dorucovaci_adresa", "0064_vlastni_faktury", "0065_faktury_upravy", "0066_idoklad_archiv", "0067_sverene_penize"];
 const FIRST_ESHOP_IDX = 13;
 const FIRST_SKLAD_IDX = FIRST_ESHOP_IDX + ESHOP.length + AFTER_ESHOP.length;
 /** Index migrace 0039 (Denní volání 1.1). */

@@ -5,7 +5,10 @@ import { canViewJardaRewards, getJardaRewardsView } from "@/lib/data/jardaReward
 import { CONTRACT, EXCLUSION_LABEL, REWARD_TYPE_LABEL } from "@/lib/data/jardaRewardsValidation";
 import { pragueDateLabel } from "@/lib/data/callHistoryValidation";
 import PayoutForm from "./PayoutForm";
-import { confirmProposalAction, rejectProposalAction } from "./actions";
+import { cancelTrustEntryAction, confirmProposalAction, rejectProposalAction } from "./actions";
+import { canViewJardaTrust, getJardaTrustView } from "@/lib/data/jardaTrust";
+import { addMonths } from "@/lib/data/trustValidation";
+import { RecurringForm, TrustEntryForm } from "./TrustForms";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,7 @@ const monthLabel = (ym: string) => {
 export default async function JardaOdmenyPage() {
   const ctx = await getAuthContext();
   if (!canViewJardaRewards(ctx)) redirect("/prace");
+  const trust = canViewJardaTrust(ctx) ? await getJardaTrustView() : null;
   const view = await getJardaRewardsView();
   const { summary } = view;
 
@@ -179,6 +183,7 @@ export default async function JardaOdmenyPage() {
         ))}
         {view.isManager && <PayoutForm />}
       </section>
+      {trust && <TrustSection trust={trust} />}
     </div>
   );
 }
@@ -189,5 +194,82 @@ function Stat({ label, value }: { label: string; value: string }) {
       <dt className="text-xs text-neutral-500">{label}</dt>
       <dd className="text-lg font-medium text-begina-primary-900 tabular-nums">{value}</dd>
     </div>
+  );
+}
+
+type TrustView = Awaited<ReturnType<typeof getJardaTrustView>>;
+const dateLabel = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d}. ${m}. ${y}`;
+};
+
+// Svěřené peníze — soukromé: vidí Jarda, Jaroslav Viner a Lucie; zapisují Viner a Lucie.
+function TrustSection({ trust }: { trust: TrustView }) {
+  const openPlan = trust.plans.find((p) => p.endMonth === null) ?? null;
+  const { forecast } = trust;
+  return (
+    <section className="flex flex-col gap-3 border-t border-neutral-200 pt-5">
+      <div>
+        <h2 className="text-base font-medium text-begina-primary-900">Svěřené peníze</h2>
+        <p className="text-xs text-neutral-500">Soukromé — vidí jen Jarda, Jaroslav Viner a Lucie.</p>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-2">
+        <Stat label="Svěřeno celkem" value={kc(trust.depositedKc)} />
+        <Stat label="Zůstatek" value={kc(trust.balanceKc)} />
+      </dl>
+
+      {openPlan && (
+        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-begina-primary-900 flex flex-col gap-1">
+          <p>
+            <span className="font-medium">{openPlan.label}:</span> {kc(openPlan.amountKc)} měsíčně, odečítá se automaticky každý {openPlan.dayOfMonth}.
+          </p>
+          {forecast.nextDue && <p className="text-xs text-neutral-600">Další: {dateLabel(forecast.nextDue.date)} ({kc(forecast.nextDue.amountKc)})</p>}
+          <p className="text-xs text-neutral-600">
+            {forecast.coveredCount > 0 && forecast.lastCoveredDate
+              ? `Zůstatek vystačí na ${forecast.coveredCount} ${forecast.coveredCount === 1 ? "platbu" : forecast.coveredCount < 5 ? "platby" : "plateb"} — poslední ${dateLabel(forecast.lastCoveredDate)}, pak zbude ${kc(forecast.remainderKc)}.`
+              : "Zůstatek už nepokryje další platbu."}
+          </p>
+          {openPlan.note && <p className="text-xs text-neutral-500">{openPlan.note}</p>}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium text-begina-primary-900">Pohyby</h3>
+        {trust.lines.length === 0 && <p className="text-sm text-neutral-500">Zatím žádné pohyby.</p>}
+        {[...trust.lines].reverse().map((l, i) => (
+          <div key={`${l.date}-${i}`} className="flex items-start justify-between gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+            <span className="min-w-0">
+              <span className="block text-begina-primary-900">{l.label}</span>
+              <span className="block text-xs text-neutral-500">
+                {dateLabel(l.date)}
+                {l.kind === "recurring" ? " · automaticky" : ""} · zůstatek {kc(l.balanceKc)}
+              </span>
+            </span>
+            <span className="flex shrink-0 flex-col items-end gap-1">
+              <span className={`tabular-nums font-medium ${l.amountKc >= 0 ? "text-emerald-700" : "text-begina-primary-900"}`}>
+                {l.amountKc >= 0 ? "+" : "−"}
+                {kc(Math.abs(l.amountKc))}
+              </span>
+              {trust.canEdit && l.entryId && (
+                <form action={cancelTrustEntryAction.bind(null, l.entryId)}>
+                  <button type="submit" className="text-xs text-red-700 underline">Zrušit záznam</button>
+                </form>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {trust.canEdit && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TrustEntryForm today={trust.today} />
+          <RecurringForm
+            current={openPlan ? { label: openPlan.label, amountKc: openPlan.amountKc, dayOfMonth: openPlan.dayOfMonth } : null}
+            defaultMonth={addMonths(trust.today.slice(0, 7), 1)}
+          />
+        </div>
+      )}
+    </section>
   );
 }
