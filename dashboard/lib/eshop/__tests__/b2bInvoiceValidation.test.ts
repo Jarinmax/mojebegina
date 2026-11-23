@@ -5,10 +5,10 @@ const TODAY = "2026-11-01";
 const base = { ico: "12345679", items: [{ name: "Kulajda", quantity: 2, unitPriceKc: 399 }] };
 
 describe("B2B faktura — kontrola vstupu", () => {
-  it("výchozí: převodem, neuhrazená, dnes, splatnost 14 dní; součet na haléře", () => {
+  it("výchozí: převodem, neuhrazená, dnes, splatnost 3 pracovní dny (1. 11. je neděle → 4. 11.); součet na haléře", () => {
     expect(validateB2bInvoice({ ...base, items: [{ name: "A", quantity: 3, unitPriceKc: 99.5 }, { name: "B", quantity: 0.5, unitPriceKc: "10,10" }] }, TODAY)).toMatchObject({
       ok: true,
-      value: { ico: "12345679", paymentMethod: "bank_transfer", paid: false, issueDate: TODAY, dueDate: "2026-11-15", totalKc: 303.55, items: [{ unit: "ks", totalKc: 298.5 }, { totalKc: 5.05 }] },
+      value: { ico: "12345679", paymentMethod: "bank_transfer", paid: false, issueDate: TODAY, dueDate: "2026-11-04", totalKc: 303.55, items: [{ unit: "ks", totalKc: 298.5 }, { totalKc: 5.05 }] },
     });
   });
 

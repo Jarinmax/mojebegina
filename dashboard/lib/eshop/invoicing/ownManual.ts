@@ -14,6 +14,7 @@ import { PARTNER_EMAIL_SIGNATURE } from "../partnerMonthly";
 import { suggestSalutation } from "../salutation";
 import { recordInvoiceEmailed } from "../invoiceSentFlag";
 import { parseCheckoutAddress } from "./draft";
+import { addWorkdaysDay, INVOICE_DUE_WORKDAYS } from "./b2bInvoiceValidation";
 import { ownInvoicingGate } from "./mode";
 import { formatCzDay, formatKc, formatZip, ownSupplier, type OwnInvoiceSnapshot } from "./ownInvoice";
 import { issueOwnDocument, markOwnDocumentSent, ownDocumentPdf, updateOwnDocument, type OwnPdf } from "./ownIssue";
@@ -22,7 +23,7 @@ import type { InvoiceActor } from "./service";
 type Db = NeonHttpDatabase<typeof schema>;
 type Env = Record<string, string | undefined>;
 
-export const MANUAL_DUE_DAYS = 14;
+
 const PRAGUE_DAY = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague" });
 
 type ManualOrderRow = {
@@ -62,12 +63,6 @@ export function manualPaymentMethod(label: string | null | undefined): "bank_tra
   if (l.includes("hotov")) return "cash";
   if (l.includes("kart")) return "card";
   return "bank_transfer";
-}
-
-function addDays(day: string, days: number): string {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 /** Snímek faktury z ruční objednávky (čistá funkce). Vrací chyby místo snímku, když něco chybí. */
@@ -118,7 +113,7 @@ export function manualOrderSnapshot(
       kind: "invoice",
       correctsNumber: null,
       issueDate: today,
-      dueDate: paid ? today : addDays(today, MANUAL_DUE_DAYS),
+      dueDate: paid ? today : addWorkdaysDay(today, INVOICE_DUE_WORKDAYS),
       paidDate,
       paymentMethod: manualPaymentMethod(order.payment_method_label),
       vs: null, // VS = číslo faktury (QR i párování plateb z Fio)

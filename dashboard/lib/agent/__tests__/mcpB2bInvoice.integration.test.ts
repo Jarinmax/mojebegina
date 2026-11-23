@@ -220,13 +220,13 @@ describe("B2B faktura v Luciině řadě přes MCP", { timeout: 120_000 }, () => 
       sendsEmail: false,
       preview_token: expect.any(String),
     });
-    const { addDays } = await import("@/lib/eshop/invoicing/b2bInvoiceValidation");
-    expect(prepared.data.invoice.dueDate).toBe(addDays(prepared.data.invoice.issueDate, 14));
+    const { addWorkdaysDay } = await import("@/lib/eshop/invoicing/b2bInvoiceValidation");
+    expect(prepared.data.invoice.dueDate).toBe(addWorkdaysDay(prepared.data.invoice.issueDate, 3));
     expect(prepared.data.warnings.join(" ")).toMatch(/tvrdí, že je faktura uhrazená, ale vystaví se jako NEUHRAZENÁ/);
     expect(writes()).toEqual([]);
   });
 
-  it("vystavení: jedna faktura v řadě 2032369, hotově, otevřená (bez FullyPay), splatnost 14 dní, poznámka; odkaz na PDF; audit u zákazníka; žádný e-mail", async () => {
+  it("vystavení: jedna faktura v řadě 2032369, hotově, otevřená (bez FullyPay), splatnost 3 pracovní dny, poznámka; odkaz na PDF; audit u zákazníka; žádný e-mail", async () => {
     const { prepared, issued } = await issue(lucie, kavarna());
     expect(issued.isError, issued.text).toBe(false);
     expect(issued.data).toMatchObject({
