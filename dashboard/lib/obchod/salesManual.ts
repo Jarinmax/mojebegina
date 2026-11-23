@@ -2,7 +2,7 @@
 // „Begina – manuál pro obchodníky“, ať se dá číst přímo v MojeBegina i na
 // mobilu při hovoru. Při nové verzi PDF upravit i tenhle text, datum a
 // lib/obchod/salesManualPdf.ts.
-import { syrupModelLine } from "@/lib/eshop/portionPrices";
+import { kc, soupPortionRows, syrupModelKc } from "@/lib/eshop/portionPrices";
 
 export type ManualSection = {
   title: string;
@@ -13,7 +13,7 @@ export type ManualSection = {
 
 export const SALES_MANUAL_TITLE = "Begina – manuál pro obchodníky";
 export const SALES_MANUAL_SUBTITLE = "Co říkat kavárnám a bistrům při hovorech na leady";
-export const SALES_MANUAL_UPDATED = "20. 11. 2026";
+export const SALES_MANUAL_UPDATED = "23. 11. 2026";
 
 export const SALES_MANUAL_SECTIONS: ManualSection[] = [
   {
@@ -22,8 +22,12 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       {
         text: "Z kohoutku natočíte vždy jen objednanou porci. Po otevření vydrží v lednici polévky a čaje 14 dní, sirupy 3 měsíce.",
       },
-      { text: "Bez práce: polévku stačí ohřát a podávat, nápoje jen naředit." },
-      { get text() { return `Spočítané porce: polévka 250 ml za 31,58 Kč, nápoj ze sirupu ${syrupModelLine(true)}`; } },
+      { text: "Bez práce: polévku stačí ohřát, sirup naředit a ostatní nápoje jsou hotové k podávání." },
+      {
+        get text() {
+          return `Spočítané porce (s dopravou, při 3 × 3 l): polévka 250 ml od ${kc(soupPortionRows([3])[0].perPortionKc)}, nápoj ze sirupu 200 ml od ${syrupModelKc()}.`;
+        },
+      },
       { text: "100% rostlinné polévky a nealko nápoje – vhodné pro vegany i vegetariány." },
       { text: "Z čisté filtrované vody, recepty z vlastní kuchyně." },
       { text: "Chlazená doprava po celé ČR, osobní odběr ve Viticích. Ochutnat se dá v Zahradním bistru Begina." },
@@ -43,38 +47,40 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     ],
   },
   {
-    title: "Cukr",
+    title: "Cukr a oleje",
     items: [
       { text: "Kde sladíme, tam jen třtinovým cukrem, ne bílým." },
       { text: "Ovocné nápoje jsou bez přidaného cukru, obsahují jen přirozené cukry z ovoce." },
+      { text: "Do polévek používáme jen olivový a dýňový olej – žádný slunečnicový, řepkový ani jiný levný olej." },
+      { text: "Neříkat „extra panenský“ – u olivového oleje to neplatí." },
     ],
   },
   {
     title: "Ceny (orientačně, platí ceny na begina.cz)",
     items: [
       { text: "Polévky: 379 Kč za 3 l (až 12 porcí po 250 ml)." },
-      { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 199 Kč za 650 ml." },
+      { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 159 Kč za 500 ml (teď vyprodané), 199 Kč za 650 ml (doprodej)." },
       { text: "Čaje: 249–289 Kč za 3 l. Ovocné nápoje: 349 Kč, Malinový svařák – nealko 399 Kč." },
+      { text: "Alkoholické koktejly: 799 Kč za 3 l, Svařák Deluxe 499 Kč za 3 l." },
       { text: "Ochutnávkový set sirupů: 349 Kč." },
     ],
   },
   {
-    title: "Ochutnávka do provozu (jen pro kavárny a bistra)",
+    title: "První objednávka (jen pro kavárny a bistra)",
     items: [
-      { text: "Polévka 200 ml v sáčku se šroubovacím uzávěrem: 49 Kč za kus." },
-      { text: "Sirup 100 ml v sáčku se šroubovacím uzávěrem: 49 Kč za kus." },
-      { text: "K tomu chlazená doprava podle váhy, nebo osobní odběr ve Viticích." },
-      { text: "Z každé polévky a sirupu nejvýš 1 kus, jedna ochutnávka na jeden podnik (IČO)." },
-      { text: "Objednávají sami na begina.cz na stránce Pro kavárny a bistra (až bude spuštěno)." },
+      { text: "K první begině 3 l: 2 vzorky polévek (200 ml) a 2 vzorky sirupů (100 ml) zdarma." },
+      { text: "Vzorky si zaškrtnou na begina.cz na stránce Pro kavárny." },
+      { text: "Každý další vzorek stojí 49 Kč, z každého nejvýš 1 kus." },
+      { text: "Platí jednou na jeden podnik (IČO)." },
     ],
   },
   {
     title: "Jak objednat",
     items: [
-      { text: "Ochutnávku do provozu přivezeme, nebo pošleme chlazenou přepravou." },
-      { text: "Objednávají přímo na e-shopu begina.cz, na firmu i s IČO." },
+      { text: "Objednávají sami na e-shopu begina.cz, na firmu i s IČO." },
+      { text: "Posíláme chlazenou přepravou po celé ČR, nebo osobní odběr ve Viticích." },
       { text: "Za pravidelné objednávky sleva v partnerském programu 3–7 %." },
-      { text: "Tipy, jak polévky servírovat v podniku, budou na e-shopu – odkazovat na ně, jakmile tam budou." },
+      { text: "Odpovědi na časté dotazy jsou na webu v menu O nás → Časté otázky." },
     ],
   },
   {
