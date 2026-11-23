@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { formatKc, ownInvoiceNumber, ownSupplier, renderOwnInvoicePdf, snapshotProblems, type OwnInvoiceSnapshot } from "../invoicing/ownInvoice";
-import { issueOwnDocument, ownDocumentPdf, ownInvoicingGate } from "../invoicing/ownIssue";
+import { cancelOwnDocument, deleteOwnDocument, issueOwnDocument, ownDocumentPdf, ownInvoicingGate, updateOwnDocument } from "../invoicing/ownIssue";
 import { invoicingMode } from "../invoicing/mode";
 
 function snapshot(extra: Partial<OwnInvoiceSnapshot> = {}): OwnInvoiceSnapshot {
@@ -92,13 +92,34 @@ describe("vlastní faktura — číslování a uložení (PGlite)", () => {
     expect(row.last_serial).toBe(214);
   });
 
-  it("vystavený doklad nejde smazat ani změnit", async () => {
+  it("úprava: stejné číslo, nová verze, stará verze uložená, nové PDF", async () => {
     const { db } = await createMigratedDb();
     await db.execute(sql`INSERT INTO invoice_number_counters (year, last_serial) VALUES (2026, 214)`);
     const doc = await issueOwnDocument(db as never, { snapshot: snapshot(), actorName: "Test" });
-    await expect(db.execute(sql`DELETE FROM own_invoice_documents WHERE id = ${doc.id}`)).rejects.toThrow();
-    await expect(db.execute(sql`UPDATE own_invoice_documents SET total_kc = 1 WHERE id = ${doc.id}`)).rejects.toThrow();
     await ownDocumentPdf(db as never, doc.id);
-    await expect(db.execute(sql`UPDATE own_invoice_documents SET pdf_base64 = 'x' WHERE id = ${doc.id}`)).rejects.toThrow();
+    const changed = snapshot({ lines: [{ name: "Dýňová polévka – 3 l", quantity: 2, unitPriceKc: 379, totalKc: 758 }], totalKc: 758 });
+    const r = await updateOwnDocument(db as never, doc.id, changed, "Lucie");
+    expect(r).toEqual({ number: "20260215", version: 2 });
+    const versions = (await db.execute(sql`SELECT version, total_kc FROM own_invoice_versions WHERE document_id = ${doc.id}`)).rows;
+    expect(versions).toEqual([{ version: 1, total_kc: 646 }]);
+    const row = (await db.execute(sql`SELECT total_kc, pdf_base64 IS NOT NULL AS has_pdf FROM own_invoice_documents WHERE id = ${doc.id}`)).rows[0];
+    expect(row).toEqual({ total_kc: 758, has_pdf: true });
+    await expect(db.execute(sql`UPDATE own_invoice_documents SET number = '20260999' WHERE id = ${doc.id}`)).rejects.toThrow();
+  });
+
+  it("smazat jde jen poslední neodeslanou (číslo se uvolní); jinak storno", async () => {
+    const { db } = await createMigratedDb();
+    await db.execute(sql`INSERT INTO invoice_number_counters (year, last_serial) VALUES (2026, 214)`);
+    const a = await issueOwnDocument(db as never, { snapshot: snapshot(), actorName: "Test" });
+    const b = await issueOwnDocument(db as never, { snapshot: snapshot(), actorName: "Test" });
+    await expect(deleteOwnDocument(db as never, a.id)).rejects.toThrow("poslední");
+    expect((await deleteOwnDocument(db as never, b.id)).number).toBe("20260216");
+    const again = await issueOwnDocument(db as never, { snapshot: snapshot(), actorName: "Test" });
+    expect(again.number).toBe("20260216");
+    await db.execute(sql`UPDATE own_invoice_documents SET sent_at = now() WHERE id = ${again.id}`);
+    await expect(deleteOwnDocument(db as never, again.id)).rejects.toThrow("stornovat");
+    expect((await cancelOwnDocument(db as never, a.id, "Zákazník si to rozmyslel", "Lucie")).number).toBe("20260215");
+    const st = (await db.execute(sql`SELECT state FROM own_invoice_documents WHERE id = ${a.id}`)).rows[0];
+    expect(st).toEqual({ state: "cancelled" });
   });
 });

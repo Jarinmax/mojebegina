@@ -202,3 +202,102 @@ export async function loadOwnOrderPdf(db: Db, orderId: string): Promise<OwnPdf |
   ).rows[0] as { id: string } | undefined;
   return row ? ownDocumentPdf(db, row.id) : null;
 }
+
+// ------------------------------------------------ úprava, storno, smazání
+// Neplátce DPH (Lucie 23. 11. 2026): fakturu lze upravit (stejné číslo, nová
+// verze PDF; předchozí verzi uloží trigger do own_invoice_versions),
+// stornovat (číslo zůstane, faktura se nepočítá) a smazat jen poslední
+// neodeslanou (číslo se uvolní, řada zůstane bez díry).
+
+export type OwnDocumentRow = {
+  id: string;
+  number: string;
+  state: "issued" | "cancelled";
+  version: number;
+  sent_at: string | null;
+  invoice_id: string | null;
+  order_id: string | null;
+  snapshot: OwnInvoiceSnapshot;
+};
+
+export async function loadOwnDocument(db: Db, idOrNumber: string): Promise<OwnDocumentRow | null> {
+  const byNumber = /^\d{8}$/.test(idOrNumber);
+  const row = (
+    await db.execute(sql`
+      SELECT id, number, state, version, sent_at, invoice_id, order_id, snapshot FROM own_invoice_documents
+      WHERE ${byNumber ? sql`number = ${idOrNumber}` : sql`id = ${idOrNumber}::uuid`}`)
+  ).rows[0] as OwnDocumentRow | undefined;
+  return row ?? null;
+}
+
+/** Úprava obsahu faktury (číslo zůstává). Vrací novou verzi. */
+export async function updateOwnDocument(db: Db, id: string, snapshot: OwnInvoiceSnapshot, actorName: string): Promise<{ number: string; version: number }> {
+  const problems = snapshotProblems(snapshot);
+  if (problems.length > 0) throw new OwnIssueError(problems.join(" "));
+  const rows = (
+    await db.execute(sql`
+      WITH d AS (
+        UPDATE own_invoice_documents SET snapshot = ${JSON.stringify(snapshot)}::jsonb, total_kc = ${snapshot.totalKc}::int,
+               customer_name = ${snapshot.customer.name}::text, customer_ico = ${snapshot.customer.ico}::text,
+               issue_date = ${snapshot.issueDate}::date, paid_on = ${snapshot.paidDate}::date, updated_by_name = ${actorName}::text
+        WHERE id = ${id}::uuid AND state = 'issued'
+        RETURNING number, version, invoice_id
+      ), i AS (
+        UPDATE invoices SET total_kc = ${snapshot.totalKc}::int, updated_at = now()
+        WHERE id IN (SELECT invoice_id FROM d) RETURNING id
+      )
+      SELECT number, version FROM d`)
+  ).rows as { number: string; version: number }[];
+  if (!rows[0]) throw new OwnIssueError("Faktura nebyla nalezena nebo je stornovaná.");
+  await ownDocumentPdf(db, id).catch(() => null); // nové PDF
+  return rows[0];
+}
+
+/** Storno: číslo zůstane, faktura se nepočítá; e-shopová faktura objednávky se zneplatní (lze vystavit novou). */
+export async function cancelOwnDocument(db: Db, id: string, reason: string, actorName: string): Promise<{ number: string }> {
+  const rows = (
+    await db.execute(sql`
+      WITH d AS (
+        UPDATE own_invoice_documents SET state = 'cancelled', cancelled_at = now(), cancel_reason = ${reason.slice(0, 300)}::text,
+               updated_by_name = ${actorName}::text
+        WHERE id = ${id}::uuid AND state = 'issued'
+        RETURNING number, invoice_id, order_id
+      ), i AS (
+        UPDATE invoices SET doc_state = 'void', updated_at = now() WHERE id IN (SELECT invoice_id FROM d) RETURNING id
+      ), a AS (
+        INSERT INTO order_activity (order_id, actor_type, author_user_id, author_name, kind, metadata)
+        SELECT order_id, 'system', NULL, ${actorName}::text, 'invoice_cancelled', jsonb_build_object('invoiceNumber', number, 'reason', ${reason.slice(0, 300)}::text)
+        FROM d WHERE order_id IS NOT NULL RETURNING id
+      )
+      SELECT number FROM d`)
+  ).rows as { number: string }[];
+  if (!rows[0]) throw new OwnIssueError("Faktura nebyla nalezena nebo už je stornovaná.");
+  return rows[0];
+}
+
+/** Smazání — jen poslední faktura v řadě, která ještě neodešla zákazníkovi; číslo se uvolní. */
+export async function deleteOwnDocument(db: Db, id: string): Promise<{ number: string }> {
+  const doc = await loadOwnDocument(db, id);
+  if (!doc) throw new OwnIssueError("Faktura nebyla nalezena.");
+  if (doc.sent_at) throw new OwnIssueError(`Fakturu ${doc.number} už zákazník dostal — nelze ji smazat, jen stornovat.`);
+  const later = (
+    await db.execute(sql`SELECT 1 FROM own_invoice_documents WHERE left(number, 4) = left(${doc.number}::text, 4) AND number > ${doc.number}::text LIMIT 1`)
+  ).rows[0];
+  if (later) throw new OwnIssueError(`Smazat lze jen poslední fakturu v řadě — ${doc.number} stornujte.`);
+  const rows = (
+    await db.execute(sql`
+      WITH del AS (
+        DELETE FROM own_invoice_documents WHERE id = ${id}::uuid RETURNING number, invoice_id
+      ), c AS (
+        UPDATE invoice_number_counters SET last_serial = last_serial - 1, updated_at = now()
+        FROM del WHERE year = left(del.number, 4)::int AND last_serial = right(del.number, 4)::int
+        RETURNING year
+      ), i AS (
+        UPDATE invoices SET doc_state = 'draft', invoice_number = NULL, issued_at = NULL, paid_at = NULL, updated_at = now()
+        FROM del WHERE invoices.id = del.invoice_id RETURNING invoices.id
+      )
+      SELECT number, (SELECT count(*) FROM c)::int AS freed FROM del`)
+  ).rows as { number: string; freed: number }[];
+  if (!rows[0]) throw new OwnIssueError("Fakturu se nepodařilo smazat.");
+  return { number: rows[0].number };
+}
