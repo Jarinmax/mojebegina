@@ -110,6 +110,21 @@ export function choiceLabel(codes: readonly SetSyrupCode[]): string {
   return codes.map((code) => BY_CODE.get(code)!.short).join(", ");
 }
 
+/**
+ * Řádek pod názvem setu v košíku a pokladně (Lucie 23. 11. 2026):
+ * „Vaše příchutě: Šaman, lipový, zázvorový, ibiškový a šípkový.“
+ * null = řádek není set s výběrem.
+ */
+export function choiceLine(sku: string): string | null {
+  const codes = choiceFromSku(sku);
+  if (!codes) return null;
+  const words = codes.map((code) => {
+    const short = BY_CODE.get(code)!.short;
+    return code === "sa" ? short : short.charAt(0).toLocaleLowerCase("cs") + short.slice(1);
+  });
+  return `Vaše příchutě: ${words.slice(0, -1).join(", ")} a ${words[words.length - 1]}.`;
+}
+
 /** Název položky do košíku a objednávky: „… (Šaman, Lipový, …)“. */
 export function withChoice(name: string, sku: string): string {
   const codes = choiceFromSku(sku);

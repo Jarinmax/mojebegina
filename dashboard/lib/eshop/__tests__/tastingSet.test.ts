@@ -132,3 +132,18 @@ describe("ochutnávkový set sirupů", () => {
     expect(priceCart([{ sku: CHOICE, quantity: 2 }], "zasilkovna", index([set(SET_CAMPAIGN_SKU, 189, 2)]), opts).ok).toBe(true);
   });
 });
+
+describe("choiceLine – příchutě pod názvem setu (Lucie 23. 11. 2026)", () => {
+  it("vypíše výběr větou", async () => {
+    const { choiceLine } = await import("../tastingSet");
+    expect(choiceLine("set-sirupy-5x100~sa.li.za.ib.si")).toBe("Vaše příchutě: Šaman, lipový, zázvorový, ibiškový a šípkový.");
+  });
+  it("dva různé sety mají různý řádek", async () => {
+    const { choiceLine } = await import("../tastingSet");
+    expect(choiceLine("set-sirupy-5x100~sa.za.ib.si.he")).toBe("Vaše příchutě: Šaman, zázvorový, ibiškový, šípkový a heřmánkový.");
+  });
+  it("u jiného zboží nic", async () => {
+    const { choiceLine } = await import("../tastingSet");
+    expect(choiceLine("lipovy-sirup-3l")).toBeNull();
+  });
+});
