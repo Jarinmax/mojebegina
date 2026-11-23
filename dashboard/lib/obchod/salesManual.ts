@@ -22,7 +22,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       {
         text: "Z kohoutku natočíte vždy jen objednanou porci. Po otevření vydrží v lednici polévky a čaje 14 dní, sirupy 3 měsíce.",
       },
-      { text: "Bez práce: polévku stačí ohřát. Čaje a ovocné nápoje jsou hotové, neředí se. Ředí se jen sirup." },
+      { text: "Bez práce: polévku stačí ohřát, sirup naředit a ostatní nápoje jsou hotové k podávání." },
       {
         get text() {
           return `Spočítané porce (s dopravou, při 3 × 3 l): polévka 250 ml od ${kc(soupPortionRows([3])[0].perPortionKc)}, nápoj ze sirupu 200 ml od ${syrupModelKc()}.`;
