@@ -8,7 +8,8 @@ import { imageBackdrop } from "@/lib/eshop/productImages";
 import { SHARE_DESCRIPTION, pageShareMeta } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
 import { splitLastSentence } from "@/lib/eshop/typography";
-import { cheapestSyrupDrinkKc, withSyrupDrinkPrice } from "@/lib/eshop/syrupDrinkPrice";
+import { withSyrupDrinkPrice } from "@/lib/eshop/syrupDrinkPrice";
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
 import { CATEGORY_SOUPS_TEASER, SOUPS_CATEGORY_SEO } from "@/lib/eshop/cafePage";
 
@@ -49,9 +50,9 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
     notFound();
   }
   const items = index.productsInCategory(category.slug);
-  // Sirupy: cena nápoje v úvodu z aktuální ceny nejlevnější beginy 3 l (22. 11. 2026)
-  const drinkKc = category.slug === "sirupy" ? cheapestSyrupDrinkKc(items) : null;
-  const intro = category.intro.map((paragraph) => withSyrupDrinkPrice(paragraph, drinkKc));
+  // Sirupy: modelová cena nápoje včetně dopravy při 3 × 3 l (23. 11. 2026)
+  if (category.slug === "sirupy") await applyFuelSurchargeFromDb();
+  const intro = category.slug === "sirupy" ? category.intro.map(withSyrupDrinkPrice) : category.intro;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">

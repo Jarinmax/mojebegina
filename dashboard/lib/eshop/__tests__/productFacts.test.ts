@@ -97,8 +97,8 @@ describe("cena za porci", () => {
       ],
     });
     expect(servingPrices(syrup).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([
-      { label: "3 l", text: "Nápoj za 3,66 Kč" },
-      { label: "650 ml", text: "Nápoj za 6,22 Kč" },
+      { label: "3 l", text: "Nápoj 200 ml za 3,66 Kč bez dopravy" },
+      { label: "650 ml", text: "Nápoj 200 ml za 6,22 Kč bez dopravy" },
     ]);
     const cocktail = product({
       category: "koktejly",

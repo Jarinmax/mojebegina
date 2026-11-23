@@ -75,7 +75,7 @@ function servingText(category: string, variant: Variant, fallbackServingMl: numb
   const perServing = formatServingKc(priceKc / servings);
   // Sirup se ředí na studený i horký nápoj (ne jen limonádu – Lucie 17. 11. 2026);
   // měrná cena za litr sirupu by mátla.
-  if (category === "sirupy") return `Nápoj za ${perServing}`;
+  if (category === "sirupy") return `Nápoj 200 ml za ${perServing} bez dopravy`;
   const servingMl = Math.round(volumeMl / servings);
   const noun = category === "polevky" ? "Porce" : "Sklenice";
   return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;
