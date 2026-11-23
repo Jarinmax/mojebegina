@@ -41,7 +41,8 @@ describe("faktura při expedici (PGlite)", () => {
     calls.length = 0;
     expect(await sendInvoiceOnDispatch(db, id(2), "https://x", sent)).toEqual({ status: "not_dispatched" });
     expect(await sendInvoiceOnDispatch(db, id(3), "https://x", sent)).toEqual({ status: "not_paid" });
-    expect(await sendInvoiceOnDispatch(db, id(4), "https://x", sent)).toEqual({ status: "not_eshop" });
+    // ruční objednávka: se starým iDokladem nic; s vlastní fakturací ji řeší ownManual.test.ts
+    expect(await sendInvoiceOnDispatch(db, id(4), "https://x", { ...sent, env: { INVOICING_PROVIDER: "idoklad" } })).toEqual({ status: "not_eshop" });
     expect(await sendInvoiceOnDispatch(db, "e9111111-1111-4111-8111-111111111111", "https://x", sent)).toEqual({ status: "not_eshop" });
     expect(calls).toEqual([]);
   });
