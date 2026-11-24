@@ -41,6 +41,7 @@ import { resendTransport } from "@/lib/eshop/email/resend";
 import { db } from "@/lib/db/client";
 import { orderIdsForInvoiceNumber, recordInvoiceEmailed } from "@/lib/eshop/invoiceSentFlag";
 import { fetchFioTransactions } from "@/lib/eshop/fio";
+import { linkFioPayments } from "@/lib/eshop/fioLinks";
 import { PARTNER_EMAIL_SIGNATURE } from "@/lib/eshop/partnerMonthly";
 import { loadPartnerOptOuts } from "@/lib/eshop/partnerMonthlyServer";
 import { PARTNER_INTRO_TEXT } from "@/lib/eshop/email/templates";
@@ -1000,7 +1001,7 @@ const FIO_TOOLS: AgentTool[] = [
     name: "fio_incoming_payments",
     title: "Příchozí platby na účtu ve Fio",
     description:
-      "JEN ČTENÍ — příchozí platby na firemním účtu Begina ve Fio bance za posledních N dní (výchozí 31, nejvýš 90). Volitelně jen platby s danou částkou (amount_kc), variabilním symbolem nebo částí názvu protiúčtu. Vrací datum, částku, variabilní symbol, název protiúčtu a zprávu pro příjemce; odchozí platby vrací fio_outgoing_payments, zůstatek nevrací. Slouží k ověření, zda klient zaplatil fakturu. Údaje jsou důvěrné — nepředávej je mimo konverzaci s oprávněnou osobou. Fio dovoluje dotaz nejvýš jednou za 30 sekund.",
+      "JEN ČTENÍ — příchozí platby na firemním účtu Begina ve Fio bance za posledních N dní (výchozí 31, nejvýš 90). Volitelně jen platby s danou částkou (amount_kc), variabilním symbolem nebo částí názvu protiúčtu. Vrací datum, částku, variabilní symbol, název protiúčtu a zprávu pro příjemce a u každé platby vazbu (link): číslo objednávky a faktury v MojeBegina a stav „spárováno / nesedí částka / sedí, ale ještě není zapsáno jako zaplacené / nespárováno“ s důvodem. Vazba se jen čte, nic nepáruje; výplaty Stripe a platby bez symbolu jsou vždy nespárované. Odchozí platby vrací fio_outgoing_payments, zůstatek nevrací. Slouží k ověření, zda klient zaplatil fakturu. Údaje jsou důvěrné — nepředávej je mimo konverzaci s oprávněnou osobou. Fio dovoluje dotaz nejvýš jednou za 30 sekund.",
     write: false,
     visible: issuerOnly,
     properties: {
@@ -1035,6 +1036,15 @@ const FIO_TOOLS: AgentTool[] = [
           (vs === null || t.vs === vs.replace(/^0+(?=\d)/, "")) &&
           (counterparty === null || plain(t.counterparty ?? "").includes(plain(counterparty)))
       );
+      const shown = matches.slice(0, 50);
+      // Vazba na objednávku a fakturu (jen čtení). Výpadek databáze nesmí
+      // zastavit čtení plateb — vazby pak chybí a řekne to varování.
+      let links: Awaited<ReturnType<typeof linkFioPayments>> | null = null;
+      try {
+        links = await linkFioPayments(db, shown);
+      } catch (error) {
+        console.error("Fio: vazby plateb na objednávky se nepodařilo načíst", error instanceof Error ? error.message.slice(0, 200) : "neznámá chyba");
+      }
       return {
         ok: true,
         summary: { found: matches.length },
@@ -1043,7 +1053,16 @@ const FIO_TOOLS: AgentTool[] = [
           incomingInPeriod: incoming.length,
           found: matches.length,
           truncated: matches.length > 50,
-          payments: matches.slice(0, 50).map((t) => ({ date: t.date, amountKc: t.amountHal / 100, currency: t.currency, variableSymbol: t.vs, counterparty: t.counterparty, message: t.message })),
+          payments: shown.map((t) => ({
+            date: t.date,
+            amountKc: t.amountHal / 100,
+            currency: t.currency,
+            variableSymbol: t.vs,
+            counterparty: t.counterparty,
+            message: t.message,
+            link: links?.get(t.id) ?? null,
+          })),
+          ...(links ? {} : { warnings: ["Vazby plateb na objednávky a faktury se nepodařilo načíst (link = null neznamená nespárováno)."] }),
           source: { system: "Fio banka", readOnly: true },
         },
       };
