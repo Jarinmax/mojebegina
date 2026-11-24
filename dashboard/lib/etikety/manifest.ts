@@ -248,7 +248,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "spenatova-polevka.jpg",
     "tomatova-polevka.jpg"
   ],
-  "polevky/predni-barevne-500ml": [
+  "polevky/predni-barevne-450ml": [
     "dynova-polevka.jpg",
     "gulasova-polevka-z-hlivy-ustricne.jpg",
     "kulajda.jpg",
@@ -272,7 +272,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "spenatova-polevka.png",
     "tomatova-polevka.png"
   ],
-  "polevky/predni-cernobile-500ml": [
+  "polevky/predni-cernobile-450ml": [
     "dynova-polevka.png",
     "gulasova-polevka-z-hlivy-ustricne.png",
     "kulajda.png",
@@ -296,7 +296,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "spenatova-polevka.png",
     "tomatova-polevka.png"
   ],
-  "polevky/predni-cervenocerne-500ml": [
+  "polevky/predni-cervenocerne-450ml": [
     "dynova-polevka.png",
     "gulasova-polevka-z-hlivy-ustricne.png",
     "kulajda.png",
@@ -320,7 +320,7 @@ export const ETIKETY_MANIFEST: Record<string, string[]> = {
     "Spenatova-polevka.png",
     "Tomatova-polevka.png"
   ],
-  "polevky/slozeni-500ml": [
+  "polevky/slozeni-450ml": [
     "Dynova-polevka.png",
     "Gulasova-polevka-z-hlivy-ustricne.png",
     "Kulajda.png",
