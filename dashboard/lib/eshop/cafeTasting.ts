@@ -1,5 +1,5 @@
 // Vzorky k první begině (zadání Lucie 20. 11. 2026, přepracováno 24. 11. 2026):
-// od 24. 11. pro kavárny, bistra i domácnosti, bez IČO. Čistá pravidla bez DB a bez Reactu.
+// od 24. 11. pro kavárny, bistra i domácnosti. Čistá pravidla bez DB a bez Reactu.
 //
 // V DB je to jeden produkt (CAFE_TASTING_SLUG) ve vlastní kategorii a 14 balení:
 // 6 polévek po 200 ml, 7 sirupů po 100 ml a Svařák Deluxe 200 ml, každé za 49 Kč. Provoz si na stránce
@@ -152,7 +152,7 @@ export const CAFE_TASTING_GIFT_TEXT = "K první třílitrové begině Vám přib
 export const CAFE_TASTING_EXTRA_TEXT = "K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus.";
 export const CAFE_TASTING_ELIGIBLE_TEXT = "Nabídka platí k begině 3 l polévky, sirupu, Svařáku Deluxe nebo Lady Carneval.";
 export const CAFE_TASTING_ONCE_TEXT = "Dárek získáte jednou, i když v první objednávce koupíte víc begin. Nárok ověříme podle e-mailu v pokladně.";
-export const CAFE_TASTING_FOR_ALL_TEXT = "Pro kavárny, bistra i domácnosti. IČO vyplňovat nemusíte.";
+export const CAFE_TASTING_FOR_ALL_TEXT = "Pro kavárny, bistra i domácnosti.";
 export const CAFE_TASTING_SYRUPS_ONLY_HEADING = "Chcete ochutnat jen sirupy?";
 export const CAFE_TASTING_SYRUPS_ONLY_TEXT = "Vyberte si 5 příchutí v Ochutnávkovém setu sirupů 5 × 100 ml za 349 Kč. Set můžete objednat i samostatně a poslat Zásilkovnou.";
 export const CAFE_TASTING_SYRUPS_ONLY_LINK = "Vybrat 5 sirupů na ochutnání";
