@@ -199,7 +199,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
         tab: "ceska-republika",
         items: methods.map((method) =>
           method.id === "zasilkovna"
-            ? `${method.label} — ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)}. ${method.description}`
+            ? `${method.label} — sáčky sirupu ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)} včetně krabice, jedna begina sirupu 3 l ${formatKc(ZASILKOVNA_STANDARD_KC)} (krabici už má). ${method.description}`
             : byWeight && method.id === "rozvoz"
             ? `${method.label} — ${method.description}`
             : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`

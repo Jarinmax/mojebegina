@@ -37,6 +37,7 @@ import {
 import { choiceLine, isTastingSet } from "@/lib/eshop/tastingSet";
 import { isCafeTasting, isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
 import { VAT_NOTE } from "@/lib/eshop/cafePage";
+import { SYRUP_BOX_INCLUDED_NOTE, isSyrup3l } from "@/lib/eshop/zasilkovna";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes, isBoxEligible } from "@/lib/eshop/boxOption";
 import { useCartBoxes } from "@/components/eshop/useCartBoxes";
 import { formatKc } from "@/lib/format";
@@ -932,6 +933,9 @@ export default function CheckoutForm({
                   )}
                 </div>
                 {choiceLine(line.sku) && <p className="mt-0.5 text-[13px] text-neutral-600">{choiceLine(line.sku)}</p>}
+                {isSyrup3l(line.product, line.variant) && (
+                  <p className="mt-1.5 text-[13px] text-neutral-600">📦 {SYRUP_BOX_INCLUDED_NOTE}</p>
+                )}
                 {isBoxEligible(line.product, line.variant) && (
                   <label className="mt-1.5 flex items-center gap-2 text-[13px] text-neutral-700 cursor-pointer">
                     <input

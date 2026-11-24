@@ -64,7 +64,7 @@ describe("Zásilkovna — zapnutí a nabídka", () => {
   it("stránka Doprava ji uvádí jen zapnutou, s cenou 104 Kč", () => {
     const items = (page: ReturnType<typeof shippingPageFor>) => (page.blocks ?? []).flatMap((b) => b.items ?? []).join("\n");
     expect(items(shippingPageFor("weight"))).not.toContain("Zásilkovna");
-    expect(items(shippingPageFor("weight", { zasilkovna: true }))).toMatch(/Zásilkovna – výdejní místo nebo Z-BOX — 104\sKč/);
+    expect(items(shippingPageFor("weight", { zasilkovna: true }))).toMatch(/Zásilkovna – výdejní místo nebo Z-BOX — sáčky sirupu 104\sKč včetně krabice, jedna begina sirupu 3 l 89\sKč/);
   });
 });
 
@@ -82,11 +82,20 @@ describe("Zásilkovna — cena v košíku", () => {
     const five = priceCart([{ sku: "lipovy-650", quantity: 5 }], "zasilkovna", index, on);
     expect(five.ok).toBe(false);
     if (!five.ok) expect(five.error).toContain("nejvýše 4 ks");
-    for (const sku of ["lipovy-3l", "kulajda"]) {
-      const mixed = priceCart([{ sku: "lipovy-650", quantity: 1 }, { sku, quantity: 1 }], "zasilkovna", index, on);
-      expect(mixed.ok).toBe(false);
-      if (!mixed.ok) expect(mixed.error).toContain("jen sirupy v kapsičce 650 ml");
-    }
+    const withSoup = priceCart([{ sku: "lipovy-650", quantity: 1 }, { sku: "kulajda", quantity: 1 }], "zasilkovna", index, on);
+    expect(withSoup.ok).toBe(false);
+    if (!withSoup.ok) expect(withSoup.error).toContain("Ostatní zboží doručujeme chlazenou přepravou");
+    const withBig = priceCart([{ sku: "lipovy-650", quantity: 1 }, { sku: "lipovy-3l", quantity: 1 }], "zasilkovna", index, on);
+    expect(withBig.ok).toBe(false);
+    if (!withBig.ok) expect(withBig.error).toContain("jen jednu beginu sirupu 3 l");
+  });
+
+  it("jedna begina sirupu 3 l: Zásilkovna 89 Kč, krabice za 19 Kč se nepočítá; dvě = odmítne", () => {
+    const one = priceCart([{ sku: "lipovy-3l", quantity: 1 }], "zasilkovna", index, { ...on, boxes: 1 });
+    expect(one.ok && one.value).toMatchObject({ shippingKc: 89, packaging: null });
+    const two = priceCart([{ sku: "lipovy-3l", quantity: 2 }], "zasilkovna", index, on);
+    expect(two.ok).toBe(false);
+    if (!two.ok) expect(two.error).toContain("chlazenou přepravou");
   });
 
   it("volitelné krabice za 19 Kč se u Zásilkovny nepočítají (krabice je v ceně)", () => {

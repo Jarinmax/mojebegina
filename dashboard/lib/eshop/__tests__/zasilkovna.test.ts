@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { cartWeight, coldShippingPrice } from "../shippingRates";
-import { DELIVERY_NOTE_COLD, ZASILKOVNA_MAX_POUCHES, isSyrupPouch, productDeliveryNote, quoteZasilkovna } from "../zasilkovna";
+import { DELIVERY_NOTE_COLD, ZASILKOVNA_MAX_POUCHES, isSyrup3l, isSyrupPouch, productDeliveryNote, quoteZasilkovna } from "../zasilkovna";
 
 const pouch = (quantity: number, weightGrams: number | null = 805) => ({
   quantity,
@@ -36,7 +36,7 @@ describe("Zásilkovna — pravidla", () => {
   });
 
   it("jakékoli jiné zboží v košíku Zásilkovnu vypne", () => {
-    expect(quoteZasilkovna([pouch(1), big])).toEqual({ available: false, reason: "other_goods" });
+    expect(quoteZasilkovna([pouch(1), big])).toEqual({ available: false, reason: "syrup_3l_single" });
     expect(quoteZasilkovna([pouch(1), soup])).toEqual({ available: false, reason: "other_goods" });
     expect(quoteZasilkovna([])).toEqual({ available: false, reason: "empty" });
   });
@@ -95,19 +95,39 @@ describe("102 hmotnost kapsičky 650 ml", { timeout: 120_000 }, () => {
   });
 });
 
+describe("Zásilkovna — jedna begina sirupu 3 l (24. 11. 2026, Lucie)", () => {
+  it("jen sirup 3 l", () => {
+    expect(isSyrup3l({ category: "sirupy" }, { volumeMl: 3000 })).toBe(true);
+    expect(isSyrup3l({ category: "polevky" }, { volumeMl: 3000 })).toBe(false);
+    expect(isSyrup3l({ category: "sirupy" }, { volumeMl: 500 })).toBe(false);
+  });
+  it("jedna begina sama: 89 Kč bez příplatku za krabici (svou krabici už má), hmotnost 3 826 g", () => {
+    expect(quoteZasilkovna([big])).toEqual({ available: true, priceKc: 89, weightGrams: 3826, pouches: 0 });
+  });
+  it("dvě begin sirupu nebo begina s čímkoli dalším: jen chlazená přeprava", () => {
+    expect(quoteZasilkovna([{ ...big, quantity: 2 }])).toEqual({ available: false, reason: "syrup_3l_single" });
+    expect(quoteZasilkovna([big, { ...big, variant: { ...big.variant } }])).toEqual({ available: false, reason: "syrup_3l_single" });
+    expect(quoteZasilkovna([big, soup])).toEqual({ available: false, reason: "syrup_3l_single" });
+  });
+  it("chybějící hmotnost: Zásilkovnu nenabídne", () => {
+    expect(quoteZasilkovna([{ ...big, variant: { volumeMl: 3000, weightGrams: null } }])).toEqual({ available: false, reason: "missing_weight" });
+  });
+});
+
 describe("věta o doručení na stránce produktu", () => {
   const syrup = { category: "sirupy", variants: [{ volumeMl: 3000 }, { volumeMl: 650 }] };
   it("sirup se sáčkem 650 ml: zmíní Zásilkovnu, jen když je zapnutá", () => {
-    expect(productDeliveryNote(syrup, true)).toBe("Posíláme chlazeně po celé ČR. Sáčky se sirupem (až 4 kusy) můžeme poslat i Zásilkovnou na výdejní místo.");
+    expect(productDeliveryNote(syrup, true)).toBe("Posíláme chlazeně po celé ČR. Sáčky se sirupem (až 4 kusy) nebo jednu beginu 3 l můžeme poslat i Zásilkovnou na výdejní místo.");
     expect(productDeliveryNote(syrup, false)).toBe(DELIVERY_NOTE_COLD);
   });
   it("ostatní produkty a sirup bez sáčku: jen chlazená přeprava", () => {
     expect(productDeliveryNote({ category: "polevky", variants: [{ volumeMl: 3000 }] }, true)).toBe(DELIVERY_NOTE_COLD);
-    expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000 }] }, true)).toBe(DELIVERY_NOTE_COLD);
+    expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000 }] }, true)).toBe("Posíláme chlazeně po celé ČR. Jednu beginu 3 l můžeme poslat i Zásilkovnou na výdejní místo.");
+    expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000, soldOut: true }] }, true)).toBe(DELIVERY_NOTE_COLD);
     expect(productDeliveryNote({ category: "koktejly", variants: [{ volumeMl: 650 }] }, true)).toBe(DELIVERY_NOTE_COLD);
   });
   it("vyprodaný sáček (sold_out): Zásilkovnu nezmíní; sáček 500 ml ano", () => {
-    expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000 }, { volumeMl: 500, soldOut: true }] }, true)).toBe(DELIVERY_NOTE_COLD);
+    expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000 }, { volumeMl: 500, soldOut: true }] }, true)).not.toContain("Sáčky");
     expect(productDeliveryNote({ category: "sirupy", variants: [{ volumeMl: 3000 }, { volumeMl: 500 }] }, true)).toContain("Zásilkovnou");
   });
 });

@@ -81,9 +81,21 @@ export async function importIdokladArchive(db: Db, deps: { env?: Env; fetchImpl?
             VALUES (${r.kind}, ${r.id}, ${r.number}, ${r.issue}::date, ${r.due}::date, ${r.paid}::date, ${r.payment}, ${r.total}::numeric, ${r.paidKc}::numeric,
                     ${r.vs}, ${r.partnerName}, ${r.partnerIco}, ${r.partnerEmail}, ${JSON.stringify(r.raw)}::jsonb)
             ON CONFLICT (doc_kind, idoklad_id) DO UPDATE SET
-              number = EXCLUDED.number, issue_date = EXCLUDED.issue_date, due_date = EXCLUDED.due_date, paid_date = EXCLUDED.paid_date,
-              payment = EXCLUDED.payment, total_kc = EXCLUDED.total_kc, paid_kc = EXCLUDED.paid_kc, variable_symbol = EXCLUDED.variable_symbol,
-              partner_name = EXCLUDED.partner_name, partner_ico = EXCLUDED.partner_ico, partner_email = EXCLUDED.partner_email, raw = EXCLUDED.raw,
+              -- Úhrada zapsaná v MojeBegina (platba kartou v portálu, označení Lucií) se
+              -- obnovou z iDokladu nesmí vrátit na neuhrazenou (24. 11. 2026).
+              number = EXCLUDED.number, issue_date = EXCLUDED.issue_date, due_date = EXCLUDED.due_date,
+              paid_date = CASE WHEN idoklad_archive.payment = 'paid' AND EXCLUDED.payment <> 'paid' THEN idoklad_archive.paid_date ELSE EXCLUDED.paid_date END,
+              payment = CASE WHEN idoklad_archive.payment = 'paid' AND EXCLUDED.payment <> 'paid' THEN idoklad_archive.payment ELSE EXCLUDED.payment END,
+              total_kc = EXCLUDED.total_kc,
+              paid_kc = CASE WHEN idoklad_archive.payment = 'paid' AND EXCLUDED.payment <> 'paid' THEN idoklad_archive.paid_kc ELSE EXCLUDED.paid_kc END,
+              variable_symbol = EXCLUDED.variable_symbol,
+              partner_name = EXCLUDED.partner_name, partner_ico = EXCLUDED.partner_ico, partner_email = EXCLUDED.partner_email,
+              raw = CASE WHEN idoklad_archive.payment = 'paid' AND EXCLUDED.payment <> 'paid'
+                THEN jsonb_set(jsonb_set(jsonb_set(EXCLUDED.raw,
+                       '{PaymentStatus}', COALESCE(idoklad_archive.raw->'PaymentStatus', 'null'::jsonb)),
+                       '{DateOfPayment}', COALESCE(idoklad_archive.raw->'DateOfPayment', 'null'::jsonb)),
+                       '{Prices,TotalPaid}', COALESCE(idoklad_archive.raw->'Prices'->'TotalPaid', 'null'::jsonb))
+                ELSE EXCLUDED.raw END,
               pdf_base64 = CASE WHEN idoklad_archive.raw->'Metadata'->>'DateLastChange' IS DISTINCT FROM ${changed}::text THEN NULL ELSE idoklad_archive.pdf_base64 END,
               updated_at = now()`);
           result.upserted += 1;

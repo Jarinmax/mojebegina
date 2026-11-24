@@ -104,4 +104,23 @@ describe("archiv iDokladu (PGlite)", { timeout: 60_000 }, () => {
     const [row] = (await db.execute(sql`SELECT payment, paid_date::text AS paid_date, raw->>'PaymentStatus' AS ps FROM idoklad_archive WHERE idoklad_id = 3`)).rows;
     expect(row).toEqual({ payment: "paid", paid_date: "2026-11-23", ps: "1" });
   });
+
+  it("úhradu zapsanou v MojeBegina obnova z iDokladu nevrátí na neuhrazenou (24. 11. 2026)", async () => {
+    const { markArchiveInvoicePaid } = await import("../invoicing/idokladArchiveClient");
+    // v iDokladu zůstává neuhrazená (a později změněná)
+    invoices = invoices.map((i) =>
+      i.Id === 5 ? { ...invoice(5, "20260005", "2026-05-15", "2026-11-24T08:00:00"), PaymentStatus: 0, DateOfPayment: null as unknown as string, Prices: { TotalWithVat: 105, TotalPaid: 0 } } : i
+    );
+    await db.execute(sql`UPDATE idoklad_archive SET payment = 'unpaid', paid_date = NULL WHERE idoklad_id = 5`);
+    await importIdokladArchive(db, { env: ENV, fetchImpl, pdfLimit: 100 });
+    const read = async () =>
+      (await db.execute(sql`SELECT payment, paid_date::text AS paid_date, paid_kc::text AS paid_kc, raw->>'PaymentStatus' AS ps, raw->'Metadata'->>'DateLastChange' AS changed FROM idoklad_archive WHERE idoklad_id = 5`)).rows[0];
+    expect((await read()).payment).not.toBe("paid");
+    expect(await markArchiveInvoicePaid(db, 5, "2026-08-12")).toBe(true);
+    pdfCalls.length = 0;
+    await importIdokladArchive(db, { env: ENV, fetchImpl, pdfLimit: 100 });
+    await importIdokladArchive(db, { env: ENV, fetchImpl, pdfLimit: 100 });
+    expect(await read()).toEqual({ payment: "paid", paid_date: "2026-08-12", paid_kc: "105.00", ps: "1", changed: "2026-11-24T08:00:00" });
+    expect(pdfCalls).toEqual([]); // PDF se kvůli tomu nestahuje pořád znovu
+  });
 });
