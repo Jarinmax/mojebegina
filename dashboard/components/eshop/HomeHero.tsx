@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_OFFER_LINK, HOME_HERO_PHONE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_PHONE, HOME_HERO_TASTE_BUTTON, HOME_HERO_TASTE_NOTE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -43,7 +43,8 @@ export const HERO_PHOTO = {
 
 /** Rychlý nákup nejprodávanějšího (Lucie 20. 11. 2026: stálí zákazníci chtějí hned nakoupit, bez formulářů). */
 export const HERO_LINKS = {
-  firstPack: "/pro-kavarny#ochutnavka",
+  firstPack: "/pro-kavarny#vyber-beginy",
+  tasteSoups: "/produkt/ochutnavka-polevek-3x450",
   phone: "/pro-kavarny#napiste-nam",
 };
 
@@ -77,19 +78,27 @@ export default function HomeHero() {
               <span key={line} className="block">{line}</span>
             ))}
           </p>
-          <ShopLink
-            href={HERO_LINKS.firstPack}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-6 py-3.5 text-lg font-semibold text-white"
-          >
-            {HOME_HERO_BUTTON}
-            <ArrowRight className="w-5 h-5" aria-hidden="true" />
-          </ShopLink>
-          <p className="text-base leading-snug text-neutral-700">
-            {HOME_HERO_OFFER}{" "}
-            <ShopLink href={HERO_LINKS.firstPack} className="font-semibold text-[#A51C1C] underline underline-offset-4 whitespace-nowrap">
-              {HOME_HERO_OFFER_LINK} →
+          {/* 24. 11. 2026 (Lucie/ChatGPT): dvě možnosti hned v úvodu — celá begina se vzorky, nebo jen ochutnat polévky */}
+          <div className="flex flex-col gap-1.5">
+            <ShopLink
+              href={HERO_LINKS.firstPack}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-6 py-3.5 text-lg font-semibold text-white"
+            >
+              {HOME_HERO_BUTTON}
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </ShopLink>
-          </p>
+            <p className="text-base leading-snug text-neutral-700">{HOME_HERO_OFFER}</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <ShopLink
+              href={HERO_LINKS.tasteSoups}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#4A5527] bg-white hover:bg-[#F4F2EA] transition-colors px-6 py-3 text-lg font-semibold text-[#4A5527]"
+            >
+              {HOME_HERO_TASTE_BUTTON}
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </ShopLink>
+            <p className="text-base leading-snug text-neutral-700">{HOME_HERO_TASTE_NOTE}</p>
+          </div>
           <ShopLink href={HERO_LINKS.phone} className="inline-flex items-center gap-2 text-base sm:text-lg font-medium text-[#4A5527] underline underline-offset-4">
             {HOME_HERO_PHONE}
             <ArrowRight className="w-4 h-4" aria-hidden="true" />

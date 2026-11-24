@@ -160,7 +160,8 @@ export const CAFE_TASTING_SOUPS_ONLY_TEXT =
   "Chcete nejdřív ochutnat polévky? Samostatné vzorky po 200 ml si můžete po domluvě vyzvednout v Zahradním bistru Begina ve Viticích. Jeden vzorek stojí 49 Kč.";
 
 // Ochutnávka polévek 3 × 450 ml: lib/eshop/soupPack.ts (spuštěno 24. 11. 2026).
-export const CAFE_TASTING_HEADING = "Vzorky zdarma k první begině";
+export const CAFE_TASTING_CHOOSE_HEADING = "Jak chcete ochutnat?";
+export const CAFE_TASTING_HEADING = "Begina 3 l + 4 vzorky zdarma";
 export const CAFE_TASTING_INTRO = `${CAFE_TASTING_GIFT_TEXT} ${CAFE_TASTING_FOR_ALL_TEXT}`;
 export const CAFE_TASTING_BEGINA_HEADING = "1. Vaše begina 3 l";
 export const CAFE_TASTING_NEED_BEGINA_PICK = "Vyberte prosím beginu, ke které vzorky přibalíme.";

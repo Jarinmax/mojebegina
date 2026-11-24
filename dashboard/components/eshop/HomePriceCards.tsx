@@ -53,6 +53,9 @@ export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { c
           <ShopLink href={`/produkt/${setSlug}`} className="inline-flex items-center gap-2 underline underline-offset-4">
             Sada 5 sirupů za {setPriceKc} Kč <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </ShopLink>
+          <ShopLink href="/produkt/ochutnavka-polevek-3x450" className="inline-flex items-center gap-2 underline underline-offset-4">
+            Ochutnat 3 polévky za 299 Kč <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </ShopLink>
         </div>
       </div>
     </section>
