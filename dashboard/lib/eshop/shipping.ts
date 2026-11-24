@@ -73,7 +73,7 @@ export const ZASILKOVNA_METHOD_ID = "zasilkovna";
 const ZASILKOVNA: ShippingMethod = {
   id: "zasilkovna",
   label: "Zásilkovna – výdejní místo nebo Z-BOX",
-  description: `Jen pro sirupy: sáčky (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce)${SET_LAUNCHED ? ", ochutnávkový set sirupů" : ""} nebo jedna begina sirupu 3 l. Cena je včetně krabice.`,
+  description: `Jen pro sirupy: sáčky (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce)${SET_LAUNCHED ? ", ochutnávkový set sirupů" : ""} nebo jedna třílitrová begina sirupu. Krabice je vždy v ceně.`,
   priceKc: 0,
   requiresAddress: false,
   requiresPickupPoint: true,
