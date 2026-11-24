@@ -30,7 +30,7 @@ export default function SoupPackForm({ name, sku, priceKc }: { name: string; sku
 
   return (
     <div>
-      <fieldset className="mb-4">
+      <fieldset id="vyber" className="mb-4 scroll-mt-24">
         <legend className="text-sm font-medium mb-2">
           Vyberte si tři různé polévky <span className="font-normal text-neutral-600 tabular-nums">(vybráno {choice.length} z {SOUP_PACK_SIZE})</span>
         </legend>
