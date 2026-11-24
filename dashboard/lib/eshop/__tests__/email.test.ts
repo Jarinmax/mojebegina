@@ -444,3 +444,18 @@ describe("potvrzení objednávky: představení partnerského programu novým z�
     expect(without.html).not.toContain("partnersky-program");
   });
 });
+
+describe("partnerská sleva v potvrzení (Lucie 24. 11. 2026)", () => {
+  it("řádek slevy i věta nese procento", async () => {
+    const { customerOrderEmail } = await import("../email/templates");
+    const order = {
+      id: "o1", orderNumber: 70000099, externalWooCommerceId: null, contactName: "Jiří Průcha", contactEmail: "a@b.cz", contactPhone: null,
+      recipientName: null, recipientAddress: null, shippingMethodCode: null, shippingMethodLabel: "Chlazená doprava", paymentMethodCode: null,
+      paymentMethodLabel: "Převodem", paymentStatus: "unpaid", orderedAt: new Date(), subtotalKc: 1000, discountKc: 30, shippingKc: 0, totalKc: 970,
+      customerNote: null, items: [{ name: "Dýňová polévka – 3 l", quantity: 1, unitPriceKc: 1000, lineTotalKc: 1000 }], partnerPercent: 3,
+    } as never;
+    const mail = customerOrderEmail(order, { baseUrl: "https://begina.cz", withheld: [], test: false } as never);
+    expect(mail.text).toContain("Partnerská sleva 3 %: −30 Kč");
+    expect(mail.text).toContain("odečetli partnerskou slevu 3 %");
+  });
+});

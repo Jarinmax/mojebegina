@@ -111,6 +111,14 @@
     {
       "path": "/api/cron/auto-doruceno",
       "schedule": "40 17 * * *"
+    },
+    {
+      "path": "/api/cron/obchod-souhrn?beh=leto",
+      "schedule": "1 17 * * *"
+    },
+    {
+      "path": "/api/cron/obchod-souhrn?beh=zima",
+      "schedule": "1 18 * * *"
     }
   ]
 }

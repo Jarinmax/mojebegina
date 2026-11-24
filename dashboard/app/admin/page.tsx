@@ -15,29 +15,25 @@ export default async function AdminOrganizationsPage() {
 
   return (
     <div>
-      <WorkTasksLink />
+      {/* 24. 11. 2026 (Lucie): úvod jen Řízení firmy + Moje práce; seznam organizací sbalený dole */}
       <CompanyOverviewCard
         redCount={companyMap.counts.red}
         amberCount={companyMap.counts.amber}
         newOrdersCount={orderCounts.new}
       />
+      <WorkTasksLink />
 
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-medium text-begina-primary-900">Organizace</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {organizations.length} {organizations.length === 1 ? "organizace" : "organizací"}
-          </p>
+      <details className="mt-8">
+        <summary className="cursor-pointer text-sm text-neutral-500">
+          Technický seznam organizací ({organizations.length})
+        </summary>
+        <div className="mt-3">
+          <Link href="/admin/novy-zakaznik" className="mt-3 inline-block text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2">
+            Nový zákazník
+          </Link>
+          <OrganizationsTable organizations={organizations} basePath="/admin/organizace" />
         </div>
-        <Link
-          href="/admin/novy-zakaznik"
-          className="text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-4 py-2"
-        >
-          Nový zákazník
-        </Link>
-      </div>
-
-      <OrganizationsTable organizations={organizations} basePath="/admin/organizace" />
+      </details>
     </div>
   );
 }

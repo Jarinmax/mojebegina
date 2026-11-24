@@ -194,6 +194,11 @@ export async function loadOrderForEmail(db: Db, orderId: string): Promise<OrderF
         SELECT a.metadata->>'termsVersion' FROM ${orderActivity} a
         WHERE a.order_id = "orders"."id" AND a.kind = 'created'
         ORDER BY a.created_at LIMIT 1)`,
+      // % automatické partnerské slevy z uplatněných kódů (metadata.coupons)
+      partnerPercent: sql<number | null>`(
+        SELECT (c->>'partnerPercent')::int FROM ${orderActivity} a, jsonb_array_elements(COALESCE(a.metadata->'coupons', '[]'::jsonb)) c
+        WHERE a.order_id = "orders"."id" AND a.kind = 'created' AND c->>'code' = 'partner' AND c ? 'partnerPercent'
+        ORDER BY a.created_at LIMIT 1)`,
     })
     .from(orders)
     .where(eq(orders.id, orderId))

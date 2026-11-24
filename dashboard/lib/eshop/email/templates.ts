@@ -57,7 +57,19 @@ export type EmailOrder = {
   totalKc: number;
   customerNote: string | null;
   items: { name: string; quantity: number; unitPriceKc: number; lineTotalKc: number }[];
+  /** % automatické partnerské slevy uplatněné v objednávce (Lucie 24. 11. 2026), jinak null. */
+  partnerPercent?: number | null;
 };
+
+/** Popisek řádku slevy: u partnerské slevy „Partnerská sleva 3 %“, jinak „Sleva“. */
+function discountLabel(order: EmailOrder): string {
+  return order.partnerPercent ? `Partnerská sleva ${order.partnerPercent} %` : "Sleva";
+}
+
+/** Věta do potvrzení objednávky, aby zákazník věděl, že slevu dostal (i když je odhlášený z e-mailů). */
+export function partnerAppliedSentence(percent: number): string {
+  return `Za Vaše nákupy v minulém měsíci jsme Vám automaticky odečetli partnerskou slevu ${percent} %.`;
+}
 
 export type RenderedEmail = { subject: string; html: string; text: string };
 
@@ -181,7 +193,7 @@ function itemsTable(order: EmailOrder): string {
   const lines = order.items.map((item) =>
     row(`${item.quantity}× ${escapeHtml(displayItemName(item.name))}`, escapeHtml(formatKc(item.lineTotalKc)))
   );
-  if (order.discountKc > 0) lines.push(row("Sleva", escapeHtml(`−${formatKc(order.discountKc)}`)));
+  if (order.discountKc > 0) lines.push(row(escapeHtml(discountLabel(order)), escapeHtml(`−${formatKc(order.discountKc)}`)));
   lines.push(row(escapeHtml(order.shippingMethodLabel ?? "Doprava"), escapeHtml(shippingPriceText(order))));
   lines.push(row("Celkem", escapeHtml(formatKc(order.totalKc)), true));
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#1A1A1A;">${lines.join("")}</table>`;
@@ -189,7 +201,7 @@ function itemsTable(order: EmailOrder): string {
 
 function itemsText(order: EmailOrder): string {
   const lines = order.items.map((item) => `- ${item.quantity}× ${displayItemName(item.name)}: ${formatKc(item.lineTotalKc)}`);
-  if (order.discountKc > 0) lines.push(`- Sleva: −${formatKc(order.discountKc)}`);
+  if (order.discountKc > 0) lines.push(`- ${discountLabel(order)}: −${formatKc(order.discountKc)}`);
   lines.push(`- ${order.shippingMethodLabel ?? "Doprava"}: ${shippingPriceText(order)}`);
   lines.push(`Celkem: ${formatKc(order.totalKc)}`);
   return lines.join("\n");
@@ -300,7 +312,8 @@ export function customerOrderEmail(order: EmailOrder, ctx: CustomerEmailContext)
     (paid
       ? "Děkujeme za objednávku. Begina ji přijala a platbu jsme obdrželi — objednávku připravujeme."
       : "Děkujeme za objednávku. Begina ji přijala a připravíme ji po zaplacení.") +
-    (paid && ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "");
+    (paid && ctx.invoiceNumber ? ` ${invoiceSentence(ctx.invoiceNumber)}` : "") +
+    (order.partnerPercent && order.discountKc > 0 ? ` ${partnerAppliedSentence(order.partnerPercent)}` : "");
   const statusUrl = eshopAbsoluteUrl(ctx.baseUrl, orderStatusPath(order.id));
   const withdrawUrl = eshopAbsoluteUrl(
     ctx.baseUrl,
