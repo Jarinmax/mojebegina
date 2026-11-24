@@ -10,9 +10,6 @@ import { quoteZasilkovna } from "./zasilkovna";
  *  i s krabicí, vážila Lucie) — proto se bere skutečná hmotnost z katalogu. */
 const BEGINA_GRAMS = 3000;
 const isBegina = (variant: { volumeMl: number | null }) => (variant.volumeMl ?? 0) >= 2900;
-// Hmotnost přesně (2,95 kg, ne zaokrouhlených „3 kg“) — ať číslo v košíku sedí
-// s tím, z čeho počítá pokladna (24. 11. 2026, kontrola živého e-shopu).
-const kgText = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFractionDigits: 2 });
 /** Nejtěžší begina v katalogu (sirup i s krabicí) — když v košíku žádná begina není, slib musí platit pro každou. */
 const HEAVIEST_BEGINA_GRAMS = 3826;
 
@@ -50,7 +47,7 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
   if (!weight.ok) return null;
   const cold = coldShippingPrice(weight.grams);
   if (!cold.ok) {
-    return { main: `Objednávka váží ${kgText(weight.grams)} kg — dopravu domluvíme individuálně.`, extra: "Osobní odběr ve Viticích zdarma." };
+    return { main: "Objednávka je nad limit chlazené přepravy — dopravu domluvíme individuálně.", extra: "Osobní odběr ve Viticích zdarma." };
   }
   if (options.zasilkovna) {
     const zas = quoteZasilkovna(lines);
@@ -58,7 +55,8 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
       return { main: `Doprava pro váš košík: Zásilkovnou ${formatKc(zas.priceKc)}, nebo chlazeně ${formatKc(cold.priceKc)}.`, extra: "Osobní odběr ve Viticích zdarma." };
     }
   }
-  const main = `Chlazená doprava pro váš košík: ${formatKc(cold.priceKc)} (${kgText(weight.grams)} kg).`;
+  // Bez hmotnosti v závorce (Lucie 24. 11. 2026): skutečná váha se může o pár gramů lišit.
+  const main = `Chlazená doprava pro váš košík: ${formatKc(cold.priceKc)}.`;
   const index = COLD_SHIPPING_RULES.indexOf(cold.rule);
   const next = COLD_SHIPPING_RULES[index + 1];
   if (!next) return { main, extra: "Osobní odběr ve Viticích zdarma." };

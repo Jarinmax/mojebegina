@@ -11,23 +11,23 @@ describe("doprava vidět dřív", () => {
   });
   it("košík: cena a kolik se vejde za stejnou dopravu", () => {
     const hint = cartShippingHint([soup(3)], opts)!;
-    expect(nbsp(hint.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (9 kg).");
+    expect(nbsp(hint.main)).toBe("Chlazená doprava pro váš košík: 267 Kč.");
     expect(nbsp(hint.extra)).toBe("Pod 15 kg platíte pořád 267 Kč — vejde se ještě 1 begina 3 l. Osobní odběr ve Viticích zdarma.");
     const four = cartShippingHint([soup(4)], opts)!;
-    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (12 kg).");
+    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 267 Kč.");
     expect(nbsp(four.extra)).toBe("Osobní odběr ve Viticích zdarma.");
     const five = cartShippingHint([soup(5)], opts)!;
-    expect(nbsp(five.main)).toBe("Chlazená doprava pro váš košík: 379 Kč (15 kg).");
+    expect(nbsp(five.main)).toBe("Chlazená doprava pro váš košík: 379 Kč.");
     expect(nbsp(five.extra)).toContain("Pod 20 kg platíte pořád 379 Kč — vejde se ještě 1 begina 3 l");
   });
   it("sirupy jsou těžší (3 826 g i s krabicí)", () => {
     const syrup = (quantity: number) => ({ sku: "lipovy-sirup-3l", quantity, product: { category: "sirupy", slug: "lipovy-sirup" }, variant: { sku: "lipovy-sirup-3l", volumeMl: 3000, weightGrams: 3826 } });
     expect(nbsp(productShippingNote(3826))).toContain("(pod 15 kg, to jsou až 3 beginy 3 l)");
     const three = cartShippingHint([syrup(3)], opts)!;
-    expect(nbsp(three.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (11,48 kg).");
+    expect(nbsp(three.main)).toBe("Chlazená doprava pro váš košík: 267 Kč.");
     expect(nbsp(three.extra)).toBe("Osobní odběr ve Viticích zdarma.");
     const four = cartShippingHint([syrup(4)], opts)!;
-    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 379 Kč (15,3 kg).");
+    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 379 Kč.");
     const mixed = cartShippingHint([syrup(1), soup(1)], opts)!;
     expect(nbsp(mixed.extra)).toContain("vejdou se ještě 2 beginy 3 l");
   });
@@ -39,16 +39,16 @@ describe("doprava vidět dřív", () => {
   it("polévka 2 950 g: hláška = pokladna (24. 11. 2026)", () => {
     const real = (quantity: number) => ({ ...soup(quantity), variant: { ...soup(quantity).variant, weightGrams: 2950 } });
     const one = cartShippingHint([real(1)], opts)!;
-    expect(nbsp(one.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (2,95 kg).");
+    expect(nbsp(one.main)).toBe("Chlazená doprava pro váš košík: 267 Kč.");
     expect(nbsp(one.extra)).toContain("vejdou se ještě 4 beginy 3 l");
     const four = cartShippingHint([real(4)], opts)!;
-    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (11,8 kg).");
+    expect(nbsp(four.main)).toBe("Chlazená doprava pro váš košík: 267 Kč.");
     expect(nbsp(four.extra)).toContain("vejde se ještě 1 begina 3 l");
     const five = cartShippingHint([real(5)], opts)!;
-    expect(nbsp(five.main)).toBe("Chlazená doprava pro váš košík: 267 Kč (14,75 kg).");
+    expect(nbsp(five.main)).toBe("Chlazená doprava pro váš košík: 267 Kč.");
     expect(nbsp(five.extra)).toBe("Osobní odběr ve Viticích zdarma.");
     const six = cartShippingHint([real(6)], opts)!;
-    expect(nbsp(six.main)).toBe("Chlazená doprava pro váš košík: 379 Kč (17,7 kg).");
+    expect(nbsp(six.main)).toBe("Chlazená doprava pro váš košík: 379 Kč.");
     // zpět na čtyři: zase 267 Kč a 1 další
     expect(nbsp(cartShippingHint([real(4)], opts)!.extra)).toContain("ještě 1 begina");
   });
