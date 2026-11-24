@@ -29,7 +29,7 @@ export const FOTKY_CATEGORIES: FotkyCategory[] = [
   },
   { slug: "o-nas", label: "O nás", groups: [{ slug: "fotka", label: "Fotka Jarina a Lucie (stránka O nás)" }] },
   { slug: "ikonky", label: "Ikonky", groups: [{ slug: "kategorie", label: "Ikonky kategorií na úvodní stránce" }] },
-  { slug: "polevky", label: "Polévky", groups: [HLAVNI, BEGINA] },
+  { slug: "polevky", label: "Polévky", groups: [HLAVNI, BEGINA, { slug: "ochutnavka", label: "Ochutnávka polévek 3 × 450 ml" }] },
   {
     slug: "sirupy",
     label: "Sirupy",
@@ -60,6 +60,7 @@ const EXTRA_NAMES: Record<string, string> = {
   "jarin-a-lucie": "Jarin a Lucie (na webu, čtverec)",
   "jarin-a-lucie-original": "Jarin a Lucie (originál)",
   "ochutnavkovy-set-sirupu": "Ochutnávkový set sirupů",
+  "ochutnavka-polevek-3x450": "Ochutnávka polévek 3 × 450 ml",
   "logo-begina": "Logo Begina",
   "profilovka-facebook-instagram": "Profilovka (FB / IG)",
   "facebook-uvodni-fotka": "Úvodní fotka Facebooku",

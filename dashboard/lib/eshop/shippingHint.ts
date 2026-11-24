@@ -10,7 +10,11 @@ import { quoteZasilkovna } from "./zasilkovna";
  *  i s krabicí, vážila Lucie) — proto se bere skutečná hmotnost z katalogu. */
 const BEGINA_GRAMS = 3000;
 const isBegina = (variant: { volumeMl: number | null }) => (variant.volumeMl ?? 0) >= 2900;
-const kgText = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFractionDigits: 1 });
+// Hmotnost přesně (2,95 kg, ne zaokrouhlených „3 kg“) — ať číslo v košíku sedí
+// s tím, z čeho počítá pokladna (24. 11. 2026, kontrola živého e-shopu).
+const kgText = (grams: number) => (grams / 1000).toLocaleString("cs-CZ", { maximumFractionDigits: 2 });
+/** Nejtěžší begina v katalogu (sirup i s krabicí) — když v košíku žádná begina není, slib musí platit pro každou. */
+const HEAVIEST_BEGINA_GRAMS = 3826;
 
 function beginyText(count: number): string {
   if (count === 1) return "1 begina 3 l";
@@ -60,8 +64,10 @@ export function cartShippingHint(lines: readonly HintLine[], options: { weightMo
   if (!next) return { main, extra: "Osobní odběr ve Viticích zdarma." };
   // Další pásmo začíná PŘESNĚ na své hranici (15 kg = už 379 Kč), proto −1 g.
   const room = next.fromKg * 1000 - weight.grams - 1;
-  // Počítá se nejtěžší begina v košíku (sirup 3 826 g), ať slib platí vždy.
-  const unit = Math.max(BEGINA_GRAMS, ...lines.filter((line) => isBegina(line.variant)).map((line) => line.variant.weightGrams ?? 0));
+  // Počítá se se skutečnou hmotností nejtěžší beginy v košíku (polévka 2 950 g, sirup 3 826 g) —
+  // stejná čísla jako v pokladně. Bez beginy v košíku nejtěžší begina vůbec, ať slib platí vždy.
+  const beginaWeights = lines.filter((line) => isBegina(line.variant)).map((line) => line.variant.weightGrams ?? 0).filter((grams) => grams > 0);
+  const unit = beginaWeights.length > 0 ? Math.max(...beginaWeights) : HEAVIEST_BEGINA_GRAMS;
   const fits = room > 0 ? Math.floor(room / unit) : 0;
   const upTo = `${next.fromKg.toLocaleString("cs-CZ")} kg`;
   const extra =

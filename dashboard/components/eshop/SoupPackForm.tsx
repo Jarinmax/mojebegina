@@ -5,18 +5,21 @@
 // (lib/eshop/soupPack.ts). Bez IČO, bez limitu.
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { SOUP_PACK_ADD, SOUP_PACK_SIZE, SOUP_PACK_SOUPS, soupPackCartSku, type SoupPackCode } from "@/lib/eshop/soupPack";
+import { SOUP_PACK_ADD, SOUP_PACK_FACTS_LINK, SOUP_PACK_SIZE, SOUP_PACK_SOUPS, soupPackCartSku, type SoupPackCode } from "@/lib/eshop/soupPack";
+import SoupFacts, { type SoupFactsData } from "./SoupFacts";
 import { trackFunnel } from "@/lib/eshop/funnelClient";
 import { trackMeta } from "@/lib/eshop/metaPixel";
 import QuantityStepper from "./QuantityStepper";
 import ShopLink from "./ShopLink";
 import { useCart } from "./useCart";
 
-export default function SoupPackForm({ name, sku, priceKc }: { name: string; sku: string; priceKc: number }) {
+// Údaje polévky se rozbalí přímo pod jejím názvem — výběr zůstává zachovaný (24. 11. 2026).
+export default function SoupPackForm({ name, sku, priceKc, facts = [] }: { name: string; sku: string; priceKc: number; facts?: SoupFactsData[] }) {
   const { add } = useCart();
   const [choice, setChoice] = useState<SoupPackCode[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   const cartSku = soupPackCartSku(choice);
   const left = SOUP_PACK_SIZE - choice.length;
 
@@ -38,23 +41,42 @@ export default function SoupPackForm({ name, sku, priceKc }: { name: string; sku
           {SOUP_PACK_SOUPS.map((soup) => {
             const checked = choice.includes(soup.code);
             const full = !checked && choice.length >= SOUP_PACK_SIZE;
+            const soupFacts = facts.find((item) => item.code === soup.code);
+            const isOpen = open === soup.code;
             return (
-              <label
-                key={soup.code}
-                className={`flex items-center gap-3 rounded-xl border px-3 min-h-11 py-2 text-[15px] ${checked ? "border-begina-primary-900" : "border-neutral-200"} ${full ? "opacity-50" : "cursor-pointer"}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={full}
-                  onChange={() => {
-                    setChoice(checked ? choice.filter((code) => code !== soup.code) : [...choice, soup.code]);
-                    setAdded(false);
-                  }}
-                  className="w-4 h-4 accent-begina-primary-900"
-                />
-                {soup.name}
-              </label>
+              <div key={soup.code} className={`rounded-xl border ${checked ? "border-begina-primary-900" : "border-neutral-200"}`}>
+                <label className={`flex items-center gap-3 px-3 min-h-11 py-2 text-[15px] ${full ? "opacity-50" : "cursor-pointer"}`}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={full}
+                    onChange={() => {
+                      setChoice(checked ? choice.filter((code) => code !== soup.code) : [...choice, soup.code]);
+                      setAdded(false);
+                    }}
+                    className="w-4 h-4 accent-begina-primary-900"
+                  />
+                  {soup.name}
+                </label>
+                {soupFacts && (
+                  <>
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      aria-controls={`slozeni-${soup.code}`}
+                      onClick={() => setOpen(isOpen ? null : soup.code)}
+                      className="ml-10 mb-2 text-left text-sm font-medium text-[#4A5527] underline underline-offset-4"
+                    >
+                      {SOUP_PACK_FACTS_LINK}
+                    </button>
+                    {isOpen && (
+                      <div id={`slozeni-${soup.code}`} className="border-t border-neutral-100 px-3 py-3">
+                        <SoupFacts facts={soupFacts} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             );
           })}
         </div>

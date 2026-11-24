@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import LandingPageView from "@/components/eshop/LandingPageView";
 import { findLandingPage } from "@/lib/eshop/landingPages";
 import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
+import { withSoupPackLead } from "@/lib/eshop/soupPackFaq";
+import { loadSoupPackOffer } from "@/lib/eshop/soupPackOfferServer";
 
 const page = findLandingPage("/polevky-pro-kavarny");
 
@@ -14,5 +16,7 @@ export default async function Page() {
   await applyFuelSurchargeFromDb();
   const live = findLandingPage("/polevky-pro-kavarny");
   if (!live) notFound();
-  return <LandingPageView page={live} />;
+  // ochutnávka polévek na začátek odpovědi o ochutnávce (24. 11. 2026)
+  const faq = withSoupPackLead(live.faq, await loadSoupPackOffer());
+  return <LandingPageView page={{ ...live, faq }} />;
 }

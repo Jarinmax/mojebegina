@@ -83,3 +83,12 @@ export const SOUP_PACK_DELIVERY_LABEL = "Včetně chlazené dopravy";
 export const SOUP_PACK_NEEDS_CHOICE = "U ochutnávky polévek vyberte prosím tři různé polévky.";
 export const SOUP_PACK_NO_ZASILKOVNA = "Ochutnávku polévek posíláme jen chlazenou přepravou, nebo si ji vyzvednete osobně ve Viticích.";
 export const SOUP_PACK_LINK_QUESTION = "Chcete nejdřív ochutnat?";
+
+// Opravy podle kontroly živého e-shopu (Lucie a ChatGPT 24. 11. 2026): balení
+// odpovídá skutečnosti (sáčky se šroubovacím uzávěrem, žádný kohoutek) a
+// trvanlivost stejně jako na schválené etiketě 450 ml / 200 ml.
+export const SOUP_PACK_PACKAGING =
+  "3 sáčky se šroubovacím uzávěrem, každý obsahuje 450 ml polévky. Z jednoho sáčku připravíte dvě menší porce po 225 ml.";
+export const SOUP_PACK_FACTS_LINK = "Složení, alergeny a výživové údaje";
+export const SOUP_PACK_OPENED_LINE = "Po otevření spotřebujte do 5 dnů, nejpozději však do data „Spotřebujte do“ na sáčku.";
+export const SOUP_PACK_INGREDIENTS_NOTE = "Podle zvolených polévek. Složení, alergeny a výživové údaje každé polévky najdete níže a na etiketě sáčku.";

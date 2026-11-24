@@ -16,7 +16,7 @@ describe("Časté otázky", () => {
       "Jsou vaše polévky veganské?",
       "Kolik stojí porce polévky?",
       "Můžu si objednat i domů?",
-      "Jak ochutnat polévky a sirupy do provozu?",
+      "Jak ochutnat polévky a sirupy?",
     ]) expect(qs).toContain(q);
   });
 

@@ -74,7 +74,19 @@ export default function LandingPageView({ page }: { page: LandingPage }) {
           {page.faq.map((item) => (
             <div key={item.question}>
               <h3 className="font-semibold text-lg leading-snug">{item.question}</h3>
-              <p className="mt-1 text-base leading-normal text-neutral-700">{item.answer}</p>
+              {item.lead && item.link ? (
+                <>
+                  <p className="mt-1 text-base leading-normal text-neutral-700">{item.lead}</p>
+                  <p className="mt-1">
+                    <ShopLink href={item.link.href} className="text-base font-semibold text-[#4A5527] underline underline-offset-4">
+                      {item.link.label} →
+                    </ShopLink>
+                  </p>
+                  {item.rest && <p className="mt-2 text-base leading-normal text-neutral-700">{item.rest}</p>}
+                </>
+              ) : (
+                <p className="mt-1 text-base leading-normal text-neutral-700">{item.answer}</p>
+              )}
             </div>
           ))}
         </div>

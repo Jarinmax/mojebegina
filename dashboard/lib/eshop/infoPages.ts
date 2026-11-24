@@ -32,6 +32,8 @@ export type InfoBlock = {
   /** podnadpis uvnitř článku (např. „1. Vyřízení objednávky…“) */
   subheading?: string;
   paragraphs?: string[];
+  /** odkaz hned za prvním odstavcem (Časté otázky – „Vybrat 3 polévky“) */
+  linkAfterFirst?: { label: string; href: string };
   /** fotka za prvním odstavcem (např. O nás); čtvercová, cesta v public/ */
   /** width/height = rozměr souboru (bez nich čtverec 1200 × 1200) */
   image?: { src: string; alt: string; width?: number; height?: number };
