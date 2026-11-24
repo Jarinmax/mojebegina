@@ -1,6 +1,7 @@
 // EKONOMIKA 1.0 — nástroje asistenta pro příjmy a náklady (economy_entries).
 // Jen pro Jaroslava a Lucii (isInvoiceIssuer); zápis jen se souhlasem
 // mojebegina.invoicing (finance), stejně jako fakturace.
+import { noDocumentReason } from "@/lib/doklady/noDocument";
 import "server-only";
 import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -158,7 +159,7 @@ export const ECONOMY_TOOLS: AgentTool[] = [
             note: row.note,
             amountNoShippingKc: row.amountNoShippingHal === null ? null : row.amountNoShippingHal / 100,
             source: row.source,
-            ...(kind === "cost" ? { documents: docs.get(row.id) ?? 0 } : {}),
+            ...(kind === "cost" ? { documents: docs.get(row.id) ?? 0, documentNeeded: noDocumentReason(row.note) === null } : {}),
           })),
           url: ECONOMY_URL,
         },

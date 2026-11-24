@@ -11,6 +11,7 @@ import { listMonthDocuments, type DocumentRow } from "@/lib/doklady/documents";
 import { idokladInvoicePdfPath, runIdokladRead } from "@/lib/idoklad-read/tools";
 import type { InvoiceSummary } from "@/lib/idoklad-read/service";
 import DocUpload from "./DocUpload";
+import { noDocumentReason } from "@/lib/doklady/noDocument";
 import PenizeTabs from "../_penize/PenizeTabs";
 import { assignDocumentAction, removeDocumentAction, unassignDocumentAction } from "./actions";
 
@@ -258,6 +259,10 @@ export default async function DokladyPage(props: PageProps<"/rizeni-firmy/doklad
                     <a href={`${BASE}/soubor/${attached[0].id}`} target="_blank" rel="noreferrer" className="text-xs font-medium rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-1.5">
                       PDF ⬇
                     </a>
+                  ) : noDocumentReason(c.note) ? (
+                    <span className="text-xs font-medium rounded-md border border-neutral-200 bg-neutral-50 text-neutral-600 px-2 py-1.5 whitespace-nowrap">
+                      bez dokladu · {noDocumentReason(c.note)}
+                    </span>
                   ) : (
                     <DocUpload month={ym} entryId={c.id} compact />
                   )}
