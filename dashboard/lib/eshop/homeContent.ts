@@ -48,7 +48,7 @@ export const HOME_HERO_POINTS = ["Po otevření vydrží polévky a čaje 14 dn�
 export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny a bistra";
 // 22. 11. 2026 (Lucie): „Posíláme chlazeně“ — zásilky veze dopravce, dopravce se nejmenuje (Jarin)
 export const HOME_HERO_SUBTITLE = ["Polévku stačí ohřát, sirup naředit.", "Posíláme chlazeně po celé ČR."] as const;
-export const HOME_HERO_BUTTON = "Vybrat první balení";
+export const HOME_HERO_BUTTON = "Vybrat polévky a nápoje"; // dřív „Vybrat první balení“ — Jarin nepoznal, že vede k polévkám (Lucie 24. 11. 2026)
 export const HOME_HERO_PHONE = "Domluvit dodávky po telefonu";
 
 /** Věta pod červeným tlačítkem v úvodu (22. 11. 2026). */

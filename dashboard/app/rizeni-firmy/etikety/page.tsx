@@ -105,8 +105,9 @@ const countLabel = (n: number) => (n === 1 ? "1 etiketa" : n >= 2 && n <= 4 ? `$
 export default async function EtiketyPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const rawLang = one(sp.jazyk);
-  const lang: Lang | null = rawLang === "sk" ? "sk" : rawLang === "cz" ? "cz" : null;
-  const cats = lang ? categoriesFor(lang) : [];
+  // Krok jazyka přeskočen (Lucie 24. 11. 2026): rovnou české etikety, slovenské přes odkaz.
+  const lang: Lang = rawLang === "sk" ? "sk" : "cz";
+  const cats = categoriesFor(lang);
   const cat = cats.find((c) => c.slug === one(sp.kat)) ?? null;
   // Staré odkazy ?typ=… (před 17. 11. 2026) dál fungují.
   const legacy = one(sp.typ) ? parseGroupSlug(one(sp.typ)!) : null;
@@ -119,7 +120,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
 
   const url = (o: { jazyk?: Lang; kat?: string; vel?: string | null; druh?: string }) => {
     const q = new URLSearchParams();
-    if (o.jazyk) q.set("jazyk", o.jazyk);
+    if (o.jazyk === "sk") q.set("jazyk", "sk");
     if (o.kat) q.set("kat", o.kat);
     if (o.vel) q.set("vel", o.vel);
     if (o.druh) q.set("druh", o.druh);
@@ -128,7 +129,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
   };
 
   const crumbs: { label: string; href: string }[] = [{ label: "Etikety", href: url({}) }];
-  if (lang) crumbs.push({ label: lang === "cz" ? "🇨🇿 Česky" : "🇸🇰 Slovensky", href: url({ jazyk: lang }) });
+  if (lang === "sk") crumbs.push({ label: "🇸🇰 Slovensky", href: url({ jazyk: lang }) });
   if (lang && cat) crumbs.push({ label: categoryLabel(cat), href: url({ jazyk: lang, kat: cat.slug }) });
   if (lang && cat && sizeChosen) {
     const fixed = size ? sizeLabel(size) : categoryFixedSize(cat);
@@ -137,15 +138,9 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
   if (lang && cat && option) crumbs.push({ label: kindLabel(lang, option.kind), href: url({ jazyk: lang, kat: cat.slug, vel: size, druh: option.kind }) });
 
   let step: ReactNode;
-  if (!lang) {
+  if (!cat) {
     step = (
-      <div className="grid grid-cols-2 gap-3">
-        <Tile href={url({ jazyk: "cz" })} title="🇨🇿 Česky" />
-        <Tile href={url({ jazyk: "sk" })} title="🇸🇰 Slovensky" />
-      </div>
-    );
-  } else if (!cat) {
-    step = (
+      <>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {cats.map((c) => (
           <Tile
@@ -156,6 +151,12 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
           />
         ))}
       </div>
+      <p className="mt-4 text-sm">
+        <Link href={lang === "sk" ? url({}) : url({ jazyk: "sk" })} className="text-neutral-600 underline hover:text-begina-primary-900">
+          {lang === "sk" ? "🇨🇿 Zpět na české etikety" : "🇸🇰 Slovenské etikety"}
+        </Link>
+      </p>
+      </>
     );
   } else if (!sizeChosen) {
     const sizeTile = (s: string) => (
@@ -212,9 +213,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
     );
   }
 
-  const heading = !lang
-    ? "Vyber jazyk"
-    : !cat
+  const heading = !cat
       ? "Vyber výrobky"
       : !sizeChosen
         ? "Vyber množství"
