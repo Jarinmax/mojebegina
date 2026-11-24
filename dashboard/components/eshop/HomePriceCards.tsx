@@ -4,7 +4,7 @@ import ShopLink from "./ShopLink";
 // 22. 11. 2026 (Lucie, návrh ChatGPT): pod úvodem „Kolik stojí porce s dopravou?“ — dvě celé
 // klikací karty (3 balení po 3 l, ceny výrobků i dopravy ze stejného zdroje jako košík),
 // pod nimi „Nakupujete domů?“. Celkové částky a výpočet jsou na odkazovaných stránkách.
-export type PriceCard = { label: string; price: string; note: string; href: string };
+export type PriceCard = { label: string; price: string; /** malým písmem hned za cenou, např. „za sklenici“ */ priceSuffix?: string; note: string; href: string };
 
 export const HOME_PRICES_TITLE = "Kolik stojí porce s dopravou?";
 export const HOME_SHOP_TITLE = "Nakupujete domů?";
@@ -15,7 +15,8 @@ const czk = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractio
 export function homePriceCards(soup: { portions: number; perPortionKc: number }, drink: { portions: number; perPortionKc: number }): PriceCard[] {
   return [
     { label: "Polévka · 250 ml", price: czk(Math.round(soup.perPortionKc)), note: `${soup.portions} porcí ze tří balení po 3 l`, href: "/polevky-pro-kavarny" },
-    { label: "Nápoj ze sirupu · 200 ml", price: `od ${czk(drink.perPortionKc)}`, note: `Až ${drink.portions} nápojů ze tří balení po 3 l`, href: "/bylinne-sirupy-pro-kavarny" },
+    // 24. 11. 2026 (Lucie): tři řádky, „až 450 nápojů“ jen v podrobném výpočtu po kliknutí
+    { label: "Sklenice limonády (200 ml)", price: `od ${czk(drink.perPortionKc)}`, priceSuffix: "za sklenici", note: "Při nákupu 3 × 3 l sirupu, včetně dopravy.", href: "/bylinne-sirupy-pro-kavarny" },
   ];
 }
 
@@ -36,10 +37,11 @@ export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { c
                 <span className="text-base font-medium text-[#2A2622]">{card.label}</span>
                 <ArrowRight className="w-5 h-5 shrink-0 text-[#4A5527] transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </span>
-              <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="mt-1 flex flex-wrap items-baseline gap-x-2">
                 <span className="font-serif text-[2.1rem] sm:text-[2.5rem] leading-none text-[#2A2622] whitespace-nowrap">{card.price}</span>
-                <span className="text-sm sm:text-base text-neutral-600">{card.note}</span>
+                {card.priceSuffix && <span className="text-lg sm:text-xl text-[#2A2622]">{card.priceSuffix}</span>}
               </span>
+              <span className="mt-1.5 block text-base text-neutral-700">{card.note}</span>
             </ShopLink>
           </li>
         ))}
