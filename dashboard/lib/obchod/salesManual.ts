@@ -2,7 +2,7 @@
 // „Begina – manuál pro obchodníky“, ať se dá číst přímo v MojeBegina i na
 // mobilu při hovoru. Při nové verzi PDF upravit i tenhle text, datum a
 // lib/obchod/salesManualPdf.ts.
-import { kc, soupPortionRows, syrupModelKc } from "@/lib/eshop/portionPrices";
+import { kc, SOUP_PORTIONS, SOUP_PRICE_KC, SYRUP_DRINKS, SYRUP_PRICE_KC } from "@/lib/eshop/portionPrices";
 
 export type ManualSection = {
   title: string;
@@ -25,7 +25,8 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       { text: "Bez práce: polévku stačí ohřát, sirup naředit a ostatní nápoje jsou hotové k podávání." },
       {
         get text() {
-          return `Spočítané porce (s dopravou, při 3 × 3 l): polévka 250 ml od ${kc(soupPortionRows([3])[0].perPortionKc)}, nápoj ze sirupu 200 ml od ${syrupModelKc()}.`;
+          // bez dopravy – PDF je vygenerované předem a doprava se mění s palivovým příplatkem (Lucie 24. 11. 2026)
+          return `Spočítané porce bez dopravy: polévka 250 ml za ${kc(Math.round((SOUP_PRICE_KC / SOUP_PORTIONS) * 100) / 100)}, nápoj ze sirupu 200 ml od ${kc(Math.round((SYRUP_PRICE_KC / SYRUP_DRINKS) * 100) / 100)}. Ceny porcí i s dopravou jsou vždy aktuálně na begina.cz na stránce Pro kavárny.`;
         },
       },
       { text: "100% rostlinné polévky a nealko nápoje – vhodné pro vegany i vegetariány." },
@@ -69,7 +70,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     items: [
       { text: "K první begině 3 l (polévka, sirup, Svařák Deluxe, Lady Carneval): 2 vzorky polévek a 2 vzorky sirupů zdarma. Bez IČO, jednou na zákazníka." },
       { text: "Další vzorky k begině po 49 Kč. Vybírají se na begina.cz na stránce Pro kavárny." },
-      { text: "Bez beginy: Ochutnávka polévek 3 × 450 ml (299 Kč osobně ve Viticích, 566 Kč s chlazenou dopravou) a set sirupů 5 × 100 ml (349 Kč). Kdykoli a opakovaně." },
+      { text: "Bez beginy: Ochutnávka polévek 3 × 450 ml (299 Kč při osobním odběru ve Viticích, s chlazenou dopravou podle aktuálního ceníku na e-shopu) a set sirupů 5 × 100 ml (349 Kč). Kdykoli a opakovaně." },
     ],
   },
   {
