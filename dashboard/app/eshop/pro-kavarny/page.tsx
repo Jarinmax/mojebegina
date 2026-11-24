@@ -27,9 +27,7 @@ import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
 import CafeStartCards from "@/components/eshop/CafeStartCards";
-import { isTastingSet } from "@/lib/eshop/tastingSet";
-import { isSoupPack } from "@/lib/eshop/soupPack";
-import { coldShippingPrice } from "@/lib/eshop/shippingRates";
+import { startCardOffers } from "@/lib/eshop/startOffers";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
 
 export const dynamic = "force-dynamic";
@@ -59,12 +57,8 @@ export default async function Page() {
       .map((variant) => ({ sku: variant.sku, name: `${product.name} 3 l`, priceKc: variant.priceKc }))
   );
   // Ochutnávka polévek 3 × 450 ml (24. 11. 2026): cena a chlazená doprava pro její hmotnost
-  const packProduct = catalog?.products.find(isSoupPack);
-  const packCold = packProduct ? coldShippingPrice(packProduct.variants[0]?.weightGrams ?? 1500) : null;
-  const soupPackOffer = packProduct?.variants[0] ? { priceKc: packProduct.variants[0].priceKc, coldShippingKc: packCold && packCold.ok ? packCold.priceKc : null } : null;
-  // set sirupů: cena tak, jak ji vidí zákazník (běžná, nebo akční včetně dopravy)
-  const setProduct = catalog?.products.find(isTastingSet);
-  const syrupSet = setProduct?.variants[0] ? { priceKc: setProduct.variants[0].priceKc, includesShipping: setProduct.tastingCampaign !== undefined } : null;
+  // a set sirupů (cena tak, jak ji vidí zákazník) – stejný výpočet jako na Nakupuji domů
+  const { soupPack: soupPackOffer, syrupSet } = startCardOffers(catalog?.products ?? []);
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">

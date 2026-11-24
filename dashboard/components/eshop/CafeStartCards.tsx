@@ -10,6 +10,9 @@ import { SET_SLUG } from "@/lib/eshop/tastingSet";
 export type CafeStartCardsProps = {
   soupPack: { priceKc: number; coldShippingKc: number | null } | null;
   syrupSet: { priceKc: number; includesShipping: boolean } | null;
+  /** kam vede „Vybrat beginu a vzorky“ – na Pro kavárny kotva na stejné stránce, odjinud celá adresa */
+  beginaHref?: string;
+  className?: string;
 };
 
 const card = "rounded-2xl bg-white p-5 flex flex-col";
@@ -17,15 +20,21 @@ const title = "font-serif text-xl text-[#2A2622]";
 const text = "mt-2 text-base leading-normal text-neutral-700 flex-1";
 const button = "mt-4 inline-flex items-center justify-center rounded-lg font-semibold px-5 h-12 text-base";
 
-export default function CafeStartCards({ soupPack, syrupSet }: CafeStartCardsProps) {
+export default function CafeStartCards({ soupPack, syrupSet, beginaHref = "#vyber-beginy", className = "-mt-4" }: CafeStartCardsProps) {
   return (
-    <section aria-label="Jak začít" className="grid grid-cols-1 md:grid-cols-3 gap-4 -mt-4">
+    <section aria-label="Jak začít" className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${className}`}>
       <div className={`${card} border-2 border-[#5E6B34]`}>
         <h2 className={title}>První begina 3 l</h2>
         <p className={text}>{CAFE_TASTING_GIFT_TEXT}</p>
-        <a href="#vyber-beginy" className={`${button} bg-[#A51C1C] hover:bg-[#8C1717] text-white`}>
-          Vybrat beginu a vzorky
-        </a>
+        {beginaHref.startsWith("#") ? (
+          <a href={beginaHref} className={`${button} bg-[#A51C1C] hover:bg-[#8C1717] text-white`}>
+            Vybrat beginu a vzorky
+          </a>
+        ) : (
+          <ShopLink href={beginaHref} className={`${button} bg-[#A51C1C] hover:bg-[#8C1717] text-white`}>
+            Vybrat beginu a vzorky
+          </ShopLink>
+        )}
       </div>
       {soupPack && (
         <div className={`${card} border border-[#EDE5D8]`}>

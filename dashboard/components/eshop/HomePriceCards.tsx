@@ -58,6 +58,10 @@ export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { c
           <ShopLink href="/produkt/ochutnavka-polevek-3x450" className="inline-flex items-center gap-2 underline underline-offset-4">
             Ochutnat 3 polévky za 299 Kč <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </ShopLink>
+          {/* 4 vzorky zdarma platí i pro domácnosti (Lucie 24. 11. 2026) */}
+          <ShopLink href="/pro-kavarny#vyber-beginy" className="inline-flex items-center gap-2 underline underline-offset-4">
+            4 vzorky zdarma k první begině <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </ShopLink>
         </div>
       </div>
     </section>

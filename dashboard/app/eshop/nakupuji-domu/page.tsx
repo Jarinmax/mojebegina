@@ -8,6 +8,9 @@ import ShopLink from "@/components/eshop/ShopLink";
 import { availableHomeCategories } from "@/lib/eshop/homeNav";
 import { HOME_BESTSELLERS, HOME_SHOP_HOME, homeSyrupPoint } from "@/lib/eshop/homeContent";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
+import CafeStartCards from "@/components/eshop/CafeStartCards";
+import { CAFE_PATH } from "@/lib/eshop/cafePage";
+import { startCardOffers } from "@/lib/eshop/startOffers";
 
 // Nakupuji domů (Lucie 20. 11. 2026 večer): tlačítko „Nakoupit domů“ z úvodu vede
 // sem — pro koncového zákazníka jen nabídka: kategorie, nejoblíbenější, set sirupů.
@@ -55,6 +58,11 @@ export default async function Page() {
             <span className="ml-auto text-xl" aria-hidden="true">›</span>
           </ShopLink>
         )}
+        {/* ochutnávky a 4 vzorky platí pro všechny – ať je domácnosti najdou i tady (Lucie 24. 11. 2026) */}
+        <section>
+          <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">Chcete nejdřív ochutnat?</h2>
+          <CafeStartCards {...startCardOffers(products)} beginaHref={`${CAFE_PATH}#vyber-beginy`} className="" />
+        </section>
         {bestsellers.length > 0 && (
           <section>
             <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">Nejoblíbenější</h2>
