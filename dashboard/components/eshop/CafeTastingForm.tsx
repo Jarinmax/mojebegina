@@ -15,7 +15,6 @@ import {
   CAFE_TASTING_SYRUPS_ONLY_HEADING,
   CAFE_TASTING_SYRUPS_ONLY_LINK,
   CAFE_TASTING_SYRUPS_ONLY_TEXT,
-  SOUP_TASTING_PACK,
   CAFE_TASTING_CREDIT_ENABLED,
   CAFE_TASTING_CREDIT_TEXT,
   CAFE_TASTING_DELIVERY,
@@ -37,6 +36,7 @@ import {
   type CafeTastingItem,
 } from "@/lib/eshop/cafeTasting";
 import { SET_SLUG } from "@/lib/eshop/tastingSet";
+import { SOUP_PACK_BUTTON, SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_TEXT, SOUP_PACK_TITLE } from "@/lib/eshop/soupPack";
 import { formatKc } from "@/lib/format";
 import ShopLink from "./ShopLink";
 import { useCart } from "./useCart";
@@ -88,13 +88,14 @@ export default function CafeTastingForm({
   beginas = [],
   initialChosen = [],
   initialBegina = "",
-  showSoupPack = SOUP_TASTING_PACK.launched,
+  soupPack = null,
 }: {
   available: readonly string[];
   beginas?: readonly TastingBeginaOption[];
   /** jen pro náhled */ initialChosen?: readonly string[];
   initialBegina?: string;
-  /** Ochutnávka polévek 3 × 450 ml — na webu až po spuštění, v náhledu vždy */ showSoupPack?: boolean;
+  /** Ochutnávka polévek 3 × 450 ml — cena a chlazená doprava ze serveru; null = produkt v katalogu není */
+  soupPack?: { priceKc: number; coldShippingKc: number | null } | null;
 }) {
   const { add } = useCart();
   const router = useRouter();
@@ -206,23 +207,25 @@ export default function CafeTastingForm({
       {/* Zadání 24. 11. 2026: kdo nechce celou beginu */}
       <div className="border-t border-[#EDE5D8] pt-5 flex flex-col gap-4">
         <h3 className="font-serif text-xl text-[#2A2622]">Chci jen ochutnat</h3>
-        {showSoupPack && (
+        {soupPack && (
           <div className="rounded-xl bg-white border border-[#EDE5D8] p-4">
-            <h4 className="font-semibold text-lg text-[#2A2622]">{SOUP_TASTING_PACK.title}</h4>
-            <p className="mt-1 text-base text-neutral-700">{SOUP_TASTING_PACK.text}</p>
+            <h4 className="font-semibold text-lg text-[#2A2622]">{SOUP_PACK_TITLE}</h4>
+            <p className="mt-1 text-base text-neutral-700">{SOUP_PACK_TEXT}</p>
             <ul className="mt-3 flex flex-col gap-1 text-base">
               <li className="flex justify-between gap-3">
-                <span>Osobní odběr ve Viticích</span>
-                <strong className="tabular-nums whitespace-nowrap">{formatKc(SOUP_TASTING_PACK.priceKc)}</strong>
+                <span>{SOUP_PACK_PICKUP_LABEL}</span>
+                <strong className="tabular-nums whitespace-nowrap">{formatKc(soupPack.priceKc)}</strong>
               </li>
-              <li className="flex justify-between gap-3">
-                <span>Včetně chlazené dopravy</span>
-                <strong className="tabular-nums whitespace-nowrap">{formatKc(SOUP_TASTING_PACK.priceKc + SOUP_TASTING_PACK.shippingKc)}</strong>
-              </li>
+              {soupPack.coldShippingKc !== null && (
+                <li className="flex justify-between gap-3">
+                  <span>{SOUP_PACK_DELIVERY_LABEL}</span>
+                  <strong className="tabular-nums whitespace-nowrap">{formatKc(soupPack.priceKc + soupPack.coldShippingKc)}</strong>
+                </li>
+              )}
             </ul>
-            <button type="button" className="mt-3 w-full sm:w-auto rounded-lg bg-[#2F3B1E] text-white font-semibold px-6 h-11 text-base">
-              {SOUP_TASTING_PACK.button}
-            </button>
+            <ShopLink href={`/produkt/${SOUP_PACK_SLUG}`} className="mt-3 inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-[#2F3B1E] text-white font-semibold px-6 h-11 text-base">
+              {SOUP_PACK_BUTTON}
+            </ShopLink>
           </div>
         )}
         <div className="rounded-xl bg-white border border-[#EDE5D8] p-4">

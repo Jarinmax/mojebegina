@@ -16,6 +16,7 @@ import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
 import { isCafeTastingAlcohol, CAFE_TASTING_MAX_PER_ITEM, CAFE_TASTING_NEEDS_BEGINA, CAFE_TASTING_NO_ZASILKOVNA, CAFE_TASTING_ONE_EACH, CAFE_TASTING_PICKUP_ONLY, cartHasTastingBegina, freeTastingSkus, isCafeTastingSku, isSoupSampleSku } from "./cafeTasting";
+import { SOUP_PACK_NEEDS_CHOICE, SOUP_PACK_NO_ZASILKOVNA, isSoupPack, soupChoiceFromSku } from "./soupPack";
 import { SET_NEEDS_CHOICE, SET_ONLY_NOT_COLD, choiceFromSku, isTastingSet, remainingLabel, withChoice } from "./tastingSet";
 import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
@@ -99,6 +100,11 @@ export function priceCart(
     const isSet = isTastingSet(product);
     // set jde objednat jen s úplným výběrem pěti sirupů (přípona SKU)
     if (isSet && choiceFromSku(item.sku) === null) return { ok: false, error: SET_NEEDS_CHOICE };
+    // ochutnávka polévek jen se třemi různými polévkami a jen chlazeně nebo osobně (24. 11. 2026)
+    if (isSoupPack(product)) {
+      if (soupChoiceFromSku(item.sku) === null) return { ok: false, error: SOUP_PACK_NEEDS_CHOICE };
+      if (shipping.id === "zasilkovna") return { ok: false, error: SOUP_PACK_NO_ZASILKOVNA };
+    }
     const name = withChoice(lineName(product, variant), item.sku);
     // Neověřené alergeny (null) — jediné místo, které platí pro košík,
     // pokladnu i náhradní objednávku; obejít to nejde ani podvrženým košíkem.

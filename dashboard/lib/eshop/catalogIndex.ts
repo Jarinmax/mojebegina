@@ -2,6 +2,7 @@
 // na serveru i v prohlížeči (CatalogProvider).
 
 import { baseSku, choiceFromSku, isSetSku } from "./tastingSet";
+import { soupChoiceFromSku, soupPackBaseSku } from "./soupPack";
 import type { Catalog, Category, Product, Variant } from "./types";
 
 export type CatalogIndex = {
@@ -30,7 +31,10 @@ export function createCatalogIndex(catalog: Catalog): CatalogIndex {
     // přípona s neplatným výběrem = neznámé balení.
     getVariant: (sku) => {
       const direct = variantsBySku.get(sku);
-      if (direct || !isSetSku(sku) || choiceFromSku(sku) === null) return direct;
+      if (direct) return direct;
+      // Ochutnávka polévek 3 × 450 ml: stejný princip (soupPack.ts)
+      if (soupChoiceFromSku(sku) !== null) return variantsBySku.get(soupPackBaseSku(sku));
+      if (!isSetSku(sku) || choiceFromSku(sku) === null) return direct;
       return variantsBySku.get(baseSku(sku));
     },
   };

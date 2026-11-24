@@ -159,20 +159,7 @@ export const CAFE_TASTING_SYRUPS_ONLY_LINK = "Vybrat 5 sirupů na ochutnání";
 export const CAFE_TASTING_SOUPS_ONLY_TEXT =
   "Chcete nejdřív ochutnat polévky? Samostatné vzorky po 200 ml si můžete po domluvě vyzvednout v Zahradním bistru Begina ve Viticích. Jeden vzorek stojí 49 Kč.";
 
-/**
- * Ochutnávka polévek 3 × 450 ml (Lucie a ChatGPT 24. 11. 2026). Zatím jen v náhledu —
- * spustí se, až budou sáčky 500 ml, ověřená trvanlivost a fotka. Opakovaně, bez limitu.
- */
-export const SOUP_TASTING_PACK = {
-  launched: false,
-  title: "Ochutnávka polévek 3 × 450 ml",
-  text: "Vyberte si tři různé polévky. Z každého sáčku připravíte dvě menší porce po 225 ml.",
-  priceKc: 299,
-  /** chlazená doprava pro balík do 15 kg (shippingRates.ts) — při spuštění brát z ceníku */
-  shippingKc: 267,
-  button: "Vybrat 3 polévky",
-} as const;
-
+// Ochutnávka polévek 3 × 450 ml: lib/eshop/soupPack.ts (spuštěno 24. 11. 2026).
 export const CAFE_TASTING_HEADING = "Vzorky zdarma k první begině";
 export const CAFE_TASTING_INTRO = `${CAFE_TASTING_GIFT_TEXT} ${CAFE_TASTING_FOR_ALL_TEXT}`;
 export const CAFE_TASTING_BEGINA_HEADING = "1. Vaše begina 3 l";

@@ -9,6 +9,7 @@ import { splitLastSentence } from "@/lib/eshop/typography";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import Stars from "./Stars";
 import { isTastingSet } from "@/lib/eshop/tastingSet";
+import { isSoupPack } from "@/lib/eshop/soupPack";
 
 export default function ProductCard({ product }: { product: Product }) {
   const href = `/produkt/${product.slug}`;
@@ -17,6 +18,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const opened = afterOpeningBadge(product);
   // ochutnávkový set: štítek Novinka, cena vč. dopravy a výběr sirupů až na stránce produktu
   const isSet = isTastingSet(product);
+  const isPack = isSoupPack(product);
   return (
     <li className="flex flex-col border border-neutral-200 rounded-2xl p-3 bg-white">
       <ShopLink href={href} className="group flex flex-col flex-1">
@@ -86,12 +88,12 @@ export default function ProductCard({ product }: { product: Product }) {
             </span>
           ) : isSoldOut(product) ? (
             <SoldOutBadge className="w-full h-9 text-sm" />
-          ) : hasChoice || isSet ? (
+          ) : hasChoice || isSet || isPack ? (
             <ShopLink
               href={href}
               className="flex items-center justify-center border border-begina-primary-900 text-sm font-medium rounded-lg px-3 h-9 hover:bg-begina-primary-50"
             >
-              {isSet ? "Vybrat sirupy" : "Vybrat balení"}
+              {isSet ? "Vybrat sirupy" : isPack ? "Vybrat polévky" : "Vybrat balení"}
             </ShopLink>
           ) : (
             <AddToCartButton name={product.name} variants={product.variants} compact />

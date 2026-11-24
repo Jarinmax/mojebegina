@@ -12,6 +12,8 @@
 // a dva sety s různým výběrem jsou dva řádky. Do objednávky se ukládá SKU
 // bez přípony a výběr je v názvu položky (order_items.name).
 
+import { soupChoiceFromSku, soupChoiceLine, withSoupChoice } from "./soupPack";
+
 /**
  * Set je na webu vidět až po schválení (Lucie řekne „ano“). Do té doby ho
  * vidí jen náhled s cookie SET_PREVIEW_COOKIE (catalogServer.ts).
@@ -116,6 +118,8 @@ export function choiceLabel(codes: readonly SetSyrupCode[]): string {
  * null = řádek není set s výběrem.
  */
 export function choiceLine(sku: string): string | null {
+  const soups = soupChoiceLine(sku);
+  if (soups) return soups;
   const codes = choiceFromSku(sku);
   if (!codes) return null;
   const words = codes.map((code) => {
@@ -127,6 +131,7 @@ export function choiceLine(sku: string): string | null {
 
 /** Název položky do košíku a objednávky: „… (Šaman, Lipový, …)“. */
 export function withChoice(name: string, sku: string): string {
+  if (soupChoiceFromSku(sku)) return withSoupChoice(name, sku);
   const codes = choiceFromSku(sku);
   return codes ? `${name} (${choiceLabel(codes)})` : name;
 }

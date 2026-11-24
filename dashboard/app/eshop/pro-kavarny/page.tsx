@@ -26,6 +26,8 @@ import {
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
+import { isSoupPack } from "@/lib/eshop/soupPack";
+import { coldShippingPrice } from "@/lib/eshop/shippingRates";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,10 @@ export default async function Page() {
       .filter((variant) => variant.soldOut !== true && isTastingBegina(product, variant))
       .map((variant) => ({ sku: variant.sku, name: `${product.name} 3 l`, priceKc: variant.priceKc }))
   );
+  // Ochutnávka polévek 3 × 450 ml (24. 11. 2026): cena a chlazená doprava pro její hmotnost
+  const packProduct = catalog?.products.find(isSoupPack);
+  const packCold = packProduct ? coldShippingPrice(packProduct.variants[0]?.weightGrams ?? 1500) : null;
+  const soupPackOffer = packProduct?.variants[0] ? { priceKc: packProduct.variants[0].priceKc, coldShippingKc: packCold && packCold.ok ? packCold.priceKc : null } : null;
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
@@ -147,7 +153,7 @@ export default async function Page() {
         {/* Ochutnávka do provozu (20. 11. 2026): objednávka na e-shopu; dosavadní formulář zůstává jako druhá možnost */}
         {tastingSkus.length > 0 ? (
           <>
-            <CafeTastingForm available={tastingSkus} beginas={beginas} />
+            <CafeTastingForm available={tastingSkus} beginas={beginas} soupPack={soupPackOffer} />
             {/* 22. 11. 2026 (Lucie): tři otázky těsně před telefonním formulářem, odpověď po kliknutí */}
             <section aria-labelledby="kavarny-otazky" className="flex flex-col gap-3">
               <h2 id="kavarny-otazky" className="font-serif text-2xl text-[#2A2622]">{CAFE_FAQ_TITLE}</h2>
