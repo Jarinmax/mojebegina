@@ -13,7 +13,7 @@ export type ManualSection = {
 
 export const SALES_MANUAL_TITLE = "Begina – manuál pro obchodníky";
 export const SALES_MANUAL_SUBTITLE = "Co říkat kavárnám a bistrům při hovorech na leady";
-export const SALES_MANUAL_UPDATED = "23. 11. 2026";
+export const SALES_MANUAL_UPDATED = "24. 11. 2026";
 
 export const SALES_MANUAL_SECTIONS: ManualSection[] = [
   {
@@ -66,18 +66,20 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     ],
   },
   {
-    title: "První objednávka (jen pro kavárny a bistra)",
+    title: "Vzorky k první begině",
     items: [
       { text: "K první begině 3 l: 2 vzorky polévek (200 ml) a 2 vzorky sirupů (100 ml) zdarma." },
-      { text: "Vzorky si zaškrtnou na begina.cz na stránce Pro kavárny." },
-      { text: "Každý další vzorek stojí 49 Kč, z každého nejvýš 1 kus." },
-      { text: "Platí jednou na jeden podnik (IČO)." },
+      { text: "Platí k begině polévky, sirupu, Svařáku Deluxe nebo Lady Carneval." },
+      { text: "Pro kavárny, bistra i domácnosti, bez IČO. Jednou na zákazníka (hlídá se e-mail)." },
+      { text: "Další vzorky k begině po 49 Kč. Vzorky si vyberou na begina.cz na stránce Pro kavárny." },
+      { text: "Jen sirupy bez beginy: Ochutnávkový set sirupů 5 × 100 ml (349 Kč, i Zásilkovnou)." },
+      { text: "Jen polévky bez beginy: vzorky po 49 Kč po domluvě k vyzvednutí v bistru ve Viticích." },
     ],
   },
   {
     title: "Jak objednat",
     items: [
-      { text: "Objednávají sami na e-shopu begina.cz, na firmu i s IČO." },
+      { text: "Objednávají sami na e-shopu begina.cz. IČO vyplní, jen když chtějí nakupovat na firmu." },
       { text: "Posíláme chlazenou přepravou po celé ČR, nebo osobní odběr ve Viticích." },
       { text: "Za pravidelné objednávky sleva v partnerském programu 3–7 %." },
       { text: "Odpovědi na časté dotazy jsou na webu v menu O nás → Časté otázky." },

@@ -8,7 +8,7 @@
 import type { CatalogIndex } from "./catalogIndex";
 import { lineName } from "./productRules";
 import { withChoice } from "./tastingSet";
-import { CAFE_TASTING_MAX_PER_ITEM, freeTastingSkus, isCafeTastingSku } from "./cafeTasting";
+import { CAFE_TASTING_MAX_PER_ITEM, cartHasTastingBegina, freeTastingSkus, isCafeTastingSku } from "./cafeTasting";
 import type { Product, Variant } from "./types";
 
 export type CartLine = { sku: string; quantity: number };
@@ -92,9 +92,11 @@ export type ResolvedCartLine = CartLine & {
 
 /** Dohledá balení v katalogu pro zobrazení v prohlížeči; neznámá balení
  *  vynechá. Závazná cena se počítá až na serveru (priceCart). */
-export function resolveCartLines(cart: CartLine[], index: CatalogIndex): ResolvedCartLine[] {
-  // vzorky do provozu: 2 polévky + 2 sirupy zdarma (stejné pravidlo jako pricing.ts, 22. 11. 2026)
-  const free = freeTastingSkus(cart.map((line) => line.sku).filter(isCafeTastingSku));
+export function resolveCartLines(cart: CartLine[], index: CatalogIndex, options: { /** false = dárek už čerpal (zjistí pokladna podle e-mailu) */ tastingGiftEligible?: boolean } = {}): ResolvedCartLine[] {
+  // vzorky: 2 polévky + 2 sirupy zdarma jen k begině 3 l a jednou na zákazníka (stejné pravidlo jako pricing.ts, 24. 11. 2026)
+  const skus = cart.map((line) => line.sku);
+  const giftEligible = options.tastingGiftEligible !== false && cartHasTastingBegina(skus, (sku) => index.getVariant(sku));
+  const free = freeTastingSkus(skus.filter(isCafeTastingSku), giftEligible);
   return cart.flatMap((line) => {
     const found = index.getVariant(line.sku);
     if (!found) {

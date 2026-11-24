@@ -29,12 +29,13 @@ import { sendOrderEmails } from "@/lib/eshop/email/orderEmails";
 import { isEshopPublic } from "@/lib/eshop/storeMode";
 import { metaConsentFromCheckout } from "@/lib/eshop/metaPurchase";
 import { isAgentRequest } from "@/lib/site/hosts";
-import { CAFE_TASTING_ALREADY, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
-import { cafeTastingOrdered, recordCafeTastingLead } from "@/lib/eshop/cafeTastingServer";
+import { CAFE_TASTING_GIFT_USED, cartHasCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
+import { parseStoredCart } from "@/lib/eshop/cart";
+import { cafeTastingGiftAvailable, recordCafeTastingLead } from "@/lib/eshop/cafeTastingServer";
 import { findCardByMemberEmail, handoffSecret, loadHandoffPrefill, verifyHandoff } from "@/lib/eshop/customerHandoff";
 
 export type CheckoutState =
-  | { error: string }
+  | { error: string; /** vzorky zdarma už na tento e-mail čerpal — pokladna přepočítá na 49 Kč */ tastingGiftUsed?: boolean }
   | {
       confirmation: CheckoutValue;
       /** id uložené objednávky; null = neuloženo (Production bez povolení) */
@@ -106,6 +107,10 @@ export async function submitCheckoutAction(
   }
   const catalogIndex = await getCatalogIndex();
   const now = new Date();
+  // Vzorky zdarma k první begině jednou na zákazníka podle e-mailu (24. 11. 2026).
+  // Když kontrolu nejde provést (výpadek DB), dárek se nechá — Begina objednávku uvidí.
+  const tastingInCart = cartHasCafeTasting(parseStoredCart(field("cart")));
+  const tastingGiftEligible = tastingInCart ? (await cafeTastingGiftAvailable(db, field("email"))) !== false : true;
   // Partnerská sleva se odečte automaticky (Lucie 20. 11. 2026): zákazník nic
   // neuplatňuje. Pokud ji e-mail z pokladny nemá nebo nejde zkombinovat
   // s jiným kódem, objednávka projde bez ní (druhý pokus níže).
@@ -151,7 +156,7 @@ export async function submitCheckoutAction(
       pickupPointZip: field("pickupPointZip"),
     },
     catalogIndex,
-    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons, zasilkovna: zasilkovnaEnabledFromEnv(), slovakia: slovakiaEnabledFromEnv() }
+    { cardPaymentAvailable: stripe !== null, shippingMode: shippingModeFromEnv(), coupons, zasilkovna: zasilkovnaEnabledFromEnv(), slovakia: slovakiaEnabledFromEnv(), tastingGiftEligible }
     );
   };
   let result = autoPartnerCodes ? await validate(autoPartnerCodes) : await validate(requestedCouponCodes);
@@ -162,12 +167,11 @@ export async function submitCheckoutAction(
   }
   result.value.buyerOrganizationId = card ? card.organizationId : await findCardByMemberEmail(db, result.value.email);
 
-  // Ochutnávka do provozu (20. 11. 2026): jedna na jedno IČO. Když kontrolu nejde
-  // provést (výpadek DB), objednávka projde — Begina ji uvidí v upozornění.
+  // Zákazník v souhrnu viděl vzorky zdarma, ale dárek už na tento e-mail čerpal:
+  // objednávku neuložíme, ať před odesláním vidí správnou cenu (pokladna přepočítá).
   const tasting = result.value.pricedCart.lines.some((line) => isCafeTastingSku(line.sku));
-  const tastingIco = result.value.billing.company?.ico ?? null;
-  if (tasting && tastingIco && (await cafeTastingOrdered(db, tastingIco)) === true) {
-    return { error: CAFE_TASTING_ALREADY };
+  if (tasting && !tastingGiftEligible && field("tastingGiftShown") === "1") {
+    return { error: CAFE_TASTING_GIFT_USED, tastingGiftUsed: true };
   }
 
   if (!isOrderWriteEnabled()) {
@@ -192,16 +196,16 @@ export async function submitCheckoutAction(
     }
     const baseUrl = await currentBaseUrl();
     // Ochutnávka do provozu: lead v MojeBegina + upozornění na info@begina.cz (jen u nové objednávky).
-    if (tasting && tastingIco && !saved.alreadySaved) {
+    if (tasting && !saved.alreadySaved) {
       const value = result.value;
       await recordCafeTastingLead(
         db,
         {
           orderId: saved.orderId,
           orderNumber: saved.orderNumber,
-          venue: field("tastingVenue").trim().slice(0, 120),
+          venue: value.billing.company?.name ?? "",
           company: value.billing.company?.name ?? value.billing.name,
-          ico: tastingIco,
+          ico: value.billing.company?.ico ?? null,
           name: value.name,
           email: value.email,
           phone: value.phone,

@@ -35,7 +35,8 @@ import {
   type ZasilkovnaPoint,
 } from "@/lib/eshop/zasilkovna";
 import { choiceLine, isTastingSet } from "@/lib/eshop/tastingSet";
-import { isCafeTasting, isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
+import { isCafeTasting, isCafeTastingAlcohol, CAFE_TASTING_BEGINA_REMOVED, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_GIFT_USED_NOTE, cartHasCafeTasting, cartHasTastingBegina } from "@/lib/eshop/cafeTasting";
+import { checkTastingGiftAction } from "@/app/eshop/pro-kavarny/tastingActions";
 import { VAT_NOTE } from "@/lib/eshop/cafePage";
 import { SYRUP_BOX_INCLUDED_NOTE, isSyrup3l, zasilkovnaCartNote } from "@/lib/eshop/zasilkovna";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes, isBoxEligible } from "@/lib/eshop/boxOption";
@@ -218,36 +219,30 @@ export default function CheckoutForm({
     };
   }, [handoff]);
 
-  // Ochutnávka do provozu (20. 11. 2026): vždy na firmu s IČO; údaje z výběru
-  // na stránce Pro kavárny a bistra (IČO ověřené v ARES) se předvyplní.
+  // Vzorky k první begině (24. 11. 2026): pro všechny, bez IČO. Dárek jednou na
+  // zákazníka — jakmile je vyplněný e-mail, zeptáme se serveru, jestli ho už čerpal.
   const hasTasting = cartHasCafeTasting(cart);
-  const [tastingVenue, setTastingVenue] = useState("");
+  const tastingEmail = values.email.trim().toLowerCase();
+  const tastingEmailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(tastingEmail);
+  const [giftCheck, setGiftCheck] = useState<{ email: string; eligible: boolean } | null>(null);
   useEffect(() => {
-    if (!hasTasting) return;
-    let stored = null;
-    try {
-      stored = parseCafeTastingCompany(sessionStorage.getItem(CAFE_TASTING_COMPANY_STORAGE));
-    } catch {
-      stored = null;
-    }
-    const company = stored;
-    if (company) setTastingVenue(company.venue);
-    setValues((prev) => ({
-      ...prev,
-      companyPurchase: true,
-      ...(company
-        ? {
-            billingCompany: prev.billingCompany || company.company,
-            billingIco: prev.billingIco || company.ico,
-            billingDic: prev.billingDic || company.dic || "",
-            billingStreet: prev.billingStreet || company.street,
-            billingCity: prev.billingCity || company.city,
-            billingZip: prev.billingZip || company.zip,
-            billingCountry: "Česká republika",
-          }
-        : {}),
-    }));
-  }, [hasTasting]);
+    if (!hasTasting || !tastingEmailValid) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      checkTastingGiftAction(tastingEmail)
+        .then((eligible) => {
+          if (!cancelled) setGiftCheck({ email: tastingEmail, eligible });
+        })
+        .catch(() => undefined);
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [hasTasting, tastingEmail, tastingEmailValid]);
+  // server odmítl vzorky zdarma (dárek už čerpal) → hned ukázat cenu 49 Kč
+  const giftRefused = state !== null && state !== undefined && "error" in state && state.tastingGiftUsed === true;
+  const tastingGift = !giftRefused && !(tastingEmailValid && giftCheck?.email === tastingEmail && !giftCheck.eligible);
 
   function chooseLocation(id: string) {
     setLocationId(id);
@@ -292,8 +287,8 @@ export default function CheckoutForm({
   // Měření: pokladna na firmu (kavárny a bistra) — zaškrtnuto ručně,
   // předvyplněno z účtu kavárny nebo povinně u ochutnávky do podniku.
   useEffect(() => {
-    if (values.companyPurchase || hasTasting) trackCompanyCheckout();
-  }, [values.companyPurchase, hasTasting]);
+    if (values.companyPurchase) trackCompanyCheckout();
+  }, [values.companyPurchase]);
 
   useEffect(() => {
     if (confirmation) {
@@ -452,7 +447,9 @@ export default function CheckoutForm({
     return <p className="text-sm text-neutral-500">Načítám košík…</p>;
   }
 
-  const lines = resolveCartLines(cart, catalog);
+  const lines = resolveCartLines(cart, catalog, { tastingGiftEligible: tastingGift });
+  const tastingWithoutBegina = hasTasting && !cartHasTastingBegina(cart.map((line) => line.sku), (sku) => catalog.getVariant(sku));
+  const tastingGiftShown = lines.some((line) => isCafeTasting(line.product) && line.lineTotalKc === 0);
   const containsAgeRestricted = lines.some((line) => line.product.isAgeRestricted || isCafeTastingAlcohol(line.variant.sku));
   // Server objednávku s neověřenými alergeny odmítne (priceCart); tady jen
   // zákazníkovi řekneme proč, ještě před vyplněním formuláře.
@@ -574,6 +571,7 @@ export default function CheckoutForm({
     <PendingOrderNotice />
     <form action={formAction} onSubmitCapture={fillMetaSignals} className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 lg:gap-10 items-start">
       <input type="hidden" name="cart" value={JSON.stringify(cart)} />
+      <input type="hidden" name="tastingGiftShown" value={tastingGiftShown ? "1" : "0"} />
       <input type="hidden" name="couponCodes" value={JSON.stringify(appliedCodes)} />
       <input type="hidden" name="orderToken" value={orderToken} />
       {prefill && handoff && <input type="hidden" name="handoff" value={handoff} />}
@@ -622,23 +620,21 @@ export default function CheckoutForm({
             <input id="name" name="name" autoComplete="billing name" required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
           </div>
           {hasTasting && (
-            <>
-              <p className="rounded-lg border border-begina-primary-700/30 bg-begina-primary-50 px-3 py-2 text-sm text-begina-primary-900">{CAFE_TASTING_CHECKOUT_NOTE}</p>
-              <input type="hidden" name="tastingVenue" value={tastingVenue} />
-            </>
+            <p className="rounded-lg border border-begina-primary-700/30 bg-begina-primary-50 px-3 py-2 text-sm text-begina-primary-900">
+              {tastingGift ? CAFE_TASTING_CHECKOUT_NOTE : CAFE_TASTING_GIFT_USED_NOTE}
+            </p>
           )}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               name="companyPurchase"
-              checked={values.companyPurchase || hasTasting}
-              onChange={(e) => set("companyPurchase", hasTasting || e.target.checked)}
-              aria-disabled={hasTasting || undefined}
+              checked={values.companyPurchase}
+              onChange={(e) => set("companyPurchase", e.target.checked)}
               className="accent-begina-primary-900"
             />
-            Nakupuji na firmu{hasTasting ? " (u ochutnávky povinné)" : ""}
+            Nakupuji na firmu
           </label>
-          {(values.companyPurchase || hasTasting) && (
+          {values.companyPurchase && (
             <div className="flex flex-col gap-3">
               <div>
                 <label htmlFor="billingCompany" className={labelClass}>Název firmy</label>
@@ -908,6 +904,9 @@ export default function CheckoutForm({
       <aside className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl shadow-[0_4px_16px_rgba(20,80,40,0.08)] lg:sticky lg:top-20 overflow-hidden">
         <h2 className="font-serif text-xl text-emerald-900 px-5 py-3.5 bg-emerald-100 border-b border-emerald-200">Vaše objednávka</h2>
         <div className="p-5">
+        {tastingWithoutBegina && (
+          <p role="alert" className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{CAFE_TASTING_BEGINA_REMOVED}</p>
+        )}
         <ul className="text-sm divide-y divide-emerald-200/70">
           {lines.map((line) => {
             const sample = isCafeTasting(line.product);

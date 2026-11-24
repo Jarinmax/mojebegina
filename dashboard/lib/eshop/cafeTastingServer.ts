@@ -2,7 +2,7 @@ import "server-only";
 
 // Ochutnávka do provozu — serverová část (viz cafeTasting.ts):
 //   - viditelnost (před spuštěním jen náhled s cookie),
-//   - kontrola „jedna ochutnávka na jedno IČO“ (nestornované objednávky s balením ochutnávky),
+//   - kontrola „dárek jednou na zákazníka“ podle e-mailu (24. 11. 2026, dřív jednou na IČO),
 //   - po uložení objednávky lead v MojeBegina (zdroj web_ochutnavka) navázaný na
 //     objednávku a upozornění na info@begina.cz.
 import { createHash, randomUUID } from "node:crypto";
@@ -18,7 +18,7 @@ import { resendTransport, type EmailTransport } from "./email/resend";
 type Db = NeonHttpDatabase<typeof schema>;
 
 export const TASTING_AUTHOR_ID = "system:web-ochutnavka";
-export const TASTING_AUTHOR_NAME = "Web – ochutnávka do provozu (objednávka)";
+export const TASTING_AUTHOR_NAME = "Web – objednávka se vzorky";
 
 /** Je ochutnávka vidět? Po spuštění všem, před ním jen náhledu s cookie. */
 export async function cafeTastingVisible(): Promise<boolean> {
@@ -30,18 +30,28 @@ export async function cafeTastingVisible(): Promise<boolean> {
   }
 }
 
-/** Objednal už provoz s tímto IČO ochutnávku? null = nepodařilo se zjistit. */
-export async function cafeTastingOrdered(db: Db, ico: string): Promise<boolean | null> {
+/**
+ * Smí zákazník s tímto e-mailem dostat vzorky zdarma k první begině? (24. 11. 2026)
+ * Nárok vyčerpá jen objednávka, ve které vzorek zdarma skutečně byl (cena 0 Kč),
+ * a která není stornovaná ani nezaplacená platba kartou. Dřívější nákup setu
+ * sirupů nebo malého balení nárok nevyčerpá. Shoda adresy se nekontroluje.
+ * null = nepodařilo se zjistit (objednávka pak dárek dostane, Begina ji uvidí).
+ */
+export async function cafeTastingGiftAvailable(db: Db, email: string): Promise<boolean | null> {
+  const key = email.trim().toLowerCase();
+  if (!key) return true;
   try {
     const result = await db.execute(sql`
       SELECT 1 FROM orders o JOIN order_items oi ON oi.order_id = o.id
-      WHERE o.billing_ico = ${ico}
+      WHERE lower(trim(o.contact_email)) = ${key}
         AND o.fulfillment_status <> 'cancelled'
+        AND NOT (coalesce(o.payment_method_code, '') = 'karta' AND o.payment_status <> 'paid')
         AND oi.sku_snapshot LIKE ${`${CAFE_TASTING_SKU_PREFIX}%`}
+        AND oi.unit_price_kc = 0
       LIMIT 1`);
-    return (result.rows?.length ?? 0) > 0;
+    return (result.rows?.length ?? 0) === 0;
   } catch (error) {
-    console.error("Ochutnávka do provozu: kontrolu IČO se nepodařilo provést", String(error).slice(0, 200));
+    console.error("Vzorky: kontrolu dárku podle e-mailu se nepodařilo provést", String(error).slice(0, 200));
     return null;
   }
 }
@@ -51,7 +61,7 @@ export type TastingOrderInfo = {
   orderNumber: number | null;
   venue: string;
   company: string;
-  ico: string;
+  ico: string | null;
   name: string;
   email: string;
   phone: string;
@@ -69,9 +79,8 @@ const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "
 export function describeTastingOrder(info: TastingOrderInfo, submittedLabel: string): string {
   const items = info.items.filter((item) => isCafeTastingSku(item.sku)).map((item) => `- ${item.name}`);
   return [
-    `Objednávka ochutnávky do provozu${info.orderNumber ? ` č. ${info.orderNumber}` : ""} z webu begina.cz, ${submittedLabel}.`,
-    `Provoz: ${info.venue || info.company}`,
-    `Firma: ${info.company}, IČO ${info.ico}`,
+    `Objednávka se vzorky${info.orderNumber ? ` č. ${info.orderNumber}` : ""} z webu begina.cz, ${submittedLabel}.`,
+    info.ico ? `Firma: ${info.company}, IČO ${info.ico}` : `Zákazník: ${info.company} (bez IČO)`,
     `Jméno: ${info.name}`,
     `Telefon: ${info.phone}`,
     `E-mail: ${info.email}`,
@@ -136,7 +145,7 @@ export async function recordCafeTastingLead(
   if (config) {
     const internal = resolveRecipients(config.internalTo, config);
     const leadLine = leadId ? `\n\nKontakt v MojeBegina: ${options.baseUrl}/rizeni-firmy/obchod/leady/${leadId}${created ? " (nový lead)" : " (kontakt už v CRM byl)"}` : "\n\nLead se nepodařilo uložit – zapište ho prosím ručně.";
-    const text = `Nová objednávka ochutnávky do provozu.\n\n${body}${leadLine}`;
+    const text = `Nová objednávka se vzorky.\n\n${body}${leadLine}`;
     if (internal.to.length > 0) {
       const key = createHash("sha256").update(`${info.orderId}|ochutnavka`).digest("hex").slice(0, 40);
       const sent = await (options.transport ?? resendTransport(config.apiKey))(
@@ -144,7 +153,7 @@ export async function recordCafeTastingLead(
           from: config.from,
           to: internal.to,
           replyTo: info.email,
-          subject: `Ochutnávka do provozu – ${info.venue || info.company}${info.city ? ` (${info.city})` : ""}`,
+          subject: `Objednávka se vzorky – ${info.venue || info.company}${info.city ? ` (${info.city})` : ""}`,
           text,
           html: `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`,
         },
