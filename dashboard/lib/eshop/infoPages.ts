@@ -9,7 +9,6 @@
 import { formatKc } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethodsFor, type ShippingMode, type ShippingOptions } from "./shipping";
-import { ZASILKOVNA_BOX_KC, ZASILKOVNA_STANDARD_KC } from "./zasilkovna";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
 import { COLD_SHIPPING_SK_BANDS } from "./shippingRates";
 import { SLOVAKIA_DELIVERY_ALLOWED, SLOVAKIA_SELF_TRANSPORT, SLOVAKIA_SELF_TRANSPORT_NOTE, slovakiaEnabledFromEnv } from "./shipping";
@@ -199,7 +198,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
         tab: "ceska-republika",
         items: methods.map((method) =>
           method.id === "zasilkovna"
-            ? `${method.label} — sáčky sirupu za ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)} včetně krabice, jedna třílitrová begina sirupu za ${formatKc(ZASILKOVNA_STANDARD_KC)} (krabici už má). ${method.description}`
+            ? `${method.label} — ${method.description}`
             : byWeight && method.id === "rozvoz"
             ? `${method.label} — ${method.description}`
             : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
