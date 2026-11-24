@@ -10,6 +10,7 @@ const SIZE_LABEL: Record<string, string> = {
   "3l": "3 l",
   "650ml": "650 ml",
   "500ml": "500 ml",
+  "450ml": "450 ml",
   "250ml": "250 ml",
   "200ml": "200 ml",
   "100ml": "100 ml",
@@ -41,7 +42,7 @@ export const KIND_ROLL: Record<string, string> = {
 };
 
 const KIND_ORDER = ["slozeni", "predni-cervenocerne", "predni-cernobile", "predni-barevne", "ochutnavkovy-set"];
-const SIZE_ORDER = ["3l", "650ml", "500ml", "250ml", "200ml", "100ml"];
+const SIZE_ORDER = ["3l", "650ml", "500ml", "450ml", "250ml", "200ml", "100ml"];
 
 export function sizeLabel(size: string): string {
   return SIZE_LABEL[size] ?? size;
@@ -92,7 +93,7 @@ export function kindsFor(c: EtiketyCategory, size: string | null): WizardOption[
 // Co opravdu prodáváme (Lucie 23. 11. 2026). Ostatní objemy zůstávají
 // připravené, jen schované pod „Další objemy“.
 const SOLD_SIZES: Record<string, string[] | "all"> = {
-  polevky: ["3l", "200ml"],
+  polevky: ["3l", "450ml", "200ml"],
   sirupy: "all",
   "ovocne-napoje": ["3l"],
   caje: ["3l"],
