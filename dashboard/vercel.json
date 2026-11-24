@@ -107,6 +107,10 @@
     {
       "path": "/api/cron/idoklad-archiv?beh=4",
       "schedule": "40 19 * * *"
+    },
+    {
+      "path": "/api/cron/auto-doruceno",
+      "schedule": "40 17 * * *"
     }
   ]
 }
