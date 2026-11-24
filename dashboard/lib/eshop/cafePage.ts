@@ -149,7 +149,7 @@ export const CAFE_FAQ_TITLE = "Časté otázky";
 export const CAFE_FAQ: { question: string; answer: string }[] = [
   {
     question: "Co dostaneme k první begině zdarma?",
-    answer: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí pro kavárny, bistra i domácnosti, bez IČO, jednou na zákazníka. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus.",
+    answer: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí pro kavárny, bistra i domácnosti, jednou na zákazníka. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus.",
   },
   {
     question: "Kdy nám objednávka dorazí?",
@@ -157,7 +157,7 @@ export const CAFE_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
-    answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 2 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu.",
+    answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 5 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu.",
   },
 ];
 export const CAFE_FAQ_ALL = { label: "Všechny časté otázky", href: "/caste-otazky" } as const;
@@ -187,7 +187,7 @@ export const SOUPS_CATEGORY_SEO = {
 /** Nabídka nahoře na Pro kavárny a bistra (Lucie 22. 11. 2026). */
 export const CAFE_OFFER = {
   title: "První objednávka: 1 begina + 4 vzorky zdarma",
-  text: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Další vzorky po 49 Kč. Platí jednou na zákazníka, IČO vyplňovat nemusíte.",
+  text: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Další vzorky po 49 Kč. Platí jednou na zákazníka.",
   orderButton: "Objednat první beginu",
   callButton: "Chci, abyste mi zavolali",
   tableNote: "Begina polévky 3 l stojí 379 Kč a vystačí na 12 porcí po 250 ml. Doprava se řídí hmotností objednávky; příklady platí bez slevy. Osobní odběr ve Viticích je po domluvě zdarma.",

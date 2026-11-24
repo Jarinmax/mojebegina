@@ -29,7 +29,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Jak dlouho vydrží polévka po otevření?",
     answer:
-      "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 2 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu.",
+      "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 5 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu.",
   },
   {
     question: "Jsou vaše polévky veganské?",
@@ -50,7 +50,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Jak ochutnat polévky a sirupy?",
     answer:
-      "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí k begině 3 l polévky, sirupu, Svařáku Deluxe nebo Lady Carneval, pro kavárny, bistra i domácnosti, bez IČO. Dárek získáte jednou, i když v první objednávce koupíte víc begin. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích. Chcete ochutnat jen sirupy? Vyberte si 5 příchutí v Ochutnávkovém setu sirupů 5 × 100 ml. Vzorky polévek po 200 ml za 49 Kč si můžete po domluvě vyzvednout v Zahradním bistru Begina ve Viticích.",
+      "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí k begině 3 l polévky, sirupu, Svařáku Deluxe nebo Lady Carneval, pro kavárny, bistra i domácnosti. Dárek získáte jednou, i když v první objednávce koupíte víc begin. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích. Chcete ochutnat jen sirupy? Vyberte si 5 příchutí v Ochutnávkovém setu sirupů 5 × 100 ml. Vzorky polévek po 200 ml za 49 Kč si můžete po domluvě vyzvednout v Zahradním bistru Begina ve Viticích.",
   },
   {
     question: "Mají kavárny a bistra zvláštní ceník?",
