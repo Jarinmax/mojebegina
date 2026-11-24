@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ETIKETY_NAMES } from "@/lib/etikety/structure";
 import {
+  isSoldSize,
   KIND_ROLL,
   categoriesFor,
   categoryFixedSize,
@@ -151,22 +152,31 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
             key={c.slug}
             href={url({ jazyk: lang, kat: c.slug })}
             title={categoryLabel(c)}
-            sub={sizesFor(c).length ? sizesFor(c).map(sizeLabel).join(" · ") : categoryFixedSize(c)}
+            sub={sizesFor(c).length ? sizesFor(c).filter((s) => isSoldSize(c, s)).map(sizeLabel).join(" · ") : categoryFixedSize(c)}
           />
         ))}
       </div>
     );
   } else if (!sizeChosen) {
+    const sizeTile = (s: string) => (
+      <Tile
+        key={s}
+        href={url({ jazyk: lang, kat: cat.slug, vel: s })}
+        title={sizeLabel(s)}
+        sub={countLabel(fileCount(kindsFor(cat, s).map((k) => k.folder)))}
+      />
+    );
+    const sold = sizes.filter((s) => isSoldSize(cat, s));
+    const other = sizes.filter((s) => !isSoldSize(cat, s));
     step = (
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {sizes.map((s) => (
-          <Tile
-            key={s}
-            href={url({ jazyk: lang, kat: cat.slug, vel: s })}
-            title={sizeLabel(s)}
-            sub={countLabel(fileCount(kindsFor(cat, s).map((k) => k.folder)))}
-          />
-        ))}
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{sold.map(sizeTile)}</div>
+        {other.length > 0 && (
+          <details>
+            <summary className="cursor-pointer text-sm text-neutral-500">Další objemy (zatím neprodáváme)</summary>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">{other.map(sizeTile)}</div>
+          </details>
+        )}
       </div>
     );
   } else if (!option) {
