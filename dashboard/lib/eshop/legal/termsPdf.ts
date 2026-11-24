@@ -168,7 +168,7 @@ export function missingGlyphs(text: string, font: PDFFont): string[] {
   return [...new Set([...text].filter((ch) => !/\s/.test(ch) && !have.has(ch.codePointAt(0)!)))];
 }
 
-type RenderMeta = { header: string; title: string; subject: string; fixedDate: Date };
+export type RenderMeta = { header: string; title: string; subject: string; fixedDate: Date };
 
 async function render(version: TermsVersion): Promise<Uint8Array> {
   return renderDocument(termsDocument(version), {
@@ -179,7 +179,7 @@ async function render(version: TermsVersion): Promise<Uint8Array> {
   });
 }
 
-async function renderDocument(lines: DocLine[], meta: RenderMeta): Promise<Uint8Array> {
+export async function renderDocument(lines: DocLine[], meta: RenderMeta): Promise<Uint8Array> {
   const doc = await PDFDocument.create({ updateMetadata: false });
   doc.registerFontkit(fontkit);
   const regular = await doc.embedFont(Buffer.from(BEGINA_PDF_SANS_REGULAR, "base64"), {
