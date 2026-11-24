@@ -3,8 +3,8 @@
 // Vzorky k první begině (20. 11. 2026, přepracováno 24. 11. 2026) — begina 3 l,
 // výběr vzorků (z každého nejvýš 1 kus), průběžný součet, pak do košíku a rovnou
 // do pokladny. Bez IČO; nárok na dárek ověří pokladna podle e-mailu.
-// Pod tím „Chci jen ochutnat“: set sirupů, vzorky polévek ve Viticích
-// a (po spuštění) Ochutnávka polévek 3 × 450 ml. Pravidla a texty: lib/eshop/cafeTasting.ts.
+// Nahoře rozcestník (24. 11. 2026): „Chci celé balení“ / „Chci jen ochutnat“
+// (Ochutnávka polévek 3 × 450 ml, set sirupů, vzorky polévek ve Viticích). Pravidla a texty: lib/eshop/cafeTasting.ts.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -12,16 +12,16 @@ import {
   CAFE_TASTING_EXTRA_TEXT,
   CAFE_TASTING_ONCE_TEXT,
   CAFE_TASTING_SOUPS_ONLY_TEXT,
-  CAFE_TASTING_SYRUPS_ONLY_HEADING,
   CAFE_TASTING_SYRUPS_ONLY_LINK,
-  CAFE_TASTING_SYRUPS_ONLY_TEXT,
   CAFE_TASTING_CREDIT_ENABLED,
   CAFE_TASTING_CREDIT_TEXT,
   CAFE_TASTING_DELIVERY,
   CAFE_TASTING_HEADING,
+  CAFE_TASTING_CHOOSE_HEADING,
+  CAFE_TASTING_FOR_ALL_TEXT,
+  CAFE_TASTING_GIFT_TEXT,
   CAFE_TASTING_BEGINA_HEADING,
   CAFE_TASTING_NEED_BEGINA_PICK,
-  CAFE_TASTING_INTRO,
   CAFE_TASTING_ITEMS,
   CAFE_TASTING_NEED_ITEM,
   CAFE_TASTING_SOUPS_HEADING,
@@ -36,7 +36,7 @@ import {
   type CafeTastingItem,
 } from "@/lib/eshop/cafeTasting";
 import { SET_SLUG } from "@/lib/eshop/tastingSet";
-import { SOUP_PACK_BUTTON, SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_TEXT, SOUP_PACK_TITLE } from "@/lib/eshop/soupPack";
+import { SOUP_PACK_BUTTON, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_TITLE } from "@/lib/eshop/soupPack";
 import { formatKc } from "@/lib/format";
 import ShopLink from "./ShopLink";
 import { useCart } from "./useCart";
@@ -136,9 +136,47 @@ export default function CafeTastingForm({
 
   return (
     <section id="ochutnavka" className="rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-5 scroll-mt-24">
+      {/* 24. 11. 2026 (Lucie): rozcestník hned nahoře — kdo chce jen ochutnat, nemusí scrollovat přes výběr beginy */}
       <div>
-        <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_TASTING_HEADING}</h2>
-        <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_INTRO}</p>
+        <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_TASTING_CHOOSE_HEADING}</h2>
+        <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_FOR_ALL_TEXT}</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl bg-white border-2 border-[#5E6B34] p-4 flex flex-col">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#4A5527]">Chci celé balení</p>
+          <h3 className="mt-1 font-semibold text-lg text-[#2A2622]">Begina 3 l + 4 vzorky zdarma</h3>
+          <p className="mt-1 text-base text-neutral-700 flex-1">{CAFE_TASTING_GIFT_TEXT}</p>
+          <a href="#vyber-beginy" className="mt-3 inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-5 h-11 text-base">
+            Vybrat beginu a vzorky ↓
+          </a>
+        </div>
+        <div className="rounded-xl bg-white border border-[#EDE5D8] p-4 flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#4A5527]">Chci jen ochutnat</p>
+          {soupPack && (
+            <div>
+              <h3 className="font-semibold text-base text-[#2A2622]">{SOUP_PACK_TITLE}</h3>
+              <p className="text-sm text-neutral-700">
+                {SOUP_PACK_PICKUP_LABEL} {formatKc(soupPack.priceKc)}
+                {soupPack.coldShippingKc !== null && <> · s chlazenou dopravou {formatKc(soupPack.priceKc + soupPack.coldShippingKc)}</>}
+              </p>
+              <ShopLink href={`/produkt/${SOUP_PACK_SLUG}`} className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-[#2F3B1E] text-white font-semibold px-4 h-11 text-base">
+                {SOUP_PACK_BUTTON}
+              </ShopLink>
+            </div>
+          )}
+          <div>
+            <h3 className="font-semibold text-base text-[#2A2622]">Ochutnávkový set sirupů 5 × 100 ml</h3>
+            <p className="text-sm text-neutral-700">349 Kč, poslat jde i Zásilkovnou.</p>
+            <ShopLink href={`/produkt/${SET_SLUG}`} className="mt-2 inline-flex w-full items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] font-semibold px-4 h-11 text-base">
+              {CAFE_TASTING_SYRUPS_ONLY_LINK}
+            </ShopLink>
+          </div>
+          <p className="text-xs text-neutral-600">{CAFE_TASTING_SOUPS_ONLY_TEXT}</p>
+        </div>
+      </div>
+      <div id="vyber-beginy" className="border-t border-[#EDE5D8] pt-5 scroll-mt-24">
+        <h3 className="font-serif text-xl text-[#2A2622]">{CAFE_TASTING_HEADING}</h3>
+        <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_GIFT_TEXT}</p>
         <p className="mt-1 text-sm text-neutral-600">{CAFE_TASTING_ONCE_TEXT}</p>
       </div>
       {beginas.length > 0 && (
@@ -204,39 +242,6 @@ export default function CafeTastingForm({
         Pokračovat k objednávce
       </button>
 
-      {/* Zadání 24. 11. 2026: kdo nechce celou beginu */}
-      <div className="border-t border-[#EDE5D8] pt-5 flex flex-col gap-4">
-        <h3 className="font-serif text-xl text-[#2A2622]">Chci jen ochutnat</h3>
-        {soupPack && (
-          <div className="rounded-xl bg-white border border-[#EDE5D8] p-4">
-            <h4 className="font-semibold text-lg text-[#2A2622]">{SOUP_PACK_TITLE}</h4>
-            <p className="mt-1 text-base text-neutral-700">{SOUP_PACK_TEXT}</p>
-            <ul className="mt-3 flex flex-col gap-1 text-base">
-              <li className="flex justify-between gap-3">
-                <span>{SOUP_PACK_PICKUP_LABEL}</span>
-                <strong className="tabular-nums whitespace-nowrap">{formatKc(soupPack.priceKc)}</strong>
-              </li>
-              {soupPack.coldShippingKc !== null && (
-                <li className="flex justify-between gap-3">
-                  <span>{SOUP_PACK_DELIVERY_LABEL}</span>
-                  <strong className="tabular-nums whitespace-nowrap">{formatKc(soupPack.priceKc + soupPack.coldShippingKc)}</strong>
-                </li>
-              )}
-            </ul>
-            <ShopLink href={`/produkt/${SOUP_PACK_SLUG}`} className="mt-3 inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-[#2F3B1E] text-white font-semibold px-6 h-11 text-base">
-              {SOUP_PACK_BUTTON}
-            </ShopLink>
-          </div>
-        )}
-        <div className="rounded-xl bg-white border border-[#EDE5D8] p-4">
-          <h4 className="font-semibold text-lg text-[#2A2622]">{CAFE_TASTING_SYRUPS_ONLY_HEADING}</h4>
-          <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_SYRUPS_ONLY_TEXT}</p>
-          <ShopLink href={`/produkt/${SET_SLUG}`} className="mt-3 inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] font-semibold px-5 h-11 text-base">
-            {CAFE_TASTING_SYRUPS_ONLY_LINK}
-          </ShopLink>
-        </div>
-        <p className="text-base text-neutral-700">{CAFE_TASTING_SOUPS_ONLY_TEXT}</p>
-      </div>
     </section>
   );
 }

@@ -25,8 +25,11 @@ describe("úvod e-shopu", () => {
     const body = text(document.body.textContent);
     expect(body).toContain("Polévku stačí ohřát, sirup naředit.");
     expect(body).toContain("Posíláme chlazeně po celé ČR.");
-    expect(body).toContain("K první třílitrové begině na IČO přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.");
-    expect(screen.getByRole("link", { name: /Vybrat polévky a nápoje/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#ochutnavka");
+    expect(body).toContain("K první begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.");
+    expect(screen.getByRole("link", { name: /Vybrat první beginu 3 l/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#vyber-beginy");
+    // 24. 11. 2026: druhá možnost hned v úvodu
+    expect(screen.getByRole("link", { name: /Ochutnat 3 polévky/ }).getAttribute("href")).toBe("/eshop/produkt/ochutnavka-polevek-3x450");
+    expect(body).toContain("3 × 450 ml za 299 Kč + chlazená doprava");
     expect(screen.getByRole("link", { name: /Domluvit dodávky po telefonu/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#napiste-nam");
     expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box|dovážíme/i);
   });

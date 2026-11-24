@@ -82,9 +82,14 @@ export default async function Page() {
         <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622]">{CAFE_OFFER.title}</h2>
         <p className="text-lg leading-normal text-neutral-800">{CAFE_OFFER.text}</p>
         <div className="flex flex-wrap gap-3">
-          <a href="#ochutnavka" className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
+          <a href="#vyber-beginy" className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
             {CAFE_OFFER.orderButton}
           </a>
+          {soupPackOffer && (
+            <ShopLink href="/produkt/ochutnavka-polevek-3x450" className="inline-flex items-center justify-center rounded-lg border-2 border-[#4A5527] bg-white text-[#4A5527] font-semibold px-6 h-12 text-base">
+              Ochutnat 3 polévky
+            </ShopLink>
+          )}
           <a href="#napiste-nam" className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] hover:bg-white font-semibold px-6 h-12 text-base">
             {CAFE_OFFER.callButton}
           </a>
