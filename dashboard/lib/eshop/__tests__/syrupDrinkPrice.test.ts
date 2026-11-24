@@ -14,7 +14,7 @@ describe("modelová cena nápoje ze sirupu (23. 11. 2026)", () => {
   });
   it("kategorie Sirupy: závorka rozdělená na dvě věty", () => {
     expect(nb(withSyrupDrinkPrice("Vybrat si můžete třílitrovou beginu s kohoutkem (až 150 nápojů, nápoj už od 3,30 Kč). Zázvorový a lipový sirup máme i v sáčku."))).toBe(
-      "Vybrat si můžete třílitrovou beginu s kohoutkem. Z jedné třílitrové beginy připravíte až 150 nápojů. Při objednávce 3 × 3 l vyjde jeden nápoj o objemu 200 ml od 3,92 Kč včetně dopravy. Zázvorový a lipový sirup máme i v sáčku."
+      "Vybrat si můžete třílitrovou beginu s kohoutkem. Z jedné třílitrové beginy připravíte až 150 nápojů. Při objednávce 3 × 3 l vás jedna sklenice (20 ml sirupu doplněných vodou na 200 ml) vyjde od 3,92 Kč včetně dopravy. Zázvorový a lipový sirup máme i v sáčku."
     );
   });
   it("detail sirupu: cena nápoje s „bez dopravy“", () => {
