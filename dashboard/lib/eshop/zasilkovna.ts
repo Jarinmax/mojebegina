@@ -55,6 +55,15 @@ const POUCH_CATEGORY = "sirupy";
 // 22. 11. 2026 (Lucie): sáček sirupu nově 500 ml; 650 ml do spuštění SQL vyprodano-650-500.
 const POUCH_VOLUMES_ML: readonly number[] = [500, 650];
 
+// 24. 11. 2026 (Lucie): Zásilkovnou jde i JEDNA třílitrová begina sirupu —
+// sirupy 3 l posíláme vždy v jejich kartonové krabici (je v hmotnosti 3 826 g),
+// takže se krabice Zásilkovny nepřičítá: cena = jen přeprava (89 Kč do 5 kg).
+// Dvě a víc begin sirupu nebo begina s čímkoli dalším = jen chlazená přeprava.
+const SYRUP_3L_ML = 3000;
+export function isSyrup3l(product: { category: string }, variant: { volumeMl: number | null }): boolean {
+  return product.category === POUCH_CATEGORY && variant.volumeMl === SYRUP_3L_ML;
+}
+
 export function isSyrupPouch(product: { category: string }, variant: { volumeMl: number | null }): boolean {
   return product.category === POUCH_CATEGORY && variant.volumeMl !== null && POUCH_VOLUMES_ML.includes(variant.volumeMl);
 }
@@ -65,11 +74,21 @@ const isSetLine = (line: Line) => line.product.slug !== undefined && isTastingSe
 
 export type ZasilkovnaQuote =
   | { available: true; priceKc: number; weightGrams: number; pouches: number }
-  | { available: false; reason: "empty" | "other_goods" | "too_many" | "missing_weight" | "over_limit" };
+  | { available: false; reason: "empty" | "other_goods" | "too_many" | "syrup_3l_single" | "missing_weight" | "over_limit" };
 
 /** Nabídka Zásilkovny pro košík: cena včetně krabice, nebo důvod, proč ji nabídnout nejde. */
 export function quoteZasilkovna(lines: readonly Line[]): ZasilkovnaQuote {
   if (lines.length === 0) return { available: false, reason: "empty" };
+  // Begina sirupu 3 l: jen jedna a sama (vlastní krabice, bez příplatku za krabici).
+  const syrup3l = lines.filter((line) => isSyrup3l(line.product, line.variant));
+  if (syrup3l.length > 0) {
+    const count = syrup3l.reduce((sum, line) => sum + line.quantity, 0);
+    if (count !== 1 || lines.length !== 1) return { available: false, reason: "syrup_3l_single" };
+    const grams = syrup3l[0].variant.weightGrams;
+    if (grams === null || grams <= 0) return { available: false, reason: "missing_weight" };
+    if (grams > ZASILKOVNA_OVERSIZE_MAX_GRAMS) return { available: false, reason: "over_limit" };
+    return { available: true, priceKc: grams <= ZASILKOVNA_STANDARD_MAX_GRAMS ? ZASILKOVNA_STANDARD_KC : ZASILKOVNA_OVERSIZE_KC, weightGrams: grams, pouches: 0 };
+  }
   // Ochutnávkový set sirupů (17. 11. 2026): jde Zásilkovnou sám i se sáčky
   // 650 ml. Set dopravu nezdražuje: se sáčky platí cena sáčků, set za
   // úvodní cenu má dopravu v ceně (0 Kč), set za běžnou cenu standardní cenu.
@@ -93,13 +112,23 @@ export function quoteZasilkovna(lines: readonly Line[]): ZasilkovnaQuote {
   return { available: true, priceKc: onlyCampaignSets ? 0 : carrierKc + ZASILKOVNA_BOX_KC, weightGrams, pouches };
 }
 
-/** Věta o doručení na stránce produktu (14. 11. 2026, Lucie): sirupy se sáčkem 650 ml jdou i Zásilkovnou. */
+/** Věta o doručení na stránce produktu (14. 11. 2026, Lucie): sirupy jdou i Zásilkovnou. */
 export const DELIVERY_NOTE_COLD = "Tento produkt posíláme chlazeně po celé ČR.";
 export function productDeliveryNote(
   product: { category: string; variants: readonly { volumeMl: number | null; soldOut?: boolean }[] },
   zasilkovna: boolean
 ): string {
-  // vyprodaný sáček (sold_out) Zásilkovnou nenabízíme
-  if (!zasilkovna || !product.variants.some((variant) => variant.soldOut !== true && isSyrupPouch(product, variant))) return DELIVERY_NOTE_COLD;
-  return `Posíláme chlazeně po celé ČR. Sáčky se sirupem (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"}) můžeme poslat i Zásilkovnou na výdejní místo.`;
+  // vyprodané balení Zásilkovnou nenabízíme
+  const available = product.variants.filter((variant) => variant.soldOut !== true);
+  const pouch = available.some((variant) => isSyrupPouch(product, variant));
+  const big = available.some((variant) => isSyrup3l(product, variant));
+  if (!zasilkovna || (!pouch && !big)) return DELIVERY_NOTE_COLD;
+  const parts = [
+    ...(pouch ? [`sáčky se sirupem (až ${ZASILKOVNA_MAX_POUCHES} ${ZASILKOVNA_MAX_POUCHES >= 5 ? "kusů" : "kusy"})`] : []),
+    ...(big ? ["jednu beginu 3 l"] : []),
+  ];
+  return `Posíláme chlazeně po celé ČR. ${parts.join(" nebo ").replace(/^./, (c) => c.toUpperCase())} můžeme poslat i Zásilkovnou na výdejní místo.`;
 }
+
+/** Věta u sirupu 3 l v košíku a pokladně (24. 11. 2026, Lucie): krabice je vždy v ceně. */
+export const SYRUP_BOX_INCLUDED_NOTE = "Sirup posíláme vždy v kartonové krabici — krabice je už v ceně.";

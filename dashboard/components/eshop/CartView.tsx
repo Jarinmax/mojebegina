@@ -17,6 +17,7 @@ import { useCoupons } from "./useCoupons";
 import { cartShippingHint } from "@/lib/eshop/shippingHint";
 import { useState } from "react";
 import { BOX_PRICE_KC, boxesFromSelection, isBoxEligible } from "@/lib/eshop/boxOption";
+import { SYRUP_BOX_INCLUDED_NOTE, isSyrup3l } from "@/lib/eshop/zasilkovna";
 import { useCartBoxes } from "./useCartBoxes";
 
 export default function CartView({ weightShipping = false, zasilkovna = false }: { weightShipping?: boolean; zasilkovna?: boolean }) {
@@ -90,6 +91,9 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
                 <p className="text-xs text-begina-accent-900 mt-1" role="alert">
                   {NOT_ORDERABLE_NOTICE} Odeberte ho prosím z košíku.
                 </p>
+              )}
+              {isSyrup3l(line.product, line.variant) && (
+                <p className="mt-2 flex items-center gap-2 text-sm text-neutral-600">📦 {SYRUP_BOX_INCLUDED_NOTE}</p>
               )}
               {isBoxEligible(line.product, line.variant) && (
                 <label className="mt-2 flex items-center gap-2 text-sm cursor-pointer">

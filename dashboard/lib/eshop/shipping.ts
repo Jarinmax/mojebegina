@@ -67,13 +67,13 @@ const COLD_BY_WEIGHT: ShippingMethod = {
   requiresAddress: true,
 };
 
-// Zásilkovna (13. 11. 2026) — jen pro kapsičky sirupu 650 ml, pravidla a cena
+// Zásilkovna (13. 11. 2026) — sáčky sirupu, od 24. 11. i jedna begina sirupu 3 l; pravidla a cena
 // v zasilkovna.ts. Zapíná se proměnnou ESHOP_ZASILKOVNA=on.
 export const ZASILKOVNA_METHOD_ID = "zasilkovna";
 const ZASILKOVNA: ShippingMethod = {
   id: "zasilkovna",
   label: "Zásilkovna – výdejní místo nebo Z-BOX",
-  description: `Jen pro sirupy v kapsičce 650 ml (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce)${SET_LAUNCHED ? " a ochutnávkový set sirupů" : ""}. Cena je včetně krabice.`,
+  description: `Jen pro sirupy: sáčky (nejvýše ${ZASILKOVNA_MAX_POUCHES} ks v objednávce)${SET_LAUNCHED ? ", ochutnávkový set sirupů" : ""} nebo jedna begina sirupu 3 l. Cena je včetně krabice.`,
   priceKc: 0,
   requiresAddress: false,
   requiresPickupPoint: true,
@@ -225,8 +225,10 @@ export function quoteZasilkovnaShipping(lines: Parameters<typeof quoteZasilkovna
   const message =
     quote.reason === "too_many"
       ? `Zásilkovnou posíláme nejvýše ${ZASILKOVNA_MAX_POUCHES} ks sirupu v kapsičce v jedné objednávce. Zvolte prosím chlazenou přepravu, nebo objednávku rozdělte.`
+      : quote.reason === "syrup_3l_single"
+        ? "Zásilkovnou pošleme jen jednu beginu sirupu 3 l samotnou. Dvě a více begin (nebo beginu s dalším zbožím) doručujeme chlazenou přepravou."
       : quote.reason === "other_goods"
-        ? `Zásilkovnou posíláme jen sirupy v kapsičce 650 ml${SET_LAUNCHED ? " a ochutnávkový set sirupů" : ""}. Ostatní zboží doručujeme chlazenou přepravou.`
+        ? `Zásilkovnou posíláme jen sirupy v sáčku${SET_LAUNCHED ? ", ochutnávkový set sirupů" : ""} nebo jednu beginu sirupu 3 l. Ostatní zboží doručujeme chlazenou přepravou.`
         : "Cenu Zásilkovny pro tento košík nejde spočítat. Zvolte prosím jiný způsob doručení.";
   return { available: false, reason: quote.reason === "missing_weight" ? "missing_weight" : quote.reason === "over_limit" ? "over_limit" : "not_eligible", message, weightGrams: null };
 }
