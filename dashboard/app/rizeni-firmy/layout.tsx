@@ -11,6 +11,7 @@ import { isSalesOnly, salesOnlyPathAllowed, SALES_ONLY_HOME } from "@/lib/data/s
 import { getAuthContext } from "@/lib/data/authContext";
 import { isAdminOrExecutive } from "@/lib/data/adminAuth";
 import CompanyOverviewHeader from "@/components/company-overview/CompanyOverviewHeader";
+import TeamOptOut from "@/components/TeamOptOut";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function CompanyOverviewLayout({
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <TeamOptOut />
       <CompanyOverviewHeader
         name={ctx.name}
         email={ctx.email}

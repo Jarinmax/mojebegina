@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isAdmin } from "@/lib/data/adminAuth";
 import AdminHeader from "@/components/admin/AdminHeader";
+import TeamOptOut from "@/components/TeamOptOut";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <TeamOptOut />
       <AdminHeader name={ctx.name} email={ctx.email} showRoleSwitch={ctx.grantedRoles.length > 1} />
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
     </div>

@@ -13,10 +13,15 @@ let landingNoted = false;
 
 function optedOut(): boolean {
   if (typeof document === "undefined") return true;
+  // Automaticky řízený prohlížeč (testy, kontroly webu) se nepočítá.
+  if (typeof navigator !== "undefined" && navigator.webdriver) return true;
   const params = new URLSearchParams(window.location.search);
+  // Cookie pro celé begina.cz (www i moje), ať platí všude.
+  const domain = window.location.hostname.endsWith("begina.cz") ? "; Domain=.begina.cz" : "";
   if (params.get("nemerit") === "1") {
-    document.cookie = `${OPT_OUT_COOKIE}=1; Max-Age=${60 * 60 * 24 * 400}; Path=/; SameSite=Lax; Secure`;
+    document.cookie = `${OPT_OUT_COOKIE}=1; Max-Age=${60 * 60 * 24 * 400}; Path=/; SameSite=Lax; Secure${domain}`;
   } else if (params.get("nemerit") === "0") {
+    document.cookie = `${OPT_OUT_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax; Secure${domain}`;
     document.cookie = `${OPT_OUT_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
   }
   return hasOptOutCookie(document.cookie);

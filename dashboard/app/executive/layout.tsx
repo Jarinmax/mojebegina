@@ -9,6 +9,7 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { isExecutive } from "@/lib/data/adminAuth";
 import { isSalesOnly, SALES_ONLY_HOME } from "@/lib/data/salesOnlyAuth";
 import ExecutiveHeader from "@/components/executive/ExecutiveHeader";
+import TeamOptOut from "@/components/TeamOptOut";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function ExecutiveLayout({
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <TeamOptOut />
       <ExecutiveHeader
         name={ctx.name}
         email={ctx.email}
