@@ -64,7 +64,7 @@ describe("Zásilkovna — zapnutí a nabídka", () => {
   it("stránka Doprava ji uvádí jen zapnutou, s cenou 104 Kč", () => {
     const items = (page: ReturnType<typeof shippingPageFor>) => (page.blocks ?? []).flatMap((b) => b.items ?? []).join("\n");
     expect(items(shippingPageFor("weight"))).not.toContain("Zásilkovna");
-    expect(items(shippingPageFor("weight", { zasilkovna: true }))).toMatch(/Zásilkovna – výdejní místo nebo Z-BOX — sáčky sirupu 104\sKč včetně krabice, jedna begina sirupu 3 l 89\sKč/);
+    expect(items(shippingPageFor("weight", { zasilkovna: true }))).toMatch(/Zásilkovna – výdejní místo nebo Z-BOX — sáčky sirupu za 104\sKč včetně krabice, jedna třílitrová begina sirupu za 89\sKč/);
   });
 });
 
