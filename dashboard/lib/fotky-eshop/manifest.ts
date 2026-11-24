@@ -85,6 +85,9 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "rajcatova-polevka.jpg",
     "spenatova-polevka.jpg"
   ],
+  "polevky/ochutnavka": [
+    "ochutnavka-polevek-3x450.jpg"
+  ],
   "sirupy/begina-3l": [
     "bylinny-sirup-saman.jpg",
     "hermankovy-sirup.jpg",

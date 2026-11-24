@@ -43,6 +43,13 @@ export default function InfoPageView({ page, children }: { page: InfoPage; child
               {block.paragraphs?.map((text, j) => (
                 <Fragment key={text}>
                   <p className="mb-2">{linkify(text)}</p>
+                  {j === 0 && block.linkAfterFirst && (
+                    <p className="mb-3">
+                      <ShopLink href={block.linkAfterFirst.href} className="font-semibold text-[#4A5527] underline underline-offset-4">
+                        {block.linkAfterFirst.label} →
+                      </ShopLink>
+                    </p>
+                  )}
                   {j === 0 && block.image && (
                     <Image
                       src={block.image.src}

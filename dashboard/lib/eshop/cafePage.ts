@@ -47,7 +47,7 @@ export const CAFE_COMING_SOON = "Připravujeme";
 export const CAFE_STEPS = [
   { title: "1 begina + 4 vzorky zdarma", text: "Objednáte si první beginu a my přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích." },
   // Objednávky jdou přes e-shop a chlazenou přepravu, žádné „závozy“ (Lucie 18. 11. 2026)
-  { title: "Objednávka na e-shopu", text: "Objednáte, co vám chutnalo, přímo tady na e-shopu, na firmu i s IČO." },
+  { title: "Objednávka na e-shopu", text: "Polévky a nápoje, které Vám chutnaly, si objednáte přímo na e-shopu." },
   { title: "Sleva za pravidelné objednávky", text: "Čím víc objednáte, tím větší slevu dostanete v partnerském programu (3 až 7 %)." },
 ] as const;
 
@@ -157,7 +157,7 @@ export const CAFE_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Jak dlouho vydrží polévka po otevření?",
-    answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 5 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu.",
+    answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Malý sáček (ochutnávka 450 ml, vzorek 200 ml) spotřebujte po otevření do 5 dnů. Vždy rozhoduje datum „Spotřebujte do“ na obalu – otevřením nezačíná nová lhůta, která by ho přesáhla.",
   },
 ];
 export const CAFE_FAQ_ALL = { label: "Všechny časté otázky", href: "/caste-otazky" } as const;

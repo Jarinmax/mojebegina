@@ -85,7 +85,7 @@ export const LANDING_PAGES: LandingPage[] = [
         answer: "",
       },
       { question: "Kdy polévky dorazí?", answer: "Obvykle doručíme do pěti pracovních dnů od přijetí platby. Jiný termín může být uveden u výrobku nebo při objednávce, případně se na něm domluvíme." },
-      { question: "Jak dlouho vydrží polévka po otevření?", answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 5 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu." },
+      { question: "Jak dlouho vydrží polévka po otevření?", answer: "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Malý sáček (ochutnávka 450 ml, vzorek 200 ml) spotřebujte po otevření do 5 dnů. Vždy rozhoduje datum „Spotřebujte do“ na obalu – otevřením nezačíná nová lhůta, která by ho přesáhla." },
       { question: "Jak ochutnat polévky a sirupy do provozu?", answer: TASTING_ANSWER },
     ],
     links: [

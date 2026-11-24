@@ -23,7 +23,8 @@ import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import { loadProductReviews } from "@/lib/eshop/reviewsServer";
 import TastingSetForm from "@/components/eshop/TastingSetForm";
 import SoupPackForm from "@/components/eshop/SoupPackForm";
-import { SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_LINK_QUESTION, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_TITLE, isSoupPack } from "@/lib/eshop/soupPack";
+import { SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_FACTS_LINK, SOUP_PACK_INGREDIENTS_NOTE, SOUP_PACK_LINK_QUESTION, SOUP_PACK_OPENED_LINE, SOUP_PACK_PACKAGING, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_SOUPS, SOUP_PACK_TITLE, isSoupPack } from "@/lib/eshop/soupPack";
+import SoupFacts, { type SoupFactsData } from "@/components/eshop/SoupFacts";
 import { coldShippingPrice } from "@/lib/eshop/shippingRates";
 import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
@@ -120,6 +121,19 @@ function ingredientsValue(ingredients: string | null, allergens: string[] | null
 
 function foodInfoRows(product: Product): { label: string; value: ReactNode | null; wide?: boolean }[] {
   const info = product.foodInfo;
+  // Ochutnávka polévek: balení podle skutečnosti, složení a výživa u každé polévky zvlášť (24. 11. 2026)
+  if (isSoupPack(product)) {
+    return [
+      { label: "Balení", value: SOUP_PACK_PACKAGING },
+      { label: "Složení", value: SOUP_PACK_INGREDIENTS_NOTE },
+      { label: "Skladování", value: asSentence(info.storage) },
+      { label: "Trvanlivost", value: asSentence(info.shelfLife) },
+      ...(info.preparation ? [{ label: "Příprava", value: asSentence(info.preparation) }] : []),
+      ...(info.returns
+        ? [{ label: "Vrácení a reklamace", value: <>{keepTogether(info.returns.before)}<ShopLink href={TERMS_PATH} className="underline text-begina-primary-900 hover:no-underline">{info.returns.linkText}</ShopLink>{info.returns.after}</> }]
+        : []),
+    ];
+  }
   const packages = product.variants.every((variant) => variant.label)
     ? product.variants.map((variant) => variant.label).join(", ")
     : null;
@@ -197,9 +211,18 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const hasChoice = product.variants.length > 1;
   // Úvodní odstavce = „Popis“; sekce „## …“ (Pro koho je vhodný, Jak sirup používat…) až pod chutí, jako na begina.cz.
   const description = parseDescription(product.description);
-  const openedLine = afterOpeningLine(product);
   const isSet = isTastingSet(product);
   const isPack = isSoupPack(product);
+  const openedLine = isPack ? SOUP_PACK_OPENED_LINE : afterOpeningLine(product);
+  // údaje šesti polévek z jejich vlastních produktů (stejné jako na jejich stránkách)
+  const packFacts: SoupFactsData[] = isPack
+    ? SOUP_PACK_SOUPS.flatMap((soup) => {
+        const soupProduct = index.getProduct(soup.slug);
+        if (!soupProduct) return [];
+        const info = soupProduct.foodInfo;
+        return [{ code: soup.code, slug: soup.slug, name: soup.name, ingredients: info.ingredients, allergens: info.allergens ?? [], nutrition: info.nutritionTable ?? null }];
+      })
+    : [];
   // ochutnávka polévek: cena i s chlazenou dopravou (balík do 15 kg, aktuální palivový příplatek)
   if (isPack) await applyFuelSurchargeFromDb();
   const packCold = isPack ? coldShippingPrice(product.variants[0].weightGrams ?? 1500) : null;
@@ -280,7 +303,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
               <p>{SET_UNDER_PRICE}</p>
             </div>
           )}
-          {!isSet && shippingModeFromEnv() === "weight" && (
+          {!isSet && !isPack && shippingModeFromEnv() === "weight" && (
             <p className="mt-2 text-sm text-neutral-700">
               🚚 {productShippingNote(product.variants.find((variant) => (variant.volumeMl ?? 0) >= 2900)?.weightGrams ?? null)}{" "}
               <ShopLink href="/doprava" className="underline underline-offset-2 whitespace-nowrap">Ceník dopravy</ShopLink>
@@ -315,7 +338,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           <MetaViewContent sku={product.variants[0].sku} name={product.name} priceKc={lowestPriceKc(product)} />
           <div className="mt-6">
             {isOrderable(product) && isPack ? (
-              <SoupPackForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} />
+              <SoupPackForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} facts={packFacts} />
             ) : isOrderable(product) && isSet ? (
               <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} maxQuantity={campaign?.remaining} />
             ) : isOrderable(product) ? (
@@ -392,7 +415,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             </section>
           )}
 
-          {(isSet ? [] : category.detailSections).map((section) => (
+          {(isSet || isPack ? [] : category.detailSections).map((section) => (
             <section key={section.title} className="mt-8 border-t border-neutral-200 pt-6 flex flex-col gap-3 text-neutral-700">
               <h2 className="font-medium text-begina-primary-900">{section.title}</h2>
               {section.paragraphs[0] && <p>{section.paragraphs[0]}</p>}
@@ -481,6 +504,21 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                     );
                   })}
                 </dl>
+              </div>
+            )}
+            {isPack && packFacts.length > 0 && (
+              <div className="mt-5">
+                <h3 className="text-sm font-medium mb-1">{SOUP_PACK_FACTS_LINK}</h3>
+                <div className="flex flex-col divide-y divide-neutral-100">
+                  {packFacts.map((facts) => (
+                    <details key={facts.code} className="py-3 group">
+                      <summary className="cursor-pointer text-sm font-medium text-begina-primary-900">{facts.name}</summary>
+                      <div className="mt-2">
+                        <SoupFacts facts={facts} />
+                      </div>
+                    </details>
+                  ))}
+                </div>
               </div>
             )}
             {product.warnings.map((warning) => (

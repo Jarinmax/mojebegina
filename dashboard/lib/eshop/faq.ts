@@ -12,7 +12,14 @@ import { syrupModelLine } from "./portionPrices";
 
 export const FAQ_PATH = "/caste-otazky";
 
-export type FaqItem = { question: string; answer: string };
+export type FaqItem = {
+  question: string;
+  answer: string;
+  /** úvodní věta s odkazem (ochutnávka polévek, 24. 11. 2026); answer = lead + rest kvůli JSON-LD */
+  lead?: string;
+  rest?: string;
+  link?: { label: string; href: string };
+};
 
 export const FAQ_ITEMS: FaqItem[] = [
   // 22. 11. 2026 (Lucie): první dvě otázky přesně v tomto znění; dopravce se nejmenuje (Jarin)
@@ -29,7 +36,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Jak dlouho vydrží polévka po otevření?",
     answer:
-      "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Polévku v sáčku (ochutnávka, vzorek) spotřebujte po otevření do 5 dnů. Vždy nejpozději do data spotřeby uvedeného na obalu.",
+      "Polévku skladujte v lednici do 4 °C před otevřením i po něm. Beginu 3 l s kohoutkem spotřebujte po otevření do 14 dnů. Malý sáček (ochutnávka 450 ml, vzorek 200 ml) spotřebujte po otevření do 5 dnů. Vždy rozhoduje datum „Spotřebujte do“ na obalu – otevřením nezačíná nová lhůta, která by ho přesáhla.",
   },
   {
     question: "Jsou vaše polévky veganské?",
@@ -71,8 +78,17 @@ export const FAQ_PAGE: InfoPage = {
   footerLabel: "Časté otázky",
   title: "Časté otázky",
   description: "Hotové polévky a nápoje pro kavárny a bistra i domů: doprava po celé ČR, trvanlivost, cena porce, ochutnávka do provozu.",
-  blocks: FAQ_ITEMS.map((item) => ({ heading: item.question, paragraphs: [item.answer] })),
+  blocks: faqBlocks(FAQ_ITEMS),
   hideOperatorLine: true,
 };
+
+/** Bloky stránky; otázka s úvodní větou dostane odkaz hned za ní. */
+export function faqBlocks(items: readonly FaqItem[]): InfoPage["blocks"] {
+  return items.map((item) =>
+    item.lead && item.link
+      ? { heading: item.question, paragraphs: [item.lead, ...(item.rest ? [item.rest] : [])], linkAfterFirst: item.link }
+      : { heading: item.question, paragraphs: [item.answer] }
+  );
+}
 
 export const FAQ_CTA = { text: "Vyzkoušet Beginu v provozu", href: CAFE_PATH } as const;
