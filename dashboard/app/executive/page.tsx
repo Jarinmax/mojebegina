@@ -18,21 +18,22 @@ export default async function ExecutiveOrganizationsPage() {
 
   return (
     <div>
-      <WorkTasksLink />
+      {/* 24. 11. 2026 (Lucie): úvod jen Řízení firmy + Moje práce; seznam organizací sbalený dole */}
       <CompanyOverviewCard
         redCount={companyMap.counts.red}
         amberCount={companyMap.counts.amber}
         newOrdersCount={orderCounts.new}
       />
+      <WorkTasksLink />
 
-      <div className="mb-5">
-        <h1 className="text-lg font-medium text-begina-primary-900">Organizace</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">
-          {organizations.length} {organizations.length === 1 ? "organizace" : "organizací"}
-        </p>
-      </div>
-
-      <OrganizationsTable organizations={organizations} basePath="/executive/organizace" />
+      <details className="mt-8">
+        <summary className="cursor-pointer text-sm text-neutral-500">
+          Technický seznam organizací ({organizations.length})
+        </summary>
+        <div className="mt-3">
+          <OrganizationsTable organizations={organizations} basePath="/executive/organizace" />
+        </div>
+      </details>
     </div>
   );
 }

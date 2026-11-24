@@ -96,12 +96,7 @@ export default async function PracePage() {
         </Link>
       )}
 
-      {(isManager || tasks.some((t) => /^BEG-\d{2}/.test(t.title))) && (
-        <Link href="/prace/kontrola-eshopu" className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-medium text-begina-primary-900">
-          <span>Kontrola e-shopu – Lucie</span>
-          <span aria-hidden>→</span>
-        </Link>
-      )}
+      {/* 24. 11. 2026 (Lucie): „Kontrola e-shopu – Lucie“ pryč — registr se už nepoužívá; /prace/kontrola-eshopu zůstává */}
 
       {isManager && (
         <>
