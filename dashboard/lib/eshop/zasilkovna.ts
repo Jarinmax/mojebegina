@@ -132,3 +132,16 @@ export function productDeliveryNote(
 
 /** Věta u sirupu 3 l v košíku a pokladně (24. 11. 2026, Lucie): krabice je vždy v ceně. */
 export const SYRUP_BOX_INCLUDED_NOTE = "Sirup posíláme vždy v kartonové krabici — krabice je už v ceně.";
+
+/**
+ * Popis Zásilkovny v pokladně podle košíku (24. 11. 2026, Lucie): zákazník
+ * vidí jen to, co platí pro jeho objednávku; celé pravidlo je na stránce Doprava.
+ * null = Zásilkovnu pro košík nabídnout nejde (pokladna ukáže obecný popis a důvod).
+ */
+export function zasilkovnaCartNote(lines: readonly Line[]): string | null {
+  const quote = quoteZasilkovna(lines);
+  if (!quote.available) return null;
+  if (lines.some((line) => isSyrup3l(line.product, line.variant))) return "Sirup posíláme v jeho kartonové krabici.";
+  if (quote.pouches > 0) return "Cena je včetně krabice.";
+  return "Set posíláme v jeho krabičce.";
+}

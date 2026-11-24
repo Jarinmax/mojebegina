@@ -37,7 +37,7 @@ import {
 import { choiceLine, isTastingSet } from "@/lib/eshop/tastingSet";
 import { isCafeTasting, isCafeTastingAlcohol, CAFE_TASTING_CHECKOUT_NOTE, CAFE_TASTING_COMPANY_STORAGE, cartHasCafeTasting, parseCafeTastingCompany } from "@/lib/eshop/cafeTasting";
 import { VAT_NOTE } from "@/lib/eshop/cafePage";
-import { SYRUP_BOX_INCLUDED_NOTE, isSyrup3l } from "@/lib/eshop/zasilkovna";
+import { SYRUP_BOX_INCLUDED_NOTE, isSyrup3l, zasilkovnaCartNote } from "@/lib/eshop/zasilkovna";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes, isBoxEligible } from "@/lib/eshop/boxOption";
 import { useCartBoxes } from "@/components/eshop/useCartBoxes";
 import { formatKc } from "@/lib/format";
@@ -716,7 +716,9 @@ export default function CheckoutForm({
                         ? SLOVAKIA_SELF_TRANSPORT_METHOD_NOTE
                         : method.id === "rozvoz" && destination === "sk"
                           ? method.description.replace("v České republice", "na Slovensku")
-                          : method.description}
+                          : method.id === ZASILKOVNA_METHOD_ID
+                            ? (zasilkovnaCartNote(lines) ?? method.description)
+                            : method.description}
                     </span>
                     {!methodQuote.available && (
                       <span className="block text-xs text-begina-accent-900 bg-begina-accent-100 rounded-lg px-2.5 py-1.5 mt-2" role="note">

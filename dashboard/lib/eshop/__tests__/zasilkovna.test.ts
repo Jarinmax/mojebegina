@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createMigratedDb } from "./helpers/migratedDb";
 import { cartWeight, coldShippingPrice } from "../shippingRates";
-import { DELIVERY_NOTE_COLD, ZASILKOVNA_MAX_POUCHES, isSyrup3l, isSyrupPouch, productDeliveryNote, quoteZasilkovna } from "../zasilkovna";
+import { DELIVERY_NOTE_COLD, ZASILKOVNA_MAX_POUCHES, isSyrup3l, isSyrupPouch, productDeliveryNote, quoteZasilkovna, zasilkovnaCartNote } from "../zasilkovna";
 
 const pouch = (quantity: number, weightGrams: number | null = 805) => ({
   quantity,
@@ -111,6 +111,14 @@ describe("Zásilkovna — jedna begina sirupu 3 l (24. 11. 2026, Lucie)", () => 
   });
   it("chybějící hmotnost: Zásilkovnu nenabídne", () => {
     expect(quoteZasilkovna([{ ...big, variant: { volumeMl: 3000, weightGrams: null } }])).toEqual({ available: false, reason: "missing_weight" });
+  });
+});
+
+describe("popis Zásilkovny v pokladně podle košíku (24. 11. 2026)", () => {
+  it("begina 3 l / sáčky / nejde", () => {
+    expect(zasilkovnaCartNote([big])).toBe("Sirup posíláme v jeho kartonové krabici.");
+    expect(zasilkovnaCartNote([pouch(2)])).toBe("Cena je včetně krabice.");
+    expect(zasilkovnaCartNote([big, soup])).toBeNull();
   });
 });
 
