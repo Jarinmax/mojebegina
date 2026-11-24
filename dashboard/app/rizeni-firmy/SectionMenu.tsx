@@ -47,7 +47,8 @@ export const SECTION_GROUPS: Group[] = [
       // 21. 11. 2026 (Lucie): „Nová příjemka (foto)“ a „Sklad a příjemky“ z
       // rozcestníku pryč — dělaly zmatek s vláknem Účtenky (nákupy se zapisují
       // tam → Ekonomika a Doklady). Stránky /rizeni-firmy/sklad i data zůstávají.
-      { href: "/rizeni-firmy/slovenske-listy", label: "Slovenské listy", icon: "🇸🇰" },
+      // 24. 11. 2026 (Lucie): „Slovenské listy“ z rozcestníku pryč — nahradily je
+      // slovenské etikety (Etikety → Slovenské etikety). Stránka /rizeni-firmy/slovenske-listy zůstává.
       { href: "/rizeni-firmy/haccp", label: "HACCP", icon: "🧼" },
     ],
   },
