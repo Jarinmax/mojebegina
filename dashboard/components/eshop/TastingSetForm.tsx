@@ -31,7 +31,7 @@ export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { na
 
   return (
     <div>
-      <fieldset className="mb-4">
+      <fieldset id="vyber" className="mb-4 scroll-mt-24">
         <legend className="text-sm font-medium mb-2">
           Vyberte si pět různých sirupů <span className="font-normal text-neutral-600 tabular-nums">(vybráno {choice.length} z {SET_SIZE})</span>
         </legend>

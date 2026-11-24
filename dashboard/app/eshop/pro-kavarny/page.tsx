@@ -26,6 +26,8 @@ import {
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
+import CafeStartCards from "@/components/eshop/CafeStartCards";
+import { isTastingSet } from "@/lib/eshop/tastingSet";
 import { isSoupPack } from "@/lib/eshop/soupPack";
 import { coldShippingPrice } from "@/lib/eshop/shippingRates";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
@@ -60,6 +62,9 @@ export default async function Page() {
   const packProduct = catalog?.products.find(isSoupPack);
   const packCold = packProduct ? coldShippingPrice(packProduct.variants[0]?.weightGrams ?? 1500) : null;
   const soupPackOffer = packProduct?.variants[0] ? { priceKc: packProduct.variants[0].priceKc, coldShippingKc: packCold && packCold.ok ? packCold.priceKc : null } : null;
+  // set sirupů: cena tak, jak ji vidí zákazník (běžná, nebo akční včetně dopravy)
+  const setProduct = catalog?.products.find(isTastingSet);
+  const syrupSet = setProduct?.variants[0] ? { priceKc: setProduct.variants[0].priceKc, includesShipping: setProduct.tastingCampaign !== undefined } : null;
   const categories = CAFE_CATEGORY_SLUGS.flatMap((slug) => HOME_CATEGORIES.filter((c) => c.slug === slug && present.has(slug)));
   return (
     <article className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14 text-[#2A2622]">
@@ -77,24 +82,12 @@ export default async function Page() {
         </p>
       </header>
 
-      {/* 22. 11. 2026 (Lucie): jedna jasná nabídka hned nahoře — první begina + 4 vzorky zdarma, cena porce s dopravou, dvě tlačítka */}
-      <section className="max-w-3xl mx-auto w-full -mt-4 rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4">
-        <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622]">{CAFE_OFFER.title}</h2>
-        <p className="text-lg leading-normal text-neutral-800">{CAFE_OFFER.text}</p>
-        <div className="flex flex-wrap gap-3">
-          <a href="#vyber-beginy" className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
-            {CAFE_OFFER.orderButton}
-          </a>
-          {soupPackOffer && (
-            <ShopLink href="/produkt/ochutnavka-polevek-3x450" className="inline-flex items-center justify-center rounded-lg border-2 border-[#4A5527] bg-white text-[#4A5527] font-semibold px-6 h-12 text-base">
-              Ochutnat 3 polévky
-            </ShopLink>
-          )}
-          <a href="#napiste-nam" className="inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] hover:bg-white font-semibold px-6 h-12 text-base">
-            {CAFE_OFFER.callButton}
-          </a>
-        </div>
-        <h3 className="mt-2 font-serif text-xl text-[#2A2622]">Kolik stojí porce polévky včetně dopravy?</h3>
+      {/* 24. 11. 2026 (Lucie/ChatGPT): tři karty hned pod úvodem */}
+      <CafeStartCards soupPack={soupPackOffer} syrupSet={syrupSet} />
+
+      {/* Ceny porcí s dopravou (22. 11. 2026); nabídka první beginy a ochutnávek je od 24. 11. v kartách nad tím */}
+      <section className="max-w-3xl mx-auto w-full rounded-2xl border-2 border-[#5E6B34] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4">
+        <h2 className="font-serif text-xl sm:text-2xl text-[#2A2622]">Kolik stojí porce polévky včetně dopravy?</h2>
         <PortionPriceTable rows={soupPortionRows()} />
         <p className="text-sm text-neutral-600">{CAFE_OFFER.tableNote}</p>
         {/* 22. 11. 2026 (Lucie): i sirupy — kolik vyjde jeden nápoj s dopravou */}
@@ -102,6 +95,9 @@ export default async function Page() {
         <PortionPriceTable rows={syrupDrinkRows()} kind="syrup" />
         <p className="text-sm font-medium text-neutral-800">{syrupExampleLine()}</p>
         <p className="text-sm text-neutral-600">Nejlevnější begina sirupu 3 l za {SYRUP_PRICE_KC} Kč, bez slevy. Nápoj = 20 ml sirupu doplněných vodou na 200 ml. Doprava podle hmotnosti zásilky.</p>
+        <a href="#napiste-nam" className="self-start inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] hover:bg-white font-semibold px-6 h-12 text-base">
+          {CAFE_OFFER.callButton}
+        </a>
       </section>
 
       <section aria-label="Výhody pro provoz">
@@ -158,7 +154,7 @@ export default async function Page() {
         {/* Ochutnávka do provozu (20. 11. 2026): objednávka na e-shopu; dosavadní formulář zůstává jako druhá možnost */}
         {tastingSkus.length > 0 ? (
           <>
-            <CafeTastingForm available={tastingSkus} beginas={beginas} soupPack={soupPackOffer} />
+            <CafeTastingForm available={tastingSkus} beginas={beginas} />
             {/* 22. 11. 2026 (Lucie): tři otázky těsně před telefonním formulářem, odpověď po kliknutí */}
             <section aria-labelledby="kavarny-otazky" className="flex flex-col gap-3">
               <h2 id="kavarny-otazky" className="font-serif text-2xl text-[#2A2622]">{CAFE_FAQ_TITLE}</h2>
