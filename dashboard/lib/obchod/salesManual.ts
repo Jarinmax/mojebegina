@@ -2,7 +2,7 @@
 // „Begina – manuál pro obchodníky“, ať se dá číst přímo v MojeBegina i na
 // mobilu při hovoru. Při nové verzi PDF upravit i tenhle text, datum a
 // lib/obchod/salesManualPdf.ts.
-import { kc, SOUP_PORTIONS, SOUP_PRICE_KC, SYRUP_DRINKS, SYRUP_PRICE_KC } from "@/lib/eshop/portionPrices";
+import { kc, soupPortionRows, syrupDrinkRows } from "@/lib/eshop/portionPrices";
 
 export type ManualSection = {
   title: string;
@@ -25,13 +25,14 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       { text: "Bez práce: polévku stačí ohřát, sirup naředit a ostatní nápoje jsou hotové k podávání." },
       {
         get text() {
-          // bez dopravy – PDF je vygenerované předem a doprava se mění s palivovým příplatkem (Lucie 24. 11. 2026)
-          return `Spočítané porce bez dopravy: polévka 250 ml za ${kc(Math.round((SOUP_PRICE_KC / SOUP_PORTIONS) * 100) / 100)}, nápoj ze sirupu 200 ml od ${kc(Math.round((SYRUP_PRICE_KC / SYRUP_DRINKS) * 100) / 100)}. Ceny porcí i s dopravou jsou vždy aktuálně na begina.cz na stránce Pro kavárny.`;
+          // s dopravou ze stejného výpočtu jako web (aktuální palivový příplatek); PDF se generuje
+          // při stažení, takže sedí s webem ten den (Lucie 24. 11. 2026)
+          return `Spočítané porce včetně chlazené dopravy (při objednávce 3 × 3 l): polévka 250 ml od ${kc(soupPortionRows([3])[0].perPortionKc)}, nápoj ze sirupu 200 ml od ${kc(syrupDrinkRows([3])[0].perPortionKc)}. Stejné ceny jsou na begina.cz na stránce Pro kavárny.`;
         },
       },
       { text: "100% rostlinné polévky a nealko nápoje – vhodné pro vegany i vegetariány." },
       { text: "Z čisté filtrované vody, recepty z vlastní kuchyně." },
-      { text: "Chlazená doprava po celé ČR, osobní odběr ve Viticích. Ochutnat se dá v Zahradním bistru Begina." },
+      { text: "Chlazená doprava po celé ČR, osobní odběr ve Viticích. Ochutnat se dá v Zahradním bistru Begina, Vitice 119, 281 06 Vitice." },
     ],
   },
   {
