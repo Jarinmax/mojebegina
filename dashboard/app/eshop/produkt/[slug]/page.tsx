@@ -22,6 +22,10 @@ import Stars from "@/components/eshop/Stars";
 import { countLabel, formatAverage } from "@/lib/eshop/reviewsFormat";
 import { loadProductReviews } from "@/lib/eshop/reviewsServer";
 import TastingSetForm from "@/components/eshop/TastingSetForm";
+import SoupPackForm from "@/components/eshop/SoupPackForm";
+import { SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_LINK_QUESTION, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_TITLE, isSoupPack } from "@/lib/eshop/soupPack";
+import { coldShippingPrice } from "@/lib/eshop/shippingRates";
+import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
@@ -195,6 +199,12 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
   const description = parseDescription(product.description);
   const openedLine = afterOpeningLine(product);
   const isSet = isTastingSet(product);
+  const isPack = isSoupPack(product);
+  // ochutnávka polévek: cena i s chlazenou dopravou (balík do 15 kg, aktuální palivový příplatek)
+  if (isPack) await applyFuelSurchargeFromDb();
+  const packCold = isPack ? coldShippingPrice(product.variants[0].weightGrams ?? 1500) : null;
+  const packColdKc = packCold && packCold.ok ? packCold.priceKc : null;
+  const showPackLink = !isPack && product.category === "polevky" && index.getProduct(SOUP_PACK_SLUG) !== undefined;
   const campaign = product.tastingCampaign;
   // odkaz na set na stránce každého sirupu — jen když je set v katalogu vidět
   const showSetLink = !isSet && product.category === "sirupy" && index.getProduct(SET_SLUG) !== undefined;
@@ -254,6 +264,12 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
             {isSet && campaign && <span className="ml-2 text-base font-medium text-neutral-700">vč. dopravy Zásilkovnou</span>}
           </p>
+          {isPack && (
+            <ul className="mt-2 flex flex-col gap-0.5 text-base text-neutral-700">
+              <li>{SOUP_PACK_PICKUP_LABEL}: <strong className="tabular-nums">{formatKc(product.variants[0].priceKc)}</strong></li>
+              {packColdKc !== null && <li>{SOUP_PACK_DELIVERY_LABEL}: <strong className="tabular-nums">{formatKc(product.variants[0].priceKc + packColdKc)}</strong></li>}
+            </ul>
+          )}
           {isSet && (
             <div className="mt-3 flex flex-col items-start gap-1.5 text-sm text-neutral-700">
               {campaign && <p className="font-medium">{SET_CAMPAIGN_PRICE_NOTE}</p>}
@@ -298,7 +314,9 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
           <MetaViewContent sku={product.variants[0].sku} name={product.name} priceKc={lowestPriceKc(product)} />
           <div className="mt-6">
-            {isOrderable(product) && isSet ? (
+            {isOrderable(product) && isPack ? (
+              <SoupPackForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} />
+            ) : isOrderable(product) && isSet ? (
               <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} maxQuantity={campaign?.remaining} />
             ) : isOrderable(product) ? (
               <>
@@ -337,6 +355,15 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
                 </ShopLink>
               </p>
             </VariantOnly>
+          )}
+
+          {showPackLink && (
+            <p className="mt-3 text-sm">
+              {SOUP_PACK_LINK_QUESTION}{" "}
+              <ShopLink href={`/produkt/${SOUP_PACK_SLUG}`} className="font-medium underline underline-offset-2">
+                {SOUP_PACK_TITLE}
+              </ShopLink>
+            </p>
           )}
 
           {showSetLink && (

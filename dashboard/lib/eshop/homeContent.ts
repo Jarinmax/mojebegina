@@ -52,7 +52,9 @@ export const HOME_HERO_BUTTON = "Vybrat polévky a nápoje"; // dřív „Vybrat
 export const HOME_HERO_PHONE = "Domluvit dodávky po telefonu";
 
 /** Věta pod červeným tlačítkem v úvodu (22. 11. 2026). */
-export const HOME_HERO_OFFER = "K první třílitrové begině na IČO přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.";
+export const HOME_HERO_OFFER = "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.";
+/** Odkaz pod větou o dárku (zadání 24. 11. 2026). */
+export const HOME_HERO_OFFER_LINK = "Vybrat první beginu";
 
 export const HOME_TILE_CAFE = {
   title: "Pro kavárny a bistra",

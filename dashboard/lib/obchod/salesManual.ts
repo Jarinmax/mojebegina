@@ -13,7 +13,7 @@ export type ManualSection = {
 
 export const SALES_MANUAL_TITLE = "Begina – manuál pro obchodníky";
 export const SALES_MANUAL_SUBTITLE = "Co říkat kavárnám a bistrům při hovorech na leady";
-export const SALES_MANUAL_UPDATED = "23. 11. 2026";
+export const SALES_MANUAL_UPDATED = "24. 11. 2026";
 
 export const SALES_MANUAL_SECTIONS: ManualSection[] = [
   {
@@ -62,22 +62,20 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 159 Kč za 500 ml (teď vyprodané), 199 Kč za 650 ml (doprodej)." },
       { text: "Čaje: 249–289 Kč za 3 l. Ovocné nápoje: 349 Kč, Malinový svařák – nealko 399 Kč." },
       { text: "Alkoholické koktejly: 799 Kč za 3 l, Svařák Deluxe 499 Kč za 3 l." },
-      { text: "Ochutnávkový set sirupů: 349 Kč." },
     ],
   },
   {
-    title: "První objednávka (jen pro kavárny a bistra)",
+    title: "Vzorky a ochutnávky",
     items: [
-      { text: "K první begině 3 l: 2 vzorky polévek (200 ml) a 2 vzorky sirupů (100 ml) zdarma." },
-      { text: "Vzorky si zaškrtnou na begina.cz na stránce Pro kavárny." },
-      { text: "Každý další vzorek stojí 49 Kč, z každého nejvýš 1 kus." },
-      { text: "Platí jednou na jeden podnik (IČO)." },
+      { text: "K první begině 3 l (polévka, sirup, Svařák Deluxe, Lady Carneval): 2 vzorky polévek a 2 vzorky sirupů zdarma. Bez IČO, jednou na zákazníka." },
+      { text: "Další vzorky k begině po 49 Kč. Vybírají se na begina.cz na stránce Pro kavárny." },
+      { text: "Bez beginy: Ochutnávka polévek 3 × 450 ml (299 Kč osobně ve Viticích, 566 Kč s chlazenou dopravou) a set sirupů 5 × 100 ml (349 Kč). Kdykoli a opakovaně." },
     ],
   },
   {
     title: "Jak objednat",
     items: [
-      { text: "Objednávají sami na e-shopu begina.cz, na firmu i s IČO." },
+      { text: "Objednávají sami na e-shopu begina.cz. IČO vyplní, jen když chtějí nakupovat na firmu." },
       { text: "Posíláme chlazenou přepravou po celé ČR, nebo osobní odběr ve Viticích." },
       { text: "Za pravidelné objednávky sleva v partnerském programu 3–7 %." },
       { text: "Odpovědi na časté dotazy jsou na webu v menu O nás → Časté otázky." },

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_PHONE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_OFFER_LINK, HOME_HERO_PHONE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -84,7 +84,12 @@ export default function HomeHero() {
             {HOME_HERO_BUTTON}
             <ArrowRight className="w-5 h-5" aria-hidden="true" />
           </ShopLink>
-          <p className="text-base leading-snug text-neutral-700">{HOME_HERO_OFFER}</p>
+          <p className="text-base leading-snug text-neutral-700">
+            {HOME_HERO_OFFER}{" "}
+            <ShopLink href={HERO_LINKS.firstPack} className="font-semibold text-[#A51C1C] underline underline-offset-4 whitespace-nowrap">
+              {HOME_HERO_OFFER_LINK} →
+            </ShopLink>
+          </p>
           <ShopLink href={HERO_LINKS.phone} className="inline-flex items-center gap-2 text-base sm:text-lg font-medium text-[#4A5527] underline underline-offset-4">
             {HOME_HERO_PHONE}
             <ArrowRight className="w-4 h-4" aria-hidden="true" />

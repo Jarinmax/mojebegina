@@ -23,7 +23,7 @@ export const CAFE_DELIVERY_LINE = "Kavárnám a bistrům posíláme hotové pol�
 
 /** Řádek pod tlačítkem Do košíku na stránce produktu (Lucie 20. 11. 2026). */
 // 22. 11. 2026: odkaz vede rovnou na výběr první beginy se 4 vzorky (/pro-kavarny#ochutnavka)
-export const CAFE_PRODUCT_LINE = { text: "Odebíráte pro kavárnu nebo bistro?", link: "První begina + 4 vzorky zdarma" } as const;
+export const CAFE_PRODUCT_LINE = { text: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.", link: "Vybrat vzorky" } as const;
 
 export type CafeIcon = "recycle" | "timer" | "calculator" | "leaf" | "droplets" | "truck";
 
@@ -149,7 +149,7 @@ export const CAFE_FAQ_TITLE = "Časté otázky";
 export const CAFE_FAQ: { question: string; answer: string }[] = [
   {
     question: "Co dostaneme k první begině zdarma?",
-    answer: "K první třílitrové begině polévky, sirupu nebo koktejlu Vám jednou na IČO zdarma přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml. Další vzorky si můžete k této objednávce přikoupit za 49 Kč za kus.",
+    answer: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí pro kavárny, bistra i domácnosti, bez IČO, jednou na zákazníka. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus.",
   },
   {
     question: "Kdy nám objednávka dorazí?",
@@ -174,7 +174,7 @@ export const CATEGORY_SOUPS_TEASER = {
   text: "Vybíráte polévky do svého podniku?",
   pricesLabel: "Kolik stojí porce s dopravou?",
   pricesHref: SOUPS_FOR_CAFES_PATH,
-  offerText: "K první třílitrové begině na IČO Vám zdarma přibalíme 2 vzorky polévek a 2 vzorky sirupů.",
+  offerText: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.",
   label: "Vybrat první balení",
   href: `${CAFE_PATH}#ochutnavka`,
 } as const;
@@ -187,7 +187,7 @@ export const SOUPS_CATEGORY_SEO = {
 /** Nabídka nahoře na Pro kavárny a bistra (Lucie 22. 11. 2026). */
 export const CAFE_OFFER = {
   title: "První objednávka: 1 begina + 4 vzorky zdarma",
-  text: "Objednejte si první beginu 3 l polévky, sirupu nebo koktejlu a přibalíme Vám 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma. Další vzorky po 49 Kč. Platí jednou pro každé IČO.",
+  text: "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Další vzorky po 49 Kč. Platí jednou na zákazníka, IČO vyplňovat nemusíte.",
   orderButton: "Objednat první beginu",
   callButton: "Chci, abyste mi zavolali",
   tableNote: "Begina polévky 3 l stojí 379 Kč a vystačí na 12 porcí po 250 ml. Doprava se řídí hmotností objednávky; příklady platí bez slevy. Osobní odběr ve Viticích je po domluvě zdarma.",

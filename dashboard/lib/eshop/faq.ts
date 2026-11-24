@@ -48,9 +48,9 @@ export const FAQ_ITEMS: FaqItem[] = [
       "Ano. Objednat si můžete i domů. Polévky posíláme chlazeně po celé ČR. Před doručením se Vám ozve dopravce.",
   },
   {
-    question: "Jak ochutnat polévky a sirupy do provozu?",
+    question: "Jak ochutnat polévky a sirupy?",
     answer:
-      "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.",
+      "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí k begině 3 l polévky, sirupu, Svařáku Deluxe nebo Lady Carneval, pro kavárny, bistra i domácnosti, bez IČO. Dárek získáte jednou, i když v první objednávce koupíte víc begin. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích. Chcete ochutnat jen sirupy? Vyberte si 5 příchutí v Ochutnávkovém setu sirupů 5 × 100 ml. Vzorky polévek po 200 ml za 49 Kč si můžete po domluvě vyzvednout v Zahradním bistru Begina ve Viticích.",
   },
   {
     question: "Mají kavárny a bistra zvláštní ceník?",

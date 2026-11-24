@@ -1,19 +1,26 @@
 "use client";
 
-// Ochutnávka do provozu (20. 11. 2026) — výběr polévek a sirupů (z každého nejvýš
-// 1 kus), průběžný součet, název provozu a IČO (ověření + ARES), pak do košíku
-// a rovnou do pokladny. Pravidla a texty: lib/eshop/cafeTasting.ts.
-import { useState, useTransition } from "react";
+// Vzorky k první begině (20. 11. 2026, přepracováno 24. 11. 2026) — begina 3 l,
+// výběr vzorků (z každého nejvýš 1 kus), průběžný součet, pak do košíku a rovnou
+// do pokladny. Bez IČO; nárok na dárek ověří pokladna podle e-mailu.
+// Pod tím „Chci jen ochutnat“: set sirupů, vzorky polévek ve Viticích
+// a (po spuštění) Ochutnávka polévek 3 × 450 ml. Pravidla a texty: lib/eshop/cafeTasting.ts.
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CAFE_TASTING_COMPANY_STORAGE,
+  CAFE_TASTING_ELIGIBLE_TEXT,
+  CAFE_TASTING_EXTRA_TEXT,
+  CAFE_TASTING_ONCE_TEXT,
+  CAFE_TASTING_SOUPS_ONLY_TEXT,
+  CAFE_TASTING_SYRUPS_ONLY_HEADING,
+  CAFE_TASTING_SYRUPS_ONLY_LINK,
+  CAFE_TASTING_SYRUPS_ONLY_TEXT,
   CAFE_TASTING_CREDIT_ENABLED,
   CAFE_TASTING_CREDIT_TEXT,
   CAFE_TASTING_DELIVERY,
   CAFE_TASTING_HEADING,
   CAFE_TASTING_BEGINA_HEADING,
   CAFE_TASTING_NEED_BEGINA_PICK,
-  CAFE_TASTING_ICO_NOTE,
   CAFE_TASTING_INTRO,
   CAFE_TASTING_ITEMS,
   CAFE_TASTING_NEED_ITEM,
@@ -26,11 +33,12 @@ import {
   cafeTastingTotalKc,
   freeTastingSkus,
   tastingFreeKind,
-  type CafeTastingCompany,
   type CafeTastingItem,
 } from "@/lib/eshop/cafeTasting";
-import { checkTastingIcoAction } from "@/app/eshop/pro-kavarny/tastingActions";
+import { SET_SLUG } from "@/lib/eshop/tastingSet";
+import { SOUP_PACK_BUTTON, SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_PICKUP_LABEL, SOUP_PACK_SLUG, SOUP_PACK_TEXT, SOUP_PACK_TITLE } from "@/lib/eshop/soupPack";
 import { formatKc } from "@/lib/format";
+import ShopLink from "./ShopLink";
 import { useCart } from "./useCart";
 import { useEshopHref } from "./EshopBase";
 
@@ -75,16 +83,26 @@ const samples = (n: number) => (n === 1 ? "vzorek" : n >= 2 && n <= 4 ? "vzorky"
 
 export type TastingBeginaOption = { sku: string; name: string; priceKc: number };
 
-export default function CafeTastingForm({ available, beginas = [], initialChosen = [], initialBegina = "" }: { available: readonly string[]; beginas?: readonly TastingBeginaOption[]; /** jen pro náhled */ initialChosen?: readonly string[]; initialBegina?: string }) {
+export default function CafeTastingForm({
+  available,
+  beginas = [],
+  initialChosen = [],
+  initialBegina = "",
+  soupPack = null,
+}: {
+  available: readonly string[];
+  beginas?: readonly TastingBeginaOption[];
+  /** jen pro náhled */ initialChosen?: readonly string[];
+  initialBegina?: string;
+  /** Ochutnávka polévek 3 × 450 ml — cena a chlazená doprava ze serveru; null = produkt v katalogu není */
+  soupPack?: { priceKc: number; coldShippingKc: number | null } | null;
+}) {
   const { add } = useCart();
   const router = useRouter();
   const href = useEshopHref();
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(initialChosen));
   const [begina, setBegina] = useState<string>(initialBegina);
-  const [venue, setVenue] = useState("");
-  const [ico, setIco] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const items = CAFE_TASTING_ITEMS.filter((item) => available.includes(item.sku));
   const beginaPrice = beginas.find((option) => option.sku === begina)?.priceKc ?? 0;
   const free = freeTastingSkus([...chosen]);
@@ -111,30 +129,9 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
       setError(CAFE_TASTING_NEED_ITEM);
       return;
     }
-    startTransition(async () => {
-      const result = await checkTastingIcoAction(ico, venue);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      const company: CafeTastingCompany = {
-        venue: venue.trim(),
-        company: result.company?.name ?? venue.trim(),
-        ico: result.ico,
-        dic: result.company?.dic ?? null,
-        street: result.company?.street ?? "",
-        city: result.company?.city ?? "",
-        zip: result.company?.zip ?? "",
-      };
-      try {
-        sessionStorage.setItem(CAFE_TASTING_COMPANY_STORAGE, JSON.stringify(company));
-      } catch {
-        // bez sessionStorage se údaje vyplní v pokladně ručně
-      }
-      if (begina) add(begina, 1);
-      for (const sku of chosen) add(sku, 1);
-      router.push(href("/pokladna"));
-    });
+    if (begina) add(begina, 1);
+    for (const sku of chosen) add(sku, 1);
+    router.push(href("/pokladna"));
   }
 
   return (
@@ -142,6 +139,7 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
       <div>
         <h2 className="font-serif text-2xl text-[#2A2622]">{CAFE_TASTING_HEADING}</h2>
         <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_INTRO}</p>
+        <p className="mt-1 text-sm text-neutral-600">{CAFE_TASTING_ONCE_TEXT}</p>
       </div>
       {beginas.length > 0 && (
         <fieldset>
@@ -154,9 +152,10 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
               </option>
             ))}
           </select>
-          <p className="mt-1 text-sm text-neutral-600">Další beginy si můžete přidat v košíku.</p>
+          <p className="mt-1 text-sm text-neutral-600">{CAFE_TASTING_ELIGIBLE_TEXT} Další beginy si můžete přidat v košíku.</p>
         </fieldset>
       )}
+      <p className="-mb-2 text-base text-neutral-700">{CAFE_TASTING_EXTRA_TEXT}</p>
       <fieldset>
         <legend className="font-semibold text-base text-[#2A2622] mb-2">{CAFE_TASTING_SOUPS_HEADING}</legend>
         <ItemList items={items.filter((item) => item.kind === "polevka")} chosen={chosen} free={free} toggle={toggle} />
@@ -196,25 +195,48 @@ export default function CafeTastingForm({ available, beginas = [], initialChosen
         <p className="mt-1 text-sm text-neutral-600">{CAFE_TASTING_DELIVERY}</p>
         {CAFE_TASTING_CREDIT_ENABLED && <p className="mt-1 text-sm font-medium text-[#4A5527]">{CAFE_TASTING_CREDIT_TEXT}</p>}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label className="flex flex-col gap-1 text-base">
-          <span className="font-medium">Název podniku</span>
-          <input value={venue} onChange={(e) => setVenue(e.target.value)} autoComplete="organization" className={input} />
-        </label>
-        <label className="flex flex-col gap-1 text-base">
-          <span className="font-medium">IČO</span>
-          <input value={ico} onChange={(e) => setIco(e.target.value)} inputMode="numeric" maxLength={10} className={input} />
-        </label>
-      </div>
-      <p className="-mt-2 text-sm text-neutral-600">{CAFE_TASTING_ICO_NOTE}</p>
       {error && (
         <p role="alert" className="text-base font-medium text-[#A51C1C]">
           {error}
         </p>
       )}
-      <button type="button" onClick={submit} disabled={pending} className="self-stretch sm:self-start rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] disabled:opacity-60 text-white font-semibold px-6 h-12 text-base">
-        {pending ? "Ověřujeme IČO…" : "Pokračovat k objednávce"}
+      <button type="button" onClick={submit} className="self-stretch sm:self-start rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] text-white font-semibold px-6 h-12 text-base">
+        Pokračovat k objednávce
       </button>
+
+      {/* Zadání 24. 11. 2026: kdo nechce celou beginu */}
+      <div className="border-t border-[#EDE5D8] pt-5 flex flex-col gap-4">
+        <h3 className="font-serif text-xl text-[#2A2622]">Chci jen ochutnat</h3>
+        {soupPack && (
+          <div className="rounded-xl bg-white border border-[#EDE5D8] p-4">
+            <h4 className="font-semibold text-lg text-[#2A2622]">{SOUP_PACK_TITLE}</h4>
+            <p className="mt-1 text-base text-neutral-700">{SOUP_PACK_TEXT}</p>
+            <ul className="mt-3 flex flex-col gap-1 text-base">
+              <li className="flex justify-between gap-3">
+                <span>{SOUP_PACK_PICKUP_LABEL}</span>
+                <strong className="tabular-nums whitespace-nowrap">{formatKc(soupPack.priceKc)}</strong>
+              </li>
+              {soupPack.coldShippingKc !== null && (
+                <li className="flex justify-between gap-3">
+                  <span>{SOUP_PACK_DELIVERY_LABEL}</span>
+                  <strong className="tabular-nums whitespace-nowrap">{formatKc(soupPack.priceKc + soupPack.coldShippingKc)}</strong>
+                </li>
+              )}
+            </ul>
+            <ShopLink href={`/produkt/${SOUP_PACK_SLUG}`} className="mt-3 inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-[#2F3B1E] text-white font-semibold px-6 h-11 text-base">
+              {SOUP_PACK_BUTTON}
+            </ShopLink>
+          </div>
+        )}
+        <div className="rounded-xl bg-white border border-[#EDE5D8] p-4">
+          <h4 className="font-semibold text-lg text-[#2A2622]">{CAFE_TASTING_SYRUPS_ONLY_HEADING}</h4>
+          <p className="mt-1 text-base text-neutral-700">{CAFE_TASTING_SYRUPS_ONLY_TEXT}</p>
+          <ShopLink href={`/produkt/${SET_SLUG}`} className="mt-3 inline-flex items-center justify-center rounded-lg border-2 border-[#5E6B34] text-[#4A5527] font-semibold px-5 h-11 text-base">
+            {CAFE_TASTING_SYRUPS_ONLY_LINK}
+          </ShopLink>
+        </div>
+        <p className="text-base text-neutral-700">{CAFE_TASTING_SOUPS_ONLY_TEXT}</p>
+      </div>
     </section>
   );
 }

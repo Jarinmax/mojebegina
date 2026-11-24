@@ -48,7 +48,7 @@ const DELIVERY_ANSWER =
 const ORDER_ANSWER =
   "Objednáte přímo na e-shopu begina.cz, na firmu i s IČO. Ceny jsou stejné jako na e-shopu a při pravidelném odběru získáte slevu 3 až 7 % v partnerském programu.";
 const TASTING_ANSWER =
-  "K první objednávce beginy 3 l polévky, sirupu nebo koktejlu Vám na stránce Pro kavárny a bistra přibalíme 2 vzorky polévek po 200 ml a 2 vzorky sirupů po 100 ml zdarma, další vzorky po 49 Kč. Objednáváte na firmu s IČO, jednou na jedno IČO. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích.";
+  "K první třílitrové begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma. Platí k begině 3 l polévky, sirupu, Svařáku Deluxe nebo Lady Carneval, pro kavárny, bistra i domácnosti, bez IČO. Dárek získáte jednou, i když v první objednávce koupíte víc begin. K objednávce třílitrové beginy si můžete přidat další vzorky za 49 Kč za kus. Pošleme chlazenou přepravou, nebo si objednávku vyzvednete ve Viticích. Chcete ochutnat jen sirupy? Vyberte si 5 příchutí v Ochutnávkovém setu sirupů 5 × 100 ml. Vzorky polévek po 200 ml za 49 Kč si můžete po domluvě vyzvednout v Zahradním bistru Begina ve Viticích.";
 
 const product = (label: string, slug: string): LandingLink => ({ label, href: `/produkt/${slug}` });
 

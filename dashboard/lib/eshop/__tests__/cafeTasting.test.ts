@@ -5,7 +5,7 @@ import {
   CAFE_TASTING_CREDIT_ENABLED,
   CAFE_TASTING_ITEMS,
   CAFE_TASTING_LAUNCHED,
-  CAFE_TASTING_NEED_COMPANY,
+  CAFE_TASTING_PICKUP_ONLY,
   CAFE_TASTING_ONE_EACH,
   CAFE_TASTING_NEEDS_BEGINA,
   CAFE_TASTING_SLUG,
@@ -17,6 +17,7 @@ import {
 import { aresStreet, aresZip, lookupAres, parseAresCompany } from "../ares";
 import { addToCart, setLineQuantity } from "../cart";
 import { createCatalogIndex } from "../catalogIndex";
+import { resolveCartLines } from "../cart";
 import { priceCart } from "../pricing";
 import { validateCheckoutInput } from "../checkout";
 import { catalogIndex } from "./helpers/catalogFixture";
@@ -80,8 +81,11 @@ describe("Ochutnávka do provozu", () => {
     expect(price([{ sku: soups[2], quantity: 1 }])).toBe(428);
   });
 
-  it("vzorky bez beginy 3 l polévky, sirupu nebo koktejlu nejdou objednat", () => {
-    expect(priceCart([{ sku: soup, quantity: 1 }], "osobni-odber", index)).toEqual({ ok: false, error: CAFE_TASTING_NEEDS_BEGINA });
+  it("bez beginy: vzorky sirupů ne; samostatné vzorky polévek jen osobně ve Viticích a po 49 Kč (24. 11. 2026)", () => {
+    expect(priceCart([{ sku: syrup, quantity: 1 }], "osobni-odber", index)).toEqual({ ok: false, error: CAFE_TASTING_NEEDS_BEGINA });
+    expect(priceCart([{ sku: soup, quantity: 1 }], "rozvoz", index, { shippingMode: "weight" })).toEqual({ ok: false, error: CAFE_TASTING_PICKUP_ONLY });
+    const pickup = priceCart([{ sku: soup, quantity: 1 }], "osobni-odber", index);
+    expect(pickup.ok && pickup.value.subtotalKc).toBe(49);
   });
 
   it("košík: z každé položky nejvýš 1 kus", () => {
@@ -113,19 +117,55 @@ describe("Ochutnávka do provozu", () => {
     expect(soupOnly.ok && soupOnly.value.containsAgeRestricted).toBe(false);
   });
 
-  it("pokladna: bez nákupu na firmu s IČO nejde objednat", () => {
-    const input = {
-      cart: JSON.stringify([{ sku: begina, quantity: 1 }, { sku: soup, quantity: 1 }]),
-      name: "Jana Nováková", email: "jana@example.cz", phone: "+420 777 123 456",
-      shippingMethodId: "osobni-odber", paymentMethodId: "prevod",
-      billingStreet: "Hlavní 1", billingCity: "Kolín", billingZip: "280 02", billingCountry: "Česká republika",
-      companyPurchase: false, billingCompany: "", billingIco: "", billingDic: "",
-      deliverySameAsBilling: true, recipientName: "", recipientCompany: "", street: "", city: "", zip: "", recipientPhone: "",
-      note: "", termsAccepted: true, ageConfirmed: false,
-    };
-    expect(validateCheckoutInput(input, index)).toEqual({ ok: false, error: CAFE_TASTING_NEED_COMPANY });
-    const ok = validateCheckoutInput({ ...input, companyPurchase: true, billingCompany: "Kavárna s.r.o.", billingIco: "74337297" }, index);
-    expect(ok.ok).toBe(true);
+  const household = {
+    cart: JSON.stringify([]),
+    name: "Jana Nováková", email: "jana@example.cz", phone: "+420 777 123 456",
+    shippingMethodId: "osobni-odber", paymentMethodId: "prevod",
+    billingStreet: "Hlavní 1", billingCity: "Kolín", billingZip: "280 02", billingCountry: "Česká republika",
+    companyPurchase: false, billingCompany: "", billingIco: "", billingDic: "",
+    deliverySameAsBilling: true, recipientName: "", recipientCompany: "", street: "", city: "", zip: "", recipientPhone: "",
+    note: "", termsAccepted: true, ageConfirmed: false,
+  };
+  const soups = CAFE_TASTING_ITEMS.filter((i) => i.kind === "polevka").map((i) => i.sku);
+  const syrups = CAFE_TASTING_ITEMS.filter((i) => i.kind === "sirup").map((i) => i.sku);
+
+  it("situace 1: domácnost bez IČO dostane k první begině 4 vzorky zdarma (24. 11. 2026)", () => {
+    const cart = [begina, soups[0], soups[1], syrups[0], syrups[1]].map((sku) => ({ sku, quantity: 1 }));
+    const r = validateCheckoutInput({ ...household, cart: JSON.stringify(cart) }, index, { tastingGiftEligible: true });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.billing.company ?? null).toBeNull();
+      expect(r.value.pricedCart.subtotalKc).toBe(379);
+      expect(r.value.pricedCart.lines.filter((line) => line.unitPriceKc === 0)).toHaveLength(4);
+    }
+  });
+
+  it("dárek jednou: ani 2 beginy v první objednávce nedají víc než 2 + 2 zdarma", () => {
+    const cart = [{ sku: begina, quantity: 2 }, ...[soups[0], soups[1], soups[2], syrups[0], syrups[1], syrups[2]].map((sku) => ({ sku, quantity: 1 }))];
+    const r = priceCart(cart, "osobni-odber", index);
+    expect(r.ok && r.value.lines.filter((line) => line.unitPriceKc === 0).length).toBe(4);
+    expect(r.ok && r.value.subtotalKc).toBe(2 * 379 + 2 * 49);
+  });
+
+  it("situace 3: kdo dárek čerpal, přidá si k další begině vzorky po 49 Kč", () => {
+    const cart = [begina, soups[0], syrups[0]].map((sku) => ({ sku, quantity: 1 }));
+    const r = validateCheckoutInput({ ...household, cart: JSON.stringify(cart) }, index, { tastingGiftEligible: false });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.pricedCart.subtotalKc).toBe(379 + 2 * 49);
+      expect(r.value.pricedCart.lines.some((line) => line.name.endsWith("– zdarma"))).toBe(false);
+    }
+  });
+
+  it("košík vedle sebe: 2 + 2 zdarma a třetí polévka za 49 Kč", () => {
+    const cart = [begina, soups[0], soups[1], soups[2], syrups[0], syrups[1]].map((sku) => ({ sku, quantity: 1 }));
+    const lines = resolveCartLines(cart, index);
+    const samples = lines.filter((line) => line.sku.startsWith("ochutnavka-"));
+    expect(samples.filter((line) => line.lineTotalKc === 0)).toHaveLength(4);
+    expect(samples.filter((line) => line.lineTotalKc === 49)).toHaveLength(1);
+    // po odebrání beginy nic zdarma
+    const noBegina = resolveCartLines(cart.filter((line) => line.sku !== begina), index);
+    expect(noBegina.every((line) => line.lineTotalKc === 49)).toBe(true);
   });
 
   it("údaje firmy ze sessionStorage: jen s platným IČO", () => {

@@ -5,6 +5,7 @@ import ShopLink from "./ShopLink";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
 import { choiceLine } from "@/lib/eshop/tastingSet";
+import { CAFE_TASTING_BEGINA_REMOVED, CAFE_TASTING_ONCE_TEXT, cartHasCafeTasting, cartHasTastingBegina, isCafeTasting } from "@/lib/eshop/cafeTasting";
 import { isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { useCatalog } from "./CatalogProvider";
 import { formatKc } from "@/lib/format";
@@ -33,6 +34,9 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
   }
 
   const lines = resolveCartLines(cart, catalog);
+  // vzorky bez beginy v akci → upozornit (pricing.ts je přepočítá / odmítne)
+  const tastingInCart = cartHasCafeTasting(cart);
+  const tastingWithoutBegina = tastingInCart && !cartHasTastingBegina(cart.map((line) => line.sku), (sku) => catalog.getVariant(sku));
 
   if (lines.length === 0) {
     return (
@@ -64,6 +68,9 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
     <PendingOrderNotice />
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-6 lg:gap-10 items-start">
       <div>
+      {tastingWithoutBegina && (
+        <p role="alert" className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{CAFE_TASTING_BEGINA_REMOVED}</p>
+      )}
       <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
         {lines.map((line) => (
           <li key={line.sku} className="py-4 flex gap-3 sm:gap-4">
@@ -71,19 +78,31 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <ShopLink
-                    href={`/produkt/${line.product.slug}`}
-                    className="font-medium hover:underline underline-offset-2"
-                  >
-                    {line.product.name}
-                  </ShopLink>
-                  {line.variant.label && <p className="text-xs text-neutral-500">{line.variant.label}</p>}
+                  {isCafeTasting(line.product) ? (
+                    <p className="font-medium">Vzorek – {line.variant.label}</p>
+                  ) : (
+                    <>
+                      <ShopLink
+                        href={`/produkt/${line.product.slug}`}
+                        className="font-medium hover:underline underline-offset-2"
+                      >
+                        {line.product.name}
+                      </ShopLink>
+                      {line.variant.label && <p className="text-xs text-neutral-500">{line.variant.label}</p>}
+                    </>
+                  )}
                   {choiceLine(line.sku) && <p className="text-xs text-neutral-700 mt-0.5">{choiceLine(line.sku)}</p>}
                 </div>
-                <p className="font-medium tabular-nums shrink-0">{formatKc(line.lineTotalKc)}</p>
+                {line.lineTotalKc === 0 && line.variant.priceKc > 0 ? (
+                  <p className="shrink-0 self-start rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Zdarma</p>
+                ) : (
+                  <p className="font-medium tabular-nums shrink-0">{formatKc(line.lineTotalKc)}</p>
+                )}
               </div>
               {line.lineTotalKc === 0 && line.variant.priceKc > 0 ? (
-                <p className="text-xs font-semibold text-[#2F6322] mt-0.5">Zdarma k první begině</p>
+                <p className="text-xs font-semibold text-[#2F6322] mt-0.5">Dárek k první begině</p>
+              ) : isCafeTasting(line.product) ? (
+                <p className="text-xs text-neutral-500 mt-0.5">Vzorek navíc</p>
               ) : (
                 <p className="text-xs text-neutral-500 mt-0.5">{formatKc(line.variant.priceKc)} / ks</p>
               )}
@@ -130,6 +149,7 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
           </li>
         ))}
       </ul>
+      {tastingInCart && !tastingWithoutBegina && <p className="mt-2 text-xs text-neutral-600">{CAFE_TASTING_ONCE_TEXT}</p>}
       {/* 22. 11. 2026 (Lucie): vysypat košík a začít znovu */}
       <div className="mt-3 flex items-center gap-3 text-sm">
         {confirmClear ? (

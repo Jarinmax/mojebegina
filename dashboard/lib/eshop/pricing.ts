@@ -9,13 +9,14 @@
 
 import type { CatalogIndex } from "./catalogIndex";
 import { isOrderable, lineName } from "./productRules";
-import { getShippingMethod, quoteShipping, quoteZasilkovnaShipping, type ShippingMethod, type ShippingMode } from "./shipping";
+import { PICKUP_METHOD_ID, getShippingMethod, quoteShipping, quoteZasilkovnaShipping, type ShippingMethod, type ShippingMode } from "./shipping";
 import type { ShippingDestination } from "./shipping";
 import { SK_FOOD_INFO } from "./skFoodInfo";
 import { OPERATOR } from "./infoPages";
 import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from "./cart";
 import type { AppliedCoupon } from "./coupons";
-import { isCafeTastingAlcohol, CAFE_TASTING_MAX_PER_ITEM, CAFE_TASTING_NEEDS_BEGINA, CAFE_TASTING_NO_ZASILKOVNA, CAFE_TASTING_ONE_EACH, freeTastingSkus, isCafeTastingSku, isTastingBegina } from "./cafeTasting";
+import { isCafeTastingAlcohol, CAFE_TASTING_MAX_PER_ITEM, CAFE_TASTING_NEEDS_BEGINA, CAFE_TASTING_NO_ZASILKOVNA, CAFE_TASTING_ONE_EACH, CAFE_TASTING_PICKUP_ONLY, cartHasTastingBegina, freeTastingSkus, isCafeTastingSku, isSoupSampleSku } from "./cafeTasting";
+import { SOUP_PACK_NEEDS_CHOICE, SOUP_PACK_NO_ZASILKOVNA, isSoupPack, soupChoiceFromSku } from "./soupPack";
 import { SET_NEEDS_CHOICE, SET_ONLY_NOT_COLD, choiceFromSku, isTastingSet, remainingLabel, withChoice } from "./tastingSet";
 import { BOX_NAME, BOX_PRICE_KC, BOX_SKU, boxWeightLines, clampBoxes, isBoxEligible } from "./boxOption";
 
@@ -59,7 +60,7 @@ export function priceCart(
   input: CartInputLine[],
   shippingMethodId: string,
   index: CatalogIndex,
-  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number; /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) */ zasilkovna?: boolean; /** cíl chlazené přepravy (Slovensko = jiný ceník a omezený sortiment) */ destination?: ShippingDestination } = {}
+  options: { shippingMode?: ShippingMode; /** kolik balení 3 l chce zákazník zabalit do krabice */ boxes?: number; /** Zásilkovna zapnutá (ESHOP_ZASILKOVNA=on) */ zasilkovna?: boolean; /** cíl chlazené přepravy (Slovensko = jiný ceník a omezený sortiment) */ destination?: ShippingDestination; /** smí zákazník dostat vzorky zdarma k první begině (false = už čerpal, podle e-mailu) */ tastingGiftEligible?: boolean } = {}
 ): { ok: true; value: PricedCart } | { ok: false; error: string } {
   const shippingMode = options.shippingMode ?? "flat";
   if (input.length === 0) {
@@ -99,6 +100,11 @@ export function priceCart(
     const isSet = isTastingSet(product);
     // set jde objednat jen s úplným výběrem pěti sirupů (přípona SKU)
     if (isSet && choiceFromSku(item.sku) === null) return { ok: false, error: SET_NEEDS_CHOICE };
+    // ochutnávka polévek jen se třemi různými polévkami a jen chlazeně nebo osobně (24. 11. 2026)
+    if (isSoupPack(product)) {
+      if (soupChoiceFromSku(item.sku) === null) return { ok: false, error: SOUP_PACK_NEEDS_CHOICE };
+      if (shipping.id === "zasilkovna") return { ok: false, error: SOUP_PACK_NO_ZASILKOVNA };
+    }
     const name = withChoice(lineName(product, variant), item.sku);
     // Neověřené alergeny (null) — jediné místo, které platí pro košík,
     // pokladnu i náhradní objednávku; obejít to nejde ani podvrženým košíkem.
@@ -147,15 +153,16 @@ export function priceCart(
     });
   }
 
-  // Vzorky do provozu (22. 11. 2026): jen k aspoň jedné begině 3 l; 2 polévky + 2 sirupy zdarma.
+  // Vzorky (24. 11. 2026): dárek 2 polévky + 2 sirupy zdarma jen k begině 3 l v akci
+  // a jen jednou na zákazníka; bez beginy jen vzorky polévek po 49 Kč s osobním odběrem.
   const tastingSkus = lines.filter((line) => isCafeTastingSku(line.sku)).map((line) => line.sku);
   if (tastingSkus.length > 0) {
-    const hasBegina = input.some((item) => {
-      const found = index.getVariant(item.sku);
-      return found !== undefined && !isCafeTastingSku(item.sku) && isTastingBegina(found.product, found.variant);
-    });
-    if (!hasBegina) return { ok: false, error: CAFE_TASTING_NEEDS_BEGINA };
-    const free = freeTastingSkus(tastingSkus);
+    const hasBegina = cartHasTastingBegina(input.map((item) => item.sku), (sku) => index.getVariant(sku));
+    if (!hasBegina) {
+      if (!tastingSkus.every(isSoupSampleSku)) return { ok: false, error: CAFE_TASTING_NEEDS_BEGINA };
+      if (shipping.id !== PICKUP_METHOD_ID) return { ok: false, error: CAFE_TASTING_PICKUP_ONLY };
+    }
+    const free = freeTastingSkus(tastingSkus, hasBegina && options.tastingGiftEligible !== false);
     for (const line of lines) {
       if (free.has(line.sku)) {
         line.unitPriceKc = 0;
