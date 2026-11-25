@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FUNNEL_STEPS, GOOGLE_LABELS, buildFunnel, segmentSplit, sourceRows, type FunnelStep } from "@/lib/eshop/funnel";
 import { loadFunnelDays } from "@/lib/eshop/funnelServer";
+import { loadGscSummary } from "@/lib/seo/gscServer";
 
 // MĚŘENÍ E-SHOPU 1.0 (15. 11. 2026) — trychtýř nákupu a konverzní poměr.
 // Autorizaci (ADMIN/EXECUTIVE) řeší app/rizeni-firmy/layout.tsx.
@@ -37,6 +38,8 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
   const googleOrders = days.reduce((sum, day) => sum + (day.counts.google_order ?? 0), 0);
   const sources = sourceRows(days);
   const segments = segmentSplit(days);
+  const gsc = await loadGscSummary(28).catch(() => null);
+  const gscTop = gsc ? gsc.queries.slice(0, 15) : [];
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6 text-neutral-900">
@@ -118,6 +121,41 @@ export default async function MereniEshopuPage(props: PageProps<"/rizeni-firmy/m
         <p className="mt-2 text-xs text-neutral-500">
           Proklik z Google se pozná podle značky „srsltid“ v adrese (v Merchant Center musí být zapnuté automatické označování). Bez cookies: když zákazník stránku obnoví nebo přijde později znovu, objednávka se Googlu nepřipíše — číslo je spíš spodní odhad. Počítají se odeslané objednávky, ne jen zaplacené.
         </p>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
+        <div>
+          <h2 className="font-semibold">Co lidé hledají na Googlu (Search Console)</h2>
+          <p className="text-xs text-neutral-500">
+            {gsc === null
+              ? "Tabulka pro Search Console v databázi ještě není (skript 158)."
+              : gsc.lastDay
+                ? `Posledních 28 dní do ${fmtDay(gsc.lastDay)} (Google má zpoždění 2–3 dny). Pozice = průměrné místo ve výsledcích, 1 je nahoře.`
+                : "Zatím žádná data – stahují se každou noc."}
+          </p>
+        </div>
+        {gscTop.length > 0 && (
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200">
+              <tr>
+                <th className="py-1.5 font-medium">Hledaný výraz</th>
+                <th className="py-1.5 font-medium text-right">Kliknutí</th>
+                <th className="py-1.5 font-medium text-right">Zobrazení</th>
+                <th className="py-1.5 font-medium text-right">Pozice</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gscTop.map((row) => (
+                <tr key={row.query} className="border-b border-neutral-100 last:border-0">
+                  <td className="py-1.5 pr-3">{row.query}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.clicks}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.impressions}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.position === null ? "—" : row.position.toLocaleString("cs-CZ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
