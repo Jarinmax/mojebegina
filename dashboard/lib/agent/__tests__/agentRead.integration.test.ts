@@ -264,6 +264,7 @@ describe("rozšířené čtecí nástroje nad DB", { timeout: 120_000 }, () => {
       "project_read_area",
       "list_batch_products",
       "list_batches",
+      "list_stock",
       // Ceník surovin — jen Jaroslav a Lucie (změny ceny a nabídek jen se zápisem)
       "recipes_price_list",
     ]);
