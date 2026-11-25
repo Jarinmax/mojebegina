@@ -212,6 +212,23 @@ export async function listStockItems(): Promise<StockItemSummary[]> {
     .orderBy(stockItems.name);
 }
 
+// Stav skladu (Lucie 25. 11. 2026): součet příjmů − výdejů po skladových kartách.
+export type StockBalance = { name: string; unit: string; kind: string; quantity: number; lastReceipt: string | null };
+
+export async function listStockBalances(): Promise<StockBalance[]> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  const result = await db.execute<{ name: string; unit: string; kind: string; quantity: string | number | null; last_in: string | null }>(sql`
+    SELECT i.name, i.canonical_unit AS unit, i.kind,
+           COALESCE(SUM(CASE WHEN m.direction = 'in' THEN m.quantity ELSE -m.quantity END), 0) AS quantity,
+           MAX(CASE WHEN m.direction = 'in' THEN m.occurred_at END)::text AS last_in
+    FROM stock_items i
+    LEFT JOIN stock_movements m ON m.stock_item_id = i.id
+    WHERE i.is_active
+    GROUP BY i.id, i.name, i.canonical_unit, i.kind
+    ORDER BY i.name`);
+  return result.rows.map((r) => ({ name: r.name, unit: r.unit, kind: r.kind, quantity: Number(r.quantity ?? 0), lastReceipt: r.last_in }));
+}
+
 export type CreateStockItemResult = { ok: true; stockItemId: string } | { ok: false; error: string };
 
 export async function createStockItem(rawInput: StockItemInput): Promise<CreateStockItemResult> {
