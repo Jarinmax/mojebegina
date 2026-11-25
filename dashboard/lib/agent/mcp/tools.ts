@@ -18,6 +18,7 @@ import {
   listLeads,
   searchCrm,
   setLeadNextStep,
+  convertLeadToCompany,
   setCustomerDeliveryAddress,
   updateCustomerCard,
   type LeadCardData,
@@ -330,6 +331,45 @@ const CORE_TOOLS: AgentTool[] = [
     execute: async ({ customerId, text }, issuer) => {
       const result = await addCustomerNote(customerId, text);
       return result.ok ? { ok: true, data: { saved: true, url: customerUrl(issuer, customerId) } } : result;
+    },
+  }),
+  defineTool({
+    name: "convert_lead_to_customer",
+    title: "Převod leadu na zákazníka",
+    description:
+      "ZÁPIS — převede lead na zákazníka (firmu podle IČO): firmu najde, nebo založí (bez přihlašovacího účtu), lead označí jako převedený, " +
+      "obchodník zůstane z leadu a e-shopové objednávky se stejným fakturačním IČO se připojí ke kartě. Údaje (název, IČO, sídlo) ber z faktury/objednávky nebo ARES. " +
+      "Před voláním uživateli řekni, co zapíšeš, a volej až po jeho souhlasu. Jen Jaroslav a Lucie.",
+    write: true,
+    visible: (ctx) => isInvoiceIssuer(ctx),
+    properties: {
+      lead_id: { type: "string", description: "id leadu (UUID)." },
+      name: { type: "string", description: "Název firmy (jak je na faktuře / v ARES)." },
+      ico: { type: "string", description: "IČO (8 číslic)." },
+      registered_address: { type: "string", description: "Sídlo firmy (jde na fakturu)." },
+      delivery_address: { type: "string", description: "Doručovací adresa, když se liší od sídla (nepovinné)." },
+    },
+    required: ["lead_id", "name", "ico", "registered_address"],
+    parse: (args) => ({
+      leadId: requiredUuid(args, "lead_id"),
+      name: requiredString(args, "name", 200),
+      ico: requiredString(args, "ico", 20),
+      registeredAddress: requiredString(args, "registered_address", 300),
+      deliveryAddress: optionalString(args, "delivery_address", 300) ?? null,
+    }),
+    execute: async ({ leadId, ...input }, issuer) => {
+      if (!isInvoiceIssuer(await getAuthContext())) return { ok: false, error: `Lead na zákazníka takhle převádějí jen ${INVOICE_ISSUER_NAMES}.` };
+      const result = await convertLeadToCompany(leadId, input);
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        data: {
+          customerId: result.organizationId,
+          createdNewCustomer: result.created,
+          linkedOrders: result.linkedOrders,
+          url: customerUrl(issuer, result.organizationId),
+        },
+      };
     },
   }),
   defineTool({

@@ -1558,3 +1558,87 @@ export async function setCustomerDeliveryAddress(organizationId: string, raw: st
   ]);
   return { ok: true };
 }
+
+export type ConvertLeadToCompanyInput = {
+  name: string;
+  ico: string;
+  registeredAddress: string;
+  deliveryAddress?: string | null;
+};
+
+/**
+ * Převod leadu na zákazníka (firmu) BEZ zakládání přihlašovacího účtu —
+ * pro asistenta (Lucie 25. 11. 2026). Firma se najde podle IČO, nebo založí
+ * (jako při zápisu objednávky). Lead → stage converted, obchodník z leadu.
+ * E-shopové objednávky se stejným fakturačním IČO bez zákazníka se ke kartě
+ * připojí, aby karta ukazovala obrat a historii.
+ */
+export async function convertLeadToCompany(
+  leadId: string,
+  input: ConvertLeadToCompanyInput
+): Promise<{ ok: true; organizationId: string; created: boolean; linkedOrders: number } | { ok: false; error: string }> {
+  const ctx = await requireCrmContext();
+  const ico = input.ico.replace(/\s+/g, "");
+  if (!/^\d{8}$/.test(ico)) return { ok: false, error: "IČO musí mít 8 číslic." };
+  const name = input.name.trim();
+  const address = input.registeredAddress.replace(/\s+/g, " ").trim();
+  if (name.length < 2) return { ok: false, error: "Chybí název firmy." };
+  if (address.length < 5) return { ok: false, error: "Chybí adresa sídla." };
+
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  if (!lead) return { ok: false, error: "Lead nebyl nalezen." };
+  if (lead.convertedOrganizationId) return { ok: false, error: "Lead už je převedený na zákazníka." };
+
+  const [existing] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ico, ico)).limit(1);
+  const organizationId = existing?.id ?? randomUUID();
+  const delivery = input.deliveryAddress?.replace(/\s+/g, " ").trim() || null;
+
+  const ops = [];
+  if (!existing) {
+    ops.push(
+      db.insert(organizations).values({
+        id: organizationId,
+        ico,
+        name,
+        registeredAddress: address,
+        deliveryAddress: delivery,
+        ownerUserId: lead.ownerUserId,
+        acquiredByUserId: lead.acquiredByUserId,
+      }),
+      db.insert(organizationActivity).values({
+        organizationId,
+        authorUserId: ctx.userId,
+        authorName: ctx.name,
+        kind: "created",
+        metadata: { fromLeadId: leadId },
+      })
+    );
+  }
+  ops.push(
+    db
+      .update(leads)
+      .set({ convertedOrganizationId: organizationId, stage: "converted", updatedAt: new Date() })
+      .where(eq(leads.id, leadId)),
+    db.insert(leadActivity).values({
+      leadId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "converted",
+      metadata: { organizationId, linkedExisting: Boolean(existing) },
+    }),
+    upsertPendingLeadCalendarSync(leadId)
+  );
+  await db.batch(ops as unknown as Parameters<typeof db.batch>[0]);
+  if (existing && delivery) {
+    await db.update(organizations).set({ deliveryAddress: delivery }).where(and(eq(organizations.id, organizationId), isNull(organizations.deliveryAddress)));
+  }
+
+  const linked = await db
+    .update(orders)
+    .set({ buyerOrganizationId: organizationId })
+    .where(and(isNull(orders.buyerOrganizationId), eq(orders.billingIco, ico)))
+    .returning({ id: orders.id });
+
+  await reconcileCalendarAfterCommit(leadId);
+  return { ok: true, organizationId, created: !existing, linkedOrders: linked.length };
+}
