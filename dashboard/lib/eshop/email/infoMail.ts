@@ -66,7 +66,7 @@ function bodyToHtml(clean: string): string {
       if (heading) {
         flushPara();
         flushList();
-        const size = heading[1].length <= 2 ? "17px" : "15px";
+        const size = heading[1].length <= 2 ? "16px" : "14px";
         out.push(`<p style="margin:16px 0 6px;font-size:${size};font-weight:700">${inlineHtml(heading[2])}</p>`);
       } else if (BULLET_RE.test(line)) {
         flushPara();
@@ -99,7 +99,7 @@ export function buildInfoMail(body: string, signer: InfoMailSigner, testNote = "
   const [name, ...contacts] = INFO_MAIL_SIGNERS[signer];
   const clean = body.replace(/\r\n/g, "\n").trim();
   const text = `${bodyToText(clean)}\n\nS přátelským pozdravem\n${[name, ...contacts].join("\n")}${testNote ? `\n\n${testNote}` : ""}`;
-  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1f1f1f">${bodyToHtml(clean)}<p style="margin:16px 0 0"><em>S přátelským pozdravem</em><br><strong>${escapeHtml(name)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote)}</small></p>` : ""}</div>`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1f1f1f">${bodyToHtml(clean)}<p style="margin:16px 0 0"><em>S přátelským pozdravem</em><br><strong>${escapeHtml(name)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote)}</small></p>` : ""}</div>`;
   return { text, html };
 }
 
