@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import logoMark from "@/public/logo-begina-mark.png";
 import CartLink from "@/components/eshop/CartLink";
 import CatalogProvider from "@/components/eshop/CatalogProvider";
+import CzechTypography from "@/components/eshop/CzechTypography";
 import { EshopBaseProvider } from "@/components/eshop/EshopBase";
 import ShopLink from "@/components/eshop/ShopLink";
 import { currentSite, eshopBase } from "@/lib/eshop/siteServer";
@@ -121,6 +122,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
       <EshopFooter cookieSettings={marketing !== null} />
       {marketing && <Marketing config={marketing} />}
       <FunnelBeacon />
+      <CzechTypography />
     </div>
     </CatalogProvider>
     </EshopBaseProvider>

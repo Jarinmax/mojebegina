@@ -40,3 +40,19 @@ export function splitLastSentence(paragraph: string): [string, string | null] {
   const cut = last.index + 1;
   return [text.slice(0, cut), text.slice(cut + 1)];
 }
+
+/**
+ * Česká typografie: jednopísmenné předložky a spojky (k, s, v, z, o, u, a, i)
+ * nesmí zůstat na konci řádku — mezeru za nimi nahradíme nezalomitelnou
+ * (Lucie 25. 11. 2026). Opakuje se, dokud se něco mění („a v létě“).
+ */
+export function czechNbsp(text: string): string {
+  const re = /(^|[\s („"'–-])([AaIiKkOoSsUuVvZz]) +(?=\S)/g;
+  let out = text;
+  for (let i = 0; i < 3; i++) {
+    const next = out.replace(re, `$1$2${NBSP}`);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}

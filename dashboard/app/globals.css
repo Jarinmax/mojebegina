@@ -74,3 +74,13 @@ button:not(:disabled):not([data-eshop] *):active {
     display: none !important;
   }
 }
+
+/*
+ * E-shop: odstavce bez osamocených slov na posledním řádku („ovoce.“) —
+ * prohlížeč vyrovná řádky (Lucie 25. 11. 2026). Předložky řeší
+ * components/eshop/CzechTypography.tsx.
+ */
+[data-eshop] p,
+[data-eshop] li {
+  text-wrap: pretty;
+}
