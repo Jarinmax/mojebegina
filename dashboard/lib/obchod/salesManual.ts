@@ -13,14 +13,18 @@ export type ManualSection = {
 
 export const SALES_MANUAL_TITLE = "Begina – manuál pro obchodníky";
 export const SALES_MANUAL_SUBTITLE = "Co říkat kavárnám a bistrům při hovorech na leady";
-export const SALES_MANUAL_UPDATED = "24. 11. 2026";
+export const SALES_MANUAL_UPDATED = "25. 11. 2026";
 
 export const SALES_MANUAL_SECTIONS: ManualSection[] = [
   {
     title: "Hlavní argumenty",
     items: [
       {
-        text: "Z kohoutku natočíte vždy jen objednanou porci. Po otevření vydrží v lednici polévky a čaje 14 dní, sirupy 3 měsíce.",
+        text: "Polévky Begina už přes rok objednávají kavárny v centru Prahy.",
+        note: "Konkrétní kavárnu nejmenovat – nemáme jejich souhlas.",
+      },
+      {
+        text: "Z kohoutku natočíte vždy jen objednanou porci. Po otevření vydrží v lednici: polévky, čaje a alkoholické koktejly 14 dní, sirupy 3 měsíce, ovocné nápoje a Malinový svařák – nealko jen 5 dní, Ochutnávka polévek 3 × 450 ml 5 dní.",
       },
       { text: "Bez práce: polévku stačí ohřát, sirup naředit a ostatní nápoje jsou hotové k podávání." },
       {
@@ -45,13 +49,14 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
       {
         text: "Na dotaz: v Tomatové polévce a Rajčatové polévce s červenou řepou je kyselina citronová z pasírovaných rajčat – je to regulátor kyselosti v surovině, ne konzervant, a sami ho nepřidáváme.",
       },
-      { text: "U alkoholických koktejlů jsou konzervanty jen v kupovaném alkoholu (víno, Aperol)." },
+      { text: "U alkoholických koktejlů: ve Svařáku Deluxe jsou siřičitany z vína, v Lady Carneval barviva E 110 a E 124 z Aperolu. Sami nic z toho nepřidáváme." },
+      { text: "U Lady Carneval nikdy neříkat „bez umělých barviv“." },
     ],
   },
   {
     title: "Cukr a oleje",
     items: [
-      { text: "Kde sladíme, tam jen třtinovým cukrem, ne bílým." },
+      { text: "Kde sladíme, tam jen třtinovým cukrem, ne bílým (kupovaný Aperol v Lady Carneval má vlastní cukr)." },
       { text: "Ovocné nápoje jsou bez přidaného cukru, obsahují jen přirozené cukry z ovoce." },
       { text: "Do polévek používáme jen olivový a dýňový olej – žádný slunečnicový, řepkový ani jiný levný olej." },
       { text: "Neříkat „extra panenský“ – u olivového oleje to neplatí." },
@@ -61,7 +66,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     title: "Ceny (orientačně, platí ceny na begina.cz)",
     items: [
       { text: "Polévky: 379 Kč za 3 l (až 12 porcí po 250 ml)." },
-      { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 159 Kč za 500 ml (teď vyprodané), 199 Kč za 650 ml (doprodej)." },
+      { text: "Sirupy: 549 nebo 499 Kč za 3 l (až 150 nápojů), 159 Kč za 500 ml (teď vyprodané), 199 Kč za 650 ml (doprodej, jen Zázvorový sirup a Lipový sirup)." },
       { text: "Čaje: 249–289 Kč za 3 l. Ovocné nápoje: 349 Kč, Malinový svařák – nealko 399 Kč." },
       { text: "Alkoholické koktejly: 799 Kč za 3 l, Svařák Deluxe 499 Kč za 3 l." },
     ],
@@ -79,7 +84,10 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     items: [
       { text: "Objednávají sami na e-shopu begina.cz. IČO vyplní, jen když chtějí nakupovat na firmu." },
       { text: "Posíláme chlazenou přepravou po celé ČR, nebo osobní odběr ve Viticích." },
-      { text: "Za pravidelné objednávky sleva v partnerském programu 3–7 %." },
+      { text: "Sirupy jdou i Zásilkovnou: 1–4 sáčky, ochutnávkový set nebo jedna begina sirupu 3 l (za 89 Kč, krabice je v ceně)." },
+      {
+        text: "Partnerský program podle zboží za minulý měsíc (bez dopravy): nad 5 000 Kč sleva 3 %, nad 8 000 Kč 5 %, nad 12 000 Kč 7 %, nad 20 000 Kč individuální dohoda.",
+      },
       { text: "Odpovědi na časté dotazy jsou na webu v menu O nás → Časté otázky." },
     ],
   },
