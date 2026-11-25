@@ -104,11 +104,11 @@ export const LANDING_PAGES: LandingPage[] = [
     description: "Polévky Begina jsou z rostlinných surovin, bez masa a mléčných výrobků – vhodné pro vegany i vegetariány. V begině 3 l s kohoutkem, doprava po celé ČR.",
     intro: [
       "Všechny polévky Begina jsou z rostlinných surovin, bez masa a mléčných výrobků, vhodné pro vegany i vegetariány.",
-      "Vaříme je ze zeleniny, hub, bylinek, koření a čisté filtrované vody. Kavárnám a bistrům je posíláme chlazeně po celé ČR.",
+      "Vaříme je ze zeleniny, bylinek, koření a čisté filtrované vody. Kavárnám a bistrům je posíláme chlazeně po celé ČR.",
     ],
     benefits: [
       { title: "100% rostlinné", text: "Polévky jsou vhodné pro vegany i vegetariány." },
-      { title: "Z čisté filtrované vody", text: "Vaříme je ze zeleniny, hub, bylinek, koření a čisté filtrované vody." },
+      { title: "Z čisté filtrované vody", text: "Vaříme je ze zeleniny, bylinek, koření a čisté filtrované vody." },
       { title: "Bez práce", text: "Polévku stačí ohřát a podávat." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek po otevření vydrží v lednici 14 dní." },
     ],
