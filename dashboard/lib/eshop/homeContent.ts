@@ -18,8 +18,12 @@ export const HOME_STEP_POINTS = [
   "Sirupy, čaje a ovocné nápoje bez konzervantů.",
 ] as const;
 
+/** Věta pod „Jak funguje begina“ na úvodu (Lucie 25. 11. 2026): pro všechny, ne jen kavárny; Zásilkovna jen pro menší objednávky sirupů. */
+export const HOME_DELIVERY_LINE =
+  "Polévky a nápoje posíláme chlazenou přepravou po celé ČR, do kaváren, bister i domů. Zásilkovnou pošleme 1–4 sáčky sirupu, ochutnávkový set nebo jednu třílitrovou beginu sirupu.";
+
 export const HOME_STEPS = [
-  { title: "Přijde vám chlazená", text: "Beginu posíláme chlazenou přepravou." },
+  { title: "Pošleme vám ji", text: "Polévky a nápoje posíláme chlazenou přepravou, menší objednávky sirupů i Zásilkovnou." },
   { title: "Uložíte ji do lednice", text: "Zabere málo místa a obsah zůstane čerstvý." },
   { title: "Natočíte si porci", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
 ] as const;

@@ -10,7 +10,6 @@ import { brandShareMeta } from "@/lib/eshop/shareMeta";
 import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, organizationJsonLd } from "@/lib/eshop/seo";
 import ShopLink from "@/components/eshop/ShopLink";
 import Image from "next/image";
-import { CAFE_DELIVERY_LINE } from "@/lib/eshop/cafePage";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeTasting";
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
@@ -19,6 +18,7 @@ import ProductCard from "@/components/eshop/ProductCard";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
 import {
   HOME_ABOUT,
+  HOME_DELIVERY_LINE,
   HOME_BESTSELLERS,
   HOME_BISTRO,
   HOME_STEPS,
@@ -104,7 +104,7 @@ export default async function EshopPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-base leading-normal text-neutral-700">{CAFE_DELIVERY_LINE}</p>
+            <p className="mt-3 text-base leading-normal text-neutral-700">{HOME_DELIVERY_LINE}</p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
               <ShopLink href={INFO_PAGES.packaging.path} className="inline-block py-1 text-base font-medium underline underline-offset-4">
                 Více o balení
