@@ -108,7 +108,7 @@ export const LANDING_PAGES: LandingPage[] = [
     ],
     benefits: [
       { title: "100% rostlinné", text: "Polévky jsou vhodné pro vegany i vegetariány." },
-      { title: "Z čisté filtrované vody", text: "Polévky vyrábíme bez konzervantů." },
+      { title: "Z čisté filtrované vody", text: "Vaříme je ze zeleniny, hub, bylinek, koření a čisté filtrované vody." },
       { title: "Bez práce", text: "Polévku stačí ohřát a podávat." },
       { title: "Žádné zbytky", text: "Natočíte vždy jen objednanou porci, zbytek po otevření vydrží v lednici 14 dní." },
     ],

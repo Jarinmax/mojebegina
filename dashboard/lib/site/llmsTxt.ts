@@ -14,7 +14,7 @@ export function llmsTxt(): string {
     "> Begina dováží hotové polévky a nápoje pro kavárny a bistra po celé ČR chlazenou přepravou: čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině, třílitrovém sáčku s kohoutkem. Objednat si můžete i domů.",
     "",
     "- Pro koho: hlavně kavárny a bistra, ale i zákazníci domů.",
-    "- Polévky a nealkoholické nápoje jsou 100% rostlinné, vhodné pro vegany i vegetariány. Vyrábíme je z čisté filtrované vody, bez konzervantů.",
+    "- Polévky a nealkoholické nápoje jsou 100% rostlinné, vhodné pro vegany i vegetariány. Vyrábíme je z čisté filtrované vody; sirupy, čaje a ovocné nápoje jsou bez konzervantů.",
     `- Polévka v begině 3 l stojí 379 Kč a vystačí až na 12 porcí po 250 ml (31,58 Kč za porci). Nápoj ze sirupu: ${syrupModelLine(true)}`,
     "- Polévky a čaje vydrží po otevření v lednici 14 dní, sirupy 3 měsíce.",
     "- Doprava: chlazená přeprava po celé ČR (cena podle hmotnosti), sáčky se sirupem i Zásilkovnou, osobní odběr v Zahradním bistru Begina, Vitice 119, 281 06 Vitice.",

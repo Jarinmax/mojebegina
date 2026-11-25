@@ -191,6 +191,16 @@ export function hasPreservative(ingredients: string): boolean {
 
 export const NO_PRESERVATIVES = "bez konzervantů";
 
+/**
+ * Regulátor kyselosti / kyselina citronová (např. v pasírovaných rajčatech) má
+ * i vedlejší konzervační účinek – podle stanoviska MZe/SZPI (1. 7. 2022) pak
+ * „bez konzervantů“ uvést nelze, i když se do polévky dostala jen se surovinou.
+ * Rozhodla Lucie 25. 11. 2026.
+ */
+export function hasAcidityRegulator(ingredients: string): boolean {
+  return /regulátor\w* kyselosti|kyselin\w* citronov|\bE\s?330\b/iu.test(ingredients);
+}
+
 /** Ve složení jsou barviva označená kódem E 100–E 199 (např. v likéru)? */
 export function hasColourAdditive(ingredients: string): boolean {
   return /\bE\s?1\d\d\b/u.test(ingredients);
@@ -203,7 +213,7 @@ export function hasColourAdditive(ingredients: string): boolean {
  */
 export function showsNoPreservatives(product: Product): boolean {
   const ingredients = product.foodInfo.ingredients;
-  return ingredients !== null && !hasPreservative(ingredients) && !hasColourAdditive(ingredients);
+  return ingredients !== null && !hasPreservative(ingredients) && !hasColourAdditive(ingredients) && !hasAcidityRegulator(ingredients);
 }
 
 /** Poznámka pod fotkou: u polévek žádné ovoce na fotce není (Lucie 18. 11. 2026). */

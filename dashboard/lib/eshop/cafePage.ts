@@ -32,7 +32,7 @@ export const CAFE_BENEFITS: { icon: CafeIcon; title: string; text: string }[] = 
   { icon: "timer", title: "Bez práce", text: "Polévku stačí ohřát, sirup naředit vodou a čaj nebo ovocný nápoj rovnou podávat." },
   { icon: "calculator", title: "Spočítané porce", get text() { return `Polévka 250 ml za 31,58 Kč při ceně z e-shopu. Nápoj ze sirupu: ${syrupModelLine(true)}`; } },
   { icon: "leaf", title: "100% rostlinné", text: "Polévky a nealkoholické nápoje jsou vhodné pro vegany i vegetariány." },
-  { icon: "droplets", title: "Z čisté filtrované vody", text: "Polévky, sirupy, čaje i ovocné nápoje vyrábíme bez konzervantů." },
+  { icon: "droplets", title: "Z čisté filtrované vody", text: "Vše vaříme z čisté filtrované vody. Sirupy, čaje i ovocné nápoje jsou bez konzervantů." },
   { icon: "truck", title: "Doprava po celé ČR", text: "Chlazená přeprava až k vám, nebo osobní odběr ve Viticích." },
 ];
 
