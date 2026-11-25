@@ -23,6 +23,7 @@ import {
   reviewGoodsReceiptLineVat,
 } from "@/lib/data/sklad";
 import { STOCK_ITEM_KINDS, type StockItemKind } from "@/lib/data/skladValidation";
+import { adjustVariantStock, listTrackedStock } from "@/lib/eshop/variantStock";
 import { ArgError, idempotencyKey } from "../args";
 import { defineTool, type AgentTool, type ToolOutcome } from "../define";
 
@@ -255,6 +256,56 @@ export const SKLAD_TOOLS: AgentTool[] = [
           url: `${PAGE}/prijemky/${receiptId}`,
         },
       };
+    },
+  }),
+  defineTool({
+    name: "list_variant_stock",
+    title: "E-shop — hlídané kusy",
+    description: "JEN ČTENÍ — balení e-shopu s hlídaným počtem kusů (doprodej sirupových kapsiček 650 ml): kolik kusů zbývá a jestli jsou vyprodaná.",
+    write: false,
+    visible: (ctx) => canViewPricesAndOriginal(ctx),
+    properties: {},
+    required: [],
+    parse: () => null,
+    execute: async () => {
+      const ctx = await getAuthContext();
+      if (!ctx || !canViewPricesAndOriginal(ctx)) return { ok: false, error: DENIED };
+      const rows = await listTrackedStock(db);
+      return { ok: true, summary: { items: rows.length }, data: { items: rows } };
+    },
+  }),
+  defineTool({
+    name: "adjust_variant_stock",
+    title: "E-shop — upravit hlídané kusy",
+    description:
+      "ZÁPIS — ručně upraví počet kusů u hlídaného balení e-shopu (např. kapsička 650 ml prodaná v bistru, vzorek poslaný bez objednávky, oprava po inventuře). change = o kolik (záporné = odečíst), nebo set_to = nový počet. reason povinný. Na 0 se balení vyprodá, nad 0 znovu otevře. Před zápisem ukaž uživateli náhled a volej až po jeho „ano“. Objednávky z e-shopu a ruční objednávky přes create_order odečítají kusy samy.",
+    write: true,
+    visible: (ctx) => canConfirmGoodsReceipt(ctx),
+    properties: {
+      sku: { type: "string", description: "SKU balení z list_variant_stock (např. lipovy-sirup-750ml)." },
+      change: { type: "integer", description: "O kolik kusů změnit (záporné = výdej)." },
+      set_to: { type: "integer", description: "Nový počet kusů (místo change)." },
+      reason: { type: "string", description: "Proč (např. „prodej v bistru 26. 11.“)." },
+    },
+    required: ["sku", "reason"],
+    parse: (args) => {
+      const sku = typeof args.sku === "string" ? args.sku.trim() : "";
+      const reason = typeof args.reason === "string" ? args.reason.trim().slice(0, 300) : "";
+      if (!sku) throw new ArgError("Chybí sku.");
+      if (!reason) throw new ArgError("Chybí reason.");
+      const change = args.change === undefined ? undefined : Number(args.change);
+      const setTo = args.set_to === undefined ? undefined : Number(args.set_to);
+      if ((change === undefined) === (setTo === undefined)) throw new ArgError("Zadejte buď change, nebo set_to.");
+      if (change !== undefined && (!Number.isInteger(change) || change === 0)) throw new ArgError("change musí být nenulové celé číslo.");
+      if (setTo !== undefined && (!Number.isInteger(setTo) || setTo < 0)) throw new ArgError("set_to musí být celé číslo ≥ 0.");
+      return { sku, reason, change, setTo, key: idempotencyKey(args) };
+    },
+    execute: async (input): Promise<ToolOutcome> => {
+      const ctx = await getAuthContext();
+      if (!ctx || !canConfirmGoodsReceipt(ctx)) return { ok: false, error: DENIED };
+      const result = await adjustVariantStock(db, { sku: input.sku, change: input.change, setTo: input.setTo, reason: input.reason, userId: ctx.userId, userName: ctx.name });
+      if (!result.ok) return { ok: false, error: result.error };
+      return { ok: true, data: { item: result.row, message: `${result.row.product} ${result.row.label ?? ""}: skladem ${result.row.stockQty} ks${result.row.soldOut ? " (vyprodáno)" : ""}.` } };
     },
   }),
 ];
