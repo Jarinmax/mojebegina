@@ -34,6 +34,7 @@ import { db } from "@/lib/db/client";
 import { productVariants } from "@/lib/db/schema";
 import { pragueToday, matchSalesperson } from "./callActivityValidation";
 import { listInternalStaff, requireOrderContext } from "./orders";
+import { manualStockStatements, stockTrackingReady } from "@/lib/eshop/variantStock";
 import {
   companyNameKey,
   DIC_SOURCE_LABELS,
@@ -410,6 +411,7 @@ export async function createOrderFromIntake(
     responsibleName: plan.responsible?.name ?? null,
   };
 
+  const stockReady = await stockTrackingReady(db);
   const results = await db.batch([
     db.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`),
     customer.status === "new"
@@ -457,6 +459,8 @@ export async function createOrderFromIntake(
           FROM upd
           RETURNING id`)
       : db.execute(sql`SELECT 1`),
+    // hlídané kusy (doprodej kapsiček 650 ml) — odečtou se i u ruční objednávky, nikdy ji neblokují
+    ...(stockReady ? manualStockStatements(orderId, value.items.map((item, i) => ({ variantId: plan.variantIds[i] ?? null, quantity: item.quantity }))).map((q) => db.execute(q)) : []),
     // úhrada kartou na e-shopu (model #5215): jedna platba, (source, external_id) je unikátní
     value.paidByCard
       ? db.execute(sql`

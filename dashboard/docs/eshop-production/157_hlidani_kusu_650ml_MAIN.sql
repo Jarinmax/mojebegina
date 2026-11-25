@@ -26,6 +26,17 @@ CREATE TABLE IF NOT EXISTS eshop_stock_reservations (
 );
 CREATE INDEX IF NOT EXISTS eshop_stock_reservations_order_idx ON eshop_stock_reservations (order_id);
 
+CREATE TABLE IF NOT EXISTS eshop_stock_adjustments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  variant_id uuid NOT NULL REFERENCES product_variants(id),
+  quantity_before integer,
+  quantity_after integer NOT NULL,
+  reason text NOT NULL,
+  author_user_id text,
+  author_name text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 UPDATE product_variants SET stock_qty = 27, sold_out = false, updated_at = now() WHERE sku = 'zazvorovy-sirup-750ml';
 UPDATE product_variants SET stock_qty = 5,  sold_out = false, updated_at = now() WHERE sku = 'medunkovy-sirup-s-levanduli-750ml';
 UPDATE product_variants SET stock_qty = 4,  sold_out = false, updated_at = now() WHERE sku = 'lipovy-sirup-750ml';

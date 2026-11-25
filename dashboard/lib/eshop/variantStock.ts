@@ -94,3 +94,67 @@ export async function releaseOrderStock(db: AnyDb, orderId: string): Promise<voi
     FROM per_variant p
     WHERE v.id = p.variant_id AND v.stock_qty IS NOT NULL`);
 }
+
+/**
+ * Ruční objednávka zadaná přes asistenta (create_order): kusy se odečtou taky,
+ * ale objednávku nikdy nezablokují — zboží už většinou odešlo. Odečte se
+ * nejvýš to, co zbývá (na nule se balení vyprodá), rezervace = skutečně odečtené
+ * kusy, aby je storno vrátilo přesně.
+ */
+export function manualStockStatements(orderId: string, items: Array<{ variantId: string | null; quantity: number }>): SQL[] {
+  return items
+    .filter((item): item is { variantId: string; quantity: number } => Boolean(item.variantId) && item.quantity > 0)
+    .flatMap((item) => [
+      sql`INSERT INTO eshop_stock_reservations (order_id, variant_id, quantity)
+          SELECT o.id, v.id, LEAST(${item.quantity}, v.stock_qty) FROM product_variants v, orders o
+          WHERE v.id = ${item.variantId}::uuid AND v.stock_qty > 0 AND o.id = ${orderId}::uuid`,
+      sql`UPDATE product_variants
+          SET stock_qty = GREATEST(stock_qty - ${item.quantity}, 0),
+              sold_out = sold_out OR stock_qty - ${item.quantity} <= 0,
+              updated_at = now()
+          WHERE id = ${item.variantId}::uuid AND stock_qty IS NOT NULL
+            AND EXISTS (SELECT 1 FROM orders WHERE id = ${orderId}::uuid)`,
+    ]);
+}
+
+export type StockRow = { sku: string; product: string; label: string | null; stockQty: number; soldOut: boolean };
+
+/** Hlídaná balení s počtem kusů (pro asistenta a Řízení firmy). */
+export async function listTrackedStock(db: AnyDb): Promise<StockRow[]> {
+  if (!(await stockTrackingReady(db))) return [];
+  const result = await db.execute<{ sku: string; product: string; label: string | null; stock_qty: number; sold_out: boolean }>(sql`
+    SELECT v.sku, p.name AS product, v.label, v.stock_qty, v.sold_out
+    FROM product_variants v JOIN products p ON p.id = v.product_id
+    WHERE v.stock_qty IS NOT NULL ORDER BY p.name, v.label`);
+  const rows = (result as unknown as { rows?: Array<{ sku: string; product: string; label: string | null; stock_qty: number; sold_out: boolean }> }).rows ?? [];
+  return rows.map((r) => ({ sku: r.sku, product: r.product, label: r.label, stockQty: Number(r.stock_qty), soldOut: r.sold_out }));
+}
+
+/**
+ * Ruční úprava kusů (prodej v bistru, vzorek bez objednávky, inventura):
+ * change = o kolik (záporné = výdej), nebo setTo = nový stav. Zapíše se do
+ * eshop_stock_adjustments; na 0 vyprodá, nad 0 znovu otevře.
+ */
+export async function adjustVariantStock(
+  db: AnyDb,
+  input: { sku: string; change?: number; setTo?: number; reason: string; userId: string; userName: string | null }
+): Promise<{ ok: true; row: StockRow } | { ok: false; error: string }> {
+  if (!(await stockTrackingReady(db))) return { ok: false, error: "Hlídání kusů ještě není zapnuté (chybí skript 157)." };
+  const target =
+    input.setTo !== undefined ? sql`${input.setTo}::int` : sql`GREATEST(v.stock_qty + ${input.change ?? 0}::int, 0)`;
+  const result = await db.execute<{ sku: string; before: number; after: number }>(sql`
+    WITH cur AS (SELECT id, stock_qty FROM product_variants WHERE sku = ${input.sku} AND stock_qty IS NOT NULL FOR UPDATE),
+    upd AS (
+      UPDATE product_variants v SET stock_qty = ${target}, sold_out = (${target}) <= 0, updated_at = now()
+      FROM cur WHERE v.id = cur.id
+      RETURNING v.id, v.sku, cur.stock_qty AS before, v.stock_qty AS after
+    ), log AS (
+      INSERT INTO eshop_stock_adjustments (variant_id, quantity_before, quantity_after, reason, author_user_id, author_name)
+      SELECT id, before, after, ${input.reason}, ${input.userId}, ${input.userName} FROM upd
+    )
+    SELECT sku, before, after FROM upd`);
+  const rows = (result as unknown as { rows?: Array<{ sku: string }> }).rows ?? [];
+  if (rows.length === 0) return { ok: false, error: `Balení ${input.sku} nemá hlídaný počet kusů.` };
+  const row = (await listTrackedStock(db)).find((r) => r.sku === input.sku);
+  return row ? { ok: true, row } : { ok: false, error: "Úprava proběhla, ale stav se nepodařilo načíst." };
+}
