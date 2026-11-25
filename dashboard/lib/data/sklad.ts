@@ -212,21 +212,99 @@ export async function listStockItems(): Promise<StockItemSummary[]> {
     .orderBy(stockItems.name);
 }
 
-// Stav skladu (Lucie 25. 11. 2026): součet příjmů − výdejů po skladových kartách.
-export type StockBalance = { name: string; unit: string; kind: string; quantity: number; lastReceipt: string | null };
+// Stav skladu (Lucie 25. 11. 2026): součet příjmů − výdejů po skladových kartách,
+// průměrná cena za jednotku z potvrzených příjemek (vč. dopravy) a hodnota.
+export type StockBalance = {
+  name: string;
+  unit: string;
+  kind: string;
+  quantity: number;
+  unitPriceKc: number | null;
+  valueKc: number | null;
+  lastReceipt: string | null;
+};
 
 export async function listStockBalances(): Promise<StockBalance[]> {
   requirePricesAndOriginalAccess(await getAuthContext());
-  const result = await db.execute<{ name: string; unit: string; kind: string; quantity: string | number | null; last_in: string | null }>(sql`
+  const result = await db.execute<{
+    name: string; unit: string; kind: string; quantity: string | number | null; last_in: string | null;
+    price_hal: string | number | null; price_qty: string | number | null;
+  }>(sql`
+    WITH bal AS (
+      SELECT m.stock_item_id,
+             SUM(CASE WHEN m.direction = 'in' THEN m.quantity ELSE -m.quantity END) AS quantity,
+             MAX(CASE WHEN m.direction = 'in' THEN COALESCE(r.document_date, m.occurred_at::date) END) AS last_in
+      FROM stock_movements m LEFT JOIN goods_receipts r ON r.id = m.receipt_id
+      GROUP BY m.stock_item_id
+    ), price AS (
+      SELECT l.stock_item_id, SUM(l.total_with_vat_hal) AS price_hal, SUM(l.normalized_quantity) AS price_qty
+      FROM goods_receipt_lines l JOIN goods_receipts r ON r.id = l.receipt_id
+      WHERE r.status = 'confirmed' AND l.stock_item_id IS NOT NULL
+      GROUP BY l.stock_item_id
+    )
     SELECT i.name, i.canonical_unit AS unit, i.kind,
-           COALESCE(SUM(CASE WHEN m.direction = 'in' THEN m.quantity ELSE -m.quantity END), 0) AS quantity,
-           MAX(CASE WHEN m.direction = 'in' THEN m.occurred_at END)::text AS last_in
+           COALESCE(bal.quantity, 0) AS quantity, bal.last_in::text AS last_in,
+           price.price_hal, price.price_qty
     FROM stock_items i
-    LEFT JOIN stock_movements m ON m.stock_item_id = i.id
+    LEFT JOIN bal ON bal.stock_item_id = i.id
+    LEFT JOIN price ON price.stock_item_id = i.id
     WHERE i.is_active
-    GROUP BY i.id, i.name, i.canonical_unit, i.kind
     ORDER BY i.name`);
-  return result.rows.map((r) => ({ name: r.name, unit: r.unit, kind: r.kind, quantity: Number(r.quantity ?? 0), lastReceipt: r.last_in }));
+  return result.rows.map((r) => {
+    const quantity = Number(r.quantity ?? 0);
+    const qty = Number(r.price_qty ?? 0);
+    const unitPriceKc = qty > 0 ? Number(r.price_hal ?? 0) / 100 / qty : null;
+    return {
+      name: r.name,
+      unit: r.unit,
+      kind: r.kind,
+      quantity,
+      unitPriceKc,
+      valueKc: unitPriceKc === null ? null : unitPriceKc * quantity,
+      lastReceipt: r.last_in,
+    };
+  });
+}
+
+// Přehled potvrzených příjmů pro stránku Sklad: datum, dodavatel, co a za kolik.
+export type StockReceiptOverview = {
+  id: string;
+  date: string | null;
+  supplier: string;
+  documentNumber: string | null;
+  items: string;
+  totalKc: number;
+};
+
+export async function listConfirmedReceiptsOverview(): Promise<{ receipts: StockReceiptOverview[]; draftCount: number }> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  const result = await db.execute<{
+    id: string; date: string | null; supplier: string; document_number: string | null; items: string | null; total_hal: string | number | null;
+  }>(sql`
+    SELECT r.id, COALESCE(r.document_date::text, r.confirmed_at::date::text) AS date,
+           r.supplier_name_snapshot AS supplier, r.document_number,
+           string_agg(COALESCE(i.name, l.raw_description) || ' ' ||
+                      trim(trailing '.' FROM trim(trailing '0' FROM l.normalized_quantity::text)) || ' ' || l.normalized_unit,
+                      ', ' ORDER BY l.position) AS items,
+           COALESCE(SUM(l.total_with_vat_hal), 0) AS total_hal
+    FROM goods_receipts r
+    LEFT JOIN goods_receipt_lines l ON l.receipt_id = r.id
+    LEFT JOIN stock_items i ON i.id = l.stock_item_id
+    WHERE r.status = 'confirmed'
+    GROUP BY r.id
+    ORDER BY COALESCE(r.document_date, r.confirmed_at::date) DESC, r.created_at DESC`);
+  const drafts = await db.execute<{ n: string | number }>(sql`SELECT COUNT(*) AS n FROM goods_receipts WHERE status = 'draft'`);
+  return {
+    receipts: result.rows.map((r) => ({
+      id: r.id,
+      date: r.date,
+      supplier: r.supplier,
+      documentNumber: r.document_number,
+      items: r.items ?? "",
+      totalKc: Number(r.total_hal ?? 0) / 100,
+    })),
+    draftCount: Number(drafts.rows[0]?.n ?? 0),
+  };
 }
 
 export type CreateStockItemResult = { ok: true; stockItemId: string } | { ok: false; error: string };
