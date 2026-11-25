@@ -49,7 +49,7 @@ export const HOME_HERO_POINTS = ["Po otevření vydrží polévky a čaje 14 dn�
 // Přestavba úvodu pro kavárny a bistra (Lucie 20. 11. 2026): kavárny a bistra dělají 80–90 %
 // objednávek, ale zákazník nakupující domů musí vidět, že je vítaný. Texty jen z webu
 // (hlavně ze stránky Pro kavárny a bistra), nic nového.
-export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny a bistra";
+export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny, bistra i domů"; // 25. 11. 2026 (Lucie): ať zákazník domů hned vidí, že nakoupit může i on
 // 22. 11. 2026 (Lucie): „Posíláme chlazeně“ — zásilky veze dopravce, dopravce se nejmenuje (Jarin)
 export const HOME_HERO_SUBTITLE = ["Polévku stačí ohřát, sirup naředit.", "Posíláme chlazeně po celé ČR."] as const;
 export const HOME_HERO_BUTTON = "Vybrat první beginu 3 l"; // 24. 11. 2026 (Lucie/ChatGPT): vedle je druhé tlačítko „Ochutnat 3 polévky“; dřív „Vybrat polévky a nápoje“ // dřív „Vybrat první balení“ — Jarin nepoznal, že vede k polévkám (Lucie 24. 11. 2026)
