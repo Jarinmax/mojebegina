@@ -146,6 +146,10 @@ describe("bez konzervantů", () => {
     expect(showsNoPreservatives(product({}))).toBe(true);
     expect(showsNoPreservatives(product({ ingredients: null }))).toBe(false);
     expect(showsNoPreservatives(product({ ingredients: "víno (SIŘIČITANY)" }))).toBe(false);
+    // regulátor kyselosti z pasírovaných rajčat (stanovisko MZe/SZPI 2022) – 25. 11. 2026
+    expect(showsNoPreservatives(product({ ingredients: "voda, pasírovaná rajčata 27 % (rajčata 99,9 %, regulátor kyselosti: kyselina citronová)" }))).toBe(false);
+    expect(showsNoPreservatives(product({ ingredients: "voda, citronová šťáva 6 %, antioxidant: kyselina askorbová (vitamin C)" }))).toBe(true);
+    expect(showsNoPreservatives(product({ ingredients: "voda, kokosové mléko (emulgátor: E 435)" }))).toBe(true);
     // Lady Carneval: konzervant nemá, ale vedle barviv E 110 a E 124 se štítek neukazuje
     expect(showsNoPreservatives(product({ ingredients: "voda, vodka 15 %, Aperol 8 % (pitná voda, cukr, líh, aromata, barviva: E 110, E 124)" }))).toBe(false);
   });

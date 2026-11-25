@@ -15,7 +15,7 @@ export const HOME_WHY = [
 export const HOME_STEP_POINTS = [
   "Žádné zbytky: po otevření vydrží polévky a čaje v lednici 14 dní, sirupy 3 měsíce.",
   "100% rostlinné polévky a nealko nápoje.",
-  "Z čisté filtrované vody a bez konzervantů.",
+  "Sirupy, čaje a ovocné nápoje bez konzervantů.",
 ] as const;
 
 export const HOME_STEPS = [

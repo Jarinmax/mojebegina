@@ -41,7 +41,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Jsou vaše polévky veganské?",
     answer:
-      "Ano. Polévky a nealkoholické nápoje jsou 100% rostlinné, vhodné pro vegany i vegetariány. Vyrábíme je z čisté filtrované vody a bez konzervantů.",
+      "Ano. Polévky a nealkoholické nápoje jsou 100% rostlinné, vhodné pro vegany i vegetariány. Vyrábíme je z čisté filtrované vody.",
   },
   {
     question: "Kolik stojí porce polévky?",
