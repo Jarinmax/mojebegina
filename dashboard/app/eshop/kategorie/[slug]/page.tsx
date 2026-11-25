@@ -7,7 +7,6 @@ import { AGE_RESTRICTION_NOTICE } from "@/lib/eshop/productRules";
 import { imageBackdrop } from "@/lib/eshop/productImages";
 import { SHARE_DESCRIPTION, pageShareMeta } from "@/lib/eshop/shareMeta";
 import ProductCard from "@/components/eshop/ProductCard";
-import { splitLastSentence } from "@/lib/eshop/typography";
 import { withSyrupDrinkPrice } from "@/lib/eshop/syrupDrinkPrice";
 import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
 import { breadcrumbJsonLd, categoryDescription, jsonLd } from "@/lib/eshop/seo";
@@ -69,21 +68,12 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
 
       <section className="text-center max-w-3xl mx-auto mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{category.name}</h1>
-        {intro.map((paragraph, index) => {
-          const [head, last] = splitLastSentence(paragraph);
-          return (
-            // mobil: nad produkty jen první odstavec, delší popis až pod nimi (zadání 22. 11. 2026 večer)
-            <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "hidden sm:block text-neutral-600"}`}>
-              {head}
-              {last && (
-                <>
-                  {" "}
-                  <span className="sm:block">{last}</span>
-                </>
-              )}
-            </p>
-          );
-        })}
+        {intro.map((paragraph, index) => (
+          // celý úvod nahoře i na mobilu, souvislý text bez zalamování poslední věty (Lucie 25. 11. 2026)
+          <p key={paragraph} className={`mt-3 ${index === 0 ? "font-medium" : "text-neutral-600"}`}>
+            {paragraph}
+          </p>
+        ))}
         {category.ageRestricted && <p className="mt-3 font-medium">🔞 {AGE_RESTRICTION_NOTICE}</p>}
         {category.slug === "polevky" && (
           <p className="mt-4 rounded-xl border border-[#5E6B34] bg-[#FAF6EF] px-4 py-3 text-sm sm:text-base text-neutral-800">
@@ -109,13 +99,6 @@ export default async function CategoryPage({ params }: PageProps<"/eshop/kategor
             <ProductCard key={product.slug} product={product} />
           ))}
         </ul>
-      )}
-      {intro.length > 1 && (
-        <section className="sm:hidden mt-8 text-center max-w-3xl mx-auto">
-          {intro.slice(1).map((paragraph) => (
-            <p key={paragraph} className="mt-3 text-neutral-600">{paragraph}</p>
-          ))}
-        </section>
       )}
     </div>
   );
