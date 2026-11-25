@@ -1,7 +1,7 @@
 // Typografie tabulky „Informace o potravině“ (10. 11. 2026): jen zápis,
 // obsah beze změny.
 import { describe, expect, it } from "vitest";
-import { asSentence, keepTogether, splitLastSentence } from "../typography";
+import { asSentence, czechNbsp, keepTogether, splitLastSentence } from "../typography";
 
 const NB = " ";
 
@@ -40,5 +40,15 @@ describe("splitLastSentence", () => {
     ]);
     expect(splitLastSentence("Ovocné nápoje mícháme z vody. Bez přidaného cukru – obsahují jen přirozeně přítomné cukry z ovoce.")[1]).toBe("Bez přidaného cukru – obsahují jen přirozeně přítomné cukry z ovoce.");
     expect(splitLastSentence("Jediná věta.")).toEqual(["Jediná věta.", null]);
+  });
+});
+
+describe("czechNbsp", () => {
+  it("drží jednopísmenné předložky a spojky u dalšího slova", () => {
+    expect(czechNbsp("cukry z ovoce a v létě s ledem")).toBe("cukry z ovoce a v létě s ledem");
+    expect(czechNbsp("V létě i v zimě")).toBe("V létě i v zimě");
+  });
+  it("nemění delší slova ani písmena uvnitř slov", () => {
+    expect(czechNbsp("Polévky ze zeleniny, 3 l balení")).toBe("Polévky ze zeleniny, 3 l balení");
   });
 });
