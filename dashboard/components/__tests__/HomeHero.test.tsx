@@ -21,7 +21,7 @@ describe("úvod e-shopu", () => {
     render(<HomeHero />);
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
     const h1 = screen.getByRole("heading", { level: 1 });
-    expect(text(h1.textContent)).toBe("Polévky a nápoje pro kavárny a bistra");
+    expect(text(h1.textContent)).toBe("Polévky a nápoje pro kavárny, bistra i domů");
     const body = text(document.body.textContent);
     expect(body).toContain("Polévku stačí ohřát, sirup naředit.");
     expect(body).toContain("Posíláme chlazeně po celé ČR.");

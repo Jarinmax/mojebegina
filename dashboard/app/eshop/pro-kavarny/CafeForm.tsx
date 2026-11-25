@@ -6,7 +6,7 @@ import { CAFE_FORM_DONE, CAFE_FORM_HEADING, type CafeField, type CafeFormPlace }
 import { submitCafeInquiryAction, type CafeFormState } from "./actions";
 
 const input =
-  "w-full rounded-lg border border-neutral-300 bg-white px-3 h-12 text-base text-[#2A2622] focus:outline-none focus:ring-2 focus:ring-[#5E6B34] aria-[invalid=true]:border-[#A51C1C]";
+  "w-full rounded-lg border border-neutral-300 bg-white px-3 h-11 text-base text-[#2A2622] focus:outline-none focus:ring-2 focus:ring-[#5E6B34] aria-[invalid=true]:border-[#A51C1C]";
 
 /** heading/anchorId: na Pro kavárny a bistra je při objednávce ochutnávky tenhle formulář druhá možnost (20. 11. 2026). */
 export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADING, anchorId = "ochutnavka", intro }: { place?: CafeFormPlace; heading?: string; anchorId?: string; intro?: string }) {
@@ -23,19 +23,20 @@ export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADIN
   }
 
   return (
-    <form id={anchorId} action={action} className="rounded-2xl border border-[#EDE5D8] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-4 scroll-mt-24" noValidate>
-      <h2 className="font-serif text-2xl text-[#2A2622]">{heading}</h2>
+    <form id={anchorId} action={action} className="w-full max-w-2xl mx-auto rounded-2xl border border-[#EDE5D8] bg-[#FAF6EF] p-5 sm:p-6 flex flex-col gap-3 scroll-mt-24" noValidate>
+      <h2 className="font-serif text-xl sm:text-2xl text-[#2A2622]">{heading}</h2>
       {intro && <p className="-mt-2 text-base leading-normal text-neutral-700">{intro}</p>}
       <input type="hidden" name="misto" value={place} />
-      <label className="flex flex-col gap-1 text-base">
-        <span className="font-medium">Název podniku</span>
-        <input name="venue" autoComplete="organization" required aria-invalid={invalid("venue")} className={input} />
-      </label>
-      <label className="flex flex-col gap-1 text-base">
-        <span className="font-medium">Jméno a příjmení</span>
-        <input name="name" autoComplete="name" required aria-invalid={invalid("name")} className={input} />
-      </label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* 25. 11. 2026 (Lucie): menší formulář – pole po dvou vedle sebe, bez Města, poznámka schovaná */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1 text-base">
+          <span className="font-medium">Název podniku</span>
+          <input name="venue" autoComplete="organization" required aria-invalid={invalid("venue")} className={input} />
+        </label>
+        <label className="flex flex-col gap-1 text-base">
+          <span className="font-medium">Jméno a příjmení</span>
+          <input name="name" autoComplete="name" required aria-invalid={invalid("name")} className={input} />
+        </label>
         <label className="flex flex-col gap-1 text-base">
           <span className="font-medium">Telefon</span>
           <input name="phone" type="tel" inputMode="tel" autoComplete="tel" required aria-invalid={invalid("phone")} className={input} />
@@ -47,18 +48,10 @@ export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADIN
           <input name="email" type="email" inputMode="email" autoComplete="email" aria-invalid={invalid("email")} className={input} />
         </label>
       </div>
-      <label className="flex flex-col gap-1 text-base">
-        <span className="font-medium">
-          Město <span className="font-normal text-neutral-600">(nepovinné)</span>
-        </span>
-        <input name="city" autoComplete="address-level2" aria-invalid={invalid("city")} className={input} />
-      </label>
-      <label className="flex flex-col gap-1 text-base">
-        <span className="font-medium">
-          Poznámka <span className="font-normal text-neutral-600">(nepovinné)</span>
-        </span>
-        <textarea name="note" rows={3} aria-invalid={invalid("note")} className={`${input} h-auto py-2.5`} />
-      </label>
+      <details className="text-base" open={invalid("note") ? true : undefined}>
+        <summary className="cursor-pointer select-none font-medium text-[#4A5527] underline underline-offset-4 w-fit">+ Přidat poznámku</summary>
+        <textarea name="note" rows={3} aria-label="Poznámka" aria-invalid={invalid("note")} className={`${input} h-auto py-2.5 mt-2`} />
+      </details>
       {/* past na roboty — člověk pole nevidí */}
       <div className="hidden" aria-hidden="true">
         <label>
@@ -74,7 +67,7 @@ export default function CafeForm({ place = "kavarny", heading = CAFE_FORM_HEADIN
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] disabled:opacity-60 text-white font-semibold px-6 h-12 text-base"
+        className="inline-flex items-center justify-center rounded-lg bg-[#A51C1C] hover:bg-[#8C1717] disabled:opacity-60 text-white font-semibold px-6 h-11 text-base"
       >
         {pending ? "Odesílám…" : "Chci, abyste mi zavolali"}
       </button>
