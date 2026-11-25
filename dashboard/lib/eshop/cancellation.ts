@@ -28,6 +28,7 @@ import { sendOrderEmails, type OrderEmailOutcome, type SendOrderEmailsOptions } 
 import { settleOrderPaymentSql } from "./payments";
 import { buildEshopOrderRows } from "./orderWrite";
 import type { CheckoutValue } from "./checkout";
+import { releaseOrderStock } from "./variantStock";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -136,6 +137,11 @@ export async function afterOrderCancelled(
     heldHal = await heldAmountHal(db, orderId);
   } catch (error) {
     console.error("Storno: držené peníze se nepodařilo zjistit", orderId, error);
+  }
+  try {
+    await releaseOrderStock(db, orderId);
+  } catch (error) {
+    console.error("Storno: hlídané kusy se nepodařilo vrátit", orderId, error);
   }
   const outcomes = await sendOrderEmails(db, orderId, "order_cancelled", baseUrl, { ...email, cancellation: { heldHal } });
   return { heldHal, email: outcomes.find((o) => o.template === "customer_cancellation") ?? null };

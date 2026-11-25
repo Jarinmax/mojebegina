@@ -31,6 +31,8 @@ export type Variant = {
   weightGrams: number | null;
   /** Vyprodáno: balení je vidět s červeným „Vyprodáno“, ale nejde koupit (sold_out, migrace 0060). */
   soldOut?: boolean;
+  /** Kolik kusů zbývá u hlídaného balení (product_variants.stock_qty); undefined = počet se nehlídá. */
+  stockQty?: number;
 };
 
 export type FoodInfo = {

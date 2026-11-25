@@ -18,6 +18,7 @@ import { formatNutrition, nutritionTable } from "./nutrition";
 import { simplePackageLabel } from "./packageLabel";
 import type { Catalog, Category, DetailSection, Product, ProductPhoto, Variant } from "./types";
 import { categoryFoodExtras } from "./categoryFoodInfo";
+import { loadStockQty } from "./variantStock";
 
 type CatalogDb = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -92,7 +93,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
   db: PgDatabase<T, typeof schema> | CatalogDb,
   options: { weights?: boolean } = {}
 ): Promise<Catalog> {
-  const [categoryRows, productRows, variantRows, imageRows, weights, soldOut] = await Promise.all([
+  const [categoryRows, productRows, variantRows, imageRows, weights, soldOut, stock] = await Promise.all([
     db
       .select()
       .from(productCategories)
@@ -121,6 +122,7 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
     db.select().from(productImages).orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),
     options.weights ? loadWeights(db) : Promise.resolve(new Map<string, number | null>()),
     loadSoldOut(db),
+    loadStockQty(db as CatalogDb),
   ]);
 
   const categorySlugById = new Map(categoryRows.map((row) => [row.id, row.slug]));
@@ -138,7 +140,8 @@ export async function loadCatalog<T extends PgQueryResultHKT>(
       volumeMl: row.volumeMl,
       servings: row.servings,
       weightGrams: weights.get(row.sku) ?? null,
-      ...(soldOut.has(row.sku) ? { soldOut: true } : {}),
+      ...(soldOut.has(row.sku) || (stock.get(row.sku) ?? 1) <= 0 ? { soldOut: true } : {}),
+      ...(stock.has(row.sku) ? { stockQty: stock.get(row.sku) } : {}),
     });
     variantsByProduct.set(row.productId, list);
   }

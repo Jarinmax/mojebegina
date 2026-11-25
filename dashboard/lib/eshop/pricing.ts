@@ -128,6 +128,10 @@ export function priceCart(
         error: `Množství u položky "${name}" musí být 1 až ${MAX_QUANTITY_PER_LINE}.`,
       };
     }
+    // hlídaný počet kusů (doprodej kapsiček 650 ml) — víc, než zbývá, objednat nejde
+    if (variant.stockQty !== undefined && item.quantity > variant.stockQty) {
+      return { ok: false, error: `${name}: skladem zbývá už jen ${variant.stockQty} ks. Upravte prosím množství v košíku.` };
+    }
     // ochutnávka do provozu: z každé položky nejvýš 1 kus, jen chlazeně nebo osobně
     if (isCafeTastingSku(variant.sku)) {
       if (item.quantity > CAFE_TASTING_MAX_PER_ITEM) return { ok: false, error: CAFE_TASTING_ONE_EACH };

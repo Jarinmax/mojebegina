@@ -23,6 +23,7 @@ import type { CheckoutValue } from "./checkout";
 import type { MetaConsent } from "./metaPurchase";
 import { CURRENT_TERMS } from "./content/termsVersions";
 import { packagingKc } from "./pricing";
+import { STOCK_GONE_ERROR, isStockConstraintError, stockStatements, stockTrackingReady } from "./variantStock";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
 
@@ -216,13 +217,21 @@ export async function saveEshopOrder(
   const activity = options.metaConsent
     ? { ...built.rows.activity, metadata: { ...(built.rows.activity.metadata as object), metaConsent: options.metaConsent } }
     : built.rows.activity;
+  // Hlídané kusy (doprodej kapsiček 650 ml) se odečtou ve stejné transakci.
+  const stock = (await stockTrackingReady(db))
+    ? stockStatements(orderId, value.pricedCart.lines.map((line) => ({ sku: line.sku, quantity: line.quantity }))).map((q) => db.execute(q))
+    : [];
   try {
     await db.batch([
       db.insert(orders).values(order),
       db.insert(orderItems).values(items),
       db.insert(orderActivity).values(activity),
+      ...stock,
     ]);
   } catch (error) {
+    if (isStockConstraintError(error)) {
+      return { ok: false, error: STOCK_GONE_ERROR };
+    }
     // Souběžné dvojí odeslání: druhý batch narazí na primární klíč a celý
     // se vrátí (transakce) — objednávka už existuje jen jednou.
     const raced = await existingOrder(db, orderId);
