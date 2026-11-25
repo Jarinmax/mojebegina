@@ -40,7 +40,7 @@ export const MAIL_TOOLS: AgentTool[] = [
     properties: {
       to: { type: "array", items: { type: "string" }, maxItems: MAX_INFO_MAIL_RECIPIENTS, description: "Příjemci (e-maily), které uživatel výslovně uvedl nebo potvrdil." },
       subject: { type: "string", description: "Předmět; u odpovědi „Re: původní předmět“." },
-      body: { type: "string", description: "Text zprávy bez závěrečného pozdravu a podpisu; odstavce odděl prázdným řádkem." },
+      body: { type: "string", description: "Text zprávy bez závěrečného pozdravu a podpisu; odstavce odděl prázdným řádkem. Piš PŘEHLEDNĚ (Lucie 25. 11. 2026): „## Nadpis“ pro sekce, řádky začínající „- “ jsou odrážky, **tučně** pro důležité. Žádné husté bloky textu." },
       signer: { type: "string", enum: Object.keys(INFO_MAIL_SIGNERS), description: "Kdo e-mail podepisuje: lucie, jaroslav nebo tym." },
       attachments: {
         type: "array",

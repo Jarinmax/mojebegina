@@ -44,9 +44,9 @@ export const SECTION_GROUPS: Group[] = [
       { href: "/rizeni-firmy/receptury", label: "Receptury a náklady", icon: "🥣", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/receptury/cenik", label: "Ceník surovin a obalů", icon: "🧾", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/etikety", label: "Etikety", icon: "🏷️" },
-      // 21. 11. 2026 (Lucie): „Nová příjemka (foto)“ a „Sklad a příjemky“ z
-      // rozcestníku pryč — dělaly zmatek s vláknem Účtenky (nákupy se zapisují
-      // tam → Ekonomika a Doklady). Stránky /rizeni-firmy/sklad i data zůstávají.
+      // 25. 11. 2026 (Lucie): Sklad zpět v rozcestníku — příjem surovin a obalů
+      // (vlákno „Příjem surovin a obalů“, nástroj record_stock_receipt) a stav skladu.
+      { href: "/rizeni-firmy/sklad", label: "Sklad surovin a obalů", icon: "🗄️", show: (f) => f.ekonomika },
       // 24. 11. 2026 (Lucie): „Slovenské listy“ z rozcestníku pryč — nahradily je
       // slovenské etikety (Etikety → Slovenské etikety). Stránka /rizeni-firmy/slovenske-listy zůstává.
       { href: "/rizeni-firmy/haccp", label: "HACCP", icon: "🧼" },

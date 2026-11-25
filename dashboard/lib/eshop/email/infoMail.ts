@@ -33,16 +33,73 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** Tělo e-mailu (odstavce oddělené prázdným řádkem) + podpis jako v poště info@. */
+// FORMÁTOVÁNÍ (Lucie 25. 11. 2026): e-maily z info@ musí být přehledné —
+// odrážky, nadpisy, tučné. body umí jednoduchý markdown:
+//   ## Nadpis / ### Menší nadpis, řádky „- “ nebo „• “ = odrážky,
+//   **tučně**. Ostatní řádky jsou odstavce (prázdný řádek = nový odstavec).
+function inlineHtml(value: string): string {
+  return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function inlineText(value: string): string {
+  return value.replace(/\*\*(.+?)\*\*/g, "$1");
+}
+
+const BULLET_RE = /^\s*[-•*]\s+/;
+const HEADING_RE = /^(#{1,3})\s+(.*)$/;
+
+function bodyToHtml(clean: string): string {
+  const out: string[] = [];
+  for (const block of clean.split(/\n{2,}/)) {
+    let para: string[] = [];
+    let list: string[] = [];
+    const flushPara = () => {
+      if (para.length) out.push(`<p style="margin:0 0 12px">${para.map(inlineHtml).join("<br>")}</p>`);
+      para = [];
+    };
+    const flushList = () => {
+      if (list.length) out.push(`<ul style="margin:0 0 12px;padding-left:20px">${list.map((li) => `<li style="margin:0 0 4px">${inlineHtml(li)}</li>`).join("")}</ul>`);
+      list = [];
+    };
+    for (const line of block.split("\n")) {
+      const heading = HEADING_RE.exec(line.trim());
+      if (heading) {
+        flushPara();
+        flushList();
+        const size = heading[1].length <= 2 ? "17px" : "15px";
+        out.push(`<p style="margin:16px 0 6px;font-size:${size};font-weight:700">${inlineHtml(heading[2])}</p>`);
+      } else if (BULLET_RE.test(line)) {
+        flushPara();
+        list.push(line.replace(BULLET_RE, ""));
+      } else if (line.trim()) {
+        flushList();
+        para.push(line.trim());
+      }
+    }
+    flushPara();
+    flushList();
+  }
+  return out.join("");
+}
+
+function bodyToText(clean: string): string {
+  return clean
+    .split("\n")
+    .map((line) => {
+      const heading = HEADING_RE.exec(line.trim());
+      if (heading) return inlineText(heading[2]).toUpperCase();
+      if (BULLET_RE.test(line)) return `• ${inlineText(line.replace(BULLET_RE, ""))}`;
+      return inlineText(line);
+    })
+    .join("\n");
+}
+
+/** Tělo e-mailu (odstavce, odrážky, nadpisy, **tučně**) + podpis jako v poště info@. */
 export function buildInfoMail(body: string, signer: InfoMailSigner, testNote = ""): { text: string; html: string } {
   const [name, ...contacts] = INFO_MAIL_SIGNERS[signer];
   const clean = body.replace(/\r\n/g, "\n").trim();
-  const text = `${clean}\n\nS přátelským pozdravem\n${[name, ...contacts].join("\n")}${testNote ? `\n\n${testNote}` : ""}`;
-  const paragraphs = clean
-    .split(/\n{2,}/)
-    .map((part) => `<p>${escapeHtml(part).replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  const html = `${paragraphs}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(name)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote)}</small></p>` : ""}`;
+  const text = `${bodyToText(clean)}\n\nS přátelským pozdravem\n${[name, ...contacts].join("\n")}${testNote ? `\n\n${testNote}` : ""}`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1f1f1f">${bodyToHtml(clean)}<p style="margin:16px 0 0"><em>S přátelským pozdravem</em><br><strong>${escapeHtml(name)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote)}</small></p>` : ""}</div>`;
   return { text, html };
 }
 
