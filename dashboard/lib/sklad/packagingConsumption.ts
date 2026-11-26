@@ -12,8 +12,8 @@
 //   sirup 650 ml                                       = Kapsička stříbrná na sirup 650 ml
 //   Ochutnávka polévek 3 × 450 ml                      = 3 × Kapsička průhledná 500 ml
 //     (až dorazí stříbrné 500 ml, přepnout na stříbrné)
-//   etikety: každé balení = 1× etiketa přední (obrázek) + 1× etiketa složení
-//     (role Brother 15,24 m = 127 etiket po 12 cm; na sklad se vedou v kusech)
+//   etikety se NEODEČÍTAJÍ (Lucie 26. 11. 2026: role se používají na obrázky
+//     i složení libovolně, hlídá je Jarin a řekne, až budou docházet)
 // Ostatní balení (sety…) zatím nic neodečítají.
 import { sql, type SQL } from "drizzle-orm";
 
@@ -28,14 +28,11 @@ export const PACKAGING = {
   syrup500: "Kapsička stříbrná na sirup 500 ml",
   syrup650: "Kapsička stříbrná na sirup 650 ml",
   clear500: "Kapsička průhledná 500 ml",
-  labelFront: "Etiketa přední (červeno-černá DK-22251, 12 cm)",
-  labelIngredients: "Etiketa složení (černobílá DK-22212, 12 cm)",
 } as const;
 
-const labels = (count: number): PackagingNeed[] => [
-  { name: PACKAGING.labelFront, quantity: count },
-  { name: PACKAGING.labelIngredients, quantity: count },
-];
+// Etikety se zatím neodečítají (viz komentář nahoře).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const labels = (_count: number): PackagingNeed[] => [];
 
 export type PackagingNeed = { name: string; quantity: number };
 
