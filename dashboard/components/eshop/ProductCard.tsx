@@ -41,7 +41,7 @@ export default function ProductCard({ product }: { product: Product }) {
               {isSet ? <SentencesOnLines text={product.shortDescription} /> : product.shortDescription}
             </p>
           )}
-          {isSet && <p className="mt-1.5 inline-block rounded-full bg-[#2A2622] px-2.5 py-0.5 text-xs font-medium text-white">Novinka</p>}
+          {isSet && <p className="mt-1.5 inline-block rounded-full border border-[#B5762A] bg-[#FBF3E6] px-2.5 py-0.5 text-xs font-semibold text-[#8A5A1E]">Novinka</p>}
           {opened && (
             <p className="mt-1.5 inline-block rounded-full bg-[#F1EFE3] px-2 py-0.5 text-xs font-medium text-[#4A5527]">{opened}</p>
           )}

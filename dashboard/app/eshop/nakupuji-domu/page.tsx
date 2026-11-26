@@ -53,7 +53,7 @@ export default async function Page() {
         {/* jen během kampaně, stejně jako na úvodu */}
         {set?.tastingCampaign && (
           <ShopLink href={`/produkt/${SET_SLUG}`} className="flex items-center gap-3 rounded-2xl border border-[#D9D4C7] bg-[#FAF6EF] px-4 py-3.5 text-[15px] leading-snug text-[#2A2622] hover:bg-[#F4EEE2]">
-            <span className="shrink-0 rounded-full bg-[#2A2622] px-2.5 py-0.5 text-xs font-semibold text-white">Novinka</span>
+            <span className="shrink-0 rounded-full border border-[#B5762A] bg-[#FBF3E6] px-2.5 py-0.5 text-xs font-semibold text-[#8A5A1E]">Novinka</span>
             <span>{SET_HOME_BANNER}</span>
             <span className="ml-auto text-xl" aria-hidden="true">›</span>
           </ShopLink>

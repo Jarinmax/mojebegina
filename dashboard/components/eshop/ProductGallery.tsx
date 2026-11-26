@@ -63,7 +63,7 @@ export default function ProductGallery({ name, photos, note }: { name: string; p
         // do <body>: rodič detailu produktu tvoří vlastní vrstvu a hlavička by jinak překryla fotku
         document.body
       )}
-      {note && <p className="mt-1.5 text-xs text-neutral-500">{note}</p>}
+      {note && <p className="mt-1.5 text-center text-xs text-neutral-500">{note}</p>}
       {photos.length > 1 && (
         <ul className="mt-3 flex gap-3" aria-label="Fotografie produktu">
           {photos.map((photo, index) => {
