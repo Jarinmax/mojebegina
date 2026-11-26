@@ -10,7 +10,11 @@
 //   ochutnávka 100 ml / 200 ml                         = Kapsička stříbrná 250 ml
 //   sirup 500 ml                                       = Kapsička stříbrná na sirup 500 ml
 //   sirup 650 ml                                       = Kapsička stříbrná na sirup 650 ml
-// Ostatní balení (Ochutnávka polévek 3 × 450 ml, sety…) zatím nic neodečítají.
+//   Ochutnávka polévek 3 × 450 ml                      = 3 × Kapsička průhledná 500 ml
+//     (až dorazí stříbrné 500 ml, přepnout na stříbrné)
+//   etikety: každé balení = 1× etiketa přední (obrázek) + 1× etiketa složení
+//     (role Brother 15,24 m = 127 etiket po 12 cm; na sklad se vedou v kusech)
+// Ostatní balení (sety…) zatím nic neodečítají.
 import { sql, type SQL } from "drizzle-orm";
 
 // Stejně jako variantStock.ts: db se předává (žádný import klienta → jde testovat).
@@ -23,7 +27,15 @@ export const PACKAGING = {
   pouch250: "Kapsička stříbrná 250 ml",
   syrup500: "Kapsička stříbrná na sirup 500 ml",
   syrup650: "Kapsička stříbrná na sirup 650 ml",
+  clear500: "Kapsička průhledná 500 ml",
+  labelFront: "Etiketa přední (červeno-černá DK-22251, 12 cm)",
+  labelIngredients: "Etiketa složení (černobílá DK-22212, 12 cm)",
 } as const;
+
+const labels = (count: number): PackagingNeed[] => [
+  { name: PACKAGING.labelFront, quantity: count },
+  { name: PACKAGING.labelIngredients, quantity: count },
+];
 
 export type PackagingNeed = { name: string; quantity: number };
 
@@ -32,11 +44,12 @@ export function packagingForItem(item: { categorySlug: string | null; volumeMl: 
   const volume = item.volumeMl ?? 0;
   const sku = item.sku ?? "";
   if (item.categorySlug === "ochutnavka-provoz" || sku.startsWith("ochutnavka-")) {
-    return volume === 100 || volume === 200 ? [{ name: PACKAGING.pouch250, quantity: 1 }] : [];
+    return volume === 100 || volume === 200 ? [{ name: PACKAGING.pouch250, quantity: 1 }, ...labels(1)] : [];
   }
-  if (volume === 3000) return [{ name: PACKAGING.bag3l, quantity: 1 }, { name: PACKAGING.box3l, quantity: 1 }];
-  if (item.categorySlug === "sirupy" && volume === 500) return [{ name: PACKAGING.syrup500, quantity: 1 }];
-  if (item.categorySlug === "sirupy" && volume === 650) return [{ name: PACKAGING.syrup650, quantity: 1 }];
+  if (sku === "polevky-3x450") return [{ name: PACKAGING.clear500, quantity: 3 }, ...labels(3)];
+  if (volume === 3000) return [{ name: PACKAGING.bag3l, quantity: 1 }, { name: PACKAGING.box3l, quantity: 1 }, ...labels(1)];
+  if (item.categorySlug === "sirupy" && volume === 500) return [{ name: PACKAGING.syrup500, quantity: 1 }, ...labels(1)];
+  if (item.categorySlug === "sirupy" && volume === 650) return [{ name: PACKAGING.syrup650, quantity: 1 }, ...labels(1)];
   return [];
 }
 
