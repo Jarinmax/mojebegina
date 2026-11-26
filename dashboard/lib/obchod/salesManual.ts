@@ -13,14 +13,14 @@ export type ManualSection = {
 
 export const SALES_MANUAL_TITLE = "Begina – manuál pro obchodníky";
 export const SALES_MANUAL_SUBTITLE = "Co říkat kavárnám a bistrům při hovorech na leady";
-export const SALES_MANUAL_UPDATED = "25. 11. 2026";
+export const SALES_MANUAL_UPDATED = "26. 11. 2026";
 
 export const SALES_MANUAL_SECTIONS: ManualSection[] = [
   {
     title: "Hlavní argumenty",
     items: [
       {
-        text: "Polévky Begina už přes rok objednávají kavárny v centru Prahy.",
+        text: "Polévky Begina už přes rok objednávají kavárny v centru Prahy a naše sirupy nalévají kavárny i bistra v centru Prahy.",
         note: "Konkrétní kavárnu nejmenovat – nemáme jejich souhlas.",
       },
       {
