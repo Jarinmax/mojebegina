@@ -135,20 +135,24 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
                 <tbody>
                   {rows.map((recipe) => {
                     const main = recipe.variants[0] ? calcVariant(recipe, recipe.variants[0], packaging) : null;
+                    const href = `/rizeni-firmy/receptury/${recipe.slug}`;
                     return (
-                      <tr key={recipe.slug} className="border-b border-neutral-100 last:border-0">
-                        <td className="px-3 py-2">
-                          <Link href={`/rizeni-firmy/receptury/${recipe.slug}`} className="font-medium text-begina-primary-900 hover:underline">
+                      // Celý řádek je odkaz na recepturu (Lucie 27. 11. 2026).
+                      <tr key={recipe.slug} className="border-b border-neutral-100 last:border-0 hover:bg-begina-primary-50 cursor-pointer">
+                        <td className="p-0">
+                          <Link href={href} className="block px-3 py-2 font-medium text-begina-primary-900">
                             {recipe.name}
+                            {recipe.archived && <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-normal text-neutral-600">nevyrábí se</span>}
                           </Link>
-                          {recipe.archived && <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">nevyrábí se</span>}
                         </td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatKcValue(batchCostKc(recipe))}</td>
-                        <td className="px-3 py-2 text-neutral-600">{main?.label ?? "—"}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{main ? formatKcValue(main.totalKc) : "—"}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{main?.saleKc != null ? formatKcValue(main.saleKc) : "—"}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap font-medium">
-                          {main?.marginKc != null && main.marginPct != null ? `${formatKcValue(main.marginKc)} · ${main.marginPct.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %` : "—"}
+                        <td className="p-0 text-right whitespace-nowrap"><Link href={href} tabIndex={-1} className="block px-3 py-2">{formatKcValue(batchCostKc(recipe))}</Link></td>
+                        <td className="p-0 text-neutral-600"><Link href={href} tabIndex={-1} className="block px-3 py-2">{main?.label ?? "—"}</Link></td>
+                        <td className="p-0 text-right whitespace-nowrap"><Link href={href} tabIndex={-1} className="block px-3 py-2">{main ? formatKcValue(main.totalKc) : "—"}</Link></td>
+                        <td className="p-0 text-right whitespace-nowrap"><Link href={href} tabIndex={-1} className="block px-3 py-2">{main?.saleKc != null ? formatKcValue(main.saleKc) : "—"}</Link></td>
+                        <td className="p-0 text-right whitespace-nowrap font-medium">
+                          <Link href={href} tabIndex={-1} className="block px-3 py-2">
+                            {main?.marginKc != null && main.marginPct != null ? `${formatKcValue(main.marginKc)} · ${main.marginPct.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %` : "—"}
+                          </Link>
                         </td>
                       </tr>
                     );
