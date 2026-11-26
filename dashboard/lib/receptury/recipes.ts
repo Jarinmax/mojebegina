@@ -31,6 +31,14 @@ export const ESHOP_SLUG_ALIASES: Record<string, string> = {
   cosmopolitan: "kosmopolitan",
 };
 
+/** Na e-shopu se prodává 3 l begina BEZ krabice (krabice se přikupuje za 15 Kč);
+ *  jen sirupy 3 l se prodávají S krabicí (Lucie 27. 11. 2026). Kalkulace proto
+ *  ukazuje u 3 l jen to balení, které se opravdu prodává; záznamy v databázi zůstávají. */
+export function keepSoldPackaging(category: string, variants: RecipeVariant[]): RecipeVariant[] {
+  const withBox = category === "sirupy";
+  return variants.filter((variant) => variant.volumeMl !== 3000 || variant.packagingCodes.includes("krabice-3l") === withBox);
+}
+
 export function eshopPriceKey(productSlug: string, volumeMl: number): string {
   return `${productSlug}|${volumeMl}`;
 }

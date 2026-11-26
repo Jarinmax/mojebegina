@@ -110,3 +110,16 @@ describe("applyEshopPrices", () => {
     expect(applyEshopPrices("zoro", [v(3000, 36400)], new Map())[0].salePriceHal).toBe(36400);
   });
 });
+
+describe("keepSoldPackaging", () => {
+  const v = (volumeMl: number, codes: string[]) => ({ label: codes.join("+"), volumeMl, packagingCodes: codes, salePriceHal: 1 });
+  const variants = [v(3000, ["bag-3l"]), v(3000, ["bag-3l", "krabice-3l"]), v(500, ["kapsicka"])];
+  it("polévky a nápoje: 3 l jen bez krabice", async () => {
+    const { keepSoldPackaging } = await import("../recipes");
+    expect(keepSoldPackaging("polevky", variants).map((x) => x.label)).toEqual(["bag-3l", "kapsicka"]);
+  });
+  it("sirupy: 3 l jen s krabicí", async () => {
+    const { keepSoldPackaging } = await import("../recipes");
+    expect(keepSoldPackaging("sirupy", variants).map((x) => x.label)).toEqual(["bag-3l+krabice-3l", "kapsicka"]);
+  });
+});

@@ -3,7 +3,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { productVariants, products, recipeIngredients, recipeItems, recipeOffers, recipeVariants, recipes } from "@/lib/db/schema";
-import { applyEshopPrices, eshopPriceKey } from "./recipes";
+import { applyEshopPrices, eshopPriceKey, keepSoldPackaging } from "./recipes";
 import type { ItemUnit, PriceUnit, Recipe, RecipeIngredient, RecipeOffer } from "./recipes";
 
 /** false = tabulky v databázi ještě nejsou (skript 123 nebyl spuštěn). */
@@ -55,14 +55,14 @@ export async function loadRecipes(): Promise<{ recipes: Recipe[]; ingredients: R
         .map((item) => ({ ingredient: byId.get(item.ingredientId)!, quantity: Number(item.quantity), unit: item.unit as ItemUnit })),
       variants: applyEshopPrices(
         row.slug,
-        variantRows
+        keepSoldPackaging(row.category, variantRows
           .filter((variant) => variant.recipeId === row.id)
           .map((variant) => ({
             label: variant.label,
             volumeMl: variant.volumeMl,
             packagingCodes: variant.packagingCodes.split(",").map((code) => code.trim()).filter(Boolean),
             salePriceHal: variant.salePriceHal,
-          })),
+          }))),
         eshopPrices
       ),
     })),
