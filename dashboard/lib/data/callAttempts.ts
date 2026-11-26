@@ -1,30 +1,35 @@
-// Opakované volání, když klient nezvedá (Lucie + Jarin, 22. 11. 2026).
-// Rozumně, ne „stalking“:
-//   1. nezvedá → hned SMS/WhatsApp (šablona v UI)
-//   2. pokus: čerstvý lead z formuláře (do hodiny) za 10 minut, jinak za 2–3 h
-//      v jinou část dne
-//   3. pokus: další pracovní den, jiná doba (kavárny ne v obědovou špičku)
-//   4. pokus: za 3 pracovní dny + krátký e-mail
-//   konec: po 4 marných pokusech „Nedovolali jsme se“, jedna připomínka za měsíc
-// Nanejvýš 2 hovory za den a 4 za týden. Čistá logika bez DB.
+// Kadence obvolávání leadů (Jarin 26. 11. 2026, vlákno Investor/Leady) —
+// nahrazuje dřívější řadu z 22. 11. (10 min / 2–3 h / další den / +3 dny).
+//   den 1  hovor; nezvedá → hned SMS/e-mail (šablona v UI)
+//   den 3  hovor
+//   den 10 hovor
+//   den 20 poslední hovor + poslední e-mail
+//   pak    lead přejde do fáze „Newsletter“ (už se nevolá)
+// = max. 5 kontaktů (4 hovory + SMS/e-mail). Volací okna 9:30–11:00
+// a 14:00–16:00, jen pracovní dny; další pokus v jinou část dne než ten marný.
+// Čistá logika bez DB.
 import { DateTime } from "luxon";
 
+/** Kolik marných hovorů po sobě, než lead přejde do newsletteru. */
 export const MAX_CALL_ATTEMPTS = 4;
+/** Den kadence (od 1. hovoru) pro pokus č. 1–4. */
+export const CADENCE_DAYS = [1, 3, 10, 20] as const;
 const ZONE = "Europe/Prague";
-const FRESH_LEAD_MINUTES = 60;
-const DAY_START_HOUR = 9;
-const DAY_END_HOUR = 17;
 
 export type AttemptPlan = {
   /** Kolikátý pokus právě nevyšel (1 = první hovor). */
   failedAttempt: number;
-  /** Kdy zkusit znovu; null = už nevolat (konec řady). */
+  /** Kdy zkusit znovu; null = už nevolat (lead jde do newsletteru). */
   nextAt: Date | null;
-  /** Po posledním pokusu: připomenout jednou za měsíc. */
+  /** Zachováno kvůli kompatibilitě — nová kadence měsíční připomínku nemá. */
   remindAt: Date | null;
+  /** true = konec řady → fáze „newsletter“. */
   stop: boolean;
+  /** Další krok je poslední pokus + poslední e-mail (den 20). */
   suggestEmail: boolean;
-  /** Krátký text pro obchodníka, např. „Pokus 1/4 nevyšel · další dnes 16:30“. */
+  /** Text dalšího kroku do leadu („Zavolat znovu – pokus 2/4 (den 3)“). */
+  nextStepNote: string;
+  /** Krátký text pro obchodníka, např. „Pokus 1/4 nevyšel · další pokus út 1. 12. 14:00“. */
   label: string;
 };
 
@@ -32,31 +37,10 @@ function isWorkday(d: DateTime): boolean {
   return d.weekday <= 5;
 }
 
-function nextWorkday(d: DateTime): DateTime {
-  let x = d.plus({ days: 1 });
+function toWorkday(d: DateTime): DateTime {
+  let x = d;
   while (!isWorkday(x)) x = x.plus({ days: 1 });
   return x;
-}
-
-function addWorkdays(d: DateTime, n: number): DateTime {
-  let x = d;
-  for (let i = 0; i < n; i++) x = nextWorkday(x);
-  return x;
-}
-
-/** Posune čas mimo oběd (11:30–13:30) a mimo pracovní dobu na nejbližší rozumný okamžik. */
-function fitToCallingHours(d: DateTime): DateTime {
-  let x = d;
-  if (!isWorkday(x) || x.hour >= DAY_END_HOUR) x = nextWorkday(x).set({ hour: 9, minute: 30, second: 0, millisecond: 0 });
-  if (x.hour < DAY_START_HOUR) x = x.set({ hour: 9, minute: 30, second: 0, millisecond: 0 });
-  const minutes = x.hour * 60 + x.minute;
-  if (minutes >= 11 * 60 + 30 && minutes < 13 * 60 + 30) x = x.set({ hour: 14, minute: 30, second: 0, millisecond: 0 });
-  return x;
-}
-
-function roundToQuarter(d: DateTime): DateTime {
-  const m = Math.ceil(d.minute / 15) * 15;
-  return d.set({ minute: 0, second: 0, millisecond: 0 }).plus({ minutes: m });
 }
 
 function whenLabel(at: DateTime, now: DateTime): string {
@@ -66,42 +50,44 @@ function whenLabel(at: DateTime, now: DateTime): string {
   return `${at.setLocale("cs").toFormat("ccc d. M.")} ${time}`;
 }
 
-export function planNextAttempt(input: { failedAttempt: number; leadCreatedAt: Date; now?: Date }): AttemptPlan {
+export function planNextAttempt(input: { failedAttempt: number; leadCreatedAt?: Date; now?: Date }): AttemptPlan {
   const now = DateTime.fromJSDate(input.now ?? new Date()).setZone(ZONE);
   const n = Math.max(1, input.failedAttempt);
-  let next: DateTime | null = null;
-  let suggestEmail = false;
 
-  if (n === 1) {
-    const ageMin = now.diff(DateTime.fromJSDate(input.leadCreatedAt).setZone(ZONE), "minutes").minutes;
-    next = ageMin <= FRESH_LEAD_MINUTES ? fitToCallingHours(now.plus({ minutes: 10 })) : fitToCallingHours(roundToQuarter(now.plus({ hours: 2, minutes: 30 })));
-  } else if (n === 2) {
-    const morning = now.hour < 12;
-    next = nextWorkday(now).set({ hour: morning ? 14 : 9, minute: 30, second: 0, millisecond: 0 });
-  } else if (n === 3) {
-    next = addWorkdays(now, 3).set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
-    suggestEmail = true;
-  }
-
-  if (next) {
+  if (n >= MAX_CALL_ATTEMPTS) {
     return {
       failedAttempt: n,
-      nextAt: next.toJSDate(),
+      nextAt: null,
       remindAt: null,
-      stop: false,
-      suggestEmail,
-      label: `Pokus ${n}/${MAX_CALL_ATTEMPTS} nevyšel · další pokus ${whenLabel(next, now)}`,
+      stop: true,
+      suggestEmail: false,
+      nextStepNote: `Nedovolali jsme se (${n} pokusy, den 1/3/10/20) — přešel do newsletteru`,
+      label: `Pokus ${n}/${MAX_CALL_ATTEMPTS} nevyšel · konec řady, lead přešel do Newsletteru.`,
     };
   }
 
-  const remind = addWorkdays(now.plus({ days: 28 }), 1).set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
+  const gapDays = CADENCE_DAYS[n] - CADENCE_DAYS[n - 1];
+  const morning = now.hour < 12;
+  const next = toWorkday(now.plus({ days: gapDays })).set({
+    hour: morning ? 14 : 9,
+    minute: morning ? 0 : 30,
+    second: 0,
+    millisecond: 0,
+  });
+  const nextAttempt = n + 1;
+  const last = nextAttempt === MAX_CALL_ATTEMPTS;
+  const nextStepNote = last
+    ? `Poslední pokus ${nextAttempt}/${MAX_CALL_ATTEMPTS} (den ${CADENCE_DAYS[n]}) + poslat poslední e-mail`
+    : `Zavolat znovu – pokus ${nextAttempt}/${MAX_CALL_ATTEMPTS} (den ${CADENCE_DAYS[n]})`;
+
   return {
     failedAttempt: n,
-    nextAt: null,
-    remindAt: remind.toJSDate(),
-    stop: true,
-    suggestEmail: false,
-    label: `Pokus ${n}/${MAX_CALL_ATTEMPTS} nevyšel · konec, nevolat. Jednou připomenu ${whenLabel(remind, now)}.`,
+    nextAt: next.toJSDate(),
+    remindAt: null,
+    stop: false,
+    suggestEmail: last,
+    nextStepNote,
+    label: `Pokus ${n}/${MAX_CALL_ATTEMPTS} nevyšel · další pokus ${whenLabel(next, now)}${last ? " + poslední e-mail" : ""}`,
   };
 }
 
@@ -121,4 +107,20 @@ export function countConsecutiveNoAnswers(
 export function smsText(salesName: string | null): string {
   const intro = salesName ? `tady ${salesName.split(" ")[0]} z Beginy` : "tady Begina";
   return `Dobrý den, ${intro}. Volali jsme vám kvůli ochutnávce našich polévek a sirupů do provozu. Kdy se vám hodí zavolat? Děkuji.`;
+}
+
+/**
+ * Pravidlo „žádný aktivní lead bez dalšího kroku a termínu“ (26. 11. 2026):
+ * po zápisu hovoru musí aktivní lead mít termín dalšího kontaktu v budoucnu.
+ * Vrací chybovou hlášku, nebo null, když je vše v pořádku.
+ */
+export function requireNextContactError(input: {
+  finalStageActive: boolean;
+  effectiveNextFollowUpAt: Date | null;
+  now?: Date;
+}): string | null {
+  if (!input.finalStageActive) return null;
+  const now = input.now ?? new Date();
+  if (input.effectiveNextFollowUpAt && input.effectiveNextFollowUpAt.getTime() > now.getTime()) return null;
+  return "Doplňte datum dalšího kontaktu — aktivní lead nesmí zůstat bez termínu. (Když se nedovoláte, klepněte na „Nezvedá“ a termín se naplánuje sám.)";
 }

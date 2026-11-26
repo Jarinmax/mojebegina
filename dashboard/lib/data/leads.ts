@@ -19,7 +19,7 @@ import { getAuthContext } from "./authContext";
 import { requireCrmAccess } from "./crmAuth";
 import { claimUnownedLeadOnReach } from "./leadClaim";
 import { validateHeardFromInput } from "./heardFrom";
-import { countConsecutiveNoAnswers, planNextAttempt, MAX_CALL_ATTEMPTS, type AttemptPlan } from "./callAttempts";
+import { countConsecutiveNoAnswers, planNextAttempt, requireNextContactError, type AttemptPlan } from "./callAttempts";
 import { createCustomerOrganization, type CreateCustomerResult } from "./admin";
 import type { CreateCustomerInput } from "./createCustomerValidation";
 import { getUserProfile, getUserProfiles } from "./userProfiles";
@@ -517,15 +517,14 @@ export async function logNoAnswer(leadId: string): Promise<NoAnswerResult> {
   const failedAttempt = countConsecutiveNoAnswers(history as { kind: string; metadata: Record<string, unknown> | null }[]) + 1;
   const plan = planNextAttempt({ failedAttempt, leadCreatedAt: lead.createdAt });
 
+  // Kadence 26. 11. 2026: den 1/3/10/20, po 4. marném pokusu → Newsletter.
   const updates: Partial<typeof leads.$inferInsert> = {
     lastContactedAt: new Date(),
     updatedAt: new Date(),
-    nextFollowUpAt: plan.nextAt ?? plan.remindAt,
-    nextStepNote: plan.stop
-      ? `Nedovolali jsme se (${failedAttempt} pokusy) — jednou zkusit znovu`
-      : `Zavolat znovu (pokus ${failedAttempt + 1}/${MAX_CALL_ATTEMPTS})${plan.suggestEmail ? " + poslat krátký e-mail" : ""}`,
+    nextFollowUpAt: plan.nextAt,
+    nextStepNote: plan.nextStepNote,
   };
-  if (plan.stop && lead.stage !== "callback_later") updates.stage = "callback_later";
+  if (plan.stop) updates.stage = "newsletter";
 
   await db.batch([
     db.update(leads).set(updates).where(eq(leads.id, leadId)),
@@ -559,12 +558,23 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
   const value = validated.value;
 
   const [current] = await db
-    .select({ stage: leads.stage, heardFrom: leads.heardFrom })
+    .select({ stage: leads.stage, heardFrom: leads.heardFrom, nextFollowUpAt: leads.nextFollowUpAt })
     .from(leads)
     .where(eq(leads.id, leadId))
     .limit(1);
   if (!current) {
     return { ok: false, error: "Lead nebyl nalezen." };
+  }
+
+  // Jarin 26. 11. 2026: žádný aktivní lead bez dalšího termínu — zápis hovoru
+  // u aktivního leadu bez budoucího data dalšího kontaktu neprojde.
+  const finalStage = (value.nextStage ?? current.stage) as LeadStage;
+  const nextContactError = requireNextContactError({
+    finalStageActive: ACTIVE_LEAD_STAGES.includes(finalStage),
+    effectiveNextFollowUpAt: value.nextFollowUpAt ?? current.nextFollowUpAt,
+  });
+  if (nextContactError) {
+    return { ok: false, error: nextContactError };
   }
 
   // „Odkud nás zná“ — po dovolání povinné, dokud lead nemá uloženo (20. 11. 2026).
@@ -609,6 +619,7 @@ export async function logCallOutcome(leadId: string, rawInput: CallLogInput): Pr
       metadata: {
         stageChangedTo: value.nextStage,
         nextFollowUpAt: value.nextFollowUpAt,
+        reached: rawInput.reached === true,
         from: current.stage,
         ...(heard.value ? { heardFrom: heard.value.heardFrom, heardFromDetail: heard.value.heardFromDetail } : {}),
       },

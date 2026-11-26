@@ -11,6 +11,7 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   converted: "Zákazník",
   callback_later: "Ozvat se později",
   not_interested: "Nezájem",
+  newsletter: "Newsletter",
 };
 
 export const STAGE_CLASSES: Record<LeadStage, string> = {
@@ -22,6 +23,7 @@ export const STAGE_CLASSES: Record<LeadStage, string> = {
   converted: "bg-emerald-50 text-emerald-700 border-emerald-200",
   callback_later: "bg-neutral-100 text-neutral-500 border-neutral-200",
   not_interested: "bg-neutral-100 text-neutral-400 border-neutral-200 line-through",
+  newsletter: "bg-violet-50 text-violet-700 border-violet-200",
 };
 
 export const SOURCE_LABELS: Record<LeadSource, string> = {

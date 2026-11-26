@@ -361,7 +361,7 @@ export default function CallLogForm({
 
           <div>
             <label htmlFor="nextFollowUpAtDate" className="text-xs text-neutral-500 mb-1 block">
-              Kdy zavolat znovu
+              Kdy zavolat znovu (povinné, pokud lead zůstává aktivní; nedovolali jste se → „Nezvedá“)
             </label>
             <div className="flex gap-2">
               <input

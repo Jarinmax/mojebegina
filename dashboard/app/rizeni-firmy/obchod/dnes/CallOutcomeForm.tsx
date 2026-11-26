@@ -132,7 +132,7 @@ export default function CallOutcomeForm({
         </div>
         <div>
           <label htmlFor={`nextFollowUpAtDate-${itemId}`} className="text-xs text-neutral-500 mb-1 block">
-            Další kontakt{result === "call_back_later" ? " (povinné)" : ""}
+            Další kontakt{result === "no_answer" ? " (prázdné = naplánuje se samo: den 3/10/20)" : result === "invalid_contact" ? "" : " (povinné u aktivního leadu)"}
           </label>
           <div className="flex gap-2">
             <input

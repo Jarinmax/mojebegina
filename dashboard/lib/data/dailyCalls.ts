@@ -19,7 +19,7 @@
 import "server-only";
 import { claimUnownedLeadOnReach } from "./leadClaim";
 import { suggestHeardFrom, validateHeardFromInput, type HeardFrom } from "./heardFrom";
-import { countConsecutiveNoAnswers, planNextAttempt } from "./callAttempts";
+import { countConsecutiveNoAnswers, planNextAttempt, requireNextContactError } from "./callAttempts";
 import { randomUUID } from "crypto";
 import { and, asc, desc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -727,7 +727,11 @@ export async function logDailyCallOutcome(
 
   // „Odkud nás zná“ — po dovolání povinné, dokud ho lead nemá (20. 11. 2026).
   const reached = value.result === "reached_interested" || value.result === "reached_not_interested";
-  const [leadRow] = await db.select({ heardFrom: leads.heardFrom }).from(leads).where(eq(leads.id, item.leadId)).limit(1);
+  const [leadRow] = await db
+    .select({ heardFrom: leads.heardFrom, stage: leads.stage, nextFollowUpAt: leads.nextFollowUpAt })
+    .from(leads)
+    .where(eq(leads.id, item.leadId))
+    .limit(1);
   const heard = validateHeardFromInput(
     { heardFrom: rawInput.heardFrom ?? "", heardFromDetail: rawInput.heardFromDetail ?? "" },
     { reached, alreadyKnown: (leadRow?.heardFrom ?? null) !== null }
@@ -738,6 +742,8 @@ export async function logDailyCallOutcome(
 
   // Nezvedá bez vlastního termínu → další pokus podle žebříčku (callAttempts.ts).
   let nextFollowUpAt = value.nextFollowUpAt;
+  let stageChange = value.stageChange;
+  let plannedNextStepNote: string | null = null;
   if (value.result === "no_answer" && !nextFollowUpAt && !value.clearFollowUp) {
     const [leadInfo] = await db.select({ createdAt: leads.createdAt }).from(leads).where(eq(leads.id, item.leadId)).limit(1);
     const history = await db
@@ -749,7 +755,26 @@ export async function logDailyCallOutcome(
     const failedAttempt =
       countConsecutiveNoAnswers(history as { kind: string; metadata: Record<string, unknown> | null }[]) + 1;
     const plan = planNextAttempt({ failedAttempt, leadCreatedAt: leadInfo?.createdAt ?? new Date() });
-    nextFollowUpAt = plan.nextAt ?? plan.remindAt;
+    nextFollowUpAt = plan.nextAt;
+    plannedNextStepNote = plan.nextStepNote;
+    // Po 4. marném pokusu (den 20) → Newsletter (Jarin 26. 11. 2026).
+    if (plan.stop && !stageChange) stageChange = "newsletter";
+  }
+
+  // „Dovolal jsem se, nemá zájem“ bez zvolené fáze → Nezájem (aby nezůstal aktivní bez termínu).
+  if (value.result === "reached_not_interested" && !stageChange) stageChange = "not_interested";
+
+  // Jarin 26. 11. 2026: žádný aktivní lead bez dalšího termínu. Výjimka:
+  // „Neplatný kontakt“ (tam se dál nevolá, fázi si obchodník zvolí sám).
+  if (value.result !== "invalid_contact") {
+    const finalStage = (stageChange ?? leadRow?.stage ?? "new") as LeadStage;
+    const nextContactError = requireNextContactError({
+      finalStageActive: ACTIVE_LEAD_STAGES.includes(finalStage),
+      effectiveNextFollowUpAt: value.clearFollowUp ? null : (nextFollowUpAt ?? leadRow?.nextFollowUpAt ?? null),
+    });
+    if (nextContactError) {
+      return { ok: false, error: nextContactError };
+    }
   }
 
   const result = await db.execute<{ id: string; effectiveNextFollowUpAt: Date | string | null }>(
@@ -760,7 +785,7 @@ export async function logDailyCallOutcome(
       authorName: ctx.name,
       activityId: randomUUID(),
       note: value.note,
-      stageChange: value.stageChange,
+      stageChange,
       nextFollowUpAt,
       clearFollowUp: value.clearFollowUp,
       result: value.result,
@@ -777,6 +802,9 @@ export async function logDailyCallOutcome(
       .update(leads)
       .set({ heardFrom: heard.value.heardFrom, heardFromDetail: heard.value.heardFromDetail })
       .where(eq(leads.id, item.leadId));
+  }
+  if (plannedNextStepNote) {
+    await db.update(leads).set({ nextStepNote: plannedNextStepNote }).where(eq(leads.id, item.leadId));
   }
 
   // Security Phase 20 (Google Kalendář 1.0) — AŽ PO úspěšném commitu výše

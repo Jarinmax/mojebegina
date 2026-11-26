@@ -13,6 +13,9 @@ export const LEAD_STAGES = [
   "converted",
   "callback_later",
   "not_interested",
+  // Jarin 26. 11. 2026: po 4 marných pokusech (den 1/3/10/20) lead přejde
+  // do newsletteru — už se nevolá, jen dostává newsletter.
+  "newsletter",
 ] as const;
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
