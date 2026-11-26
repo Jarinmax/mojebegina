@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ingredientGroupKey } from "../ingredientGroups";
+import { ingredientGroupKey, packagingSectionKey } from "../ingredientGroups";
 
 describe("skupiny ceníku", () => {
   it.each([
@@ -21,5 +21,15 @@ describe("skupiny ceníku", () => {
     ["Kyselina askorbová (vitamin C)", "surovina", "cukr"],
   ])("%s → %s", (name, kind, group) => {
     expect(ingredientGroupKey(name, kind)).toBe(group);
+  });
+});
+
+describe("obaly v sekcích (Lucie 27. 11. 2026)", () => {
+  it("bagy a krabice, kapsičky, etikety", () => {
+    expect(packagingSectionKey("Bag 3 l (begina bez krabice)")).toBe("bagy");
+    expect(packagingSectionKey("Krabice 3 l")).toBe("bagy");
+    expect(packagingSectionKey("Kapsička stříbrná na sirup 500 ml")).toBe("kapsicky");
+    expect(packagingSectionKey("Etiketa složení (černobílá DK-22212, 12 cm)")).toBe("etikety");
+    expect(packagingSectionKey("Páska")).toBe("ostatni");
   });
 });
