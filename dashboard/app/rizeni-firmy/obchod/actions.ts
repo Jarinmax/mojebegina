@@ -21,7 +21,7 @@ import {
   linkLeadToExistingOrganization,
   convertLeadToNewOrganization,
   assignCustomerOwner,
-  setCustomerDeliveryAddress,
+  setCustomerDeliveryAddress, setCustomerPayLaterAllowed,
   setCustomerAcquiredBy,
   removeLeadFollowUp,
   retryLeadCalendarSync,
@@ -333,6 +333,14 @@ export async function logNoAnswerAction(leadId: string, _prev: NoAnswerActionSta
   } catch {
     return { error: "Zápis se nepodařil. Zkus to znovu." };
   }
+}
+
+export async function setCustomerPayLaterAllowedAction(organizationId: string, allowed: boolean): Promise<ActionState> {
+  const result = await setCustomerPayLaterAllowed(organizationId, allowed);
+  if (!result.ok) return { error: result.error };
+  revalidateCrm(undefined, organizationId);
+  revalidatePath("/rizeni-firmy/vyroba");
+  return { success: "Uloženo." };
 }
 
 export async function setCustomerDeliveryAddressAction(

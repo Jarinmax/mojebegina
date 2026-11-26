@@ -31,6 +31,8 @@ const NOT_FOR_PRODUCTION = ["cancelled", "handed_to_carrier", "out_for_delivery"
 
 /** Ruční objednávka placená až při předání (hotově, dobírkou, na fakturu) — vyrábí se hned. */
 const payLaterSql = and(isNull(orders.paymentMethodCode), sql`${orders.paymentMethodLabel} ~* ${PAY_LATER_PATTERN}`);
+// Lucie 26. 11. 2026: do výroby jen zaplacené — nezaplacené (hotově / na fakturu) jen u stálých zákazníků s povolením
+const trustedPayLaterSql = and(payLaterSql, eq(organizations.payLaterAllowed, true));
 
 export type ProductionItem = {
   id: string;
@@ -214,7 +216,7 @@ export async function listProductionOrders(): Promise<ProductionOrder[]> {
   await requireOrderContext();
   return loadOrders(
     and(
-      or(eq(orders.paymentStatus, "paid"), payLaterSql),
+      or(eq(orders.paymentStatus, "paid"), trustedPayLaterSql),
       notInArray(orders.fulfillmentStatus, [...NOT_FOR_PRODUCTION]),
       isNull(orders.shippedAt)
     )
@@ -298,8 +300,8 @@ export async function listAwaitingPaymentOrders(): Promise<AwaitingPaymentOrder[
     .where(
       and(
         notInArray(orders.paymentStatus, ["paid"]),
-        // placené při předání už jsou ve výrobě
-        or(isNull(orders.paymentMethodLabel), not(payLaterSql!)),
+        // placené při předání u stálých zákazníků už jsou ve výrobě
+        or(isNull(orders.paymentMethodLabel), not(trustedPayLaterSql!)),
         notInArray(orders.fulfillmentStatus, [...NOT_FOR_PRODUCTION]),
         isNull(orders.shippedAt)
       )

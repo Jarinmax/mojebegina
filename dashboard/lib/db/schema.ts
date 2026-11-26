@@ -84,6 +84,8 @@ export const organizations = pgTable("organizations", {
   // Doručovací adresa (migrace 0063, Lucie 23. 11. 2026): kam se vozí, když se
   // liší od sídla (sídlo zůstává na faktuře). Nové objednávky ji převezmou.
   deliveryAddress: text("delivery_address"),
+  // Lucie 26. 11. 2026: stálý zákazník — nezaplacená objednávka (hotově / na fakturu) smí do výroby
+  payLaterAllowed: boolean("pay_later_allowed").notNull().default(false),
 }, (table) => [
   check("organizations_dic_format", sql`${table.dic} IS NULL OR ${table.dic} ~ '^[A-Z]{2}[0-9A-Z]{2,13}$'`),
 ]);
