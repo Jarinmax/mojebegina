@@ -32,7 +32,7 @@ function Section({ title, hint, sinceLabel, rows }: { title: string; hint: strin
                 <p className="text-sm text-neutral-800">{row.customer}</p>
                 <p className="mt-1 text-xs text-neutral-600">
                   {sinceLabel} {dateText(row.since)} · {row.statusLabel}
-                  {row.carrier ? ` (${row.carrier})` : ""} · {row.totalKc.toLocaleString("cs-CZ")} Kč
+                  {row.carrier ? ` (${row.carrier})` : ""} · {row.totalKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč
                 </p>
               </Link>
             </li>

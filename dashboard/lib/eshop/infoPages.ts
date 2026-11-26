@@ -6,7 +6,7 @@
 // a zobrazí se „Text připravujeme“ s kontaktem na provozovatele.
 // Právní texty se NEvymýšlejí — dodává je vedení (obchodní podmínky dodány
 // 3. 10. 2026, GDPR 8. 10. 2026).
-import { formatKc } from "@/lib/format";
+import { formatKc, formatPrice } from "@/lib/format";
 import { TRANSFER_DUE_DAYS } from "./bankTransfer";
 import { shippingMethodsFor, type ShippingMode, type ShippingOptions } from "./shipping";
 import { COLD_SHIPPING_MAX_GRAMS, COLD_SHIPPING_RULES } from "./shippingRates";
@@ -203,7 +203,7 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
             ? `${method.label} — ${method.description}`
             : byWeight && method.id === "rozvoz"
             ? `${method.label} — ${method.description}`
-            : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatKc(method.priceKc)}. ${method.description}`
+            : `${method.label} — ${method.priceKc === 0 ? "zdarma" : formatPrice(method.priceKc)}. ${method.description}`
         ),
       },
       ...(byWeight

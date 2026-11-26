@@ -30,7 +30,7 @@ import {
   tastingFreeKind,
   type CafeTastingItem,
 } from "@/lib/eshop/cafeTasting";
-import { formatKc } from "@/lib/format";
+import { formatKc, formatPrice } from "@/lib/format";
 import { useCart } from "./useCart";
 import { useEshopHref } from "./EshopBase";
 
@@ -137,7 +137,7 @@ export default function CafeTastingForm({
             <option value="">Vyberte beginu…</option>
             {beginas.map((option) => (
               <option key={option.sku} value={option.sku}>
-                {formatKc(option.priceKc)} – {option.name}
+                {formatPrice(option.priceKc)} – {option.name}
               </option>
             ))}
           </select>

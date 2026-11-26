@@ -37,7 +37,7 @@ const ORDER = "48596a19-6622-4e65-b0c5-1840b2e6e149";
 describe("peníze stornované objednávky", () => {
   it("kontaktovat zákazníka: převod i vrácení jen se souhlasem a poznámkou — žádné „Vrátit peníze“", () => {
     render(<CancelledMoneyPanel orderId={ORDER} money={{ stage: "contact", heldHal: 12900 }} today="2026-10-09" />);
-    expect(document.body.textContent).toMatch(/Platba po stornu – kontaktovat zákazníka \(129\sKč\)/);
+    expect(document.body.textContent).toMatch(/Platba po stornu – kontaktovat zákazníka \(129,00\sKč\)/);
     expect(screen.getByRole("button", { name: "Převést platbu" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Označit k vrácení" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Zapsat vrácení" })).toBeNull();
@@ -49,7 +49,7 @@ describe("peníze stornované objednávky", () => {
 
   it("zákazník požaduje vrácení: zápis skutečného vrácení s ID transakce, předvyplněná držená částka", () => {
     render(<CancelledMoneyPanel orderId={ORDER} money={{ stage: "refund", heldHal: 12950 }} today="2026-10-09" />);
-    expect(document.body.textContent).toMatch(/Vrátit peníze — 129,5\sKč/);
+    expect(document.body.textContent).toMatch(/Vrátit peníze — 129,50\sKč/);
     expect((document.querySelector('input[name="amountKc"]') as HTMLInputElement).value).toBe("129,50");
     expect((document.querySelector('input[name="txId"]') as HTMLInputElement).required).toBe(true);
     expect(screen.queryByRole("button", { name: "Převést platbu" })).toBeNull();
@@ -61,10 +61,10 @@ describe("peníze stornované objednávky", () => {
     const first = screen.getByLabelText("Produkt 1") as HTMLSelectElement;
     fireEvent.change(first, { target: { value: "kulajda" } });
     fireEvent.change(screen.getByLabelText("Počet 1"), { target: { value: "3" } });
-    expect(document.body.textContent).toMatch(/zákazník doplatí 379\sKč/);
+    expect(document.body.textContent).toMatch(/zákazník doplatí 379,00\sKč/);
     expect(screen.queryByLabelText(/starší 18 let/)).toBeNull();
     fireEvent.change(screen.getByLabelText("Počet 1"), { target: { value: "1" } });
-    expect(document.body.textContent).toMatch(/přeplatek 379\sKč bude k vrácení/);
+    expect(document.body.textContent).toMatch(/přeplatek 379,00\sKč bude k vrácení/);
     fireEvent.change(screen.getByLabelText("Produkt 2"), { target: { value: "svarak-deluxe-500ml" } });
     expect((screen.getByLabelText(/starší 18 let/) as HTMLInputElement).required).toBe(true);
     expect((screen.getByLabelText("Zákazník s náhradní objednávkou souhlasil") as HTMLInputElement).required).toBe(true);
@@ -81,7 +81,7 @@ describe("peníze stornované objednávky", () => {
     fireEvent.change(screen.getByLabelText("Počet 1"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Doprava"), { target: { value: "rozvoz" } });
     // 2 × 379 + 267 (6 kg) = 1 025 Kč, drženo 758 Kč
-    expect(document.body.textContent).toMatch(/Cena náhradní objednávky 1\s025\sKč · zákazník doplatí 267\sKč/);
+    expect(document.body.textContent).toMatch(/Cena náhradní objednávky 1\s025,00\sKč · zákazník doplatí 267,00\sKč/);
     fireEvent.change(screen.getByLabelText("Produkt 2"), { target: { value: "dum-u-jezera-3l" } });
     expect(document.body.textContent).toMatch(/U položky Dům u jezera — 3 l zatím neznáme hmotnost/);
     expect(document.body.textContent).toContain("Chlazená přeprava · Individuálně");
@@ -89,7 +89,7 @@ describe("peníze stornované objednávky", () => {
 
   it("přeplatek: závazek k vrácení a zápis skutečného vrácení", () => {
     render(<CancelledMoneyPanel orderId={ORDER} money={{ stage: "overpaid", heldHal: 37900 }} today="2026-10-09" />);
-    expect(document.body.textContent).toMatch(/Přeplatek k vrácení — 379\sKč/);
+    expect(document.body.textContent).toMatch(/Přeplatek k vrácení — 379,00\sKč/);
     expect(document.body.textContent).toContain("Do té doby je veden jako závazek, ne jako vrácené peníze.");
     expect(screen.getByRole("button", { name: "Zapsat vrácení" })).toBeTruthy();
   });

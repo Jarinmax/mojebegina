@@ -35,7 +35,7 @@ describe("ekonomika – výpočty", () => {
   });
 
   it("formátuje částky a data česky", () => {
-    expect(formatKc(125000).replace(/\s/g, " ")).toBe("1 250 Kč");
+    expect(formatKc(125000).replace(/\s/g, " ")).toBe("1 250,00 Kč");
     expect(formatKc(34990).replace(/\s/g, " ")).toBe("349,90 Kč");
     expect(formatCzDate("2026-11-05")).toBe("5. 11. 2026");
   });

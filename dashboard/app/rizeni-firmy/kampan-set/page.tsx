@@ -12,7 +12,7 @@ import { SET_CAMPAIGN_LIMIT } from "@/lib/eshop/tastingSet";
 // Přístup JEN Jaroslav a Lucie (isInvoiceIssuer), jako Ekonomika.
 export const dynamic = "force-dynamic";
 
-const kc = (value: number) => `${value.toLocaleString("cs-CZ")} Kč`;
+const kc = (value: number) => `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (

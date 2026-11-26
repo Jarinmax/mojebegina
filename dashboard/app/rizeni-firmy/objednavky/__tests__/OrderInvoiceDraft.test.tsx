@@ -95,7 +95,7 @@ describe("faktura v detailu objednávky — režim návrhu", () => {
     expect(text).toContain("1× Dýňová polévka");
     // vystavení / splatnost = den vystavení; DUZP zatím den úhrady; úhrada zvlášť
     expect(text).toContain("7. 10. 2026 / 6. 10. 2026 / 7. 10. 2026");
-    expect(text).toContain("uhrazeno 379 Kč · 6. 10. 2026");
+    expect(text).toContain("uhrazeno 379,00 Kč · 6. 10. 2026");
     expect(text).toContain("Osobní vyzvednutí"); // doručení
     expect(text).toContain("Faktura je již uhrazena – neplaťte.");
     expect(text).toContain("e-shopová řada — ID zatím nepotvrzené");

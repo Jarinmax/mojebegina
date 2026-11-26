@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { formatKc } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import type { PartnerTier } from "@/mock/partnerProgram";
 
@@ -35,11 +35,11 @@ export default function PartnerProgramSummary({
       </div>
 
       <p className="text-sm text-begina-primary-800 mb-0.5 break-words">
-        Tento měsíc: {formatKc(monthlyPurchase)}
+        Tento měsíc: {formatPrice(monthlyPurchase)}
       </p>
       <p className="text-sm text-begina-primary-800 mb-3 break-words">
         {nextTier
-          ? `Do úrovně ${nextTier.discountPercent} % chybí ${formatKc(remaining)}`
+          ? `Do úrovně ${nextTier.discountPercent} % chybí ${formatPrice(remaining)}`
           : "Nejvyšší standardní úroveň dosažena"}
       </p>
 

@@ -16,7 +16,7 @@
 // a limit na zákazníka (oba až s e-mailem z pokladny).
 // Více kupónů se počítá z původní ceny (WooCommerce bez „sequential
 // discounts“), sleva nikdy nepřesáhne cenu zboží. Částky v celých Kč.
-import { formatKc } from "@/lib/format";
+import { formatPrice as formatKc } from "@/lib/format";
 import type { CatalogIndex } from "./catalogIndex";
 import type { PricedLine } from "./pricing";
 import { partnerTiers, type PartnerTier } from "@/mock/partnerProgram";

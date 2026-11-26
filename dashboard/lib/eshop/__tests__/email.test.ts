@@ -153,7 +153,7 @@ const ORDER: EmailOrder = {
   ],
 };
 const CTX = { baseUrl: "https://preview.example", withheld: [], test: false };
-const kc = (n: number) => `${new Intl.NumberFormat("cs-CZ").format(n)} Kč`;
+const kc = (n: number) => `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} Kč`;
 
 describe("e-maily — obsah potvrzení pro zákazníka", () => {
   it("převod: přijetí, položky, doprava, celkem, způsob a stav platby, reference, odkaz — a NE „zaplaceno“", () => {
@@ -404,16 +404,16 @@ describe("e-maily — náhradní objednávka s převedenou platbou", () => {
     const unpaid = { ...order, totalKc: 1137, paymentStatus: "unpaid" };
     const transfer = transferInfo(unpaid, { account: "19-2000145399/0800", iban: "CZ6508000000192000145399" }, 379);
     const mail = customerReplacementEmail(unpaid, { ...ctx, receivedHal: 75800, transfer });
-    expect(mail.text).toMatch(/Zbývá doplatit 379\sKč/);
+    expect(mail.text).toMatch(/Zbývá doplatit 379,00\sKč/);
     expect(mail.text).toContain("Celou částku znovu neplaťte.");
-    expect(mail.text).toMatch(/Částka: 379\sKč/);
+    expect(mail.text).toMatch(/Částka: 379,00\sKč/);
     expect(mail.text).toContain("Variabilní symbol: 70000042");
   });
 
   it("přeplatek: zaplaceno, rozdíl vrátíme", () => {
     const cheaper = { ...order, totalKc: 379 };
     const mail = customerReplacementEmail(cheaper, { ...ctx, receivedHal: 75800 });
-    expect(mail.text).toMatch(/Přeplatek 379\sKč vám vrátíme/);
+    expect(mail.text).toMatch(/Přeplatek 379,00\sKč vám vrátíme/);
     expect(mail.text).not.toMatch(/Variabilní symbol|Zbývá doplatit/);
   });
 
@@ -455,7 +455,7 @@ describe("partnerská sleva v potvrzení (Lucie 24. 11. 2026)", () => {
       customerNote: null, items: [{ name: "Dýňová polévka – 3 l", quantity: 1, unitPriceKc: 1000, lineTotalKc: 1000 }], partnerPercent: 3,
     } as never;
     const mail = customerOrderEmail(order, { baseUrl: "https://begina.cz", withheld: [], test: false } as never);
-    expect(mail.text).toContain("Partnerská sleva 3 %: −30 Kč");
+    expect(mail.text).toContain("Partnerská sleva 3 %: −30,00 Kč");
     expect(mail.text).toContain("odečetli partnerskou slevu 3 %");
   });
 });

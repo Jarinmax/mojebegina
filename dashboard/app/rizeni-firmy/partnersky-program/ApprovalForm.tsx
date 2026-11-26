@@ -19,7 +19,7 @@ export type ApprovalRow = {
   sent: boolean;
 };
 
-const kc = (value: number) => `${Math.round(value).toLocaleString("cs-CZ")} Kč`;
+const kc = (value: number) => `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 
 function Message({ state }: { state: PartnerActionState }) {
   if (!state) return null;

@@ -4,7 +4,7 @@ import ShopLink from "./ShopLink";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import type { Variant } from "@/lib/eshop/types";
-import { formatKc } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import QuantityStepper from "./QuantityStepper";
 import { useCart } from "./useCart";
 import { trackMeta } from "@/lib/eshop/metaPixel";
@@ -130,11 +130,11 @@ export default function AddToCartButton({ name, variants, compact = false }: Add
                 </span>
                 {variant.soldOut === true ? (
                   <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums text-neutral-500">{formatKc(variant.priceKc)}</span>
+                    <span className="text-sm font-semibold tabular-nums text-neutral-500">{formatPrice(variant.priceKc)}</span>
                     <SoldOutBadge className="h-7" />
                   </span>
                 ) : (
-                  <span className="text-sm font-semibold tabular-nums">{formatKc(variant.priceKc)}</span>
+                  <span className="text-sm font-semibold tabular-nums">{formatPrice(variant.priceKc)}</span>
                 )}
               </label>
             ))}

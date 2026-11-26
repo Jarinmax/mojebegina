@@ -5,7 +5,7 @@ import DecorativeMark from "@/components/DecorativeMark";
 import BottomNav from "@/components/BottomNav";
 import NoOrganizationNotice from "@/components/NoOrganizationNotice";
 import { bottomNavItems } from "@/mock/customer";
-import { formatKc, capitalizeFirst } from "@/lib/format";
+import { formatPrice, capitalizeFirst } from "@/lib/format";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import { partnerTiers } from "@/mock/partnerProgram";
 import {
@@ -63,7 +63,7 @@ export default async function Page() {
           <div className="flex flex-col gap-1.5 text-sm mb-3">
             <div className="flex justify-between">
               <span className="opacity-70">Tento měsíc</span>
-              <span className="font-medium">{formatKc(currentMonthlyPurchase)}</span>
+              <span className="font-medium">{formatPrice(currentMonthlyPurchase)}</span>
             </div>
             <div className="flex justify-between">
               <span className="opacity-70">Aktuální úroveň</span>
@@ -81,7 +81,7 @@ export default async function Page() {
                 </div>
                 <div className="flex justify-between">
                   <span className="opacity-70">Do další úrovně vám chybí</span>
-                  <span className="font-medium">{formatKc(remaining)}</span>
+                  <span className="font-medium">{formatPrice(remaining)}</span>
                 </div>
               </>
             )}
@@ -89,7 +89,7 @@ export default async function Page() {
 
           {nextTier ? (
             <p className="text-sm font-medium mb-2">
-              Ještě {formatKc(remaining)} a získáte{" "}
+              Ještě {formatPrice(remaining)} a získáte{" "}
               {nextTier.discountPercent
                 ? `slevu ${nextTier.discountPercent} %`
                 : nextTier.discountLabel}
@@ -105,7 +105,7 @@ export default async function Page() {
               className="absolute -translate-x-1/2 text-[11px] font-semibold text-begina-accent-100 whitespace-nowrap"
               style={{ left: `${Math.min(94, Math.max(6, progressPercent))}%` }}
             >
-              {formatKc(currentMonthlyPurchase)}
+              {formatPrice(currentMonthlyPurchase)}
             </span>
           </div>
 
@@ -116,8 +116,8 @@ export default async function Page() {
             />
           </div>
           <div className="flex justify-between text-[11px] opacity-70">
-            <span>{formatKc(currentTier.minAmount)}</span>
-            <span>{nextTier ? formatKc(nextTier.minAmount) : "—"}</span>
+            <span>{formatPrice(currentTier.minAmount)}</span>
+            <span>{nextTier ? formatPrice(nextTier.minAmount) : "—"}</span>
           </div>
         </div>
 

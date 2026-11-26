@@ -32,7 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 /** Haléře → „379 Kč“ / „379,50 Kč“. */
 function formatHal(hal: number): string {
-  return hal % 100 === 0 ? formatKc(hal / 100) : `${(hal / 100).toFixed(2).replace(".", ",")} Kč`;
+  return formatKc(hal / 100);
 }
 
 /** Haléře → hodnota do pole částky („379“ / „379,50“). */

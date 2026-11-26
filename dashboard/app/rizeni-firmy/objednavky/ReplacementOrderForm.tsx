@@ -16,7 +16,7 @@ const INPUT = "px-3 py-2 border border-neutral-200 rounded-lg text-sm text-begin
 const ROWS = 4;
 
 function kc(hal: number): string {
-  return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+  return `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
 }
 
 export type ReplacementFormData = {

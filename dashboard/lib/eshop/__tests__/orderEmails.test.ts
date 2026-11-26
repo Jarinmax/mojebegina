@@ -210,7 +210,7 @@ describe("e-maily k objednávce — pokladna a Stripe nad DB (neon-http → PGli
     const [customer, internal] = mail.sent;
     expect(customer.text).toContain("Doprava: Chlazená přeprava\n");
     expect(customer.text).toContain("Doručovací údaje\nJana Nováková\nPrvního pluku 14\n186 00 Praha\nČeská republika");
-    expect(customer.text).toContain(`Celkem: ${new Intl.NumberFormat("cs-CZ").format(await total(ID))} Kč`);
+    expect(customer.text).toContain(`Celkem: ${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(await total(ID))} Kč`);
     expect(customer.text).toContain("Platební údaje pro převod vám pošleme");
     expect(internal.subject).toContain("Čeká na platbu převodem");
     for (const m of mail.sent) expect(m.text.toLowerCase()).not.toMatch(/zaplacen[oaá](?![\p{L}])/u);

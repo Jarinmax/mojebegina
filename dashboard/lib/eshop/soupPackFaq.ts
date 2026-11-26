@@ -2,7 +2,7 @@
 // na začátek odpovědi samostatná Ochutnávka polévek 3 × 450 ml s odkazem
 // „Vybrat 3 polévky“. Částky se počítají z ceny sady a aktuální chlazené
 // dopravy pro samostatnou objednávku (stejný ceník jako košík a pokladna).
-import { formatKc } from "@/lib/format";
+import { formatPrice as formatKc } from "@/lib/format";
 import { SOUP_PACK_BUTTON, SOUP_PACK_SLUG } from "./soupPack";
 
 export type SoupPackOffer = { priceKc: number; totalKc: number };

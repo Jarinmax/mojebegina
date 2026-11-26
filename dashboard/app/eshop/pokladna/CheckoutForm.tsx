@@ -41,7 +41,7 @@ import { VAT_NOTE } from "@/lib/eshop/cafePage";
 import { SYRUP_BOX_INCLUDED_NOTE, isSyrup3l, zasilkovnaCartNote } from "@/lib/eshop/zasilkovna";
 import { BOX_NAME, BOX_PRICE_KC, boxCount, boxesFromSelection, boxWeightLines, clampBoxes, isBoxEligible } from "@/lib/eshop/boxOption";
 import { useCartBoxes } from "@/components/eshop/useCartBoxes";
-import { formatKc } from "@/lib/format";
+import { formatKc, formatPrice } from "@/lib/format";
 import { useCart, useHydrated } from "@/components/eshop/useCart";
 import { submitCheckoutAction, type CheckoutState } from "./actions";
 import { INFO_PAGES, OPERATOR, SLOVAKIA_ORDER_NOTE } from "@/lib/eshop/infoPages";
@@ -945,7 +945,7 @@ export default function CheckoutForm({
                       onChange={(e) => cartBoxes.toggle(line.sku, e.target.checked)}
                       className="w-4 h-4 accent-emerald-600"
                     />
-                    Zabalit do kartonové krabice <span className="text-neutral-500">+{formatKc(BOX_PRICE_KC)}{line.quantity > 1 ? " / ks" : ""}</span>
+                    Zabalit do kartonové krabice <span className="text-neutral-500">+{formatPrice(BOX_PRICE_KC)}{line.quantity > 1 ? " / ks" : ""}</span>
                   </label>
                 )}
               </li>

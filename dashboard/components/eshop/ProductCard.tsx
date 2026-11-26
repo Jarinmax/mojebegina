@@ -1,7 +1,7 @@
 import ShopLink from "./ShopLink";
 import { isOrderable, isSoldOut, NOT_ORDERABLE_LABEL, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
-import { formatKc } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import AddToCartButton, { InStockBadge, SoldOutBadge } from "./AddToCartButton";
 import { afterOpeningBadge } from "@/lib/eshop/productFacts";
@@ -64,7 +64,7 @@ export default function ProductCard({ product }: { product: Product }) {
               .map((v) => (
                 <li key={v.sku ?? v.label ?? v.priceKc} className="col-span-2 grid grid-cols-subgrid items-center justify-items-start whitespace-nowrap">
                   <span className={v.soldOut === true ? "text-neutral-500 font-normal" : ""}>
-                    {formatKc(v.priceKc)}
+                    {formatPrice(v.priceKc)}
                     {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
                   </span>
                   {v.soldOut === true ? <SoldOutBadge className="h-4 px-1 text-[9px]" /> : <InStockBadge />}
@@ -73,8 +73,8 @@ export default function ProductCard({ product }: { product: Product }) {
           </ul>
         ) : (
           <p className="font-semibold tabular-nums leading-snug">
-            {isSet && product.tastingCampaign && <s className="mr-1.5 font-normal text-neutral-500">{formatKc(product.tastingCampaign.regularPriceKc)}</s>}
-            {formatKc(product.variants[0].priceKc)}
+            {isSet && product.tastingCampaign && <s className="mr-1.5 font-normal text-neutral-500">{formatPrice(product.tastingCampaign.regularPriceKc)}</s>}
+            {formatPrice(product.variants[0].priceKc)}
             {isSet && product.tastingCampaign && <span className="block text-[13px] font-normal text-neutral-500">vč. dopravy</span>}
           </p>
         )}

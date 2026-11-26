@@ -104,7 +104,7 @@ describe("stránka objednávky pro zákazníka", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Objednávka čeká na doplatek");
     expect(document.body.textContent).toMatch(/Část platby už máme \(129\sKč\)\. Doplaťte prosím 250\sKč/);
     // platební údaje: částka = doplatek
-    expect(document.body.textContent).toMatch(/Částka\s*250\sKč/);
+    expect(document.body.textContent).toMatch(/Částka\s*250,00\sKč/);
     expect(document.body.textContent).not.toMatch(/Částka\s*379/);
     expect(document.querySelectorAll("svg").length).toBeGreaterThan(1); // QR (na doplatek)
   });

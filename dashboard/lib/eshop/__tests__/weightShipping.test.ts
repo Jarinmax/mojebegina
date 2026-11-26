@@ -443,7 +443,7 @@ describe("přepínač ESHOP_WEIGHT_SHIPPING a texty", () => {
     const text = JSON.stringify(page.blocks);
     expect(text).toContain('["0–14,99 kg","267');
     expect(text).toContain('["100–150 kg","1');
-    expect(text).toContain("839 Kč");
+    expect(text).toContain("839,00 Kč");
     expect(text).toContain('["nad 350 do 400 kg","4');
     expect(text).toContain("Objednávky nad 400 kg");
     expect(text).toContain("Na Slovensko posíláme jen chlazenou přepravou CoolBalík");

@@ -2,7 +2,7 @@
 // první begina se vzorky, ochutnávka 3 polévek, ochutnávka 5 sirupů. Na počítači vedle sebe,
 // na mobilu pod sebou. Ceny přichází ze serveru ze stejných údajů jako košík.
 import ShopLink from "./ShopLink";
-import { formatKc } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { CAFE_TASTING_GIFT_TEXT } from "@/lib/eshop/cafeTasting";
 import { SOUP_PACK_SLUG } from "@/lib/eshop/soupPack";
 import { SET_SLUG } from "@/lib/eshop/tastingSet";
@@ -40,8 +40,8 @@ export default function CafeStartCards({ soupPack, syrupSet, beginaHref = "#vybe
         <div className={`${card} border border-[#EDE5D8]`}>
           <h2 className={title}>Ochutnávka 3 polévek</h2>
           <p className={text}>
-            Vyberte si tři různé polévky po 450 ml. Při odběru ve Viticích zaplatíte {formatKc(soupPack.priceKc)}
-            {soupPack.coldShippingKc !== null ? `, s chlazenou dopravou ${formatKc(soupPack.priceKc + soupPack.coldShippingKc)}` : ""}.
+            Vyberte si tři různé polévky po 450 ml. Při odběru ve Viticích zaplatíte {formatPrice(soupPack.priceKc)}
+            {soupPack.coldShippingKc !== null ? `, s chlazenou dopravou ${formatPrice(soupPack.priceKc + soupPack.coldShippingKc)}` : ""}.
           </p>
           <ShopLink href={`/produkt/${SOUP_PACK_SLUG}#vyber`} className={`${button} bg-[#2F3B1E] hover:bg-[#232D16] text-white`}>
             Vybrat 3 polévky
@@ -54,7 +54,7 @@ export default function CafeStartCards({ soupPack, syrupSet, beginaHref = "#vybe
           <p className={text}>
             Vyberte si pět příchutí po 100 ml. Set posíláme i Zásilkovnou.
             <span className="mt-2 block font-semibold text-[#2A2622]">
-              {formatKc(syrupSet.priceKc)}
+              {formatPrice(syrupSet.priceKc)}
               {syrupSet.includesShipping ? " včetně dopravy Zásilkovnou" : " + doprava"}
             </span>
           </p>

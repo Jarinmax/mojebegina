@@ -1,4 +1,4 @@
-import { formatKc } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { getPartnerTierStatus } from "@/lib/partnerTier";
 import type { PartnerTier } from "@/mock/partnerProgram";
 
@@ -18,7 +18,7 @@ export default function PartnerTierStatus({
     <div className="rounded-2xl p-4 mb-4 bg-begina-primary-800 text-begina-primary-50">
       <p className="text-xs mb-1 opacity-80">Tento měsíc jste nakoupili</p>
       <div className="flex items-end justify-between mb-3">
-        <p className="text-xl font-medium">{formatKc(monthlyPurchase)}</p>
+        <p className="text-xl font-medium">{formatPrice(monthlyPurchase)}</p>
         <span className="text-xs font-medium bg-begina-accent-100 text-begina-accent-900 rounded-full px-2.5 py-1">
           {currentTier.discountLabel}
         </span>
@@ -33,7 +33,7 @@ export default function PartnerTierStatus({
 
       <p className="text-xs opacity-80">
         {nextTier
-          ? `Do slevy ${nextTier.discountPercent} % chybí ${formatKc(remaining)}`
+          ? `Do slevy ${nextTier.discountPercent} % chybí ${formatPrice(remaining)}`
           : "Nejvyšší standardní úroveň — další růst řešíme individuální dohodou."}
       </p>
     </div>
