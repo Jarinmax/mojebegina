@@ -295,7 +295,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           )}
           {isSet && (
             <div className="mt-3 flex flex-col items-start gap-1.5 text-sm text-neutral-700">
-              {campaign && <p className="font-medium">{SET_CAMPAIGN_PRICE_NOTE}</p>}
+              {campaign && <p className="text-base font-bold text-begina-accent-700">{SET_CAMPAIGN_PRICE_NOTE}</p>}
               {campaign && (
                 <p className="rounded-full bg-[#F1EFE3] px-2.5 py-0.5 text-[13px] font-medium text-[#4A5527] tabular-nums">{remainingLabel(campaign.remaining)}</p>
               )}
