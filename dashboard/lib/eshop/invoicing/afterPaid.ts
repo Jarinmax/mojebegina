@@ -6,6 +6,8 @@
 //      se tu NIC nevystavuje — faktura čeká na tlačítko v detailu
 //      objednávky (issueAndSendInvoice níže, tentýž motor),
 //      Zákazníkovi faktura odchází až s expedicí (sendInvoiceOnDispatch níže),
+//      Vlastní fakturace MojeBegina (Lucie 26. 11. 2026): i v režimu „manual“
+//      se e-shopová faktura VYSTAVÍ hned po zaplacení, jen se zatím neposílá,
 //   3. e-mail zákazníkovi „Platbu jsme přijali“ (resp. potvrzení
 //      zaplacené objednávky kartou) — s PDF faktury v příloze, pokud je,
 //   4. Meta „Purchase“ (dokončený nákup) — jen se souhlasem zákazníka
@@ -63,10 +65,25 @@ export async function invoiceAndNotifyPaid(
   if (mode.mode === "live" && mode.automatic) {
     invoice = await issueInvoiceSafe(db, orderId, { env, actor, fetchImpl: deps.fetchImpl });
     if (invoice.status === "issued") pdf = invoice.pdf;
+  } else if (mode.mode === "live" && ownInvoicingActive(env) && (await isEshopOrder(db, orderId))) {
+    // Lucie 26. 11. 2026: faktura se VYSTAVÍ hned po zaplacení (je vidět
+    // v Řízení firmy → Faktury), ale zákazníkovi odejde až s expedicí
+    // (sendInvoiceOnDispatch) — proto PDF NEpřikládáme k „Platbu jsme přijali“.
+    invoice = await issueInvoiceSafe(db, orderId, { env, actor, fetchImpl: deps.fetchImpl });
   }
   const emails = await sendOrderEmails(db, orderId, trigger, baseUrl, { ...deps.email, invoicePdf: pdf });
   await sendMetaPurchaseSafe(db, orderId, { env, fetchImpl: deps.metaFetchImpl });
   return { invoice, emails };
+}
+
+/** E-shopová objednávka (ruční objednávky mají vlastní fakturu při expedici, ownManual.ts). */
+async function isEshopOrder(db: Db, orderId: string): Promise<boolean> {
+  try {
+    const row = (await db.execute(sql`SELECT channel FROM orders WHERE id = ${orderId}`)).rows[0] as { channel: string } | undefined;
+    return row?.channel === "eshop";
+  } catch {
+    return false;
+  }
 }
 
 /** Jak dlouho drží odesílání PDF zámek (pád uprostřed = po vypršení zkusí znovu). */
