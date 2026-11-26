@@ -113,9 +113,10 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
         {detail && (
           <div className={`mt-4 rounded-xl p-3 ${allDone ? "border-2 border-amber-400 bg-amber-50" : "border border-neutral-200"}`}>
             <p className="text-sm font-bold text-begina-primary-900 mb-2">
-              {allDone ? "Odeslat zákazníkovi" : "Expedice a faktura"}
+              {allDone ? "Odeslat zákazníkovi" : "Odeslání"}
             </p>
-            <DispatchChecks view={dispatchView(detail.order)} />
+            {/* Lucie 26. 11.: výroba jen odesílá — „Faktura poslána“ sem nepatří */}
+            <DispatchChecks view={dispatchView(detail.order)} shipOnly />
           </div>
         )}
         <p className="mt-3">

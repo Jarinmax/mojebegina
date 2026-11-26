@@ -173,9 +173,9 @@ function Check({
   );
 }
 
-export default function DispatchChecks({ view }: { view: DispatchView }) {
+export default function DispatchChecks({ view, shipOnly = false }: { view: DispatchView; shipOnly?: boolean }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div className={`grid grid-cols-1 gap-2 ${shipOnly ? "" : "sm:grid-cols-2"}`}>
       <Check
         orderId={view.orderId}
         kind="ship"
@@ -189,14 +189,14 @@ export default function DispatchChecks({ view }: { view: DispatchView }) {
         today={view.today}
         undoWarning="Stav se vrátí na „Připravená“. Faktura, která už zákazníkovi odešla, zůstane odeslaná."
       />
-      <Check
+      {!shipOnly && <Check
         orderId={view.orderId}
         kind="invoice"
         done={view.invoice.done}
         title={view.invoice.title}
         lines={view.invoice.lines}
         hint="Zaškrtne se samo po odeslání e-mailem z MojeBegina. Ručně např. při předání osobně."
-      />
+      />}
     </div>
   );
 }
