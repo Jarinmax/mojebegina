@@ -25,7 +25,7 @@ export default function CartLink() {
           </span>
         )}
       </span>
-      <span className="hidden sm:inline ml-1">Košík</span>
+      <span className="hidden sm:inline xl:hidden 2xl:inline ml-1">Košík</span>
     </ShopLink>
   );
 }
