@@ -242,7 +242,11 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(productJsonLd(product, category)) }} />
+      {/* Alkohol (18+) bez strukturovaných dat Product — Google ho jinak sám
+          přidává do Merchant Center („Vyhledáno Googlem“). Stejné pravidlo jako feed. (26. 11. 2026) */}
+      {!product.isAgeRestricted && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(productJsonLd(product, category)) }} />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
