@@ -7,6 +7,9 @@ import { formatCzechDate, formatCzechDateTime } from "@/lib/format";
 import { formatDeadlineLong } from "@/lib/czWorkdays";
 import ProducedCheck from "../ProducedCheck";
 import { GROUP_STYLE } from "../productionColors";
+import { getOrderDetail } from "@/lib/data/orders";
+import DispatchChecks from "../../objednavky/DispatchChecks";
+import { dispatchView } from "../../objednavky/dispatchText";
 
 // Výrobní karta jedné objednávky pro Jarina (Lucie 18. 11. 2026):
 // doručovací údaje (ne fakturační), termín dodání, produkty barevně po
@@ -23,6 +26,9 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
     items: order.items.filter((i) => i.group === g.slug),
   })).filter((g) => g.items.length > 0);
   const allDone = order.items.length > 0 && order.producedCount === order.items.length;
+  // Odesláno + Faktura přímo na kartě (Lucie 26. 11. 2026 — Jarin nemá
+  // hledat malý odkaz na detail objednávky).
+  const detail = await getOrderDetail(id);
 
   return (
     <div>
@@ -104,9 +110,17 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
             <span className="font-medium">Poznámka zákazníka:</span> {order.customerNote}
           </p>
         )}
+        {detail && (
+          <div className={`mt-4 rounded-xl p-3 ${allDone ? "border-2 border-amber-400 bg-amber-50" : "border border-neutral-200"}`}>
+            <p className="text-sm font-bold text-begina-primary-900 mb-2">
+              {allDone ? "Odeslat zákazníkovi" : "Expedice a faktura"}
+            </p>
+            <DispatchChecks view={dispatchView(detail.order)} />
+          </div>
+        )}
         <p className="mt-3">
-          <Link href={`/rizeni-firmy/objednavky/${order.id}`} className="text-sm underline text-neutral-600">
-            Detail objednávky (odesláno, faktura)
+          <Link href={`/rizeni-firmy/objednavky/${order.id}`} className="text-xs underline text-neutral-500">
+            Celý detail objednávky
           </Link>
         </p>
       </div>

@@ -53,6 +53,7 @@ function revalidateOrder(orderId?: string) {
   revalidatePath("/rizeni-firmy/vyroba");
   if (orderId) {
     revalidatePath(`/rizeni-firmy/objednavky/${orderId}`);
+    revalidatePath(`/rizeni-firmy/vyroba/${orderId}`);
   }
 }
 
