@@ -477,6 +477,13 @@
       "when": 1795443651092,
       "tag": "0067_sverene_penize",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1795694995670,
+      "tag": "0068_pokladna",
+      "breakpoints": true
     }
   ]
 }

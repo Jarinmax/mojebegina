@@ -35,6 +35,8 @@ export const SECTION_GROUPS: Group[] = [
       { href: "/rizeni-firmy/objednavky-po-terminu", label: "Objednávky po termínu", icon: "⏰" },
       { href: "/rizeni-firmy/partnersky-program", label: "Partnerský program", icon: "🤝" },
       { href: "/rizeni-firmy/kampan-set", label: "Kampaň set", icon: "🎁", show: (f) => f.ekonomika },
+      // 26. 11. 2026 (Lucie): vlastní pokladna Zahradního Bistra Begina (náhrada Storyous)
+      { href: "/rizeni-firmy/pokladna", label: "Pokladna bistra", icon: "🧾", show: (f) => f.sklad },
     ],
   },
   {

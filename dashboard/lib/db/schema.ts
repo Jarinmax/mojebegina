@@ -2628,3 +2628,75 @@ export const idokladArchive = pgTable("idoklad_archive", {
   index("idoklad_archive_ico_idx").on(table.partnerIco),
   check("idoklad_archive_kind", sql`${table.docKind} IN ('invoice', 'credit_note')`),
 ]);
+
+// POKLADNA BISTRA (Lucie 26. 11. 2026, migrace 0068) — vlastní pokladna
+// Zahradního Bistra Begina místo Storyous. Menu (pos_items), účtenky
+// (pos_receipts + pos_receipt_lines) a denní uzávěrky (pos_day_closes).
+// Částky v haléřích. Účtenka se nikdy nemaže — jen storno s důvodem.
+// Sloupce eet_* jsou připravené pro EET 2.0 (napojení v další fázi).
+export const posItems = pgTable("pos_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: text("category").notNull(),
+  name: text("name").notNull(),
+  priceHal: integer("price_hal").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("pos_items_category_idx").on(table.category, table.sortOrder),
+  check("pos_items_price_check", sql`${table.priceHal} >= 0`),
+]);
+
+export const posReceipts = pgTable("pos_receipts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Pořadové číslo v rámci roku (1, 2, 3 …) — EET „pořadové číslo tržby“. */
+  year: integer("year").notNull(),
+  seq: integer("seq").notNull(),
+  /** Den tržby v Europe/Prague (RRRR-MM-DD) — podle něj uzávěrka. */
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  totalHal: integer("total_hal").notNull(),
+  cashGivenHal: integer("cash_given_hal"),
+  note: text("note"),
+  cashierUserId: text("cashier_user_id").notNull(),
+  cashierName: text("cashier_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  cancelledByName: text("cancelled_by_name"),
+  cancelReason: text("cancel_reason"),
+  eetStatus: text("eet_status"),
+  eetSentAt: timestamp("eet_sent_at", { withTimezone: true }),
+  eetResponse: jsonb("eet_response"),
+}, (table) => [
+  unique("pos_receipts_year_seq").on(table.year, table.seq),
+  index("pos_receipts_date_idx").on(table.businessDate),
+  check("pos_receipts_method_check", sql`${table.paymentMethod} IN ('cash','card','qr')`),
+  check("pos_receipts_total_check", sql`${table.totalHal} >= 0`),
+]);
+
+export const posReceiptLines = pgTable("pos_receipt_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  receiptId: uuid("receipt_id").notNull().references(() => posReceipts.id, { onDelete: "cascade" }),
+  itemId: uuid("item_id").references(() => posItems.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  unitPriceHal: integer("unit_price_hal").notNull(),
+  quantity: integer("quantity").notNull(),
+  lineTotalHal: integer("line_total_hal").notNull(),
+}, (table) => [
+  index("pos_receipt_lines_receipt_idx").on(table.receiptId),
+  check("pos_receipt_lines_qty_check", sql`${table.quantity} > 0`),
+]);
+
+export const posDayCloses = pgTable("pos_day_closes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  cashHal: integer("cash_hal").notNull(),
+  cardHal: integer("card_hal").notNull(),
+  qrHal: integer("qr_hal").notNull(),
+  receiptCount: integer("receipt_count").notNull(),
+  cashCountedHal: integer("cash_counted_hal"),
+  note: text("note"),
+  closedByName: text("closed_by_name"),
+  closedAt: timestamp("closed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [unique("pos_day_closes_date").on(table.businessDate)]);
