@@ -19,8 +19,6 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
   const now = pragueYearMonth(new Date());
   const yearParam = Number(typeof searchParams.rok === "string" ? searchParams.rok : "");
   const year = Number.isInteger(yearParam) && yearParam >= 2020 && yearParam <= 2100 ? yearParam : now.year;
-  const monthParam = Number(typeof searchParams.mesic === "string" ? searchParams.mesic : "");
-  const month = Number.isInteger(monthParam) && monthParam >= 1 && monthParam <= 12 ? monthParam : year === now.year ? now.month : 12;
   const view: EconomyKind = searchParams.zobrazit === "prijmy" ? "income" : "cost";
   const today = `${now.year}-${String(now.month).padStart(2, "0")}-${String(now.day).padStart(2, "0")}`;
 
@@ -35,17 +33,13 @@ export default async function EkonomikaPage(props: PageProps<"/rizeni-firmy/ekon
 
   const rows = await loadEconomyYear(year);
   const months = summarizeYear(rows, year);
-  const monthKeyPrefix = `${year}-${String(month).padStart(2, "0")}`;
-  const monthRows = rows.filter((row) => row.entryDate.startsWith(monthKeyPrefix));
   return (
     <EkonomikaView
       year={year}
-      month={month}
       view={view}
       today={today}
       months={months}
       lastMonth={year === now.year ? now.month : year < now.year ? 12 : 0}
-      monthRows={monthRows}
     />
   );
 }
