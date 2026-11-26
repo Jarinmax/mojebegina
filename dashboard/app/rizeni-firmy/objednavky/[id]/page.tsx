@@ -231,7 +231,7 @@ export default async function OrderDetailPage(
         {(() => {
           const needsPayment = order.channel === "manual" && order.paymentStatus !== "paid";
           const shippingText = (order.shippingMethodLabel ?? "").toLocaleLowerCase("cs");
-          const defaultMode = /rozvoz|osobn|vyzvednut/.test(shippingText) ? "personal" : "carrier";
+          const defaultMode = /osobní odběr|osobni odber|vyzvednut/.test(shippingText) ? "personal" : "carrier" /* Lucie 26. 11.: výchozí přepravce */;
           const shippedLine = order.shippedAt
             ? `${order.fulfillmentStatus === "handed_to_carrier" ? "Předáno přepravci" : defaultMode === "personal" ? "Předáno osobně" : "Doručeno"} ${shortPragueDate(order.shippedAt)}${order.shippedByName ? ` · ${order.shippedByName}` : ""}`
             : null;
