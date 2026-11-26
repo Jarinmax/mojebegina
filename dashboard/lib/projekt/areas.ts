@@ -1,14 +1,30 @@
-// PROJEKT BEGINA 1.0 — oblasti a kontrola vstupu (bez DB, testovatelné).
-// Úmyslně jednoduché: 7 pevných oblastí, v každé jen stav, rozhodnutí a výstupy.
+// PROJEKT BEGINA — oblasti a kontrola vstupu (bez DB, testovatelné).
+// Jedna oblast = jedno vlákno v Claudovi (26. 11. 2026, Lucie). V každé jen
+// stav, rozhodnutí a výstupy. Slug se nikdy nemění (drží zápisy v DB) — měnit
+// se smí jen název; „web“ = Úpravy e-shopu, „ekonomika“ = Účtenky a náklady.
+
+export const PROJECT_GROUPS = ["Prodej", "Web a systém", "Marketing", "Výroba a provoz", "Peníze a právo"] as const;
+export type ProjectGroup = (typeof PROJECT_GROUPS)[number];
 
 export const PROJECT_AREAS = [
-  { slug: "socialni-site", name: "Sociální sítě", icon: "share", tone: "rose" },
-  { slug: "etikety", name: "Etikety", icon: "tag", tone: "amber" },
-  { slug: "obrazky", name: "Obrázky a fotky", icon: "image", tone: "violet" },
-  { slug: "konkurence", name: "Konkurence", icon: "binoculars", tone: "sky" },
-  { slug: "web", name: "Web a e-shop", icon: "globe", tone: "emerald" },
-  { slug: "pravo", name: "Legislativa a právo", icon: "scale", tone: "slate" },
-  { slug: "ekonomika", name: "Ekonomika", icon: "wallet", tone: "lime" },
+  { slug: "objednavky", name: "Objednávky zákazníků", icon: "cart", tone: "orange", group: "Prodej" },
+  { slug: "faktury", name: "Faktury zákazníkům", icon: "file", tone: "blue", group: "Prodej" },
+  { slug: "kavarny", name: "Kavárny a obchod", icon: "coffee", tone: "stone", group: "Prodej" },
+  { slug: "partnersky-program", name: "Partnerský program", icon: "handshake", tone: "teal", group: "Prodej" },
+  { slug: "kampan-sirupy", name: "Kampaň sirupy", icon: "megaphone", tone: "fuchsia", group: "Prodej" },
+  { slug: "web", name: "Úpravy e-shopu", icon: "globe", tone: "emerald", group: "Web a systém" },
+  { slug: "seo", name: "SEO", icon: "search", tone: "cyan", group: "Web a systém" },
+  { slug: "mojebegina", name: "Úpravy MojeBegina", icon: "dashboard", tone: "indigo", group: "Web a systém" },
+  { slug: "konkurence", name: "Konkurence", icon: "binoculars", tone: "sky", group: "Web a systém" },
+  { slug: "socialni-site", name: "Sociální sítě", icon: "share", tone: "rose", group: "Marketing" },
+  { slug: "obrazky", name: "Obrázky a fotky", icon: "image", tone: "violet", group: "Marketing" },
+  { slug: "etikety", name: "Etikety", icon: "tag", tone: "amber", group: "Výroba a provoz" },
+  { slug: "sklad-beginy", name: "Sklad begin a sáčků", icon: "package", tone: "yellow", group: "Výroba a provoz" },
+  { slug: "sklad-suroviny", name: "Sklad surovin a obalů", icon: "boxes", tone: "orange", group: "Výroba a provoz" },
+  { slug: "hygiena", name: "Hygiena a HACCP", icon: "shield", tone: "green", group: "Výroba a provoz" },
+  { slug: "bistro", name: "Bistro", icon: "utensils", tone: "red", group: "Výroba a provoz" },
+  { slug: "ekonomika", name: "Účtenky a náklady", icon: "wallet", tone: "lime", group: "Peníze a právo" },
+  { slug: "pravo", name: "Legislativa a právo", icon: "scale", tone: "slate", group: "Peníze a právo" },
 ] as const;
 
 export type ProjectArea = (typeof PROJECT_AREAS)[number];
