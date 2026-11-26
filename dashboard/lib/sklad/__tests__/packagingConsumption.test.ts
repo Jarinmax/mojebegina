@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { PACKAGING, packagingForItem, packagingForOrder } from "../packagingConsumption";
 
-// etikety se neodečítají (Lucie 26. 11. 2026)
-const L = (n: number) => (n < 0 ? [] : []);
+// 2 etikety na balení, obě z černobílé role DK-22212 (Lucie 26. 11. 2026)
+const L = (n: number) => [{ name: PACKAGING.labels, quantity: 2 * n }];
 
 describe("odečet obalů podle objednávek (Lucie 26. 11. 2026)", () => {
-  it("3 l, ochutnávky, sirupy 500/650, Ochutnávka polévek 3 × 450 ml — bez etiket", () => {
+  it("3 l, ochutnávky, sirupy 500/650, Ochutnávka polévek 3 × 450 ml — s 2 etiketami na balení", () => {
     expect(packagingForItem({ categorySlug: "polevky", volumeMl: 3000, sku: "dynova-polevka" })).toEqual([
       { name: PACKAGING.bag3l, quantity: 1 },
       { name: PACKAGING.box3l, quantity: 1 },
@@ -29,6 +29,7 @@ describe("odečet obalů podle objednávek (Lucie 26. 11. 2026)", () => {
     expect(needs).toEqual([
       { name: PACKAGING.bag3l, quantity: 2 },
       { name: PACKAGING.box3l, quantity: 2 },
+      { name: PACKAGING.labels, quantity: 12 },
       { name: PACKAGING.pouch250, quantity: 4 },
     ]);
   });
