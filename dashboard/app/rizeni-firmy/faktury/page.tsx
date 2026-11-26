@@ -5,7 +5,7 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { invoices, orders, organizations } from "@/lib/db/schema";
 import { idokladInvoicePdfPath, runIdokladRead } from "@/lib/idoklad-read/tools";
 import type { InvoiceSummary } from "@/lib/idoklad-read/service";
-import { MONTH_NAMES, formatCzDate, formatKc as formatHal } from "@/lib/ekonomika/economy";
+import { MONTH_NAMES, formatCzDate } from "@/lib/ekonomika/economy";
 import { loadEconomyYear } from "@/lib/ekonomika/economyServer";
 import { notFound } from "next/navigation";
 import { sql } from "drizzle-orm";
@@ -13,7 +13,7 @@ import { db } from "@/lib/db/client";
 import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { pragueToday } from "@/lib/data/callActivityValidation";
-import { formatCzDay, formatKc, type OwnInvoiceSnapshot } from "@/lib/eshop/invoicing/ownInvoice";
+import { formatCzDay, type OwnInvoiceSnapshot } from "@/lib/eshop/invoicing/ownInvoice";
 import { ownInvoicePdfPath } from "@/lib/eshop/invoicing/ownB2b";
 import InvoiceActions from "./InvoiceActions";
 
@@ -38,7 +38,11 @@ type Row = {
   snapshot: OwnInvoiceSnapshot;
 };
 
-const kc = (n: number) => `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)} Kč`;
+// Částky vždy se dvěma desetinnými místy a stejně širokými číslicemi — čárky jsou pod sebou (Lucie 26. 11. 2026).
+const kc = (n: number) => `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} Kč`;
+const kcHal = (hal: number) => kc(hal / 100);
+// Montáže a jiné práce (Jarin) nesouvisí s Beginou ani s bistrem — poznají se podle položek faktury.
+const WORK_RE = /montáž|zprostředkování|elektro|klimatiz|servis|revize/i;
 const lastDay = (year: number, month: number) => String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0");
 const BASE = "/rizeni-firmy/faktury";
 
@@ -67,7 +71,6 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   const monthIncome = economy.filter((r) => r.kind === "income" && r.entryDate.slice(0, 7) === ym);
   const incomeTotalHal = monthIncome.reduce((sum, r) => sum + r.amountHal, 0);
   const noInvoice = monthIncome.filter((r) => !r.invoiceNumber).sort((a, b) => b.entryDate.localeCompare(a.entryDate));
-  const noInvoiceHal = noInvoice.reduce((sum, r) => sum + r.amountHal, 0);
   const own = ownRes.rows as Row[];
   const last = (lastRes.rows[0] as { last: string | null } | undefined)?.last ?? null;
   const ownNumbers = new Set(own.map((r) => r.number));
@@ -97,122 +100,147 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   ].sort((a, b) => b.date.localeCompare(a.date) || b.number.localeCompare(a.number));
 
   const activeOwn = own.filter((r) => r.state === "issued");
-  const total = activeOwn.reduce((s, r) => s + Number(r.total_kc), 0) + archive.reduce((s, i) => s + (i.totalKc ?? 0), 0);
-  const count = activeOwn.length + archive.length;
   const unpaidOwn = activeOwn.filter((r) => !r.snapshot.paidDate);
   const unpaidOld = archive.filter((i) => i.payment !== "paid" && i.payment !== "overpaid");
   const unpaidTotal = unpaidOwn.reduce((s, r) => s + Number(r.total_kc), 0) + unpaidOld.reduce((s, i) => s + (i.totalKc ?? 0), 0);
   const unpaidCount = unpaidOwn.length + unpaidOld.length;
+  // položky starších faktur (kvůli rozdělení na Beginu a montáže)
+  const archiveLines = new Map<string, string>();
+  if (archive.length) {
+    const res = await db.execute(sql`
+      SELECT number, coalesce((SELECT string_agg(i->>'Name', ' | ') FROM jsonb_array_elements(raw->'Items') i), '') AS lines
+      FROM idoklad_archive WHERE number IN (${sql.join(archive.map((i) => sql`${i.number}`), sql`, `)})`);
+    for (const row of res.rows as { number: string; lines: string }[]) archiveLines.set(row.number, row.lines);
+  }
+  const isWork = (it: Item) =>
+    WORK_RE.test(it.own ? it.own.snapshot.lines.map((l) => l.name).join(" | ") : archiveLines.get(it.number) ?? "");
+  const work = items.filter(isWork);
+  const beginaInvoices = items.filter((it) => !isWork(it));
+  const bistro = noInvoice.filter((r) => /bistro/i.test(r.title));
+  const beginaOther = noInvoice.filter((r) => !/bistro/i.test(r.title));
+  const itemKc = (it: Item) => (it.own ? (it.own.state === "issued" ? Number(it.own.total_kc) : 0) : it.old!.totalKc ?? 0);
+  const beginaKc = beginaInvoices.reduce((sum, it) => sum + itemKc(it), 0) + beginaOther.reduce((sum, r) => sum + r.amountHal, 0) / 100;
+  const workKc = work.reduce((sum, it) => sum + itemKc(it), 0);
+  const bistroKc = bistro.reduce((sum, r) => sum + r.amountHal, 0) / 100;
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
+
+  const row = "grid grid-cols-[6.5rem_1fr] sm:grid-cols-[6.5rem_1fr_10rem_9rem] items-start gap-x-4 gap-y-1 p-3";
+  const amount = "text-sm font-medium text-right tabular-nums whitespace-nowrap";
+
+  const invoiceRow = (it: Item) => {
+    if (it.own) {
+      const r = it.own;
+      const paid = r.snapshot.paidDate;
+      const overdue = !paid && r.state === "issued" && r.snapshot.dueDate < today;
+      return (
+        <div key={it.key} className={`${row} ${r.state === "cancelled" ? "opacity-60" : ""}`}>
+          <div>
+            <a href={ownInvoicePdfPath(r.number)} target="_blank" rel="noreferrer" className="font-medium text-begina-primary-900 underline">{r.number}</a>
+            <p className="text-xs text-neutral-500">{formatCzDay(r.issue_date)}{r.version > 1 ? ` · verze ${r.version}` : ""}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm text-neutral-900 break-words">{r.customer_name}</p>
+            <p className="text-xs text-neutral-500">{r.order_id ? "e-shop" : "ruční"} · {r.sent_at ? `odesláno ${formatCzDay(r.sent_at.slice(0, 10))}` : "neodesláno"}</p>
+          </div>
+          <div className="col-start-2 sm:col-start-auto">
+            <p className={`${amount} ${r.state === "cancelled" ? "line-through" : ""}`}>{kc(Number(r.total_kc))}</p>
+            <p className={`text-xs text-right ${r.state === "cancelled" ? "text-neutral-500" : paid ? "text-emerald-700" : overdue ? "text-red-700" : "text-amber-700"}`}>
+              {r.state === "cancelled" ? `storno${r.cancel_reason ? ` – ${r.cancel_reason}` : ""}` : paid ? `uhrazeno ${formatCzDay(paid)}` : overdue ? `po splatnosti (${formatCzDay(r.snapshot.dueDate)})` : `splatnost ${formatCzDay(r.snapshot.dueDate)}`}
+            </p>
+          </div>
+          <div className="col-start-2 sm:col-start-auto">
+            <InvoiceActions number={r.number} paid={Boolean(paid)} cancelled={r.state === "cancelled"} canDelete={r.number === last && !r.sent_at} today={today} />
+          </div>
+        </div>
+      );
+    }
+    const inv = it.old!;
+    const order = orderByNumber.get(inv.number);
+    const orgId = inv.partner.ico ? orgByIco.get(inv.partner.ico) : undefined;
+    const paidOld = inv.payment === "paid" || inv.payment === "overpaid";
+    return (
+      <div key={it.key} className={row}>
+        <div>
+          <a href={idokladInvoicePdfPath(inv.id)} target="_blank" rel="noreferrer" className="font-medium text-begina-primary-900 underline">{inv.number}</a>
+          <p className="text-xs text-neutral-500">{inv.dateOfIssue ? formatCzDay(inv.dateOfIssue) : "—"}</p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-neutral-900 break-words">
+            {orgId ? <Link href={`/rizeni-firmy/obchod/zakaznici/${orgId}`} className="underline">{inv.partner.name ?? "—"}</Link> : inv.partner.name ?? "—"}
+          </p>
+          <p className="text-xs text-neutral-500">
+            {/^9\d{6}$/.test(inv.number) ? "e-shop" : "ruční"} · starší (iDoklad)
+            {order && (
+              <>
+                {" · "}
+                <Link href={`/rizeni-firmy/objednavky/${order.orderId}`} className="underline">objednávka {order.orderNumber}</Link>
+              </>
+            )}
+          </p>
+        </div>
+        <div className="col-start-2 sm:col-start-auto">
+          <p className={amount}>{inv.totalKc !== null ? kc(inv.totalKc) : "—"}</p>
+          <p className={`text-xs text-right ${paidOld ? "text-emerald-700" : "text-amber-700"}`}>{paidOld ? "zaplaceno" : inv.payment === "partially_paid" ? "částečně zaplaceno" : "nezaplaceno"}</p>
+        </div>
+        <div className="hidden sm:block" />
+      </div>
+    );
+  };
+  const entryRow = (r: (typeof noInvoice)[number]) => (
+    <div key={r.id} className={row}>
+      <div className="text-xs text-neutral-500 pt-0.5">{formatCzDate(r.entryDate)}</div>
+      <div className="min-w-0">
+        <p className="text-sm text-neutral-900 break-words">{/bistro/i.test(r.title) ? "Tržby Zahradního bistra" : r.title}{r.counterparty ? ` · ${r.counterparty}` : ""}</p>
+        {(r.paymentForm || r.note) && <p className="text-xs text-neutral-500 break-words">{[r.paymentForm, r.note].filter(Boolean).join(" · ")}</p>}
+      </div>
+      <p className={`${amount} col-start-2 sm:col-start-auto`}>{kcHal(r.amountHal)}</p>
+      <div className="hidden sm:block" />
+    </div>
+  );
+  const group = (key: string, title: string, sub: string, tone: string, total: number, rows: React.ReactNode[], empty: string) => (
+    <section key={key} className={`mb-4 bg-white border border-neutral-200 border-l-8 ${tone} rounded-xl overflow-hidden`}>
+      <header className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-3 border-b border-neutral-100">
+        <div>
+          <h2 className="text-base font-semibold text-begina-primary-900">{title}</h2>
+          <p className="text-xs text-neutral-500">{sub}</p>
+        </div>
+        <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(total)}</p>
+      </header>
+      {rows.length === 0 ? <p className="text-sm text-neutral-500 p-3">{empty}</p> : <div className="divide-y divide-neutral-100">{rows}</div>}
+    </section>
+  );
 
   return (
     <div className="max-w-5xl">
       <PenizeTabs active="faktury" />
-      <p className="text-sm text-neutral-600 mb-3">Všechny příjmy po měsících — vydané faktury (nové z MojeBegina i starší z iDokladu) a pod nimi příjmy bez faktury (bistro, Wolt). Novou ruční fakturu připraví asistent (stačí mu napsat komu a co).</p>
+      <p className="text-sm text-neutral-600 mb-3">Všechny příjmy po měsících, rozdělené na Beginu, montáže a bistro. Novou ruční fakturu připraví asistent (stačí mu napsat komu a co).</p>
       <MonthPicker year={year} month={month} nowYear={nowY} nowMonth={nowM} minYear={2020} href={(y, m) => `${BASE}?rok=${y}&mesic=${m}`} />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-        <div className="bg-begina-primary-900 text-white rounded-xl p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div className="col-span-2 sm:col-span-1 bg-begina-primary-900 text-white rounded-xl p-3">
           <p className="text-xs opacity-80 capitalize">Příjmy celkem – {monthLabel}</p>
-          <p className="text-lg font-semibold">{formatHal(incomeTotalHal)}</p>
-          <p className="text-xs opacity-80">stejně jako v Přehledu (přijaté peníze)</p>
+          <p className="text-lg font-semibold tabular-nums">{kcHal(incomeTotalHal)}</p>
+          <p className="text-xs opacity-80">jako v Přehledu</p>
         </div>
-        <div className="bg-white border border-neutral-200 rounded-xl p-3">
-          <p className="text-xs text-neutral-500">Fakturováno</p>
-          <p className="text-lg font-semibold text-begina-primary-900">{kc(total)}</p>
-          <p className="text-xs text-neutral-500">{count} faktur{unpaidCount > 0 ? ` · neuhrazeno ${kc(unpaidTotal)}` : " · vše uhrazeno"}</p>
-        </div>
-        <div className="bg-white border border-neutral-200 rounded-xl p-3">
-          <p className="text-xs text-neutral-500">Bez faktury</p>
-          <p className="text-lg font-semibold text-begina-primary-900">{formatHal(noInvoiceHal)}</p>
-          <p className="text-xs text-neutral-500">bistro, Wolt, prodejní doklady</p>
-        </div>
+        {[
+          ["Begina", beginaKc, "border-l-emerald-600"],
+          ["Montáže a práce", workKc, "border-l-sky-500"],
+          ["Bistro", bistroKc, "border-l-amber-500"],
+        ].map(([label, value, tone]) => (
+          <div key={label as string} className={`bg-white border border-neutral-200 border-l-8 ${tone} rounded-xl p-3`}>
+            <p className="text-xs text-neutral-500">{label}</p>
+            <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(value as number)}</p>
+          </div>
+        ))}
       </div>
+      {unpaidCount > 0 && (
+        <p className="mb-3 rounded-lg bg-red-50 border border-red-300 px-3 py-2 text-sm font-medium text-red-800">Neuhrazeno: {unpaidCount} faktur za {kc(unpaidTotal)}</p>
+      )}
       {!read.ok && <p className="text-sm text-red-700 mb-2">Starší faktury se nepodařilo načíst: {read.error}</p>}
       {archiveTruncated && <p className="text-sm text-amber-700 mb-2">Ze starších faktur je zobrazeno prvních 100.</p>}
-      {items.length === 0 ? (
-        <p className="text-sm text-neutral-600 bg-white border border-neutral-200 rounded-xl p-4">V tomto měsíci není vystavená žádná faktura.</p>
-      ) : (
-        <div className="bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100">
-          {items.map((it) => {
-            if (it.own) {
-              const r = it.own;
-              const paid = r.snapshot.paidDate;
-              const overdue = !paid && r.state === "issued" && r.snapshot.dueDate < today;
-              return (
-                <div key={it.key} className={`p-3 flex flex-wrap items-start gap-x-4 gap-y-1 ${r.state === "cancelled" ? "opacity-60" : ""}`}>
-                  <div className="min-w-[7rem]">
-                    <a href={ownInvoicePdfPath(r.number)} target="_blank" rel="noreferrer" className="font-medium text-begina-primary-900 underline">{r.number}</a>
-                    <p className="text-xs text-neutral-500">{formatCzDay(r.issue_date)}{r.version > 1 ? ` · verze ${r.version}` : ""}</p>
-                  </div>
-                  <div className="flex-1 min-w-[10rem]">
-                    <p className="text-sm text-neutral-900">{r.customer_name}</p>
-                    <p className="text-xs text-neutral-500">{r.order_id ? "e-shop" : "ruční"} · {r.sent_at ? `odesláno ${formatCzDay(r.sent_at.slice(0, 10))}` : "neodesláno"}</p>
-                  </div>
-                  <div className="text-right min-w-[7rem]">
-                    <p className={`text-sm font-medium ${r.state === "cancelled" ? "line-through" : ""}`}>{formatKc(Number(r.total_kc))}</p>
-                    <p className={`text-xs ${r.state === "cancelled" ? "text-neutral-500" : paid ? "text-emerald-700" : overdue ? "text-red-700" : "text-amber-700"}`}>
-                      {r.state === "cancelled" ? `storno${r.cancel_reason ? ` – ${r.cancel_reason}` : ""}` : paid ? `uhrazeno ${formatCzDay(paid)}` : overdue ? `po splatnosti (${formatCzDay(r.snapshot.dueDate)})` : `splatnost ${formatCzDay(r.snapshot.dueDate)}`}
-                    </p>
-                  </div>
-                  <div className="w-full sm:w-auto sm:min-w-[14rem]">
-                    <InvoiceActions number={r.number} paid={Boolean(paid)} cancelled={r.state === "cancelled"} canDelete={r.number === last && !r.sent_at} today={today} />
-                  </div>
-                </div>
-              );
-            }
-            const inv = it.old!;
-            const order = orderByNumber.get(inv.number);
-            const orgId = inv.partner.ico ? orgByIco.get(inv.partner.ico) : undefined;
-            const paidOld = inv.payment === "paid" || inv.payment === "overpaid";
-            return (
-              <div key={it.key} className="p-3 flex flex-wrap items-start gap-x-4 gap-y-1">
-                <div className="min-w-[7rem]">
-                  <a href={idokladInvoicePdfPath(inv.id)} target="_blank" rel="noreferrer" className="font-medium text-begina-primary-900 underline">{inv.number}</a>
-                  <p className="text-xs text-neutral-500">{inv.dateOfIssue ? formatCzDay(inv.dateOfIssue) : "—"}</p>
-                </div>
-                <div className="flex-1 min-w-[10rem]">
-                  <p className="text-sm text-neutral-900">
-                    {orgId ? <Link href={`/rizeni-firmy/obchod/zakaznici/${orgId}`} className="underline">{inv.partner.name ?? "—"}</Link> : inv.partner.name ?? "—"}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    {/^9\d{6}$/.test(inv.number) ? "e-shop" : "ruční"} · starší (iDoklad)
-                    {order && (
-                      <>
-                        {" · "}
-                        <Link href={`/rizeni-firmy/objednavky/${order.orderId}`} className="underline">objednávka {order.orderNumber}</Link>
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div className="text-right min-w-[7rem]">
-                  <p className="text-sm font-medium">{inv.totalKc !== null ? kc(inv.totalKc) : "—"}</p>
-                  <p className={`text-xs ${paidOld ? "text-emerald-700" : "text-amber-700"}`}>{paidOld ? "zaplaceno" : inv.payment === "partially_paid" ? "částečně zaplaceno" : "nezaplaceno"}</p>
-                </div>
-                <div className="w-full sm:w-auto sm:min-w-[14rem]" />
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <h2 className="text-base font-semibold text-begina-primary-900 mt-5 mb-2">Příjmy bez faktury</h2>
-      {noInvoice.length === 0 ? (
-        <p className="text-sm text-neutral-600 bg-white border border-neutral-200 rounded-xl p-4">
-          V tomto měsíci zatím nic. Tržby bistra se zapisují za celý měsíc, vždy začátkem dalšího měsíce.
-        </p>
-      ) : (
-        <ul className="bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100">
-          {noInvoice.map((r) => (
-            <li key={r.id} className="p-3 flex items-start gap-4">
-              <div className="min-w-[7rem] text-xs text-neutral-500 pt-0.5">{formatCzDate(r.entryDate)}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-neutral-900 break-words">{r.title}{r.counterparty ? ` · ${r.counterparty}` : ""}</p>
-                {(r.paymentForm || r.note) && <p className="text-xs text-neutral-500 break-words">{[r.paymentForm, r.note].filter(Boolean).join(" · ")}</p>}
-              </div>
-              <p className="text-sm font-medium whitespace-nowrap">{formatHal(r.amountHal)}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      {group("begina", "Begina – nápoje a polévky", `${beginaInvoices.length} faktur${beginaOther.length ? ` + ${beginaOther.length} bez faktury` : ""}`, "border-l-emerald-600", beginaKc, [...beginaInvoices.map(invoiceRow), ...beginaOther.map(entryRow)], "V tomto měsíci nic.")}
+      {group("prace", "Montáže a jiné práce", "nesouvisí s Beginou ani s bistrem", "border-l-sky-500", workKc, work.map(invoiceRow), "V tomto měsíci nic.")}
+      {group("bistro", "Zahradní bistro Begina", "tržby za celý měsíc (hotově, QR, kartou)", "border-l-amber-500", bistroKc, bistro.map(entryRow), "Zatím nezapsáno — tržby bistra se zapisují za celý měsíc, vždy začátkem dalšího měsíce.")}
+      <p className="text-xs text-neutral-500">Součet skupin se může od „Příjmy celkem“ lišit o poplatky za platby kartou — Přehled počítá skutečně přijaté peníze.</p>
     </div>
   );
 }
