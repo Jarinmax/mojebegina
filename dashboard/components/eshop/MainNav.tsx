@@ -14,6 +14,7 @@
 // výběrem položky.
 import { ChevronDown, Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { SET_SLUG } from "@/lib/eshop/tastingSet";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { mobileMenuOrder, type MenuEntry, type MenuGroup, type MenuLink } from "@/lib/eshop/homeNav";
 import ShopLink from "./ShopLink";
@@ -132,7 +133,7 @@ function DesktopNav({ entries }: { entries: MenuEntry[] }) {
   return (
     <div className="hidden xl:block min-w-0">
       <nav aria-label="Hlavní menu">
-        <ul className="flex items-center gap-5 2xl:gap-9 text-[17px] 2xl:text-[18px]">
+        <ul className="flex items-center gap-4 2xl:gap-9 text-[16px] 2xl:text-[18px]">
           {entries.map((entry) =>
             entry.kind === "link" ? (
               <li key={entry.href}>
@@ -268,6 +269,10 @@ function MobileNav({ entries }: { entries: MenuEntry[] }) {
   );
 }
 
-export default function MainNav({ entries, variant }: { entries: MenuEntry[]; variant: "desktop" | "mobile" }) {
+export default function MainNav({ entries: allEntries, variant }: { entries: MenuEntry[]; variant: "desktop" | "mobile" }) {
+  const pathname = usePathname() ?? "";
+  // stránka setu sirupů (sem vede kampaň pro domácnosti): bez tlačítka „Pro kavárny a bistra“,
+  // ať to nevypadá, že nakoupit můžou jen podniky (Josef/Lucie 26. 11. 2026)
+  const entries = pathname.endsWith(`/produkt/${SET_SLUG}`) ? allEntries.filter((entry) => !(entry.kind === "link" && entry.highlight)) : allEntries;
   return variant === "desktop" ? <DesktopNav entries={entries} /> : <MobileNav entries={mobileMenuOrder(entries)} />;
 }

@@ -97,7 +97,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
       <PreviewBanner mode={storeMode()} />
       <ShippingNoticeBanner />
       <header className="border-b border-neutral-200 bg-white sticky top-0 z-20 print:hidden">
-        <div className="max-w-6xl mx-auto px-4 h-16 xl:h-[5.25rem] flex items-center justify-between gap-4 xl:gap-6">
+        <div className="max-w-7xl mx-auto px-4 h-16 xl:h-[5.25rem] flex items-center justify-between gap-4 xl:gap-6">
           {/* Počítač (xl+): logo větší (9. 11. 2026: +20 %, pak značka ještě +15 %;
               soubor loga nemá prázdné okraje, zvětšuje se skutečná značka).
               Mobil a tablet beze změny. */}
