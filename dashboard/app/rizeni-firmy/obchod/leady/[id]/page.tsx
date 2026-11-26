@@ -113,11 +113,11 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           {locationLine && <p className="text-xs text-neutral-500">{locationLine}</p>}
           {showManual && (
             <Link
-              href="/rizeni-firmy/obchod/manual"
+              href="/rizeni-firmy/obchod/manual#tahacek"
               target="_blank"
               className="inline-flex items-center gap-1 self-start text-sm font-medium text-begina-primary-900 hover:underline"
             >
-              📘 Manuál pro obchodníky
+              📘 Taháček k hovoru
             </Link>
           )}
         </div>
