@@ -32,7 +32,7 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
   const d = detail?.order;
   const needsPayment = Boolean(d && d.channel === "manual" && d.paymentStatus !== "paid");
   const shippingText = `${d?.shippingMethodLabel ?? ""} ${order.shippingMethod ?? ""}`.toLocaleLowerCase("cs");
-  const defaultMode = /rozvoz|osobn|vyzvednut/.test(shippingText) ? "personal" : "carrier";
+  const defaultMode = /osobní odběr|osobni odber|vyzvednut/.test(shippingText) ? "personal" : "carrier" /* Lucie 26. 11.: výchozí přepravce */;
   const shippedLine = d?.shippedAt
     ? `${d.fulfillmentStatus === "handed_to_carrier" ? "Předáno přepravci" : defaultMode === "personal" ? "Předáno osobně" : "Doručeno"} ${shortPragueDate(d.shippedAt)}${d.shippedByName ? ` · ${d.shippedByName}` : ""}`
     : null;

@@ -87,8 +87,8 @@ export default function HandoverPanel({
       <div>
         <p className="text-sm font-bold text-begina-primary-900 mb-2">1. Jak jsi to předal?</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <Option name="mode" value="personal" checked={mode === "personal"} onChange={() => setMode("personal")} title="Předáno osobně" hint="Rozvoz Begina / vyzvednutí" />
           <Option name="mode" value="carrier" checked={mode === "carrier"} onChange={() => setMode("carrier")} title="Předáno přepravci" hint="CoolBalík / jiný dopravce" />
+          <Option name="mode" value="personal" checked={mode === "personal"} onChange={() => setMode("personal")} title="Předáno osobně" hint="Rozvoz Begina / vyzvednutí" />
         </div>
       </div>
 
