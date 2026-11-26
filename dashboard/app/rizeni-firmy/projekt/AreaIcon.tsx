@@ -1,4 +1,4 @@
-import { Binoculars, Boxes, Coffee, FileText, Globe, Handshake, Image, LayoutDashboard, Megaphone, Package, Scale, Search, Share2, ShieldCheck, ShoppingCart, Tag, UtensilsCrossed, Wallet } from "lucide-react";
+import { Binoculars, Boxes, Building2, Coffee, FileText, Globe, Handshake, Image, LayoutDashboard, Megaphone, Package, Scale, Search, Share2, ShieldCheck, ShoppingCart, Tag, UtensilsCrossed, Wallet } from "lucide-react";
 import type { ProjectArea } from "@/lib/projekt/areas";
 
 // Barvy jsou celé názvy tříd (Tailwind je musí najít ve zdrojáku).
@@ -19,6 +19,7 @@ export const TONES: Record<ProjectArea["tone"], { tile: string; icon: string; te
   indigo: { tile: "bg-indigo-50 border-indigo-200 hover:border-indigo-400", icon: "bg-indigo-100 text-indigo-700", text: "text-indigo-900" },
   yellow: { tile: "bg-yellow-50 border-yellow-200 hover:border-yellow-400", icon: "bg-yellow-100 text-yellow-800", text: "text-yellow-900" },
   green: { tile: "bg-green-50 border-green-200 hover:border-green-400", icon: "bg-green-100 text-green-700", text: "text-green-900" },
+  purple: { tile: "bg-purple-50 border-purple-200 hover:border-purple-400", icon: "bg-purple-100 text-purple-700", text: "text-purple-900" },
   red: { tile: "bg-red-50 border-red-200 hover:border-red-400", icon: "bg-red-100 text-red-700", text: "text-red-900" },
 };
 
@@ -41,6 +42,7 @@ const ICONS = {
   boxes: Boxes,
   shield: ShieldCheck,
   utensils: UtensilsCrossed,
+  building: Building2,
 } as const;
 
 export default function AreaIcon({ area, size = "md" }: { area: ProjectArea; size?: "md" | "lg" }) {
