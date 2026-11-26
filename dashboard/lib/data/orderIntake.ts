@@ -35,6 +35,7 @@ import { productVariants } from "@/lib/db/schema";
 import { pragueToday, matchSalesperson } from "./callActivityValidation";
 import { listInternalStaff, requireOrderContext } from "./orders";
 import { manualStockStatements, stockTrackingReady } from "@/lib/eshop/variantStock";
+import { consumeOrderPackaging } from "@/lib/sklad/packagingConsumption";
 import {
   companyNameKey,
   DIC_SOURCE_LABELS,
@@ -476,6 +477,12 @@ export async function createOrderFromIntake(
   if (!inserted) {
     const existing = reference ? await findByReference(reference) : [];
     return { ok: false, error: `Objednávku s externím číslem ${reference} mezitím založil jiný požadavek — nic dalšího se nezaložilo.`, existing };
+  }
+  // Obaly (Lucie 26. 11. 2026): odečíst ze skladu hned při objednávce; nikdy neshodí objednávku.
+  try {
+    await consumeOrderPackaging(orderId, db);
+  } catch (error) {
+    console.error("Sklad: odečet obalů k objednávce selhal", error instanceof Error ? error.message.slice(0, 200) : error);
   }
   const dicFilled = customerUpdate && (results[5] as { rows: Row[] }).rows.length > 0 ? customerUpdate.dic : null;
   const [org] = await rows(sql`SELECT id, name, ico FROM organizations WHERE id = ${String(inserted.buyer_organization_id)}`);
