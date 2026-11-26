@@ -9,17 +9,16 @@ import { Check } from "lucide-react";
 import { SET_DEFAULT_CHOICE, SET_PICK_FAVOURITES, SET_SIZE, SET_SYRUPS, orderedChoice, setCartSku, type SetSyrupCode } from "@/lib/eshop/tastingSet";
 import { trackFunnel } from "@/lib/eshop/funnelClient";
 import { trackMeta } from "@/lib/eshop/metaPixel";
-import QuantityStepper from "./QuantityStepper";
 import ShopLink from "./ShopLink";
 import { useCart } from "./useCart";
 
-export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { name: string; sku: string; priceKc: number; maxQuantity?: number }) {
+export default function TastingSetForm({ name, sku, priceKc }: { name: string; sku: string; priceKc: number }) {
   const { add } = useCart();
   const [choice, setChoice] = useState<SetSyrupCode[]>([]);
-  const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const cartSku = setCartSku(sku, choice);
-  const count = maxQuantity !== undefined ? Math.min(quantity, Math.max(1, maxQuantity)) : quantity;
+  // vždy jeden set na kliknutí – každý sirup jen jednou, počet kusů by mátl (Lucie 26. 11. 2026)
+  const count = 1;
 
   function handleAdd() {
     if (!cartSku) return;
@@ -78,7 +77,6 @@ export default function TastingSetForm({ name, sku, priceKc, maxQuantity }: { na
         )}
       </fieldset>
       <div className="flex items-center gap-3">
-        <QuantityStepper value={count} onChange={setQuantity} label={`Množství – ${name}`} />
         <button
           type="button"
           onClick={handleAdd}

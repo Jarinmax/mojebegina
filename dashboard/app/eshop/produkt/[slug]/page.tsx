@@ -340,7 +340,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
             {isOrderable(product) && isPack ? (
               <SoupPackForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} facts={packFacts} />
             ) : isOrderable(product) && isSet ? (
-              <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} maxQuantity={campaign?.remaining} />
+              <TastingSetForm name={product.name} sku={product.variants[0].sku} priceKc={product.variants[0].priceKc} />
             ) : isOrderable(product) ? (
               <>
                 <AddToCartButton name={product.name} variants={product.variants} />
