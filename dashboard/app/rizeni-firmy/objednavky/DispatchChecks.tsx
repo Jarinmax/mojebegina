@@ -31,6 +31,7 @@ function Check({
   lines,
   hint,
   withTracking,
+  showTrackingNumber = true,
   trackingNumber,
   shippedOn,
   today,
@@ -43,6 +44,7 @@ function Check({
   lines: string[];
   hint: string;
   withTracking?: boolean;
+  showTrackingNumber?: boolean;
   trackingNumber?: string | null;
   shippedOn?: string | null;
   today?: string;
@@ -159,7 +161,7 @@ function Check({
           />
         </label>
       )}
-      {withTracking && (
+      {withTracking && showTrackingNumber && (
         <input
           name="trackingNumber"
           defaultValue={trackingNumber ?? ""}
@@ -184,6 +186,7 @@ export default function DispatchChecks({ view, shipOnly = false }: { view: Dispa
         lines={view.shipped.lines}
         hint="Klepni, až to předáš CoolBalíku / dopravci. Stav se přepne na „Předáno přepravci“ a zákazníkovi odejde faktura. Když jsi to odeslal dřív, změň datum níž."
         withTracking
+        showTrackingNumber={!shipOnly}
         trackingNumber={view.trackingNumber}
         shippedOn={view.shippedOn}
         today={view.today}
