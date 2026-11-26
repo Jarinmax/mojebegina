@@ -111,7 +111,7 @@ export default function PosTerminal({ items, categories }: { items: Item[]; cate
             {change !== null && <span className="block mt-1 font-semibold text-green-700">Vrátit: {formatKc(change)}</span>}
           </label>
         )}
-        {method === "card" && <p className="text-sm text-neutral-600 mb-3">Na terminálu naťukejte {formatKc(total)}, po zaplacení klepněte na Zaplaceno.</p>}
+        {method === "card" && <p className="text-sm text-neutral-600 mb-3">V aplikaci SumUp v mobilu naťukejte {formatKc(total)}, po zaplacení klepněte na Zaplaceno.</p>}
         {method === "qr" && <p className="text-sm text-neutral-600 mb-3">Po klepnutí na Zaplaceno se ukáže QR kód pro zákazníka.</p>}
 
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Poznámka (stůl, s sebou…)" className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm mb-3" />
