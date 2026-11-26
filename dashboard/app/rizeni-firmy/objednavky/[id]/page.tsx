@@ -16,6 +16,8 @@ import OrderActivityTimeline from "../OrderActivityTimeline";
 import CancelledMoneyPanel from "../CancelledMoneyPanel";
 import CancelledMoneyBadge from "../CancelledMoneyBadge";
 import DispatchChecks from "../DispatchChecks";
+import HandoverPanel from "../../vyroba/HandoverPanel";
+import { shortPragueDate } from "../dispatchText";
 import { DispatchBadges } from "../OrderStatusBadges";
 import { dispatchView } from "../dispatchText";
 import { orderBatchCodes } from "@/lib/vyroba/batchAllocation";
@@ -226,8 +228,31 @@ export default async function OrderDetailPage(
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
-        <p className="text-sm font-medium text-begina-primary-900 mb-2">Expedice a faktura</p>
-        <DispatchChecks view={dispatchView(order)} />
+        <p className="text-sm font-medium text-begina-primary-900 mb-2">Předání a platba</p>
+        {/* Lucie 26. 11.: předání osobně/přepravci + platba i v detailu objednávky */}
+        {(() => {
+          const needsPayment = order.channel === "manual" && order.paymentStatus !== "paid";
+          const shippingText = (order.shippingMethodLabel ?? "").toLocaleLowerCase("cs");
+          const defaultMode = /rozvoz|osobn|vyzvednut/.test(shippingText) ? "personal" : "carrier";
+          const shippedLine = order.shippedAt
+            ? `${order.fulfillmentStatus === "handed_to_carrier" ? "Předáno přepravci" : defaultMode === "personal" ? "Předáno osobně" : "Doručeno"} ${shortPragueDate(order.shippedAt)}${order.shippedByName ? ` · ${order.shippedByName}` : ""}`
+            : null;
+          const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+          return order.fulfillmentStatus === "cancelled" ? null : (
+            <div className="mb-3">
+              <HandoverPanel
+                orderId={order.id}
+                needsPayment={needsPayment}
+                defaultMode={defaultMode}
+                shipped={Boolean(order.shippedAt)}
+                shippedLine={shippedLine}
+                today={today}
+              />
+            </div>
+          );
+        })()}
+        <p className="text-xs text-neutral-500 mb-1">Faktura</p>
+        <DispatchChecks view={dispatchView(order)} invoiceOnly />
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
