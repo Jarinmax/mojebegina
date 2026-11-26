@@ -29,6 +29,7 @@ import { settleOrderPaymentSql } from "./payments";
 import { buildEshopOrderRows } from "./orderWrite";
 import type { CheckoutValue } from "./checkout";
 import { releaseOrderStock } from "./variantStock";
+import { consumeOrderPackaging, restoreOrderPackaging } from "@/lib/sklad/packagingConsumption";
 
 type Db = NeonHttpDatabase<typeof schema>;
 
@@ -142,6 +143,11 @@ export async function afterOrderCancelled(
     await releaseOrderStock(db, orderId);
   } catch (error) {
     console.error("Storno: hlídané kusy se nepodařilo vrátit", orderId, error);
+  }
+  try {
+    await restoreOrderPackaging(orderId, db);
+  } catch (error) {
+    console.error("Storno: obaly se nepodařilo vrátit na sklad", orderId, error);
   }
   const outcomes = await sendOrderEmails(db, orderId, "order_cancelled", baseUrl, { ...email, cancellation: { heldHal } });
   return { heldHal, email: outcomes.find((o) => o.template === "customer_cancellation") ?? null };
@@ -657,6 +663,11 @@ export async function createReplacementOrder(
       ok: false,
       error: "Náhradní objednávku se nepodařilo vytvořit — platba už byla převedena nebo vrácena. Nic se nezměnilo, obnovte stránku.",
     };
+  }
+  try {
+    await consumeOrderPackaging(input.newOrderId, db);
+  } catch (error) {
+    console.error("Sklad: odečet obalů k náhradní objednávce selhal", error instanceof Error ? error.message.slice(0, 200) : error);
   }
   const created = await replacementOf(db, input.newOrderId);
   if (!created) return { ok: false, error: "Náhradní objednávka se nenašla — obnovte stránku." };

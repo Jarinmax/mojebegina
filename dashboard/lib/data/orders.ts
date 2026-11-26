@@ -18,6 +18,7 @@ import { buyerDisplayName, distinctOrganizationIds } from "./orderBuyer";
 import { getAppOrigin } from "@/lib/appOrigin";
 import { isTransferOverdue, transferDueAt, TRANSFER_PAYMENT_METHOD } from "@/lib/eshop/bankTransfer";
 import { allocateOrderBatches, releaseOrderBatches } from "@/lib/vyroba/batchAllocation";
+import { consumeOrderPackaging, restoreOrderPackaging } from "@/lib/sklad/packagingConsumption";
 import { markManualOrderInvoicePaid } from "@/lib/eshop/invoicing/ownManual";
 import { invoiceAndNotifyPaid, invoiceAndNotifyReplacement, issueAndSendInvoice, sendInvoiceOnDispatch, DISPATCHED_STATUSES, type DispatchInvoiceOutcome } from "@/lib/eshop/invoicing/afterPaid";
 import { issueInvoice, linkExternalInvoice, loadIssuedPdf, reallyPaid } from "@/lib/eshop/invoicing/issue";
@@ -575,6 +576,14 @@ async function syncBatchesOnStatus(orderId: string, from: string, to: string) {
     else if (dispatched.includes(from) || to === "cancelled") await releaseOrderBatches(orderId);
   } catch (error) {
     console.error("Šarže: přiřazení k objednávce selhalo", error instanceof Error ? error.message.slice(0, 200) : error);
+  }
+  // Obaly (Lucie 26. 11. 2026): odečítají se už při vytvoření objednávky; tady jen
+  // pojistka pro starší objednávky (při expedici) a vrácení při stornu.
+  try {
+    if (dispatched.includes(to)) await consumeOrderPackaging(orderId, db);
+    else if (to === "cancelled") await restoreOrderPackaging(orderId, db);
+  } catch (error) {
+    console.error("Sklad: odečet obalů k objednávce selhal", error instanceof Error ? error.message.slice(0, 200) : error);
   }
 }
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listConfirmedReceiptsOverview, listStockBalances, type StockBalance } from "@/lib/data/sklad";
+import { listConfirmedReceiptsOverview, listRecentStockIssues, listStockBalances, type StockBalance } from "@/lib/data/sklad";
 
 // SKLAD — PŘEHLEDNĚ (Lucie 25. 11. 2026): „je to nepřehledný, nerozumím tomu“.
 // Nahoře jedna věta + hodnota skladu, pak tabulky Suroviny / Obaly
@@ -60,7 +60,7 @@ function StockTable({ title, rows }: { title: string; rows: StockBalance[] }) {
 }
 
 export default async function SkladPage() {
-  const [balances, { receipts, draftCount }] = await Promise.all([listStockBalances(), listConfirmedReceiptsOverview()]);
+  const [balances, { receipts, draftCount }, issues] = await Promise.all([listStockBalances(), listConfirmedReceiptsOverview(), listRecentStockIssues()]);
   const materials = balances.filter((b) => b.kind === "stock_material");
   const supplies = balances.filter((b) => b.kind === "operating_supply");
   const others = balances.filter((b) => b.kind !== "stock_material" && b.kind !== "operating_supply");
@@ -71,7 +71,7 @@ export default async function SkladPage() {
       <div className="mt-3 mb-5">
         <h1 className="text-lg font-semibold text-begina-primary-900">Sklad surovin a obalů</h1>
         <p className="text-sm text-neutral-600 mt-1">
-          Co máme na skladě a za kolik. Ceny jsou včetně dopravy. Nákupy zapisuje asistent ve vlákně „Příjem surovin a obalů“.
+          Co máme na skladě a za kolik. Ceny jsou včetně dopravy. Nákupy zapisuje asistent ve vlákně „Příjem surovin a obalů“, obaly se odečítají samy při expedici objednávky.
         </p>
       </div>
 
@@ -95,6 +95,37 @@ export default async function SkladPage() {
           <StockTable title="Ostatní" rows={others} />
         </>
       )}
+
+      {issues.length > 0 ? (
+        <section className="mb-6">
+          <h2 className="text-base font-semibold text-begina-primary-900 mb-2">Poslední výdeje</h2>
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 border-b border-neutral-200">
+                  <th className="px-4 py-2 font-medium">Datum</th>
+                  <th className="px-4 py-2 font-medium">Položka</th>
+                  <th className="px-4 py-2 font-medium text-right">Množství</th>
+                  <th className="px-4 py-2 font-medium">Proč</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {issues.map((m) => (
+                  <tr key={m.id}>
+                    <td className="px-4 py-2.5 whitespace-nowrap text-neutral-700">{date(m.date)}</td>
+                    <td className="px-4 py-2.5 text-begina-primary-900">{m.item}</td>
+                    <td className={`px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${m.direction === "out" ? "text-red-700" : "text-green-700"}`}>
+                      {m.direction === "out" ? "−" : "+"}
+                      {qty(m.quantity)} {m.unit}
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-600">{m.reason ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <section>
         <h2 className="text-base font-semibold text-begina-primary-900 mb-2">Poslední příjmy</h2>

@@ -23,6 +23,7 @@ import type { CheckoutValue } from "./checkout";
 import type { MetaConsent } from "./metaPurchase";
 import { CURRENT_TERMS } from "./content/termsVersions";
 import { packagingKc } from "./pricing";
+import { consumeOrderPackaging } from "@/lib/sklad/packagingConsumption";
 import { STOCK_GONE_ERROR, isStockConstraintError, stockStatements, stockTrackingReady } from "./variantStock";
 
 export const ESHOP_ACTOR_NAME = "E-shop";
@@ -239,6 +240,12 @@ export async function saveEshopOrder(
       return { ok: true, orderId, ...raced, alreadySaved: true };
     }
     throw error;
+  }
+  // Obaly (Lucie 26. 11. 2026): odečíst ze skladu hned při objednávce; nikdy neshodí objednávku.
+  try {
+    await consumeOrderPackaging(orderId, db);
+  } catch (error) {
+    console.error("Sklad: odečet obalů k objednávce selhal", error instanceof Error ? error.message.slice(0, 200) : error);
   }
   const saved = await existingOrder(db, orderId);
   return { ok: true, orderId, orderNumber: saved?.orderNumber ?? null, paymentVs: saved?.paymentVs ?? null, alreadySaved: false };

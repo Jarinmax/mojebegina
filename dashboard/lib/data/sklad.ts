@@ -233,7 +233,7 @@ export async function listStockBalances(): Promise<StockBalance[]> {
     WITH bal AS (
       SELECT m.stock_item_id,
              SUM(CASE WHEN m.direction = 'in' THEN m.quantity ELSE -m.quantity END) AS quantity,
-             MAX(CASE WHEN m.direction = 'in' THEN COALESCE(r.document_date, m.occurred_at::date) END) AS last_in
+             MAX(CASE WHEN m.direction = 'in' AND m.corrects_movement_id IS NULL THEN COALESCE(r.document_date, m.occurred_at::date) END) AS last_in
       FROM stock_movements m LEFT JOIN goods_receipts r ON r.id = m.receipt_id
       GROUP BY m.stock_item_id
     ), price AS (
@@ -305,6 +305,20 @@ export async function listConfirmedReceiptsOverview(): Promise<{ receipts: Stock
     })),
     draftCount: Number(drafts.rows[0]?.n ?? 0),
   };
+}
+
+// Poslední výdeje ze skladu (odečet obalů při expedici, vrácení) pro stránku Sklad.
+export type StockIssueOverview = { id: string; date: string; item: string; unit: string; quantity: number; direction: string; reason: string | null };
+
+export async function listRecentStockIssues(limit = 30): Promise<StockIssueOverview[]> {
+  requirePricesAndOriginalAccess(await getAuthContext());
+  const result = await db.execute<{ id: string; date: string; item: string; unit: string; quantity: string | number; direction: string; reason: string | null }>(sql`
+    SELECT m.id, m.occurred_at::text AS date, i.name AS item, i.canonical_unit AS unit, m.quantity, m.direction, m.reason
+    FROM stock_movements m JOIN stock_items i ON i.id = m.stock_item_id
+    WHERE m.receipt_id IS NULL
+    ORDER BY m.occurred_at DESC
+    LIMIT ${limit}`);
+  return result.rows.map((r) => ({ ...r, quantity: Number(r.quantity), reason: r.reason ? r.reason.replace(/\s*\[order:[^\]]+\]/, "") : null }));
 }
 
 export type CreateStockItemResult = { ok: true; stockItemId: string } | { ok: false; error: string };
