@@ -1,8 +1,9 @@
 // RECEPTURY A NÁKLADY 1.0 — čtení receptur a ceníku, změna ceny. Volající
 // MUSÍ předem ověřit isInvoiceIssuer (jen Jaroslav a Lucie).
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { recipeIngredients, recipeItems, recipeOffers, recipeVariants, recipes } from "@/lib/db/schema";
+import { productVariants, products, recipeIngredients, recipeItems, recipeOffers, recipeVariants, recipes } from "@/lib/db/schema";
+import { applyEshopPrices, eshopPriceKey, keepSoldPackaging } from "./recipes";
 import type { ItemUnit, PriceUnit, Recipe, RecipeIngredient, RecipeOffer } from "./recipes";
 
 /** false = tabulky v databázi ještě nejsou (skript 123 nebyl spuštěn). */
@@ -26,12 +27,19 @@ export async function loadIngredients(): Promise<RecipeIngredient[]> {
 }
 
 export async function loadRecipes(): Promise<{ recipes: Recipe[]; ingredients: RecipeIngredient[] }> {
-  const [ingredients, recipeRows, itemRows, variantRows] = await Promise.all([
+  const [ingredients, recipeRows, itemRows, variantRows, eshopRows] = await Promise.all([
     loadIngredients(),
     db.select().from(recipes).orderBy(asc(recipes.sort), asc(recipes.name)),
     db.select().from(recipeItems).orderBy(asc(recipeItems.sort)),
     db.select().from(recipeVariants).orderBy(asc(recipeVariants.sort)),
+    db
+      .select({ slug: products.slug, volumeMl: productVariants.volumeMl, priceKc: productVariants.priceB2cKc })
+      .from(productVariants)
+      .innerJoin(products, eq(productVariants.productId, products.id))
+      .where(and(eq(products.isActive, true), eq(productVariants.isActive, true))),
   ]);
+  const eshopPrices = new Map<string, number>();
+  for (const row of eshopRows) if (row.volumeMl !== null) eshopPrices.set(eshopPriceKey(row.slug, row.volumeMl), row.priceKc);
   const byId = new Map(ingredients.map((item) => [item.id, item]));
   return {
     ingredients,
@@ -45,14 +53,18 @@ export async function loadRecipes(): Promise<{ recipes: Recipe[]; ingredients: R
       items: itemRows
         .filter((item) => item.recipeId === row.id && byId.has(item.ingredientId))
         .map((item) => ({ ingredient: byId.get(item.ingredientId)!, quantity: Number(item.quantity), unit: item.unit as ItemUnit })),
-      variants: variantRows
-        .filter((variant) => variant.recipeId === row.id)
-        .map((variant) => ({
-          label: variant.label,
-          volumeMl: variant.volumeMl,
-          packagingCodes: variant.packagingCodes.split(",").map((code) => code.trim()).filter(Boolean),
-          salePriceHal: variant.salePriceHal,
-        })),
+      variants: applyEshopPrices(
+        row.slug,
+        keepSoldPackaging(row.category, variantRows
+          .filter((variant) => variant.recipeId === row.id)
+          .map((variant) => ({
+            label: variant.label,
+            volumeMl: variant.volumeMl,
+            packagingCodes: variant.packagingCodes.split(",").map((code) => code.trim()).filter(Boolean),
+            salePriceHal: variant.salePriceHal,
+          }))),
+        eshopPrices
+      ),
     })),
   };
 }

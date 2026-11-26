@@ -18,6 +18,40 @@ export type RecipeItem = { ingredient: RecipeIngredient; quantity: number; unit:
 export type RecipeVariant = { label: string; volumeMl: number; packagingCodes: string[]; salePriceHal: number | null };
 export type Recipe = { slug: string; category: string; name: string; batchMl: number; note: string | null; archived: boolean; items: RecipeItem[]; variants: RecipeVariant[] };
 
+// Prodejní cena receptury = cena na e-shopu (27. 11. 2026, Lucie: „ať se to
+// sjednotí“). Když má výrobek na e-shopu aktivní balení stejného objemu, platí
+// jeho cena pro všechny varianty toho objemu (s krabicí i bez). Výrobky, které
+// na e-shopu nejsou, si nechávají cenu z receptury.
+export const ESHOP_SLUG_ALIASES: Record<string, string> = {
+  "malinovy-svarak": "malinovy-svarak-nealko",
+  "saman-sirup": "bylinny-sirup-saman",
+  "gulasova-polevka-z-hlivy": "gulasova-polevka-z-hlivy-ustricne",
+  "rajcatova-polevka-s-repou": "rajcatova-polevka-s-cervenou-repou",
+  "tomatova-polevka": "rajcatova-polevka",
+  cosmopolitan: "kosmopolitan",
+};
+
+/** Na e-shopu se prodává 3 l begina BEZ krabice (krabice se přikupuje za 15 Kč);
+ *  jen sirupy 3 l se prodávají S krabicí (Lucie 27. 11. 2026). Kalkulace proto
+ *  ukazuje u 3 l jen to balení, které se opravdu prodává; záznamy v databázi zůstávají. */
+export function keepSoldPackaging(category: string, variants: RecipeVariant[]): RecipeVariant[] {
+  const withBox = category === "sirupy";
+  return variants.filter((variant) => variant.volumeMl !== 3000 || variant.packagingCodes.includes("krabice-3l") === withBox);
+}
+
+export function eshopPriceKey(productSlug: string, volumeMl: number): string {
+  return `${productSlug}|${volumeMl}`;
+}
+
+/** eshopPrices: klíč eshopPriceKey → cena v Kč (jen aktivní výrobky a balení). */
+export function applyEshopPrices(recipeSlug: string, variants: RecipeVariant[], eshopPrices: Map<string, number>): RecipeVariant[] {
+  const productSlug = ESHOP_SLUG_ALIASES[recipeSlug] ?? recipeSlug;
+  return variants.map((variant) => {
+    const priceKc = eshopPrices.get(eshopPriceKey(productSlug, variant.volumeMl));
+    return priceKc === undefined ? variant : { ...variant, salePriceHal: Math.round(priceKc * 100) };
+  });
+}
+
 /** Množství převedené na jednotku, ve které je cena (g → kg, ml → l). */
 export function quantityInPriceUnit(quantity: number, unit: ItemUnit): number {
   return unit === "g" || unit === "ml" ? quantity / 1000 : quantity;

@@ -96,3 +96,30 @@ describe("nabídky dodavatelů", () => {
     expect(priceChangeImpact([recipe], "neni", 50)).toHaveLength(0);
   });
 });
+
+describe("applyEshopPrices", () => {
+  const v = (volumeMl: number, salePriceHal: number | null) => ({ label: "x", volumeMl, packagingCodes: [], salePriceHal });
+  it("přebírá cenu z e-shopu pro všechny varianty stejného objemu, i přes alias slugu", async () => {
+    const { applyEshopPrices, eshopPriceKey } = await import("../recipes");
+    const prices = new Map([[eshopPriceKey("malinovy-svarak-nealko", 3000), 399]]);
+    const out = applyEshopPrices("malinovy-svarak", [v(3000, 38400), v(3000, 39900), v(500, 7900)], prices);
+    expect(out.map((x) => x.salePriceHal)).toEqual([39900, 39900, 7900]);
+  });
+  it("výrobek mimo e-shop si nechá cenu z receptury", async () => {
+    const { applyEshopPrices } = await import("../recipes");
+    expect(applyEshopPrices("zoro", [v(3000, 36400)], new Map())[0].salePriceHal).toBe(36400);
+  });
+});
+
+describe("keepSoldPackaging", () => {
+  const v = (volumeMl: number, codes: string[]) => ({ label: codes.join("+"), volumeMl, packagingCodes: codes, salePriceHal: 1 });
+  const variants = [v(3000, ["bag-3l"]), v(3000, ["bag-3l", "krabice-3l"]), v(500, ["kapsicka"])];
+  it("polévky a nápoje: 3 l jen bez krabice", async () => {
+    const { keepSoldPackaging } = await import("../recipes");
+    expect(keepSoldPackaging("polevky", variants).map((x) => x.label)).toEqual(["bag-3l", "kapsicka"]);
+  });
+  it("sirupy: 3 l jen s krabicí", async () => {
+    const { keepSoldPackaging } = await import("../recipes");
+    expect(keepSoldPackaging("sirupy", variants).map((x) => x.label)).toEqual(["bag-3l+krabice-3l", "kapsicka"]);
+  });
+});
