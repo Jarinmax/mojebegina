@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { cleanUrl, findArea, PROJECT_AREAS, validateProjectInput } from "../areas";
+import { cleanUrl, findArea, PROJECT_AREAS, PROJECT_GROUPS, validateProjectInput } from "../areas";
 
 describe("Projekt Begina — oblasti a kontrola vstupu", () => {
-  it("7 oblastí s jedinečnými slugy", () => {
-    expect(PROJECT_AREAS).toHaveLength(7);
-    expect(new Set(PROJECT_AREAS.map((a) => a.slug)).size).toBe(7);
+  it("18 oblastí s jedinečnými slugy, každá ve známé skupině", () => {
+    expect(PROJECT_AREAS).toHaveLength(18);
+    expect(new Set(PROJECT_AREAS.map((a) => a.slug)).size).toBe(18);
+    for (const a of PROJECT_AREAS) expect(PROJECT_GROUPS).toContain(a.group);
+    // slugy se starými zápisy se nesmí změnit
+    for (const slug of ["socialni-site", "etikety", "obrazky", "konkurence", "web", "pravo", "ekonomika"]) expect(findArea(slug)).not.toBeNull();
     expect(findArea("konkurence")?.name).toBe("Konkurence");
     expect(findArea("neco")).toBeNull();
   });

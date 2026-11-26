@@ -105,7 +105,7 @@ describe("MCP Projekt Begina", { timeout: 120_000 }, () => {
     expect(area.data.outputs).toEqual([expect.objectContaining({ title: "Etikety polévek PDF", url: "https://begina.cz/etikety.pdf" })]);
 
     const overview = await call(lucie, "project_overview", {});
-    expect(overview.data.areas).toHaveLength(7);
+    expect(overview.data.areas).toHaveLength(18);
     expect(overview.data.areas.find((a: { area: string }) => a.area === "etikety")).toMatchObject({ decisions: 1, outputs: 1 });
   });
 
