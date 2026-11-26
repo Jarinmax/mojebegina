@@ -5,7 +5,8 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { invoices, orders, organizations } from "@/lib/db/schema";
 import { idokladInvoicePdfPath, runIdokladRead } from "@/lib/idoklad-read/tools";
 import type { InvoiceSummary } from "@/lib/idoklad-read/service";
-import { MONTH_NAMES } from "@/lib/ekonomika/economy";
+import { MONTH_NAMES, formatCzDate, formatKc as formatHal } from "@/lib/ekonomika/economy";
+import { loadEconomyYear } from "@/lib/ekonomika/economyServer";
 import { notFound } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -54,13 +55,19 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   const month = Math.min(Math.max(Number(first(sp.mesic)) || maxM, 1), maxM);
   const ym = `${year}-${String(month).padStart(2, "0")}`;
 
-  const [ownRes, read, lastRes] = await Promise.all([
+  const [ownRes, read, lastRes, economy] = await Promise.all([
     db.execute(sql`
       SELECT id, number, state, version, issue_date::text AS issue_date, total_kc, customer_name, sent_at, order_id, cancel_reason, snapshot
       FROM own_invoice_documents WHERE to_char(issue_date, 'YYYY-MM') = ${ym} ORDER BY number DESC`),
     runIdokladRead("idoklad_search_invoices", { date_from: `${ym}-01`, date_to: `${ym}-${lastDay(year, month)}`, limit: 100 }, "ui"),
     db.execute(sql`SELECT max(number) AS last FROM own_invoice_documents`),
+    loadEconomyYear(year),
   ]);
+  // Příjmy bez faktury (Lucie 26. 11. 2026): tržby bistra, Wolt, prodejní doklady — z Ekonomiky.
+  const monthIncome = economy.filter((r) => r.kind === "income" && r.entryDate.slice(0, 7) === ym);
+  const incomeTotalHal = monthIncome.reduce((sum, r) => sum + r.amountHal, 0);
+  const noInvoice = monthIncome.filter((r) => !r.invoiceNumber).sort((a, b) => b.entryDate.localeCompare(a.entryDate));
+  const noInvoiceHal = noInvoice.reduce((sum, r) => sum + r.amountHal, 0);
   const own = ownRes.rows as Row[];
   const last = (lastRes.rows[0] as { last: string | null } | undefined)?.last ?? null;
   const ownNumbers = new Set(own.map((r) => r.number));
@@ -101,18 +108,23 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   return (
     <div className="max-w-5xl">
       <PenizeTabs active="faktury" />
-      <p className="text-sm text-neutral-600 mb-3">Vydané faktury po měsících — nové z MojeBegina i starší z iDokladu v jednom seznamu. Novou ruční fakturu připraví asistent (stačí mu napsat komu a co).</p>
+      <p className="text-sm text-neutral-600 mb-3">Všechny příjmy po měsících — vydané faktury (nové z MojeBegina i starší z iDokladu) a pod nimi příjmy bez faktury (bistro, Wolt). Novou ruční fakturu připraví asistent (stačí mu napsat komu a co).</p>
       <MonthPicker year={year} month={month} nowYear={nowY} nowMonth={nowM} minYear={2020} href={(y, m) => `${BASE}?rok=${y}&mesic=${m}`} />
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="bg-white border border-neutral-200 rounded-xl p-3">
-          <p className="text-xs text-neutral-500 capitalize">Fakturováno – {monthLabel}</p>
-          <p className="text-lg font-semibold text-begina-primary-900">{kc(total)}</p>
-          <p className="text-xs text-neutral-500">{count} faktur (bez stornovaných)</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+        <div className="bg-begina-primary-900 text-white rounded-xl p-3">
+          <p className="text-xs opacity-80 capitalize">Příjmy celkem – {monthLabel}</p>
+          <p className="text-lg font-semibold">{formatHal(incomeTotalHal)}</p>
+          <p className="text-xs opacity-80">stejně jako v Přehledu (přijaté peníze)</p>
         </div>
         <div className="bg-white border border-neutral-200 rounded-xl p-3">
-          <p className="text-xs text-neutral-500">Neuhrazeno</p>
-          <p className={`text-lg font-semibold ${unpaidTotal > 0 ? "text-red-700" : "text-begina-primary-900"}`}>{kc(unpaidTotal)}</p>
-          <p className="text-xs text-neutral-500">{unpaidCount} faktur</p>
+          <p className="text-xs text-neutral-500">Fakturováno</p>
+          <p className="text-lg font-semibold text-begina-primary-900">{kc(total)}</p>
+          <p className="text-xs text-neutral-500">{count} faktur{unpaidCount > 0 ? ` · neuhrazeno ${kc(unpaidTotal)}` : " · vše uhrazeno"}</p>
+        </div>
+        <div className="bg-white border border-neutral-200 rounded-xl p-3">
+          <p className="text-xs text-neutral-500">Bez faktury</p>
+          <p className="text-lg font-semibold text-begina-primary-900">{formatHal(noInvoiceHal)}</p>
+          <p className="text-xs text-neutral-500">bistro, Wolt, prodejní doklady</p>
         </div>
       </div>
       {!read.ok && <p className="text-sm text-red-700 mb-2">Starší faktury se nepodařilo načíst: {read.error}</p>}
@@ -181,6 +193,25 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
             );
           })}
         </div>
+      )}
+      <h2 className="text-base font-semibold text-begina-primary-900 mt-5 mb-2">Příjmy bez faktury</h2>
+      {noInvoice.length === 0 ? (
+        <p className="text-sm text-neutral-600 bg-white border border-neutral-200 rounded-xl p-4">
+          V tomto měsíci zatím nic. Tržby bistra se zapisují za celý měsíc, vždy začátkem dalšího měsíce.
+        </p>
+      ) : (
+        <ul className="bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100">
+          {noInvoice.map((r) => (
+            <li key={r.id} className="p-3 flex items-start gap-4">
+              <div className="min-w-[7rem] text-xs text-neutral-500 pt-0.5">{formatCzDate(r.entryDate)}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-neutral-900 break-words">{r.title}{r.counterparty ? ` · ${r.counterparty}` : ""}</p>
+                {(r.paymentForm || r.note) && <p className="text-xs text-neutral-500 break-words">{[r.paymentForm, r.note].filter(Boolean).join(" · ")}</p>}
+              </div>
+              <p className="text-sm font-medium whitespace-nowrap">{formatHal(r.amountHal)}</p>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
