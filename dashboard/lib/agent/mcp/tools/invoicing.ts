@@ -19,6 +19,7 @@
 // a volání odmítne (server.ts, visible). Vystavení a odeslání navíc
 // potřebuje samostatný souhlas mojebegina.invoicing (writeScope) —
 // obecný mojebegina.write fakturaci neodemyká a naopak.
+import { invoiceEmailParagraphs, invoiceGreeting } from "@/lib/eshop/invoicing/invoiceEmailText";
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -439,15 +440,28 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
       const partnerText = partnerIntro ? `${PARTNER_INTRO_TEXT} ${partnerUrl}` : "";
       const test = config.testRecipients !== null;
       const invoiceNumber = pdf.invoice.number;
-      const intro = message?.trim() || "Dobrý den,";
-      // Vlastní průvodní text, který už číslo faktury zmiňuje, se neopakuje větou o příloze.
-      const body = intro.includes(invoiceNumber) ? "" : `V příloze posíláme fakturu č. ${invoiceNumber}.`;
+      // Lucie 26. 11. 2026: nikdy holé „Dobrý den,“ — vždy „Dobrý den, pane Kašpárku,“ a profesionální text.
+      const custom = message?.trim() || "";
+      const greeting = invoiceGreeting(ownDoc?.snapshot.customer.name ?? null);
+      if (!custom && !greeting && customerTo.length > 0) {
+        return { ok: false, error: "Z odběratele nejde odvodit oslovení. Pošlete znovu s message, která začíná oslovením, např. „Dobrý den, pane Kašpárku,“. Nic se neodeslalo." };
+      }
+      const intro = custom || greeting || "Dobrý den,";
+      // Vlastní průvodní text, který už číslo faktury zmiňuje, se neopakuje — jinak standardní odstavce.
+      const body = intro.includes(invoiceNumber)
+        ? ""
+        : invoiceEmailParagraphs({
+            number: invoiceNumber,
+            totalKc: ownDoc?.snapshot.totalKc ?? null,
+            dueDate: ownDoc?.snapshot.dueDate ?? null,
+            paid: ownDoc ? Boolean(ownDoc.snapshot.paidDate) : false,
+          }).join("\n\n");
       const testNote = test && resolved.withheld.length ? `\n\n[TEST] Určeno pro: ${resolved.withheld.join(", ")}` : "";
       // Podpis jako v poště info@begina.cz (Lucie 15. 11. 2026).
       const [team, ...contacts] = PARTNER_EMAIL_SIGNATURE;
       const text = `${intro}\n\n${body ? `${body}\n\n` : ""}${partnerText ? `${partnerText}\n\n` : ""}S přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}${testNote}`;
       const paragraphs = intro.split(/\n{2,}/).map((part) => `<p>${escapeHtml(part).replace(/\n/g, "<br>")}</p>`).join("");
-      const html = `${paragraphs}${body ? `<p>${escapeHtml(body)}</p>` : ""}${partnerIntro ? `<p>${escapeHtml(PARTNER_INTRO_TEXT)} <a href="${escapeHtml(partnerUrl)}">${escapeHtml(partnerUrl)}</a></p>` : ""}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(team)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
+      const html = `${paragraphs}${body ? body.split("\n\n").map((p) => `<p>${escapeHtml(p)}</p>`).join("") : ""}${partnerIntro ? `<p>${escapeHtml(PARTNER_INTRO_TEXT)} <a href="${escapeHtml(partnerUrl)}">${escapeHtml(partnerUrl)}</a></p>` : ""}<p><em>S přátelským pozdravem</em><br><strong>${escapeHtml(team)}</strong><br>${contacts.map(escapeHtml).join("<br>")}</p>${testNote ? `<p><small>${escapeHtml(testNote.trim())}</small></p>` : ""}`;
       const key = createHash("sha256").update(`${ownDoc ? `own-${ownDoc.id}-v${ownDoc.version}` : pdf.invoice.id}|${[...check.to].sort().join(",")}`).digest("hex").slice(0, 32);
       // odesílatel info@begina.cz, skrytá kopie Begině (info@begina.cz)
       const sender = invoiceEmailSender(config);
@@ -458,7 +472,7 @@ const SEND_IDOKLAD_TOOLS: AgentTool[] = [
           to: resolved.to,
           ...(bcc.length ? { bcc } : {}),
           replyTo: sender.replyTo,
-          subject: `${test ? "[TEST] " : ""}Faktura ${invoiceNumber} – Begina`,
+          subject: `${test ? "[TEST] " : ""}Faktura č. ${invoiceNumber} – Begina`,
           text,
           html,
           attachments: [{ filename: pdf.filename, contentBase64: pdf.contentBase64, contentType: "application/pdf" }],
