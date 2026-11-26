@@ -8,8 +8,8 @@ import { formatDeadlineLong } from "@/lib/czWorkdays";
 import ProducedCheck from "../ProducedCheck";
 import { GROUP_STYLE } from "../productionColors";
 import { getOrderDetail } from "@/lib/data/orders";
-import DispatchChecks from "../../objednavky/DispatchChecks";
-import { dispatchView } from "../../objednavky/dispatchText";
+import HandoverPanel from "../HandoverPanel";
+import { shortPragueDate } from "../../objednavky/dispatchText";
 
 // Výrobní karta jedné objednávky pro Jarina (Lucie 18. 11. 2026):
 // doručovací údaje (ne fakturační), termín dodání, produkty barevně po
@@ -29,6 +29,14 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
   // Odesláno + Faktura přímo na kartě (Lucie 26. 11. 2026 — Jarin nemá
   // hledat malý odkaz na detail objednávky).
   const detail = await getOrderDetail(id);
+  const d = detail?.order;
+  const needsPayment = Boolean(d && d.channel === "manual" && d.paymentStatus !== "paid");
+  const shippingText = `${d?.shippingMethodLabel ?? ""} ${order.shippingMethod ?? ""}`.toLocaleLowerCase("cs");
+  const defaultMode = /rozvoz|osobn|vyzvednut/.test(shippingText) ? "personal" : "carrier";
+  const shippedLine = d?.shippedAt
+    ? `${d.fulfillmentStatus === "handed_to_carrier" ? "Předáno přepravci" : defaultMode === "personal" ? "Předáno osobně" : "Doručeno"} ${shortPragueDate(d.shippedAt)}${d.shippedByName ? ` · ${d.shippedByName}` : ""}`
+    : null;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
   return (
     <div>
@@ -113,10 +121,17 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
         {detail && (
           <div className={`mt-4 rounded-xl p-3 ${allDone ? "border-2 border-amber-400 bg-amber-50" : "border border-neutral-200"}`}>
             <p className="text-sm font-bold text-begina-primary-900 mb-2">
-              {allDone ? "Odeslat zákazníkovi" : "Odeslání"}
+              {d?.shippedAt ? (needsPayment ? "Doplň platbu" : "Předáno") : allDone ? "Předat zákazníkovi" : "Předání"}
             </p>
-            {/* Lucie 26. 11.: výroba jen odesílá — „Faktura poslána“ sem nepatří */}
-            <DispatchChecks view={dispatchView(detail.order)} shipOnly />
+            {/* Lucie 26. 11.: jak předáno + jak se platí → faktura se pošle správně */}
+            <HandoverPanel
+              orderId={order.id}
+              needsPayment={needsPayment}
+              defaultMode={defaultMode}
+              shipped={Boolean(d?.shippedAt)}
+              shippedLine={shippedLine}
+              today={today}
+            />
           </div>
         )}
         <p className="mt-3">
