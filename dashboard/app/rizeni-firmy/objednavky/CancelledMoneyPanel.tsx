@@ -23,7 +23,7 @@ const BUTTON =
   "text-sm font-medium text-begina-primary-50 bg-begina-primary-900 rounded-lg px-3 py-2 disabled:opacity-50 whitespace-nowrap self-start";
 
 function kc(hal: number): string {
-  return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+  return `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
 }
 
 function ConsentFields() {

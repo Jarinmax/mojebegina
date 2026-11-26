@@ -230,7 +230,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
                   {a.orderNumber !== null ? `${formatOrderNumber(a.orderNumber)} ` : ""}
                   {a.customer}
                 </Link>{" "}
-                · {a.totalKc.toLocaleString("cs-CZ")} Kč · {a.paymentMethod ?? "platba"}
+                · {a.totalKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč · {a.paymentMethod ?? "platba"}
               </li>
             ))}
           </ul>

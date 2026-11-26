@@ -52,7 +52,7 @@ function describeEntry(entry: OrderActivityEntry): string {
       return `⚠ vystavení faktury v iDokladu se nepovedlo — ${String(meta.error ?? "neznámá chyba")}`;
     case "payment_recorded": {
       const hal = Number(meta.amountHal ?? 0);
-      const amount = hal % 100 === 0 ? `${(hal / 100).toLocaleString("cs-CZ")} Kč` : `${(hal / 100).toFixed(2).replace(".", ",")} Kč`;
+      const amount = `${(hal / 100).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
       return `zapsal(a) platbu ${amount} ${meta.method === "cash" ? "hotově" : "převodem"}`;
     }
     // ESHOP 1.0 — platba kartou (Stripe)
@@ -127,7 +127,7 @@ const CONSENT_NOTE_KINDS = new Set([
 
 function money(hal: unknown): string {
   const value = Number(hal ?? 0);
-  return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(value / 100)} Kč`;
+  return `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 100)} Kč`;
 }
 
 /** Přílohy odeslaného e-mailu (orderEmails.ts → metadata.attachments) a varování, když PDF podmínek chybí. */

@@ -270,7 +270,7 @@ export async function updateOrderNoteAction(
 // --- Peníze stornované objednávky (lib/eshop/cancellation.ts) ---------
 
 const kcText = (hal: number) =>
-  `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
+  `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hal / 100)} Kč`;
 
 function moneyFields(formData: FormData) {
   const field = (key: string) => String(formData.get(key) ?? "");

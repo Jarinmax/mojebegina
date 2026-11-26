@@ -5,7 +5,7 @@ import { applyFuelSurcharge, coldShippingPrice, coldShippingPriceSk } from "@/li
 
 export type CalcVariant = { sku: string; name: string; priceKc: number | null; weightG: number | null };
 
-const kc = (value: number) => `${value.toLocaleString("cs-CZ")} Kč`;
+const kc = (value: number) => `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 
 export default function Calculator({ variants, fuelPercent }: { variants: CalcVariant[]; fuelPercent?: number }) {
   if (fuelPercent !== undefined) applyFuelSurcharge(fuelPercent);

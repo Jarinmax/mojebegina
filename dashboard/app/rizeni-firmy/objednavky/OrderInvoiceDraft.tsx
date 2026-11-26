@@ -26,7 +26,7 @@ function czDate(iso: string | null): string {
 }
 
 function formatHal(hal: number): string {
-  return hal % 100 === 0 ? formatKc(hal / 100) : `${(hal / 100).toFixed(2).replace(".", ",")} Kč`;
+  return formatKc(hal / 100);
 }
 
 function ProblemList({ title, problems, tone }: { title: string; problems: InvoiceProblem[]; tone: string }) {

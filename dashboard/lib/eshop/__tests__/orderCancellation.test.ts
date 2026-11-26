@@ -568,9 +568,9 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
 
     const [m] = mail.sent;
     expect(mail.sent).toHaveLength(1);
-    expect(m.text).toMatch(/Zbývá doplatit 379\sKč/);
+    expect(m.text).toMatch(/Zbývá doplatit 379,00\sKč/);
     expect(m.text).toContain(`Variabilní symbol: ${vs}`);
-    expect(m.text).toMatch(/Částka: 379\sKč/);
+    expect(m.text).toMatch(/Částka: 379,00\sKč/);
     expect(m.text).not.toMatch(/Částka: 1\s137/);
     expect(decodeQr(m.inlineImages![0].contentBase64)).toMatch(new RegExp(`\\*AM:379\\.00\\*.*\\*X-VS:${vs}\\*`));
 
@@ -592,7 +592,7 @@ describe("storno objednávky (neon-http → PGlite)", { timeout: 60_000 }, () =>
     expect(await activity(newId, "overpayment_refund_due")).toEqual([{ amountHal: 37900 }]);
     expect(await money(newId)).toEqual({ stage: "overpaid", heldHal: 37900 });
     expect(await rows(sql`SELECT id FROM payments WHERE order_id = ${newId} AND direction = 'outflow'`)).toEqual([]);
-    expect(mail.sent[0].text).toMatch(/Přeplatek 379\sKč vám vrátíme/);
+    expect(mail.sent[0].text).toMatch(/Přeplatek 379,00\sKč vám vrátíme/);
     expect(mail.sent[0].text).not.toMatch(/Variabilní symbol/);
 
     const refund = (txId: string, amountKc: string) =>

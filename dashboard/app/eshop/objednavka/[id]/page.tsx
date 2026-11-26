@@ -5,7 +5,7 @@ import { CircleCheck, CircleAlert, Clock } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { orderPaymentBalance } from "@/lib/db/schema";
-import { formatKc } from "@/lib/format";
+import { formatKc, formatPrice } from "@/lib/format";
 import { parseOrderToken } from "@/lib/eshop/orderWrite";
 import { isCardPaymentAvailable } from "@/lib/eshop/stripe/config";
 import { canPayByCard, loadPaymentOrder } from "@/lib/eshop/stripe/payment";
@@ -86,7 +86,7 @@ export default async function OrderStatusPage(props: PageProps<"/eshop/objednavk
         ? {
             icon: Clock,
             title: "Objednávka čeká na doplatek",
-            text: `Část platby už máme (${formatKc(receivedHal / 100)}). Doplaťte prosím ${formatKc(transfer.amountKc)} do ${formatPragueDate(transfer.dueAt)}.`,
+            text: `Část platby už máme (${formatPrice(receivedHal / 100)}). Doplaťte prosím ${formatPrice(transfer.amountKc)} do ${formatPragueDate(transfer.dueAt)}.`,
           }
         : {
             icon: Clock,

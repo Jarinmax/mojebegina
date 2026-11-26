@@ -8,7 +8,7 @@ import { choiceLine, isSetSku } from "@/lib/eshop/tastingSet";
 import { CAFE_TASTING_BEGINA_REMOVED, CAFE_TASTING_ONCE_TEXT, cartHasCafeTasting, cartHasTastingBegina, isCafeTasting } from "@/lib/eshop/cafeTasting";
 import { isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { useCatalog } from "./CatalogProvider";
-import { formatKc } from "@/lib/format";
+import { formatKc, formatPrice } from "@/lib/format";
 import ProductImage from "./ProductImage";
 import QuantityStepper from "./QuantityStepper";
 import { useCart, useHydrated } from "./useCart";
@@ -104,7 +104,7 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
               ) : isCafeTasting(line.product) ? (
                 <p className="text-xs text-neutral-500 mt-0.5">Vzorek navíc</p>
               ) : (
-                <p className="text-xs text-neutral-500 mt-0.5">{formatKc(line.variant.priceKc)} / ks</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{formatPrice(line.variant.priceKc)} / ks</p>
               )}
               {!isOrderable(line.product) && (
                 <p className="text-xs text-begina-accent-900 mt-1" role="alert">
@@ -125,7 +125,7 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
                   <span>
                     Zabalit do kartonové krabice{" "}
                     <span className="text-neutral-500">
-                      +{formatKc(BOX_PRICE_KC)}{line.quantity > 1 ? ` / ks (${formatKc(BOX_PRICE_KC * line.quantity)})` : ""}
+                      +{formatPrice(BOX_PRICE_KC)}{line.quantity > 1 ? ` / ks (${formatPrice(BOX_PRICE_KC * line.quantity)})` : ""}
                     </span>
                   </span>
                 </label>

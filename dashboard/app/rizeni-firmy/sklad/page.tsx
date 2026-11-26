@@ -6,9 +6,9 @@ import { listConfirmedReceiptsOverview, listRecentStockIssues, listStockBalances
 // (kolik je, za kolik, hodnota) a pod tím poslední příjmy (datum, od koho,
 // co, cena). Rozpracované návrhy ze starého focení dokladů se neukazují.
 
-const kc = (value: number) => `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Kč`;
+const kc = (value: number) => `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 const unitKc = (value: number) =>
-  `${value.toLocaleString("cs-CZ", { minimumFractionDigits: value < 10 ? 2 : 0, maximumFractionDigits: 2 })} Kč`;
+  `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 const qty = (value: number) => value.toLocaleString("cs-CZ", { maximumFractionDigits: 3 });
 const date = (value: string | null) => (value ? new Date(value).toLocaleDateString("cs-CZ") : "–");
 

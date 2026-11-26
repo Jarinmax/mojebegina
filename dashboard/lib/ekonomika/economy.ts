@@ -65,7 +65,7 @@ export function summarizeYear(rows: Pick<EconomyRow, "kind" | "entryDate" | "amo
 
 export function formatKc(hal: number): string {
   const kc = hal / 100;
-  return `${kc.toLocaleString("cs-CZ", { minimumFractionDigits: Number.isInteger(kc) ? 0 : 2, maximumFractionDigits: 2 })} Kč`;
+  return `${kc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 }
 
 export function formatCzDate(iso: string): string {

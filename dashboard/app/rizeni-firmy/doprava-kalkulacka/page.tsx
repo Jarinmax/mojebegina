@@ -46,8 +46,8 @@ export default async function DopravaKalkulackaPage() {
               {COLD_SHIPPING_RULES.map((rule) => (
                 <tr key={rule.rule} className="border-b border-neutral-100 last:border-0">
                   <td className="px-3 py-1.5">{rule.label ?? `${rule.fromKg.toLocaleString("cs-CZ")}–${rule.toKg.toLocaleString("cs-CZ")} kg`}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{rule.baseKc.toLocaleString("cs-CZ")} Kč</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">{rule.priceKc.toLocaleString("cs-CZ")} Kč</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{rule.baseKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">{rule.priceKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</td>
                 </tr>
               ))}
             </tbody>
@@ -63,8 +63,8 @@ export default async function DopravaKalkulackaPage() {
               {COLD_SHIPPING_SK_BANDS.map((band) => (
                 <tr key={band.toKg} className="border-b border-neutral-100 last:border-0">
                   <td className="px-3 py-1.5">{band.toKg} kg</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{band.baseKc.toLocaleString("cs-CZ")} Kč</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">{band.priceKc.toLocaleString("cs-CZ")} Kč</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{band.baseKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">{band.priceKc.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</td>
                 </tr>
               ))}
             </tbody>

@@ -1,5 +1,12 @@
+// Částky v přehledech, košíku, objednávkách, fakturách a e-mailech vždy se
+// dvěma desetinnými místy — čárky jsou pod sebou (Lucie 26. 11. 2026).
 export function formatKc(amount: number): string {
-  return `${new Intl.NumberFormat("cs-CZ").format(amount)} Kč`;
+  return `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} Kč`;
+}
+
+// Cena u výrobku na e-shopu a částka v běžné větě — bez „,00“ („159 Kč“).
+export function formatPrice(amount: number): string {
+  return `${new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 }).format(amount)} Kč`;
 }
 
 export function capitalizeFirst(text: string): string {

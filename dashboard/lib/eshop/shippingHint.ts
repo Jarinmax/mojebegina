@@ -1,7 +1,7 @@
 // DOPRAVA DŘÍV (21. 11. 2026, Lucie) — cena dopravy vidět už na produktu a
 // v košíku, ne až v pokladně. Ceny se nemění: počítá se stejným ceníkem
 // jako pokladna (shippingRates.ts, zasilkovna.ts). Čisté funkce.
-import { formatKc } from "@/lib/format";
+import { formatPrice as formatKc } from "@/lib/format";
 import { COLD_SHIPPING_RULES, cartWeight, coldShippingPrice } from "./shippingRates";
 import { isTastingSet } from "./tastingSet";
 import { quoteZasilkovna } from "./zasilkovna";

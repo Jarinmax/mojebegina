@@ -12,7 +12,7 @@
 
 import { ZASILKOVNA_BOX_KC, ZASILKOVNA_MAX_POUCHES, ZASILKOVNA_STANDARD_KC, quoteZasilkovna } from "./zasilkovna";
 import { SET_LAUNCHED } from "./tastingSet";
-import { formatKc } from "@/lib/format";
+import { formatKc, formatPrice } from "@/lib/format";
 import { cartWeight, coldShippingPrice, coldShippingPriceSk, COLD_SHIPPING_MAX_GRAMS } from "./shippingRates";
 
 export type ShippingMode = "flat" | "weight";
@@ -74,7 +74,7 @@ const ZASILKOVNA: ShippingMethod = {
   id: "zasilkovna",
   label: "Zásilkovna – výdejní místo nebo Z-BOX",
   // 24. 11. 2026 (Lucie): ceny u každého balení zvlášť, ať „cena včetně krabice“ nemate.
-  description: `Jen pro sirupy: 1–${ZASILKOVNA_MAX_POUCHES} sáčky za ${formatKc(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)} (včetně krabice) nebo jedna třílitrová begina sirupu za ${formatKc(ZASILKOVNA_STANDARD_KC)} (krabici už má)${SET_LAUNCHED ? ". Jde i ochutnávkový set sirupů" : ""}.`,
+  description: `Jen pro sirupy: 1–${ZASILKOVNA_MAX_POUCHES} sáčky za ${formatPrice(ZASILKOVNA_STANDARD_KC + ZASILKOVNA_BOX_KC)} (včetně krabice) nebo jedna třílitrová begina sirupu za ${formatPrice(ZASILKOVNA_STANDARD_KC)} (krabici už má)${SET_LAUNCHED ? ". Jde i ochutnávkový set sirupů" : ""}.`,
   priceKc: 0,
   requiresAddress: false,
   requiresPickupPoint: true,

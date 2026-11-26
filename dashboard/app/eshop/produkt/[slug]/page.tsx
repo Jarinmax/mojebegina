@@ -15,7 +15,7 @@ import {
   NOT_ORDERABLE_NOTICE,
 } from "@/lib/eshop/productRules";
 import type { Product } from "@/lib/eshop/types";
-import { formatKc } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import ProductGallery from "@/components/eshop/ProductGallery";
 import ProductReviews from "@/components/eshop/ProductReviews";
 import Stars from "@/components/eshop/Stars";
@@ -287,14 +287,14 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           )}
           {product.shortDescription && <p className="text-neutral-600 mt-2">{product.shortDescription}</p>}
           <p className="text-2xl font-semibold mt-5 tabular-nums">
-            {isSet && campaign && <s className="mr-2 text-lg font-normal text-neutral-500">{formatKc(campaign.regularPriceKc)}</s>}
-            {hasChoice ? `od ${formatKc(lowestPriceKc(product))}` : formatKc(product.variants[0].priceKc)}
+            {isSet && campaign && <s className="mr-2 text-lg font-normal text-neutral-500">{formatPrice(campaign.regularPriceKc)}</s>}
+            {hasChoice ? `od ${formatPrice(lowestPriceKc(product))}` : formatPrice(product.variants[0].priceKc)}
             {isSet && campaign && <span className="ml-2 text-base font-medium text-neutral-700">vč. dopravy Zásilkovnou</span>}
           </p>
           {isPack && (
             <ul className="mt-2 flex flex-col gap-0.5 text-base text-neutral-700">
-              <li>{SOUP_PACK_PICKUP_LABEL}: <strong className="tabular-nums">{formatKc(product.variants[0].priceKc)}</strong></li>
-              {packColdKc !== null && <li>{SOUP_PACK_DELIVERY_LABEL}: <strong className="tabular-nums">{formatKc(product.variants[0].priceKc + packColdKc)}</strong></li>}
+              <li>{SOUP_PACK_PICKUP_LABEL}: <strong className="tabular-nums">{formatPrice(product.variants[0].priceKc)}</strong></li>
+              {packColdKc !== null && <li>{SOUP_PACK_DELIVERY_LABEL}: <strong className="tabular-nums">{formatPrice(product.variants[0].priceKc + packColdKc)}</strong></li>}
             </ul>
           )}
           {isSet && (
