@@ -403,7 +403,9 @@ export async function renderOwnInvoicePdf(snapshot: OwnInvoiceSnapshot, number: 
   const pages = doc.getPages();
   pages.forEach((p, i) => {
     p.drawLine({ start: { x: M, y: M + 18 }, end: { x: A4.w - M, y: M + 18 }, thickness: 0.5, color: LINE });
-    text(p, `${s.name} · IČO ${s.ico} · ${s.address} · ${s.email} · ${s.phone} · ${s.web}`, M, M + 5, 7.5, regular, MUTED);
+    // na střed (Lucie 26. 11. 2026)
+    const footer = `${s.name} · IČO ${s.ico} · ${s.address} · ${s.email} · ${s.phone} · ${s.web}`;
+    text(p, footer, (A4.w - regular.widthOfTextAtSize(footer, 7.5)) / 2, M + 5, 7.5, regular, MUTED);
     if (pages.length > 1) right(p, `${i + 1}/${pages.length}`, A4.w - M, M + 5, 7.5, regular, MUTED);
   });
 
