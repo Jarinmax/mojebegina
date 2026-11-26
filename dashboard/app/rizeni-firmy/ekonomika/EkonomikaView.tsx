@@ -11,6 +11,9 @@ const BASE = "/rizeni-firmy/ekonomika";
 
 const differenceTone = (hal: number) => (hal < 0 ? "text-red-700" : "text-green-800");
 const signed = (hal: number) => `${hal > 0 ? "+" : ""}${formatKc(hal)}`;
+// V tabulce bez „Kč“ (je v záhlaví) — na mobilu se tak vejdou všechny čtyři sloupce (Lucie 26. 11. 2026).
+const num = (hal: number) => (hal / 100).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const signedNum = (hal: number) => `${hal > 0 ? "+" : ""}${num(hal)}`;
 
 export type EkonomikaViewProps = {
   year: number;
@@ -41,15 +44,15 @@ export default function EkonomikaView({ year, view, today, months, lastMonth }: 
             <Link className="underline text-neutral-600" href={`${BASE}?rok=${year + 1}`}>{year + 1} →</Link>
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
           {[
             ["Příjmy", formatKc(yearIncome), "text-neutral-900"],
             ["Náklady", formatKc(yearCost), "text-neutral-900"],
             ["Rozdíl", signed(yearIncome - yearCost), differenceTone(yearIncome - yearCost)],
           ].map(([title, value, tone]) => (
-            <div key={title} className="bg-white border border-neutral-200 rounded-xl p-3 sm:p-4">
+            <div key={title} className="bg-white border border-neutral-200 rounded-xl px-3 py-2 sm:p-4 flex items-baseline justify-between gap-3 sm:block">
               <p className="text-xs text-neutral-500">{title}</p>
-              <p className={`mt-1 text-base sm:text-xl font-semibold whitespace-nowrap ${tone}`}>{value}</p>
+              <p className={`sm:mt-1 text-lg sm:text-xl font-semibold whitespace-nowrap ${tone}`}>{value}</p>
             </div>
           ))}
         </div>
@@ -67,26 +70,26 @@ export default function EkonomikaView({ year, view, today, months, lastMonth }: 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Po měsících</h2>
         <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="text-left text-xs text-neutral-500 border-b border-neutral-200 bg-neutral-50">
               <tr>
-                <th className="px-3 py-2 font-medium">Měsíc</th>
-                <th className="px-3 py-2 font-medium text-right">Příjmy</th>
-                <th className="px-3 py-2 font-medium text-right">Náklady</th>
-                <th className="px-3 py-2 font-medium text-right">Rozdíl</th>
+                <th className="px-2 sm:px-3 py-2 font-medium">Měsíc</th>
+                <th className="px-2 sm:px-3 py-2 font-medium text-right">Příjmy (Kč)</th>
+                <th className="px-2 sm:px-3 py-2 font-medium text-right">Náklady (Kč)</th>
+                <th className="px-2 sm:px-3 py-2 font-medium text-right">Rozdíl (Kč)</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((m) => (
                 <tr key={m.month} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-                  <td className="px-3 py-2 font-medium capitalize">{MONTH_NAMES[m.month - 1]}</td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <Link className="text-begina-primary-900 underline decoration-neutral-300 hover:decoration-begina-primary-900" href={incomeHref(m.month)}>{formatKc(m.incomeHal)}</Link>
+                  <td className="px-2 sm:px-3 py-2 font-medium capitalize">{MONTH_NAMES[m.month - 1]}</td>
+                  <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">
+                    <Link className="text-begina-primary-900 underline decoration-neutral-300 hover:decoration-begina-primary-900" href={incomeHref(m.month)}>{num(m.incomeHal)}</Link>
                   </td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <Link className="text-begina-primary-900 underline decoration-neutral-300 hover:decoration-begina-primary-900" href={costsHref(m.month)}>{formatKc(m.costHal)}</Link>
+                  <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">
+                    <Link className="text-begina-primary-900 underline decoration-neutral-300 hover:decoration-begina-primary-900" href={costsHref(m.month)}>{num(m.costHal)}</Link>
                   </td>
-                  <td className={`px-3 py-2 text-right whitespace-nowrap font-medium ${differenceTone(m.differenceHal)}`}>{signed(m.differenceHal)}</td>
+                  <td className={`px-2 sm:px-3 py-2 text-right whitespace-nowrap font-medium ${differenceTone(m.differenceHal)}`}>{signedNum(m.differenceHal)}</td>
                 </tr>
               ))}
               {shown.length === 0 && (
