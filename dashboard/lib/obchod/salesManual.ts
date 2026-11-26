@@ -20,7 +20,7 @@ export const SALES_MANUAL_SECTIONS: ManualSection[] = [
     title: "Hlavní argumenty",
     items: [
       {
-        text: "Polévky Begina už přes rok objednávají kavárny v centru Prahy a naše sirupy nalévají kavárny i bistra v centru Prahy.",
+        text: "Polévky Begina už přes rok objednávají kavárny v centru Prahy a naše sirupy nalévají kavárny i bistra.",
         note: "Konkrétní kavárnu nejmenovat – nemáme jejich souhlas.",
       },
       {
