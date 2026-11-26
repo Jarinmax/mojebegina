@@ -158,3 +158,22 @@ export async function adjustVariantStock(
   const row = (await listTrackedStock(db)).find((r) => r.sku === input.sku);
   return row ? { ok: true, row } : { ok: false, error: "Úprava proběhla, ale stav se nepodařilo načíst." };
 }
+
+/** Název hlídaného balení, jak se nabízí ve formuláři „Nová objednávka“ (např. „Zázvorový sirup 650 ml“). */
+export function trackedDisplayName(row: Pick<StockRow, "product" | "label">): string {
+  return `${row.product}${row.label ? ` ${row.label}` : ""}`.trim();
+}
+
+/** Hlídané balení podle přesného názvu položky (bez ohledu na velikost písmen a mezery). */
+export async function trackedVariantIdsByName(db: AnyDb): Promise<Map<string, { variantId: string; sku: string }>> {
+  if (!(await stockTrackingReady(db))) return new Map();
+  const result = await db.execute<{ id: string; sku: string; product: string; label: string | null }>(sql`
+    SELECT v.id, v.sku, p.name AS product, v.label FROM product_variants v JOIN products p ON p.id = v.product_id
+    WHERE v.stock_qty IS NOT NULL`);
+  const rows = (result as unknown as { rows?: Array<{ id: string; sku: string; product: string; label: string | null }> }).rows ?? [];
+  return new Map(rows.map((r) => [normName(trackedDisplayName(r)), { variantId: r.id, sku: r.sku }]));
+}
+
+export function normName(name: string): string {
+  return name.trim().toLocaleLowerCase("cs").replace(/\s+/g, " ");
+}

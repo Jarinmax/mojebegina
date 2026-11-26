@@ -83,6 +83,7 @@ import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "./orderLabels";
 import { isAllowedFulfillmentTransition, type ValidatedUpdateOrderFulfillment } from "./orderFulfillmentAgentValidation";
 import type { AuthContext } from "./types";
 import { displayItemName } from "@/lib/eshop/packageLabel";
+import { manualStockStatements, normName, stockTrackingReady, trackedVariantIdsByName } from "@/lib/eshop/variantStock";
 
 export async function requireOrderContext(): Promise<NonNullable<AuthContext>> {
   const ctx = await getAuthContext();
@@ -463,6 +464,11 @@ export async function createOrder(rawInput: CreateOrderInput): Promise<CreateOrd
   }
 
   const id = randomUUID();
+  // Kapsičky 650 ml (hlídané kusy): položka vybraná z nabídky se propojí s balením
+  // a kusy se odečtou hned při založení (storno je vrátí).
+  const tracked = await trackedVariantIdsByName(db);
+  const linked = value.items.map((item) => tracked.get(normName(item.name)) ?? null);
+  const stockReady = linked.some(Boolean) && (await stockTrackingReady(db));
   await db.batch([
     db.insert(orders).values({
       id,
@@ -480,12 +486,13 @@ export async function createOrder(rawInput: CreateOrderInput): Promise<CreateOrd
       note: value.note,
     }),
     db.insert(orderItems).values(
-      value.items.map((item) => ({
+      value.items.map((item, i) => ({
         orderId: id,
         name: item.name,
         quantity: item.quantity,
         unitPriceKc: item.unitPriceKc,
         lineTotalKc: item.lineTotalKc,
+        ...(linked[i] ? { productVariantId: linked[i]!.variantId, skuSnapshot: linked[i]!.sku } : {}),
       }))
     ),
     db.insert(orderActivity).values({
@@ -494,6 +501,9 @@ export async function createOrder(rawInput: CreateOrderInput): Promise<CreateOrd
       authorName: ctx.name,
       kind: "created",
     }),
+    ...(stockReady
+      ? manualStockStatements(id, value.items.map((item, i) => ({ variantId: linked[i]?.variantId ?? null, quantity: item.quantity }))).map((q) => db.execute(q))
+      : []),
   ]);
 
   return { ok: true, id };
