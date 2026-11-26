@@ -15,11 +15,9 @@ import NoteForm from "../NoteForm";
 import OrderActivityTimeline from "../OrderActivityTimeline";
 import CancelledMoneyPanel from "../CancelledMoneyPanel";
 import CancelledMoneyBadge from "../CancelledMoneyBadge";
-import DispatchChecks from "../DispatchChecks";
 import HandoverPanel from "../../vyroba/HandoverPanel";
 import { shortPragueDate } from "../dispatchText";
 import { DispatchBadges } from "../OrderStatusBadges";
-import { dispatchView } from "../dispatchText";
 import { orderBatchCodes } from "@/lib/vyroba/batchAllocation";
 import { hasBillingDetails, orderPartyBlocks, shippingMethodText } from "@/lib/eshop/orderParties";
 
@@ -251,11 +249,19 @@ export default async function OrderDetailPage(
             </div>
           );
         })()}
-        <p className="text-xs text-neutral-500 mb-1">Faktura</p>
-        <DispatchChecks view={dispatchView(order)} invoiceOnly />
+        {/* Lucie 26. 11.: žádné zaškrtávání faktury — odchází sama, tady jen informace */}
+        <p className="text-xs text-neutral-500">
+          {order.invoiceSentAt
+            ? `Faktura odeslána ${shortPragueDate(order.invoiceSentAt)}`
+            : "Faktura odejde zákazníkovi sama — nic nezaškrtávej."}
+        </p>
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
+        {/* Lucie 26. 11.: stav a platba jen jako schovaná ruční oprava, ať nemate vedle panelu Předání */}
+        <details className="text-sm">
+          <summary className="cursor-pointer text-xs text-neutral-500">Ruční oprava stavu (jen výjimky — běžně nepoužívej)</summary>
+          <div className="flex flex-col gap-4 mt-3">
         <FulfillmentStatusForm
           orderId={order.id}
           currentStatus={order.fulfillmentStatus}
@@ -274,6 +280,8 @@ export default async function OrderDetailPage(
         ) : (
           <PaymentStatusForm orderId={order.id} currentStatus={order.paymentStatus} />
         )}
+          </div>
+        </details>
         <ResponsibleForm
           orderId={order.id}
           responsibleUserId={order.responsibleUserId}
