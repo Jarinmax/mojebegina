@@ -1,3 +1,4 @@
+import { showRemainingCounter as showCounter } from "../tastingSet";
 import { describe, expect, it } from "vitest";
 import { createCatalogIndex } from "../catalogIndex";
 import { resolveCartLines } from "../cart";
@@ -145,5 +146,13 @@ describe("choiceLine – příchutě pod názvem setu (Lucie 23. 11. 2026)", () 
   it("u jiného zboží nic", async () => {
     const { choiceLine } = await import("../tastingSet");
     expect(choiceLine("lipovy-sirup-3l")).toBeNull();
+  });
+});
+
+describe("počítadlo setů", () => {
+  it("ukáže se až od 80 zbývajících", () => {
+    expect(showCounter(100)).toBe(false);
+    expect(showCounter(81)).toBe(false);
+    expect(showCounter(80)).toBe(true);
   });
 });
