@@ -41,8 +41,10 @@ type Row = {
 // Částky vždy se dvěma desetinnými místy a stejně širokými číslicemi — čárky jsou pod sebou (Lucie 26. 11. 2026).
 const kc = (n: number) => `${new Intl.NumberFormat("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} Kč`;
 const kcHal = (hal: number) => kc(hal / 100);
-// Montáže a jiné práce (Jarin) nesouvisí s Beginou ani s bistrem — poznají se podle položek faktury.
+const fakturWord = (n: number) => (n === 1 ? "faktura" : n >= 2 && n <= 4 ? "faktury" : "faktur");
+// Jiné příjmy (Lucie 26. 11. 2026): nesouvisí s Beginou ani s bistrem — montáže, zprostředkování (podle položek faktury) a Wolt.
 const WORK_RE = /montáž|zprostředkování|elektro|klimatiz|servis|revize/i;
+const OTHER_ENTRY_RE = /wolt/i;
 const lastDay = (year: number, month: number) => String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0");
 const BASE = "/rizeni-firmy/faktury";
 
@@ -112,15 +114,20 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
       FROM idoklad_archive WHERE number IN (${sql.join(archive.map((i) => sql`${i.number}`), sql`, `)})`);
     for (const row of res.rows as { number: string; lines: string }[]) archiveLines.set(row.number, row.lines);
   }
-  const isWork = (it: Item) =>
-    WORK_RE.test(it.own ? it.own.snapshot.lines.map((l) => l.name).join(" | ") : archiveLines.get(it.number) ?? "");
+  const linesOf = (it: Item) => (it.own ? it.own.snapshot.lines.map((l) => l.name).join(" | ") : archiveLines.get(it.number) ?? "");
+  const isWork = (it: Item) => WORK_RE.test(linesOf(it));
   const work = items.filter(isWork);
   const beginaInvoices = items.filter((it) => !isWork(it));
   const bistro = noInvoice.filter((r) => /bistro/i.test(r.title));
-  const beginaOther = noInvoice.filter((r) => !/bistro/i.test(r.title));
+  const otherEntries = noInvoice.filter((r) => !/bistro/i.test(r.title) && OTHER_ENTRY_RE.test(`${r.title} ${r.counterparty ?? ""}`));
+  const beginaOther = noInvoice.filter((r) => !/bistro/i.test(r.title) && !otherEntries.includes(r));
   const itemKc = (it: Item) => (it.own ? (it.own.state === "issued" ? Number(it.own.total_kc) : 0) : it.old!.totalKc ?? 0);
   const beginaKc = beginaInvoices.reduce((sum, it) => sum + itemKc(it), 0) + beginaOther.reduce((sum, r) => sum + r.amountHal, 0) / 100;
-  const workKc = work.reduce((sum, it) => sum + itemKc(it), 0);
+  const workKc = work.reduce((sum, it) => sum + itemKc(it), 0) + otherEntries.reduce((sum, r) => sum + r.amountHal, 0) / 100;
+  const hasOther = work.length > 0 || otherEntries.length > 0;
+  // Bistro jen tam, kde jsou tržby — nebo v aktuálním/minulém měsíci, kdy se tržby teprve zapíšou (Lucie 26. 11. 2026: v lednu bistro ještě nebylo).
+  const prevYm = nowM === 1 ? `${nowY - 1}-12` : `${nowY}-${String(nowM - 1).padStart(2, "0")}`;
+  const showBistro = bistro.length > 0 || ym === today.slice(0, 7) || ym === prevYm;
   const bistroKc = bistro.reduce((sum, r) => sum + r.amountHal, 0) / 100;
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
 
@@ -140,6 +147,7 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
           </div>
           <div className="min-w-0">
             <p className="text-sm text-neutral-900 break-words">{r.customer_name}</p>
+            {isWork(it) && <p className="text-xs font-medium text-sky-800 break-words">{linesOf(it).split(" | ").filter((l) => !/zaokrouhlení/i.test(l)).join(" · ")}</p>}
             <p className="text-xs text-neutral-500">{r.order_id ? "e-shop" : "ruční"} · {r.sent_at ? `odesláno ${formatCzDay(r.sent_at.slice(0, 10))}` : "neodesláno"}</p>
           </div>
           <div className="col-start-2 sm:col-start-auto">
@@ -168,6 +176,7 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
           <p className="text-sm text-neutral-900 break-words">
             {orgId ? <Link href={`/rizeni-firmy/obchod/zakaznici/${orgId}`} className="underline">{inv.partner.name ?? "—"}</Link> : inv.partner.name ?? "—"}
           </p>
+          {isWork(it) && <p className="text-xs font-medium text-sky-800 break-words">{linesOf(it).split(" | ").filter((l) => !/zaokrouhlení/i.test(l)).join(" · ")}</p>}
           <p className="text-xs text-neutral-500">
             {/^9\d{6}$/.test(inv.number) ? "e-shop" : "ruční"} · starší (iDoklad)
             {order && (
@@ -190,7 +199,10 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
     <div key={r.id} className={row}>
       <div className="text-xs text-neutral-500 pt-0.5">{formatCzDate(r.entryDate)}</div>
       <div className="min-w-0">
-        <p className="text-sm text-neutral-900 break-words">{/bistro/i.test(r.title) ? "Tržby Zahradního bistra" : r.title}{r.counterparty ? ` · ${r.counterparty}` : ""}</p>
+        <p className="text-sm text-neutral-900 break-words">
+          {/bistro/i.test(r.title) ? "Tržby Zahradního bistra" : OTHER_ENTRY_RE.test(`${r.title} ${r.counterparty ?? ""}`) ? r.counterparty ?? r.title : `${r.title}${r.counterparty ? ` · ${r.counterparty}` : ""}`}
+        </p>
+        {OTHER_ENTRY_RE.test(`${r.title} ${r.counterparty ?? ""}`) && <p className="text-xs font-medium text-sky-800">výplata tržeb z Woltu</p>}
         {(r.paymentForm || r.note) && <p className="text-xs text-neutral-500 break-words">{[r.paymentForm, r.note].filter(Boolean).join(" · ")}</p>}
       </div>
       <p className={`${amount} col-start-2 sm:col-start-auto`}>{kcHal(r.amountHal)}</p>
@@ -213,33 +225,36 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   return (
     <div className="max-w-5xl">
       <PenizeTabs active="faktury" />
-      <p className="text-sm text-neutral-600 mb-3">Všechny příjmy po měsících, rozdělené na Beginu, montáže a bistro. Novou ruční fakturu připraví asistent (stačí mu napsat komu a co).</p>
+      <p className="text-sm text-neutral-600 mb-3">Všechny příjmy po měsících, rozdělené na Beginu a bistro (a jiné příjmy, když v měsíci nějaké jsou). Novou ruční fakturu připraví asistent (stačí mu napsat komu a co).</p>
       <MonthPicker year={year} month={month} nowYear={nowY} nowMonth={nowM} minYear={2020} href={(y, m) => `${BASE}?rok=${y}&mesic=${m}`} />
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+      <div className={`grid grid-cols-2 ${["sm:grid-cols-2", "sm:grid-cols-3", "sm:grid-cols-4"][Number(hasOther) + Number(showBistro)]} gap-2 mb-4`}>
         <div className="col-span-2 sm:col-span-1 bg-begina-primary-900 text-white rounded-xl p-3">
-          <p className="text-xs opacity-80 capitalize">Příjmy celkem – {monthLabel}</p>
+          <p className="text-xs opacity-80">Příjmy celkem – {monthLabel}</p>
           <p className="text-lg font-semibold tabular-nums">{kcHal(incomeTotalHal)}</p>
           <p className="text-xs opacity-80">jako v Přehledu</p>
         </div>
-        {[
-          ["Begina", beginaKc, "border-l-emerald-600"],
-          ["Montáže a práce", workKc, "border-l-sky-500"],
-          ["Bistro", bistroKc, "border-l-amber-500"],
-        ].map(([label, value, tone]) => (
-          <div key={label as string} className={`bg-white border border-neutral-200 border-l-8 ${tone} rounded-xl p-3`}>
+        {(
+          [
+            ["Begina", beginaKc, "border-l-emerald-600"],
+            // Jiné příjmy jen v měsíci, kdy nějaké jsou (Lucie 26. 11. 2026).
+            ...(hasOther ? [["Jiné příjmy", workKc, "border-l-sky-500"]] : []),
+            ...(showBistro ? [["Bistro", bistroKc, "border-l-amber-500"]] : []),
+          ] as [string, number, string][]
+        ).map(([label, value, tone]) => (
+          <div key={label} className={`bg-white border border-neutral-200 border-l-8 ${tone} rounded-xl p-3`}>
             <p className="text-xs text-neutral-500">{label}</p>
-            <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(value as number)}</p>
+            <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(value)}</p>
           </div>
         ))}
       </div>
       {unpaidCount > 0 && (
-        <p className="mb-3 rounded-lg bg-red-50 border border-red-300 px-3 py-2 text-sm font-medium text-red-800">Neuhrazeno: {unpaidCount} faktur za {kc(unpaidTotal)}</p>
+        <p className="mb-3 rounded-lg bg-red-50 border border-red-300 px-3 py-2 text-sm font-medium text-red-800">Neuhrazeno: {unpaidCount} {unpaidCount === 1 ? "faktura" : unpaidCount <= 4 ? "faktury" : "faktur"} za {kc(unpaidTotal)}</p>
       )}
       {!read.ok && <p className="text-sm text-red-700 mb-2">Starší faktury se nepodařilo načíst: {read.error}</p>}
       {archiveTruncated && <p className="text-sm text-amber-700 mb-2">Ze starších faktur je zobrazeno prvních 100.</p>}
-      {group("begina", "Begina – nápoje a polévky", `${beginaInvoices.length} faktur${beginaOther.length ? ` + ${beginaOther.length} bez faktury` : ""}`, "border-l-emerald-600", beginaKc, [...beginaInvoices.map(invoiceRow), ...beginaOther.map(entryRow)], "V tomto měsíci nic.")}
-      {group("prace", "Montáže a jiné práce", "nesouvisí s Beginou ani s bistrem", "border-l-sky-500", workKc, work.map(invoiceRow), "V tomto měsíci nic.")}
-      {group("bistro", "Zahradní bistro Begina", "tržby za celý měsíc (hotově, QR, kartou)", "border-l-amber-500", bistroKc, bistro.map(entryRow), "Zatím nezapsáno — tržby bistra se zapisují za celý měsíc, vždy začátkem dalšího měsíce.")}
+      {group("begina", "Begina – nápoje a polévky", `${beginaInvoices.length} ${fakturWord(beginaInvoices.length)}${beginaOther.length ? ` + ${beginaOther.length} bez faktury` : ""}`, "border-l-emerald-600", beginaKc, [...beginaInvoices.map(invoiceRow), ...beginaOther.map(entryRow)], "V tomto měsíci nic.")}
+      {hasOther && group("jine", "Jiné příjmy", "nesouvisí s Beginou ani s bistrem", "border-l-sky-500", workKc, [...work.map(invoiceRow), ...otherEntries.map(entryRow)], "")}
+      {showBistro && group("bistro", "Zahradní bistro Begina", "tržby za celý měsíc (hotově, QR, kartou)", "border-l-amber-500", bistroKc, bistro.map(entryRow), "Zatím nezapsáno — tržby bistra se zapisují za celý měsíc, vždy začátkem dalšího měsíce.")}
       <p className="text-xs text-neutral-500">Součet skupin se může od „Příjmy celkem“ lišit o poplatky za platby kartou — Přehled počítá skutečně přijaté peníze.</p>
     </div>
   );
