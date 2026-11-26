@@ -541,7 +541,9 @@ async function changeOrderColumn(
   const set =
     column === "fulfillment_status"
       ? sql`fulfillment_status = ${to}`
-      : sql`payment_status = ${to}, paid_at = ${to === "paid" ? sql`now()` : sql`NULL`}`;
+      : to === "paid"
+        ? sql`payment_status = ${to}, paid_at = now(), fulfillment_status = CASE WHEN fulfillment_status = 'new' THEN 'confirmed' ELSE fulfillment_status END`
+        : sql`payment_status = ${to}, paid_at = NULL`;
   const result = await db.execute(sql`
     WITH upd AS (
       UPDATE orders SET ${set}
