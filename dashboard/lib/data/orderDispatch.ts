@@ -40,7 +40,13 @@ export function parseShippedDate(raw: string, now: Date = new Date()): Date | { 
  * (sendInvoiceOnDispatch, jen zaplacená e-shopová objednávka, nejvýš jednou)
  * a zaškrtne se „Faktura poslána“. Datum jde zadat zpětně (odesláno včera).
  */
-export async function markOrderShipped(orderId: string, rawTracking: string, rawDate = ""): Promise<DispatchResult> {
+export async function markOrderShipped(
+  orderId: string,
+  rawTracking: string,
+  rawDate = "",
+  /** Lucie 26. 11. 2026: předáno přepravci, nebo osobně (rozvoz Begina → Doručeno) */
+  target: "handed_to_carrier" | "delivered" = "handed_to_carrier"
+): Promise<DispatchResult> {
   const ctx = await requireOrderContext();
   const tracking = rawTracking.trim().slice(0, TRACKING_MAX);
   const parsed = parseShippedDate(rawDate);
@@ -68,8 +74,9 @@ export async function markOrderShipped(orderId: string, rawTracking: string, raw
       }),
     ]);
   }
-  if (!(DISPATCHED_STATUSES as readonly string[]).includes(order.fulfillmentStatus)) {
-    const changed = await updateFulfillmentStatus(orderId, "handed_to_carrier", order.fulfillmentStatus);
+  // nové odeslání, nebo oprava způsobu (přepravce ↔ osobně) u už odeslané
+  if (order.fulfillmentStatus !== target) {
+    const changed = await updateFulfillmentStatus(orderId, target, order.fulfillmentStatus);
     if (!changed.ok) return { ok: false, error: changed.error };
   }
   return { ok: true };
