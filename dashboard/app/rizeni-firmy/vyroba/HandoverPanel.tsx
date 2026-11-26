@@ -65,7 +65,8 @@ export default function HandoverPanel({
   today: string;
 }) {
   const [state, action, pending] = useActionState<HandoverState, FormData>(handoverAction.bind(null, orderId), null);
-  const [mode, setMode] = useState<Mode>(defaultMode);
+  // Lucie 26. 11.: nic předvybraného — Jarin musí sám zvolit přepravce, nebo osobně
+  const [mode, setMode] = useState<Mode | null>(shipped ? defaultMode : null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -126,12 +127,16 @@ export default function HandoverPanel({
 
       <button
         type="submit"
-        disabled={pending || (needsPayment && !payment)}
+        disabled={pending || !mode || (needsPayment && !payment)}
         className="w-full rounded-xl bg-begina-primary-900 text-white text-base font-bold py-3 disabled:opacity-40"
       >
         {pending ? "Ukládám…" : shipped ? "Uložit" : "Potvrdit předání"}
       </button>
-      {needsPayment && !payment && <p className="text-xs text-neutral-600 -mt-2">Nejdřív vyber, jak zákazník platí.</p>}
+      {!mode ? (
+        <p className="text-xs text-neutral-600 -mt-2">Nejdřív vyber, jak jsi to předal.</p>
+      ) : (
+        needsPayment && !payment && <p className="text-xs text-neutral-600 -mt-2">Nejdřív vyber, jak zákazník platí.</p>
+      )}
       {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
     </form>
   );
