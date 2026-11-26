@@ -176,6 +176,13 @@ export async function issueOwnManualOrderInvoice(db: Db, orderId: string, deps: 
     SELECT metadata->>'externalInvoiceNumber' AS number FROM order_activity
     WHERE order_id = ${orderId} AND kind = 'created' AND metadata->>'externalInvoiceNumber' IS NOT NULL LIMIT 1`)).rows[0] as { number: string } | undefined;
   if (external) return { status: "skipped", reason: `K objednávce už existuje faktura ${external.number} vystavená mimo MojeBegina.` };
+  // 26. 11. 2026: ruční (B2B) faktura vystavená předem s číslem této objednávky — druhou nevystavovat
+  const manualDoc = (await db.execute(sql`
+    SELECT d.number FROM own_invoice_documents d JOIN orders o ON o.id = ${orderId}
+    WHERE d.state <> 'cancelled' AND d.kind = 'invoice'
+      AND (d.order_id = ${orderId} OR d.snapshot->>'orderReference' = o.order_number::text)
+    LIMIT 1`)).rows[0] as { number: string } | undefined;
+  if (manualDoc) return { status: "skipped", reason: `K objednávce už existuje faktura ${manualDoc.number} (vystavená ručně předem).` };
   const items = (await db.execute(sql`SELECT name, quantity, unit_price_kc, line_total_kc FROM order_items WHERE order_id = ${orderId} ORDER BY name`)).rows as {
     name: string;
     quantity: number;
