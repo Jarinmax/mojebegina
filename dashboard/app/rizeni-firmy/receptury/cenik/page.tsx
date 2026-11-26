@@ -4,7 +4,7 @@ import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { formatUnitPrice, isOfferInUse, lowestRegularUnitPriceKc, offerUnitPriceKc, priceUnitLabel, type PriceUnit, type RecipeIngredient, type RecipeOffer } from "@/lib/receptury/recipes";
 import { loadOffers, loadRecipes, offerTableExists, recipeTablesExist } from "@/lib/receptury/recipesServer";
 import Link from "next/link";
-import { INGREDIENT_GROUPS, ingredientGroupKey } from "@/lib/receptury/ingredientGroups";
+import { INGREDIENT_GROUPS, PACKAGING_SECTIONS, ingredientGroupKey, packagingSectionKey } from "@/lib/receptury/ingredientGroups";
 import OfferForm from "./OfferForm";
 import OfferRow, { type OfferView } from "./OfferRow";
 import PriceRow from "./PriceRow";
@@ -162,8 +162,11 @@ export default async function CenikSurovinPage({ searchParams }: { searchParams:
               <div className="bg-white border border-neutral-200 rounded-xl">{card(activeItem, activeItem.kind !== "obal")}</div>
             ) : (
               // 19. 11. 2026 (Lucie): ve skupině jen seznam názvů — ťuknutím se otevře jedna položka s nabídkami.
+              // 27. 11. 2026 (Lucie): obaly v sekcích Bagy a krabice / Kapsičky / Etikety.
+              (() => {
+                const list = (rows: typeof active.rows) => (
               <ul className="bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100">
-                {active.rows.map((row) => {
+                {rows.map((row) => {
                   const n = offerCount(row.id);
                   return (
                     <li key={row.id}>
@@ -180,6 +183,23 @@ export default async function CenikSurovinPage({ searchParams }: { searchParams:
                   );
                 })}
               </ul>
+                );
+                if (active.key !== "obaly") return list(active.rows);
+                return (
+                  <div className="flex flex-col gap-4">
+                    {PACKAGING_SECTIONS.map((sec) => {
+                      const rows = active.rows.filter((row) => packagingSectionKey(row.name) === sec.key);
+                      if (rows.length === 0) return null;
+                      return (
+                        <div key={sec.key}>
+                          <h3 className="text-sm font-semibold text-begina-primary-900 mb-1.5 px-1">{sec.label}</h3>
+                          {list(rows)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             )}
           </section>
         </>

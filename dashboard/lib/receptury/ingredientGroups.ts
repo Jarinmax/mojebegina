@@ -31,3 +31,16 @@ export function ingredientGroupKey(name: string, kind: string): string {
   for (const [key, re] of RULES) if (re.test(name)) return key;
   return "ostatni";
 }
+
+// Obaly rozdělené do sekcí (Lucie 27. 11. 2026): bagy a krabice, kapsičky, etikety.
+export const PACKAGING_SECTIONS: { key: string; label: string; re: RegExp | null }[] = [
+  { key: "bagy", label: "Bagy a krabice", re: /\bbag|krabic/i },
+  { key: "kapsicky", label: "Kapsičky", re: /kapsičk|doypack|sáč/i },
+  { key: "etikety", label: "Etikety", re: /etiket/i },
+  { key: "ostatni", label: "Ostatní obaly", re: null },
+];
+
+export function packagingSectionKey(name: string): string {
+  for (const s of PACKAGING_SECTIONS) if (s.re && s.re.test(name)) return s.key;
+  return "ostatni";
+}
