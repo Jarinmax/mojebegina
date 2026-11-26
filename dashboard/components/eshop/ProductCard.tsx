@@ -14,6 +14,7 @@ import { isSoupPack } from "@/lib/eshop/soupPack";
 export default function ProductCard({ product }: { product: Product }) {
   const href = `/produkt/${product.slug}`;
   const hasChoice = product.variants.length > 1;
+  const anySoldOut = product.variants.some((v) => v.soldOut === true);
   // štítek s trvanlivostí po otevření (16. 11. 2026) — z textu trvanlivosti produktu
   const opened = afterOpeningBadge(product);
   // ochutnávkový set: štítek Novinka, cena vč. dopravy a výběr sirupů až na stránce produktu
@@ -67,7 +68,8 @@ export default function ProductCard({ product }: { product: Product }) {
                     {formatPrice(v.priceKc)}
                     {v.label ? <span className="font-normal text-neutral-500"> / {v.label}</span> : null}
                   </span>
-                  {v.soldOut === true ? <SoldOutBadge className="h-4 px-1 text-[9px]" /> : <InStockBadge />}
+                  {/* štítky jen když je něco vyprodané – všechno skladem = bez štítků (Lucie 27. 11. 2026) */}
+                  {anySoldOut ? (v.soldOut === true ? <SoldOutBadge className="h-4 px-1 text-[9px]" /> : <InStockBadge />) : <span />}
                 </li>
               ))}
           </ul>
