@@ -6,6 +6,7 @@ import { formatCzechDate, formatKc } from "@/lib/format";
 import CustomerOwnerForm from "./CustomerOwnerForm";
 import CustomerNoteForm from "./CustomerNoteForm";
 import CustomerAddressForm from "./CustomerAddressForm";
+import PayLaterToggle from "./PayLaterToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,10 @@ export default async function CustomerDetailPage(
           registeredAddress={customer.registeredAddress}
           deliveryAddress={customer.deliveryAddress}
         />
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+        <PayLaterToggle organizationId={customer.id} allowed={customer.payLaterAllowed} />
       </div>
 
       <div className="mb-4">

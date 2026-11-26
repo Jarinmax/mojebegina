@@ -1267,6 +1267,7 @@ export type CustomerDetail = CustomerCardData & {
   registeredAddress: string;
   /** Doručovací adresa (migrace 0063); null = vozí se na sídlo / adresu z objednávky. */
   deliveryAddress: string | null;
+  payLaterAllowed: boolean;
   recentOrders: CustomerOrderSummary[];
   activity: CustomerActivityEntry[];
 };
@@ -1281,6 +1282,7 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
       billingName: organizations.billingName,
       registeredAddress: organizations.registeredAddress,
       deliveryAddress: organizations.deliveryAddress,
+      payLaterAllowed: organizations.payLaterAllowed,
       ico: organizations.ico,
       ownerUserId: organizations.ownerUserId,
       acquiredByUserId: organizations.acquiredByUserId,
@@ -1325,6 +1327,7 @@ export async function getCustomerDetail(organizationId: string): Promise<Custome
     billingName: org.billingName ?? null,
     registeredAddress: org.registeredAddress,
     deliveryAddress: org.deliveryAddress ?? null,
+    payLaterAllowed: org.payLaterAllowed,
     ico: org.ico,
     ownerUserId: org.ownerUserId,
     ownerName: owner?.name ?? owner?.email ?? null,
@@ -1554,6 +1557,25 @@ export async function setCustomerDeliveryAddress(organizationId: string, raw: st
           ? `Doručovací adresa změněna: ${org.old} → ${next}`
           : `Doplněna doručovací adresa: ${next}`
         : `Doručovací adresa smazána (byla: ${org.old})`,
+    }),
+  ]);
+  return { ok: true };
+}
+
+/** Stálý zákazník: nezaplacené objednávky (hotově / na fakturu) smí do výroby hned (Lucie 26. 11. 2026). */
+export async function setCustomerPayLaterAllowed(organizationId: string, allowed: boolean): Promise<LeadResult> {
+  const ctx = await requireCrmContext();
+  const [org] = await db.select({ old: organizations.payLaterAllowed }).from(organizations).where(eq(organizations.id, organizationId)).limit(1);
+  if (!org) return { ok: false, error: "Zákazník nebyl nalezen." };
+  if (org.old === allowed) return { ok: true };
+  await db.batch([
+    db.update(organizations).set({ payLaterAllowed: allowed }).where(eq(organizations.id, organizationId)),
+    db.insert(organizationActivity).values({
+      organizationId,
+      authorUserId: ctx.userId,
+      authorName: ctx.name,
+      kind: "note_added",
+      body: allowed ? "Stálý zákazník: objednávky do výroby i před zaplacením" : "Objednávky do výroby až po zaplacení",
     }),
   ]);
   return { ok: true };
