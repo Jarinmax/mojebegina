@@ -67,6 +67,8 @@ export const SECTION_GROUPS: Group[] = [
     items: [
       // 23. 11. 2026 (Lucie): Ekonomika, Faktury a Doklady pod jednou dlaždicí
       // „Finance“ se záložkami Přehled / Faktury / Účtenky (stránky zůstávají).
+      // 26. 11. 2026 (Lucie): Projekt Begina nahoru — jedna oblast = jedno vlákno v Claudovi.
+      { href: "/rizeni-firmy/projekt", label: "Projekt Begina (všechna vlákna)", icon: "🗂️", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ekonomika", label: "Finance (přehled, příjmy, náklady)", icon: "💰", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ceo", label: "CEO přehled", icon: "🎯", show: (f) => f.ceoFocus },
       { href: "/rizeni-firmy/legislativni-audit", label: "Legislativní audit", icon: "⚖️", show: (f) => f.ekonomika },
@@ -78,7 +80,6 @@ export const SECTION_GROUPS: Group[] = [
       { href: "/spoluprace/lucie", label: "Lucie — spolupráce", icon: "🐝", show: (f) => f.admin },
       { href: "/vyroba/petr", label: "Petr — výroba", icon: "👨‍🍳", show: (f) => f.admin },
       { href: "/rizeni-firmy/asistent", label: "Asistent ChatGPT", icon: "🤖", show: (f) => f.agent },
-      { href: "/rizeni-firmy/projekt", label: "Poznámky pro asistenta", icon: "🗂️", show: (f) => f.ekonomika },
       { href: "#mapa-firmy", label: "Mapa firmy a zápisy", icon: "🧭" },
     ],
   },

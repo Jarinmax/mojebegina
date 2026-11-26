@@ -31,7 +31,7 @@ export default async function ProjektPage() {
   return (
     <div className="flex flex-col gap-6 text-neutral-900">
       <div>
-        <h1 className="mt-1 text-2xl font-semibold">Poznámky pro asistenta</h1>
+        <h1 className="mt-1 text-2xl font-semibold">Projekt Begina</h1>
         <p className="mt-1 text-sm text-neutral-600">Tady si asistent zapisuje, co jsme rozhodli a co je hotové, aby to věděl v každém vláknu. Nemusíš tu nic dělat — stačí mu říct „zapiš to“.</p>
       </div>
 
