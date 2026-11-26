@@ -4,7 +4,7 @@ import { couponDisplayName } from "@/lib/eshop/coupons";
 import ShopLink from "./ShopLink";
 import { Trash } from "lucide-react";
 import { resolveCartLines } from "@/lib/eshop/cart";
-import { choiceLine } from "@/lib/eshop/tastingSet";
+import { choiceLine, isSetSku } from "@/lib/eshop/tastingSet";
 import { CAFE_TASTING_BEGINA_REMOVED, CAFE_TASTING_ONCE_TEXT, cartHasCafeTasting, cartHasTastingBegina, isCafeTasting } from "@/lib/eshop/cafeTasting";
 import { isOrderable, NOT_ORDERABLE_NOTICE } from "@/lib/eshop/productRules";
 import { useCatalog } from "./CatalogProvider";
@@ -131,11 +131,16 @@ export default function CartView({ weightShipping = false, zasilkovna = false }:
                 </label>
               )}
               <div className="mt-2 flex items-center gap-3">
-                <QuantityStepper
-                  value={line.quantity}
-                  onChange={(value) => setQuantity(line.sku, value)}
-                  label={`Množství – ${line.name}`}
-                />
+                {isSetSku(line.sku) ? (
+                  // set: bez +/− (každý sirup jen jednou; Lucie 26. 11. 2026)
+                  line.quantity > 1 ? <span className="text-sm tabular-nums">{line.quantity} ×</span> : null
+                ) : (
+                  <QuantityStepper
+                    value={line.quantity}
+                    onChange={(value) => setQuantity(line.sku, value)}
+                    label={`Množství – ${line.name}`}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => setQuantity(line.sku, 0)}
