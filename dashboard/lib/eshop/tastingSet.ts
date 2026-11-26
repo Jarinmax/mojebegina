@@ -160,6 +160,11 @@ export const SET_NEEDS_CHOICE = "U ochutnávkového setu vyberte prosím pět r�
 export function lowestPriceNote(priceKc: number): string {
   return `Nejnižší cena před slevou: ${priceKc} Kč + doprava`;
 }
+/** Počítadlo se ukáže až od 80 zbývajících setů – „100 ze 100“ odrazovalo (Josef/Lucie 26. 11. 2026). */
+export const SET_COUNTER_SHOW_AT = 80;
+export function showRemainingCounter(remaining: number): boolean {
+  return remaining <= SET_COUNTER_SHOW_AT;
+}
 export function remainingLabel(remaining: number): string {
   return `Zbývá ${remaining} ze ${SET_CAMPAIGN_LIMIT} setů`;
 }

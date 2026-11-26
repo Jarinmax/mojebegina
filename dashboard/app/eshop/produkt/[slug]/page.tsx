@@ -27,7 +27,7 @@ import { SOUP_PACK_DELIVERY_LABEL, SOUP_PACK_FACTS_LINK, SOUP_PACK_INGREDIENTS_N
 import SoupFacts, { type SoupFactsData } from "@/components/eshop/SoupFacts";
 import { coldShippingPrice } from "@/lib/eshop/shippingRates";
 import { applyFuelSurchargeFromDb } from "@/lib/eshop/fuelSurchargeServer";
-import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel } from "@/lib/eshop/tastingSet";
+import { SET_CAMPAIGN_PRICE_NOTE, SET_DELIVERY_NOTE, SET_DELIVERY_NOTE_CAMPAIGN, SET_LINK_LABEL, SET_LINK_QUESTION, SET_PHOTO_NOTE, SET_SLUG, SET_SYRUPS, SET_SYRUPS_HEADING, SET_UNDER_PRICE, isTastingSet, lowestPriceNote, remainingLabel, showRemainingCounter } from "@/lib/eshop/tastingSet";
 import ServingPriceLine from "@/components/eshop/ServingPriceLine";
 import AddToCartButton from "@/components/eshop/AddToCartButton";
 import VariantOnly from "@/components/eshop/VariantOnly";
@@ -296,7 +296,7 @@ export default async function ProductPage({ params }: PageProps<"/eshop/produkt/
           {isSet && (
             <div className="mt-3 flex flex-col items-start gap-1.5 text-sm text-neutral-700">
               {campaign && <p className="text-base font-bold text-begina-accent-700">{SET_CAMPAIGN_PRICE_NOTE}</p>}
-              {campaign && (
+              {campaign && showRemainingCounter(campaign.remaining) && (
                 <p className="rounded-full bg-[#F1EFE3] px-2.5 py-0.5 text-[13px] font-medium text-[#4A5527] tabular-nums">{remainingLabel(campaign.remaining)}</p>
               )}
               {campaign && <p className="text-[13px] text-neutral-500">{lowestPriceNote(campaign.regularPriceKc)}</p>}
