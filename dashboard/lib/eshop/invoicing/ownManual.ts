@@ -11,7 +11,7 @@ import type * as schema from "@/lib/db/schema";
 import { emailConfig, invoiceCopyRecipients, invoiceEmailSender, resolveRecipients, type EmailConfig } from "../email/config";
 import { resendTransport, type EmailTransport } from "../email/resend";
 import { PARTNER_EMAIL_SIGNATURE } from "../partnerMonthly";
-import { suggestSalutation } from "../salutation";
+import { invoiceEmailParagraphs, invoiceGreeting } from "./invoiceEmailText";
 import { recordInvoiceEmailed } from "../invoiceSentFlag";
 import { parseCheckoutAddress } from "./draft";
 import { addWorkdaysDay, INVOICE_DUE_WORKDAYS } from "./b2bInvoiceValidation";
@@ -225,19 +225,16 @@ export async function issueOwnManualOrderInvoice(db: Db, orderId: string, deps: 
   }
 }
 
-export function manualInvoiceEmail(snapshot: OwnInvoiceSnapshot, number: string, salutationName: string | null, bankAccount: string | null): { subject: string; text: string; html: string } {
-  const salutation = suggestSalutation(salutationName);
-  const hello = salutation ? `Dobrý den, ${salutation},` : "Dobrý den,";
-  const paid = Boolean(snapshot.paidDate);
-  const body = paid
-    ? `v příloze posíláme fakturu č. ${number} k Vaší objednávce. Faktura je již uhrazená, nic dalšího neplaťte.`
-    : `v příloze posíláme fakturu č. ${number} k Vaší objednávce. Prosíme o úhradu ${formatKc(snapshot.totalKc)} do ${formatCzDay(snapshot.dueDate)}${bankAccount ? ` na účet ${bankAccount}` : ""}, variabilní symbol ${number}. Nejjednodušší je naskenovat QR kód na faktuře v bankovní aplikaci.`;
+export function manualInvoiceEmail(snapshot: OwnInvoiceSnapshot, number: string, salutationName: string | null, _bankAccount: string | null): { subject: string; text: string; html: string } {
+  const hello = invoiceGreeting(salutationName) ?? invoiceGreeting(snapshot.customer.name) ?? "Dobrý den,";
+  const paras = invoiceEmailParagraphs({ number, totalKc: snapshot.totalKc, dueDate: snapshot.dueDate, paid: Boolean(snapshot.paidDate) });
+  const body = paras.join("\n\n");
   const [team, ...contacts] = PARTNER_EMAIL_SIGNATURE;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return {
-    subject: `Faktura ${number} – Begina`,
-    text: `${hello}\n\n${body}\n\nDěkujeme za objednávku.\n\nS přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}`,
-    html: `<p>${esc(hello)}</p><p>${esc(body)}</p><p>Děkujeme za objednávku.</p><p><em>S přátelským pozdravem</em><br><strong>${esc(team)}</strong><br>${contacts.map(esc).join("<br>")}</p>`,
+    subject: `Faktura č. ${number} – Begina`,
+    text: `${hello}\n\n${body}\n\nS přátelským pozdravem\n${PARTNER_EMAIL_SIGNATURE.join("\n")}`,
+    html: `<p>${esc(hello)}</p>${paras.map((p) => `<p>${esc(p)}</p>`).join("")}<p><em>S přátelským pozdravem</em><br><strong>${esc(team)}</strong><br>${contacts.map(esc).join("<br>")}</p>`,
   };
 }
 
