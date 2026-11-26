@@ -12,7 +12,7 @@ function emptyRow(key: number): ItemRow {
   return { key, name: "", quantity: "1", unitPriceKc: "" };
 }
 
-export default function CreateOrderForm({ organizations }: { organizations: OrganizationOption[] }) {
+export default function CreateOrderForm({ organizations, trackedItems = [] }: { organizations: OrganizationOption[]; trackedItems?: string[] }) {
   const [state, formAction, pending] = useActionState(createOrderAction, initialState);
   const [items, setItems] = useState<ItemRow[]>([emptyRow(0)]);
   const [nextKey, setNextKey] = useState(1);
@@ -93,11 +93,17 @@ export default function CreateOrderForm({ organizations }: { organizations: Orga
       <div>
         <p className="text-xs text-neutral-500 mb-1">Položky</p>
         <div className="flex flex-col gap-2">
+          <datalist id="tracked-items">
+            {trackedItems.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           {items.map((row) => (
             <div key={row.key} className="flex items-center gap-2">
               <input
                 name="itemName"
                 type="text"
+                list="tracked-items"
                 placeholder="Název"
                 required
                 value={row.name}
