@@ -175,10 +175,10 @@ function Check({
   );
 }
 
-export default function DispatchChecks({ view, shipOnly = false }: { view: DispatchView; shipOnly?: boolean }) {
+export default function DispatchChecks({ view, shipOnly = false, invoiceOnly = false }: { view: DispatchView; shipOnly?: boolean; invoiceOnly?: boolean }) {
   return (
-    <div className={`grid grid-cols-1 gap-2 ${shipOnly ? "" : "sm:grid-cols-2"}`}>
-      <Check
+    <div className={`grid grid-cols-1 gap-2 ${shipOnly || invoiceOnly ? "" : "sm:grid-cols-2"}`}>
+      {!invoiceOnly && <Check
         orderId={view.orderId}
         kind="ship"
         done={view.shipped.done}
@@ -191,7 +191,7 @@ export default function DispatchChecks({ view, shipOnly = false }: { view: Dispa
         shippedOn={view.shippedOn}
         today={view.today}
         undoWarning="Stav se vrátí na „Připravená“. Faktura, která už zákazníkovi odešla, zůstane odeslaná."
-      />
+      />}
       {!shipOnly && <Check
         orderId={view.orderId}
         kind="invoice"
