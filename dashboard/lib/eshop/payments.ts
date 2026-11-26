@@ -56,7 +56,9 @@ export function settleOrderPaymentSql(
       FOR UPDATE OF o
     ),
     upd AS (
-      UPDATE orders o SET payment_status = 'paid', paid_at = ${paidAt.toISOString()}::timestamptz
+      UPDATE orders o SET payment_status = 'paid', paid_at = ${paidAt.toISOString()}::timestamptz,
+        -- Lucie 26. 11.: zaplacená objednávka už není „Nová“ — potvrdí se sama
+        fulfillment_status = CASE WHEN o.fulfillment_status = 'new' THEN 'confirmed' ELSE o.fulfillment_status END
       FROM prev WHERE o.id = prev.id
       RETURNING o.id, prev.payment_status AS from_status
     )

@@ -250,11 +250,9 @@ export default async function OrderDetailPage(
           );
         })()}
         {/* Lucie 26. 11.: žádné zaškrtávání faktury — odchází sama, tady jen informace */}
-        <p className="text-xs text-neutral-500">
-          {order.invoiceSentAt
-            ? `Faktura odeslána ${shortPragueDate(order.invoiceSentAt)}`
-            : "Faktura odejde zákazníkovi sama — nic nezaškrtávej."}
-        </p>
+        {!order.shippedAt && (
+          <p className="text-xs text-neutral-500">Po potvrzení předání odejde faktura zákazníkovi sama.</p>
+        )}
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4 flex flex-col gap-4">
