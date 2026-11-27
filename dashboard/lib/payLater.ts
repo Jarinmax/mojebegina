@@ -13,3 +13,13 @@ export function isPayLater(methodCode: string | null | undefined, methodLabel: s
   if (methodCode) return false; // e-shopové kódy (prevod, karta) jsou platba předem
   return !!methodLabel && re.test(methodLabel);
 }
+
+/**
+ * Poznámka k platbě ve Výrobě. Na fakturu (Jarin 27. 11. 2026, Milan Kašpárek):
+ * faktura jde zákazníkovi předem a platí se později se splatností — zboží se
+ * předá i nezaplacené. Hotově / dobírkou se platí opravdu až při předání.
+ */
+export function payLaterNote(method: string | null | undefined): string {
+  if (method && /faktur/i.test(method)) return "na fakturu se splatností";
+  return `platí ${method ?? "hotově"} při předání`;
+}

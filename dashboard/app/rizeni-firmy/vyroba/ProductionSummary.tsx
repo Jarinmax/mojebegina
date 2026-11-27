@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { payLaterNote } from "@/lib/payLater";
 import { PRODUCTION_GROUPS, type AwaitingPaymentOrder, type ProductionOrder } from "@/lib/data/productionBoard";
 import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { formatDeadlineShort } from "@/lib/czWorkdays";
@@ -108,7 +109,7 @@ export default function ProductionSummary({ orders, awaiting = [], money }: { or
                     "—"
                   )}
                   {o.payLater && (
-                    <span className="block mt-1 text-xs font-semibold text-amber-800">💵 platí {o.paymentMethod} při předání</span>
+                    <span className="block mt-1 text-xs font-semibold text-amber-800">💵 {payLaterNote(o.paymentMethod)}</span>
                   )}
                 </td>
               ))}
@@ -166,7 +167,7 @@ export default function ProductionSummary({ orders, awaiting = [], money }: { or
                   <span className="flex-none rounded-md bg-red-100 text-red-800 text-xs font-bold px-2 py-1">do {formatDeadlineShort(o.deadline)}</span>
                 )}
               </div>
-              {o.payLater && <p className="text-sm font-semibold text-amber-800 mt-1">💵 Platí {o.paymentMethod} při předání</p>}
+              {o.payLater && <p className="text-sm font-semibold text-amber-800 mt-1">💵 {payLaterNote(o.paymentMethod)}</p>}
               {o.deliveryAddress && <p className="text-sm text-neutral-800 mt-1 break-words">📍 {o.deliveryAddress}</p>}
               {o.deliveryPhone && (
                 <a href={`tel:${o.deliveryPhone.replace(/\s+/g, "")}`} className="text-sm text-neutral-800 underline">
@@ -241,7 +242,7 @@ export default function ProductionSummary({ orders, awaiting = [], money }: { or
               <span className="block text-xs text-neutral-600">
                 {complete.has(o.id) ? "✓ Komplet – vyrobeno" : "Vyrobeno"} {o.producedCount} z {o.items.length}
                 {o.deadline ? ` · termín do ${formatDeadlineShort(o.deadline)}` : ""}
-                {o.payLater ? ` · platí ${o.paymentMethod} při předání` : ""}
+                {o.payLater ? ` · ${payLaterNote(o.paymentMethod)}` : ""}
               </span>
             </span>
             <span className="flex-none rounded-lg bg-begina-primary-900 text-begina-primary-50 px-3 py-2 text-sm">Karta</span>
