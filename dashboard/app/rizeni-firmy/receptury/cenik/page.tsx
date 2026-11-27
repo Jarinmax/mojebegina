@@ -98,7 +98,7 @@ export default async function CenikSurovinPage({ searchParams }: { searchParams:
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
       <h1 className="mt-2 text-2xl font-semibold">Ceník surovin a obalů</h1>
       <p className={`mt-2 text-sm text-neutral-600 ${active ? "hidden sm:block" : ""}`}>
-        Cena v ceníku platí pro všechny receptury — po uložení se náklady a marže přepočítají všude, kde se surovina nebo obal používá. Pod každou položkou jsou nabídky dodavatelů s odkazem na nákup; cena za jednotku je včetně dopravy. Zeleně je nabídka, podle které se dnes počítá; tlačítkem „Počítat touto cenou“ ji změníte.
+        Cena v ceníku platí pro všechny recepty — po uložení se náklady a marže přepočítají všude, kde se surovina nebo obal používá. Pod každou položkou jsou nabídky dodavatelů s odkazem na nákup; cena za jednotku je včetně dopravy. Zeleně je nabídka, podle které se dnes počítá; tlačítkem „Počítat touto cenou“ ji změníte.
       </p>
       {!hasOffers && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Nabídky dodavatelů ještě nejsou v databázi — je potřeba spustit v Neonu skript 128_nakupy_surovin_MAIN.</p>}
       {/* 19. 11. 2026 (Lucie): nejdřív skupina, pak jen její položky — na mobilu bez nekonečného scrollování. */}

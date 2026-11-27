@@ -45,7 +45,9 @@ export const SECTION_GROUPS: Group[] = [
       { href: "/rizeni-firmy/vyroba", label: "Výroba a expedice", icon: "🏭" },
       // 26. 11. 2026 (Lucie): hotové výrobky — šarže + hlídané kusy kapsiček 650 ml s odpisem
       { href: "/rizeni-firmy/vyroba/sklad-hotovych", label: "Sklad hotových výrobků", icon: "🧃" },
-      { href: "/rizeni-firmy/receptury", label: "Receptury a náklady", icon: "🥣", show: (f) => f.ekonomika },
+      // 27. 11. 2026 (Lucie): recepty pro výrobu zvlášť od nákladů — kuchař vidí jen co a kolik
+      { href: "/rizeni-firmy/recepty", label: "Recepty", icon: "🥣", show: (f) => f.ekonomika },
+      { href: "/rizeni-firmy/receptury", label: "Náklady a marže", icon: "💰", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/receptury/cenik", label: "Ceník surovin a obalů", icon: "🧾", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/etikety", label: "Etikety", icon: "🏷️" },
       // 25. 11. 2026 (Lucie): Sklad zpět v rozcestníku — příjem surovin a obalů

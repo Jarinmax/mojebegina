@@ -5,7 +5,8 @@ import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { RECIPE_CATEGORIES, batchCostKc, calcVariant, formatKcValue, formatQuantity, formatUnitPrice, itemCostKc, parseBatchCount, priceUnitLabel } from "@/lib/receptury/recipes";
 import { loadRecipes, packagingPrices, recipeTablesExist } from "@/lib/receptury/recipesServer";
 
-// RECEPTURY A NÁKLADY 1.0 — jedna receptura: přesné složení na zvolený počet
+// NÁKLADY A MARŽE (dřív Receptury a náklady; recept pro výrobu je od 27. 11. 2026
+// zvlášť v /rizeni-firmy/recepty) — jedna receptura: přesné složení na zvolený počet
 // 3l begin, náklad surovin a kalkulace všech balení. Jen Jaroslav a Lucie.
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,12 @@ export default async function RecepturaPage(props: PageProps<"/rizeni-firmy/rece
   const category = RECIPE_CATEGORIES.find((item) => item.key === recipe.category)?.label ?? recipe.category;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <p className="mt-2 text-xs uppercase tracking-wide text-neutral-500">{category}</p>
+    <div className="max-w-5xl mx-auto px-4 py-4 text-neutral-900">
+      <p className="text-xs uppercase tracking-wide text-neutral-500">{category} · náklady a marže</p>
       <h1 className="text-2xl font-semibold">{recipe.name}</h1>
+      <Link href={`/rizeni-firmy/recepty/${recipe.slug}`} className="mt-1 inline-block text-sm text-begina-primary-900 hover:underline">
+        🥣 Recept pro výrobu (bez cen) →
+      </Link>
       {recipe.archived && <p className="mt-2 inline-block rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-700">Nevyrábí se — archivní receptura</p>}
       {recipe.note && <p className="mt-3 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">{recipe.note}</p>}
 

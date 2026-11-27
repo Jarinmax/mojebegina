@@ -19,7 +19,7 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
   if (!(await recipeTablesExist())) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 text-neutral-900">
-        <h1 className="text-2xl font-semibold">Receptury a náklady</h1>
+        <h1 className="text-2xl font-semibold">Náklady a marže</h1>
         <p className="mt-3 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Tabulky pro receptury v databázi ještě nejsou. Spusťte v Neonu skript 123_receptury_MAIN.</p>
       </div>
     );
@@ -30,8 +30,8 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <h1 className="mt-2 text-2xl font-semibold">Receptury a náklady</h1>
-      <p className="mt-2 text-sm text-neutral-600">Přesné složení každého výrobku na 3l beginu, náklad a marže. Ceny surovin se berou z jednoho ceníku — po změně ceny se přepočítá všechno. Marže je po surovinách a obalech; práce, energie, reklama a provize v ní nejsou.</p>
+      <h1 className="mt-2 text-2xl font-semibold">Náklady a marže</h1>
+      <p className="mt-2 text-sm text-neutral-600">Náklad na 3l beginu, prodejní cena a marže každého výrobku. Recept pro výrobu (bez cen) je zvlášť v Receptech. Ceny surovin se berou z jednoho ceníku — po změně ceny se přepočítá všechno. Marže je po surovinách a obalech; práce, energie, reklama a provize v ní nejsou.</p>
       {/* 21. 11. 2026 (Lucie): ceník už ne jako černé tlačítko vpravo nahoře, ale
           jako samostatný, jinak označený blok — je to podklad pro všechny receptury. */}
       <Link
@@ -41,11 +41,11 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
         <span className="text-2xl" aria-hidden>🧾</span>
         <span className="flex-1">
           <span className="block text-base font-medium text-begina-primary-900">Ceník surovin a obalů</span>
-          <span className="block text-xs text-neutral-600">Tady se mění ceny surovin a obalů — receptury se podle nich přepočítají samy.</span>
+          <span className="block text-xs text-neutral-600">Tady se mění ceny surovin a obalů — recepty se podle nich přepočítají samy.</span>
         </span>
         <span className="text-sm text-neutral-500">→</span>
       </Link>
-      {recipes.length === 0 && <p className="mt-6 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Zatím tu není žádná receptura.</p>}
+      {recipes.length === 0 && <p className="mt-6 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Zatím tu není žádný recept.</p>}
 
       {/* 17. 11. 2026 (Lucie): nejdřív vybrat kategorii, pak vidět jen její výrobky — bez scrollování. */}
       {(() => {
@@ -135,20 +135,24 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
                 <tbody>
                   {rows.map((recipe) => {
                     const main = recipe.variants[0] ? calcVariant(recipe, recipe.variants[0], packaging) : null;
+                    const href = `/rizeni-firmy/receptury/${recipe.slug}`;
                     return (
-                      <tr key={recipe.slug} className="border-b border-neutral-100 last:border-0">
-                        <td className="px-3 py-2">
-                          <Link href={`/rizeni-firmy/receptury/${recipe.slug}`} className="font-medium text-begina-primary-900 hover:underline">
+                      // Celý řádek je odkaz na recepturu (Lucie 27. 11. 2026).
+                      <tr key={recipe.slug} className="border-b border-neutral-100 last:border-0 hover:bg-begina-primary-50 cursor-pointer">
+                        <td className="p-0">
+                          <Link href={href} className="block px-3 py-2 font-medium text-begina-primary-900">
                             {recipe.name}
+                            {recipe.archived && <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-normal text-neutral-600">nevyrábí se</span>}
                           </Link>
-                          {recipe.archived && <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">nevyrábí se</span>}
                         </td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatKcValue(batchCostKc(recipe))}</td>
-                        <td className="px-3 py-2 text-neutral-600">{main?.label ?? "—"}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{main ? formatKcValue(main.totalKc) : "—"}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{main?.saleKc != null ? formatKcValue(main.saleKc) : "—"}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap font-medium">
-                          {main?.marginKc != null && main.marginPct != null ? `${formatKcValue(main.marginKc)} · ${main.marginPct.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %` : "—"}
+                        <td className="p-0 text-right whitespace-nowrap"><Link href={href} tabIndex={-1} className="block px-3 py-2">{formatKcValue(batchCostKc(recipe))}</Link></td>
+                        <td className="p-0 text-neutral-600"><Link href={href} tabIndex={-1} className="block px-3 py-2">{main?.label ?? "—"}</Link></td>
+                        <td className="p-0 text-right whitespace-nowrap"><Link href={href} tabIndex={-1} className="block px-3 py-2">{main ? formatKcValue(main.totalKc) : "—"}</Link></td>
+                        <td className="p-0 text-right whitespace-nowrap"><Link href={href} tabIndex={-1} className="block px-3 py-2">{main?.saleKc != null ? formatKcValue(main.saleKc) : "—"}</Link></td>
+                        <td className="p-0 text-right whitespace-nowrap font-medium">
+                          <Link href={href} tabIndex={-1} className="block px-3 py-2">
+                            {main?.marginKc != null && main.marginPct != null ? `${formatKcValue(main.marginKc)} · ${main.marginPct.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %` : "—"}
+                          </Link>
                         </td>
                       </tr>
                     );
