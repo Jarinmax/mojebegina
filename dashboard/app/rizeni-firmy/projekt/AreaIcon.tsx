@@ -1,4 +1,4 @@
-import { Binoculars, Boxes, Building2, Coffee, FileText, Globe, Handshake, Image, LayoutDashboard, Megaphone, Package, Scale, Search, Share2, ShieldCheck, ShoppingCart, Tag, UtensilsCrossed, Wallet } from "lucide-react";
+import { Binoculars, Boxes, Building2, Coffee, FileSignature, FileText, Globe, Handshake, Image, LayoutDashboard, Megaphone, Package, Scale, Search, Share2, ShieldCheck, ShoppingCart, Tag, UtensilsCrossed, Wallet } from "lucide-react";
 import type { ProjectArea } from "@/lib/projekt/areas";
 
 // Barvy jsou celé názvy tříd (Tailwind je musí najít ve zdrojáku).
@@ -43,6 +43,7 @@ const ICONS = {
   shield: ShieldCheck,
   utensils: UtensilsCrossed,
   building: Building2,
+  signature: FileSignature,
 } as const;
 
 export default function AreaIcon({ area, size = "md" }: { area: ProjectArea; size?: "md" | "lg" }) {

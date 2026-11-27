@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { cleanUrl, findArea, PROJECT_AREAS, PROJECT_GROUPS, validateProjectInput } from "../areas";
 
 describe("Projekt Begina — oblasti a kontrola vstupu", () => {
-  it("19 oblastí s jedinečnými slugy, každá ve známé skupině", () => {
-    expect(PROJECT_AREAS).toHaveLength(19);
-    expect(new Set(PROJECT_AREAS.map((a) => a.slug)).size).toBe(19);
+  it("20 oblastí s jedinečnými slugy, každá ve známé skupině", () => {
+    expect(PROJECT_AREAS).toHaveLength(20);
+    expect(new Set(PROJECT_AREAS.map((a) => a.slug)).size).toBe(20);
     for (const a of PROJECT_AREAS) expect(PROJECT_GROUPS).toContain(a.group);
     // slugy se starými zápisy se nesmí změnit
     for (const slug of ["socialni-site", "etikety", "obrazky", "konkurence", "web", "pravo", "ekonomika"]) expect(findArea(slug)).not.toBeNull();

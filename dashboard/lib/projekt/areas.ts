@@ -25,6 +25,7 @@ export const PROJECT_AREAS = [
   { slug: "bistro", name: "Bistro", icon: "utensils", tone: "red", group: "Výroba a provoz" },
   { slug: "ekonomika", name: "Účtenky a náklady", icon: "wallet", tone: "lime", group: "Peníze a právo" },
   { slug: "pravo", name: "Legislativa a právo", icon: "scale", tone: "slate", group: "Peníze a právo" },
+  { slug: "smlouvy", name: "Smlouvy a dohody", icon: "signature", tone: "stone", group: "Peníze a právo" },
   { slug: "fillette", name: "FILLETTE – převod firmy", icon: "building", tone: "purple", group: "Peníze a právo" },
 ] as const;
 

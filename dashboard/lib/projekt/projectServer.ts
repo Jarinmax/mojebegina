@@ -103,6 +103,11 @@ export async function insertProjectEntry(
   return inserted.length > 0;
 }
 
-export async function softDeleteProjectEntry(id: string): Promise<void> {
-  await db.update(projectEntries).set({ deletedAt: new Date() }).where(and(eq(projectEntries.id, id), isNull(projectEntries.deletedAt)));
+export async function softDeleteProjectEntry(id: string): Promise<boolean> {
+  const rows = await db
+    .update(projectEntries)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(projectEntries.id, id), isNull(projectEntries.deletedAt)))
+    .returning({ id: projectEntries.id });
+  return rows.length > 0;
 }
