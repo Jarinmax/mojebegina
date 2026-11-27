@@ -10,7 +10,10 @@ describe("drobečková navigace a Zpět s názvem (27. 11. 2026)", () => {
     expect(breadcrumbs("/rizeni-firmy/obchod/leady/abc").map((c) => c.label)).toEqual(["Řízení firmy", "Obchod / CRM", "Lead"]);
     expect(backTarget("/rizeni-firmy", "/admin")).toEqual({ href: "/admin", label: "hlavní stránku" });
   });
-  it("etikety: krok zpět v rámci stránky", () => {
-    expect(backTarget("/rizeni-firmy/etikety", "/admin", "jazyk=cs&kat=polevky").label).toBe("Etikety – předchozí krok");
+  it("etikety: Zpět říká, kam vede (bez „předchozí krok“)", () => {
+    expect(backTarget("/rizeni-firmy/etikety", "/admin", "kat=polevky").label).toBe("Etikety");
+    expect(backTarget("/rizeni-firmy/etikety", "/admin", "kat=sirupy&vel=100ml").label).toBe("etikety sirupů");
+    expect(backTarget("/rizeni-firmy/etikety", "/admin", "kat=sirupy&vel=100ml&druh=slozeni").label).toBe("etikety sirupů 100 ml");
+    expect(backTarget("/rizeni-firmy/etikety", "/admin", "kat=polevky&vel=3l").label).toBe("etikety polévek");
   });
 });

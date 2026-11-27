@@ -116,7 +116,9 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
   const size: string | null = sizes.length === 0 ? null : sizes.find((s) => s === wantedSize) ?? (sizes.length === 1 ? sizes[0] : null);
   const sizeChosen = sizes.length === 0 || size !== null;
   const kinds = cat && sizeChosen ? kindsFor(cat, size) : [];
-  const option = kinds.find((k) => k.kind === (one(sp.druh) ?? legacy?.kind)) ?? null;
+  // Krabice ochutnávkového setu má jediný druh → rovnou soubory (Lucie 27. 11. 2026).
+  const option =
+    kinds.find((k) => k.kind === (one(sp.druh) ?? legacy?.kind)) ?? (size === "krabice" && kinds.length === 1 ? kinds[0] : null);
 
   const url = (o: { jazyk?: Lang; kat?: string; vel?: string | null; druh?: string }) => {
     const q = new URLSearchParams();
@@ -132,10 +134,10 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
   if (lang === "sk") crumbs.push({ label: "🇸🇰 Slovensky", href: url({ jazyk: lang }) });
   if (lang && cat) crumbs.push({ label: categoryLabel(cat), href: url({ jazyk: lang, kat: cat.slug }) });
   if (lang && cat && sizeChosen) {
-    const fixed = size ? sizeLabel(size) : categoryFixedSize(cat);
+    const fixed = size ? sizeLabel(size, lang) : categoryFixedSize(cat);
     if (fixed) crumbs.push({ label: fixed, href: url({ jazyk: lang, kat: cat.slug, vel: size }) });
   }
-  if (lang && cat && option) crumbs.push({ label: kindLabel(lang, option.kind), href: url({ jazyk: lang, kat: cat.slug, vel: size, druh: option.kind }) });
+  if (lang && cat && option && size !== "krabice") crumbs.push({ label: kindLabel(lang, option.kind), href: url({ jazyk: lang, kat: cat.slug, vel: size, druh: option.kind }) });
 
   let step: ReactNode;
   if (!cat) {
@@ -147,7 +149,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
             key={c.slug}
             href={url({ jazyk: lang, kat: c.slug })}
             title={categoryLabel(c)}
-            sub={sizesFor(c).length ? sizesFor(c).filter((s) => isSoldSize(c, s)).map(sizeLabel).join(" · ") : categoryFixedSize(c)}
+            sub={sizesFor(c).length ? sizesFor(c).filter((s) => isSoldSize(c, s) && s !== "krabice").map((s) => sizeLabel(s, lang)).join(" · ") : categoryFixedSize(c)}
           />
         ))}
       </div>
@@ -163,7 +165,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
       <Tile
         key={s}
         href={url({ jazyk: lang, kat: cat.slug, vel: s })}
-        title={sizeLabel(s)}
+        title={sizeLabel(s, lang)}
         sub={countLabel(fileCount(kindsFor(cat, s).map((k) => k.folder)))}
       />
     );
@@ -196,13 +198,13 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
   } else {
     step = (
       <div>
-        <div className="flex flex-wrap gap-2 mb-3">
+        {kinds.length > 1 && <div className="flex flex-wrap gap-2 mb-3">
           {kinds.map((k) => (
             <Pill key={k.kind} href={url({ jazyk: lang, kat: cat.slug, vel: size, druh: k.kind })} active={k.kind === option.kind}>
               {kindLabel(lang, k.kind)}
             </Pill>
           ))}
-        </div>
+        </div>}
         {KIND_ROLL[option.kind] && (
           <p className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
             Do tiskárny vlož: <strong>{KIND_ROLL[option.kind]}</strong> · měřítko 100 %
