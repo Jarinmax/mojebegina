@@ -11,7 +11,7 @@ export function llmsTxt(): string {
   return [
     "# Begina",
     "",
-    "> Begina dováží hotové polévky a nápoje pro kavárny a bistra po celé ČR chlazenou přepravou: čerstvé polévky, bylinné sirupy, čaje a ovocné nápoje v begině, třílitrovém sáčku s kohoutkem. Objednat si můžete i domů.",
+    "> Begina dováží hotové polévky a nápoje pro kavárny a bistra po celé ČR chlazenou přepravou: čerstvé polévky, bylinkové sirupy, čaje a ovocné nápoje v begině, třílitrovém sáčku s kohoutkem. Objednat si můžete i domů.",
     "",
     "- Pro koho: hlavně kavárny a bistra, ale i zákazníci domů.",
     "- Polévky a nealkoholické nápoje jsou 100% rostlinné, vhodné pro vegany i vegetariány. Vyrábíme je z čisté filtrované vody; sirupy, čaje a ovocné nápoje jsou bez konzervantů.",
@@ -26,7 +26,7 @@ export function llmsTxt(): string {
     link("Pro kavárny a bistra", "/pro-kavarny", "spolupráce a ochutnávka do provozu"),
     link("Časté otázky", "/caste-otazky"),
     link("Čerstvé polévky", "/kategorie/polevky"),
-    link("Bylinné sirupy", "/kategorie/sirupy"),
+    link("Bylinkové sirupy", "/kategorie/sirupy"),
     link("Čaje", "/kategorie/caje"),
     link("Ovocné nápoje", "/kategorie/ovocne-napoje"),
     link("Doprava", "/doprava"),

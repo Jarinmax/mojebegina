@@ -8,7 +8,7 @@ const OUT = process.env.OUT_DIR ?? "/tmp/prod";
 mkdirSync(OUT, { recursive: true });
 const failures = [], passed = [];
 const check = (n, ok, d = "") => (ok ? passed : failures).push(`${n}${d ? ` — ${d}` : ""}`);
-const MENU = ["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě", "MojeBegina"];
+const MENU = ["Čerstvé polévky", "Bylinkové sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě", "MojeBegina"];
 const CASES = [
   // [název, šířka × výška v CSS px, poměr pixelů]
   ["notebook-1280x720", 1280, 720, 1],      // 13" Windows / 1920 px se 150 % měřítkem systému

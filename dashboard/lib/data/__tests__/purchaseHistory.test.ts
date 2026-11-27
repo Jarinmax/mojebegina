@@ -41,7 +41,7 @@ describe("historie nákupů: párování", () => {
   ];
   const invoices = [
     inv("1", "2025-05-02", { email: "JANA@example.cz", name: "Jana Nováková" }, [["Ledová káva 3 l", 2], ["Doprava", 1]], 900),
-    inv("2", "2025-08-10", { name: "Nováková Jana" }, [["Bylinný čaj Šaman – 3 l", 3], ["Ledová káva 3 l", 1]], 1500),
+    inv("2", "2025-08-10", { name: "Nováková Jana" }, [["Bylinkový čaj Šaman – 3 l", 3], ["Ledová káva 3 l", 1]], 1500),
     inv("3", "2026-01-15", { name: "Ing. Petr Dvořák" }, [["Lipový sirup 3 l", 1], ["Lipový sirup – 3 l", 2], ["Sleva", 1]], 1400),
     inv("4", "2026-02-01", { name: "Eva Malá" }, [["Kulajda 3 l", 1]], 379),
     inv("5", "2026-03-01", { name: "Firma s.r.o.", phone: "777111222" }, [["Kulajda 3 l", 2], ["Partnerská sleva 7 %", 1], ["Chlazená doprava", 1]], 700),
@@ -52,7 +52,7 @@ describe("historie nákupů: párování", () => {
     expect(result.get("a")).toEqual({
       matchedBy: "email", invoices: 2, totalKc: 2400, firstDay: "2025-05-02", lastDay: "2025-08-10",
       items: [
-        { name: "Bylinný čaj Šaman – 3 l", quantity: 3, lastDay: "2025-08-10" },
+        { name: "Bylinkový čaj Šaman – 3 l", quantity: 3, lastDay: "2025-08-10" },
         { name: "Ledová káva 3 l", quantity: 3, lastDay: "2025-08-10" },
       ],
     });

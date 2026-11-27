@@ -1,4 +1,4 @@
-// ESHOP 1.0 — katalogový skript Bylinné sirupy (docs/eshop-catalog/3x_*)
+// ESHOP 1.0 — katalogový skript Bylinkové sirupy (docs/eshop-catalog/3x_*)
 // nad PGlite se všemi migracemi: přesně ty soubory, které vedení spustí
 // v Neon SQL Editoru (Preview, později Production).
 import { SYRUP_PREPARATION, SYRUP_SHELF_LIFE, SYRUP_STORAGE } from "../syrupFoodInfo";
@@ -22,7 +22,7 @@ async function check(pg: PGlite, name: string): Promise<string> {
 }
 
 const SYRUPS = [
-  ["Bylinný sirup Šaman", 549],
+  ["Bylinkový sirup Šaman", 549],
   ["Zázvorový sirup", 499],
   ["Lipový sirup", 549],
   ["Ibiškový sirup", 499],
@@ -31,13 +31,13 @@ const SYRUPS = [
   ["Meduňkový sirup s levandulí", 549],
 ] as const;
 
-describe("katalog — Bylinné sirupy: soubor", () => {
+describe("katalog — Bylinkové sirupy: soubor", () => {
   it("31_sirupy.sql = výstup generátoru (scripts/eshop-catalog/build-sirupy.mjs)", () => {
     expect(file("31_sirupy.sql")).toBe(sirupySql());
   });
 });
 
-describe("katalog — Bylinné sirupy", DB_TEST, () => {
+describe("katalog — Bylinkové sirupy", DB_TEST, () => {
   let pg: PGlite;
   let db: Awaited<ReturnType<typeof createMigratedDb>>["db"];
 
@@ -80,7 +80,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
       expect(existsSync(path.join(PUBLIC, `/eshop/${product.slug}.jpg`))).toBe(true);
     }
     const saman = syrups[0];
-    expect(saman.highlights).toEqual(["40 % bylinného výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z balení 3 l"]);
+    expect(saman.highlights).toEqual(["40 % bylinkového výluhu", "z čisté filtrované vody", "bez umělých aromat a barviv", "až 150 nápojů z balení 3 l"]);
     expect(parseDescription(saman.description).intro).toHaveLength(3);
     expect(parseDescription(saman.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
@@ -94,9 +94,9 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     // Zázvorový: úplné údaje z begina.cz (výživa na 100 ml).
     const zazvor = syrups[1];
     expect(zazvor.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,30 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
-    expect(zazvor.highlights[0]).toBe("39 % bylinného výluhu");
+    expect(zazvor.highlights[0]).toBe("39 % bylinkového výluhu");
     expect(zazvor.taste).toMatch(/^Chuť je intenzivní, přímá a autenticky pálivá/);
-    expect(zazvor.foodInfo.ingredients).toMatch(/^třtinový cukr, bylinný výluh 39 % \(čistá filtrovaná voda, zázvor/);
+    expect(zazvor.foodInfo.ingredients).toMatch(/^třtinový cukr, bylinkový výluh 39 % \(čistá filtrovaná voda, zázvor/);
     expect(zazvor.foodInfo.nutritionPer100g).toBe(
       "na 100 ml: energie 1\u00a0105 kJ / 260 kcal, tuky 0 g (z toho nasycené 0 g), sacharidy 65 g (z toho cukry 64 g), bílkoviny 0 g, sůl 0 g"
     );
@@ -112,7 +112,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     // Lipový: úplné údaje (složení s lipovým květem, vlastní znění skladování)
     const lipa = syrups[2];
     expect(lipa.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,70 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
-    expect(lipa.highlights[0]).toBe("39 % bylinného výluhu");
+    expect(lipa.highlights[0]).toBe("39 % bylinkového výluhu");
     expect(lipa.description[0]).toMatch(/^Lipový sirup nabízí jemnou, medovou/);
     expect(lipa.taste).toMatch(/^Chuť je hluboká, medově jemná/);
     expect(lipa.foodInfo.ingredients).toMatch(/lipový květ \(Tiliae flos\)/);
@@ -126,8 +126,8 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     const sipek = syrups[4];
     expect(sipek.name).toBe("Šípkový sirup");
     expect(sipek.shortDescription).toMatch(/^3 l: až 150 nápojů \(cca 3,30 Kč za nápoj\)\. 650 ml: až 32 nápojů\./);
-    expect(sipek.highlights[0]).toBe("40 % bylinného výluhu");
-    expect(sipek.foodInfo.ingredients).toMatch(/bylinný výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
+    expect(sipek.highlights[0]).toBe("40 % bylinkového výluhu");
+    expect(sipek.foodInfo.ingredients).toMatch(/bylinkový výluh 40 % \(čistá filtrovaná voda, šípek \(Rosa canina\)\), citronová šťáva 9 %/);
     expect(parseDescription(sipek.description).sections.map((x) => [x.title, x.blocks.map((b) => b.type)])).toEqual([
       ["Pro koho je vhodný", ["ul"]],
       ["Jak sirup používat", ["ul", "p", "p"]],
@@ -135,14 +135,14 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     // Ibiškový: 41 % výluhu, citronová šťáva 8 %, nadpis „Pro koho vhodný“ doslova
     const ibisek = syrups[3];
     expect(ibisek.name).toBe("Ibiškový sirup");
-    expect(ibisek.highlights[0]).toBe("41 % bylinného výluhu");
-    expect(ibisek.foodInfo.ingredients).toMatch(/bylinný výluh 41 % \(čistá filtrovaná voda, květ ibišku \(Hibiscus sabdariffa\)\), citronová šťáva 8 %/);
+    expect(ibisek.highlights[0]).toBe("41 % bylinkového výluhu");
+    expect(ibisek.foodInfo.ingredients).toMatch(/bylinkový výluh 41 % \(čistá filtrovaná voda, květ ibišku \(Hibiscus sabdariffa\)\), citronová šťáva 8 %/);
     expect(parseDescription(ibisek.description).sections.map((x) => x.title)).toEqual(["Pro koho vhodný", "Jak jej používat"]);
     // Heřmánkový: 36 % výluhu, citronová šťáva 16 %
     const herm = syrups[5];
     expect(herm.name).toBe("Heřmánkový sirup");
-    expect(herm.highlights[0]).toBe("36 % bylinného výluhu");
-    expect(herm.foodInfo.ingredients).toMatch(/bylinný výluh 36 % \(čistá filtrovaná voda, květ heřmánku \(Matricaria chamomilla\)\), citronová šťáva 16 %/);
+    expect(herm.highlights[0]).toBe("36 % bylinkového výluhu");
+    expect(herm.foodInfo.ingredients).toMatch(/bylinkový výluh 36 % \(čistá filtrovaná voda, květ heřmánku \(Matricaria chamomilla\)\), citronová šťáva 16 %/);
     expect(parseDescription(herm.description).sections.map((x) => x.title)).toEqual(["Pro koho je vhodný", "Jak ho používat"]);
     // Meduňkový s levandulí: 36 % výluhu, citronová šťáva 16 %
     const medunka = syrups[6];
@@ -159,7 +159,7 @@ describe("katalog — Bylinné sirupy", DB_TEST, () => {
     expect(category.detailSections).toEqual([
       expect.objectContaining({ title: "Vhodné také pro gastro provozy a kanceláře", bullets: ["kavárny", "bistra", "menší restaurace", "kanceláře", "catering"] }),
     ]);
-    expect(category.intro[0]).toMatch(/^Bylinné sirupy Begina připravujeme řemeslně/);
+    expect(category.intro[0]).toMatch(/^Bylinkové sirupy Begina připravujeme řemeslně/);
     expect(category.intro[2]).toMatch(/zlaté pravidlo ředění 1:10/);
     // ostatní katalog beze změny
     expect(catalog.products.filter((p) => p.category !== "sirupy")).toHaveLength(7);

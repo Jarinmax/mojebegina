@@ -45,7 +45,7 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(await check(pg, "52_caje_after.sql")).toBe("8 | 1 | 3 l, 289 Kč | 8 | 249 Kč, 12 nápojů");
   });
 
-  it("e-shop: Bylinný čaj Šaman z begina.cz", async () => {
+  it("e-shop: Bylinkový čaj Šaman z begina.cz", async () => {
     const [saman, zazvor] = await teas();
     expect(zazvor.name).toBe("Zázvorový čaj");
     expect(zazvor.shortDescription).toBe("Až 12 nápojů (20,80 Kč za nápoj). Jeden nápoj = 250 ml.");
@@ -82,7 +82,7 @@ describe("katalog — Čaje", DB_TEST, () => {
     expect(existsSync(path.join(PUBLIC, medunka.image!))).toBe(true);
     expect(medunka.foodInfo.ingredients).toMatch(/květ levandule \(Lavandula angustifolia\)/);
     expect(medunka.warnings).toEqual([]);
-    expect(saman.name).toBe("Bylinný čaj Šaman");
+    expect(saman.name).toBe("Bylinkový čaj Šaman");
     expect(saman.shortDescription).toBe("Až 12 nápojů (24,10 Kč za nápoj). Jeden nápoj = 250 ml.");
     expect(saman.variants).toEqual([
       expect.objectContaining({ sku: "bylinny-caj-saman-3l", priceKc: 289, servings: 12, detail: "Ideální pro sdílení nebo více příležitostí." }),

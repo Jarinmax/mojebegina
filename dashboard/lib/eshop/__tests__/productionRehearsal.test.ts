@@ -71,7 +71,7 @@ describe("generálka produkčního postupu nad kopií Production", { timeout: 18
     );
   });
 
-  it("A6 — katalog Bylinné sirupy (před / skript / po)", async () => {
+  it("A6 — katalog Bylinkové sirupy (před / skript / po)", async () => {
     expect(await check(pg, file("eshop-catalog", "30_sirupy_before.sql"))).toBe("1 | 0 | 0 | 0 | 0 | 7 | 11");
     await run(pg, file("eshop-catalog", "31_sirupy.sql"));
     expect(await check(pg, file("eshop-catalog", "32_sirupy_after.sql"))).toBe("3 | 7 | 7 | 14 | 21 | 7 | 3 | 4 | 14 | 25");

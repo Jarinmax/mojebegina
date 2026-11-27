@@ -17,8 +17,8 @@ const page = async (u) => {
 };
 const descs = new Map();
 const home = await page("/");
-check("úvod: název se slovy", /bylinné sirupy, polévky/.test(home.title), home.title);
-check("úvod: jeden popis", home.desc.length === 1 && /Bylinné sirupy, polévky/.test(home.desc[0]), home.desc.join(" | "));
+check("úvod: název se slovy", /bylinkové sirupy, polévky/.test(home.title), home.title);
+check("úvod: jeden popis", home.desc.length === 1 && /Bylinkové sirupy, polévky/.test(home.desc[0]), home.desc.join(" | "));
 check("úvod: Organization a WebSite", home.ld.some((o) => o["@type"] === "Organization") && home.ld.some((o) => o["@type"] === "WebSite"));
 descs.set("/", home.desc[0]);
 for (const slug of ["polevky", "sirupy", "caje"]) {

@@ -36,9 +36,9 @@ describe("summarizeQueries", () => {
     const result = summarizeQueries([
       { query: "dýňová polévka", clicks: 2, impressions: 10, position: 4 },
       { query: "dýňová polévka", clicks: 1, impressions: 30, position: 8 },
-      { query: "bylinný sirup", clicks: 0, impressions: 5, position: 20 },
+      { query: "bylinkový sirup", clicks: 0, impressions: 5, position: 20 },
     ]);
     expect(result[0]).toEqual({ query: "dýňová polévka", clicks: 3, impressions: 40, position: 7 });
-    expect(result[1].query).toBe("bylinný sirup");
+    expect(result[1].query).toBe("bylinkový sirup");
   });
 });

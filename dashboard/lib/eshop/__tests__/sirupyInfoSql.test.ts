@@ -14,7 +14,7 @@ const script = readFileSync(path.join(ROOT, "docs/eshop-production/80_sirupy_bal
 );
 const catalog = (f: string) => readFileSync(path.join(ROOT, "docs/eshop-catalog", f), "utf8");
 const OLD_STORAGE =
-  "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinného výluhu.";
+  "Skladujte v suchu a temnu při teplotě do 25 °C. Po otevření uchovávejte v dobře uzavřeném obalu v chladu a temnu a spotřebujte do 3 měsíců. Před použitím protřepejte. Případný sediment je přirozenou součástí bylinkového výluhu.";
 
 describe("80 sirupy nad stavem Production", { timeout: 120_000 }, () => {
   let pg: PGlite;

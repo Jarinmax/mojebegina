@@ -5,14 +5,14 @@
 // stránka překlad označí jako neaktuální a nevydává ho za platný.
 export type SkFoodInfo = { nameSk: string; sourceCz: string; ingredientsSk: string; usageSk?: string };
 
-// Ředění sirupů podle e-shopu (kategorie Bylinné sirupy: „Stačí zalít vodou
+// Ředění sirupů podle e-shopu (kategorie Bylinkové sirupy: „Stačí zalít vodou
 // v poměru přibližně 1 : 10 – studenou na limonádu, horkou na čaj.“).
 export const SIRUP_USAGE_SK = "Rieďte vodou v pomere približne 1 : 10 – studenou na limonádu, horúcou na čaj. Balenie 3 l: až 150 nápojov.";
 
 const sirup = (nameSk: string, percent: number, herbsCz: string, herbsSk: string, lemon: number): SkFoodInfo => ({
   nameSk,
-  sourceCz: `třtinový cukr, bylinný výluh ${percent} % (čistá filtrovaná voda, ${herbsCz}), citronová šťáva ${lemon} %, antioxidant: kyselina askorbová (vitamin C)`,
-  ingredientsSk: `trstinový cukor, bylinný výluh ${percent} % (čistá filtrovaná voda, ${herbsSk}), citrónová šťava ${lemon} %, antioxidant: kyselina askorbová (vitamín C)`,
+  sourceCz: `třtinový cukr, bylinkový výluh ${percent} % (čistá filtrovaná voda, ${herbsCz}), citronová šťáva ${lemon} %, antioxidant: kyselina askorbová (vitamin C)`,
+  ingredientsSk: `trstinový cukor, bylinkový výluh ${percent} % (čistá filtrovaná voda, ${herbsSk}), citrónová šťava ${lemon} %, antioxidant: kyselina askorbová (vitamín C)`,
   usageSk: SIRUP_USAGE_SK,
 });
 
@@ -30,7 +30,7 @@ export const SK_FOOD_INFO: Record<string, SkFoodInfo> = {
   "ibiskovy-sirup": sirup("Ibištekový sirup", 41, "květ ibišku (Hibiscus sabdariffa)", "kvet ibišteka (Hibiscus sabdariffa)", 8),
   "hermankovy-sirup": sirup("Harmančekový sirup", 40, "květ heřmánku (Matricaria chamomilla)", "kvet harmančeka (Matricaria chamomilla)", 10),
   "bylinny-sirup-saman": sirup(
-    "Bylinný sirup Šaman",
+    "Bylinkový sirup Šaman",
     40,
     "šípek (Rosa canina), čaga (Inonotus obliquus), ženšen sibiřský (Eleutherococcus senticosus), zázvor (Zingiber officinale)",
     "šípky (Rosa canina), čaga (Inonotus obliquus), sibírsky ženšen – eleuterokok (Eleutherococcus senticosus), zázvor (Zingiber officinale)",
@@ -83,24 +83,24 @@ export const SK_FOOD_INFO: Record<string, SkFoodInfo> = {
     ingredientsSk: "jablkovo-malinová šťava 51 % (jablková šťava 85 %, malinová šťava 15 %), čistá filtrovaná voda, pomarančová šťava 7 %, klinčeky, škorica, badián, antioxidant: kyselina askorbová (vitamín C)",
   },
   "bylinny-caj-saman": {
-    nameSk: "Bylinný čaj Šaman",
-    sourceCz: "bylinný výluh 93 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen sibiřský (Eleutherococcus senticosus), zázvor (Zingiber officinale)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
-    ingredientsSk: "bylinný výluh 93 % (čistá filtrovaná voda, šípky (Rosa canina), čaga (Inonotus obliquus), sibírsky ženšen – eleuterokok (Eleutherococcus senticosus), zázvor (Zingiber officinale)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
+    nameSk: "Bylinkový čaj Šaman",
+    sourceCz: "bylinkový výluh 93 % (čistá filtrovaná voda, šípek (Rosa canina), čaga (Inonotus obliquus), ženšen sibiřský (Eleutherococcus senticosus), zázvor (Zingiber officinale)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
+    ingredientsSk: "bylinkový výluh 93 % (čistá filtrovaná voda, šípky (Rosa canina), čaga (Inonotus obliquus), sibírsky ženšen – eleuterokok (Eleutherococcus senticosus), zázvor (Zingiber officinale)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
   },
   "zazvorovy-caj": {
     nameSk: "Zázvorový čaj",
-    sourceCz: "bylinný výluh 93 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
-    ingredientsSk: "bylinný výluh 93 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
+    sourceCz: "bylinkový výluh 93 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
+    ingredientsSk: "bylinkový výluh 93 % (čistá filtrovaná voda, zázvor (Zingiber officinale)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
   },
   "lipovy-caj": {
     nameSk: "Lipový čaj",
-    sourceCz: "bylinný výluh 93 % (čistá filtrovaná voda, lipový květ (Tiliae flos)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
-    ingredientsSk: "bylinný výluh 93 % (čistá filtrovaná voda, lipový kvet (Tiliae flos)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
+    sourceCz: "bylinkový výluh 93 % (čistá filtrovaná voda, lipový květ (Tiliae flos)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
+    ingredientsSk: "bylinkový výluh 93 % (čistá filtrovaná voda, lipový kvet (Tiliae flos)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
   },
   "hermankovy-caj": {
     nameSk: "Harmančekový čaj",
-    sourceCz: "bylinný výluh 92 % (čistá filtrovaná voda, květ heřmánku (Matricaria chamomilla)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
-    ingredientsSk: "bylinný výluh 92 % (čistá filtrovaná voda, kvet harmančeka (Matricaria chamomilla)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
+    sourceCz: "bylinkový výluh 92 % (čistá filtrovaná voda, květ heřmánku (Matricaria chamomilla)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
+    ingredientsSk: "bylinkový výluh 92 % (čistá filtrovaná voda, kvet harmančeka (Matricaria chamomilla)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
   },
   "cerny-caj-golden-nepal": {
     nameSk: "Čierny čaj Golden Nepal",
@@ -114,13 +114,13 @@ export const SK_FOOD_INFO: Record<string, SkFoodInfo> = {
   },
   "ibiskovy-caj": {
     nameSk: "Ibištekový čaj",
-    sourceCz: "bylinný výluh 92 % (čistá filtrovaná voda, květ ibišku (Hibiscus sabdariffa)), třtinový cukr, citronová šťáva 3 %, antioxidant: kyselina askorbová (vitamin C)",
-    ingredientsSk: "bylinný výluh 92 % (čistá filtrovaná voda, kvet ibišteka (Hibiscus sabdariffa)), trstinový cukor, citrónová šťava 3 %, antioxidant: kyselina askorbová (vitamín C)",
+    sourceCz: "bylinkový výluh 92 % (čistá filtrovaná voda, květ ibišku (Hibiscus sabdariffa)), třtinový cukr, citronová šťáva 3 %, antioxidant: kyselina askorbová (vitamin C)",
+    ingredientsSk: "bylinkový výluh 92 % (čistá filtrovaná voda, kvet ibišteka (Hibiscus sabdariffa)), trstinový cukor, citrónová šťava 3 %, antioxidant: kyselina askorbová (vitamín C)",
   },
   "medunkovy-caj-s-levanduli": {
     nameSk: "Medovkový čaj s levanduľou",
-    sourceCz: "bylinný výluh 92 % (čistá filtrovaná voda, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
-    ingredientsSk: "bylinný výluh 92 % (čistá filtrovaná voda, medovka (Melissa officinalis), kvet levandule (Lavandula angustifolia)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
+    sourceCz: "bylinkový výluh 92 % (čistá filtrovaná voda, meduňka (Melissa officinalis), květ levandule (Lavandula angustifolia)), třtinový cukr, citronová šťáva 2 %, antioxidant: kyselina askorbová (vitamin C)",
+    ingredientsSk: "bylinkový výluh 92 % (čistá filtrovaná voda, medovka (Melissa officinalis), kvet levandule (Lavandula angustifolia)), trstinový cukor, citrónová šťava 2 %, antioxidant: kyselina askorbová (vitamín C)",
   },
 
 };

@@ -21,7 +21,7 @@ const VIEWPORTS = [
   ["pocitac", { width: 1440, height: 900 }],
 ];
 const PAGES = ["/", "/kategorie/polevky", "/kategorie/sirupy", "/o-nas", "/o-vode", "/doprava", "/obchodni-podminky", "/kosik"];
-const MENU = ["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "MojeBegina"];
+const MENU = ["Čerstvé polévky", "Bylinkové sirupy", "Nápoje", "Zmrzliny", "O nás", "MojeBegina"];
 const ABOUT = ["Náš příběh", "O vodě", "O balení"];
 const DRINKS = ["Čaje", "Ovocné nápoje", "Alkoholické koktejly"];
 
@@ -42,7 +42,7 @@ for (const [name, viewport] of VIEWPORTS) {
   await page.goto(url("/"), { waitUntil: "networkidle" });
   const h1 = page.locator("h1");
   const text = (await h1.textContent()).replace(/ /g, " ");
-  check(`${name}: text nadpisu`, text === "Čerstvé polévky Bylinné sirupy Nápoje a zmrzliny", text);
+  check(`${name}: text nadpisu`, text === "Čerstvé polévky Bylinkové sirupy Nápoje a zmrzliny", text);
   const hb = await h1.boundingBox();
   const lines = await h1.evaluate((el) => {
     const r = document.createRange();

@@ -36,7 +36,7 @@ const CASES = [
   ["android-vysku", devices["Pixel 5"]],
   ["android-sirku", land("Pixel 5")],
 ];
-const LINES = ["Čerstvé polévky", "Bylinné sirupy", "Nápoje a zmrzliny"];
+const LINES = ["Čerstvé polévky", "Bylinkové sirupy", "Nápoje a zmrzliny"];
 
 for (const [name, device] of CASES) {
   if (!device) { check(`${name}: profil zařízení`, false, "chybí v Playwright"); continue; }

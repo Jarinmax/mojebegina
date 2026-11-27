@@ -1,4 +1,4 @@
-// Společná šablona „Informace o potravině“ pro bylinné sirupy (9. 11. 2026,
+// Společná šablona „Informace o potravině“ pro bylinkové sirupy (9. 11. 2026,
 // texty doslova podle zadání). Skladování a trvanlivost se ukládají i do
 // produktů v DB (skript 80), příprava a vrácení/reklamace se doplňují podle
 // kategorie (categoryFoodInfo.ts). Tři měsíce po otevření jsou údaj

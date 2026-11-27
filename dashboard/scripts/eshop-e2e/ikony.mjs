@@ -37,7 +37,7 @@ for (const [name, device] of CASES) {
         h: Math.round(b.height), bottom: Math.round(b.bottom), alpha: [...g.getImageData(1, 1, 1, 1).data][3] };
     })
   );
-  const EXPECT = { "Čerstvé polévky": "polevky", "Bylinné sirupy": "sirupy", "Čaje": "caje", "Ovocné nápoje": "ovocne-napoje", "Alkoholické koktejly": "koktejly", "Zmrzliny": "zmrzliny" };
+  const EXPECT = { "Čerstvé polévky": "polevky", "Bylinkové sirupy": "sirupy", "Čaje": "caje", "Ovocné nápoje": "ovocne-napoje", "Alkoholické koktejly": "koktejly", "Zmrzliny": "zmrzliny" };
   for (const i of info) {
     const slug = EXPECT[i.label];
     check(`${name}: ${i.label} — odkaz, nová ikona, průhledné pozadí`, slug && i.href === `/kategorie/${slug}` && i.ok && i.src.includes(`ikona-${slug}-2026-11`) && i.alpha <= 8, `${i.href} ${i.ok ? "načtená" : "NENAČTENÁ"} alfa ${i.alpha}`);

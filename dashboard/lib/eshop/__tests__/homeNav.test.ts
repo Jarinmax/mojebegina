@@ -8,7 +8,7 @@ describe("úvodní stránka — kategorie z návrhu", () => {
   it("plné názvy kategorií podle zadání Lucie (6. 11. 2026)", () => {
     expect(HOME_CATEGORIES.map((c) => c.menuLabel)).toEqual([
       "Čerstvé polévky",
-      "Bylinné sirupy",
+      "Bylinkové sirupy",
       "Čaje",
       "Ovocné nápoje",
       "Alkoholické koktejly",
@@ -20,7 +20,7 @@ describe("úvodní stránka — kategorie z návrhu", () => {
     const all = availableHomeCategories(["polevky", "sirupy", "caje", "ovocne-napoje", "koktejly", "zmrzliny"]);
     expect(stripCategories(all).map((c) => c.stripLabel)).toEqual([
       "Čerstvé polévky",
-      "Bylinné sirupy",
+      "Bylinkové sirupy",
       "Čaje",
       "Ovocné nápoje",
       "Alkoholické koktejly",
@@ -40,7 +40,7 @@ describe("úvodní stránka — kategorie z návrhu", () => {
       ]
     );
     // pořadí podle zadání majitele 9. 11. 2026 (MojeBegina = zákaznická část aplikace)
-    expect(menu.map((e) => e.label)).toEqual(["Čerstvé polévky", "Bylinné sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě", "MojeBegina"]);
+    expect(menu.map((e) => e.label)).toEqual(["Čerstvé polévky", "Bylinkové sirupy", "Nápoje", "Zmrzliny", "O nás", "O vodě", "MojeBegina"]);
     expect(menu[6]).toEqual({ kind: "link", href: "https://moje.begina.cz/", label: "MojeBegina", external: true });
     const drinks = menu[2];
     expect(drinks.kind).toBe("group");

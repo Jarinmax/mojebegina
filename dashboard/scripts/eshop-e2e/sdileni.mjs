@@ -19,7 +19,7 @@ const meta = async (path) => {
 };
 const home = await meta("/");
 check("úvod: og:title", home.title === "Begina – Když rozhoduje chuť", home.title);
-check("úvod: og:description", home.desc === "Čerstvé polévky, bylinné sirupy, nápoje a zmrzliny. Objevte naši nabídku na begina.cz.", home.desc);
+check("úvod: og:description", home.desc === "Čerstvé polévky, bylinkové sirupy, nápoje a zmrzliny. Objevte naši nabídku na begina.cz.", home.desc);
 check("úvod: og:image = logo", /\/og-begina\.png\?v=/.test(home.image ?? ""), home.image);
 check("úvod: twitter:card", home.tw === "summary_large_image" && /og-begina/.test(home.twImg ?? ""), `${home.tw} ${home.twImg}`);
 check("úvod: ikona webu je logo (ne výchozí Next/Vercel)", home.icons.some((i) => /icon\.png|favicon/.test(i)), home.icons.join(" "));

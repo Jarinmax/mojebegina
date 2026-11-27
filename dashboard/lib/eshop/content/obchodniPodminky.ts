@@ -440,7 +440,7 @@ const articleVII: InfoBlock = {
       ],
     },
     {
-      text: "Na ostatní zboží se právo na odstoupení vztahuje. Jde zejména o výrobky v neporušeném původním obalu, které chlazené skladování nevyžadují, například bylinné sirupy. Výjimka se posuzuje u každého výrobku zvlášť; prodávající nevylučuje vrácení všech potravin plošně.",
+      text: "Na ostatní zboží se právo na odstoupení vztahuje. Jde zejména o výrobky v neporušeném původním obalu, které chlazené skladování nevyžadují, například bylinkové sirupy. Výjimka se posuzuje u každého výrobku zvlášť; prodávající nevylučuje vrácení všech potravin plošně.",
     },
     {
       text: "Odstoupení může spotřebitel oznámit jakýmkoli jednoznačným prohlášením, zejména:",
