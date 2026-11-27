@@ -420,3 +420,16 @@ export async function dispatchAction(
   };
   return { success: messages[op] ?? "Uloženo." };
 }
+
+/** Změna počtu kusů v ruční objednávce (Jarin 27. 11. 2026). */
+export async function setOrderItemQuantityAction(orderId: string, itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { setOrderItemQuantity } = await import("@/lib/data/orderItemEdit");
+  const result = await setOrderItemQuantity(orderId, itemId, formData.get("quantity"));
+  if (!result.ok) return { error: result.error };
+  revalidateOrder(orderId);
+  return {
+    success: result.invoiceNumber
+      ? `Uloženo, celkem ${result.totalKc} Kč. Pozor: faktura ${result.invoiceNumber} je už vystavená na původní počet — nech ji opravit.`
+      : `Uloženo, celkem ${result.totalKc} Kč.`,
+  };
+}

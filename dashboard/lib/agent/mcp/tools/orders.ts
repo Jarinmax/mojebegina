@@ -25,6 +25,7 @@
 // POVOLENÉ přechody hlídá (lib/data/orderFulfillmentAgentValidation.ts) —
 // žádné přeskakování kroků; stejný cíl jako aktuální stav = bezpečný no-op.
 import { setDeliveryAddress } from "@/lib/data/productionBoard";
+import { setOrderItemQuantity } from "@/lib/data/orderItemEdit";
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { getAuthContext } from "@/lib/data/authContext";
@@ -592,6 +593,57 @@ export const ORDER_TOOLS: AgentTool[] = [
         ok: true,
         summary: { saved: true },
         data: { url: orderUrl(issuer, parsed.orderId), message: `Doručovací adresa uložena: ${parsed.address}` },
+      };
+    },
+  }),
+  defineTool({
+    name: "update_order_item_quantity",
+    title: "Změnit počet kusů položky v ruční objednávce",
+    description:
+      "ZÁPIS — změní počet kusů jedné položky RUČNÍ objednávky, která ještě neodjela (0 = položku odebrat; poslední položku odebrat nejde). " +
+      "Přepočítá mezisoučet a celkovou částku, změnu zapíše do historie. E-shopové objednávky nemění. Vystavenou fakturu NEMĚNÍ — " +
+      "když vrátí invoiceNumber, oprav fakturu přes prepare_invoice_change / apply_invoice_change a po souhlasu ji pošli znovu. " +
+      "Položku urči item_id, nebo item_name (část názvu, musí být jednoznačná). Před zápisem uživateli řekni, co změníš, a volej po jeho souhlasu.",
+    write: true,
+    properties: {
+      order_id: { type: "string", description: "id objednávky (UUID)." },
+      item_id: { type: "string", description: "id položky (UUID) — nepovinné, když zadáš item_name." },
+      item_name: { type: "string", description: "Část názvu položky, např. „Dýňová“ (nepovinné, když zadáš item_id)." },
+      quantity: { type: "integer", minimum: 0, maximum: 999, description: "Nový počet kusů (0 = odebrat)." },
+    },
+    required: ["order_id", "quantity"],
+    parse: (args) => {
+      const quantity = Number(args.quantity);
+      if (!Number.isInteger(quantity) || quantity < 0 || quantity > 999) throw new ArgError("quantity musí být celé číslo 0–999.");
+      const itemId = args.item_id ? requiredUuid(args, "item_id") : null;
+      const itemName = optionalString(args, "item_name", 200);
+      if (!itemId && !itemName) throw new ArgError("Zadejte item_id nebo item_name.");
+      return { orderId: requiredUuid(args, "order_id"), itemId, itemName, quantity };
+    },
+    execute: async (parsed, issuer) => {
+      let itemId = parsed.itemId;
+      if (!itemId) {
+        const detail = await getOrderDetail(parsed.orderId);
+        if (!detail) return { ok: false, error: "Objednávka nebyla nalezena." };
+        const needle = (parsed.itemName ?? "").toLocaleLowerCase("cs");
+        const hits = detail.items.filter((i) => i.id && i.name.toLocaleLowerCase("cs").includes(needle));
+        if (hits.length !== 1) {
+          return { ok: false, error: hits.length ? `Název „${parsed.itemName}“ odpovídá více položkám — upřesněte.` : `Položka „${parsed.itemName}“ v objednávce není.` };
+        }
+        itemId = hits[0].id!;
+      }
+      const result = await setOrderItemQuantity(parsed.orderId, itemId, parsed.quantity);
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        summary: { saved: true, totalKc: result.totalKc },
+        data: {
+          url: orderUrl(issuer, parsed.orderId),
+          invoiceNumber: result.invoiceNumber,
+          message: result.invoiceNumber
+            ? `Uloženo, celkem ${result.totalKc} Kč. Faktura ${result.invoiceNumber} je vystavená na původní počet — oprav ji.`
+            : `Uloženo, celkem ${result.totalKc} Kč.`,
+        },
       };
     },
   }),
