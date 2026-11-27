@@ -122,6 +122,7 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "uvodni-fotka.jpg"
   ],
   "uvodni-fotka/atmosfera": [
+    "dynova-polevka-bistro-4x5.jpg",
     "dynova-polevka-kavarna-16x9.jpg"
   ],
   "uvodni-fotka/tisk": [
