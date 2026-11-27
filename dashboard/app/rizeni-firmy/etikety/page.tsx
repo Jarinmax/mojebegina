@@ -71,13 +71,13 @@ function fileCount(folders: string[]): number {
   return folders.reduce((n, f) => n + (ETIKETY_MANIFEST[f]?.length ?? 0), 0);
 }
 
-function Tile({ href, title, sub }: { href: string; title: ReactNode; sub?: ReactNode }) {
+function Tile({ href, title, sub, color = NEUTRAL }: { href: string; title: ReactNode; sub?: ReactNode; color?: typeof NEUTRAL }) {
   return (
     <Link
       href={href}
-      className="flex flex-col justify-center min-h-20 rounded-xl border border-neutral-200 bg-white px-4 py-3 hover:border-begina-primary-900"
+      className={`flex flex-col justify-center min-h-20 rounded-xl border border-neutral-200 border-l-4 ${color.bar} bg-white px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition`}
     >
-      <span className="text-base font-medium text-begina-primary-900">{title}</span>
+      <span className={`text-base font-semibold ${color.text}`}>{title}</span>
       {sub && <span className="mt-0.5 text-xs text-neutral-500">{sub}</span>}
     </Link>
   );
@@ -99,6 +99,17 @@ function Pill({ href, active, children }: { href: string; active: boolean; child
     </Link>
   );
 }
+
+// Barva podle druhu výrobků (Lucie 27. 11. 2026: přehlednější, barevné nadpisy).
+const COLORS: Record<string, { bar: string; text: string; soft: string }> = {
+  polevky: { bar: "border-l-orange-500", text: "text-orange-700", soft: "bg-orange-50 border-orange-200" },
+  sirupy: { bar: "border-l-rose-600", text: "text-rose-700", soft: "bg-rose-50 border-rose-200" },
+  "ovocne-napoje": { bar: "border-l-emerald-600", text: "text-emerald-700", soft: "bg-emerald-50 border-emerald-200" },
+  caje: { bar: "border-l-amber-500", text: "text-amber-700", soft: "bg-amber-50 border-amber-200" },
+  "alkoholicke-koktejly": { bar: "border-l-violet-600", text: "text-violet-700", soft: "bg-violet-50 border-violet-200" },
+};
+const NEUTRAL = { bar: "border-l-begina-primary-900", text: "text-begina-primary-900", soft: "bg-white border-neutral-200" };
+const colorOf = (slug?: string | null) => (slug ? COLORS[slug.replace(/^sk-/, "")] ?? NEUTRAL : NEUTRAL);
 
 const countLabel = (n: number) => (n === 1 ? "1 etiketa" : n >= 2 && n <= 4 ? `${n} etikety` : `${n} etiket`);
 
@@ -147,6 +158,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
         {cats.map((c) => (
           <Tile
             key={c.slug}
+            color={colorOf(c.slug)}
             href={url({ jazyk: lang, kat: c.slug })}
             title={categoryLabel(c)}
             sub={sizesFor(c).length ? sizesFor(c).filter((s) => isSoldSize(c, s) && s !== "krabice").map((s) => sizeLabel(s, lang)).join(" · ") : categoryFixedSize(c)}
@@ -164,6 +176,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
     const sizeTile = (s: string) => (
       <Tile
         key={s}
+        color={colorOf(cat.slug)}
         href={url({ jazyk: lang, kat: cat.slug, vel: s })}
         title={sizeLabel(s, lang)}
         sub={countLabel(fileCount(kindsFor(cat, s).map((k) => k.folder)))}
@@ -188,6 +201,7 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
         {kinds.map((k) => (
           <Tile
             key={k.kind}
+            color={colorOf(cat.slug)}
             href={url({ jazyk: lang, kat: cat.slug, vel: size, druh: k.kind })}
             title={kindLabel(lang, k.kind)}
             sub={[KIND_ROLL[k.kind], countLabel(fileCount([k.folder]))].filter(Boolean).join(" · ")}
@@ -215,39 +229,30 @@ export default async function EtiketyPage({ searchParams }: { searchParams: Prom
     );
   }
 
-  const heading = !cat
-      ? "Vyber výrobky"
-      : !sizeChosen
-        ? "Vyber množství"
-        : !option
-          ? "Vyber etiketu"
-          : null;
+  const color = colorOf(cat?.slug);
+  // Jeden nadpis místo „Etikety / Etikety › Sirupy / Vyber množství“ (Lucie 27. 11. 2026).
+  const title = crumbs.length > 1 ? crumbs.slice(1).map((c) => c.label).join(" · ") : "Etikety";
 
   return (
     <div>
-      <div className="mt-3 mb-4">
-        <h1 className="text-lg font-medium text-begina-primary-900">Etikety</h1>
-        <p className="text-sm text-neutral-500 mt-0.5">Finální etikety k tisku — Brother 62 mm, délka 120 mm, měřítko 100 %.</p>
-      </div>
-
-      {crumbs.length > 1 && (
-        <nav aria-label="Kde jsem" className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
-          {crumbs.map((c, i) => (
-            <span key={c.href} className="flex items-center gap-1.5">
-              {i > 0 && <span className="text-neutral-400">›</span>}
-              {i === crumbs.length - 1 ? (
-                <span className="font-semibold text-begina-primary-900">{c.label}</span>
-              ) : (
-                <Link href={c.href} className="text-neutral-600 hover:underline">
+      <div className={`mt-3 mb-5 rounded-xl border px-4 py-3 ${color.soft}`}>
+        <h1 className={`text-xl font-semibold ${color.text}`}>{title}</h1>
+        {crumbs.length > 1 ? (
+          <nav aria-label="Kde jsem" className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+            {crumbs.slice(0, -1).map((c, i) => (
+              <span key={c.href} className="flex items-center gap-1.5">
+                {i > 0 && <span className="text-neutral-400">›</span>}
+                <Link href={c.href} className="text-neutral-600 underline-offset-2 hover:underline">
                   {c.label}
                 </Link>
-              )}
-            </span>
-          ))}
-        </nav>
-      )}
+              </span>
+            ))}
+          </nav>
+        ) : (
+          <p className="mt-0.5 text-sm text-neutral-600">Tisk na Brother 62 mm · délka 120 mm · měřítko 100 %</p>
+        )}
+      </div>
 
-      {heading && <h2 className="text-sm font-medium text-neutral-600 mb-3">{heading}</h2>}
       {step}
     </div>
   );
