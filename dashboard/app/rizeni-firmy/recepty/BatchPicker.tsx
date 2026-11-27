@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // Počet begin (Lucie 27. 11. 2026): tlačítka přepínají hned, bez „Přepočítat“.
-// Jiný počet: − / + nebo napsat číslo — přepočítá se samo (Enter nebo kliknutí jinam).
+// Jiný počet: − / + nebo napsat číslo — přepočítá se samo chvilku po napsání.
 const QUICK = [1, 2, 3, 5, 10];
 
 export function BatchPicker({ base, count }: { base: string; count: number }) {
   const router = useRouter();
   const [value, setValue] = useState(String(count));
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const href = (n: number) => (n === 1 ? base : `${base}?beginy=${n}`);
   const apply = (raw: string) => {
+    if (timer.current) clearTimeout(timer.current);
     const n = Number(raw);
     if (Number.isInteger(n) && n >= 1 && n <= 200 && n !== count) router.push(href(n));
     else setValue(String(count));
@@ -37,7 +39,13 @@ export function BatchPicker({ base, count }: { base: string; count: number }) {
           min={1}
           max={200}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            // Přepočítá se samo chvilku po psaní / šipkách — není potřeba klikat jinam (Lucie 27. 11. 2026).
+            const next = e.target.value;
+            setValue(next);
+            if (timer.current) clearTimeout(timer.current);
+            if (next.trim() !== "") timer.current = setTimeout(() => apply(next), 700);
+          }}
           onBlur={(e) => apply(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") apply((e.target as HTMLInputElement).value); }}
           aria-label="Počet begin"
