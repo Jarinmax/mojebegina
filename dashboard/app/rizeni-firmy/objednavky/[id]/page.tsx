@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import ItemQuantityEdit from "../ItemQuantityEdit";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
 import { notFound } from "next/navigation";
 import { getInvoiceIssueAccess, getOrderDetail, listInternalStaff, listReplacementOptions } from "@/lib/data/orders";
@@ -46,6 +47,9 @@ export default async function OrderDetailPage(
     notFound();
   }
   const { order, items, activity, payments, invoice } = detail;
+  // Jarin 27. 11. 2026: počet kusů jde měnit u ruční objednávky, dokud neodjela
+  const itemsEditable =
+    order.channel === "manual" && !order.shippedAt && !["cancelled", "handed_to_carrier", "out_for_delivery", "delivered"].includes(order.fulfillmentStatus);
   const staff = await listInternalStaff();
   const batchCodes = await orderBatchCodes(id).catch(() => new Map<string, string[]>());
   const invoiceAccess = order.invoiceable ? await getInvoiceIssueAccess() : null;
@@ -199,6 +203,7 @@ export default async function OrderDetailPage(
             <div key={i} className="flex items-center justify-between text-sm">
               <span className="text-neutral-700">
                 {item.quantity}× {item.name}
+                {itemsEditable && item.id && <ItemQuantityEdit orderId={order.id} itemId={item.id} quantity={item.quantity} name={item.name} />}
                 {item.id && batchCodes.get(item.id) && (
                   <span className="block text-xs text-neutral-500">šarže {batchCodes.get(item.id)!.join(", ")}</span>
                 )}
