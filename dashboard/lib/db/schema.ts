@@ -2268,6 +2268,9 @@ export const recipes = pgTable("recipes", {
   note: text("note"),
   archived: boolean("archived").notNull().default(false),
   sort: integer("sort").notNull().default(0),
+  // postup a kontrolní body výroby (0070, Lucie 27. 11. 2026)
+  procedureSteps: text("procedure_steps").array(),
+  procedureChecks: text("procedure_checks").array(),
 });
 
 export const recipeItems = pgTable(

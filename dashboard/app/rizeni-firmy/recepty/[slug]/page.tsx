@@ -62,6 +62,29 @@ export default async function ReceptPage(props: PageProps<"/rizeni-firmy/recepty
         </div>
       </div>
       <IngredientChecklist storageKey={recipe.slug} items={items} count={count} />
+      {/* Postup a kontrolní body z výrobních karet (Lucie 27. 11. 2026) */}
+      {(recipe.procedureSteps?.length ?? 0) > 0 && (
+        <section className="mt-6 grid gap-6 md:grid-cols-[2fr_1fr]">
+          <div>
+            <h2 className="text-lg font-semibold">Postup</h2>
+            <ol className="mt-2 list-decimal pl-6 space-y-1.5">
+              {recipe.procedureSteps!.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+          {(recipe.procedureChecks?.length ?? 0) > 0 && (
+            <div className="rounded-lg bg-amber-50 px-4 py-3 text-amber-950">
+              <h2 className="text-lg font-semibold">Kontrolní body</h2>
+              <ul className="mt-2 list-disc pl-5 space-y-1">
+                {recipe.procedureChecks!.map((check, index) => (
+                  <li key={index}>{check}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

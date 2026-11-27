@@ -50,6 +50,8 @@ export async function loadRecipes(): Promise<{ recipes: Recipe[]; ingredients: R
       batchMl: row.batchMl,
       note: row.note,
       archived: row.archived,
+      procedureSteps: row.procedureSteps ?? [],
+      procedureChecks: row.procedureChecks ?? [],
       items: itemRows
         .filter((item) => item.recipeId === row.id && byId.has(item.ingredientId))
         .map((item) => ({ ingredient: byId.get(item.ingredientId)!, quantity: Number(item.quantity), unit: item.unit as ItemUnit })),
