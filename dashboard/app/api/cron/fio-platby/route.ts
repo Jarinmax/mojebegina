@@ -1,5 +1,5 @@
 // Fio banka — párování příchozích plateb s objednávkami e-shopu (Vercel Cron,
-// viz vercel.json; několik běhů denně). Logika a pravidla: lib/eshop/fioSync.ts.
+// viz vercel.json; každých 15 minut 7–20 h, Jarin 27. 11. 2026). Logika a pravidla: lib/eshop/fioSync.ts.
 // Autorizace jako u ostatních cronů: "Authorization: Bearer $CRON_SECRET".
 import { db } from "@/lib/db/client";
 import { getAppOrigin } from "@/lib/appOrigin";
