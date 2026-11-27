@@ -62,7 +62,7 @@ export const categories: Category[] = [
   },
   {
     slug: "sirupy",
-    name: "Bylinné sirupy",
+    name: "Bylinkové sirupy",
     image: "/eshop/kategorie-sirupy.jpg",
     intro: [],
     detailSections: [],

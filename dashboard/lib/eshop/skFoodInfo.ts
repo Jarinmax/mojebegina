@@ -5,7 +5,7 @@
 // stránka překlad označí jako neaktuální a nevydává ho za platný.
 export type SkFoodInfo = { nameSk: string; sourceCz: string; ingredientsSk: string; usageSk?: string };
 
-// Ředění sirupů podle e-shopu (kategorie Bylinné sirupy: „Stačí zalít vodou
+// Ředění sirupů podle e-shopu (kategorie Bylinkové sirupy: „Stačí zalít vodou
 // v poměru přibližně 1 : 10 – studenou na limonádu, horkou na čaj.“).
 export const SIRUP_USAGE_SK = "Rieďte vodou v pomere približne 1 : 10 – studenou na limonádu, horúcou na čaj. Balenie 3 l: až 150 nápojov.";
 
