@@ -53,7 +53,7 @@ function useChecked(key: string) {
 }
 
 /** Zaškrtávací políčko — na první pohled je vidět, že se na řádek dá klepnout. */
-function Box({ checked }: { checked: boolean }) {
+export function Box({ checked }: { checked: boolean }) {
   return (
     <span
       aria-hidden
@@ -66,12 +66,12 @@ function Box({ checked }: { checked: boolean }) {
   );
 }
 
-const rowClass = (checked: boolean) =>
+export const rowClass = (checked: boolean) =>
   `group flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left shadow-sm transition-colors cursor-pointer ${
     checked ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-neutral-200 bg-white text-neutral-900 hover:border-begina-primary-900 hover:bg-begina-primary-50"
   }`;
 
-function Progress({ done, total, label, doneLabel, onReset }: { done: number; total: number; label: string; doneLabel: string; onReset: () => void }) {
+export function Progress({ done, total, label, doneLabel, onReset }: { done: number; total: number; label: string; doneLabel: string; onReset?: () => void }) {
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <div className="mb-2 flex items-center gap-3 text-sm">
@@ -81,7 +81,7 @@ function Progress({ done, total, label, doneLabel, onReset }: { done: number; to
       <span className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200">
         <span className="block h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
       </span>
-      {done > 0 && (
+      {done > 0 && onReset && (
         <button type="button" onClick={onReset} className="whitespace-nowrap rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-neutral-900 hover:border-begina-primary-300">
           Začít znovu
         </button>
@@ -139,12 +139,26 @@ export function StepsChecklist({ storageKey, steps }: { storageKey: string; step
 }
 
 /** „1 175 g (1,175 kg)“ → tučně 1 175 g, pod tím drobně 1,175 kg — ať se nepřekrývá s názvem. */
-function QuantityCell({ text }: { text: string }) {
+export function QuantityCell({ text }: { text: string }) {
   const match = text.match(/^(.*?) \((.*)\)$/);
   return (
     <span className="w-24 shrink-0 text-right tabular-nums">
       <span className="block whitespace-nowrap text-[15px] font-semibold">{match ? match[1] : text}</span>
       {match && <span className="block whitespace-nowrap text-xs font-normal opacity-70">{match[2]}</span>}
     </span>
+  );
+}
+
+/** Náhled receptu bez odškrtávání — odškrtává se až ve várce (uložené v databázi). */
+export function IngredientList({ items, count }: { items: ProductionItem[]; count: number }) {
+  return (
+    <ol className="grid gap-2 sm:grid-cols-2 sm:grid-flow-col" style={{ gridTemplateRows: `repeat(${Math.ceil(items.length / 2)}, auto)` }}>
+      {items.map((item, index) => (
+        <li key={index} className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2">
+          <QuantityCell text={formatQuantity(item.quantity * count, item.unit)} />
+          <span className="min-w-0 break-words text-[15px]">{item.name}</span>
+        </li>
+      ))}
+    </ol>
   );
 }

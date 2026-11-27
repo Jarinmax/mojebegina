@@ -2273,6 +2273,33 @@ export const recipes = pgTable("recipes", {
   procedureChecks: text("procedure_checks").array(),
 });
 
+// Várky – rozpracované vaření v databázi (0071, Jarin 27. 11. 2026). Suroviny
+// a postup se při založení zkopírují, aby se rozdělaná várka nezměnila, když
+// se mezitím upraví recept.
+export const productionRuns = pgTable(
+  "production_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeSlug: text("recipe_slug").notNull(),
+    recipeName: text("recipe_name").notNull(),
+    category: text("category").notNull(),
+    batchCount: integer("batch_count").notNull(),
+    batchMl: integer("batch_ml").notNull(),
+    items: jsonb("items").$type<{ name: string; quantity: number; unit: string }[]>().notNull(),
+    steps: text("steps").array().notNull().default(sql`'{}'::text[]`),
+    checks: text("checks").array().notNull().default(sql`'{}'::text[]`),
+    doneItems: integer("done_items").array().notNull().default(sql`'{}'::integer[]`),
+    doneSteps: integer("done_steps").array().notNull().default(sql`'{}'::integer[]`),
+    startedBy: text("started_by").notNull(),
+    startedByName: text("started_by_name"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  },
+  (table) => [check("production_runs_batch_count_check", sql`${table.batchCount} BETWEEN 1 AND 100`)]
+);
+
 export const recipeItems = pgTable(
   "recipe_items",
   {

@@ -5,7 +5,9 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { RECIPE_CATEGORIES, beginLabel, parseBatchCount } from "@/lib/receptury/recipes";
 import { loadRecipes, recipeTablesExist } from "@/lib/receptury/recipesServer";
-import { IngredientChecklist, StepsChecklist, type ProductionItem } from "./IngredientChecklist";
+import { IngredientChecklist, IngredientList, StepsChecklist, type ProductionItem } from "./IngredientChecklist";
+import { formatRunDate, listOpenRuns, productionRunsTableExists } from "@/lib/receptury/productionRuns";
+import { startRunAction } from "../varka/actions";
 
 // RECEPT pro výrobu (Lucie 27. 11. 2026): množství hned u suroviny, na počítači
 // ve dvou sloupcích (vejde se bez posouvání), odškrtávání klepnutím. Žádné ceny.
@@ -28,6 +30,9 @@ export default async function ReceptPage(props: PageProps<"/rizeni-firmy/recepty
   const category = RECIPE_CATEGORIES.find((item) => item.key === recipe.category)?.label ?? recipe.category;
   const litres = ((recipe.batchMl * count) / 1000).toLocaleString("cs-CZ");
   const items: ProductionItem[] = recipe.items.map((item) => ({ name: item.ingredient.name, quantity: item.quantity, unit: item.unit }));
+  // Várky v databázi (Jarin 27. 11. 2026); bez tabulky zůstane staré odškrtávání v prohlížeči.
+  const runsReady = await productionRunsTableExists();
+  const openRuns = runsReady ? await listOpenRuns(recipe.slug) : [];
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-4 text-neutral-900">
@@ -44,14 +49,49 @@ export default async function ReceptPage(props: PageProps<"/rizeni-firmy/recepty
         </h2>
         <BatchPicker base={base} count={count} />
       </div>
-      <IngredientChecklist storageKey={recipe.slug} items={items} count={count} />
+      {runsReady && openRuns.length > 0 && (
+        <div className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
+          <p className="font-semibold text-amber-950">🍲 Tenhle recept máš rozdělaný:</p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {openRuns.map((run) => (
+              <li key={run.id}>
+                <Link href={`/rizeni-firmy/recepty/varka/${run.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 border border-amber-300 hover:border-begina-primary-900">
+                  <span>
+                    {formatRunDate(run.startedAt)} · {beginLabel(run.batchCount)} · {run.doneItems.length} z {run.items.length} surovin
+                  </span>
+                  <span className="font-semibold text-begina-primary-900">Pokračovat →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {runsReady && (
+        <form action={startRunAction} className="mb-4">
+          <input type="hidden" name="slug" value={recipe.slug} />
+          <input type="hidden" name="beginy" value={count} />
+          <button type="submit" className="w-full sm:w-auto rounded-xl bg-emerald-600 px-6 py-3 text-lg font-semibold text-white shadow hover:bg-emerald-700">
+            ▶ Začít vařit – {beginLabel(count)}
+          </button>
+          <p className="mt-1 text-xs text-neutral-500">Založí várku s dnešním datem. Co odškrtneš, se hned uloží – uvidíš to i na jiném počítači nebo v mobilu.</p>
+        </form>
+      )}
+      {runsReady ? <IngredientList items={items} count={count} /> : <IngredientChecklist storageKey={recipe.slug} items={items} count={count} />}
       {/* Postup a kontrolní body z výrobních karet (Lucie 27. 11. 2026) */}
       {(recipe.procedureSteps?.length ?? 0) > 0 && (
         <section className="mt-6 grid gap-6 md:grid-cols-[2fr_1fr]">
           <div>
             <h2 className="text-lg font-semibold">Postup</h2>
             <div className="mt-2">
-              <StepsChecklist storageKey={recipe.slug} steps={recipe.procedureSteps!} />
+              {runsReady ? (
+                <ol className="list-decimal pl-6 space-y-1 text-[15px]">
+                  {recipe.procedureSteps!.map((step, index) => (
+                    <li key={index}>{step}</li>
+                  ))}
+                </ol>
+              ) : (
+                <StepsChecklist storageKey={recipe.slug} steps={recipe.procedureSteps!} />
+              )}
             </div>
           </div>
           {(recipe.procedureChecks?.length ?? 0) > 0 && (
