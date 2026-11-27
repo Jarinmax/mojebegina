@@ -14,6 +14,8 @@ const SIZE_LABEL: Record<string, string> = {
   "250ml": "250 ml",
   "200ml": "200 ml",
   "100ml": "100 ml",
+  // Krabice ochutnávkového setu = samostatná dlaždice za 100 ml (Lucie 27. 11. 2026).
+  krabice: "Krabice ochutnávkového setu",
 };
 
 const KIND_LABEL: Record<Lang, Record<string, string>> = {
@@ -42,9 +44,10 @@ export const KIND_ROLL: Record<string, string> = {
 };
 
 const KIND_ORDER = ["slozeni", "predni-cervenocerne", "predni-cernobile", "predni-barevne", "ochutnavkovy-set"];
-const SIZE_ORDER = ["3l", "650ml", "500ml", "450ml", "250ml", "200ml", "100ml"];
+const SIZE_ORDER = ["3l", "650ml", "500ml", "450ml", "250ml", "200ml", "100ml", "krabice"];
 
-export function sizeLabel(size: string): string {
+export function sizeLabel(size: string, lang: Lang = "cz"): string {
+  if (size === "krabice" && lang === "sk") return "Krabica ochutnávkového setu";
   return SIZE_LABEL[size] ?? size;
 }
 export function kindLabel(lang: Lang, kind: string): string {
@@ -53,7 +56,7 @@ export function kindLabel(lang: Lang, kind: string): string {
 
 /** "predni-barevne-650ml" → { kind: "predni-barevne", size: "650ml" }; "3l" → složení 3 l. */
 export function parseGroupSlug(slug: string): { kind: string; size: string | null } {
-  if (slug === "ochutnavkovy-set") return { kind: slug, size: "100ml" };
+  if (slug === "ochutnavkovy-set") return { kind: slug, size: "krabice" };
   const m = slug.match(/^(?:(.*)-)?(\d+(?:l|ml))$/);
   if (m) return { kind: m[1] ?? "slozeni", size: m[2] };
   // Původní složky bez objemu v názvu (polevky/slozeni, polevky/predni-barevne …) jsou 3 l.
@@ -103,4 +106,32 @@ const SOLD_SIZES: Record<string, string[] | "all"> = {
 export function isSoldSize(c: EtiketyCategory, size: string): boolean {
   const sold = SOLD_SIZES[c.slug.replace(/^sk-/, "")];
   return !sold || sold === "all" || sold.includes(size);
+}
+
+// Pro text „← Zpět na …“ (Lucie 27. 11. 2026: „Zpět na etikety sirupů 100 ml“, ne „předchozí krok“).
+const CATEGORY_GENITIVE: Record<string, string> = {
+  polevky: "polévek",
+  sirupy: "sirupů",
+  "ovocne-napoje": "ovocných nápojů",
+  caje: "čajů",
+  "alkoholicke-koktejly": "alkoholických koktejlů",
+};
+
+/** Název kroku průvodce etiketami podle ?jazyk/kat/vel/druh, např. „etikety sirupů 100 ml“. */
+export function etiketyStepLabel(search: string): string {
+  const q = new URLSearchParams(search);
+  const lang: Lang = q.get("jazyk") === "sk" ? "sk" : "cz";
+  const kat = q.get("kat");
+  const base = lang === "sk" ? "slovenské etikety" : "etikety";
+  if (!kat) return lang === "sk" ? "slovenské etikety" : "Etikety";
+  const slug = kat.replace(/^sk-/, "");
+  const cat = categoriesFor(lang).find((c) => c.slug === kat);
+  const name = CATEGORY_GENITIVE[slug] ?? (cat ? categoryLabel(cat).toLowerCase() : kat);
+  const vel = q.get("vel");
+  const druh = q.get("druh");
+  let label = `${base} ${name}`;
+  if (vel === "krabice") label = `${base} ${name} – ${sizeLabel(vel, lang).toLowerCase()}`;
+  else if (vel) label += ` ${sizeLabel(vel, lang)}`;
+  if (druh) label += ` – ${kindLabel(lang, druh).toLowerCase()}`;
+  return label;
 }

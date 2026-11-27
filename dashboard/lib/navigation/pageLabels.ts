@@ -1,6 +1,7 @@
 // Názvy stránek pro drobečkovou navigaci a „← Zpět na …“ (Lucie 27. 11. 2026:
 // „nikdy nevím, kam mě Zpět vrátí“). Zpět vede vždy o úroveň výš a píše kam.
 import { NOT_PAGES, parentHref } from "./parentHref";
+import { etiketyStepLabel } from "@/lib/etikety/wizard";
 
 const STATIC: Record<string, string> = {
   "/rizeni-firmy": "Řízení firmy",
@@ -92,6 +93,11 @@ export function breadcrumbs(pathname: string): Crumb[] {
 export function backTarget(pathname: string, fallback: string, search?: string | null): Crumb {
   const href = parentHref(pathname, fallback, search);
   const samePath = href.split("?")[0] === pathname.split("?")[0].replace(/\/+$/, "");
-  const label = href === fallback ? "hlavní stránku" : samePath ? `${pageLabel(href)} – předchozí krok` : pageLabel(href);
+  const label =
+    href === fallback
+      ? "hlavní stránku"
+      : samePath && href.split("?")[0] === "/rizeni-firmy/etikety"
+        ? etiketyStepLabel(href.split("?")[1] ?? "")
+        : pageLabel(href);
   return { href, label };
 }
