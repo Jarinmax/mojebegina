@@ -52,6 +52,9 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
   const totalPerOrder = (id: string) =>
     orders.find((o) => o.id === id)?.items.reduce((s, i) => s + i.quantity, 0) ?? 0;
   const grandTotal = orders.reduce((s, o) => s + totalPerOrder(o.id), 0);
+  // Zákazník komplet (Lucie 27. 11. 2026): všechno vyrobeno → celý sloupec zezelená.
+  const complete = new Set(orders.filter((o) => o.items.length > 0 && o.items.every((i) => i.producedAt)).map((o) => o.id));
+  const colBg = (id: string, base = "") => (complete.has(id) ? "bg-emerald-100" : base);
 
   return (
     <div>
@@ -62,11 +65,14 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
             <tr>
               <th className="border border-neutral-300 bg-neutral-100 text-left p-2 w-56">Zákazník</th>
               {orders.map((o) => (
-                <th key={o.id} className="border border-neutral-300 bg-neutral-100 text-left p-2 align-top font-medium">
+                <th key={o.id} className={`border border-neutral-300 text-left p-2 align-top font-medium ${colBg(o.id, "bg-neutral-100")}`}>
                   <span className="text-neutral-500 font-normal">{o.orderNumber !== null ? formatOrderNumber(o.orderNumber) : ""}</span>
                   <span className="block font-semibold text-begina-primary-900">{o.customer}</span>
                   {o.contactName && o.contactName !== o.customer && (
                     <span className="block text-xs text-neutral-600 font-normal">{o.contactName}</span>
+                  )}
+                  {complete.has(o.id) && (
+                    <span className="mt-1 inline-block rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">✓ komplet</span>
                   )}
                 </th>
               ))}
@@ -77,7 +83,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
             <tr>
               <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium text-neutral-900">Doručit na</th>
               {orders.map((o) => (
-                <td key={o.id} className="border border-neutral-300 p-2 align-top text-xs text-neutral-700">
+                <td key={o.id} className={`border border-neutral-300 p-2 align-top text-xs text-neutral-700 ${colBg(o.id)}`}>
                   {o.deliveryAddress ?? "—"}
                   {o.deliveryPhone && <span className="block">tel. {o.deliveryPhone}</span>}
                 </td>
@@ -87,7 +93,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
             <tr>
               <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium text-neutral-900">Termín dodání</th>
               {orders.map((o) => (
-                <td key={o.id} className="border border-neutral-300 p-2">
+                <td key={o.id} className={`border border-neutral-300 p-2 ${colBg(o.id)}`}>
                   {o.deadline ? (
                     <span className="inline-block rounded bg-red-100 text-red-800 text-xs font-semibold px-1.5 py-0.5">
                       do {formatDeadlineShort(o.deadline)}
@@ -105,8 +111,8 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
             <tr>
               <th className="border border-neutral-300 bg-neutral-50 text-left p-2 font-medium text-neutral-900">Vyrobeno</th>
               {orders.map((o) => (
-                <td key={o.id} className="border border-neutral-300 p-2 text-xs text-neutral-700">
-                  {o.producedCount} z {o.items.length} položek
+                <td key={o.id} className={`border border-neutral-300 p-2 text-xs text-neutral-700 ${colBg(o.id)}`}>
+                  {complete.has(o.id) ? <span className="font-bold text-emerald-800">✓ Komplet – {o.producedCount} z {o.items.length}</span> : <>{o.producedCount} z {o.items.length} položek</>}
                   <Link
                     href={`/rizeni-firmy/vyroba/${o.id}`}
                     className="mt-1 block w-fit rounded-lg bg-begina-primary-900 text-begina-primary-50 px-3 py-1.5 text-xs"
@@ -118,13 +124,16 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
               <td className="border border-neutral-300" />
             </tr>
             {groups.map((g) => (
-              <GroupRows key={g.slug} slug={g.slug} label={g.label} rows={g.rows} orders={orders} />
+              <GroupRows key={g.slug} slug={g.slug} label={g.label} rows={g.rows} orders={orders} complete={complete} />
             ))}
             <tr>
               <td className="border border-neutral-300 bg-neutral-200 p-2 font-bold text-neutral-900">Celkem kusů</td>
               {orders.map((o) => (
-                <td key={o.id} className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold text-neutral-900">
-                  {totalPerOrder(o.id)}
+                <td
+                  key={o.id}
+                  className={`border border-neutral-300 p-2 text-center font-bold ${complete.has(o.id) ? "bg-emerald-500 text-white" : "bg-neutral-200 text-neutral-900"}`}
+                >
+                  {complete.has(o.id) ? `✓ ${totalPerOrder(o.id)}` : totalPerOrder(o.id)}
                 </td>
               ))}
               <td className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold text-neutral-900">{grandTotal}</td>
@@ -139,7 +148,8 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
         {orders.map((o) => {
           const byGroup = PRODUCTION_GROUPS.map((g) => ({ ...g, items: o.items.filter((i) => i.group === g.slug) })).filter((g) => g.items.length > 0);
           return (
-            <div key={o.id} className="bg-white border-2 border-red-300 rounded-2xl p-3">
+            <div key={o.id} className={`border-2 rounded-2xl p-3 ${complete.has(o.id) ? "bg-emerald-50 border-emerald-500" : "bg-white border-red-300"}`}>
+              {complete.has(o.id) && <p className="mb-1 text-sm font-bold text-emerald-700">✓ Komplet – všechno vyrobeno</p>}
               <div className="flex items-start justify-between gap-2">
                 <p className="text-base font-bold text-neutral-900 break-words min-w-0">
                   {o.orderNumber !== null && <span className="text-neutral-500 font-normal text-sm mr-1">{formatOrderNumber(o.orderNumber)}</span>}
@@ -201,7 +211,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
           <Link
             key={o.id}
             href={`/rizeni-firmy/vyroba/${o.id}`}
-            className="bg-white border border-neutral-200 rounded-xl p-3 flex items-center justify-between gap-3 min-w-0"
+            className={`border rounded-xl p-3 flex items-center justify-between gap-3 min-w-0 ${complete.has(o.id) ? "bg-emerald-50 border-emerald-500" : "bg-white border-neutral-200"}`}
           >
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-begina-primary-900 break-words">
@@ -210,7 +220,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
               </span>
               <span className="block text-xs text-neutral-600 break-words">{o.deliveryAddress ?? ""}</span>
               <span className="block text-xs text-neutral-600">
-                Vyrobeno {o.producedCount} z {o.items.length}
+                {complete.has(o.id) ? "✓ Komplet – vyrobeno" : "Vyrobeno"} {o.producedCount} z {o.items.length}
                 {o.deadline ? ` · termín do ${formatDeadlineShort(o.deadline)}` : ""}
                 {o.payLater ? ` · platí ${o.paymentMethod} při předání` : ""}
               </span>
@@ -245,11 +255,13 @@ function GroupRows({
   label,
   rows,
   orders,
+  complete,
 }: {
   slug: string;
   label: string;
   rows: Row[];
   orders: ProductionOrder[];
+  complete: Set<string>;
 }) {
   const style = GROUP_STYLE[slug];
   return (
@@ -265,7 +277,7 @@ function GroupRows({
           {orders.map((o) => {
             const cell = r.cells.get(o.id);
             return (
-              <td key={o.id} className="border border-neutral-300 p-1.5 text-center">
+              <td key={o.id} className={`border border-neutral-300 p-1.5 text-center ${complete.has(o.id) ? "bg-emerald-100" : ""}`}>
                 {cell ? <ProducedCell orderId={o.id} itemIds={cell.itemIds} qty={cell.qty} done={cell.done} /> : null}
               </td>
             );
