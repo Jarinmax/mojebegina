@@ -185,6 +185,7 @@ export default function ProductionSummary({ orders, awaiting = [], money }: { or
                   ))}
                 </div>
               ))}
+              {money?.[o.id] && <MoneyCard m={money[o.id]} />}
               <Link
                 href={`/rizeni-firmy/vyroba/${o.id}`}
                 className="mt-3 block text-center rounded-xl bg-begina-primary-900 text-begina-primary-50 py-3 text-[15px] font-medium"
@@ -195,6 +196,17 @@ export default function ProductionSummary({ orders, awaiting = [], money }: { or
           );
         })}
 
+        {money && (
+          <MoneyCard
+            title="Celkem všichni klienti"
+            m={{
+              goodsKc: orders.reduce((t, o) => t + (money[o.id]?.goodsKc ?? 0), 0),
+              shippingKc: orders.reduce((t, o) => t + (money[o.id]?.shippingKc ?? 0), 0),
+              costKc: orders.reduce((t, o) => t + (money[o.id]?.costKc ?? 0), 0),
+              unknown: orders.flatMap((o) => money[o.id]?.unknown ?? []),
+            }}
+          />
+        )}
         <details className="bg-white border border-neutral-200 rounded-xl p-3">
           <summary className="text-sm font-semibold text-neutral-900">Celkem k výrobě (všichni klienti)</summary>
           {groups.map((g) => (
@@ -338,7 +350,7 @@ function MoneyRows({ orders, money }: { orders: ProductionOrder[]; money: Record
               {m ? kc0(m.costKc) : "—"}
               {m && m.unknown.length > 0 && (
                 <span className="block whitespace-normal text-xs text-amber-700" title={m.unknown.join(", ")}>
-                  bez nákladu: {m.unknown.length} {m.unknown.length === 1 ? "položka" : "položky"}
+                  bez nákladu (není recept): {m.unknown.join(", ")}
                 </span>
               )}
             </td>
@@ -362,5 +374,21 @@ function MoneyRows({ orders, money }: { orders: ProductionOrder[]; money: Record
         </td>
       </tr>
     </>
+  );
+}
+
+/** Mobil: hodnota, náklad a marže v kartě zákazníka (Lucie 27. 11. 2026). */
+function MoneyCard({ m, title }: { m: OrderMoney; title?: string }) {
+  const margin = m.goodsKc - m.costKc;
+  const pct = m.goodsKc > 0 ? Math.round((margin / m.goodsKc) * 100) : null;
+  return (
+    <div className="mt-3 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900">
+      {title && <p className="mb-1 font-semibold">{title}</p>}
+      <p className="flex justify-between gap-2"><span className="text-neutral-600">Hodnota zboží</span><span className="tabular-nums">{kc0(m.goodsKc)}</span></p>
+      {m.shippingKc > 0 && <p className="flex justify-between gap-2 text-xs text-neutral-500"><span>+ doprava</span><span className="tabular-nums">{kc0(m.shippingKc)}</span></p>}
+      <p className="flex justify-between gap-2"><span className="text-neutral-600">Náklad (suroviny + obal)</span><span className="tabular-nums">{kc0(m.costKc)}</span></p>
+      <p className="flex justify-between gap-2 font-semibold text-emerald-800"><span>Marže</span><span className="tabular-nums">{kc0(margin)}{pct !== null ? ` · ${pct} %` : ""}</span></p>
+      {m.unknown.length > 0 && <p className="mt-1 text-xs text-amber-700">Bez nákladu (není recept): {m.unknown.join(", ")}</p>}
+    </div>
   );
 }
