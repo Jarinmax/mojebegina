@@ -45,7 +45,7 @@ describe("Ochutnávka do provozu", () => {
       "Dýňová polévka", "Kulajda", "Tomatová polévka", "Rajčatová polévka s červenou řepou", "Gulášová polévka z hlívy ústřičné", "Špenátová polévka",
     ]);
     expect(CAFE_TASTING_ITEMS.filter((i) => i.kind === "sirup").map((i) => i.name)).toEqual([
-      "Bylinný sirup Šaman", "Lipový sirup", "Zázvorový sirup", "Ibiškový sirup", "Šípkový sirup", "Heřmánkový sirup", "Meduňkový sirup s levandulí",
+      "Bylinkový sirup Šaman", "Lipový sirup", "Zázvorový sirup", "Ibiškový sirup", "Šípkový sirup", "Heřmánkový sirup", "Meduňkový sirup s levandulí",
     ]);
     expect(CAFE_TASTING_ITEMS.every((i) => (i.kind === "sirup" ? i.weightGrams === 140 && i.volumeMl === 100 : i.weightGrams === 250 && i.volumeMl === 200))).toBe(true);
     expect(CAFE_TASTING_ITEMS.filter((i) => i.kind === "svarak").map((i) => [i.name, i.volumeMl, i.weightGrams])).toEqual([["Svařák Deluxe", 200, 250]]);

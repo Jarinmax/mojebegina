@@ -85,7 +85,7 @@ export function googleMerchantFeed(catalog: Catalog): string {
     "  <channel>",
     "    <title>Begina</title>",
     `    <link>${PUBLIC_ORIGIN}/</link>`,
-    "    <description>Bylinné sirupy, polévky, čaje a nápoje Begina</description>",
+    "    <description>Bylinkové sirupy, polévky, čaje a nápoje Begina</description>",
     ...items,
     "  </channel>",
     "</rss>",

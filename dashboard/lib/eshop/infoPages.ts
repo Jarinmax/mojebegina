@@ -94,7 +94,7 @@ const aboutPage: InfoPage = {
   path: "/o-nas",
   footerLabel: "O nás",
   title: "O nás",
-  description: "Za Beginou stojí Jarin a Lucie — čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
+  description: "Za Beginou stojí Jarin a Lucie — čerstvé polévky, bylinkové sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
   hideOperatorLine: true,
   blocks: [
     {
@@ -103,7 +103,7 @@ const aboutPage: InfoPage = {
       paragraphs: [
         "Za Beginou stojíme my dva – Jarin a Lucie. Spojuje nás chuť vytvářet něco vlastního a nabídnout vám dobré jídlo a nápoje pro každý den. Receptury a kombinace chutí vznikají v Jarinově kuchyni, o Beginu a její rozvoj se staráme společně.",
         "V roce 2023 jsme začali tvořit společně. V Českém Krumlově jsme otevřeli Simon Gallery, kde vznikaly naše první čaje a ovocné nápoje z čisté filtrované vody. Na tuto zkušenost jsme později navázali značkou Begina.",
-        "Dnes v naší nabídce najdete čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
+        "Dnes v naší nabídce najdete čerstvé polévky, bylinkové sirupy, čaje, ovocné nápoje, alkoholické koktejly a zmrzliny.",
         "Chceme vám usnadnit každodenní přípravu i chvíle, kdy se u stolu sejde více lidí. Polévku stačí ohřát, sirup naředit a nápoj podávat.",
         "Begina. Když rozhoduje chuť.",
       ],
@@ -245,12 +245,12 @@ export function shippingPageFor(mode: ShippingMode, options: ShippingOptions = {
             paragraphs: [
               ...(SLOVAKIA_SELF_TRANSPORT && !SLOVAKIA_DELIVERY_ALLOWED
                 ? [
-                    "Polévky, bylinné sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
+                    "Polévky, bylinkové sirupy, čaje a ovocné nápoje prodáváme i zákazníkům ze Slovenska. Alkoholické nápoje na Slovensko neprodáváme.",
                     SLOVAKIA_SELF_TRANSPORT_NOTE,
                     "Pro představu ceník chlazené přepravy CoolBalík na Slovensko (platíte přímo dopravci):",
                   ]
                 : [
-                    "Na Slovensko doručujeme chlazenou přepravou polévky, bylinné sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
+                    "Na Slovensko doručujeme chlazenou přepravou polévky, bylinkové sirupy, čaje a ovocné nápoje. Alkoholické nápoje na Slovensko nezasíláme.",
                     "Cena se řídí celkovou hmotností objednávky podle ceníku pro Slovensko a zobrazí se v pokladně po zadání slovenské adresy:",
                   ]),
             ],

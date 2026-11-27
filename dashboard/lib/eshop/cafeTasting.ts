@@ -50,7 +50,7 @@ export const CAFE_TASTING_ITEMS: readonly CafeTastingItem[] = [
   soup("rajcatova-polevka-s-cervenou-repou", "Rajčatová polévka s červenou řepou"),
   soup("gulasova-polevka-z-hlivy-ustricne", "Gulášová polévka z hlívy ústřičné"),
   soup("spenatova-polevka", "Špenátová polévka"),
-  syrup("bylinny-sirup-saman", "Bylinný sirup Šaman"),
+  syrup("bylinny-sirup-saman", "Bylinkový sirup Šaman"),
   syrup("lipovy-sirup", "Lipový sirup"),
   syrup("zazvorovy-sirup", "Zázvorový sirup"),
   syrup("ibiskovy-sirup", "Ibiškový sirup"),

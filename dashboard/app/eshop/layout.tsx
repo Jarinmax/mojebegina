@@ -85,7 +85,7 @@ export default async function EshopLayout({ children }: LayoutProps<"/eshop">) {
     MOJE_BEGINA_LINK,
   ], [
     // 18. 11. 2026 (Lucie): hlavní zákazníci jsou kavárny a bistra — vlastní položka v menu;
-    // od 20. 11. 2026 první a zvýrazněná: Pro kavárny a bistra · Čerstvé polévky · Bylinné sirupy · Nápoje · Zmrzliny · O nás · MojeBegina · Košík
+    // od 20. 11. 2026 první a zvýrazněná: Pro kavárny a bistra · Čerstvé polévky · Bylinkové sirupy · Nápoje · Zmrzliny · O nás · MojeBegina · Košík
     { kind: "link", href: CAFE_PATH, label: CAFE_MENU_LABEL, mobileFirst: true, highlight: true },
   ]);
   // Cookie lišta a Meta Pixel — jen se zapnutým přepínačem (výchozí vypnuto).

@@ -80,7 +80,7 @@ export const HOME_TILE_CAFE = {
 // Bez „zdarma“ a bez kampaňové ceny 189 Kč (Lucie 20. 11. 2026).
 export const HOME_TILE_HOME = {
   title: "Nakupuji domů",
-  points: ["Bylinné sirupy v begině 3 l od 499 Kč.", "Ochutnávkový set 5 sirupů za 349 Kč, poslat jde i Zásilkovnou.", "Chlazená doprava po celé ČR."],
+  points: ["Bylinkové sirupy v begině 3 l od 499 Kč.", "Ochutnávkový set 5 sirupů za 349 Kč, poslat jde i Zásilkovnou.", "Chlazená doprava po celé ČR."],
   button: "Nakoupit domů",
   // Stránka jen pro zákazníky domů: kategorie a nejoblíbenější (Lucie 20. 11. 2026 večer).
   href: "/nakupuji-domu",
@@ -97,16 +97,16 @@ export function homeSyrupPoint(products: readonly SyrupProduct[]): string {
   const variants = products.filter((p) => p.category === "sirupy").flatMap((p) => p.variants).filter((v) => v.soldOut !== true);
   const small = variants.filter((v) => v.volumeMl !== null && v.volumeMl < 3000).sort((a, b) => a.priceKc - b.priceKc)[0];
   const big = variants.filter((v) => v.volumeMl === 3000).sort((a, b) => a.priceKc - b.priceKc)[0];
-  if (small && big) return `Bylinné sirupy od ${small.priceKc}\u00a0Kč (sáček ${small.label}), begina 3\u00a0l od ${big.priceKc}\u00a0Kč.`;
-  if (big) return `Bylinné sirupy v begině 3 l od ${big.priceKc} Kč.`;
-  return "Bylinné sirupy z bylinek a třtinového cukru.";
+  if (small && big) return `Bylinkové sirupy od ${small.priceKc}\u00a0Kč (sáček ${small.label}), begina 3\u00a0l od ${big.priceKc}\u00a0Kč.`;
+  if (big) return `Bylinkové sirupy v begině 3 l od ${big.priceKc} Kč.`;
+  return "Bylinkové sirupy z bylinek a třtinového cukru.";
 }
 
 export const HOME_SHOP_HOME = {
   path: "/nakupuji-domu",
   title: "Nakupuji domů",
-  description: "Čerstvé polévky, bylinné sirupy, čaje, ovocné nápoje, koktejly a zmrzliny Begina domů. Chlazená doprava po celé ČR, ochutnávkový set sirupů i Zásilkovnou.",
-  points: ["Bylinné sirupy v begině 3 l od 499 Kč", "Ochutnávkový set 5 sirupů za 349 Kč, i Zásilkovnou", "Chlazená doprava po celé ČR"],
+  description: "Čerstvé polévky, bylinkové sirupy, čaje, ovocné nápoje, koktejly a zmrzliny Begina domů. Chlazená doprava po celé ČR, ochutnávkový set sirupů i Zásilkovnou.",
+  points: ["Bylinkové sirupy v begině 3 l od 499 Kč", "Ochutnávkový set 5 sirupů za 349 Kč, i Zásilkovnou", "Chlazená doprava po celé ČR"],
 } as const;
 
 export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";

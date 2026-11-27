@@ -14,7 +14,7 @@ describe("fotky na e-shop", () => {
     for (const key of Object.keys(scan())) expect(known.has(key)).toBe(true);
   });
   it("hezké názvy produktů", () => {
-    expect(fotkyDisplayName("bylinny-sirup-saman.jpg")).toBe("Bylinný sirup Šaman");
+    expect(fotkyDisplayName("bylinny-sirup-saman.jpg")).toBe("Bylinkový sirup Šaman");
     expect(fotkyDisplayName("rajcatova-polevka.jpg")).toBe("Tomatová polévka");
     expect(fotkyDisplayName("ikona-caje.webp")).toBe("Čaje");
   });
