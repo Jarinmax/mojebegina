@@ -79,7 +79,7 @@ describe("MCP Projekt Begina", { timeout: 120_000 }, () => {
   });
 
   it("nástroje vidí jen Jaroslav a Lucie", () => {
-    expect(listed(lucie)).toEqual(expect.arrayContaining(["project_overview", "project_read_area", "project_write"]));
+    expect(listed(lucie)).toEqual(expect.arrayContaining(["project_overview", "project_read_area", "project_write", "project_delete"]));
     expect(listed(kolega).filter((n) => n.startsWith("project_"))).toEqual([]);
   });
 
@@ -105,8 +105,20 @@ describe("MCP Projekt Begina", { timeout: 120_000 }, () => {
     expect(area.data.outputs).toEqual([expect.objectContaining({ title: "Etikety polévek PDF", url: "https://begina.cz/etikety.pdf" })]);
 
     const overview = await call(lucie, "project_overview", {});
-    expect(overview.data.areas).toHaveLength(19);
+    expect(overview.data.areas).toHaveLength(20);
     expect(overview.data.areas.find((a: { area: string }) => a.area === "etikety")).toMatchObject({ decisions: 1, outputs: 1 });
+  });
+
+  it("smazání výstupu podle id", async () => {
+    await call(lucie, "project_write", { area: "smlouvy", kind: "output", title: "Dohoda PDF", url: "https://drive.google.com/x", idempotency_key: randomUUID() });
+    const before = await call(lucie, "project_read_area", { area: "smlouvy" });
+    const id = before.data.outputs[0].id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    const del = await call(lucie, "project_delete", { id, idempotency_key: randomUUID() });
+    expect(del.isError, del.text).toBe(false);
+    expect(del.data.deleted).toBe(true);
+    const after = await call(lucie, "project_read_area", { area: "smlouvy" });
+    expect(after.data.outputs).toHaveLength(0);
   });
 
   it("špatná oblast, prázdný stav a nebezpečný odkaz neprojdou", async () => {

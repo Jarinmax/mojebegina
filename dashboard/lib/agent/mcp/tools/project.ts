@@ -1,12 +1,12 @@
 // PROJEKT BEGINA 1.0 — nástroje asistenta pro sdílenou paměť firmy
 // (project_entries). Jen pro Jaroslava a Lucii (isInvoiceIssuer).
-// Zápis jen přidává řádky (nový stav, rozhodnutí, výstup) — nic nemaže ani nepřepisuje.
+// Zápis přidává řádky (nový stav, rozhodnutí, výstup); project_delete zápis jen skryje (deleted_at), nic nemaže natrvalo.
 import "server-only";
 import { getAuthContext } from "@/lib/data/authContext";
 import { INVOICE_ISSUER_NAMES, isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { AGENT_NAME_SUFFIX } from "@/lib/agent/oauthStore";
 import { KIND_LABELS, PROJECT_AREAS, PROJECT_AREA_SLUGS, PROJECT_KINDS, findArea, validateProjectInput } from "@/lib/projekt/areas";
-import { insertProjectEntry, loadArea, loadOverview, projectTableExists, type ProjectEntry } from "@/lib/projekt/projectServer";
+import { insertProjectEntry, softDeleteProjectEntry, loadArea, loadOverview, projectTableExists, type ProjectEntry } from "@/lib/projekt/projectServer";
 import { ArgError, idempotencyKey, requiredString } from "../args";
 import { defineTool, type AgentTool } from "../define";
 
@@ -17,6 +17,7 @@ const BASE_URL = "https://moje.begina.cz/rizeni-firmy/projekt";
 const AREA_HELP = PROJECT_AREAS.map((a) => `${a.slug} = ${a.name}`).join(", ");
 
 const brief = (e: ProjectEntry) => ({
+  id: e.id,
   area: e.area,
   kind: e.kind,
   kindLabel: KIND_LABELS[e.kind],
@@ -131,6 +132,32 @@ export const PROJECT_TOOLS: AgentTool[] = [
           message: created ? `${KIND_LABELS[input.kind]} zapsán${input.kind === "decision" ? "o" : ""} do oblasti ${areaName}.` : "Tento zápis už dřív proběhl (stejný idempotency_key) — nic se nezapsalo podruhé.",
           url: `${BASE_URL}/${input.area}`,
         },
+      };
+    },
+  }),
+  defineTool({
+    name: "project_delete",
+    title: "Projekt Begina — smazat zápis",
+    description:
+      "ZÁPIS — skryje jeden zápis v Projektu Begina (stav, rozhodnutí nebo výstup) podle id z project_read_area / project_overview — stejně jako tlačítko „smazat“ na stránce. Použij, když uživatel řekne, ať zápis smažeš, nebo když jsi zápis přesunul do jiné oblasti a uživatel s tím souhlasil. Po smazání jednou větou řekni, co jsi smazal.",
+    write: true,
+    visible: issuerOnly,
+    properties: { id: { type: "string", description: "id zápisu z project_read_area (UUID)." } },
+    required: ["id"],
+    parse: (args) => {
+      const id = requiredString(args, "id", 40);
+      if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ArgError("id musí být UUID zápisu z project_read_area.");
+      return { id, key: idempotencyKey(args) };
+    },
+    execute: async ({ id }) => {
+      const ctx = await getAuthContext();
+      if (!ctx || !isInvoiceIssuer(ctx)) return { ok: false, error: DENIED };
+      if (!(await projectTableExists())) return { ok: false, error: NO_TABLE };
+      const deleted = await softDeleteProjectEntry(id);
+      return {
+        ok: true,
+        summary: { deleted },
+        data: { deleted, message: deleted ? "Zápis smazán." : "Zápis nenalezen nebo už byl smazaný." },
       };
     },
   }),
