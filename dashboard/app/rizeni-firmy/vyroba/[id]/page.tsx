@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { payLaterNote } from "@/lib/payLater";
 import { DeliveryAddressEdit } from "../DeliveryAddressEdit";
 import { notFound } from "next/navigation";
 import { getProductionOrder, PRODUCTION_GROUPS } from "@/lib/data/productionBoard";
@@ -52,7 +53,7 @@ export default async function ProductionCardPage(props: PageProps<"/rizeni-firmy
               {order.paidAt
                 ? ` · zaplaceno ${formatCzechDate(order.paidAt)}`
                 : order.payLater
-                  ? ` · platí ${order.paymentMethod} při předání`
+                  ? ` · ${payLaterNote(order.paymentMethod)}`
                   : " · zatím nezaplaceno"}
             </p>
             <p className="text-lg font-bold text-begina-primary-900 break-words">{order.customer}</p>
