@@ -1,7 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { formatQuantity, type RecipeItem } from "@/lib/receptury/recipes";
+import { formatQuantity, type ItemUnit } from "@/lib/receptury/recipes";
+
+/** Jen to, co potřebuje výroba — žádné ceny (nedostanou se ani do prohlížeče). */
+export type ProductionItem = { name: string; quantity: number; unit: ItemUnit };
 
 // Odškrtávání při výrobě (Lucie 27. 11. 2026): klepnutím na řádek zezelená —
 // surovina už je v hrnci. Stav se pamatuje v tomto prohlížeči pro danou
@@ -34,7 +37,7 @@ function subscribe(callback: () => void) {
   };
 }
 
-export function IngredientChecklist({ storageKey, items, count }: { storageKey: string; items: RecipeItem[]; count: number }) {
+export function IngredientChecklist({ storageKey, items, count }: { storageKey: string; items: ProductionItem[]; count: number }) {
   const key = `receptura-hotovo:${storageKey}:${count}`;
   const raw = useSyncExternalStore(subscribe, () => read(key), () => "[]");
   const done = parse(raw);
@@ -65,7 +68,7 @@ export function IngredientChecklist({ storageKey, items, count }: { storageKey: 
               >
                 <span className="w-5 shrink-0 text-center">{isDone ? "✓" : <span className="text-neutral-300">○</span>}</span>
                 <QuantityCell text={formatQuantity(item.quantity * count, item.unit)} />
-                <span className={`min-w-0 break-words text-[15px] ${isDone ? "line-through decoration-emerald-700/40" : ""}`}>{item.ingredient.name}</span>
+                <span className={`min-w-0 break-words text-[15px] ${isDone ? "line-through decoration-emerald-700/40" : ""}`}>{item.name}</span>
               </button>
             </li>
           );

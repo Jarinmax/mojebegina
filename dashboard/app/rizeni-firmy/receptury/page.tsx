@@ -19,7 +19,7 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
   if (!(await recipeTablesExist())) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 text-neutral-900">
-        <h1 className="text-2xl font-semibold">Recepty a náklady</h1>
+        <h1 className="text-2xl font-semibold">Náklady a marže</h1>
         <p className="mt-3 text-sm rounded-lg bg-amber-50 text-amber-900 px-3 py-2">Tabulky pro receptury v databázi ještě nejsou. Spusťte v Neonu skript 123_receptury_MAIN.</p>
       </div>
     );
@@ -30,8 +30,8 @@ export default async function RecepturyPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-neutral-900">
-      <h1 className="mt-2 text-2xl font-semibold">Recepty a náklady</h1>
-      <p className="mt-2 text-sm text-neutral-600">Přesné složení každého výrobku na 3l beginu, náklad a marže. Ceny surovin se berou z jednoho ceníku — po změně ceny se přepočítá všechno. Marže je po surovinách a obalech; práce, energie, reklama a provize v ní nejsou.</p>
+      <h1 className="mt-2 text-2xl font-semibold">Náklady a marže</h1>
+      <p className="mt-2 text-sm text-neutral-600">Náklad na 3l beginu, prodejní cena a marže každého výrobku. Recept pro výrobu (bez cen) je zvlášť v Receptech. Ceny surovin se berou z jednoho ceníku — po změně ceny se přepočítá všechno. Marže je po surovinách a obalech; práce, energie, reklama a provize v ní nejsou.</p>
       {/* 21. 11. 2026 (Lucie): ceník už ne jako černé tlačítko vpravo nahoře, ale
           jako samostatný, jinak označený blok — je to podklad pro všechny receptury. */}
       <Link
