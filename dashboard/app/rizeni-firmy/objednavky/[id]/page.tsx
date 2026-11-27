@@ -1,3 +1,9 @@
+import { getAuthContext } from "@/lib/data/authContext";
+import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
+import { db } from "@/lib/db/client";
+import { ownInvoiceDocuments } from "@/lib/db/schema";
+import { ownInvoicePdfPath } from "@/lib/eshop/invoicing/ownB2b";
+import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import ItemQuantityEdit from "../ItemQuantityEdit";
 import { formatPragueDate } from "@/lib/eshop/bankTransfer";
@@ -58,6 +64,16 @@ export default async function OrderDetailPage(
   // náhradní objednávka: jen stornovaná s drženými penězi (před rozhodnutím o vrácení)
   const replacementOptions = order.moneyAlert?.stage === "contact" ? await listReplacementOptions() : null;
   const address = parseCheckoutAddress(order.recipientAddress);
+  // Lucie 27. 11. 2026: faktura MojeBegina (řada 2026xxxx) přímo u objednávky — jen pro vystavovatele faktur
+  const ctx = await getAuthContext();
+  const ownInvoices =
+    ctx && isInvoiceIssuer(ctx)
+      ? await db
+          .select({ number: ownInvoiceDocuments.number, state: ownInvoiceDocuments.state, issueDate: ownInvoiceDocuments.issueDate, totalKc: ownInvoiceDocuments.totalKc, sentAt: ownInvoiceDocuments.sentAt, paidAt: ownInvoiceDocuments.paidAt })
+          .from(ownInvoiceDocuments)
+          .where(and(eq(ownInvoiceDocuments.orderId, id), eq(ownInvoiceDocuments.kind, "invoice")))
+          .orderBy(desc(ownInvoiceDocuments.createdAt))
+      : null;
 
   return (
     <div>
@@ -80,6 +96,29 @@ export default async function OrderDetailPage(
         <CancelledMoneyBadge money={order.moneyAlert} />
         <DispatchBadges order={order} />
       </div>
+
+      {ownInvoices && (
+        <div className={`rounded-xl border p-4 mb-4 ${ownInvoices.some((f) => f.state === "issued") ? "bg-emerald-50 border-emerald-300" : "bg-white border-neutral-200"}`}>
+          <p className="text-sm font-semibold text-begina-primary-900 mb-1">🧾 Faktura</p>
+          {ownInvoices.length === 0 ? (
+            <p className="text-sm text-neutral-600">Faktura zatím není vystavená{order.paymentStatus === "paid" ? "." : " – u e-shopu se vystaví sama po zaplacení, u ruční objednávky při odeslání."}</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {ownInvoices.map((f) => (
+                <li key={f.number} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm text-neutral-900">
+                    <span className="font-semibold">č. {f.number}</span> · {formatKc(f.totalKc)} · vystavena {new Date(f.issueDate).toLocaleDateString("cs-CZ")}
+                    {f.state === "cancelled" ? <span className="ml-2 text-red-700">stornovaná</span> : f.sentAt ? <span className="ml-2 text-neutral-500">odeslána zákazníkovi</span> : <span className="ml-2 text-neutral-500">zákazníkovi ještě neodešla</span>}
+                  </span>
+                  <a href={ownInvoicePdfPath(f.number)} target="_blank" rel="noopener" className="rounded-lg bg-begina-primary-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-begina-primary-800">
+                    Otevřít / vytisknout PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {order.moneyAlert && (
         <CancelledMoneyPanel

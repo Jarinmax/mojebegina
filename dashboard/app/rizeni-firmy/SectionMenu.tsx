@@ -74,6 +74,8 @@ export const SECTION_GROUPS: Group[] = [
       // 26. 11. 2026 (Lucie): Projekt Begina nahoru — jedna oblast = jedno vlákno v Claudovi.
       { href: "/rizeni-firmy/projekt", label: "Projekt Begina (všechna vlákna)", icon: "🗂️", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ekonomika", label: "Finance (přehled, příjmy, náklady)", icon: "💰", show: (f) => f.ekonomika },
+      // 27. 11. 2026 (Lucie): faktury jako samostatná položka — všechny faktury s PDF k tisku
+      { href: "/rizeni-firmy/faktury", label: "Faktury", icon: "🧾", show: (f) => f.ekonomika },
       { href: "/rizeni-firmy/ceo", label: "CEO přehled", icon: "🎯", show: (f) => f.ceoFocus },
       { href: "/rizeni-firmy/legislativni-audit", label: "Legislativní audit", icon: "⚖️", show: (f) => f.ekonomika },
     ],
