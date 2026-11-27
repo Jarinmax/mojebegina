@@ -41,6 +41,9 @@ export type ProductionItem = {
   group: ProductionGroupSlug;
   producedAt: Date | null;
   producedByName: string | null;
+  /** Pro náklady (jen Lucie a Jarin): slug výrobku a objem balení z katalogu, null u ručních položek. */
+  productSlug?: string | null;
+  volumeMl?: number | null;
 };
 
 export type ProductionOrder = {
@@ -62,6 +65,9 @@ export type ProductionOrder = {
   fulfillmentStatus: string;
   items: ProductionItem[];
   producedCount: number;
+  /** Hodnota zboží po slevě, bez dopravy (Kč). */
+  goodsKc: number;
+  shippingKc: number;
 };
 
 /** Ruční objednávky nemají vazbu na katalog — skupina se odhadne z názvu. */
@@ -123,6 +129,9 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       paymentStatus: orders.paymentStatus,
       paymentMethodCode: orders.paymentMethodCode,
       paymentMethodLabel: orders.paymentMethodLabel,
+      subtotalKc: orders.subtotalKc,
+      discountKc: orders.discountKc,
+      shippingKc: orders.shippingKc,
     })
     .from(orders)
     .leftJoin(organizations, eq(organizations.id, orders.buyerOrganizationId))
@@ -141,6 +150,8 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       categorySlug: productCategories.slug,
       categorySort: productCategories.sortOrder,
       productSort: products.sortOrder,
+      productSlug: products.slug,
+      volumeMl: productVariants.volumeMl,
     })
     .from(orderItems)
     .leftJoin(productVariants, eq(productVariants.id, orderItems.productVariantId))
@@ -160,6 +171,8 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       group,
       producedAt: it.producedAt,
       producedByName: it.producedByName,
+      productSlug: it.productSlug,
+      volumeMl: it.volumeMl,
       sort: groupIndex(group) * 10_000 + (it.productSort ?? 9_999),
     });
     byOrder.set(it.orderId, list);
@@ -175,6 +188,8 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
         group: item.group,
         producedAt: item.producedAt,
         producedByName: item.producedByName,
+        productSlug: item.productSlug,
+        volumeMl: item.volumeMl,
       }));
     const deliveryAddress =
       r.recipientAddress?.trim() ||
@@ -203,6 +218,8 @@ async function loadOrders(where: ReturnType<typeof and>): Promise<ProductionOrde
       fulfillmentStatus: r.fulfillmentStatus,
       items,
       producedCount: items.filter((i) => i.producedAt).length,
+      goodsKc: r.subtotalKc - r.discountKc,
+      shippingKc: r.shippingKc,
     };
   });
 }
