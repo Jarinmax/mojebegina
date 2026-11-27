@@ -16,7 +16,7 @@ export type ItemUnit = "g" | "ml" | "l" | "kapka" | "ks";
 export type RecipeIngredient = { id: string; kind: "surovina" | "obal"; code: string; name: string; priceUnit: PriceUnit; priceKc: number; note: string | null };
 export type RecipeItem = { ingredient: RecipeIngredient; quantity: number; unit: ItemUnit };
 export type RecipeVariant = { label: string; volumeMl: number; packagingCodes: string[]; salePriceHal: number | null };
-export type Recipe = { slug: string; category: string; name: string; batchMl: number; note: string | null; archived: boolean; items: RecipeItem[]; variants: RecipeVariant[] };
+export type Recipe = { slug: string; category: string; name: string; batchMl: number; note: string | null; archived: boolean; items: RecipeItem[]; variants: RecipeVariant[]; procedureSteps?: string[]; procedureChecks?: string[] };
 
 // Prodejní cena receptury = cena na e-shopu (27. 11. 2026, Lucie: „ať se to
 // sjednotí“). Když má výrobek na e-shopu aktivní balení stejného objemu, platí
