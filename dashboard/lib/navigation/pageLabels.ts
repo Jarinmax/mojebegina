@@ -47,6 +47,7 @@ const STATIC: Record<string, string> = {
 
 /** Stránky s proměnnou částí adresy: [vzor, název]. */
 const DYNAMIC: [RegExp, string][] = [
+  [/^\/rizeni-firmy\/recepty\/varka\/[^/]+$/, "Várka"],
   [/^\/rizeni-firmy\/recepty\/[^/]+$/, "Recept"],
   [/^\/rizeni-firmy\/receptury\/[^/]+$/, "Náklady výrobku"],
   [/^\/rizeni-firmy\/objednavky\/[^/]+$/, "Objednávka"],

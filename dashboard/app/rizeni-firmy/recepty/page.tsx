@@ -4,6 +4,8 @@ import { getAuthContext } from "@/lib/data/authContext";
 import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
 import { RECIPE_CATEGORIES } from "@/lib/receptury/recipes";
 import { loadRecipes, recipeTablesExist } from "@/lib/receptury/recipesServer";
+import { beginLabel } from "@/lib/receptury/recipes";
+import { formatRunDate, listOpenRuns, productionRunsTableExists } from "@/lib/receptury/productionRuns";
 
 // RECEPTY pro výrobu (Lucie 27. 11. 2026): jen co a kolik — žádné ceny, náklady
 // ani marže (ty jsou zvlášť v Náklady a marže). Přístup zatím stejný jako
@@ -21,11 +23,30 @@ export default async function ReceptyPage({ searchParams }: { searchParams: Prom
   const active = recipes.filter((recipe) => !recipe.archived);
   const categories = RECIPE_CATEGORIES.map((c) => ({ ...c, rows: active.filter((r) => r.category === c.key) })).filter((c) => c.rows.length > 0);
   const current = categories.find((c) => c.key === katParam) ?? categories[0];
+  const openRuns = (await productionRunsTableExists()) ? await listOpenRuns() : [];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-4 text-neutral-900">
       <h1 className="text-2xl font-semibold">Recepty</h1>
       <p className="mt-1 text-sm text-neutral-600">Vyber výrobek – otevře se recept na 1 beginu (3 l), počet begin si přepneš.</p>
+      {openRuns.length > 0 && (
+        <section className="mt-4 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
+          <h2 className="font-semibold text-amber-950">🍲 Rozpracované várky</h2>
+          <ul className="mt-2 flex flex-col gap-2">
+            {openRuns.map((run) => (
+              <li key={run.id}>
+                <Link href={`/rizeni-firmy/recepty/varka/${run.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 hover:border-begina-primary-900">
+                  <span>
+                    <strong>{run.recipeName}</strong> · {formatRunDate(run.startedAt)} · {beginLabel(run.batchCount)}
+                    <span className="text-neutral-600"> · {run.doneItems.length} z {run.items.length} surovin</span>
+                  </span>
+                  <span className="font-semibold text-begina-primary-900">Pokračovat →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="mt-4 flex flex-wrap gap-2">
         {categories.map((c) => (
           <Link
