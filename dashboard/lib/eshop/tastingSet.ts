@@ -50,7 +50,7 @@ export const SET_COUPON_CODE = "ochutnavka50";
 const SEPARATOR = "~";
 
 export const SET_SYRUPS = [
-  { code: "sa", slug: "bylinny-sirup-saman", name: "Bylinný sirup Šaman", short: "Šaman" },
+  { code: "sa", slug: "bylinny-sirup-saman", name: "Bylinkový sirup Šaman", short: "Šaman" },
   { code: "li", slug: "lipovy-sirup", name: "Lipový sirup", short: "Lipový" },
   { code: "za", slug: "zazvorovy-sirup", name: "Zázvorový sirup", short: "Zázvorový" },
   { code: "ib", slug: "ibiskovy-sirup", name: "Ibiškový sirup", short: "Ibiškový" },

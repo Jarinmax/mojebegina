@@ -5,7 +5,7 @@
 import type { Metadata } from "next";
 
 export const SHARE_TITLE = "Begina – Když rozhoduje chuť";
-export const SHARE_DESCRIPTION = "Čerstvé polévky, bylinné sirupy, nápoje a zmrzliny. Objevte naši nabídku na begina.cz.";
+export const SHARE_DESCRIPTION = "Čerstvé polévky, bylinkové sirupy, nápoje a zmrzliny. Objevte naši nabídku na begina.cz.";
 /** Verze v adrese obrázku — po změně obrázku zvýšit (sítě si náhledy dlouho pamatují). */
 const V = "2026-11-10";
 export const SHARE_IMAGES = [

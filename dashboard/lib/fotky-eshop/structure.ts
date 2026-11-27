@@ -65,7 +65,7 @@ const EXTRA_NAMES: Record<string, string> = {
   "profilovka-facebook-instagram": "Profilovka (FB / IG)",
   "facebook-uvodni-fotka": "Úvodní fotka Facebooku",
   "ikona-polevky": "Čerstvé polévky",
-  "ikona-sirupy": "Bylinné sirupy",
+  "ikona-sirupy": "Bylinkové sirupy",
   "ikona-caje": "Čaje",
   "ikona-ovocne-napoje": "Ovocné nápoje",
   "ikona-koktejly": "Alkoholické koktejly",

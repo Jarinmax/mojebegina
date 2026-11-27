@@ -30,7 +30,7 @@ import {
 
 // Od 20. 11. 2026 úvod primárně pro kavárny a bistra (viz komentář v těle).
 // Původně: hero podle návrhu z 8. 11. 2026 (fotografie polévky
-// s bylinným nápojem, tlačítka Vybrat polévku / Objevit sirupy), pruh
+// s bylinkovým nápojem, tlačítka Vybrat polévku / Objevit sirupy), pruh
 // kategorií s ikonami; od 11. 11. 2026 pod nimi Proč Begina (3 konkrétní důvody),
 // Jak funguje begina, Nejoblíbenější a Kdo za tím stojí (lib/eshop/homeContent.ts). Dlaždice kategorií s fotkami odebrány (3. 10. 2026) — úvod
 // má zůstat jednoduchý a čistý. Čitelnost (9. 11. 2026): nadpisy 20 px,
