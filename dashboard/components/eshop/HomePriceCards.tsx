@@ -16,7 +16,7 @@ export function homePriceCards(soup: { portions: number; perPortionKc: number },
   return [
     // 27. 11. 2026 (Lucie): přesné znění; „3 × 3 l“ s nezalomitelnými mezerami
     { label: "Polévka (250 ml)", price: czk(Math.round(soup.perPortionKc)), priceSuffix: "za porci včetně dopravy", note: `3\u00a0×\u00a03\u00a0l polévky vystačí na ${soup.portions} porcí.`, href: "/polevky-pro-kavarny" },
-    { label: "Limonáda (200 ml)", price: `od ${czk(drink.perPortionKc)}`, priceSuffix: "za sklenici včetně dopravy", note: `Z 3\u00a0×\u00a03\u00a0l sirupu připravíte až ${drink.portions} sklenic limonády.`, href: "/bylinne-sirupy-pro-kavarny" },
+    { label: "Limonáda nebo horký nápoj (200 ml)", price: `od ${czk(drink.perPortionKc)}`, priceSuffix: "za porci včetně dopravy", note: `Z 3\u00a0×\u00a03\u00a0l sirupu připravíte až ${drink.portions} porcí limonády nebo horkého nápoje.`, href: "/bylinne-sirupy-pro-kavarny" },
   ];
 }
 
