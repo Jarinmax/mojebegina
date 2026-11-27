@@ -8,21 +8,28 @@ export async function gscTableExists(): Promise<boolean> {
   return (result.rows?.[0] as { present?: boolean } | undefined)?.present === true;
 }
 
-/** Přepíše dny, které Google poslal (data za poslední dny se ještě dopočítávají). */
+/** Přepíše dny, které Google poslal (data za poslední dny se ještě dopočítávají).
+ *  Pozor: drizzle JS pole v sql`` rozloží na seznam ($1, $2) → pole posíláme jako jeden JSON parametr. */
 export async function saveGscRows(rows: GscRow[]): Promise<number> {
   const days = [...new Set(rows.map((row) => row.day))];
   if (days.length === 0) return 0;
-  await db.execute(sql`DELETE FROM seo_gsc_daily WHERE day = ANY(${days}::date[])`);
+  await db.execute(sql`DELETE FROM seo_gsc_daily WHERE day IN (SELECT jsonb_array_elements_text(${JSON.stringify(days)}::jsonb)::date)`);
   const chunk = 500;
   for (let i = 0; i < rows.length; i += chunk) {
-    const part = rows.slice(i, i + chunk);
+    const part = JSON.stringify(rows.slice(i, i + chunk));
     await db.execute(sql`
       INSERT INTO seo_gsc_daily (day, query, page, clicks, impressions, position)
-      SELECT * FROM unnest(${part.map((r) => r.day)}::date[], ${part.map((r) => r.query)}::text[], ${part.map((r) => r.page)}::text[],
-                           ${part.map((r) => r.clicks)}::int[], ${part.map((r) => r.impressions)}::int[], ${part.map((r) => r.position)}::numeric[])
+      SELECT day, query, page, clicks, impressions, position
+      FROM jsonb_to_recordset(${part}::jsonb) AS r(day date, query text, page text, clicks int, impressions int, position numeric)
       ON CONFLICT (day, query, page) DO UPDATE SET clicks = EXCLUDED.clicks, impressions = EXCLUDED.impressions, position = EXCLUDED.position`);
   }
   return rows.length;
+}
+
+/** Je tabulka zatím prázdná? (první běh stáhne celou historii) */
+export async function gscTableEmpty(): Promise<boolean> {
+  const result = await db.execute(sql`SELECT NOT EXISTS (SELECT 1 FROM seo_gsc_daily) AS empty`);
+  return (result.rows?.[0] as { empty?: boolean } | undefined)?.empty === true;
 }
 
 /** Přehled za posledních N dní: hledané výrazy, poslední den s daty. null = tabulka chybí. */

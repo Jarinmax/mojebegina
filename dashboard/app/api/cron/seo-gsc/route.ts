@@ -2,7 +2,7 @@
 // Stahuje posledních 10 dní (Google data za poslední dny ještě doplňuje) a přepíše je.
 // Autorizace jako u ostatních cronů: "Authorization: Bearer $CRON_SECRET".
 import { fetchSearchAnalytics, parseServiceAccount } from "@/lib/seo/gsc";
-import { gscTableExists, saveGscRows } from "@/lib/seo/gscServer";
+import { gscTableEmpty, gscTableExists, saveGscRows } from "@/lib/seo/gscServer";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -15,11 +15,13 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
   const account = parseServiceAccount(process.env.GSC_SERVICE_ACCOUNT_JSON);
-  if (!account) return Response.json({ ok: false, reason: "GSC_SERVICE_ACCOUNT_JSON chybí nebo je vadný" });
-  if (!(await gscTableExists())) return Response.json({ ok: false, reason: "tabulka seo_gsc_daily chybí (skript 158)" });
+  if (!account) return Response.json({ ok: false, reason: "GSC_SERVICE_ACCOUNT_JSON chybí nebo je vadný" }, { status: 500 });
+  if (!(await gscTableExists())) return Response.json({ ok: false, reason: "tabulka seo_gsc_daily chybí (skript 158)" }, { status: 500 });
 
   const url = new URL(request.url);
-  const backDays = Math.min(480, Math.max(3, Number(url.searchParams.get("dni")) || 10));
+  // První běh (prázdná tabulka) stáhne celou dostupnou historii, jinak posledních 10 dní.
+  const defaultDays = (await gscTableEmpty()) ? 480 : 10;
+  const backDays = Math.min(480, Math.max(3, Number(url.searchParams.get("dni")) || defaultDays));
   const end = new Date();
   const start = new Date(end.getTime() - backDays * 86_400_000);
   try {
