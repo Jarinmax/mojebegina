@@ -6,7 +6,7 @@ import ShopLink from "./ShopLink";
 // pod nimi „Nakupujete domů?“. Celkové částky a výpočet jsou na odkazovaných stránkách.
 export type PriceCard = { label: string; price: string; /** malým písmem hned za cenou, např. „za sklenici“ */ priceSuffix?: string; note: string; href: string };
 
-export const HOME_PRICES_TITLE = "Kolik stojí porce s dopravou?";
+export const HOME_PRICES_TITLE = "Kolik Vás vyjde jedna porce?";
 export const HOME_SHOP_TITLE = "Nakupujete domů?";
 
 const czk = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
@@ -14,9 +14,9 @@ const czk = (value: number) => `${value.toLocaleString("cs-CZ", { maximumFractio
 /** Karty z vypočtených řádků (soupPortionRows / syrupDrinkRows pro 3 balení). */
 export function homePriceCards(soup: { portions: number; perPortionKc: number }, drink: { portions: number; perPortionKc: number }): PriceCard[] {
   return [
-    { label: "Polévka · 250 ml", price: czk(Math.round(soup.perPortionKc)), note: `${soup.portions} porcí ze tří balení po 3 l`, href: "/polevky-pro-kavarny" },
-    // 24. 11. 2026 (Lucie): tři řádky, „až 450 nápojů“ jen v podrobném výpočtu po kliknutí
-    { label: "Sklenice limonády (200 ml)", price: `od ${czk(drink.perPortionKc)}`, priceSuffix: "za sklenici", note: "Při nákupu 3 × 3 l sirupu, včetně dopravy.", href: "/bylinne-sirupy-pro-kavarny" },
+    // 27. 11. 2026 (Lucie): přesné znění; „3 × 3 l“ s nezalomitelnými mezerami
+    { label: "Polévka (250 ml)", price: czk(Math.round(soup.perPortionKc)), priceSuffix: "za porci včetně dopravy", note: `3\u00a0×\u00a03\u00a0l polévky vystačí na ${soup.portions} porcí.`, href: "/polevky-pro-kavarny" },
+    { label: "Limonáda (200 ml)", price: `od ${czk(drink.perPortionKc)}`, priceSuffix: "za sklenici včetně dopravy", note: `Z 3\u00a0×\u00a03\u00a0l sirupu připravíte až ${drink.portions} sklenic limonády.`, href: "/bylinne-sirupy-pro-kavarny" },
   ];
 }
 
