@@ -32,7 +32,7 @@ export default async function ReceptPage(props: PageProps<"/rizeni-firmy/recepty
   return (
     <div className="max-w-5xl mx-auto px-4 py-4 text-neutral-900">
       <Link href={`/rizeni-firmy/recepty?kat=${recipe.category}`} className="text-sm text-neutral-500 hover:text-begina-primary-900">
-        ← Recepty · {category}
+        ← Všechny {category.toLowerCase()}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold">{recipe.name}</h1>
       {recipe.archived && <p className="mt-2 inline-block rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-700">Nevyrábí se — archivní receptura</p>}

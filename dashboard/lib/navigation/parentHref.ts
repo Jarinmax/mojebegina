@@ -7,7 +7,7 @@
 const SECTION_ROOTS = ["/rizeni-firmy", "/prace"];
 
 /** Mezistupně adresy, které samy stránku nemají — přeskočí se o další krok výš. */
-const NOT_PAGES = new Set(["/rizeni-firmy/obchod/leady", "/rizeni-firmy/obchod/zakaznici", "/rizeni-firmy/sklad/prijemky", "/rizeni-firmy/uzel", "/prace/ukol"]);
+export const NOT_PAGES = new Set(["/rizeni-firmy/obchod/leady", "/rizeni-firmy/obchod/zakaznici", "/rizeni-firmy/sklad/prijemky", "/rizeni-firmy/uzel", "/prace/ukol"]);
 
 /**
  * Stránky, kde se kroky volí parametry v adrese (23. 11. 2026, Lucie: „v
