@@ -80,6 +80,44 @@ export function findBatchLine(gray: Uint8Array, width: number, height: number): 
   return { top: line[0], bottom: line[1], labelEnd: segs[0][1], secondStart: segs[1][0], secondEnd: segs[1][1] };
 }
 
+/** Text jako křivky (SVG path) tučným písmem Beginy — sharp/librsvg nepotřebuje nainstalovaný font. */
+function textPath(text: string, x: number, baseline: number, sizePx: number): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const font: any = (fontkit as any).create(Buffer.from(BEGINA_PDF_SANS_BOLD, "base64"));
+  const run = font.layout(text);
+  const s = sizePx / font.unitsPerEm;
+  let cx = 0;
+  const parts: string[] = [];
+  run.glyphs.forEach((g: { path: { toSVG(): string } }, i: number) => {
+    const p = run.positions[i];
+    const d = g.path.toSVG();
+    if (d) parts.push(`<path transform="translate(${(x + (cx + p.xOffset) * s).toFixed(2)} ${(baseline - p.yOffset * s).toFixed(2)}) scale(${s.toFixed(5)} ${(-s).toFixed(5)})" d="${d}"/>`);
+    cx += p.xAdvance;
+  });
+  return parts.join("");
+}
+
+/**
+ * PNG etikety se šarží (Jarin 27. 11. 2026): stejný obrázek jako „Stáhnout“ v Etiketách
+ * (1420 × 696 = 120 × 58 mm při 300 dpi), jen s dopsanou šarží a datem. P-touch Editor
+ * (QL-800) PNG vloží 1 : 1 jako vždycky; PDF si převádí na hrubý rastr a text je nečitelný.
+ */
+export async function buildBatchLabelPng(png: Uint8Array, code: string, bestBefore: string | null): Promise<Buffer | null> {
+  const { data, info } = await sharp(png).greyscale().raw().toBuffer({ resolveWithObject: true });
+  const pos = findBatchLine(new Uint8Array(data.buffer, data.byteOffset, data.byteLength), info.width, info.height);
+  if (!pos) return null;
+  const size = Math.max(pos.bottom - pos.top, 24) * 1.2;
+  const baseline = pos.bottom - 1;
+  let paths = textPath(code, pos.labelEnd + 14, baseline, size);
+  if (bestBefore) paths += textPath(formatCzDate(bestBefore), pos.secondEnd + 14, baseline, size);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${info.width}" height="${info.height}"><g fill="#000">${paths}</g></svg>`;
+  return sharp(png)
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .withMetadata({ density: 300 })
+    .png()
+    .toBuffer();
+}
+
 /** PDF etiket k tisku: tolik stran, kolik kusů (nejvýš 60), na každé číslo šarže a datum spotřeby. */
 export async function buildBatchLabelPdf(png: Uint8Array, code: string, bestBefore: string | null, copies: number): Promise<Uint8Array | null> {
   const { data, info } = await sharp(png).greyscale().raw().toBuffer({ resolveWithObject: true });
