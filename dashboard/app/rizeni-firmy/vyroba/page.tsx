@@ -6,7 +6,11 @@ import { DispatchTile } from "../objednavky/DispatchChecks";
 import { shortPragueDate } from "../objednavky/dispatchText";
 import { FULFILLMENT_LABELS } from "@/lib/data/orderLabels";
 import { listAwaitingPaymentOrders, listProductionOrders } from "@/lib/data/productionBoard";
-import ProductionSummary from "./ProductionSummary";
+import ProductionSummary, { type OrderMoney } from "./ProductionSummary";
+import { getAuthContext } from "@/lib/data/authContext";
+import { isInvoiceIssuer } from "@/lib/data/invoiceAuth";
+import { loadRecipes, packagingPrices, recipeTablesExist } from "@/lib/receptury/recipesServer";
+import { orderCost, recipeByProductSlug } from "@/lib/receptury/productionCost";
 
 // Výroba (Lucie 18. 11. 2026) — „K výrobě“: souhrnná výrobní tabulka
 // zaplacených neodeslaných objednávek + karty pro Jarina; „Expedice“:
@@ -63,6 +67,15 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
 
   const [{ orders }, production, awaiting] = await Promise.all([listOrders(), listProductionOrders(), listAwaitingPaymentOrders()]);
   const active = orders.filter((o) => o.fulfillmentStatus !== "cancelled");
+  // Hodnota a náklad objednávek (Jarin 27. 11. 2026) — jen pro Lucii a Jarina.
+  let money: Record<string, OrderMoney> | undefined;
+  const ctx = await getAuthContext();
+  if (ctx && isInvoiceIssuer(ctx) && tab === "k-vyrobe" && production.length > 0 && (await recipeTablesExist())) {
+    const { recipes, ingredients } = await loadRecipes();
+    const map = recipeByProductSlug(recipes);
+    const packaging = packagingPrices(ingredients);
+    money = Object.fromEntries(production.map((o) => [o.id, { goodsKc: o.goodsKc, shippingKc: o.shippingKc, ...orderCost(o.items, map, packaging) }]));
+  }
   const groups: Record<Exclude<TabKey, "k-vyrobe">, OrderCardData[]> = {
     "k-vyrizeni": active.filter((o) => !allDone(steps(o))),
     hotove: active.filter((o) => allDone(steps(o))),
@@ -97,7 +110,7 @@ export default async function VyrobaPage(props: PageProps<"/rizeni-firmy/vyroba"
       </div>
 
       {tab === "k-vyrobe" ? (
-        <ProductionSummary orders={production} awaiting={awaiting} />
+        <ProductionSummary orders={production} awaiting={awaiting} money={money} />
       ) : visible.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-600">
           {tab === "k-vyrizeni" ? "Vše vyřízeno — nic nečeká." : "Tady zatím nic není."}

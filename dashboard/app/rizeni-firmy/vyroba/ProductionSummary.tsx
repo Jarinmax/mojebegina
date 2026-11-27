@@ -9,6 +9,10 @@ import ProducedCell from "./ProducedCell";
 // Jarda“: sloupce = zaplacení klienti, řádky = objednané produkty po
 // skupinách, vpravo Celkem. Na mobilu seznam po produktech (nic neujíždí).
 
+export type OrderMoney = { goodsKc: number; shippingKc: number; costKc: number; unknown: string[] };
+
+const kc0 = (n: number) => `${Math.round(n).toLocaleString("cs-CZ")} Kč`;
+
 type Row = { name: string; group: string; cells: Map<string, { qty: number; done: boolean; itemIds: string[] }>; total: number; doneQty: number };
 
 function buildRows(orders: ProductionOrder[]) {
@@ -33,7 +37,7 @@ function buildRows(orders: ProductionOrder[]) {
   })).filter((g) => g.rows.length > 0);
 }
 
-export default function ProductionSummary({ orders, awaiting = [] }: { orders: ProductionOrder[]; awaiting?: AwaitingPaymentOrder[] }) {
+export default function ProductionSummary({ orders, awaiting = [], money }: { orders: ProductionOrder[]; awaiting?: AwaitingPaymentOrder[]; money?: Record<string, OrderMoney> }) {
   if (orders.length === 0) {
     return (
       <div className="flex flex-col gap-3">
@@ -138,6 +142,7 @@ export default function ProductionSummary({ orders, awaiting = [] }: { orders: P
               ))}
               <td className="border border-neutral-300 bg-neutral-200 p-2 text-center font-bold text-neutral-900">{grandTotal}</td>
             </tr>
+            {money && <MoneyRows orders={orders} money={money} />}
           </tbody>
         </table>
         <p className="text-xs text-neutral-600 mt-2">Kliknutím na číslo označíš produkt jako vyrobený (zelená ✓), dalším kliknutím vrátíš zpět. Termín = 5 pracovních dnů od zaplacení (u placených hotově / na fakturu od objednání).</p>
@@ -292,6 +297,68 @@ function GroupRows({
           </td>
         </tr>
       ))}
+    </>
+  );
+}
+
+/** Hodnota zboží, náklad a marže po zákaznících — vidí jen Lucie a Jarin (Jarin 27. 11. 2026). */
+function MoneyRows({ orders, money }: { orders: ProductionOrder[]; money: Record<string, OrderMoney> }) {
+  const sum = (pick: (m: OrderMoney) => number) => orders.reduce((s, o) => s + (money[o.id] ? pick(money[o.id]) : 0), 0);
+  const goods = sum((m) => m.goodsKc);
+  const cost = sum((m) => m.costKc);
+  const pct = (g: number, c: number) => (g > 0 ? ` · ${Math.round(((g - c) / g) * 100)} %` : "");
+  const cell = "border border-neutral-300 p-2 text-center whitespace-nowrap tabular-nums";
+  const head = "border border-neutral-300 bg-neutral-50 p-2 text-left font-medium text-neutral-900";
+  return (
+    <>
+      <tr>
+        <th className={head}>
+          Hodnota zboží
+          <span className="block text-xs font-normal text-neutral-500">po slevě, bez dopravy</span>
+        </th>
+        {orders.map((o) => (
+          <td key={o.id} className={cell}>
+            {money[o.id] ? kc0(money[o.id].goodsKc) : "—"}
+            {money[o.id]?.shippingKc ? <span className="block text-xs text-neutral-500">+ doprava {kc0(money[o.id].shippingKc)}</span> : null}
+          </td>
+        ))}
+        <td className={`${cell} font-bold`}>{kc0(goods)}</td>
+      </tr>
+      <tr>
+        <th className={head}>
+          Náklad
+          <span className="block text-xs font-normal text-neutral-500">suroviny + obal</span>
+        </th>
+        {orders.map((o) => {
+          const m = money[o.id];
+          return (
+            <td key={o.id} className={cell}>
+              {m ? kc0(m.costKc) : "—"}
+              {m && m.unknown.length > 0 && (
+                <span className="block whitespace-normal text-xs text-amber-700" title={m.unknown.join(", ")}>
+                  bez nákladu: {m.unknown.length} {m.unknown.length === 1 ? "položka" : "položky"}
+                </span>
+              )}
+            </td>
+          );
+        })}
+        <td className={`${cell} font-bold`}>{kc0(cost)}</td>
+      </tr>
+      <tr className="bg-emerald-50">
+        <th className={`${head} bg-emerald-50`}>Marže</th>
+        {orders.map((o) => {
+          const m = money[o.id];
+          return (
+            <td key={o.id} className={`${cell} font-semibold text-emerald-800`}>
+              {m ? `${kc0(m.goodsKc - m.costKc)}${pct(m.goodsKc, m.costKc)}` : "—"}
+            </td>
+          );
+        })}
+        <td className={`${cell} font-bold text-emerald-800`}>
+          {kc0(goods - cost)}
+          {pct(goods, cost)}
+        </td>
+      </tr>
     </>
   );
 }
