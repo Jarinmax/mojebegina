@@ -102,8 +102,11 @@ export default async function SarzePage() {
                         <span className="w-40">{l.label}</span>
                         <span className="w-28">{used > 0 ? `zbývá ${Math.max(0, l.quantity - used)} z ${l.quantity}` : `${l.quantity} ks`}</span>
                         <span className={left === null ? "text-neutral-500" : expiryClass(left)}>do {formatCzDate(l.bestBefore)}</span>
-                        <a href={`/rizeni-firmy/vyroba/sarze/etiketa/${l.id}`} target="_blank" rel="noopener" className="text-xs underline text-begina-primary-900">
-                          Etiketa k tisku
+                        <a href={`/rizeni-firmy/vyroba/sarze/etiketa/${l.id}?format=png`} className="text-xs underline font-semibold text-begina-primary-900">
+                          Etiketa pro P-touch (PNG)
+                        </a>
+                        <a href={`/rizeni-firmy/vyroba/sarze/etiketa/${l.id}?ks=1`} target="_blank" rel="noopener" className="text-xs underline text-neutral-500">
+                          PDF
                         </a>
                         <form action={toggleSoldOutAction.bind(null, l.id, !l.soldOut)} className="ml-auto">
                           <button className="text-xs rounded-full border border-neutral-300 px-3 py-1">{l.soldOut ? "Vrátit" : "Vyprodáno"}</button>

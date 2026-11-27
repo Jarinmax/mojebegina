@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { productCategories, productionBatches, productionBatchLines, products } from "@/lib/db/schema";
 import { requireOrderContext } from "@/lib/data/orders";
-import { buildBatchLabelPdf, resolveLabelFile } from "@/lib/vyroba/batchLabel";
+import { buildBatchLabelPdf, buildBatchLabelPng, resolveLabelFile } from "@/lib/vyroba/batchLabel";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +38,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ line
     headers: { cookie: request.headers.get("cookie") ?? "" },
   });
   if (!png.ok) return new Response("Etiketu se nepodařilo načíst.", { status: 502 });
+  if (url.searchParams.get("format") === "png") {
+    const out = await buildBatchLabelPng(new Uint8Array(await png.arrayBuffer()), row.code, row.bestBefore);
+    if (!out) return new Response("Na etiketě se nepodařilo najít řádek „Šarže:“.", { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } });
+    return new Response(new Uint8Array(out), {
+      headers: {
+        "content-type": "image/png",
+        "content-disposition": `attachment; filename="etiketa-${row.code}.png"`,
+        "cache-control": "private, no-store",
+      },
+    });
+  }
   const pdf = await buildBatchLabelPdf(new Uint8Array(await png.arrayBuffer()), row.code, row.bestBefore, copies);
   if (!pdf) return new Response("Na etiketě se nepodařilo najít řádek „Šarže:“.", { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } });
   return new Response(Buffer.from(pdf), {
