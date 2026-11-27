@@ -11,7 +11,7 @@ export default function PriceRow({ id, name, unitLabel, price, usedIn }: { id: s
       <input type="hidden" name="id" value={id} />
       <div className="text-sm flex-1 min-w-[12rem]">
         <span className="font-medium text-neutral-900">{name}</span>
-        {usedIn !== null && <span className="ml-2 text-xs text-neutral-500">{usedIn === 0 ? "v žádné receptuře" : `v ${usedIn} recepturách`}</span>}
+        {usedIn !== null && <span className="ml-2 text-xs text-neutral-500">{usedIn === 0 ? "v žádném receptu" : `v ${usedIn} ${usedIn === 1 ? "receptu" : "receptech"}`}</span>}
       </div>
       <label className="flex items-center gap-1 text-sm text-neutral-600">
         <input name="price" defaultValue={price} inputMode="decimal" aria-label={`Cena – ${name}`} className="w-24 rounded-md border border-neutral-300 bg-white px-2 py-1 text-right text-neutral-900" />
