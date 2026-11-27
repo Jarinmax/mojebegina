@@ -37,11 +37,9 @@ function subscribe(callback: () => void) {
   };
 }
 
-export function IngredientChecklist({ storageKey, items, count }: { storageKey: string; items: ProductionItem[]; count: number }) {
-  const key = `receptura-hotovo:${storageKey}:${count}`;
+function useChecked(key: string) {
   const raw = useSyncExternalStore(subscribe, () => read(key), () => "[]");
   const done = parse(raw);
-
   const save = (next: number[]) => {
     try {
       window.localStorage.setItem(key, JSON.stringify(next));
@@ -51,22 +49,60 @@ export function IngredientChecklist({ storageKey, items, count }: { storageKey: 
     window.dispatchEvent(new Event(LOCAL_EVENT));
   };
   const toggle = (index: number) => save(done.includes(index) ? done.filter((n) => n !== index) : [...done, index]);
-  const left = items.length - done.length;
+  return { done, toggle, reset: () => save([]) };
+}
 
+/** Zaškrtávací políčko — na první pohled je vidět, že se na řádek dá klepnout. */
+function Box({ checked }: { checked: boolean }) {
   return (
-    <>
-      <ol className="bg-white border border-neutral-200 rounded-xl p-1 sm:columns-2 sm:gap-x-6">
+    <span
+      aria-hidden
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-2 text-base font-bold ${
+        checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-neutral-400 bg-white text-transparent group-hover:border-begina-primary-900"
+      }`}
+    >
+      ✓
+    </span>
+  );
+}
+
+const rowClass = (checked: boolean) =>
+  `group flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left shadow-sm transition-colors cursor-pointer ${
+    checked ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-neutral-200 bg-white text-neutral-900 hover:border-begina-primary-900 hover:bg-begina-primary-50"
+  }`;
+
+function Progress({ done, total, label, doneLabel, onReset }: { done: number; total: number; label: string; doneLabel: string; onReset: () => void }) {
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  return (
+    <div className="mb-2 flex items-center gap-3 text-sm">
+      <span className={`whitespace-nowrap font-semibold ${done === total ? "text-emerald-700" : "text-neutral-800"}`}>
+        {done === total ? doneLabel : `${done} z ${total} ${label}`}
+      </span>
+      <span className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200">
+        <span className="block h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+      </span>
+      {done > 0 && (
+        <button type="button" onClick={onReset} className="whitespace-nowrap rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-neutral-900 hover:border-begina-primary-300">
+          Začít znovu
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function IngredientChecklist({ storageKey, items, count }: { storageKey: string; items: ProductionItem[]; count: number }) {
+  const { done, toggle, reset } = useChecked(`receptura-hotovo:${storageKey}:${count}`);
+  return (
+    <div>
+      <p className="mb-2 text-sm text-neutral-600">👆 Klepni na surovinu, až ji dáš do hrnce – zezelená.</p>
+      <Progress done={done.length} total={items.length} label="surovin v hrnci" doneLabel="✓ Všechny suroviny jsou v hrnci" onReset={reset} />
+      <ol className="grid gap-2 sm:grid-cols-2 sm:grid-flow-col" style={{ gridTemplateRows: `repeat(${Math.ceil(items.length / 2)}, auto)` }}>
         {items.map((item, index) => {
           const isDone = done.includes(index);
           return (
-            <li key={index} className="break-inside-avoid py-0.5">
-              <button
-                type="button"
-                onClick={() => toggle(index)}
-                aria-pressed={isDone}
-                className={`flex w-full items-baseline gap-3 rounded-lg px-2 py-1.5 text-left ${isDone ? "bg-emerald-100 text-emerald-900" : "hover:bg-neutral-50 text-neutral-900"}`}
-              >
-                <span className="w-5 shrink-0 text-center">{isDone ? "✓" : <span className="text-neutral-300">○</span>}</span>
+            <li key={index}>
+              <button type="button" onClick={() => toggle(index)} aria-pressed={isDone} className={rowClass(isDone)}>
+                <Box checked={isDone} />
                 <QuantityCell text={formatQuantity(item.quantity * count, item.unit)} />
                 <span className={`min-w-0 break-words text-[15px] ${isDone ? "line-through decoration-emerald-700/40" : ""}`}>{item.name}</span>
               </button>
@@ -74,17 +110,31 @@ export function IngredientChecklist({ storageKey, items, count }: { storageKey: 
           );
         })}
       </ol>
-      <div className="mt-2 flex items-center justify-between gap-3 text-sm">
-        <span className={left === 0 ? "font-medium text-emerald-700" : "text-neutral-600"}>
-          {left === 0 ? "✓ Všechno je v hrnci" : `Zbývá ${left} z ${items.length} surovin · klepnutím na řádek odškrtneš`}
-        </span>
-        {done.length > 0 && (
-          <button type="button" onClick={() => save([])} className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-neutral-900 hover:border-begina-primary-300">
-            Začít znovu
-          </button>
-        )}
-      </div>
-    </>
+    </div>
+  );
+}
+
+/** Postup výroby — kroky se odškrtávají stejně jako suroviny (nezávisle na počtu begin). */
+export function StepsChecklist({ storageKey, steps }: { storageKey: string; steps: string[] }) {
+  const { done, toggle, reset } = useChecked(`receptura-postup:${storageKey}`);
+  return (
+    <div>
+      <Progress done={done.length} total={steps.length} label="kroků hotovo" doneLabel="✓ Postup hotový" onReset={reset} />
+      <ol className="flex flex-col gap-2">
+        {steps.map((step, index) => {
+          const isDone = done.includes(index);
+          return (
+            <li key={index}>
+              <button type="button" onClick={() => toggle(index)} aria-pressed={isDone} className={rowClass(isDone)}>
+                <Box checked={isDone} />
+                <span className="w-6 shrink-0 text-right font-semibold tabular-nums">{index + 1}.</span>
+                <span className={`min-w-0 break-words text-[15px] ${isDone ? "line-through decoration-emerald-700/40" : ""}`}>{step}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

@@ -99,6 +99,13 @@ export function parsePriceKc(input: string): number | null {
 }
 
 /** Počet begin pro přepočet množství: celé číslo 1–200, jinak 1. */
+/** „1 beginu“, „3 beginy“, „5 begin“ (po předložce „na“). */
+export function beginLabel(count: number): string {
+  if (count === 1) return "1 beginu";
+  if (count >= 2 && count <= 4) return `${count} beginy`;
+  return `${count} begin`;
+}
+
 export function parseBatchCount(input: string | undefined): number {
   const value = Number(input ?? "");
   return Number.isInteger(value) && value >= 1 && value <= 200 ? value : 1;
