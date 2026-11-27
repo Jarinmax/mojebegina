@@ -4,6 +4,7 @@ import { formatOrderNumber } from "@/lib/data/orderBuyer";
 import { formatDeadlineShort } from "@/lib/czWorkdays";
 import { GROUP_STYLE } from "./productionColors";
 import ProducedCell from "./ProducedCell";
+import { formatKc } from "@/lib/format";
 
 // Souhrnná výrobní tabulka (Lucie 18. 11. 2026) — jako „Objednávky výroba
 // Jarda“: sloupce = zaplacení klienti, řádky = objednané produkty po
@@ -11,7 +12,8 @@ import ProducedCell from "./ProducedCell";
 
 export type OrderMoney = { goodsKc: number; shippingKc: number; costKc: number; unknown: string[] };
 
-const kc0 = (n: number) => `${Math.round(n).toLocaleString("cs-CZ")} Kč`;
+// Částky jako všude v MojeBegina: 2 desetinná místa (Lucie 26. 11. 2026).
+const kc0 = (n: number) => formatKc(Math.round(n * 100) / 100);
 
 type Row = { name: string; group: string; cells: Map<string, { qty: number; done: boolean; itemIds: string[] }>; total: number; doneQty: number };
 
