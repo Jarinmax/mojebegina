@@ -4,6 +4,6 @@
 import { syrupModelKc } from "./portionPrices";
 
 export function withSyrupDrinkPrice(paragraph: string): string {
-  const sentences = `Z jedné třílitrové beginy připravíte až 150 nápojů. Při objednávce 3\u00a0×\u00a03\u00a0l vás jedna sklenice vyjde od ${syrupModelKc()} včetně dopravy.`;
+  const sentences = `Z jedné třílitrové beginy připravíte až 150 nápojů. Při objednávce 3\u00a0×\u00a03\u00a0l vás jedna porce vyjde od ${syrupModelKc()} včetně dopravy.`;
   return paragraph.replace(/\s*\(až 150 nápojů, nápoj[^)]*\)\./, `. ${sentences}`);
 }
