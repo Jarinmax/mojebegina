@@ -25,6 +25,7 @@ export const FOTKY_CATEGORIES: FotkyCategory[] = [
     groups: [
       { slug: "aktualni", label: "Aktuální úvodní fotka webu" },
       { slug: "atmosfera", label: "Atmosférické fotky (nová úvodní stránka)" },
+      { slug: "od-kavaren", label: "Fotky od kaváren (se souhlasem k použití na webu)" },
       { slug: "tisk", label: "Předchozí úvodní fotka – pro tisk (5400 × 4200 px)" },
     ],
   },

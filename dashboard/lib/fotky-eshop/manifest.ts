@@ -128,6 +128,9 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "lipovy-sirup-limonada-leto-4x5.jpg",
     "svarak-deluxe-zima-4x5.jpg"
   ],
+  "uvodni-fotka/od-kavaren": [
+    "kavarna-adelka-dynova-spenatova.jpg"
+  ],
   "uvodni-fotka/tisk": [
     "uvodni-fotka-tisk.jpg"
   ]
