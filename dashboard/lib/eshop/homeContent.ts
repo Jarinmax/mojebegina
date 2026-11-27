@@ -59,6 +59,9 @@ export const HOME_HERO_PHONE = "Domluvit dodávky po telefonu";
 export const HOME_HERO_OFFER = "K první begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.";
 /** Druhé tlačítko v úvodu (24. 11. 2026). */
 export const HOME_HERO_TASTE_BUTTON = "Ochutnat 3 polévky";
+/** 27. 11. 2026 (Lucie): popisek pod úvodní fotkou – krabice není v ceně beginy, kavárny ji dávají rovnou do lednice. */
+export const HOME_HERO_BOX_NOTE = "Krabici k begině si můžete přikoupit v košíku za 19 Kč. Sirupy posíláme v krabici vždy.";
+
 export const HOME_HERO_TASTE_NOTE = "3 × 450 ml za 299 Kč + chlazená doprava";
 
 export const HOME_TILE_CAFE = {
