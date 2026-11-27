@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_PHONE, HOME_HERO_TASTE_BUTTON, HOME_HERO_TASTE_NOTE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { HOME_HERO_BOX_NOTE, HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_PHONE, HOME_HERO_TASTE_BUTTON, HOME_HERO_TASTE_NOTE, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -71,6 +71,8 @@ export default function HomeHero() {
             sizes="(min-width: 1024px) 40rem, 100vw"
             className="block w-full h-auto rounded-2xl"
           />
+          {/* 27. 11. 2026 (Lucie): na fotce je begina v krabici, krabice se ale přikupuje zvlášť */}
+          <p className="mt-2 text-sm leading-snug text-neutral-600 text-center lg:text-left">{HOME_HERO_BOX_NOTE}</p>
         </div>
         <div className="lg:col-start-1 lg:row-start-2 flex flex-col items-stretch sm:items-start gap-4">
           <p className="text-lg sm:text-xl leading-snug text-[#2A2622]">

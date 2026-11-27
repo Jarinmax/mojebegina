@@ -31,7 +31,9 @@ describe("úvod e-shopu", () => {
     expect(screen.getByRole("link", { name: /Ochutnat 3 polévky/ }).getAttribute("href")).toBe("/eshop/produkt/ochutnavka-polevek-3x450");
     expect(body).toContain("3 × 450 ml za 299 Kč + chlazená doprava");
     expect(screen.getByRole("link", { name: /Domluvit dodávky po telefonu/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#napiste-nam");
-    expect(document.body.textContent).not.toMatch(/poctiv|krabic|bag-in-box|dovážíme/i);
+    // 27. 11. 2026 (Lucie): jediná zmínka o krabici je popisek pod fotkou (krabice se přikupuje za 19 Kč)
+    expect(body).toContain("Krabici k begině si můžete přikoupit v košíku za 19 Kč. Sirupy posíláme v krabici vždy.");
+    expect(document.body.textContent!.replace("Krabici k begině si můžete přikoupit v košíku za 19 Kč. Sirupy posíláme v krabici vždy.", "")).not.toMatch(/poctiv|krabic|bag-in-box|dovážíme/i);
   });
 
   it.skip("rychlý nákup: Vybrat polévku a Objevit sirupy (odebráno 22. 11. 2026 — dělají to dlaždice kategorií)", () => {
