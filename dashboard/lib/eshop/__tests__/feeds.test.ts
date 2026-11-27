@@ -27,7 +27,7 @@ const sirup = {
 const koktejl = { ...sirup, slug: "kosmopolitan", name: "Kosmopolitan", category: "koktejly", isAgeRestricted: true } as unknown as Product;
 const blokovany = { ...sirup, slug: "x", name: "X", foodInfo: { allergens: null }, variants: [{ sku: "x-3l", label: "3 l", priceKc: 100, weightGrams: null }] } as unknown as Product;
 const bezFotky = { ...sirup, slug: "y", name: "Y", image: null, gallery: [], variants: [{ sku: "y-3l", label: "3 l", priceKc: 100, weightGrams: null }] } as unknown as Product;
-const catalog = { categories: [{ slug: "sirupy", name: "Bylinné sirupy" }], products: [sirup, koktejl, blokovany, bezFotky] } as unknown as Catalog;
+const catalog = { categories: [{ slug: "sirupy", name: "Bylinkové sirupy" }], products: [sirup, koktejl, blokovany, bezFotky] } as unknown as Catalog;
 
 describe("googleMerchantFeed", () => {
   const xml = googleMerchantFeed(catalog);
@@ -41,7 +41,7 @@ describe("googleMerchantFeed", () => {
     expect(xml).toContain("<g:image_link>https://begina.cz/eshop/sirupy/lipovy.jpg</g:image_link>");
     expect(xml).toContain("<g:additional_image_link>https://begina.cz/eshop/sirupy/lipovy-sacek.jpg</g:additional_image_link>");
     expect(xml).toContain("<g:shipping_weight>3000 g</g:shipping_weight>");
-    expect(xml).toContain("<g:product_type>Bylinné sirupy</g:product_type>");
+    expect(xml).toContain("<g:product_type>Bylinkové sirupy</g:product_type>");
     expect(xml).toContain("<g:description>Lipový sirup je jemný &amp; květinový.</g:description>");
   });
   it("bez alkoholu a bez produktů bez fotky; neobjednatelné = out_of_stock", () => {

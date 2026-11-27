@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { breadcrumbJsonLd, categoryDescription, jsonLd, organizationJsonLd, plainText, productDescription, productJsonLd, productTitle, truncate } from "../seo";
 import type { Category, Product } from "../types";
 
-const category = { slug: "sirupy", name: "Bylinné sirupy", image: null, intro: ["Bylinné sirupy připravujeme **řemeslně** z výluhů."], detailSections: [] } as unknown as Category;
+const category = { slug: "sirupy", name: "Bylinkové sirupy", image: null, intro: ["Bylinkové sirupy připravujeme **řemeslně** z výluhů."], detailSections: [] } as unknown as Category;
 const product = {
   slug: "lipovy-sirup",
   name: "Lipový sirup",
@@ -34,9 +34,9 @@ describe("seo", () => {
 
   it("popis kategorie obsahuje názvy produktů a úvod; popis a název produktu", () => {
     const d = categoryDescription(category, [product]);
-    expect(d).toBe("Bylinné sirupy Begina: Lipový sirup. Bylinné sirupy připravujeme řemeslně z výluhů.");
+    expect(d).toBe("Bylinkové sirupy Begina: Lipový sirup. Bylinkové sirupy připravujeme řemeslně z výluhů.");
     expect(productDescription(product)).toBe("Lipový sirup je jemný sirup s květinovou vůní lipového květu.");
-    expect(productTitle(product, category)).toBe("Lipový sirup – Bylinné sirupy");
+    expect(productTitle(product, category)).toBe("Lipový sirup – Bylinkové sirupy");
     expect(productTitle(product, null)).toBe("Lipový sirup");
   });
 
@@ -77,10 +77,10 @@ describe("seo", () => {
   });
 
   it("drobečková navigace, organizace a bezpečné vložení do <script>", () => {
-    expect(breadcrumbJsonLd([{ name: "Begina", path: "/" }, { name: "Bylinné sirupy", path: "/kategorie/sirupy" }]).itemListElement[1]).toEqual({
+    expect(breadcrumbJsonLd([{ name: "Begina", path: "/" }, { name: "Bylinkové sirupy", path: "/kategorie/sirupy" }]).itemListElement[1]).toEqual({
       "@type": "ListItem",
       position: 2,
-      name: "Bylinné sirupy",
+      name: "Bylinkové sirupy",
       item: "https://begina.cz/kategorie/sirupy",
     });
     expect(organizationJsonLd()[0]).toMatchObject({ "@type": "Organization", name: "Begina", url: "https://begina.cz/" });

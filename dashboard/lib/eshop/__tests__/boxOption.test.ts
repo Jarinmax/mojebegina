@@ -254,6 +254,6 @@ import { homeSyrupPoint } from "../homeContent";
 describe("bod o sirupech na úvodu (22. 11. 2026)", () => {
   it("nejlevnější sáček skladem a begina 3 l", () => {
     const p = [{ category: "sirupy", variants: [{ priceKc: 159, volumeMl: 500, label: "500 ml", soldOut: true }, { priceKc: 199, volumeMl: 650, label: "650 ml" }, { priceKc: 499, volumeMl: 3000, label: "3 l" }] }];
-    expect(homeSyrupPoint(p)).toBe("Bylinné sirupy od 199\u00a0Kč (sáček 650 ml), begina 3\u00a0l od 499\u00a0Kč.");
+    expect(homeSyrupPoint(p)).toBe("Bylinkové sirupy od 199\u00a0Kč (sáček 650 ml), begina 3\u00a0l od 499\u00a0Kč.");
   });
 });

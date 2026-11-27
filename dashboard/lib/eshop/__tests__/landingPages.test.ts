@@ -13,7 +13,7 @@ describe("stránky pro gastro", () => {
     expect(LANDING_PAGES.map((p) => [p.path, p.title])).toEqual([
       ["/polevky-pro-kavarny", "Hotové polévky pro kavárny a bistra s dovozem po celé ČR"],
       ["/veganske-polevky", "Veganské polévky pro kavárny a bistra"],
-      ["/bylinne-sirupy-pro-kavarny", "Bylinné sirupy pro kavárny a bary"],
+      ["/bylinne-sirupy-pro-kavarny", "Bylinkové sirupy pro kavárny a bary"],
       ["/caje-a-limonady-pro-gastro", "Čaje a nápoje z kohoutku pro gastro"],
     ]);
   });
