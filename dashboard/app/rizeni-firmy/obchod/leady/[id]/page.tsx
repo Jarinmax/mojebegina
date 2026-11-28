@@ -16,6 +16,9 @@ import { leadBackLink } from "@/lib/data/callHistoryValidation";
 import { db } from "@/lib/db/client";
 import { getLeadPurchaseHistory } from "@/lib/data/purchaseHistorySync";
 import PurchaseHistoryCard from "./PurchaseHistoryCard";
+import NewsletterConsentCard, { type NewsletterCardStatus } from "./NewsletterConsentCard";
+import { getLeadNewsletterStatus } from "@/lib/data/leadNewsletter";
+import { segmentForVenue, SOURCE_LABELS as NEWSLETTER_SOURCE_LABELS } from "@/lib/eshop/newsletter";
 import { getAuthContext } from "@/lib/data/authContext";
 import { canReadSalesManual } from "@/lib/data/salesManualAuth";
 import { suggestHeardFrom } from "@/lib/data/heardFrom";
@@ -48,7 +51,16 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
     notFound();
   }
   const { lead, activity } = detail;
-  const [staff, sourceOrders, reward, purchases] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getLeadPurchaseHistory(db, lead.id)]);
+  const [staff, sourceOrders, reward, purchases, newsletter] = await Promise.all([listStaffOptions(), listLeadSourceOrders(lead.id), getLeadRewardAssignment(lead.id), getLeadPurchaseHistory(db, lead.id), getLeadNewsletterStatus(lead.contactEmail)]);
+  const newsletterDate = newsletter ? (newsletter.status === "confirmed" ? newsletter.confirmedAt : newsletter.status === "unsubscribed" ? newsletter.unsubscribedAt : newsletter.confirmSentAt ?? newsletter.requestedAt) : null;
+  const newsletterStatus: NewsletterCardStatus = newsletter
+    ? {
+        status: newsletter.status,
+        segment: newsletter.segment,
+        sourceLabel: NEWSLETTER_SOURCE_LABELS[newsletter.source] ?? newsletter.source,
+        dateLabel: newsletterDate ? newsletterDate.toLocaleDateString("cs-CZ", { timeZone: "Europe/Prague", day: "numeric", month: "numeric", year: "numeric" }) : "",
+      }
+    : null;
 
   // Komu se termín dalšího kontaktu zapíše do Google kalendáře (vlastník
   // leadu; u leadu bez vlastníka ten, kdo se dovolá = přihlášený).
@@ -143,6 +155,9 @@ export default async function LeadDetailPage(props: PageProps<"/rizeni-firmy/obc
           />
         </div>
       )}
+
+      {/* 28. 11. 2026: souhlas s newsletterem — otázka do hovoru a potvrzovací e-mail. */}
+      <NewsletterConsentCard leadId={lead.id} hasEmail={Boolean(lead.contactEmail)} current={newsletterStatus} defaultSegment={segmentForVenue(lead.venueType)} />
 
       {/* C. Administrativa — používá se řídce, proto pod hlavní prací. */}
       <div

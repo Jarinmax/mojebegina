@@ -355,3 +355,13 @@ export async function setCustomerDeliveryAddressAction(
   revalidateCrm(undefined, organizationId);
   return { success: "Doručovací adresa uložena." };
 }
+
+// Newsletter u leadu (28. 11. 2026) — po „ano“ v hovoru odejde potvrzovací e-mail.
+export async function sendLeadNewsletterConfirmationAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const { sendLeadNewsletterConfirmation } = await import("@/lib/data/leadNewsletter");
+  const leadId = String(formData.get("leadId") ?? "");
+  const result = await sendLeadNewsletterConfirmation(leadId, formData.get("segment"));
+  if (!result.ok) return { error: result.error };
+  revalidateCrm(leadId);
+  return { success: result.message };
+}

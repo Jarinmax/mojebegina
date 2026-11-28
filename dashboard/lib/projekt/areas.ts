@@ -18,6 +18,7 @@ export const PROJECT_AREAS = [
   { slug: "konkurence", name: "Konkurence", icon: "binoculars", tone: "sky", group: "Web a systém" },
   { slug: "socialni-site", name: "Sociální sítě", icon: "share", tone: "rose", group: "Marketing" },
   { slug: "obrazky", name: "Obrázky a fotky", icon: "image", tone: "violet", group: "Marketing" },
+  { slug: "newsletter", name: "Newsletter a e-mail marketing", icon: "mail", tone: "cyan", group: "Marketing" },
   { slug: "etikety", name: "Etikety", icon: "tag", tone: "amber", group: "Výroba a provoz" },
   { slug: "sklad-beginy", name: "Sklad begin a sáčků", icon: "package", tone: "yellow", group: "Výroba a provoz" },
   { slug: "sklad-suroviny", name: "Sklad surovin a obalů", icon: "boxes", tone: "orange", group: "Výroba a provoz" },

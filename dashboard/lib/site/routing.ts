@@ -163,6 +163,8 @@ export function publicEshopPath(pathname: string): string | null {
   if (section === "objednavka" && UUID.test(param)) return `${ESHOP_PREFIX}/objednavka/${param}`;
   // hodnocení nákupu a odhlášení z e-mailů — podepsaný odkaz z e-mailu (17. 11. 2026)
   if ((section === "hodnoceni" || section === "odhlaseni") && SIGNED_TOKEN.test(param)) return `${ESHOP_PREFIX}/${section}/${param}`;
+  // potvrzení odběru newsletteru — podepsaný odkaz z potvrzovacího e-mailu (28. 11. 2026)
+  if (section === "newsletter" && SIGNED_TOKEN.test(param)) return `${ESHOP_PREFIX}/newsletter/${param}`;
   // PDF znění obchodních podmínek (/obchodni-podminky/2026-10-27.pdf)
   if (section === "obchodni-podminky" && (TERMS_PDF.test(param) || param === WITHDRAWAL_FORM_PDF)) return `${ESHOP_PREFIX}/obchodni-podminky/${param}`;
   return null;

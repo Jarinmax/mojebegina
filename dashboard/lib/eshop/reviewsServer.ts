@@ -6,6 +6,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { loadPartnerOptOuts, addPartnerOptOut } from "./partnerMonthlyServer";
+import { markUnsubscribed } from "./newsletterServer";
 import { REVIEW_REQUESTS_ORDERS_FROM, REVIEW_REQUEST_AFTER_DAYS, REVIEW_REQUEST_MAX_AGE_DAYS, type ReviewInput } from "./reviews";
 import { summarize, type ReviewSummary } from "./reviewsFormat";
 
@@ -188,4 +189,6 @@ export async function addEmailOptout(email: string): Promise<void> {
   await db.execute(sql`INSERT INTO email_optouts (email) VALUES (${email.trim().toLowerCase()}) ON CONFLICT (email) DO NOTHING`);
   // jedno odhlášení pro všechna obchodní sdělení (i partnerský program)
   await addPartnerOptOut(db, email);
+  // … i z newsletteru (28. 11. 2026)
+  await markUnsubscribed(email);
 }

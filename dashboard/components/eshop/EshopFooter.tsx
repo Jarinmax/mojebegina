@@ -1,5 +1,6 @@
 import { VAT_NOTE } from "@/lib/eshop/cafePage";
 import ShopLink from "./ShopLink";
+import NewsletterSignup from "./NewsletterSignup";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { FOOTER_LINKS, OPERATOR } from "@/lib/eshop/infoPages";
 import { PICKUP_PLACE } from "@/lib/eshop/operator";
@@ -23,6 +24,10 @@ export default function EshopFooter({ cookieSettings = false }: { cookieSettings
   return (
     <footer className="border-t border-neutral-200 bg-begina-primary-50 print:hidden">
       <div className="max-w-6xl mx-auto px-4 py-10 text-base leading-normal text-neutral-700">
+        {/* 28. 11. 2026 (Jarin): přihlášení k newsletteru nad bloky patičky */}
+        <div className="mb-8 max-w-xl">
+          <NewsletterSignup />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3">
           <section aria-labelledby="paticka-provozovna" className={block}>
             <h2 id="paticka-provozovna" className={heading}>
