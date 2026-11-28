@@ -25,6 +25,7 @@ import {
   CAFE_OFFER, CAFE_FAQ, CAFE_FAQ_ALL, CAFE_FAQ_TITLE } from "@/lib/eshop/cafePage";
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
+import { CAFE_PRAISE_POINTS, CAFE_PRAISE_TITLE, CAFE_PRAISE_VENUES_TITLE, HOME_VENUES } from "@/lib/eshop/homeContent";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
 import CafeStartCards from "@/components/eshop/CafeStartCards";
 import { startCardOffers } from "@/lib/eshop/startOffers";
@@ -96,6 +97,26 @@ export default async function Page() {
 
       <section aria-label="Výhody pro provoz">
         <CafeBenefits />
+      </section>
+
+      {/* 28. 11. 2026 večer (Lucie): proč si Beginu kavárny chválí + kavárny se souhlasem (z úvodu přesunuto sem) */}
+      <section id="kavarny-chvali" className="max-w-2xl mx-auto w-full scroll-mt-24">
+        <h2 className="font-serif text-2xl sm:text-3xl text-center mb-4">{CAFE_PRAISE_TITLE}</h2>
+        <ul className="flex flex-col gap-2 text-base text-[#2A2622]">
+          {CAFE_PRAISE_POINTS.map((point) => (
+            <li key={point} className="flex gap-2"><span className="text-[#5E6B34]" aria-hidden="true">✓</span>{point}</li>
+          ))}
+        </ul>
+        {HOME_VENUES.length > 0 && (
+          <>
+            <h3 className="mt-6 text-sm uppercase tracking-[0.12em] text-neutral-600">{CAFE_PRAISE_VENUES_TITLE}</h3>
+            <ul className="mt-2 flex flex-col gap-1 text-base text-[#2A2622]">
+              {HOME_VENUES.map((v) => (
+                <li key={v.name}>{v.name}{v.city ? ` – ${v.city}` : ""}</li>
+              ))}
+            </ul>
+          </>
+        )}
       </section>
 
       {categories.length > 0 && (

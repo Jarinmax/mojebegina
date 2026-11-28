@@ -21,9 +21,9 @@ describe("úvod e-shopu", () => {
     render(<HomeHero />);
     const text = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
     const h1 = screen.getByRole("heading", { level: 1 });
-    expect(text(h1.textContent)).toBe("Polévka a limonáda na menu. Bez vaření.");
+    expect(text(h1.textContent)).toBe("Hosté ji pochválí. Vy ji jen ohřejete.");
     const body = text(document.body.textContent);
-    expect(body).toContain("Natočíte jen tolik porcí, kolik potřebujete. Posíláme chlazeně po celé ČR.");
+    expect(body).toContain("Hotové polévky a sirupy, které stačí natočit a ohřát. Posíláme chlazeně po celé ČR.");
     expect(body).toContain("K první begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.");
     expect(screen.getByRole("link", { name: /Vybrat první beginu 3 l/ }).getAttribute("href")).toBe("/eshop/pro-kavarny#vyber-beginy");
     expect(screen.getByRole("link", { name: /Nebo nejdřív ochutnat 3 polévky za 299 Kč/ }).getAttribute("href")).toBe("/eshop/produkt/ochutnavka-polevek-3x450");
