@@ -63,12 +63,19 @@ export default async function EshopPage() {
       <HomeHero />
       <HomeDoors homeText={tastingSet?.variants[0] ? homeDoorHomeText(tastingSet.variants[0].priceKc, tastingSet.tastingCampaign !== undefined) : undefined} />
       {/* 28. 11. 2026 večer (Lucie): místo názvů kaváren jen odkaz na Pro kavárny – proč si Beginu chválí */}
-      <p className="max-w-6xl mx-auto px-4 pt-6 sm:pt-8 text-center">
-        <ShopLink href={HOME_REFERENCES_LINK.href} className="inline-flex items-center gap-1.5 text-base font-medium text-[#4A5527] underline underline-offset-4">
-          {HOME_REFERENCES_LINK.text}
-          <span aria-hidden="true">›</span>
+      {/* 28. 11. 2026 20:04 (Lucie): odkaz byl nevýrazný → výrazný pruh s tím, co kavárny říkají */}
+      <section className="max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
+        <ShopLink href={HOME_REFERENCES_LINK.href} className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 rounded-2xl bg-[#4A5527] hover:bg-[#3F4921] transition-colors px-5 py-5 sm:px-8 sm:py-6 text-white">
+          <span className="flex-1">
+            <span className="block text-xs sm:text-sm uppercase tracking-[0.15em] text-white/80">{HOME_REFERENCES_LINK.eyebrow}</span>
+            <span className="mt-1 block font-serif text-2xl sm:text-3xl leading-tight">{HOME_REFERENCES_LINK.quote}</span>
+          </span>
+          <span className="self-start sm:self-center inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-base font-semibold text-[#4A5527] group-hover:bg-[#FAF6EF]">
+            {HOME_REFERENCES_LINK.text}
+            <span aria-hidden="true">→</span>
+          </span>
         </ShopLink>
-      </p>
+      </section>
       <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} /></div>
       <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} showShop={false} />
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
