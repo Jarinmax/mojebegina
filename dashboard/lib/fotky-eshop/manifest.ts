@@ -62,6 +62,12 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
   "logo/profilovka": [
     "profilovka-facebook-instagram.png"
   ],
+  "logo/vzor-beginy": [
+    "begina-drzena-za-roh-kohoutek-uprostred.jpg",
+    "begina-lezici-s-etiketou.jpg",
+    "kohoutek-zavreny-cerveny-kryt-v-ruce.jpg",
+    "kohoutek-zavreny-s-ochrannym-krytem-detail.jpg"
+  ],
   "o-nas/fotka": [
     "jarin-a-lucie-original.jpg",
     "jarin-a-lucie.jpg"
