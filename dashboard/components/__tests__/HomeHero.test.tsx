@@ -44,7 +44,7 @@ describe("úvod e-shopu", () => {
   it("fotografie úvodu (v15, 28. 11. 2026) v plném poměru, existuje v public", () => {
     render(<HomeHero />);
     const img = screen.getByRole("img", { name: HERO_PHOTO.alt });
-    expect(img.getAttribute("src")).toBe("/eshop/hero/dynova-z-krabice-kavarna-v15.webp");
+    expect(img.getAttribute("src")).toBe("/eshop/hero/dynova-z-krabice-kavarna-v16.webp");
     expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1672 / 941);
     expect(img.className).toContain("h-auto");
     // od v13 (19. 11. 2026) je fotka v rámečku se zaoblenými rohy, ale nikdy se neořezává

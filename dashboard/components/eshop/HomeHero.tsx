@@ -33,13 +33,13 @@ import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_TASTE_LINK, HOME_HERO_SUBT
 // (pozadí už nesplývá s úvodem). Dřív v12: nová čistá fotka z ChatGPT (hladká miska, čisté sklo), pozadí doladěné na #FAF6EF, posílá se v kvalitě 90.
 // velikosti pro rychlé načtení připravuje next/image (AVIF/WebP podle sizes).
 
-// v15 (28. 11. 2026, Lucie + Jarin): nová úvodní stránka – světlá kavárna, Dýňová polévka teče
+// v16 (28. 11. 2026): černobílá etiketa na krabici (Lucie – zatím se tisknou černobílé). v15 (28. 11. 2026, Lucie + Jarin): nová úvodní stránka – světlá kavárna, Dýňová polévka teče
 // z kohoutku krabice do misky (to, čím se lišíme); na krabici vložena skutečná přední etiketa.
 // Počítač: fotka přes celou šířku obsahu, text vlevo přes jemný tmavý přechod. Mobil: fotka nahoře,
 // text pod ní (aby fotka zůstala světlá a text čitelný). Fotka se nikdy neořezává (16 : 9, h-auto).
 // Jedno tlačítko, pod ním věta o vzorcích a drobný odkaz na ochutnávku; žádné další texty.
 export const HERO_PHOTO = {
-  src: "/eshop/hero/dynova-z-krabice-kavarna-v15.webp",
+  src: "/eshop/hero/dynova-z-krabice-kavarna-v16.webp",
   width: 1672,
   height: 941,
   alt: "Ve světlé kavárně teče Dýňová polévka z kohoutku krabice Begina 3 l do keramické misky",
