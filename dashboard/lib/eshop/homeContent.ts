@@ -49,14 +49,16 @@ export const HOME_HERO_POINTS = ["Po otevření vydrží polévky a čaje 14 dn�
 // Přestavba úvodu pro kavárny a bistra (Lucie 20. 11. 2026): kavárny a bistra dělají 80–90 %
 // objednávek, ale zákazník nakupující domů musí vidět, že je vítaný. Texty jen z webu
 // (hlavně ze stránky Pro kavárny a bistra), nic nového.
-export const HOME_HERO_TITLE = "Polévky a nápoje pro kavárny, bistra i domů"; // 25. 11. 2026 (Lucie): ať zákazník domů hned vidí, že nakoupit může i on
+export const HOME_HERO_TITLE = "Polévka a limonáda na menu. Bez vaření."; // 28. 11. 2026 (Lucie + Jarin): nová úvodní stránka, nadpis s přínosem; dřív "Polévky a nápoje pro kavárny, bistra i domů" // 25. 11. 2026 (Lucie): ať zákazník domů hned vidí, že nakoupit může i on
 // 22. 11. 2026 (Lucie): „Posíláme chlazeně“ — zásilky veze dopravce, dopravce se nejmenuje (Jarin)
-export const HOME_HERO_SUBTITLE = ["Polévku stačí ohřát, sirup naředit.", "Posíláme chlazeně po celé ČR."] as const;
+export const HOME_HERO_SUBTITLE = ["Natočíte jen tolik porcí, kolik potřebujete.", "Posíláme chlazeně po celé ČR."] as const; // 28. 11. 2026; dřív "Polévku stačí ohřát, sirup naředit."
 export const HOME_HERO_BUTTON = "Vybrat první beginu 3 l"; // 24. 11. 2026 (Lucie/ChatGPT): vedle je druhé tlačítko „Ochutnat 3 polévky“; dřív „Vybrat polévky a nápoje“ // dřív „Vybrat první balení“ — Jarin nepoznal, že vede k polévkám (Lucie 24. 11. 2026)
 export const HOME_HERO_PHONE = "Domluvit dodávky po telefonu";
 
 /** Věta pod červeným tlačítkem v úvodu (22. 11. 2026). */
 export const HOME_HERO_OFFER = "K první begině Vám přibalíme 2 vzorky polévek a 2 vzorky sirupů zdarma.";
+/** 28. 11. 2026: drobný odkaz pod nabídkou místo druhého tlačítka */
+export const HOME_HERO_TASTE_LINK = "Nebo nejdřív ochutnat 3 polévky za 299 Kč";
 /** Druhé tlačítko v úvodu (24. 11. 2026). */
 export const HOME_HERO_TASTE_BUTTON = "Ochutnat 3 polévky";
 /** 27. 11. 2026 (Lucie): popisek pod úvodní fotkou – krabice není v ceně beginy, kavárny ji dávají rovnou do lednice. */
@@ -118,8 +120,26 @@ export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
  * „Kde nás najdete“ — kavárny a bistra, které Beginu odebírají. Sekce je schovaná,
  * dokud je seznam prázdný; doplňuje se jen se souhlasem kaváren (Lucie 20. 11. 2026).
  */
-export const HOME_VENUES: { name: string; city: string }[] = [];
-export const HOME_VENUES_TITLE = "Kde nás najdete";
+/** Jen kavárny, které písemně souhlasily s uvedením (e-maily na info@ 28. 11. 2026). */
+export const HOME_VENUES: { name: string; city?: string }[] = [
+  { name: "Café Kandík" }, // souhlas 28. 11. 2026 (Ing. Markéta Bejkovská)
+  { name: "Cukrárna Kavárna Adélka" }, // souhlas 28. 11. 2026 (T. S. Zeithaml), název podle jejich odpovědi
+];
+export const HOME_VENUES_TITLE = "Naše polévky a sirupy nalévají například";
+
+/** 28. 11. 2026: dvě dlaždice pod úvodem – každý zákazník si zvolí svou cestu. */
+export const HOME_DOORS = [
+  { title: "Pro kavárny a bistra", text: "Hotové polévky a sirupy na menu. K první begině 2 + 2 vzorky zdarma.", button: "Nabídka pro kavárny", href: "/pro-kavarny", photo: "/fotky-eshop/uvodni-fotka/atmosfera/begina-krabice-lipovy-sirup-kavarna-4x5.jpg", alt: "Obsluha v kavárně točí Lipový sirup z krabice s kohoutkem do hrnku" },
+  { title: "Domů", text: "Ochutnejte 3 polévky za 299 Kč nebo sadu 5 sirupů za 349 Kč.", button: "Nakoupit domů", href: "/nakupuji-domu", photo: "/fotky-eshop/uvodni-fotka/atmosfera/svarak-deluxe-zima-4x5.jpg", alt: "Ruce drží sklenici horkého Svařáku Deluxe, vedle pomeranč a koření" },
+] as const;
+
+/** 28. 11. 2026: atmosférické fotky u nejoblíbenějších na úvodu (bílé produktové fotky zůstávají v kategoriích a u produktů). */
+export const HOME_BESTSELLER_PHOTOS: Record<string, string> = {
+  "dynova-polevka": "/fotky-eshop/uvodni-fotka/atmosfera/dynova-polevka-bistro-4x5.jpg",
+  "bylinny-sirup-saman": "/fotky-eshop/uvodni-fotka/atmosfera/bylinny-sirup-saman-zima-4x5.jpg",
+  "lipovy-sirup": "/fotky-eshop/uvodni-fotka/atmosfera/lipovy-sirup-limonada-leto-4x5.jpg",
+  "svarak-deluxe": "/fotky-eshop/uvodni-fotka/atmosfera/svarak-deluxe-zima-4x5.jpg",
+};
 
 type PricedProduct = { slug: string; category: string; variants: readonly { priceKc: number; volumeMl: number | null; label: string | null; soldOut?: boolean }[] };
 
