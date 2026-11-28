@@ -137,7 +137,6 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
   "uvodni-fotka/atmosfera": [
     "begina-krabice-lipovy-sirup-kavarna-4x5.jpg",
     "beginy-v-lednici-4x3.jpg",
-    "beginy-v-lednici-etikety-4x3.jpg",
     "bylinny-sirup-saman-zima-4x5.jpg",
     "dynova-polevka-bistro-4x5.jpg",
     "dynova-polevka-kavarna-16x9.jpg",
