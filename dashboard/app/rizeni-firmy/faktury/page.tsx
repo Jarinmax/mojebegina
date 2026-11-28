@@ -45,6 +45,9 @@ const fakturWord = (n: number) => (n === 1 ? "faktura" : n >= 2 && n <= 4 ? "fak
 // Jiné příjmy (Lucie 26. 11. 2026): nesouvisí s Beginou ani s bistrem — montáže, zprostředkování (podle položek faktury) a Wolt.
 const WORK_RE = /montáž|zprostředkování|elektro|klimatiz|servis|revize/i;
 const OTHER_ENTRY_RE = /wolt/i;
+// Doprava na faktuře (Lucie 28. 11. 2026: příjmy Beginy i po odečtení dopravy) — „Chlazená přeprava“, „Doprava“, „Poštovné“, „Rozvoz…“.
+const SHIPPING_RE = /^\s*(doprava|chlazen[áý] (doprava|přeprava)|poštovné|rozvoz)/i;
+const SHIPPING_SQL = "^\\s*(doprava|chlazen[áý] (doprava|přeprava)|poštovné|rozvoz)";
 const lastDay = (year: number, month: number) => String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0");
 const BASE = "/rizeni-firmy/faktury";
 
@@ -108,11 +111,16 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   const unpaidCount = unpaidOwn.length + unpaidOld.length;
   // položky starších faktur (kvůli rozdělení na Beginu a montáže)
   const archiveLines = new Map<string, string>();
+  const archiveShipping = new Map<string, number>();
   if (archive.length) {
     const res = await db.execute(sql`
-      SELECT number, coalesce((SELECT string_agg(i->>'Name', ' | ') FROM jsonb_array_elements(raw->'Items') i), '') AS lines
+      SELECT number, coalesce((SELECT string_agg(i->>'Name', ' | ') FROM jsonb_array_elements(raw->'Items') i), '') AS lines,
+             coalesce((SELECT sum((i->'Prices'->>'TotalWithVat')::numeric) FROM jsonb_array_elements(raw->'Items') i WHERE i->>'Name' ~* ${SHIPPING_SQL}), 0) AS shipping
       FROM idoklad_archive WHERE number IN (${sql.join(archive.map((i) => sql`${i.number}`), sql`, `)})`);
-    for (const row of res.rows as { number: string; lines: string }[]) archiveLines.set(row.number, row.lines);
+    for (const row of res.rows as { number: string; lines: string; shipping: string | number }[]) {
+      archiveLines.set(row.number, row.lines);
+      archiveShipping.set(row.number, Number(row.shipping) || 0);
+    }
   }
   const linesOf = (it: Item) => (it.own ? it.own.snapshot.lines.map((l) => l.name).join(" | ") : archiveLines.get(it.number) ?? "");
   const isWork = (it: Item) => WORK_RE.test(linesOf(it));
@@ -123,6 +131,14 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
   const beginaOther = noInvoice.filter((r) => !/bistro/i.test(r.title) && !otherEntries.includes(r));
   const itemKc = (it: Item) => (it.own ? (it.own.state === "issued" ? Number(it.own.total_kc) : 0) : it.old!.totalKc ?? 0);
   const beginaKc = beginaInvoices.reduce((sum, it) => sum + itemKc(it), 0) + beginaOther.reduce((sum, r) => sum + r.amountHal, 0) / 100;
+  const shippingOf = (it: Item) =>
+    it.own
+      ? it.own.state === "issued"
+        ? it.own.snapshot.lines.filter((l) => SHIPPING_RE.test(l.name)).reduce((sum, l) => sum + Number(l.totalKc), 0)
+        : 0
+      : archiveShipping.get(it.number) ?? 0;
+  const beginaShippingKc = beginaInvoices.reduce((sum, it) => sum + shippingOf(it), 0);
+  const shippingNote = beginaShippingKc > 0 ? `bez dopravy ${kc(beginaKc - beginaShippingKc)} · doprava ${kc(beginaShippingKc)}` : null;
   const workKc = work.reduce((sum, it) => sum + itemKc(it), 0) + otherEntries.reduce((sum, r) => sum + r.amountHal, 0) / 100;
   const hasOther = work.length > 0 || otherEntries.length > 0;
   // Bistro jen tam, kde jsou tržby — nebo v aktuálním/minulém měsíci, kdy se tržby teprve zapíšou (Lucie 26. 11. 2026: v lednu bistro ještě nebylo).
@@ -209,14 +225,17 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
       <div className="hidden sm:block" />
     </div>
   );
-  const group = (key: string, title: string, sub: string, tone: string, total: number, rows: React.ReactNode[], empty: string) => (
+  const group = (key: string, title: string, sub: string, tone: string, total: number, rows: React.ReactNode[], empty: string, note?: string | null) => (
     <section key={key} className={`mb-4 bg-white border border-neutral-200 border-l-8 ${tone} rounded-xl overflow-hidden`}>
       <header className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-3 border-b border-neutral-100">
         <div>
           <h2 className="text-base font-semibold text-begina-primary-900">{title}</h2>
           <p className="text-xs text-neutral-500">{sub}</p>
         </div>
-        <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(total)}</p>
+        <div className="text-right">
+          <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(total)}</p>
+          {note && <p className="text-xs text-neutral-500 tabular-nums">{note}</p>}
+        </div>
       </header>
       {rows.length === 0 ? <p className="text-sm text-neutral-500 p-3">{empty}</p> : <div className="divide-y divide-neutral-100">{rows}</div>}
     </section>
@@ -244,6 +263,13 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
           <div key={label} className={`bg-white border border-neutral-200 border-l-8 ${tone} rounded-xl p-3`}>
             <p className="text-xs text-neutral-500">{label}</p>
             <p className="text-lg font-semibold text-begina-primary-900 tabular-nums">{kc(value)}</p>
+            {label === "Begina" && beginaShippingKc > 0 && (
+              <p className="text-xs text-neutral-500 tabular-nums">
+                bez dopravy {kc(beginaKc - beginaShippingKc)}
+                <br />
+                doprava {kc(beginaShippingKc)}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -252,7 +278,7 @@ export default async function FakturyPage(props: PageProps<"/rizeni-firmy/faktur
       )}
       {!read.ok && <p className="text-sm text-red-700 mb-2">Starší faktury se nepodařilo načíst: {read.error}</p>}
       {archiveTruncated && <p className="text-sm text-amber-700 mb-2">Ze starších faktur je zobrazeno prvních 100.</p>}
-      {group("begina", "Begina – nápoje a polévky", `${beginaInvoices.length} ${fakturWord(beginaInvoices.length)}${beginaOther.length ? ` + ${beginaOther.length} bez faktury` : ""}`, "border-l-emerald-600", beginaKc, [...beginaInvoices.map(invoiceRow), ...beginaOther.map(entryRow)], "V tomto měsíci nic.")}
+      {group("begina", "Begina – nápoje a polévky", `${beginaInvoices.length} ${fakturWord(beginaInvoices.length)}${beginaOther.length ? ` + ${beginaOther.length} bez faktury` : ""}`, "border-l-emerald-600", beginaKc, [...beginaInvoices.map(invoiceRow), ...beginaOther.map(entryRow)], "V tomto měsíci nic.", shippingNote)}
       {hasOther && group("jine", "Jiné příjmy", "nesouvisí s Beginou ani s bistrem", "border-l-sky-500", workKc, [...work.map(invoiceRow), ...otherEntries.map(entryRow)], "")}
       {showBistro && group("bistro", "Zahradní bistro Begina", "tržby za celý měsíc (hotově, QR, kartou)", "border-l-amber-500", bistroKc, bistro.map(entryRow), "Zatím nezapsáno — tržby bistra se zapisují za celý měsíc, vždy začátkem dalšího měsíce.")}
       <p className="text-xs text-neutral-500">Součet skupin se může od „Příjmy celkem“ lišit o poplatky za platby kartou — Přehled počítá skutečně přijaté peníze.</p>
