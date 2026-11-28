@@ -113,8 +113,9 @@ export default async function EshopPage() {
 
         {/* Jak funguje begina */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-center">
-          <div className="relative aspect-square w-full max-w-[17rem] md:max-w-xs mx-auto">
-            <Image src={HOME_STEPS_PHOTO} alt="Begina s dýňovou polévkou" fill sizes="(min-width: 768px) 20rem, 17rem" className="object-contain" />
+          {/* 28. 11. 2026 (Lucie): bílá produktová fotka mezi atmosférickými rušila → kavárenská fotka s beginou v lednici */}
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
+            <Image src={HOME_STEPS_PHOTO} alt="Obsluha v kavárně podává dýňovou polévku, za pultem v lednici begina dýňové polévky 3 l" fill sizes="(min-width: 768px) 36rem, 100vw" className="object-cover object-[70%_50%]" />
           </div>
           <div>
             <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-4 text-center md:text-left">Jak funguje begina</h2>
