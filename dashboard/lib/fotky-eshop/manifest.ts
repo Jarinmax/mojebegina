@@ -65,8 +65,8 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
   "logo/vzor-beginy": [
     "begina-drzena-za-roh-kohoutek-uprostred.jpg",
     "begina-lezici-s-etiketou.jpg",
-    "kohoutek-zavreny-cerveny-kryt-v-ruce.jpg",
-    "kohoutek-zavreny-s-ochrannym-krytem-detail.jpg"
+    "kohoutek-neotevreny-s-cervenym-krytem.jpg",
+    "kohoutek-pri-pouzivani-bez-krytu-detail.jpg"
   ],
   "o-nas/fotka": [
     "jarin-a-lucie-original.jpg",
