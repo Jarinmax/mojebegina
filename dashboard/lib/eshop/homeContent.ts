@@ -122,23 +122,23 @@ export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
  */
 /** Jen kavárny, které písemně souhlasily s uvedením (e-maily na info@ 28. 11. 2026). */
 export const HOME_VENUES: { name: string; city?: string }[] = [
-  { name: "Café Kandík" }, // souhlas 28. 11. 2026 (Ing. Markéta Bejkovská)
-  { name: "Cukrárna Kavárna Adélka" }, // souhlas 28. 11. 2026 (T. S. Zeithaml), název podle jejich odpovědi
+  { name: "Café Kandík", city: "Hradištko" }, // souhlas 28. 11. 2026 (Ing. Markéta Bejkovská)
+  { name: "Cukrárna Kavárna Adélka", city: "Jílové u Prahy" }, // souhlas 28. 11. 2026 (T. S. Zeithaml), název podle jejich odpovědi
 ];
 export const HOME_VENUES_TITLE = "Naše polévky a sirupy nalévají například";
 
 /** 28. 11. 2026: dvě dlaždice pod úvodem – každý zákazník si zvolí svou cestu. */
 export const HOME_DOORS = [
-  { title: "Pro kavárny a bistra", text: "Hotové polévky a sirupy na menu. K první begině 2 + 2 vzorky zdarma.", button: "Nabídka pro kavárny", href: "/pro-kavarny", photo: "/fotky-eshop/uvodni-fotka/atmosfera/begina-krabice-lipovy-sirup-kavarna-4x5.jpg", alt: "Obsluha v kavárně točí Lipový sirup z krabice s kohoutkem do hrnku" },
-  { title: "Domů", text: "Ochutnejte 3 polévky za 299 Kč nebo sadu 5 sirupů za 349 Kč.", button: "Nakoupit domů", href: "/nakupuji-domu", photo: "/fotky-eshop/uvodni-fotka/atmosfera/svarak-deluxe-zima-4x5.jpg", alt: "Ruce drží sklenici horkého Svařáku Deluxe, vedle pomeranč a koření" },
+  { title: "Pro kavárny a bistra", text: "Hotové polévky a sirupy na menu. K první begině 2 + 2 vzorky zdarma.", button: "Nabídka pro kavárny", href: "/pro-kavarny", photo: "/eshop/uvod/begina-krabice-lipovy-sirup-kavarna-4x5.webp", alt: "Obsluha v kavárně točí Lipový sirup z krabice s kohoutkem do hrnku" },
+  { title: "Domů", text: "Ochutnejte 3 polévky za 299 Kč nebo sadu 5 sirupů za 349 Kč.", button: "Nakoupit domů", href: "/nakupuji-domu", photo: "/eshop/uvod/svarak-deluxe-zima-4x5.webp", alt: "Ruce drží sklenici horkého Svařáku Deluxe, vedle pomeranč a koření" },
 ] as const;
 
 /** 28. 11. 2026: atmosférické fotky u nejoblíbenějších na úvodu (bílé produktové fotky zůstávají v kategoriích a u produktů). */
 export const HOME_BESTSELLER_PHOTOS: Record<string, string> = {
-  "dynova-polevka": "/fotky-eshop/uvodni-fotka/atmosfera/dynova-polevka-bistro-4x5.jpg",
-  "bylinny-sirup-saman": "/fotky-eshop/uvodni-fotka/atmosfera/bylinny-sirup-saman-zima-4x5.jpg",
-  "lipovy-sirup": "/fotky-eshop/uvodni-fotka/atmosfera/lipovy-sirup-limonada-leto-4x5.jpg",
-  "svarak-deluxe": "/fotky-eshop/uvodni-fotka/atmosfera/svarak-deluxe-zima-4x5.jpg",
+  "dynova-polevka": "/eshop/uvod/dynova-polevka-bistro-4x5.webp",
+  "bylinny-sirup-saman": "/eshop/uvod/bylinny-sirup-saman-zima-4x5.webp",
+  "lipovy-sirup": "/eshop/uvod/lipovy-sirup-limonada-leto-4x5.webp",
+  "svarak-deluxe": "/eshop/uvod/svarak-deluxe-zima-4x5.webp",
 };
 
 type PricedProduct = { slug: string; category: string; variants: readonly { priceKc: number; volumeMl: number | null; label: string | null; soldOut?: boolean }[] };
