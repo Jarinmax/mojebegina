@@ -54,12 +54,13 @@ export const HERO_LINKS = {
 export type HeroPortion = { count: number; portions: number; totalKc: number; perPortionKc: number };
 
 export default function HomeHero() {
-  // 28. 11. 2026 (Lucie): velká fotka přes celou šířku s textem přes ni, ale NIŽŠÍ, aby byly pod ní
+  // 28. 11. 2026 večer (Lucie): fotka vždy celá v původním formátu (oříznutá byla bez nápisu Dýňová); šířka max-w-5xl.
+  // Dřív: velká fotka přes celou šířku s textem přes ni, ale NIŽŠÍ, aby byly pod ní
   // hned vidět dlaždice Pro kavárny / Domů. Počítač: výška 26rem, fotka přes šířku (ořez jen nahoře
   // a dole), text vlevo přes jemný přechod. Mobil: fotka nahoře celá, text pod ní.
   return (
     <section className="bg-[#FAF6EF]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:pt-4">
+      <div className="max-w-5xl mx-auto lg:px-4 lg:pt-4">
         <div className="relative">
           <Image
             src={HERO_PHOTO.src}
@@ -69,7 +70,7 @@ export default function HomeHero() {
             priority
             quality={90}
             sizes="(min-width: 1152px) 72rem, 100vw"
-            className="block w-full h-auto lg:h-[26rem] lg:object-cover lg:object-[center_55%] lg:rounded-2xl"
+            className="block w-full h-auto lg:rounded-2xl"
           />
           <div className="px-4 pt-5 pb-6 lg:absolute lg:inset-0 lg:flex lg:flex-col lg:justify-center lg:items-start lg:px-12 lg:py-8 lg:rounded-2xl lg:bg-gradient-to-r lg:from-[rgba(40,28,16,0.66)] lg:via-[rgba(40,28,16,0.28)] lg:to-transparent">
             <h1 className="font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[3rem] tracking-tight text-[#2A2622] lg:text-white text-balance lg:max-w-[36rem]">
