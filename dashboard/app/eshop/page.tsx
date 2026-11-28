@@ -14,18 +14,17 @@ import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING } from "@/lib/eshop/cafeT
 import CafeForm from "@/app/eshop/pro-kavarny/CafeForm";
 import { INFO_PAGES } from "@/lib/eshop/infoPages";
 import { FAQ_PATH } from "@/lib/eshop/faq";
-import ProductCard from "@/components/eshop/ProductCard";
+import HomeDoors from "@/components/eshop/HomeDoors";
 import { SET_HOME_BANNER, SET_SLUG } from "@/lib/eshop/tastingSet";
 import {
-  HOME_ABOUT,
   HOME_DELIVERY_LINE,
   HOME_BESTSELLERS,
-  HOME_BISTRO,
+  HOME_BESTSELLER_PHOTOS,
+  HOME_HERO_BOX_NOTE,
   HOME_STEPS,
   HOME_STEPS_PHOTO,
   HOME_VENUES,
   HOME_VENUES_TITLE,
-  HOME_STEP_POINTS,
 } from "@/lib/eshop/homeContent";
 
 // Od 20. 11. 2026 úvod primárně pro kavárny a bistra (viz komentář v těle).
@@ -60,24 +59,58 @@ export default async function EshopPage() {
       {/* Přestavba úvodu (Lucie 20. 11. 2026): primárně pro kavárny a bistra, ale vítaní
           i zákazníci domů — hero, pod ním dvě dlaždice (na mobilu pod sebou, gastro první),
           Proč Beginu berou kavárny a bistra, Kde nás najdete (jen se souhlasem kaváren). */}
+      {/* Nová úvodní stránka (Lucie + Jarin 28. 11. 2026): úvod s fotkou, dvě dlaždice Pro kavárny / Domů,
+          pruh kaváren (jen se souhlasem), kategorie, cena za porci, nejoblíbenější s atmosférickými
+          fotkami, jak funguje begina. Méně textu a tlačítek, víc fotek. „Kdo za tím stojí“ je na stránce O nás. */}
       <HomeHero />
-      {/* 22. 11. 2026 (Lucie, návrh ChatGPT): ceny porcí s dopravou ve dvou kartách, pod nimi Nakupujete domů */}
-      <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} />
-      {/* šest obrázkových kategorií zůstává (návrh ChatGPT 22. 11. 2026); „Proč Beginu…“ spojeno s Jak funguje begina */}
-      <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} /></div>
+      <HomeDoors />
       {HOME_VENUES.length > 0 && (
-        <section className="w-full max-w-6xl mx-auto px-4 pt-10 sm:pt-14">
-          <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">{HOME_VENUES_TITLE}</h2>
-          <ul className="flex flex-wrap justify-center gap-3">
+        <section className="max-w-6xl mx-auto px-4 pt-8 sm:pt-10 text-center" aria-labelledby="kavarny-s-nami">
+          <h2 id="kavarny-s-nami" className="text-sm uppercase tracking-[0.15em] text-neutral-600">{HOME_VENUES_TITLE}</h2>
+          <ul className="mt-3 flex flex-wrap justify-center gap-x-8 gap-y-2 font-serif text-xl sm:text-2xl text-[#4A423B]">
             {HOME_VENUES.map((v) => (
-              <li key={`${v.name}-${v.city}`} className="rounded-full border border-[#EDE5D8] bg-[#FAF6EF] px-4 py-2 text-base text-[#2A2622]">
-                <span className="font-semibold">{v.name}</span>, {v.city}
-              </li>
+              <li key={v.name}>{v.name}{v.city ? `, ${v.city}` : ""}</li>
             ))}
           </ul>
         </section>
       )}
+      <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} /></div>
+      <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} showShop={false} />
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
+        {/* Novinka: ochutnávkový set sirupů (17. 11. 2026) — jen za úvodní cenu */}
+        {tastingSet?.tastingCampaign && (
+          <ShopLink href={`/produkt/${SET_SLUG}`} className="flex items-center gap-3 rounded-2xl border border-[#D9D4C7] bg-[#FAF6EF] px-4 py-3.5 text-[15px] leading-snug text-[#2A2622] hover:bg-[#F4EEE2]">
+            <span className="shrink-0 rounded-full border border-[#B5762A] bg-[#FBF3E6] px-2.5 py-0.5 text-xs font-semibold text-[#8A5A1E]">Novinka</span>
+            <span>{SET_HOME_BANNER}</span>
+            <span className="ml-auto text-xl" aria-hidden="true">›</span>
+          </ShopLink>
+        )}
+
+        {/* Nejoblíbenější – atmosférické fotky (28. 11. 2026); bílé produktové fotky jsou v kategoriích */}
+        {bestsellers.length > 0 && (
+          <section>
+            <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-5">Nejoblíbenější</h2>
+            <ul className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+              {bestsellers.map((product) => {
+                const prices = product.variants.map((v) => v.priceKc);
+                const min = Math.min(...prices);
+                const priceText = prices.length > 1 ? `od ${min} Kč` : `${product.variants[0].label ? `${product.variants[0].label} · ` : ""}${min} Kč`;
+                return (
+                  <li key={product.slug}>
+                    <ShopLink href={`/produkt/${product.slug}`} className="group block">
+                      <span className="relative block aspect-[4/5] w-full overflow-hidden rounded-xl bg-[#F0EADF]">
+                        <Image src={HOME_BESTSELLER_PHOTOS[product.slug] ?? product.image} alt={product.name} fill sizes="(min-width: 1024px) 17rem, 50vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                      </span>
+                      <span className="mt-2 block text-base font-medium text-[#2A2622] group-hover:underline underline-offset-2">{product.name}</span>
+                      <span className="block text-sm text-neutral-600 tabular-nums">{priceText.replace(/ /g, "\u00a0")}</span>
+                    </ShopLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {/* Jak funguje begina */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-center">
           <div className="relative aspect-square w-full max-w-[17rem] md:max-w-xs mx-auto">
@@ -88,7 +121,7 @@ export default async function EshopPage() {
             <ol className="flex flex-col gap-5">
               {HOME_STEPS.map((step, i) => (
                 <li key={step.title} className="flex gap-4">
-                  <span className="flex-none w-9 h-9 rounded-full bg-[#A51C1C] text-white font-semibold flex items-center justify-center">{i + 1}</span>
+                  <span className="flex-none w-9 h-9 rounded-full bg-[#4A5527] text-white font-semibold flex items-center justify-center">{i + 1}</span>
                   <div>
                     <h3 className="font-semibold text-lg text-[#2A2622]">{step.title}</h3>
                     <p className="text-base leading-normal text-neutral-700">{step.text}</p>
@@ -96,58 +129,20 @@ export default async function EshopPage() {
                 </li>
               ))}
             </ol>
-            <ul className="mt-5 flex flex-col gap-2 text-base leading-normal text-neutral-800">
-              {HOME_STEP_POINTS.map((point) => (
-                <li key={point} className="flex gap-2.5">
-                  <span className="text-[#5E6B34] font-semibold" aria-hidden="true">✓</span>
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-base leading-normal text-neutral-700">{HOME_DELIVERY_LINE}</p>
+            <p className="mt-4 text-base leading-normal text-neutral-700">{HOME_DELIVERY_LINE}</p>
+            {/* 27. 11. 2026 (Lucie): krabice se přikupuje zvlášť */}
+            <p className="mt-2 text-sm leading-snug text-neutral-600">{HOME_HERO_BOX_NOTE}</p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
               <ShopLink href={INFO_PAGES.packaging.path} className="inline-block py-1 text-base font-medium underline underline-offset-4">
                 Více o balení
               </ShopLink>
-              {/* 22. 11. 2026 (Lucie): Časté otázky i na úvodu */}
               <ShopLink href={FAQ_PATH} className="inline-block py-1 text-base font-medium underline underline-offset-4">
                 Časté otázky
               </ShopLink>
+              <ShopLink href={INFO_PAGES.about.path} className="inline-block py-1 text-base font-medium underline underline-offset-4">
+                Kdo za tím stojí
+              </ShopLink>
             </div>
-          </div>
-        </section>
-
-        {/* Novinka: ochutnávkový set sirupů (17. 11. 2026) — jen za úvodní cenu */}
-        {tastingSet?.tastingCampaign && (
-          <div className="w-full max-w-6xl mx-auto px-4">
-            <ShopLink href={`/produkt/${SET_SLUG}`} className="flex items-center gap-3 rounded-2xl border border-[#D9D4C7] bg-[#FAF6EF] px-4 py-3.5 text-[15px] leading-snug text-[#2A2622] hover:bg-[#F4EEE2]">
-              <span className="shrink-0 rounded-full border border-[#B5762A] bg-[#FBF3E6] px-2.5 py-0.5 text-xs font-semibold text-[#8A5A1E]">Novinka</span>
-              <span>{SET_HOME_BANNER}</span>
-              <span className="ml-auto text-xl" aria-hidden="true">›</span>
-            </ShopLink>
-          </div>
-        )}
-
-        {/* Nejoblíbenější */}
-        {bestsellers.length > 0 && (
-          <section>
-            <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">Nejoblíbenější</h2>
-            <ul className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-4">
-              {bestsellers.map((product) => (
-                <ProductCard key={product.slug} product={product} />
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Kdo za tím stojí */}
-        <section className="max-w-2xl mx-auto text-center">
-          <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-4">Kdo za tím stojí</h2>
-          <p className="text-lg leading-relaxed text-neutral-800">{HOME_ABOUT}</p>
-          <p className="mt-3 text-base leading-normal text-neutral-700">{HOME_BISTRO}</p>
-          <div className="mt-4 flex justify-center gap-6">
-            <ShopLink href={INFO_PAGES.about.path} className="py-1 text-base font-medium underline underline-offset-4">Více o nás</ShopLink>
-            <ShopLink href={INFO_PAGES.water.path} className="py-1 text-base font-medium underline underline-offset-4">Více o vodě</ShopLink>
           </div>
         </section>
       </div>

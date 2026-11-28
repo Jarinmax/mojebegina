@@ -20,7 +20,7 @@ export function homePriceCards(soup: { portions: number; perPortionKc: number },
   ];
 }
 
-export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { cards: readonly PriceCard[]; setSlug: string; setPriceKc?: number }) {
+export default function HomePriceCards({ cards, setSlug, setPriceKc = 349, showShop = true }: { cards: readonly PriceCard[]; setSlug: string; setPriceKc?: number; /** 28. 11. 2026: na úvodu vypnuto – cestu „Domů“ nabízí dlaždice pod úvodem */ showShop?: boolean }) {
   return (
     <section className="max-w-6xl mx-auto px-4 pt-8 sm:pt-10" aria-labelledby="ceny-porci">
       <h2 id="ceny-porci" className="font-serif text-[1.75rem] sm:text-[2.25rem] leading-tight text-[#2A2622]">
@@ -46,7 +46,7 @@ export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { c
           </li>
         ))}
       </ul>
-      <div className="mt-8 border-t border-[#E3DED0] pt-6 flex flex-col md:flex-row md:items-center gap-3 md:gap-10">
+      {showShop && <div className="mt-8 border-t border-[#E3DED0] pt-6 flex flex-col md:flex-row md:items-center gap-3 md:gap-10">
         <h2 className="font-serif text-[1.75rem] sm:text-[2rem] leading-tight text-[#2A2622] md:flex-1">{HOME_SHOP_TITLE}</h2>
         <div className="flex flex-wrap gap-x-10 gap-y-3 text-lg font-medium text-[#4A5527]">
           <ShopLink href="/nakupuji-domu" className="inline-flex items-center gap-2 underline underline-offset-4">
@@ -63,7 +63,7 @@ export default function HomePriceCards({ cards, setSlug, setPriceKc = 349 }: { c
             4 vzorky zdarma k první begině <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </ShopLink>
         </div>
-      </div>
+      </div>}
     </section>
   );
 }
