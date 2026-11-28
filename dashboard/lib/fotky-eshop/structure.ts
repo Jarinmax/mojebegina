@@ -18,6 +18,7 @@ export const FOTKY_CATEGORIES: FotkyCategory[] = [
       { slug: "profilovka", label: "Profilovka Facebook / Instagram" },
       { slug: "facebook-uvodni", label: "Úvodní fotka Facebooku" },
       { slug: "povedene", label: "Povedené fotky pro sociální sítě" },
+      { slug: "vzor-beginy", label: "Skutečná begina – vzor obalu a kohoutku (pro AI obrázky)" },
     ],
   },
   {
