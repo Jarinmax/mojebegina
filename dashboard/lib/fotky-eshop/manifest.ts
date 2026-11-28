@@ -52,6 +52,13 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
   "logo/logo": [
     "logo-begina.png"
   ],
+  "logo/povedene": [
+    "malinovy-svarak-nealko-adventni-venec-9x16.jpg",
+    "malinovy-svarak-nealko-para-detail-9x16.jpg",
+    "malinovy-svarak-nealko-ruce-hrnek-9x16.jpg",
+    "svarak-deluxe-nalevani-z-beginy-9x16.jpg",
+    "svarak-deluxe-para-koreni-9x16.jpg"
+  ],
   "logo/profilovka": [
     "profilovka-facebook-instagram.png"
   ],
