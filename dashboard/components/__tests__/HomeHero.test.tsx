@@ -29,6 +29,8 @@ describe("úvod e-shopu", () => {
     expect(screen.getByRole("link", { name: /Nebo nejdřív ochutnat 3 polévky za 299 Kč/ }).getAttribute("href")).toBe("/eshop/produkt/ochutnavka-polevek-3x450");
     // jen jedno tlačítko a jeden drobný odkaz
     expect(screen.getAllByRole("link")).toHaveLength(2);
+    // 28. 11. 2026: krabice na fotce → popisek pod fotkou
+    expect(body).toContain("Krabici k begině si můžete přikoupit v košíku za 19 Kč. Sirupy posíláme v krabici vždy.");
     expect(body).not.toMatch(/poctiv|bag-in-box|dovážíme/i);
   });
 

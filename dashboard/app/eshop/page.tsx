@@ -20,7 +20,6 @@ import {
   HOME_DELIVERY_LINE,
   HOME_BESTSELLERS,
   HOME_BESTSELLER_PHOTOS,
-  HOME_HERO_BOX_NOTE,
   HOME_STEPS,
   HOME_VENUES,
   HOME_VENUES_TITLE,
@@ -131,8 +130,6 @@ export default async function EshopPage() {
               ))}
             </ol>
             <p className="mt-4 text-base leading-normal text-neutral-700">{HOME_DELIVERY_LINE}</p>
-            {/* 27. 11. 2026 (Lucie): krabice se přikupuje zvlášť */}
-            <p className="mt-2 text-sm leading-snug text-neutral-600">{HOME_HERO_BOX_NOTE}</p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
               <ShopLink href={INFO_PAGES.packaging.path} className="inline-block py-1 text-base font-medium underline underline-offset-4">
                 Více o balení
