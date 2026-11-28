@@ -114,8 +114,14 @@ export default async function EshopPage() {
         {/* Jak funguje begina */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-center">
           {/* 28. 11. 2026 (Lucie): bílá produktová fotka mezi atmosférickými rušila → kavárenská fotka s beginou v lednici */}
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
-            <Image src={HOME_STEPS_PHOTO} alt="Obsluha v kavárně podává dýňovou polévku, za pultem v lednici begina dýňové polévky 3 l" fill sizes="(min-width: 768px) 36rem, 100vw" className="object-cover object-[70%_50%]" />
+          {/* 28. 11. 2026 (Lucie): ať je vidět samotná begina – dvě beginy v kavárenské lednici + obsluha s polévkou */}
+          <div className="grid grid-cols-2 md:grid-cols-1 gap-3">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
+              <Image src="/eshop/uvod/beginy-v-lednici-4x3.webp" alt="Dvě beginy 3 l s kohoutkem – Dýňová a Rajčatová polévka – leží v kavárenské lednici pod pultem" fill sizes="(min-width: 768px) 36rem, 50vw" className="object-cover" />
+            </div>
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
+              <Image src={HOME_STEPS_PHOTO} alt="Obsluha v kavárně podává dýňovou polévku, za pultem v lednici begina dýňové polévky 3 l" fill sizes="(min-width: 768px) 36rem, 50vw" className="object-cover object-[70%_50%]" />
+            </div>
           </div>
           <div>
             <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-4 text-center md:text-left">Jak funguje begina</h2>
