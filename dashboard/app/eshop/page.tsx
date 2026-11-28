@@ -64,8 +64,8 @@ export default async function EshopPage() {
       <HomeDoors />
       {HOME_VENUES.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 pt-8 sm:pt-10 text-center" aria-labelledby="kavarny-s-nami">
-          <h2 id="kavarny-s-nami" className="text-sm uppercase tracking-[0.15em] text-neutral-600">{HOME_VENUES_TITLE}</h2>
-          <ul className="mt-3 flex flex-wrap justify-center gap-x-8 gap-y-2 font-serif text-xl sm:text-2xl text-[#4A423B]">
+          <h2 id="kavarny-s-nami" className="text-xs sm:text-sm uppercase tracking-[0.15em] text-neutral-600">{HOME_VENUES_TITLE}</h2>
+          <ul className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-1 font-serif text-base sm:text-lg text-[#4A423B]">
             {HOME_VENUES.map((v) => (
               <li key={v.name}>{v.name}{v.city ? `, ${v.city}` : ""}</li>
             ))}

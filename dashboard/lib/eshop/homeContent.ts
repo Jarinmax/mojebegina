@@ -126,7 +126,7 @@ export const HOME_VENUES: { name: string; city?: string }[] = [
   { name: "Cukrárna Kavárna Adélka", city: "Jílové u Prahy" }, // souhlas 28. 11. 2026 (T. S. Zeithaml), název podle jejich odpovědi
   { name: "Kavárna Academia", city: "Praha 1" }, // souhlas 28. 11. 2026 (Milan Kašpárek), název podle jeho podpisu
 ];
-export const HOME_VENUES_TITLE = "Naše polévky a sirupy nalévají například";
+export const HOME_VENUES_TITLE = "Naše polévky a sirupy podávají například";
 
 /** 28. 11. 2026: dvě dlaždice pod úvodem – každý zákazník si zvolí svou cestu. */
 export const HOME_DOORS = [
