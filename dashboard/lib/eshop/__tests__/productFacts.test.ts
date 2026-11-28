@@ -88,7 +88,7 @@ describe("cena za porci", () => {
   });
 
   it("polévka, sirup se dvěma baleními, koktejl bez počtu porcí", () => {
-    expect(servingPrices(product({})).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([{ label: null, text: "Porce 250 ml za 31,58 Kč · 126 Kč/l" }]);
+    expect(servingPrices(product({})).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([{ label: null, text: "Porce 250 ml za 31,58 Kč bez dopravy · 126 Kč/l" }]);
     const syrup = product({
       category: "sirupy",
       variants: [
@@ -97,8 +97,8 @@ describe("cena za porci", () => {
       ],
     });
     expect(servingPrices(syrup).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([
-      { label: "3 l", text: "Nápoj 200 ml za 3,66 Kč bez dopravy" },
-      { label: "650 ml", text: "Nápoj 200 ml za 6,22 Kč bez dopravy" },
+      { label: "3 l", text: "Porce 200 ml za 3,66 Kč bez dopravy" },
+      { label: "650 ml", text: "Porce 200 ml za 6,22 Kč bez dopravy" },
     ]);
     const cocktail = product({
       category: "koktejly",
@@ -108,8 +108,8 @@ describe("cena za porci", () => {
       ],
     });
     expect(servingPrices(cocktail).map((row) => ({ label: row.label, text: nbsp(row.text) }))).toEqual([
-      { label: "3 l", text: "Sklenice 200 ml za 53,27 Kč · 266 Kč/l" },
-      { label: "500 ml", text: "Sklenice 200 ml za 67,60 Kč · 338 Kč/l" },
+      { label: "3 l", text: "Sklenice 200 ml za 53,27 Kč bez dopravy · 266 Kč/l" },
+      { label: "500 ml", text: "Sklenice 200 ml za 67,60 Kč bez dopravy · 338 Kč/l" },
     ]);
     expect(servingPrices(product({ variants: [{ sku: "a", label: "3 l", detail: null, description: null, priceKc: 379, volumeMl: null, servings: 12, weightGrams: null }] }))).toEqual([]);
   });

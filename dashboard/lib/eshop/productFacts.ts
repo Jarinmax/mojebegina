@@ -70,15 +70,15 @@ function servingText(category: string, variant: Variant, fallbackServingMl: numb
     // Lucie 17. 11. 2026 pro půllitrové koktejly – sklenice 200 ml jako u 3 l).
     if (!fallbackServingMl) return perLitre;
     const perGlass = formatServingKc((priceKc * fallbackServingMl) / volumeMl);
-    return `Sklenice ${fallbackServingMl} ml za ${perGlass} · ${perLitre}`;
+    return `Sklenice ${fallbackServingMl} ml za ${perGlass} bez dopravy · ${perLitre}`;
   }
   const perServing = formatServingKc(priceKc / servings);
   // Sirup se ředí na studený i horký nápoj (ne jen limonádu – Lucie 17. 11. 2026);
   // měrná cena za litr sirupu by mátla.
-  if (category === "sirupy") return `Nápoj 200 ml za ${perServing} bez dopravy`;
+  if (category === "sirupy") return `Porce 200 ml za ${perServing} bez dopravy`;
   const servingMl = Math.round(volumeMl / servings);
   const noun = category === "polevky" ? "Porce" : "Sklenice";
-  return `${noun} ${servingMl} ml za ${perServing} · ${perLitre}`;
+  return `${noun} ${servingMl} ml za ${perServing} bez dopravy · ${perLitre}`;
 }
 
 /** Velikost sklenice podle balení, které počet porcí má – jen u koktejlů. */

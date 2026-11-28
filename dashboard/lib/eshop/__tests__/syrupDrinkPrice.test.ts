@@ -19,6 +19,6 @@ describe("modelová cena nápoje ze sirupu (23. 11. 2026)", () => {
   });
   it("detail sirupu: cena nápoje s „bez dopravy“", () => {
     const p = { category: "sirupy", variants: [{ sku: "x", label: "3 l", priceKc: 499, volumeMl: 3000, servings: 150 }] } as any;
-    expect(nb(servingPrices(p)[0].text)).toBe("Nápoj 200 ml za 3,33 Kč bez dopravy");
+    expect(nb(servingPrices(p)[0].text)).toBe("Porce 200 ml za 3,33 Kč bez dopravy");
   });
 });
