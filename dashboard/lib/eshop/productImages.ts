@@ -78,6 +78,7 @@ const BACKDROP: Record<string, string> = {
   "/eshop/sirupy/bylinny-sirup-saman-hlavni.jpg": "#fefefe",
   "/eshop/sirupy/bylinny-sirup-saman-sacek.jpg": "#fefefe",
   "/eshop/sirupy/bylinny-sirup-saman-doypack.jpg": "#fefefe",
+  "/eshop/sirupy/bylinny-sirup-saman-doypack-v2.jpg": "#fefefe",
   "/eshop/sirupy/zazvorovy-sirup-hlavni.jpg": "#fefefe",
   "/eshop/sirupy/zazvorovy-sirup-sacek.jpg": "#fefefe",
   "/eshop/sirupy/zazvorovy-sirup-doypack.jpg": "#fefefe",
