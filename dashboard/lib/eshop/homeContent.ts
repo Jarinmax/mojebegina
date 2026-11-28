@@ -124,7 +124,7 @@ export const HOME_WHY_TITLE = "Proč Beginu berou kavárny a bistra";
 export const HOME_VENUES: { name: string; city?: string }[] = [
   { name: "Café Kandík", city: "Hradištko" }, // souhlas 28. 11. 2026 (Ing. Markéta Bejkovská)
   { name: "Cukrárna Kavárna Adélka", city: "Jílové u Prahy" }, // souhlas 28. 11. 2026 (T. S. Zeithaml), název podle jejich odpovědi
-  { name: "Kavárna Academia", city: "Praha" }, // souhlas 28. 11. 2026 (Milan Kašpárek), název podle jeho podpisu
+  { name: "Kavárna Academia", city: "Praha 1" }, // souhlas 28. 11. 2026 (Milan Kašpárek), název podle jeho podpisu
 ];
 export const HOME_VENUES_TITLE = "Naše polévky a sirupy nalévají například";
 
