@@ -48,7 +48,9 @@ describe("úvod e-shopu", () => {
     expect(HERO_PHOTO.width / HERO_PHOTO.height).toBeCloseTo(1672 / 941);
     expect(img.className).toContain("h-auto");
     // od v13 (19. 11. 2026) je fotka v rámečku se zaoblenými rohy, ale nikdy se neořezává
-    expect(img.className).not.toMatch(/object-cover/);
+    // na mobilu celá fotka (h-auto); na počítači nižší pruh 26rem s ořezem jen nahoře a dole (Lucie 28. 11. 2026)
+    expect(img.className).not.toMatch(/(^| )object-cover/);
+    expect(img.className).toContain("lg:h-[26rem]");
     expect(img.className).toContain("lg:rounded-2xl");
     expect(existsSync(path.join(__dirname, "../../public", HERO_PHOTO.src))).toBe(true);
   });

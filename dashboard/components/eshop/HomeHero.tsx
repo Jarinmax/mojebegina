@@ -54,12 +54,13 @@ export const HERO_LINKS = {
 export type HeroPortion = { count: number; portions: number; totalKc: number; perPortionKc: number };
 
 export default function HomeHero() {
-  // 28. 11. 2026 odpoledne (Lucie): fotka přes celou šířku byla „megalomanská“ a dlaždice Pro kavárny / Domů
-  // nebyly vidět → počítač: text vlevo, menší fotka vpravo (~55 %); mobil: fotka nahoře, text pod ní.
+  // 28. 11. 2026 (Lucie): velká fotka přes celou šířku s textem přes ni, ale NIŽŠÍ, aby byly pod ní
+  // hned vidět dlaždice Pro kavárny / Domů. Počítač: výška 26rem, fotka přes šířku (ořez jen nahoře
+  // a dole), text vlevo přes jemný přechod. Mobil: fotka nahoře celá, text pod ní.
   return (
     <section className="bg-[#FAF6EF]">
-      <div className="max-w-6xl mx-auto lg:px-4 lg:pt-6 lg:pb-2 lg:grid lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] lg:gap-10 lg:items-center">
-        <div className="lg:order-2">
+      <div className="max-w-6xl mx-auto lg:px-4 lg:pt-4">
+        <div className="relative">
           <Image
             src={HERO_PHOTO.src}
             alt={HERO_PHOTO.alt}
@@ -67,27 +68,27 @@ export default function HomeHero() {
             height={HERO_PHOTO.height}
             priority
             quality={90}
-            sizes="(min-width: 1024px) 38rem, 100vw"
-            className="block w-full h-auto lg:rounded-2xl"
+            sizes="(min-width: 1152px) 72rem, 100vw"
+            className="block w-full h-auto lg:h-[26rem] lg:object-cover lg:object-[center_55%] lg:rounded-2xl"
           />
-        </div>
-        <div className="lg:order-1 px-4 pt-5 pb-6 lg:p-0">
-          <h1 className="font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[clamp(2.4rem,3.4vw,3rem)] tracking-tight text-[#2A2622] text-balance">
-            {HOME_HERO_TITLE}
-          </h1>
-          <p className="mt-3 text-lg sm:text-xl leading-snug text-[#2A2622]">{HOME_HERO_SUBTITLE.join(" ")}</p>
-          <ShopLink
-            href={HERO_LINKS.firstPack}
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-7 py-3.5 text-lg font-semibold text-white w-full sm:w-auto"
-          >
-            {HOME_HERO_BUTTON}
-            <ArrowRight className="w-5 h-5" aria-hidden="true" />
-          </ShopLink>
-          <p className="mt-3 text-base leading-snug text-neutral-700">{HOME_HERO_OFFER}</p>
-          <ShopLink href={HERO_LINKS.tasteSoups} className="mt-1.5 inline-flex items-center gap-1.5 text-base font-medium text-[#4A5527] underline underline-offset-4">
-            {HOME_HERO_TASTE_LINK}
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
-          </ShopLink>
+          <div className="px-4 pt-5 pb-6 lg:absolute lg:inset-0 lg:flex lg:flex-col lg:justify-center lg:items-start lg:px-12 lg:py-8 lg:rounded-2xl lg:bg-gradient-to-r lg:from-[rgba(40,28,16,0.66)] lg:via-[rgba(40,28,16,0.28)] lg:to-transparent">
+            <h1 className="font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[3rem] tracking-tight text-[#2A2622] lg:text-white text-balance lg:max-w-[36rem]">
+              {HOME_HERO_TITLE}
+            </h1>
+            <p className="mt-3 text-lg sm:text-xl leading-snug text-[#2A2622] lg:text-white lg:max-w-[34rem]">{HOME_HERO_SUBTITLE.join(" ")}</p>
+            <ShopLink
+              href={HERO_LINKS.firstPack}
+              className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-7 py-3.5 text-lg font-semibold text-white w-full sm:w-auto"
+            >
+              {HOME_HERO_BUTTON}
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </ShopLink>
+            <p className="mt-3 text-base leading-snug text-neutral-700 lg:text-white/95">{HOME_HERO_OFFER}</p>
+            <ShopLink href={HERO_LINKS.tasteSoups} className="mt-1.5 inline-flex items-center gap-1.5 text-base font-medium text-[#4A5527] lg:text-white underline underline-offset-4">
+              {HOME_HERO_TASTE_LINK}
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </ShopLink>
+          </div>
         </div>
       </div>
     </section>
