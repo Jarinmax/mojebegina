@@ -128,7 +128,7 @@ export const HOME_VENUES: { name: string; city?: string }[] = [
 ];
 export const HOME_VENUES_TITLE = "Kde Beginu nalévají";
 /** 28. 11. 2026 večer (Lucie): na úvodu žádné názvy kaváren, jen odkaz; kavárny a proč si Beginu chválí jsou na stránce Pro kavárny. */
-export const HOME_REFERENCES_LINK = { text: "Proč si Beginu kavárny chválí", href: "/pro-kavarny#kavarny-chvali" } as const;
+export const HOME_REFERENCES_LINK = { eyebrow: "Co nám říkají kavárny", quote: "„Hosté to chválí a vracejí se.“", text: "Proč si nás kavárny chválí", href: "/pro-kavarny#kavarny-chvali" } as const;
 export const CAFE_PRAISE_TITLE = "Proč si Beginu kavárny chválí";
 export const CAFE_PRAISE_POINTS = [
   "Je to hotové – nic nevaříte, jen natočíte a ohřejete.",
