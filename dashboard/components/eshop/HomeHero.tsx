@@ -72,13 +72,19 @@ export default function HomeHero() {
             sizes="(min-width: 1152px) 72rem, 100vw"
             className="block w-full h-auto lg:rounded-2xl"
           />
+          {/* 28. 11. 2026 (Lucie): i na mobilu nadpis přímo na fotce – vlevo dole přes jemný tmavý přechod (miska je vpravo) */}
+          <div aria-hidden="true" className="lg:hidden absolute inset-x-0 top-0 aspect-[1672/941] flex items-end bg-gradient-to-t from-[rgba(40,28,16,0.72)] via-[rgba(40,28,16,0.25)] via-55% to-transparent">
+            <p className="w-[58%] px-4 pb-4 font-serif text-[1.45rem] min-[380px]:text-[1.6rem] sm:text-[2.4rem] leading-[1.08] tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
+              {HOME_HERO_TITLE}
+            </p>
+          </div>
           {/* mobil: popisek hned pod fotkou (na počítači pod celým úvodem) */}
           <p className="lg:hidden px-4 mt-2 text-sm leading-snug text-neutral-600 text-center">{HOME_HERO_BOX_NOTE}</p>
           <div className="px-4 pt-5 pb-6 lg:absolute lg:inset-0 lg:flex lg:flex-col lg:justify-center lg:items-start lg:px-12 lg:py-8 lg:rounded-2xl lg:bg-gradient-to-r lg:from-[rgba(40,28,16,0.66)] lg:via-[rgba(40,28,16,0.28)] lg:to-transparent">
-            <h1 className="font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[3rem] tracking-tight text-[#2A2622] lg:text-white text-balance lg:max-w-[36rem]">
+            <h1 className="sr-only lg:not-sr-only font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[3rem] tracking-tight text-[#2A2622] lg:text-white text-balance lg:max-w-[36rem]">
               {HOME_HERO_TITLE}
             </h1>
-            <p className="mt-3 text-lg sm:text-xl leading-snug text-[#2A2622] lg:text-white lg:max-w-[34rem]">{HOME_HERO_SUBTITLE.join(" ")}</p>
+            <p className="lg:mt-3 text-lg sm:text-xl leading-snug text-[#2A2622] lg:text-white lg:max-w-[34rem]">{HOME_HERO_SUBTITLE.join(" ")}</p>
             <ShopLink
               href={HERO_LINKS.firstPack}
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-[#A51C1C] hover:bg-[#8A1616] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A51C1C] transition-colors px-7 py-3.5 text-lg font-semibold text-white w-full sm:w-auto"
