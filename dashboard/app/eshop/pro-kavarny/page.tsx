@@ -26,6 +26,7 @@ import {
 import { splitLastSentence } from "@/lib/eshop/typography";
 import CafeForm from "./CafeForm";
 import CafeTastingForm from "@/components/eshop/CafeTastingForm";
+import NewsletterSignup from "@/components/eshop/NewsletterSignup";
 import CafeStartCards from "@/components/eshop/CafeStartCards";
 import { startCardOffers } from "@/lib/eshop/startOffers";
 import { CAFE_CALLBACK_TEXT, CAFE_TASTING_FORM_HEADING, isCafeTasting, isCafeTastingSku } from "@/lib/eshop/cafeTasting";
@@ -179,6 +180,8 @@ export default async function Page() {
           </ShopLink>
           {CAFE_PRICE_NOTE.after} {VAT_NOTE}
         </p>
+        {/* 28. 11. 2026 (Jarin): newsletter pro kavárny – nové druhy a sezónní nabídka */}
+        <NewsletterSignup source="pro-kavarny" defaultSegment="kavarna" title="Novinky pro kavárny a bistra e-mailem" />
       </section>
     </article>
   );

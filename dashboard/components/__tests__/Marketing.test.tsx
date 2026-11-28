@@ -7,6 +7,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 const nav = vi.hoisted(() => ({ pathname: "/produkt/kulajda" }));
 vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname }));
 
+vi.mock("@/app/eshop/newsletter/actions", () => ({ subscribeNewsletterAction: async () => ({ status: "sent" }) }));
 import Marketing from "../eshop/Marketing";
 import EshopFooter from "../eshop/EshopFooter";
 

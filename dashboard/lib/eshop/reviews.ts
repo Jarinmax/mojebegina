@@ -27,11 +27,11 @@ export function reviewSecret(env: Env = process.env): string | null {
   return createHash("sha256").update(`begina-eshop-hodnoceni-v1|${base}`).digest("hex");
 }
 
-function sign(kind: "o" | "e", value: string, secret: string): string {
+function sign(kind: "o" | "e" | "n", value: string, secret: string): string {
   return createHmac("sha256", secret).update(`${kind}|${value}`).digest("base64url").slice(0, 32);
 }
 
-function verify(kind: "o" | "e", token: string, secret: string): string | null {
+function verify(kind: "o" | "e" | "n", token: string, secret: string): string | null {
   const dot = token.lastIndexOf(".");
   if (dot <= 0) return null;
   let value: string;
@@ -64,6 +64,16 @@ export function optoutToken(email: string, secret: string): string {
 }
 export function emailFromOptoutToken(token: string, secret: string): string | null {
   const value = verify("e", token, secret);
+  return value && value.includes("@") ? value : null;
+}
+
+/** Odkaz na potvrzení odběru newsletteru (double opt-in, 28. 11. 2026). */
+export function newsletterToken(email: string, secret: string): string {
+  const normalized = email.trim().toLowerCase();
+  return `${Buffer.from(normalized).toString("base64url")}.${sign("n", normalized, secret)}`;
+}
+export function emailFromNewsletterToken(token: string, secret: string): string | null {
+  const value = verify("n", token, secret);
   return value && value.includes("@") ? value : null;
 }
 

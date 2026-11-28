@@ -3,8 +3,9 @@
 // skutečné odkazy na existující stránky (dřív jen text bez odkazu).
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+vi.mock("@/app/eshop/newsletter/actions", () => ({ subscribeNewsletterAction: async () => ({ status: "sent" }) }));
 import EshopFooter from "../eshop/EshopFooter";
 import InfoPageView from "../eshop/InfoPageView";
 import { FOOTER_LINKS, INFO_PAGES } from "@/lib/eshop/infoPages";
@@ -76,7 +77,9 @@ describe("patička e-shopu", () => {
   it("pořadí bloků: provozovna → kontakt → fakturační údaje (zadání majitele 9. 11. 2026)", () => {
     render(<EshopFooter />);
     const names = screen.getAllByRole("region").map((r) => r.getAttribute("aria-labelledby"));
-    expect(names).toEqual(["paticka-provozovna", "paticka-kontakt", "paticka-provozovatel"]);
+    // 28. 11. 2026: nad bloky je přihlášení k newsletteru
+    expect(names[0]).toBe("newsletter-web");
+    expect(names.filter((n) => n?.startsWith("paticka-"))).toEqual(["paticka-provozovna", "paticka-kontakt", "paticka-provozovatel"]);
   });
 
   it("Kontakt: Telefon a E-mail s ikonou, klikací tel: a mailto:; ve fakturačních údajích se neopakují", () => {

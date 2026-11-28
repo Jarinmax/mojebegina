@@ -1,4 +1,4 @@
-import { Binoculars, Boxes, Building2, Coffee, FileSignature, FileText, Globe, Handshake, Image, LayoutDashboard, Megaphone, Package, Scale, Search, Share2, ShieldCheck, ShoppingCart, Tag, UtensilsCrossed, Wallet } from "lucide-react";
+import { Binoculars, Boxes, Building2, Coffee, FileSignature, FileText, Globe, Handshake, Image, LayoutDashboard, Mail, Megaphone, Package, Scale, Search, Share2, ShieldCheck, ShoppingCart, Tag, UtensilsCrossed, Wallet } from "lucide-react";
 import type { ProjectArea } from "@/lib/projekt/areas";
 
 // Barvy jsou celé názvy tříd (Tailwind je musí najít ve zdrojáku).
@@ -36,6 +36,7 @@ const ICONS = {
   coffee: Coffee,
   handshake: Handshake,
   megaphone: Megaphone,
+  mail: Mail,
   search: Search,
   dashboard: LayoutDashboard,
   package: Package,
