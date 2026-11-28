@@ -126,6 +126,8 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "bylinny-sirup-saman-zima-4x5.jpg",
     "dynova-polevka-bistro-4x5.jpg",
     "dynova-polevka-kavarna-16x9.jpg",
+    "dynova-polevka-kavarna-svetla-16x9.jpg",
+    "dynova-z-krabice-kavarna-16x9.jpg",
     "lipovy-sirup-limonada-leto-4x5.jpg",
     "svarak-deluxe-zima-4x5.jpg"
   ],
