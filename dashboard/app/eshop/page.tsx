@@ -21,8 +21,8 @@ import {
   HOME_BESTSELLERS,
   HOME_BESTSELLER_PHOTOS,
   HOME_STEPS,
-  HOME_VENUES,
-  HOME_VENUES_TITLE,
+  HOME_REFERENCES_LINK,
+  homeDoorHomeText,
 } from "@/lib/eshop/homeContent";
 
 // Od 20. 11. 2026 úvod primárně pro kavárny a bistra (viz komentář v těle).
@@ -61,17 +61,14 @@ export default async function EshopPage() {
           pruh kaváren (jen se souhlasem), kategorie, cena za porci, nejoblíbenější s atmosférickými
           fotkami, jak funguje begina. Méně textu a tlačítek, víc fotek. „Kdo za tím stojí“ je na stránce O nás. */}
       <HomeHero />
-      <HomeDoors />
-      {HOME_VENUES.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 pt-8 sm:pt-10 text-center" aria-labelledby="kavarny-s-nami">
-          <h2 id="kavarny-s-nami" className="text-xs sm:text-sm uppercase tracking-[0.15em] text-neutral-600">{HOME_VENUES_TITLE}</h2>
-          <ul className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-1 font-serif text-base sm:text-lg text-[#4A423B]">
-            {HOME_VENUES.map((v) => (
-              <li key={v.name}>{v.name}{v.city ? `, ${v.city}` : ""}</li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <HomeDoors homeText={tastingSet?.variants[0] ? homeDoorHomeText(tastingSet.variants[0].priceKc, tastingSet.tastingCampaign !== undefined) : undefined} />
+      {/* 28. 11. 2026 večer (Lucie): místo názvů kaváren jen odkaz na Pro kavárny – proč si Beginu chválí */}
+      <p className="max-w-6xl mx-auto px-4 pt-6 sm:pt-8 text-center">
+        <ShopLink href={HOME_REFERENCES_LINK.href} className="inline-flex items-center gap-1.5 text-base font-medium text-[#4A5527] underline underline-offset-4">
+          {HOME_REFERENCES_LINK.text}
+          <span aria-hidden="true">›</span>
+        </ShopLink>
+      </p>
       <div className="pt-8 sm:pt-10"><CategoryIconStrip id={STRIP_ID} categories={availableHomeCategories(categories.map((c) => c.slug))} upcoming={categories.map((c) => c.slug).filter((slug) => !products.some((product) => product.category === slug))} /></div>
       <HomePriceCards cards={homePriceCards(soupPortionRows([3])[0], syrupDrinkRows([3])[0])} setSlug={SET_SLUG} setPriceKc={tastingSet?.variants[0]?.priceKc ?? 349} showShop={false} />
       <div className="max-w-6xl mx-auto px-4 pt-10 pb-12 sm:pt-14 sm:pb-14 flex flex-col gap-10 sm:gap-14">
