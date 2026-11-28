@@ -89,7 +89,7 @@ export default async function EshopPage() {
         {/* Nejoblíbenější – atmosférické fotky (28. 11. 2026); bílé produktové fotky jsou v kategoriích */}
         {bestsellers.length > 0 && (
           <section>
-            <h2 className="font-serif text-2xl sm:text-3xl text-[#2A2622] mb-5">Nejoblíbenější</h2>
+            <h2 className="font-serif text-2xl sm:text-3xl text-center text-[#2A2622] mb-5">Nejoblíbenější</h2>
             <ul className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
               {bestsellers.map((product) => {
                 const prices = product.variants.map((v) => v.priceKc);
@@ -97,7 +97,7 @@ export default async function EshopPage() {
                 const priceText = prices.length > 1 ? `od ${min} Kč` : `${product.variants[0].label ? `${product.variants[0].label} · ` : ""}${min} Kč`;
                 return (
                   <li key={product.slug}>
-                    <ShopLink href={`/produkt/${product.slug}`} className="group block">
+                    <ShopLink href={`/produkt/${product.slug}`} className="group block text-center">
                       <span className="relative block aspect-[4/5] w-full overflow-hidden rounded-xl bg-[#F0EADF]">
                         <Image src={HOME_BESTSELLER_PHOTOS[product.slug] ?? product.image} alt={product.name} fill sizes="(min-width: 1024px) 17rem, 50vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                       </span>
