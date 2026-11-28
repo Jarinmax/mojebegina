@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import ShopLink from "./ShopLink";
-import { HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_TASTE_LINK, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
+import { HOME_HERO_BOX_NOTE, HOME_HERO_BUTTON, HOME_HERO_OFFER, HOME_HERO_TASTE_LINK, HOME_HERO_SUBTITLE, HOME_HERO_TITLE } from "@/lib/eshop/homeContent";
 
 // Úvod e-shopu podle návrhu z 8. 11. 2026: krémový podklad, olivové
 // detaily, výrazné červené hlavní tlačítko. Fotografie od 11. 11. 2026
@@ -72,6 +72,8 @@ export default function HomeHero() {
             sizes="(min-width: 1152px) 72rem, 100vw"
             className="block w-full h-auto lg:rounded-2xl"
           />
+          {/* mobil: popisek hned pod fotkou (na počítači pod celým úvodem) */}
+          <p className="lg:hidden px-4 mt-2 text-sm leading-snug text-neutral-600 text-center">{HOME_HERO_BOX_NOTE}</p>
           <div className="px-4 pt-5 pb-6 lg:absolute lg:inset-0 lg:flex lg:flex-col lg:justify-center lg:items-start lg:px-12 lg:py-8 lg:rounded-2xl lg:bg-gradient-to-r lg:from-[rgba(40,28,16,0.66)] lg:via-[rgba(40,28,16,0.28)] lg:to-transparent">
             <h1 className="font-serif text-[2rem] leading-[1.1] min-[380px]:text-[2.25rem] sm:text-[2.75rem] lg:text-[3rem] tracking-tight text-[#2A2622] lg:text-white text-balance lg:max-w-[36rem]">
               {HOME_HERO_TITLE}
@@ -91,6 +93,8 @@ export default function HomeHero() {
             </ShopLink>
           </div>
         </div>
+        {/* 28. 11. 2026 (Jarin + Lucie): na fotce je krabice, kterou k begině nedodáváme → popisek hned pod fotkou */}
+        <p className="hidden lg:block mt-2 text-sm leading-snug text-neutral-600 text-center">{HOME_HERO_BOX_NOTE}</p>
       </div>
     </section>
   );
