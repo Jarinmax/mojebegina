@@ -164,3 +164,48 @@ export function saturdayEmail(stats: CampaignStats): Mail {
   ];
   return mail(`Kampaň set: ${stats.setsWeek} setů za týden, zbývá ${Math.max(0, SET_CAMPAIGN_LIMIT - stats.campaignSold)} ze ${SET_CAMPAIGN_LIMIT}`, lines);
 }
+
+// ── Odkud přišly objednávky setu (Lucie 28. 11. 2026) ─────────────────────
+// Jen pro přehled, na provizi nemá vliv. Zdroj poznáme jen u zákazníků se
+// souhlasem s reklamními cookies: pokladna k objednávce uloží cookie _fbc,
+// kterou Meta nastaví po prokliku z Facebooku/Instagramu (fb.1.<čas v ms>.<id>).
+// Proklik do 7 dní před objednávkou (výchozí okno Meta pro prokliky) =
+// „Facebook / Instagram“. Bez souhlasu zdroj neznáme.
+
+export type SetOrderSource = "meta" | "jinde" | "neznamo";
+export const SET_SOURCE_LABELS: Record<SetOrderSource, string> = {
+  meta: "Facebook / Instagram",
+  jinde: "odjinud",
+  neznamo: "neznámo (bez souhlasu s cookies)",
+};
+export const META_CLICK_WINDOW_DAYS = 7;
+
+/** Čas prokliku z cookie _fbc („fb.1.1795854542318.IwY2…“), jinak null. */
+export function fbcClickTime(fbc: string | null | undefined): Date | null {
+  const match = /^fb\.\d+\.(\d{10,})\./.exec(fbc ?? "");
+  if (!match) return null;
+  const time = new Date(Number(match[1]));
+  return Number.isNaN(time.getTime()) ? null : time;
+}
+
+export function setOrderSource(metaConsent: { fbc?: string | null; fbp?: string | null } | null | undefined, orderedAt: Date): SetOrderSource {
+  if (!metaConsent) return "neznamo";
+  const click = fbcClickTime(metaConsent.fbc);
+  if (click && click.getTime() <= orderedAt.getTime() + 60_000 && orderedAt.getTime() - click.getTime() <= META_CLICK_WINDOW_DAYS * 86_400_000) return "meta";
+  return "jinde";
+}
+
+export type SetOrderRow = {
+  number: string;
+  orderedAt: Date;
+  campaignPrice: boolean;
+  paid: boolean;
+  newCustomer: boolean;
+  source: SetOrderSource;
+};
+
+export function sourceCounts(rows: Pick<SetOrderRow, "source">[]): Record<SetOrderSource, number> {
+  const counts: Record<SetOrderSource, number> = { meta: 0, jinde: 0, neznamo: 0 };
+  for (const row of rows) counts[row.source] += 1;
+  return counts;
+}

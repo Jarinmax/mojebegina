@@ -2,7 +2,7 @@
 // e-mail s kódem, provize pro Josefa a přehledy.
 import { describe, expect, it, vi } from "vitest";
 import { evaluateCoupons, type Coupon } from "../coupons";
-import { buildCommission, commissionEmail, couponEmail, laterCommissionHalere, previousMonth, returningPercent, saturdayEmail } from "../setCampaign";
+import { buildCommission, commissionEmail, couponEmail, laterCommissionHalere, previousMonth, returningPercent, saturdayEmail, setOrderSource, sourceCounts } from "../setCampaign";
 import { SET_CAMPAIGN_SKU, SET_COUPON_CODE, SET_SLUG } from "../tastingSet";
 import type { CatalogIndex } from "../catalogIndex";
 import type { PricedLine } from "../pricing";
@@ -115,5 +115,22 @@ describe("sobotní přehled", () => {
     expect(email.subject).toBe("Kampaň set: 12 setů za týden, zbývá 60 ze 100");
     expect(email.text).toContain("Použití kódu OCHUTNAVKA50: 7×");
     expect(email.text).toContain("znovu nakoupilo 6 (20 %)");
+  });
+});
+
+describe("zdroj objednávky setu", () => {
+  const ordered = new Date("2026-11-28T08:32:14Z");
+  it("proklik z Meta do 7 dní = Facebook / Instagram", () => {
+    expect(setOrderSource({ fbc: "fb.1.1795854542318.IwY2xjaw", fbp: "fb.1.1.2" }, ordered)).toBe("meta");
+  });
+  it("starý proklik nebo žádný = odjinud", () => {
+    expect(setOrderSource({ fbc: "fb.1.1790000000000.abc", fbp: "x" }, ordered)).toBe("jinde");
+    expect(setOrderSource({ fbc: null, fbp: "fb.1.1.2" }, ordered)).toBe("jinde");
+  });
+  it("bez souhlasu = neznámo", () => {
+    expect(setOrderSource(null, ordered)).toBe("neznamo");
+  });
+  it("počty", () => {
+    expect(sourceCounts([{ source: "meta" }, { source: "meta" }, { source: "neznamo" }])).toEqual({ meta: 2, jinde: 0, neznamo: 1 });
   });
 });

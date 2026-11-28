@@ -11,8 +11,10 @@ import {
   COUPON_EMAIL_AFTER_DAYS,
   COUPON_EMAIL_MAX_AGE_DAYS,
   buildCommission,
+  setOrderSource,
   type CampaignStats,
   type CommissionReport,
+  type SetOrderRow,
 } from "./setCampaign";
 import { SET_CAMPAIGN_SKU, SET_COUPON_CODE, SET_SKU } from "./tastingSet";
 import { soldCampaignSets } from "./tastingSetServer";
@@ -143,4 +145,33 @@ export async function loadCampaignStats(): Promise<CampaignStats> {
     campaignCustomers: Number(rowsOf(customers)[0]?.customers ?? 0),
     returningCustomers: Number(rowsOf(customers)[0]?.returning ?? 0),
   };
+}
+
+/** Všechny nestornované objednávky setu (nejnovější nahoře) a odkud přišly — jen přehled. */
+export async function loadSetOrders(): Promise<SetOrderRow[]> {
+  const result = await db.execute(sql`
+    SELECT COALESCE(o.order_number::text, left(o.id::text, 8)) AS number, o.ordered_at,
+           bool_or(oi.sku_snapshot = ${SET_CAMPAIGN_SKU}) AS campaign_price,
+           (o.payment_status = 'paid') AS paid,
+           NOT EXISTS (SELECT 1 FROM orders p WHERE lower(trim(p.contact_email)) = lower(trim(o.contact_email))
+                         AND p.ordered_at < o.ordered_at AND p.fulfillment_status <> 'cancelled') AS new_customer,
+           (SELECT a.metadata->'metaConsent' FROM order_activity a WHERE a.order_id = o.id AND a.kind = 'created' ORDER BY a.created_at LIMIT 1) AS meta_consent
+    FROM orders o JOIN order_items oi ON oi.order_id = o.id
+    WHERE oi.sku_snapshot IN (${SET_CAMPAIGN_SKU}, ${SET_SKU}) AND o.fulfillment_status <> 'cancelled'
+    GROUP BY o.id
+    ORDER BY o.ordered_at DESC
+    LIMIT 200
+  `);
+  return rowsOf(result).map((row) => {
+    const orderedAt = new Date(String(row.ordered_at));
+    const consent = row.meta_consent && typeof row.meta_consent === "object" ? (row.meta_consent as { fbc?: string | null; fbp?: string | null }) : null;
+    return {
+      number: String(row.number),
+      orderedAt,
+      campaignPrice: row.campaign_price === true,
+      paid: row.paid === true,
+      newCustomer: row.new_customer === true,
+      source: setOrderSource(consent, orderedAt),
+    };
+  });
 }
