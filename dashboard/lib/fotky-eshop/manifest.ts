@@ -53,6 +53,7 @@ export const FOTKY_MANIFEST: Record<string, string[]> = {
     "logo-begina.png"
   ],
   "logo/povedene": [
+    "dynova-cepovani-z-beginy-kavarna-9x16.jpg",
     "malinovy-svarak-nealko-adventni-venec-9x16.jpg",
     "malinovy-svarak-nealko-para-detail-9x16.jpg",
     "malinovy-svarak-nealko-ruce-hrnek-9x16.jpg",
